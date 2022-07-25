@@ -1,0 +1,10 @@
+./gw
+./src/*.o
+./.*
+/gw
+/src/segments.o
+/src/plot_manager.o
+/src/params.o
+/src/main.o
+/src/labeller.o
+/src/utils.o
