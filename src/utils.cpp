@@ -1,7 +1,10 @@
 //
 // Created by Kez Cleal on 25/07/2022.
 //
+#include <algorithm>
+#include <iostream>
 #include <string>
+#include "utils.h"
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -31,7 +34,7 @@
 
 #endif
 
-namespace MyPaths {
+namespace Utils {
 
 #if defined(_WIN32)
     std::string getExecutablePath() {
@@ -89,4 +92,54 @@ std::string getExecutableDir() {
         return std::string(executableDir);
     }
 #endif
+
+    void strToRegion(Region *r, std::string& s, const char delim){
+        unsigned int start = 0;
+        unsigned int end = s.find(delim);
+        r->chrom = s.substr(start, end - start);
+        start = end + 1;
+        end = s.find(delim, start);
+        r->start = std::stoi(s.substr(start, end - start));
+        start = end + 1;
+        end = s.find(delim, start);
+        r->end = std::stoi(s.substr(start, end - start));
+    }
+
+    Region parseRegion(std::string& s) {
+        Region reg;
+        std::string s2;
+        if (s.find(":") != std::string::npos) {
+            s.erase(std::remove(s.begin(), s.end(), ','), s.end());
+            std::replace(s.begin(), s.end(), '-', ':');
+            Utils::strToRegion(&reg, s, ':');
+        } else if (s.find(",") != std::string::npos) {
+            Utils::strToRegion(&reg, s, ',');
+        } else if (s.find("\t") != std::string::npos) {
+            Utils::strToRegion(&reg, s, '\t');
+        } else if (s.find("_") != std::string::npos) {
+            Utils::strToRegion(&reg, s, '_');
+        } else if (s.find(" ") != std::string::npos) {
+            Utils::strToRegion(&reg, s, ' ');
+        }
+        if (reg.chrom.length() == 0 || reg.start == -1 || reg.end == -1) {
+            std::cout << "Error: unable to parse region";
+            std::abort();
+        }
+        return reg;
+    }
+
+    Dims parseDimensions(std::string &s) {
+        Dims d = {0, 0};
+        unsigned int start = 0;
+        unsigned int end = s.find('x');
+        d.x = std::stoi(s.substr(start, end - start));
+        start = end + 1;
+        end = s.find('x', start);
+        d.y = std::stoi(s.substr(start, end - start));
+        if (d.x == 0) {
+            std::cout << "Error dimension x was 0" << std::endl;
+            std::abort();
+        }
+        return d;
+    }
 }
