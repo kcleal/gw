@@ -13,6 +13,7 @@
 #include "glob.h"
 #include "ini.h"
 #include "robin_hood.h"
+#include "themes.h"
 #include "utils.h"
 
 
@@ -23,7 +24,10 @@ bool is_file_exist( std::string FileName ) {
 
 class IniOptions {
     public:
-        IniOptions() { getIni(); };
+        IniOptions() {
+            getIni();
+//            std::cout << "hi\n";
+        };
         ~IniOptions() = default;
 
         std::string theme = "igv";
@@ -57,7 +61,10 @@ class IniOptions {
         int enter_interactive_mode = GLFW_KEY_ENTER;
 
         robin_hood::unordered_map<std::string, std::string> references;
-        robin_hood::unordered_map<std::string, std::string> tracks;
+        robin_hood::unordered_map<std::string, std::vector<std::string>> tracks;
+
+        Themes::Painter paint_table;
+        Themes::BaseTheme theme_p; // = Themes::BaseTheme();
 
 
     void readIni(std::string path) {
@@ -97,6 +104,13 @@ class IniOptions {
         labels = myIni["labelling"]["labels"];
         delete_labels = key_table[myIni["labelling"]["delete_labels"]];
         enter_interactive_mode = key_table[myIni["labelling"]["enter_interactive_mode"]];
+
+        for (auto const& it2 :  myIni["genomes"]) {
+            references[it2.first] = it2.second;
+        }
+        for (auto const& it2 : myIni["tracks"]) {
+            tracks[it2.first].push_back(it2.second);
+        }
     }
 
     void getIni() {
@@ -219,17 +233,15 @@ int main(int argc, char *argv[]) {
         std::exit(1);
     }
 
-    std::string genome = program.get<std::string>("genome");
+    auto genome = program.get<std::string>("genome");
     if (iopts.references.contains(genome)){
-
-    } else if (is_file_exist(genome)) {
-
-    } else {
-        std::cout << "Error: Genome not found" << std::endl;
+        genome = iopts.references[genome];
+    } else if (!is_file_exist(genome)) {
+        std::cerr << "Error: Genome not found" << std::endl;
         abort();
     }
+    std::cout << genome << std::endl;
 
-    auto genome_pth = program.get<std::string>("genome");
     std::vector<std::string> bam_paths;
     if (program.is_used("-b")) {
         bam_paths = program.get<std::vector<std::string>>("-b");
@@ -239,7 +251,7 @@ int main(int argc, char *argv[]) {
     if (program.is_used("-r")) {
         std::vector<std::string> regions_str;
         regions_str = program.get<std::vector<std::string>>("-r");
-        for (int i=0; i < regions_str.size(); i++){
+        for (size_t i=0; i < regions_str.size(); i++){
             regions.push_back(Utils::parseRegion(regions_str[i]));
             std::cout << regions[i].chrom << ":" << regions[i].start << " " << regions[i].end << std::endl;
         }
@@ -271,15 +283,27 @@ int main(int argc, char *argv[]) {
         iopts.number = Utils::parseDimensions(d);
     }
 
+    if (program.is_used("--bed")) {
+        std::vector<std::string> bed_regions;
+        bed_regions = program.get<std::vector<std::string>>("--bed");
+        for (size_t i=0; i < bed_regions.size(); i++){
+            if (!is_file_exist(bed_regions[i])) {
+                std::cerr << "Error: bed file does not exists - " << bed_regions[i] << std::endl;
+                std::abort();
+            }
+            iopts.tracks[genome].push_back(bed_regions[i]);
+        }
+    }
+
     if (program.is_used("-t")) {
         iopts.threads = program.get<int>("t");
     }
 
-    for (int i=0; i < bam_paths.size(); i++){
+    for (size_t i=0; i < bam_paths.size(); i++){
         std::cout << bam_paths[i] << std::endl;
     }
 
-    for (int i=0; i < image_glob.size(); i++){
+    for (size_t i=0; i < image_glob.size(); i++){
         std::cout << image_glob[i] << std::endl;
     }
 

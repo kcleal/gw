@@ -122,7 +122,7 @@ std::string getExecutableDir() {
             Utils::strToRegion(&reg, s, ' ');
         }
         if (reg.chrom.length() == 0 || reg.start == -1 || reg.end == -1) {
-            std::cout << "Error: unable to parse region";
+            std::cerr << "Error: unable to parse region";
             std::abort();
         }
         return reg;
@@ -137,7 +137,7 @@ std::string getExecutableDir() {
         end = s.find('x', start);
         d.y = std::stoi(s.substr(start, end - start));
         if (d.x == 0) {
-            std::cout << "Error dimension x was 0" << std::endl;
+            std::cerr << "Error dimension x was 0" << std::endl;
             std::abort();
         }
         return d;
