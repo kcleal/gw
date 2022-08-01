@@ -1,12 +1,29 @@
 TARGET = gw
 
+
 CXX = clang++
 CXXFLAGS = -g -Wall -std=c++17  -fno-common -dynamic -g -fwrapv
-INCLUDE = -I./inc -I./src -I. -I../skia -I./gw
-LINK = -L../skia/out/Release-x64 -L../htslib
-LIBS = -lglfw -lskia -lm -ldl -lexpat -ldng_sdk -lharfbuzz -licu -ljpeg -lparticles -lpiex -lpng -lskottie \
-        -lskparagraph -lskresources -lsksg -lskshaper -lsvg -lwebp -lwebp_sse41 -lzlib -lfreetype -lfontconfig \
-        -lhts
+
+INCLUDE = -I./inc -I./src -I. -I./gw
+LINK = -L $(wildcard ../skia/out/Rel*)
+
+# Options to use target htslib or skia
+HTSLIB ?= ""
+ifneq ($(HTSLIB),"")
+	INCLUDE += -I$(HTSLIB)
+	LINK += -L$(HTSLIB)
+endif
+
+SKIA ?= ""
+ifneq ($(SKIA),"")
+	INCLUDE += -I$(SKIA)
+	LINK += -L $(wildcard $(SKIA)/out/Rel*)
+else
+	INCLUDE = -I./inc -I./src -I. -I../skia -I./gw
+	LINK = -L $(wildcard ../skia/out/Rel*)
+endif
+
+LIBS = -lglfw -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lfreetype -lfontconfig -lhts
 
 .PHONY: default all debug clean
 
@@ -16,6 +33,7 @@ all: default
 debug: default
 
 # windows untested here
+IS_DARWIN=0
 ifeq ($(OS),Windows_NT)
     CXXFLAGS += -D WIN32
 else
@@ -25,9 +43,16 @@ else
         LIBS += -lGL
     endif
     ifeq ($(UNAME_S),Darwin)
-        CXXFLAGS += -D OSX -stdlib=libc++ -mmacosx-version-min=10.15 -arch x86_64 -undefined dynamic_lookup
+    	IS_DARWIN=1
+        CXXFLAGS += -D OSX -stdlib=libc++ -mmacosx-version-min=10.15 -arch x86_64
     endif
 endif
+
+CXXFLAGS_link = $(CXXFLAGS)
+ifeq ($(IS_DARWIN),1)
+	CXXFLAGS_link += -undefined dynamic_lookup
+endif
+
 
 OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 
@@ -37,8 +62,10 @@ OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 
 .PRECIOUS: $(TARGET) $(OBJECTS)
 
+
 $(TARGET): $(OBJECTS)
-	$(CXX) $(CXXFLAGS) -g $(OBJECTS) $(LINK)  $(LIBS) -o $@
+
+	$(CXX) $(CXXFLAGS_link) -g $(OBJECTS) $(LINK)  $(LIBS) -o $@
 
 clean:
 	-rm -f *.o ./src/*.o ./src/*.o.tmp

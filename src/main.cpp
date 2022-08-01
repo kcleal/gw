@@ -2,18 +2,17 @@
 // Created by Kez Cleal on 25/07/2022.
 //
 #include <filesystem>
+#include <htslib/faidx.h>
+#include <htslib/hfile.h>
+#include <htslib/sam.h>
 #include <iostream>
-#include <pwd.h>
 #include <string>
-
 
 #include "argparse.h"
 #include "glob.h"
-#include "ini.h"
-//#include "plot_manager.h"
+#include "plot_manager.h"
 #include "themes.h"
 #include "utils.h"
-
 
 
 int main(int argc, char *argv[]) {

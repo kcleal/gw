@@ -31,9 +31,8 @@
 #include "include/core/SkFont.h"
 #include "include/core/SkTextBlob.h"
 
-#include "../inc/robin_hood.h"
+#include "robin_hood.h"
 #include "argparse.h"
-
 #include "glob.h"
 #include "ini.h"
 #include "utils.h"
