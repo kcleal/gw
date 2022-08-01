@@ -2,135 +2,23 @@
 // Created by Kez Cleal on 25/07/2022.
 //
 #include <filesystem>
-#include <GLFW/glfw3.h>
 #include <iostream>
 #include <pwd.h>
 #include <string>
-#include <unistd.h>
+
 
 #include "argparse.h"
-#include "glfw_keys.h"
 #include "glob.h"
 #include "ini.h"
-#include "robin_hood.h"
+//#include "plot_manager.h"
 #include "themes.h"
 #include "utils.h"
 
 
-bool is_file_exist( std::string FileName ) {
-    const std::filesystem::path p = FileName ;
-    return ( std::filesystem::exists(p) );
-}
-
-class IniOptions {
-    public:
-        IniOptions() {
-            getIni();
-//            std::cout << "hi\n";
-        };
-        ~IniOptions() = default;
-
-        std::string theme = "igv";
-        Utils::Dims dimensions = {2048, 1024}; //"2048x1024";
-        std::string fmt = "png";
-        std::string link = "None";
-        Utils::Dims number = {3, 3};  //"3x3";
-        std::string labels = "PASS,FAIL";
-
-        int indel_length = 10;
-        int ylim = 50;
-        int split_view_size = 10000;
-        int threads = 3;
-        int pad = 500;
-
-        bool no_show = false;
-        bool log2_cov = false;
-
-        float scroll_speed = 0.15;
-        float tab_track_height = 0.05;
-        int scroll_right = GLFW_KEY_RIGHT;
-        int scroll_left = GLFW_KEY_LEFT;
-        int scroll_down = GLFW_KEY_PAGE_DOWN;
-        int scroll_up = GLFW_KEY_PAGE_UP;
-        int next_region_view = GLFW_KEY_SLASH;
-        int zoom_out = GLFW_KEY_DOWN;
-        int zoom_in = GLFW_KEY_UP;
-        int cycle_link_mode = GLFW_KEY_L;
-        int print_screen = GLFW_KEY_PRINT_SCREEN;
-        int delete_labels = GLFW_KEY_DELETE;
-        int enter_interactive_mode = GLFW_KEY_ENTER;
-
-        robin_hood::unordered_map<std::string, std::string> references;
-        robin_hood::unordered_map<std::string, std::vector<std::string>> tracks;
-
-        Themes::Painter paint_table;
-        Themes::BaseTheme theme_p; // = Themes::BaseTheme();
-
-
-    void readIni(std::string path) {
-        robin_hood::unordered_map<std::string, int> key_table;
-        getKeyTable(key_table);
-
-        std::cout << "Loading " << path << std::endl;
-
-        mINI::INIFile file(path);
-        mINI::INIStructure myIni;
-        file.read(myIni);
-
-        theme = myIni["general"]["theme"];
-        dimensions = Utils::parseDimensions(myIni["general"]["dimensions"]);
-        fmt = myIni["general"]["fmt"];
-        link = myIni["general"]["link"];
-
-        indel_length = std::stoi(myIni["general"]["indel_length"]);
-        ylim = std::stoi(myIni["general"]["ylim"]);
-        split_view_size = std::stoi(myIni["general"]["split_view_size"]);
-        threads = std::stoi(myIni["general"]["threads"]);
-        pad = std::stoi(myIni["general"]["pad"]);
-        log2_cov = myIni["general"]["log2_cov"] == "true";
-        scroll_speed = std::stof(myIni["general"]["scroll_speed"]);
-
-        scroll_right = key_table[myIni["navigation"]["scroll_right"]];
-        scroll_left = key_table[myIni["navigation"]["scroll_left"]];
-        scroll_up = key_table[myIni["navigation"]["scroll_up"]];
-        scroll_down = key_table[myIni["navigation"]["scroll_down"]];
-        zoom_out = key_table[myIni["navigation"]["zoom_out"]];
-        zoom_in = key_table[myIni["navigation"]["zoom_in"]];
-
-        cycle_link_mode = key_table[myIni["interaction"]["cycle_link_mode"]];
-        print_screen = key_table[myIni["interaction"]["print_screen"]];
-
-        number = Utils::parseDimensions(myIni["labelling"]["number"]);
-        labels = myIni["labelling"]["labels"];
-        delete_labels = key_table[myIni["labelling"]["delete_labels"]];
-        enter_interactive_mode = key_table[myIni["labelling"]["enter_interactive_mode"]];
-
-        for (auto const& it2 :  myIni["genomes"]) {
-            references[it2.first] = it2.second;
-        }
-        for (auto const& it2 : myIni["tracks"]) {
-            tracks[it2.first].push_back(it2.second);
-        }
-    }
-
-    void getIni() {
-        // get home directory
-        struct passwd *pw = getpwuid(getuid());
-        std::string home(pw->pw_dir);
-        if (is_file_exist(home + "/.gw.ini")) {
-            readIni(home + "/.gw.ini");
-        } else if (is_file_exist(home + "/.config/.gw.ini")) {
-            readIni(home + "/.config/.gw.ini");
-        } else if (is_file_exist(Utils::getExecutableDir() + "/.gw.ini")) {
-            readIni(Utils::getExecutableDir() + "/.gw.ini");
-        }
-    }
-};
-
 
 int main(int argc, char *argv[]) {
 
-    IniOptions iopts;
+    Themes::IniOptions iopts;
     static const std::vector<std::string> img_fmt = { "png", "pdf" };
     static const std::vector<std::string> img_themes = { "igv", "dark" };
     static const std::vector<std::string> links = { "None", "SV", "all" };
@@ -234,9 +122,9 @@ int main(int argc, char *argv[]) {
     }
 
     auto genome = program.get<std::string>("genome");
-    if (iopts.references.contains(genome)){
+    if (iopts.references.find(genome) == iopts.references.end()){
         genome = iopts.references[genome];
-    } else if (!is_file_exist(genome)) {
+    } else if (!Utils::is_file_exist(genome)) {
         std::cerr << "Error: Genome not found" << std::endl;
         abort();
     }
@@ -287,7 +175,7 @@ int main(int argc, char *argv[]) {
         std::vector<std::string> bed_regions;
         bed_regions = program.get<std::vector<std::string>>("--bed");
         for (size_t i=0; i < bed_regions.size(); i++){
-            if (!is_file_exist(bed_regions[i])) {
+            if (!Utils::is_file_exist(bed_regions[i])) {
                 std::cerr << "Error: bed file does not exists - " << bed_regions[i] << std::endl;
                 std::abort();
             }

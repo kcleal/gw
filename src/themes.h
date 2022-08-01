@@ -1,10 +1,15 @@
 //
 // Created by Kez Cleal on 25/07/2022.
 //
+#pragma once
 
+#include <GLFW/glfw3.h>
+#include <iostream>
+#include <pwd.h>
 #include <string>
-
-#include "GLFW/glfw3.h"
+#include <vector>
+#include <unistd.h>
+#include <unordered_map>
 
 #define SK_GL
 
@@ -27,56 +32,94 @@
 #include "include/core/SkTextBlob.h"
 
 #include "../inc/robin_hood.h"
+#include "argparse.h"
 
-
-#ifndef GW_PARAMS_H
-#define GW_PARAMS_H
-
-#endif //GW_PARAMS_H
-
-constexpr int NORMAL = 0;
-constexpr int DEL = 200;
-constexpr int INV_F = 400;
-constexpr int INV_R = 600;
-constexpr int DUP = 800;
-constexpr int TRA = 1000;
-constexpr int SC = 2000;
-constexpr int INS_f = 5000;
-constexpr int INS_s = 6000;
+#include "glob.h"
+#include "ini.h"
+#include "utils.h"
 
 
 namespace Themes {
 
+    constexpr float base_qual_alpha[11] = {51, 51, 51, 51, 51, 128, 128, 128, 128, 128, 255};
+
     class BaseTheme {
     public:
-        BaseTheme() {};
+        BaseTheme();
         ~BaseTheme() = default;
 
         std::string name;
+        // face colours
+        SkPaint bgPaint, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip, \
+                fcA, fcT, fcC, fcG, fcN, fcCoverage;
+        SkPaint fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0, fcSoftClip0;
 
-        SkPaint bg_paint;  //, fc_Normal;
+        std::vector<SkPaint> mate_fc;
+        std::vector<SkPaint> mate_fc0;
+
+        // edge colours
+        SkPaint ecMateUnmapped, ecSplit;
+
+        // line widths
+        float lwMateUnmapped, lwSplit, lwCoverage;
+
+        // line colours and Insertion pain
+        SkPaint lcJoins, lcCoverage, insF, insS;
+
+        // text colours
+        SkPaint tcDel, tcIns, tcLabels;
+
+        // Markers
+        SkPaint marker_paint;
+
+        uint8_t alpha, mapq0_alpha;
+
+        std::vector<SkPaint> APaint, TPaint, CPaint, GPaint, NPaint;
+
+        void setAlphas();
 
     };
 
     class IgvTheme: public BaseTheme {
-        IgvTheme() {
+        public:
+            IgvTheme();
+            ~IgvTheme() = default;
+    };
 
-            name = "igv";
-
-//            bg_paint.setColor(SkColorSetRGB(255, 255, 255));
-//            fc_Normal.setColor(SkColorSetRGB(192, 192, 192));
-        };
-        ~IgvTheme() = default;
-
+    class DarkTheme: public BaseTheme {
+        public:
+            DarkTheme();
+            ~DarkTheme() = default;
     };
 
 
-    class Painter {
+    class IniOptions {
     public:
-        Painter() {};
-        ~Painter() = default;
+        IniOptions();
+        ~IniOptions() = default;
 
+        BaseTheme theme;
+        Utils::Dims dimensions, number;
+        std::string fmt, labels, link;
+        int indel_length, ylim, split_view_size, threads, pad, link_op;
+        bool no_show, log2_cov, tlen_yscale;
+        float scroll_speed, tab_track_height;
+        int scroll_right;
+        int scroll_left;
+        int scroll_down;
+        int scroll_up;
+        int next_region_view;
+        int zoom_out;
+        int zoom_in;
+        int cycle_link_mode;
+        int print_screen;
+        int delete_labels;
+        int enter_interactive_mode;
 
+        robin_hood::unordered_map<std::string, std::string> references;
+        robin_hood::unordered_map<std::string, std::vector<std::string>> tracks;
+
+        void readIni(std::string path);
     };
 
 }
