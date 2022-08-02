@@ -14,3 +14,7 @@ For linux::
     wget https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip && \
     unzip Skia-m93-87e8842e8c-linux-Release-x64.zip && cd .. && \
     make
+
+For Mac::
+
+    brew install glew glfw3

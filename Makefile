@@ -2,7 +2,7 @@ TARGET = gw
 
 
 CXX = clang++
-CXXFLAGS = -g -Wall -std=c++17  -fno-common -dynamic -g -fwrapv
+CXXFLAGS = -g -Wall -std=c++17  -fno-common -dynamic -fwrapv
 
 INCLUDE = -I./inc -I./src -I. -I./gw
 LINK = -L $(wildcard ../skia/out/Rel*)
@@ -23,7 +23,7 @@ else
 	LINK = -L $(wildcard ../skia/out/Rel*)
 endif
 
-LIBS = -lglfw -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lfreetype -lfontconfig -lhts
+LIBS = -lglfw -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lfreetype -lfontconfig -lhts -lGLEW
 
 .PHONY: default all debug clean
 
@@ -44,7 +44,7 @@ else
     endif
     ifeq ($(UNAME_S),Darwin)
     	IS_DARWIN=1
-        CXXFLAGS += -D OSX -stdlib=libc++ -mmacosx-version-min=10.15 -arch x86_64
+        CXXFLAGS += -D OSX -stdlib=libc++ -mmacosx-version-min=10.15 -arch x86_64 -framework OpenGL
     endif
 endif
 

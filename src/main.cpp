@@ -193,6 +193,16 @@ int main(int argc, char *argv[]) {
     for (size_t i=0; i < image_glob.size(); i++){
         std::cout << image_glob[i] << std::endl;
     }
+    // GwPlot::GwPlot (const char* reference, std::vector<std::string>& bam_paths, unsigned int threads, Themes::BaseTheme& theme) {
+    Manager::GwPlot plot = Manager::GwPlot(genome.c_str(),
+                                           bam_paths,
+                                           1,
+                                           iopts);
+
+    plot.createWindow(600, 600);
+//    plot.pollWindow();
+
+
 
     return 0;
 };
