@@ -9,7 +9,6 @@
 #include <vector>
 
 #include <OpenGL/gl.h>
-
 #include "GLFW/glfw3.h"
 #define SK_GL
 #include "include/gpu/GrBackendSurface.h"
@@ -21,6 +20,7 @@
 
 #include "plot_manager.h"
 #include "themes.h"
+
 
 namespace Manager {
 
@@ -41,111 +41,43 @@ namespace Manager {
     }
 
     GwPlot::~GwPlot() {
-        delete sContext;
-        delete sSurface;
-        if (window) {
-            glfwDestroyWindow(window);
-            glfwTerminate();
-        }
-    }
-
-    void GwPlot::init_skia() {
-        auto interface = GrGLMakeNativeInterface();
-        sContext = GrDirectContext::MakeGL(interface).release();
-
-        GrGLFramebufferInfo framebufferInfo;
-        framebufferInfo.fFBOID = 0; // assume default framebuffer
-//        // We are always using OpenGL and we use RGBA8 internal format for both RGBA and BGRA configs in OpenGL.
-//        //(replace line below with this one to enable correct color spaces) framebufferInfo.fFormat = GL_SRGB8_ALPHA8;
-        framebufferInfo.fFormat = GL_RGBA8;
-
-        SkColorType colorType = kRGBA_8888_SkColorType;
-
-        int width, height;
-        glfwGetFramebufferSize(window, &width, &height);
-        std::cout << width << " " << height << std::endl;
-
-        GrBackendRenderTarget backendRenderTarget(width, height,
-                                                  0, // sample count
-                                                  0, // stencil bits
-                                                  framebufferInfo);
-
-        //(replace line below with this one to enable correct color spaces) sSurface = SkSurface::MakeFromBackendRenderTarget(sContext, backendRenderTarget, kBottomLeft_GrSurfaceOrigin, colorType, SkColorSpace::MakeSRGB(), nullptr).release();
-        sSurface = SkSurface::MakeFromBackendRenderTarget(sContext, backendRenderTarget, kBottomLeft_GrSurfaceOrigin, colorType, nullptr, nullptr).release();
-        if (sSurface == nullptr) {
-            std::cerr << "sSurface could not be initialized\n";
-            abort();
-        }
-
     }
 
 
-    void error_callback(int error, const char* description) {
-        fputs(description, stderr);
+    SkiaWindow::~SkiaWindow() {
+        glfwDestroyWindow(window);
+        glfwTerminate();
     }
 
-    void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-        if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-            glfwSetWindowShouldClose(window, GL_TRUE);
-    }
+    void SkiaWindow::init(int width, int height) {
 
-    void GwPlot::createWindow (int width, int height) {
-
-        glfwSetErrorCallback(error_callback);
         if (!glfwInit()) {
-            exit(EXIT_FAILURE);
+            std::cerr<<"ERROR: could not initialize GLFW3"<<std::endl;
+            std::terminate();
         }
 
-//        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-//        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-//        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-//        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-//        //(uncomment to enable correct color spaces) glfwWindowHint(GLFW_SRGB_CAPABLE, GL_TRUE);
-//        glfwWindowHint(GLFW_STENCIL_BITS, 0);
-//        //glfwWindowHint(GLFW_ALPHA_BITS, 0);
-//        glfwWindowHint(GLFW_DEPTH_BITS, 0);
+        glfwWindowHint(GLFW_STENCIL_BITS, 8);
 
         window = glfwCreateWindow(width, height, "Simple example", NULL, NULL);
         if (!window) {
+            std::cerr<<"ERROR: could not create window with GLFW3"<<std::endl;
             glfwTerminate();
-            exit(EXIT_FAILURE);
+            std::terminate();
         }
         glfwMakeContextCurrent(window);
-//        glEnable(GL_FRAMEBUFFER_SRGB);
-
-//        init_skia();
-
-        glfwSwapInterval(1);
-        glfwSetKeyCallback(window, key_callback);
-
-        auto interface = GrGLMakeNativeInterface();
-        sContext = GrDirectContext::MakeGL(interface).release();
-        GrGLFramebufferInfo framebufferInfo;
-        framebufferInfo.fFBOID = 0;
-        framebufferInfo.fFormat = GL_RGBA8;
-        SkColorType colorType = kRGBA_8888_SkColorType;
-
-        glfwGetFramebufferSize(window, &width, &height);
-        std::cout << width << " " << height << std::endl;
-
-        GrBackendRenderTarget backendRenderTarget(width, height,
-                                                  0, // sample count
-                                                  0, // stencil bits
-                                                  framebufferInfo);
-
-        //(replace line below with this one to enable correct color spaces) sSurface = SkSurface::MakeFromBackendRenderTarget(sContext, backendRenderTarget, kBottomLeft_GrSurfaceOrigin, colorType, SkColorSpace::MakeSRGB(), nullptr).release();
-        sSurface = SkSurface::MakeFromBackendRenderTarget(sContext, backendRenderTarget, kBottomLeft_GrSurfaceOrigin, colorType, nullptr, nullptr).release();
-
 
     }
 
-    int GwPlot::pollWindow() {
+    int SkiaWindow::pollWindow(SkCanvas* canvas, GrDirectContext* sContext) {
+        while (true) {
+            if (glfwWindowShouldClose(window)) {
+                break;
+            } else if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+                break;
+            }
 
-        // Draw to the surface via its SkCanvas.
-        SkCanvas* canvas = sSurface->getCanvas();
-
-        while (!glfwWindowShouldClose(window)) {
             glfwWaitEvents();
+
             SkPaint paint;
             paint.setColor(SK_ColorWHITE);
             canvas->drawPaint(paint);
@@ -156,10 +88,9 @@ namespace Manager {
             glfwSwapBuffers(window);
         }
 
-
         return 1;
-    }
 
+    }
 
 }
 

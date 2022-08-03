@@ -14,6 +14,17 @@
 #include "themes.h"
 #include "utils.h"
 
+#include <OpenGL/gl.h>
+#include "GLFW/glfw3.h"
+#define SK_GL
+#include "include/gpu/GrBackendSurface.h"
+#include "include/gpu/GrDirectContext.h"
+#include "include/gpu/gl/GrGLInterface.h"
+#include "include/core/SkCanvas.h"
+#include "include/core/SkColorSpace.h"
+#include "include/core/SkSurface.h"
+
+
 
 int main(int argc, char *argv[]) {
 
@@ -193,16 +204,52 @@ int main(int argc, char *argv[]) {
     for (size_t i=0; i < image_glob.size(); i++){
         std::cout << image_glob[i] << std::endl;
     }
-    // GwPlot::GwPlot (const char* reference, std::vector<std::string>& bam_paths, unsigned int threads, Themes::BaseTheme& theme) {
+
     Manager::GwPlot plot = Manager::GwPlot(genome.c_str(),
                                            bam_paths,
                                            1,
                                            iopts);
 
-    plot.createWindow(600, 600);
-//    plot.pollWindow();
+    // skia context has to be managed from main function to work
+    GrDirectContext *sContext = nullptr;
+    SkSurface *sSurface = nullptr;
 
+    if (!program.get<bool>("-n")) {
 
+        Manager::SkiaWindow window = Manager::SkiaWindow();
+        window.init(iopts.dimensions.x, iopts.dimensions.y);
+        int fb_height, fb_width;
+        glfwGetFramebufferSize(window.window, &fb_width, &fb_height);
+
+        sContext = GrDirectContext::MakeGL(nullptr).release();
+        GrGLFramebufferInfo framebufferInfo;
+        framebufferInfo.fFBOID = 0;
+        framebufferInfo.fFormat = GL_SRGB8_ALPHA8; // GL_RGBA8;
+
+        GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
+        if (!backendRenderTarget.isValid()) {
+            std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
+            glfwTerminate();
+            std::terminate();
+        }
+
+        sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
+                                                          backendRenderTarget,
+                                                          kBottomLeft_GrSurfaceOrigin,
+                                                          kRGBA_8888_SkColorType,
+                                                          nullptr,
+                                                          nullptr).release();
+        if (!sSurface) {
+            std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
+            sContext->releaseResourcesAndAbandonContext();
+            std::terminate();
+        }
+
+        window.pollWindow(sSurface->getCanvas(), sContext);
+
+        delete sContext;
+        delete sSurface;
+    }
 
     return 0;
 };

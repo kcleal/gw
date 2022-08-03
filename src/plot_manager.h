@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <iostream>
+#include <OpenGL/opengl.h>
 #include <string>
 #include <vector>
 
@@ -22,14 +24,12 @@
 
 namespace Manager {
 
-
     /*
-     * Deals with plotting images to screen or file
+     * Deals with managing genomic data
      */
     class GwPlot {
     public:
         GwPlot(const char* reference, std::vector<std::string>& bams, unsigned int threads, Themes::IniOptions& opts);
-
         ~GwPlot();
 
         bool init;
@@ -42,17 +42,21 @@ namespace Manager {
         Themes::IniOptions opts;
         std::vector<Utils::Region> regions;
 
-        GrDirectContext* sContext = nullptr;
-        SkSurface* sSurface = nullptr;
+    };
+
+    /*
+     * Deals with window functions
+     */
+    class SkiaWindow {
+    public:
+        SkiaWindow() {};
+        ~SkiaWindow();
 
         GLFWwindow* window;
-        int window_width, window_height;
 
-        void createWindow(int width, int height);
+        void init(int width, int height);
 
-        int pollWindow();
+        int pollWindow(SkCanvas* canvas, GrDirectContext* sContext);
 
-    private:
-        void init_skia();
     };
 }
