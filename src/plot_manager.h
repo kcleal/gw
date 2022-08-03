@@ -5,11 +5,13 @@
 #pragma once
 
 #include <iostream>
-#include <OpenGL/opengl.h>
+#ifdef __APPLE__
+    #include <OpenGL/gl.h>
+#endif
 #include <string>
 #include <vector>
 
-#include "GLFW/glfw3.h"
+#include <GLFW/glfw3.h>
 #include "utils.h"
 #include "themes.h"
 
@@ -23,26 +25,6 @@
 
 
 namespace Manager {
-
-    /*
-     * Deals with managing genomic data
-     */
-    class GwPlot {
-    public:
-        GwPlot(const char* reference, std::vector<std::string>& bams, unsigned int threads, Themes::IniOptions& opts);
-        ~GwPlot();
-
-        bool init;
-        const char* reference_str;
-        faidx_t* reference;
-
-        std::vector<std::string> bam_paths;
-        std::vector<htsFile* > bams;
-        unsigned int threads;
-        Themes::IniOptions opts;
-        std::vector<Utils::Region> regions;
-
-    };
 
     /*
      * Deals with window functions
@@ -59,4 +41,33 @@ namespace Manager {
         int pollWindow(SkCanvas* canvas, GrDirectContext* sContext);
 
     };
+
+    /*
+     * Deals with managing genomic data
+     */
+    class GwPlot {
+    public:
+        GwPlot(std::string reference, std::vector<std::string>& bams, unsigned int threads, Themes::IniOptions& opts);
+        ~GwPlot();
+
+        bool init;
+        bool redraw;
+        std::string reference;
+        faidx_t* fai;
+
+        std::vector<std::string> bam_paths;
+        std::vector<htsFile* > bams;
+        unsigned int threads;
+        Themes::IniOptions opts;
+        std::vector<Utils::Region> regions;
+
+        SkiaWindow window;
+
+        int plotToScreen(SkCanvas* canvas, GrDirectContext* sContext);
+
+    private:
+        void drawScreen(SkCanvas* canvas, GrDirectContext* sContext);
+    };
+
+
 }

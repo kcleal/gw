@@ -194,7 +194,8 @@ namespace Themes {
         link_op = 0;
         number = {3, 3};
         labels = "PASS,FAIL";
-
+        canvas_width = 0;
+        canvas_height = 0;
         indel_length = 10;
         ylim = 50;
         split_view_size = 10000;

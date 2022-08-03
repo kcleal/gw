@@ -14,7 +14,9 @@
 #include "themes.h"
 #include "utils.h"
 
-#include <OpenGL/gl.h>
+#ifdef __APPLE__
+    #include <OpenGL/gl.h>
+#endif
 #include "GLFW/glfw3.h"
 #define SK_GL
 #include "include/gpu/GrBackendSurface.h"
@@ -24,6 +26,10 @@
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkSurface.h"
 
+
+// skia context has to be managed from global space to work
+GrDirectContext *sContext = nullptr;
+SkSurface *sSurface = nullptr;
 
 
 int main(int argc, char *argv[]) {
@@ -132,13 +138,13 @@ int main(int argc, char *argv[]) {
     }
 
     auto genome = program.get<std::string>("genome");
-    if (iopts.references.find(genome) == iopts.references.end()){
+    if (iopts.references.find(genome) != iopts.references.end()){
         genome = iopts.references[genome];
     } else if (!Utils::is_file_exist(genome)) {
         std::cerr << "Error: Genome not found" << std::endl;
         abort();
     }
-    std::cout << genome << std::endl;
+    std::cout << "Genome: " << genome << std::endl;
 
     std::vector<std::string> bam_paths;
     if (program.is_used("-b")) {
@@ -205,21 +211,16 @@ int main(int argc, char *argv[]) {
         std::cout << image_glob[i] << std::endl;
     }
 
-    Manager::GwPlot plot = Manager::GwPlot(genome.c_str(),
-                                           bam_paths,
-                                           1,
-                                           iopts);
 
-    // skia context has to be managed from main function to work
-    GrDirectContext *sContext = nullptr;
-    SkSurface *sSurface = nullptr;
+    Manager::GwPlot plotter = Manager::GwPlot(genome, bam_paths, 1, iopts);
+
 
     if (!program.get<bool>("-n")) {
 
-        Manager::SkiaWindow window = Manager::SkiaWindow();
-        window.init(iopts.dimensions.x, iopts.dimensions.y);
+        // Manager::SkiaWindow window = Manager::SkiaWindow();
+        plotter.window.init(iopts.dimensions.x, iopts.dimensions.y);
         int fb_height, fb_width;
-        glfwGetFramebufferSize(window.window, &fb_width, &fb_height);
+        glfwGetFramebufferSize(plotter.window.window, &fb_width, &fb_height);
 
         sContext = GrDirectContext::MakeGL(nullptr).release();
         GrGLFramebufferInfo framebufferInfo;
@@ -245,11 +246,14 @@ int main(int argc, char *argv[]) {
             std::terminate();
         }
 
-        window.pollWindow(sSurface->getCanvas(), sContext);
-
-        delete sContext;
-        delete sSurface;
+//        plotter.window.pollWindow(sSurface->getCanvas(), sContext);
+//
+        int res = plotter.plotToScreen(sSurface->getCanvas(), sContext);
     }
+
+
+
+
 
     return 0;
 };

@@ -4,8 +4,8 @@ TARGET = gw
 CXX = clang++
 CXXFLAGS = -g -Wall -std=c++17  -fno-common -dynamic -fwrapv
 
-INCLUDE = -I./inc -I./src -I. -I./gw
-LINK = -L $(wildcard ../skia/out/Rel*)
+INCLUDE = -I./inc -I./src -I. -I./gw -I/usr/local/include
+LINK = -L $(wildcard ../skia/out/Rel*) -L/usr/local/lib
 
 # Options to use target htslib or skia
 HTSLIB ?= ""
@@ -19,11 +19,11 @@ ifneq ($(SKIA),"")
 	INCLUDE += -I$(SKIA)
 	LINK += -L $(wildcard $(SKIA)/out/Rel*)
 else
-	INCLUDE = -I./inc -I./src -I. -I../skia -I./gw
+	INCLUDE += -I../skia
 	LINK = -L $(wildcard ../skia/out/Rel*)
 endif
 
-LIBS = -lglfw3 -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts
+LIBS = -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts
 
 .PHONY: default all debug clean
 
@@ -35,17 +35,17 @@ debug: default
 # windows untested here
 IS_DARWIN=0
 ifeq ($(OS),Windows_NT)
-    CXXFLAGS += -D WIN32
+    CXXFLAGS += -lglfw3 -D WIN32
 else
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Linux)
         CXXFLAGS += -D LINUX
-        LIBS += -lGL -lfreetype -lfontconfig
+        LIBS += -lGL -lfreetype -lfontconfig -lglfw3
     endif
     ifeq ($(UNAME_S),Darwin)
     	IS_DARWIN=1
     	# -mmacosx-version-min=10.15
-        CXXFLAGS += -D OSX -stdlib=libc++ -arch x86_64 -fvisibility=hidden
+        CXXFLAGS += -lglfw3 -D OSX -stdlib=libc++ -arch x86_64 -fvisibility=hidden
     endif
 endif
 

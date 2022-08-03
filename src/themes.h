@@ -100,6 +100,7 @@ namespace Themes {
         BaseTheme theme;
         Utils::Dims dimensions, number;
         std::string fmt, labels, link;
+        int canvas_width, canvas_height;
         int indel_length, ylim, split_view_size, threads, pad, link_op;
         bool no_show, log2_cov, tlen_yscale;
         float scroll_speed, tab_track_height;
