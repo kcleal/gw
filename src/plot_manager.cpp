@@ -11,6 +11,12 @@
 #ifdef __APPLE__
     #include <OpenGL/gl.h>
 #endif
+
+#include "htslib/faidx.h"
+#include "htslib/hfile.h"
+#include "htslib/hts.h"
+#include "htslib/sam.h"
+
 #include <GLFW/glfw3.h>
 #define SK_GL
 #include "include/gpu/GrBackendSurface.h"
@@ -20,7 +26,9 @@
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkSurface.h"
 
+#include "hts_funcs.h"
 #include "plot_manager.h"
+#include "segments.h"
 #include "themes.h"
 
 
@@ -74,17 +82,24 @@ namespace Manager {
 
     }
 
-    GwPlot::GwPlot(std::string reference, std::vector<std::string>& bam_paths, unsigned int threads, Themes::IniOptions& opt) {
+    GwPlot::GwPlot(std::string reference, std::vector<std::string>& bam_paths, Themes::IniOptions& opt, std::vector<Utils::Region>& regions) {
 
         this->reference = reference;
         this->bam_paths = bam_paths;
-        this->threads = threads;
+        this->regions = regions;
         this->opts = opt;
         this->redraw = true;
-        htsFile* f;
+        this->processed = false;
+
         for (auto& fn: this->bam_paths) {
-            f = sam_open(fn.c_str(), "r");
+            htsFile* f = sam_open(fn.c_str(), "r");
+            hts_set_threads(f, opt.threads);
+            std::cout << opt.threads << std::endl;
             bams.push_back(f);
+            sam_hdr_t *hdr_ptr = sam_hdr_read(f);
+            headers.push_back(hdr_ptr);
+            hts_idx_t* idx = sam_index_load(f, fn.c_str());
+            indexes.push_back(idx);
         }
 
         this->fai = fai_load(reference.c_str());
@@ -95,20 +110,10 @@ namespace Manager {
 
     int GwPlot::plotToScreen(SkCanvas* canvas, GrDirectContext* sContext) {
 
+        this->opts.theme.setAlphas();
+
         drawScreen(canvas, sContext);
         GLFWwindow * wind = this->window.window;
-//        while (true) {
-//            if (glfwWindowShouldClose(wind)) {
-//                break;
-//            } else if (glfwGetKey(wind, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-//                break;
-//            }
-//            if (redraw) {
-//                drawScreen(canvas, sContext);
-//            }
-//            std::cout << (glfwGetKey(wind, GLFW_KEY_ESCAPE) == GLFW_PRESS) << std::endl;
-//
-//        }
 
         while (true) {
             if (glfwWindowShouldClose(wind)) {
@@ -119,43 +124,89 @@ namespace Manager {
 
             glfwWaitEvents();
 
-            drawScreen(canvas, sContext);
-            SkPaint paint;
-//            paint.setColor(SK_ColorWHITE);
-//            canvas->drawPaint(paint);
-            paint.setColor(SK_ColorBLUE);
-            canvas->drawRect({100, 200, 300, 500}, paint);
-            sContext->flush();
+            if (redraw) {
+                drawScreen(canvas, sContext);
+            }
 
-            glfwSwapBuffers(wind);
         }
 
         return 1;
     }
 
+    void GwPlot::setYspace() {
+        if (bams.empty()) {
+            covY = 0; totalCovY = 0; totalTabixY = 0; tabixY = 0;
+            return;
+        }
+        if (opts.coverage) {
+            totalCovY = opts.canvas_height * 0.1;
+            covY = totalCovY / bams.size();
+        } else {
+            totalCovY = 0; covY = 0;
+        }
+        totalTabixY = 0; tabixY = 0;
+        // todo add if bed track here
+        trackY = (opts.canvas_height - totalCovY - totalTabixY) / bams.size();
+    }
+
     void GwPlot::drawScreen(SkCanvas* canvas, GrDirectContext* sContext) {
 
         glfwGetFramebufferSize(window.window, &opts.canvas_width, &opts.canvas_height);
-        std::cout << opts.canvas_width << std::endl;
 
-//        SkPaint bg = opts.theme.bgPaint;
-//        canvas->drawPaint(opts.theme.bgPaint);
+        setYspace();
+
+        canvas->drawPaint(opts.theme.bgPaint);
+
 
         SkPaint paint;
-        paint.setColor(SK_ColorWHITE);
-        canvas->drawPaint(paint);
-//        SkPaint paint;
-//        paint.setColor(SkColorSetRGB(42, 42, 42));
-//        paint.setColor(SK_ColorWHITE);
-//        canvas->drawPaint(paint);
-//        paint.setColor(SK_ColorBLUE);
-//        canvas->drawRect({100, 200, 300, 500}, paint);
+        paint.setColor(SK_ColorBLUE);
+        canvas->drawRect({100, 200, 300, 500}, paint);
 
-//        sContext->flush();
-//        glfwSwapBuffers(window.window);
+        process_sam(canvas);
+
+        sContext->flush();
+        glfwSwapBuffers(window.window);
 
         redraw = false;
 
+
+    }
+
+    void GwPlot::process_sam(SkCanvas* canvas) {
+        if (!processed) {
+
+            std::cout << "hurr\n";
+            int maxy;
+            int idx = 0;
+            for (int i=0; i<bams.size(); ++i) {
+
+                htsFile* b = bams[i];
+                sam_hdr_t *hdr_ptr = headers[i];
+                hts_idx_t *index = indexes[i];
+                for (int j=0; j<regions.size(); ++j) {
+
+                    Segs::ReadCollection rc = Segs::ReadCollection();
+
+                    std::cout << regions[j].chrom << ":" << regions[j].start << std::endl;
+                    Utils::Region *reg = &regions[j];
+
+                    HTS::collectReadsAndCoverage(rc, b, hdr_ptr,
+                                                 index,
+                                                 opts, reg);
+
+
+
+//                    all_segs.push_back(std::move(rc));
+
+//                    std::cout << all_segs.back().readQueue.size() << std::endl;
+//                    std::cout << all_segs.back().readQueue[0].initialized << std::endl;
+                    idx += 1;
+                }
+            }
+
+
+
+        }
 
     }
 

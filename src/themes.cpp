@@ -7,7 +7,7 @@
 namespace Themes {
 
     BaseTheme::BaseTheme() {
-        fcCoverage.setColor(SkColorSetRGB(220, 220, 220));
+        fcCoverage.setARGB(255, 220, 220, 220);
 
         std::vector<std::vector<int>> tmp = {{158, 1,   66},
                                              {179, 24,  71},
@@ -61,18 +61,18 @@ namespace Themes {
                                              {0,   69,  41}};
         for (size_t i = 0; i < tmp.size(); ++i) {
             SkPaint p;
-            p.setColor(SkColorSetRGB(tmp[i][0], tmp[i][1], tmp[i][2]));
+            p.setARGB(255, tmp[i][0], tmp[i][1], tmp[i][2]);
             mate_fc.push_back(p);
         }
 
-        ecMateUnmapped.setColor(SkColorSetRGB(255, 0, 0));
-        ecSplit.setColor(SkColorSetRGB(0, 0, 255));
+        ecMateUnmapped.setARGB(255, 255, 0, 0);
+        ecSplit.setARGB(255, 0, 0, 255);
 
         lwMateUnmapped = 0.5;
         lwSplit = 0.5;
         lwCoverage = 1;
 
-        lcCoverage.setColor(SkColorSetRGB(192, 192, 192));
+        lcCoverage.setARGB(255, 192, 192, 192);
 
         alpha = 204;
         mapq0_alpha = 102;
@@ -106,7 +106,7 @@ namespace Themes {
             fcTra0.setAlpha(mapq0_alpha);
             fcSoftClip0.setAlpha(mapq0_alpha);
 
-            fcIns.setColor(SkColorSetRGB(186, 85, 211));
+            fcIns.setARGB(255, 186, 85, 211);
 
             insF = fcIns;
             insF.setStyle(SkPaint::kFill_Style);
@@ -144,46 +144,46 @@ namespace Themes {
 
     IgvTheme::IgvTheme() {
         name = "igv";
-        bgPaint.setColor(SkColorSetRGB(255, 255, 255));
-        fcNormal.setColor(SkColorSetRGB(192, 192, 192));
-        fcDel.setColor(SkColorSetRGB(220, 20, 60));
-        fcDup.setColor(SkColorSetRGB(30, 144, 255));
-        fcInvF.setColor(SkColorSetRGB(46, 139, 0));
-        fcInvR.setColor(SkColorSetRGB(46, 139, 7));
-        fcTra.setColor(SkColorSetRGB(255, 105, 180));
-        fcSoftClip.setColor(SkColorSetRGB(0, 128, 128));
-        fcA.setColor(SkColorSetRGB(0, 255, 127));
-        fcT.setColor(SkColorSetRGB(255, 0, 0));
-        fcC.setColor(SkColorSetRGB(0, 0, 255));
-        fcG.setColor(SkColorSetRGB(205, 133, 63));
-        fcN.setColor(SkColorSetRGB(128, 128, 128));
-        lcJoins.setColor(SkColorSetRGB(0, 0, 0));
-        tcDel.setColor(SkColorSetRGB(0, 0, 0));
-        tcLabels.setColor(SkColorSetRGB(0, 0, 0));
-        tcIns.setColor(SkColorSetRGB(255, 255, 255));
-        marker_paint.setColor(SkColorSetRGB(0, 0, 0));
+        bgPaint.setARGB(255, 255, 255, 255);
+        fcNormal.setARGB(255, 192, 192, 192);
+        fcDel.setARGB(255, 220, 20, 60);
+        fcDup.setARGB(255, 30, 144, 255);
+        fcInvF.setARGB(255, 46, 139, 0);
+        fcInvR.setARGB(255, 46, 139, 7);
+        fcTra.setARGB(255, 255, 105, 180);
+        fcSoftClip.setARGB(255, 0, 128, 128);
+        fcA.setARGB(255, 0, 255, 127);
+        fcT.setARGB(255, 255, 0, 0);
+        fcC.setARGB(255, 0, 0, 255);
+        fcG.setARGB(255, 205, 133, 63);
+        fcN.setARGB(255, 128, 128, 128);
+        lcJoins.setARGB(255, 0, 0, 0);
+        tcDel.setARGB(255, 0, 0, 0);
+        tcLabels.setARGB(255, 0, 0, 0);
+        tcIns.setARGB(255, 255, 255, 255);
+        marker_paint.setARGB(255, 0, 0, 0);
     }
 
     DarkTheme::DarkTheme() {
         name = "dark";
-        bgPaint.setColor(SkColorSetRGB(42, 42, 42));
-        fcNormal.setColor(SkColorSetRGB(95, 95, 95));
-        fcDel.setColor(SkColorSetRGB(185, 25, 25));
-        fcDup.setColor(SkColorSetRGB(24, 100, 198));
-        fcInvF.setColor(SkColorSetRGB(49, 167, 118));
-        fcInvR.setColor(SkColorSetRGB(49, 167, 0));
-        fcTra.setColor(SkColorSetRGB(225, 185, 185));
-        fcSoftClip.setColor(SkColorSetRGB(0, 128, 128));
-        fcA.setColor(SkColorSetRGB(106, 216, 79));
-        fcT.setColor(SkColorSetRGB(231, 49, 14));
-        fcC.setColor(SkColorSetRGB(77, 155, 255));
-        fcG.setColor(SkColorSetRGB(236, 132, 19));
-        fcN.setColor(SkColorSetRGB(128, 128, 128));
-        lcJoins.setColor(SkColorSetRGB(142, 142, 142));
-        tcDel.setColor(SkColorSetRGB(227, 227, 227));
-        tcLabels.setColor(SkColorSetRGB(0, 0, 0));
-        tcIns.setColor(SkColorSetRGB(227, 227, 227));
-        marker_paint.setColor(SkColorSetRGB(220, 220, 220));
+        bgPaint.setARGB(255, 3, 3, 3);
+        fcNormal.setARGB(255, 95, 95, 95);
+        fcDel.setARGB(255, 185, 25, 25);
+        fcDup.setARGB(255, 24, 100, 198);
+        fcInvF.setARGB(255, 49, 167, 118);
+        fcInvR.setARGB(255, 49, 167, 0);
+        fcTra.setARGB(255, 225, 185, 185);
+        fcSoftClip.setARGB(255, 0, 128, 128);
+        fcA.setARGB(255, 106, 216, 79);
+        fcT.setARGB(255, 231, 49, 14);
+        fcC.setARGB(255, 77, 155, 255);
+        fcG.setARGB(255, 236, 132, 19);
+        fcN.setARGB(255, 128, 128, 128);
+        lcJoins.setARGB(255, 142, 142, 142);
+        tcDel.setARGB(255, 227, 227, 227);
+        tcLabels.setARGB(255, 0, 0, 0);
+        tcIns.setARGB(255, 227, 227, 227);
+        marker_paint.setARGB(255, 220, 220, 220);
     }
 
     IniOptions::IniOptions() {
@@ -203,6 +203,7 @@ namespace Themes {
         pad = 500;
 
         no_show = false;
+        coverage = true;
         log2_cov = false;
         tlen_yscale = false;
 
@@ -268,6 +269,7 @@ namespace Themes {
         split_view_size = std::stoi(myIni["general"]["split_view_size"]);
         threads = std::stoi(myIni["general"]["threads"]);
         pad = std::stoi(myIni["general"]["pad"]);
+        log2_cov = myIni["general"]["coverage"] == "true";
         log2_cov = myIni["general"]["log2_cov"] == "true";
         scroll_speed = std::stof(myIni["general"]["scroll_speed"]);
 

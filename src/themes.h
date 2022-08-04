@@ -102,7 +102,7 @@ namespace Themes {
         std::string fmt, labels, link;
         int canvas_width, canvas_height;
         int indel_length, ylim, split_view_size, threads, pad, link_op;
-        bool no_show, log2_cov, tlen_yscale;
+        bool no_show, coverage, log2_cov, tlen_yscale;
         float scroll_speed, tab_track_height;
         int scroll_right;
         int scroll_left;

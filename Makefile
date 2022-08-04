@@ -23,7 +23,7 @@ else
 	LINK = -L $(wildcard ../skia/out/Rel*)
 endif
 
-LIBS = -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts
+LIBS = -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts -lglfw3
 
 .PHONY: default all debug clean
 
@@ -40,12 +40,12 @@ else
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Linux)
         CXXFLAGS += -D LINUX
-        LIBS += -lGL -lfreetype -lfontconfig -lglfw3
+        LIBS += -lGL -lfreetype -lfontconfig
     endif
     ifeq ($(UNAME_S),Darwin)
     	IS_DARWIN=1
     	# -mmacosx-version-min=10.15
-        CXXFLAGS += -lglfw3 -D OSX -stdlib=libc++ -arch x86_64 -fvisibility=hidden
+        CXXFLAGS +=  -D OSX -stdlib=libc++ -arch x86_64 -fvisibility=hidden
     endif
 endif
 

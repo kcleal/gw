@@ -177,6 +177,12 @@ int main(int argc, char *argv[]) {
         iopts.no_show = program.get<bool>("-n");
     }
 
+    if (program.is_used("--theme") && program.get<std::string>("--theme") == "dark") {
+        iopts.theme = Themes::DarkTheme();
+    } else {
+        iopts.theme = Themes::IgvTheme();
+    }
+
     if (program.is_used("--dims")) {
         auto d = program.get<std::string>("--dims");
         iopts.dimensions = Utils::parseDimensions(d);
@@ -212,7 +218,7 @@ int main(int argc, char *argv[]) {
     }
 
 
-    Manager::GwPlot plotter = Manager::GwPlot(genome, bam_paths, 1, iopts);
+    Manager::GwPlot plotter = Manager::GwPlot(genome, bam_paths, iopts, regions);
 
 
     if (!program.get<bool>("-n")) {
@@ -246,14 +252,14 @@ int main(int argc, char *argv[]) {
             std::terminate();
         }
 
-//        plotter.window.pollWindow(sSurface->getCanvas(), sContext);
-//
         int res = plotter.plotToScreen(sSurface->getCanvas(), sContext);
+
+        if (res < 0) {
+            std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
+            sContext->releaseResourcesAndAbandonContext();
+            std::terminate();
+        }
     }
-
-
-
-
 
     return 0;
 };

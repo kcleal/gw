@@ -8,11 +8,22 @@
 #ifdef __APPLE__
     #include <OpenGL/gl.h>
 #endif
-#include <string>
-#include <vector>
+
+#include "htslib/faidx.h"
+#include "htslib/hfile.h"
+#include "htslib/hts.h"
+#include "htslib/sam.h"
+
 
 #include <GLFW/glfw3.h>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "hts_funcs.h"
+#include "../inc/robin_hood.h"
 #include "utils.h"
+#include "segments.h"
 #include "themes.h"
 
 #define SK_GL
@@ -47,26 +58,39 @@ namespace Manager {
      */
     class GwPlot {
     public:
-        GwPlot(std::string reference, std::vector<std::string>& bams, unsigned int threads, Themes::IniOptions& opts);
+        GwPlot(std::string reference, std::vector<std::string>& bams, Themes::IniOptions& opts, std::vector<Utils::Region>& regions);
         ~GwPlot();
 
         bool init;
         bool redraw;
+        bool processed;
+
         std::string reference;
-        faidx_t* fai;
 
         std::vector<std::string> bam_paths;
         std::vector<htsFile* > bams;
-        unsigned int threads;
-        Themes::IniOptions opts;
+        std::vector<sam_hdr_t* > headers;
+        std::vector<hts_idx_t* > indexes;
         std::vector<Utils::Region> regions;
 
+        Themes::IniOptions opts;
+        faidx_t* fai;
         SkiaWindow window;
 
         int plotToScreen(SkCanvas* canvas, GrDirectContext* sContext);
 
     private:
+
+        float totalCovY, covY, totalTabixY, tabixY, trackY;
+
+        std::vector< robin_hood::unordered_map< std::string, std::vector<int> >> linked;
+        std::vector<Segs::ReadCollection> all_segs;
+
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext);
+
+        void setYspace();
+
+        void process_sam(SkCanvas* canvas);
     };
 
 
