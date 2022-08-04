@@ -8,7 +8,12 @@
 #include <vector>
 //#inc <thread>
 #include "../inc/BS_thread_pool.h"
+#include "../inc/robin_hood.h"
 #include "htslib/sam.h"
+
+#include "plot_manager.h"
+#include "themes.h"
+#include "utils.h"
 
 
 //const int NORMAL = 0;
@@ -22,6 +27,8 @@
 //const int INS_s = 6000;
 
 namespace Segs {
+
+    typedef std::vector< robin_hood::unordered_map< const char *, std::vector<int> >> linked_t;
 
     enum Pattern {
         NORMAL,
@@ -91,6 +98,10 @@ namespace Segs {
 
     void align_init(Align *self);
 
-    void init_parallel(std::vector<Align> *aligns, int n);
+    void init_parallel(std::vector<Align> &aligns, int n);
+
+    void addToCovArray(std::vector<int> &arr, Align *align, int begin, int l_arr);
+
+    int findY(int bamIdx, ReadCollection &rc, int vScroll, int linkType, Themes::IniOptions &opts, Utils::Region *region, linked_t &linked, bool joinLeft);
 
 }

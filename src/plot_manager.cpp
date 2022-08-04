@@ -128,6 +128,8 @@ namespace Manager {
                 drawScreen(canvas, sContext);
             }
 
+            break;
+
         }
 
         return 1;
@@ -183,23 +185,19 @@ namespace Manager {
                 htsFile* b = bams[i];
                 sam_hdr_t *hdr_ptr = headers[i];
                 hts_idx_t *index = indexes[i];
+
                 for (int j=0; j<regions.size(); ++j) {
 
-                    Segs::ReadCollection rc = Segs::ReadCollection();
-
-                    std::cout << regions[j].chrom << ":" << regions[j].start << std::endl;
                     Utils::Region *reg = &regions[j];
+                    Segs::ReadCollection rc = Segs::ReadCollection();
+                    if (opts.coverage) {
+                        rc.covArr.resize(reg->end - reg->start, 0);
+                    }
 
-                    HTS::collectReadsAndCoverage(rc, b, hdr_ptr,
-                                                 index,
-                                                 opts, reg);
+                    HTS::collectReadsAndCoverage(rc, b, hdr_ptr, index,opts, reg, opts.coverage);
 
+                    Segs::findY(idx, rc, 0, 0, opts, reg, linked, false);
 
-
-//                    all_segs.push_back(std::move(rc));
-
-//                    std::cout << all_segs.back().readQueue.size() << std::endl;
-//                    std::cout << all_segs.back().readQueue[0].initialized << std::endl;
                     idx += 1;
                 }
             }

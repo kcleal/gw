@@ -1,5 +1,11 @@
 
+#include <algorithm>
+#include <vector>
+
+#include "plot_manager.h"
 #include "segments.h"
+#include "utils.h"
+
 
 namespace Segs {
 
@@ -113,8 +119,7 @@ namespace Segs {
         char *value;
 
         self->pos = self->delegate->core.pos;
-        self->reference_end = bam_endpos(
-                self->delegate);  // reference_end - already checked for 0 length cigar and mapped
+        self->reference_end = bam_endpos(self->delegate);  // reference_end - already checked for 0 length cigar and mapped
         self->cov_start = self->pos;
         self->cov_end = self->reference_end;
 
@@ -126,7 +131,6 @@ namespace Segs {
 
         pos = src->core.pos;
         cigar_p = bam_get_cigar(src);
-        l = 0;
 
         self->left_soft_clip = 0;
         self->left_hard_clip = 0;
@@ -168,14 +172,14 @@ namespace Segs {
         }
 
         v = bam_aux_get(self->delegate, "MD");
-        if (v == NULL) {
+        if (v == nullptr) {
             self->has_MD = false;
         } else {
             value = (char *) bam_aux2Z(v);
             self->MD = value;
             self->has_MD = true;
         }
-        if (bam_aux_get(self->delegate, "SA") != NULL) {
+        if (bam_aux_get(self->delegate, "SA") != nullptr) {
             self->has_SA = true;
         }
 
@@ -235,25 +239,60 @@ namespace Segs {
         }
 
         get_mismatched_bases(self->mismatches, self->MD, self->pos, cigar_l, cigar_p);
-
         self->initialized = true;
     }
 
-    void init_parallel(std::vector<Align> *aligns, int n) {
-
+    void init_parallel(std::vector<Align> &aligns, int n) {
         if (n == 1) {
-            for (size_t i = 0; i < (*aligns).size(); ++i)
-                align_init(&(*aligns)[i]);
+            for (size_t i = 0; i < aligns.size(); ++i)
+                align_init(&aligns[i]);
 
         } else {
             BS::thread_pool pool(n);
-            pool.parallelize_loop(0, (*aligns).size(),
-                                  [aligns](const int a, const int b) {
+            pool.parallelize_loop(0, aligns.size(),
+                                  [&aligns](const int a, const int b) {
                                       for (int i = a; i < b; ++i)
-                                          align_init(&(*aligns)[i]);
+                                          align_init(&aligns[i]);
                                   })
                     .wait();
         }
+    }
+
+
+    void addToCovArray(std::vector<int> &arr, Align *align, int begin, int l_arr) {
+        size_t n_blocks = align->block_starts.size();
+        for (size_t idx=0; idx < n_blocks; ++idx) {
+            uint32_t s = align->block_starts[idx] - begin;
+            uint32_t e = align->block_ends[idx] - begin;
+            if ( s < l_arr || e < l_arr ) {
+                arr[s] += 1;  // s is uint32_t so can be < 0
+                arr[(e > l_arr) ? l_arr : e] -= 1;
+            }
+        }
+    }
+
+    int findY(int bamIdx, ReadCollection &rc, int vScroll, int linkType, Themes::IniOptions &opts, Utils::Region *region, linked_t &linked, bool joinLeft) {
+
+        if (rc.readQueue.empty()) {
+            return 0;
+        }
+        Align *q_ptr = &rc.readQueue.front();
+
+        // first find reads that should be linked together using qname
+        if (linkType > 0) {
+
+            for (size_t i=0; i < rc.readQueue.size(); ++i) {
+                const char *qname = bam_get_qname(q_ptr->delegate);
+                ++q_ptr;
+            }
+
+
+        }
+
+
+
+
+        return 1;
     }
 
 }

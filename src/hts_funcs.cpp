@@ -10,6 +10,8 @@
 #include "htslib/hts.h"
 #include "htslib/sam.h"
 
+#include "../inc/BS_thread_pool.h"
+
 #include "plot_manager.h"
 #include "segments.h"
 #include "themes.h"
@@ -24,16 +26,11 @@ namespace HTS {
     }
 
     void collectReadsAndCoverage(Segs::ReadCollection& col, htsFile* b, sam_hdr_t *hdr_ptr,
-                                 hts_idx_t *index,
-                                 Themes::IniOptions &opts, Utils::Region* region) {
+                                 hts_idx_t *index, Themes::IniOptions &opts, Utils::Region* region, bool coverage) {
 
         bam1_t *src;
-//        sam_hdr_t *hdr_ptr = sam_hdr_read(b);
         hts_itr_t *iter_q;
-//        hts_idx_t *index;
 
-        const char* chrom = region->chrom.c_str();
-        std::cout << chrom << std::endl;
         auto start = std::chrono::high_resolution_clock::now();
 
         int tid = sam_hdr_name2tid(hdr_ptr, "chr1");
@@ -41,28 +38,31 @@ namespace HTS {
 
         std::vector<Segs::Align>& readQueue = col.readQueue;
 
-//        Segs::Align a;
-//        a.delegate = bam_init1();
-//        col.readQueue.push_back(std::move(a));  // is move needed?
-
         readQueue.push_back(make_align(bam_init1()));
 
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
-
         while (sam_itr_next(b, iter_q, readQueue.back().delegate) >= 0) {
-
             src = readQueue.back().delegate;
             if (src->core.flag & 4 || src->core.n_cigar == 0) {
                 continue;
             }
             readQueue.push_back(make_align(bam_init1()));
-
         }
 
         src = readQueue.back().delegate;
         if (src->core.flag & 4 || src->core.n_cigar == 0) {
             readQueue.pop_back();
         }
+
+        Segs::init_parallel(readQueue, opts.threads);
+
+        if (coverage) {
+            for (size_t i=0; i < readQueue.size(); ++i) {
+                Segs::addToCovArray(col.covArr, &readQueue[i], region->start, l_arr);
+            }
+
+        }
+
 
         auto finish = std::chrono::high_resolution_clock::now();
         auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
@@ -72,7 +72,6 @@ namespace HTS {
         std::cout << col.covArr.empty() << " " << col.covArr.size() << std::endl;
         std::cout << col.readQueue.empty() << " " << col.readQueue.size() << std::endl;
 
-        std::cout << "hi\n";
     }
 
 

@@ -83,7 +83,7 @@ namespace Manager {
 
         float totalCovY, covY, totalTabixY, tabixY, trackY;
 
-        std::vector< robin_hood::unordered_map< std::string, std::vector<int> >> linked;
+        std::vector< robin_hood::unordered_map< const char *, std::vector<int> >> linked;
         std::vector<Segs::ReadCollection> all_segs;
 
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext);

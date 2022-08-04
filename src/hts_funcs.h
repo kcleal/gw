@@ -18,8 +18,6 @@
 namespace HTS {
 
     void collectReadsAndCoverage(Segs::ReadCollection& col, htsFile* bam, sam_hdr_t *hdr_ptr,
-                                 hts_idx_t *index,
-                                 Themes::IniOptions &opts, Utils::Region* region);
-
+                                 hts_idx_t *index, Themes::IniOptions &opts, Utils::Region* region, bool coverage);
 
 }
