@@ -53,6 +53,13 @@ namespace Manager {
 
     };
 
+//    typedef std::vector< robin_hood::unordered_map< const char *, std::vector<int> >> linked_t;
+//    typedef std::vector< ankerl::unordered_dense::map< const char *, std::vector<int> >> linked_t;
+//    typedef robin_hood::unordered_map< const char *, std::vector<int> > map_t;
+
+    typedef ankerl::unordered_dense::map< const char *, std::vector<int>> map_t;
+    typedef std::vector< map_t > linked_t;
+
     /*
      * Deals with managing genomic data
      */
@@ -64,6 +71,8 @@ namespace Manager {
         bool init;
         bool redraw;
         bool processed;
+
+        int vScroll;
 
         std::string reference;
 
@@ -83,7 +92,7 @@ namespace Manager {
 
         float totalCovY, covY, totalTabixY, tabixY, trackY;
 
-        std::vector< robin_hood::unordered_map< const char *, std::vector<int> >> linked;
+        linked_t linked;
         std::vector<Segs::ReadCollection> all_segs;
 
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext);

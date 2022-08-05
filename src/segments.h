@@ -9,6 +9,7 @@
 //#inc <thread>
 #include "../inc/BS_thread_pool.h"
 #include "../inc/robin_hood.h"
+#include "../inc/unordered_dense.h"
 #include "htslib/sam.h"
 
 #include "plot_manager.h"
@@ -28,7 +29,11 @@
 
 namespace Segs {
 
-    typedef std::vector< robin_hood::unordered_map< const char *, std::vector<int> >> linked_t;
+//    typedef std::vector< robin_hood::unordered_map< const char *, std::vector<int> >> linked_t;
+
+    typedef ankerl::unordered_dense::map< const char *, std::vector<int>> map_t;
+//    typedef robin_hood::unordered_map< const char *, std::vector<int> > map_t;
+    typedef std::vector< map_t > linked_t;
 
     enum Pattern {
         NORMAL,
@@ -91,7 +96,8 @@ namespace Segs {
         ReadCollection() {};
         ~ReadCollection() = default;
 
-        std::vector<int> covArr, levelsStart, levelsEnd;
+        std::vector<int> covArr;
+        std::vector<uint32_t> levelsStart, levelsEnd;
         std::vector<Align> readQueue;
     };
 

@@ -103,6 +103,8 @@ namespace Manager {
         }
 
         this->fai = fai_load(reference.c_str());
+
+        vScroll = 0;
     }
 
     GwPlot::~GwPlot() {
@@ -177,9 +179,14 @@ namespace Manager {
     void GwPlot::process_sam(SkCanvas* canvas) {
         if (!processed) {
 
-            std::cout << "hurr\n";
+            if (opts.link_op != 0) {
+                linked.clear();
+                linked.resize(bams.size() * regions.size());
+            }
+
             int maxy;
             int idx = 0;
+
             for (int i=0; i<bams.size(); ++i) {
 
                 htsFile* b = bams[i];
@@ -196,7 +203,7 @@ namespace Manager {
 
                     HTS::collectReadsAndCoverage(rc, b, hdr_ptr, index,opts, reg, opts.coverage);
 
-                    Segs::findY(idx, rc, 0, 0, opts, reg, linked, false);
+                    Segs::findY(idx, rc, vScroll, opts.link_op, opts, reg, linked, false);
 
                     idx += 1;
                 }

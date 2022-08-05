@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
     Themes::IniOptions iopts;
     static const std::vector<std::string> img_fmt = { "png", "pdf" };
     static const std::vector<std::string> img_themes = { "igv", "dark" };
-    static const std::vector<std::string> links = { "None", "SV", "all" };
+    static const std::vector<std::string> links = { "none", "sv", "all" };
 
     argparse::ArgumentParser program("gw", "0.1");
     program.add_argument("genome")
@@ -204,6 +204,21 @@ int main(int argc, char *argv[]) {
             iopts.tracks[genome].push_back(bed_regions[i]);
         }
     }
+
+    if (program.is_used("--link")) {
+        auto lnk = program.get<std::string>("--link");
+        if (lnk == "none") {
+            iopts.link_op = 0;
+        } else if (lnk == "sv") {
+            iopts.link_op = 1;
+        } else if (lnk == "all") {
+            iopts.link_op = 2;
+        } else {
+            std::cerr << "Link type not known [none/sv/all]\n";
+            std::terminate();
+        }
+    }
+
 
     if (program.is_used("-t")) {
         iopts.threads = program.get<int>("t");

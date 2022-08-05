@@ -1,4 +1,5 @@
 
+#include <chrono>
 #include <algorithm>
 #include <vector>
 
@@ -277,17 +278,121 @@ namespace Segs {
             return 0;
         }
         Align *q_ptr = &rc.readQueue.front();
+        const char *qname;
+        size_t i, j;
 
         // first find reads that should be linked together using qname
-        if (linkType > 0) {
 
-            for (size_t i=0; i < rc.readQueue.size(); ++i) {
-                const char *qname = bam_get_qname(q_ptr->delegate);
+//        auto start = std::chrono::high_resolution_clock::now();
+
+        if (linkType > 0) {
+            // find the start and end coverage locations of aligns with same name
+            for (i=0; i < rc.readQueue.size(); ++i) {
+                qname = bam_get_qname(q_ptr->delegate);
+                if (linkType == 1) {
+                    uint16_t flag = q_ptr->delegate->core.flag;
+                    if (~flag & 2 || q_ptr->has_SA) {
+                        linked[bamIdx][qname].push_back(i);
+                    }
+                } else {
+                    linked[bamIdx][qname].push_back(i);
+                }
                 ++q_ptr;
             }
 
-
+            // set all aligns with same name to have same start and end coverage locations
+            for (i=0; i < linked.size(); ++i) {
+                map_t map = linked[i];
+                for (auto const& keyVal : map) {
+                    const std::vector<int> &ind = keyVal.second;
+                    size_t size = ind.size();
+                    if (size < 2) {
+                        break;
+                    }
+                    uint32_t cs = q_ptr[ind.front()].cov_start;
+                    uint32_t ce = q_ptr[ind.back()].cov_end;
+                    for (j=0; j < size; ++j) {
+                        if (j > 0) {
+                            q_ptr[j].cov_start = cs;
+                        }
+                        if (j < size - 2) {
+                            q_ptr[j].cov_start = ce;
+                        }
+                    }
+                }
+            }
         }
+
+        ankerl::unordered_dense::map< const char*, int > linkedSeen;  // Mapping of qname to y value
+
+        std::vector<uint32_t> &ls = rc.levelsStart;
+        std::vector<uint32_t> &le = rc.levelsEnd;
+
+        if (ls.empty()) {
+            ls.resize(opts.ylim + vScroll, 1215752191);
+            le.resize(opts.ylim + vScroll, -1215752191);
+        }
+
+        int qLen = (int)rc.readQueue.size();  // assume no overflow
+        int stopCondition, move, si;
+        int k = -1;
+
+        size_t memLen = ls.size();
+
+        if (!joinLeft) {
+            si = 0;
+            stopCondition = qLen;
+            move = 1;
+        } else {
+            si = qLen - 1;
+            stopCondition = -1;
+            move = -1;
+        }
+        auto start = std::chrono::high_resolution_clock::now();
+        q_ptr = &rc.readQueue.front();
+        while (si != stopCondition) {
+            si += move;
+            if (linkType > 0) {
+                qname = bam_get_qname(q_ptr->delegate);
+                if (linkedSeen.contains(qname)) {
+                    q_ptr->y = linkedSeen[qname];
+                    continue;
+                }
+            }
+
+            if (!joinLeft) {
+
+                for (i=0; i < memLen; ++i) {
+                    if (q_ptr->cov_start > le[i]) {
+                        if (i > k) {// input is sorted so this is always true: s.cov_start < ol_start[i]:
+                            ls[i] = q_ptr->cov_start;
+                            k = (int)i;
+                        }
+                        if (i >= vScroll) {
+                            q_ptr->y = (int)(i - vScroll);
+                        }
+                        if (linkType > 0 && linked[bamIdx].contains(qname)) {
+                            linkedSeen[qname] = q_ptr->y;
+                        }
+                        le[i] = q_ptr->cov_end;
+                    }
+                }
+                if (i == memLen && linkType > 0 && linked[bamIdx].contains(qname)) {
+                    linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
+                }
+//                std::cout << i << " " << memLen << std::endl;
+            }
+
+//            break;
+        }
+
+
+
+
+        auto finish = std::chrono::high_resolution_clock::now();
+        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
+
+        std::cout << "Elapsed Time link: " << m.count() << " m seconds" << std::endl;
 
 
 

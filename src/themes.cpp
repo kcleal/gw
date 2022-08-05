@@ -252,14 +252,14 @@ namespace Themes {
         fmt = myIni["general"]["fmt"];
 
         std::string lnk = myIni["general"]["link"];
-        if (lnk == "None") {
+        if (lnk == "none") {
             link_op = 0;
-        } else if (lnk == "SV" || lnk == "sv" || lnk == "Sv") {
+        } else if (lnk == "sv") {
             link_op = 1;
-        } else if (lnk == "all" || lnk == "All") {
+        } else if (lnk == "all") {
             link_op = 2;
         } else {
-            std::cerr << "Link type not known [None/SV/A/all]\n";
+            std::cerr << "Link type not known [none/sv/all] " << lnk << std::endl;
             std::terminate();
         }
         link = myIni["general"]["link"];

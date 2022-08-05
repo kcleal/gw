@@ -31,7 +31,7 @@ namespace HTS {
         bam1_t *src;
         hts_itr_t *iter_q;
 
-        auto start = std::chrono::high_resolution_clock::now();
+//        auto start = std::chrono::high_resolution_clock::now();
 
         int tid = sam_hdr_name2tid(hdr_ptr, "chr1");
         int l_arr = (!opts.coverage) ? 0 : col.covArr.size() - 1;
@@ -63,14 +63,13 @@ namespace HTS {
 
         }
 
-
-        auto finish = std::chrono::high_resolution_clock::now();
-        auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
-
-        std::cout << "Elapsed Time: " << milliseconds.count() << " milli seconds" << std::endl;
-
-        std::cout << col.covArr.empty() << " " << col.covArr.size() << std::endl;
-        std::cout << col.readQueue.empty() << " " << col.readQueue.size() << std::endl;
+//        auto finish = std::chrono::high_resolution_clock::now();
+//        auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
+//
+//        std::cout << "Elapsed Time: " << milliseconds.count() << " milli seconds" << std::endl;
+//
+//        std::cout << col.covArr.empty() << " " << col.covArr.size() << std::endl;
+//        std::cout << col.readQueue.empty() << " " << col.readQueue.size() << std::endl;
 
     }
 
