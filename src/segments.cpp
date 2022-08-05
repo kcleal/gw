@@ -361,7 +361,6 @@ namespace Segs {
             }
 
             if (!joinLeft) {
-
                 for (i=0; i < memLen; ++i) {
                     if (q_ptr->cov_start > le[i]) {
                         if (i > k) {// input is sorted so this is always true: s.cov_start < ol_start[i]:
