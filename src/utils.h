@@ -11,11 +11,12 @@ namespace Utils {
     // https://stackoverflow.com/questions/1528298/get-path-of-executable
     std::string getExecutableDir();
 
-    bool is_file_exist( std::string FileName );
+    bool is_file_exist(std::string FileName);
 
     struct Region {
         std::string chrom;
         int start, end;
+
         Region() {
             chrom = "";
             start = -1;
@@ -30,5 +31,9 @@ namespace Utils {
     };
 
     Dims parseDimensions(std::string &s);
-}
 
+    int intervalOverlap(int start1, int end1, int start2, int end2);
+
+    bool isOverlapping(int start1, int end1, int start2, int end2);
+
+}

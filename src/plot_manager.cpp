@@ -177,40 +177,42 @@ namespace Manager {
     }
 
     void GwPlot::process_sam(SkCanvas* canvas) {
-        if (!processed) {
+        if (!processed) {  // collect reads, calc coverage and find y positions on plot
 
             if (opts.link_op != 0) {
                 linked.clear();
                 linked.resize(bams.size() * regions.size());
             }
 
-            int maxy;
             int idx = 0;
 
-            for (int i=0; i<bams.size(); ++i) {
+            collections.clear();
+            collections.resize(bams.size() * regions.size());
 
+            // with some work this could be run this in parallel for each region
+            for (int i=0; i<bams.size(); ++i) {
                 htsFile* b = bams[i];
                 sam_hdr_t *hdr_ptr = headers[i];
                 hts_idx_t *index = indexes[i];
 
                 for (int j=0; j<regions.size(); ++j) {
-
                     Utils::Region *reg = &regions[j];
-                    Segs::ReadCollection rc = Segs::ReadCollection();
                     if (opts.coverage) {
-                        rc.covArr.resize(reg->end - reg->start, 0);
+                        collections[idx].covArr.resize(reg->end - reg->start, 0);
                     }
+                    HTS::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index,opts, reg, opts.coverage);
 
-                    HTS::collectReadsAndCoverage(rc, b, hdr_ptr, index,opts, reg, opts.coverage);
-
-                    Segs::findY(idx, rc, vScroll, opts.link_op, opts, reg, linked, false);
+                    int maxY = Segs::findY(idx, collections[idx], vScroll, opts.link_op, opts, reg, linked, false);
+                    if (maxY > samMaxY) {
+                        samMaxY = maxY;
+                    }
 
                     idx += 1;
                 }
             }
 
-
-
+        } else {
+            Segs::dropOutOfScope(regions, collections, bams.size());
         }
 
     }

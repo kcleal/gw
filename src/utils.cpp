@@ -150,4 +150,12 @@ namespace Utils {
         }
         return d;
     }
+
+    int intervalOverlap(int start1, int end1, int start2, int end2) {
+        return std::max(0, std::min(end1, end2) - std::max(start1, start2));
+    }
+
+    bool isOverlapping(int start1, int end1, int start2, int end2) {
+        return start1 <= end2 && start2 <= end1;
+    }
 }

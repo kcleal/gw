@@ -73,6 +73,7 @@ namespace Manager {
         bool processed;
 
         int vScroll;
+        int samMaxY;
 
         std::string reference;
 
@@ -81,6 +82,7 @@ namespace Manager {
         std::vector<sam_hdr_t* > headers;
         std::vector<hts_idx_t* > indexes;
         std::vector<Utils::Region> regions;
+        std::vector<Segs::ReadCollection> collections;
 
         Themes::IniOptions opts;
         faidx_t* fai;

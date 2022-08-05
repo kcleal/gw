@@ -279,15 +279,15 @@ namespace Segs {
         }
         Align *q_ptr = &rc.readQueue.front();
         const char *qname;
-        size_t i, j;
+        int i, j;
 
         // first find reads that should be linked together using qname
 
-//        auto start = std::chrono::high_resolution_clock::now();
+        auto start = std::chrono::high_resolution_clock::now();
 
         if (linkType > 0) {
             // find the start and end coverage locations of aligns with same name
-            for (i=0; i < rc.readQueue.size(); ++i) {
+            for (i=0; i < (int)rc.readQueue.size(); ++i) {
                 qname = bam_get_qname(q_ptr->delegate);
                 if (linkType == 1) {
                     uint16_t flag = q_ptr->delegate->core.flag;
@@ -301,11 +301,11 @@ namespace Segs {
             }
 
             // set all aligns with same name to have same start and end coverage locations
-            for (i=0; i < linked.size(); ++i) {
+            for (i=0; i < (int)linked.size(); ++i) {
                 map_t map = linked[i];
                 for (auto const& keyVal : map) {
                     const std::vector<int> &ind = keyVal.second;
-                    size_t size = ind.size();
+                    int size = (int)ind.size();
                     if (size < 2) {
                         break;
                     }
@@ -337,7 +337,7 @@ namespace Segs {
         int stopCondition, move, si;
         int k = -1;
 
-        size_t memLen = ls.size();
+        int memLen = (int)ls.size();
 
         if (!joinLeft) {
             si = 0;
@@ -348,7 +348,7 @@ namespace Segs {
             stopCondition = -1;
             move = -1;
         }
-        auto start = std::chrono::high_resolution_clock::now();
+
         q_ptr = &rc.readQueue.front();
         while (si != stopCondition) {
             si += move;
@@ -368,35 +368,104 @@ namespace Segs {
                             k = (int)i;
                         }
                         if (i >= vScroll) {
-                            q_ptr->y = (int)(i - vScroll);
+                            q_ptr->y = i - vScroll;
                         }
                         if (linkType > 0 && linked[bamIdx].contains(qname)) {
                             linkedSeen[qname] = q_ptr->y;
                         }
                         le[i] = q_ptr->cov_end;
+                        break;
                     }
                 }
                 if (i == memLen && linkType > 0 && linked[bamIdx].contains(qname)) {
                     linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
                 }
-//                std::cout << i << " " << memLen << std::endl;
-            }
 
-//            break;
+            } else {
+                for (i=0; i < memLen; ++i) {
+                    if (q_ptr->cov_end < ls[i]) {
+                        if (q_ptr->cov_end > le[i]) {
+                            le[i] = q_ptr->cov_end;
+                        }
+                        if (i >vScroll) {
+                            q_ptr->y = i - vScroll;
+                        }
+                        if (linkType > 0 && linked[bamIdx].contains(qname)) {
+                            linkedSeen[qname] = q_ptr->y;
+                        }
+                        ls[i] = q_ptr->cov_start;
+                        break;
+                    }
+                }
+                if (i == memLen && linkType > 0 && linked[bamIdx].contains(qname)) {
+                    linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
+                }
+            }
         }
 
-
-
+        int samMaxY;
+        if (!opts.tlen_yscale) {
+            samMaxY = memLen - vScroll;
+        } else {
+            int regionSize = region->end - region->start;
+            samMaxY = memLen;
+            q_ptr = &rc.readQueue.front();
+            for (i=0; i < (int)rc.readQueue.size(); ++i) {
+                int tlen = (int)std::abs(q_ptr->delegate->core.isize);
+                if (tlen < regionSize) {
+                    q_ptr->y = tlen;
+                    if (tlen > samMaxY) {
+                        samMaxY = tlen;
+                    }
+                } else {
+                    q_ptr->y = regionSize;
+                    samMaxY = regionSize;
+                }
+            }
+        }
 
         auto finish = std::chrono::high_resolution_clock::now();
         auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
 
         std::cout << "Elapsed Time link: " << m.count() << " m seconds" << std::endl;
 
-
-
-
-        return 1;
+        return samMaxY;
     }
+
+    void dropOutOfScope(std::vector< Utils::Region > &regions, std::vector< Segs::ReadCollection >& rcs, size_t nBams) {
+
+        int idx = 0;
+        for (size_t i=0; i < nBams; ++i) {
+
+            for (size_t j=0; j < regions.size(); ++j) {
+
+//                Utils::Region *reg = regions[j];
+                int begin = regions[j].start;
+                int region_end = regions[j].end;
+
+                uint32_t s = regions[i].start;
+                uint32_t e = regions[i].end;
+
+                Align *q_ptr_b = & rcs[idx].readQueue.back();
+                Align *q_ptr_f = & rcs[idx].readQueue.front();
+
+                while (q_ptr_b != q_ptr_f) {
+
+                    if (Utils::isOverlapping(begin, region_end, q_ptr_b->cov_start, q_ptr_b->cov_end)) {
+                        break;
+                    } else {
+
+                    }
+
+                    --q_ptr_b;
+                }
+
+
+                idx += 1;
+
+
+            }
+        }
+    };
 
 }

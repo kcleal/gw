@@ -25,19 +25,16 @@ namespace HTS {
         return a;
     }
 
-    void collectReadsAndCoverage(Segs::ReadCollection& col, htsFile* b, sam_hdr_t *hdr_ptr,
-                                 hts_idx_t *index, Themes::IniOptions &opts, Utils::Region* region, bool coverage) {
+    void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
+                                 hts_idx_t *index, Themes::IniOptions &opts, Utils::Region *region, bool coverage) {
 
         bam1_t *src;
         hts_itr_t *iter_q;
-
-//        auto start = std::chrono::high_resolution_clock::now();
 
         int tid = sam_hdr_name2tid(hdr_ptr, "chr1");
         int l_arr = (!opts.coverage) ? 0 : col.covArr.size() - 1;
 
         std::vector<Segs::Align>& readQueue = col.readQueue;
-
         readQueue.push_back(make_align(bam_init1()));
 
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
@@ -60,18 +57,6 @@ namespace HTS {
             for (size_t i=0; i < readQueue.size(); ++i) {
                 Segs::addToCovArray(col.covArr, &readQueue[i], region->start, l_arr);
             }
-
         }
-
-//        auto finish = std::chrono::high_resolution_clock::now();
-//        auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
-//
-//        std::cout << "Elapsed Time: " << milliseconds.count() << " milli seconds" << std::endl;
-//
-//        std::cout << col.covArr.empty() << " " << col.covArr.size() << std::endl;
-//        std::cout << col.readQueue.empty() << " " << col.readQueue.size() << std::endl;
-
     }
-
-
 }
