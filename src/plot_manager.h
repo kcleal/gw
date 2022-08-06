@@ -69,11 +69,9 @@ namespace Manager {
         ~GwPlot();
 
         bool init;
-        bool redraw;
-        bool processed;
 
         int vScroll;
-        int samMaxY;
+
 
         std::string reference;
 
@@ -92,14 +90,21 @@ namespace Manager {
 
     private:
 
+        bool redraw;
+        bool processed;
+
         float totalCovY, covY, totalTabixY, tabixY, trackY;
+        int fb_width, fb_height;
+        int samMaxY;
+
+        float xScaling, yScaling;
 
         linked_t linked;
         std::vector<Segs::ReadCollection> all_segs;
 
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext);
 
-        void setYspace();
+        void setScaling();
 
         void process_sam(SkCanvas* canvas);
     };

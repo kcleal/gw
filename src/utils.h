@@ -34,6 +34,6 @@ namespace Utils {
 
     int intervalOverlap(int start1, int end1, int start2, int end2);
 
-    bool isOverlapping(int start1, int end1, int start2, int end2);
+    bool isOverlapping(uint32_t start1, uint32_t end1, uint32_t start2, uint32_t end2);
 
 }

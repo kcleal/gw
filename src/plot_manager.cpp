@@ -104,7 +104,10 @@ namespace Manager {
 
         this->fai = fai_load(reference.c_str());
 
+        samMaxY = 0;
         vScroll = 0;
+        xScaling = 0;
+        yScaling = 0;
     }
 
     GwPlot::~GwPlot() {
@@ -137,27 +140,35 @@ namespace Manager {
         return 1;
     }
 
-    void GwPlot::setYspace() {
+    void GwPlot::setScaling() {
+        if (samMaxY == 0) {
+            return;
+        }
+        glfwGetFramebufferSize(window.window, &fb_width, &fb_height);
+        auto fbh = (float) fb_height;
+        auto fbw = (float) fb_width;
         if (bams.empty()) {
             covY = 0; totalCovY = 0; totalTabixY = 0; tabixY = 0;
             return;
         }
         if (opts.coverage) {
-            totalCovY = opts.canvas_height * 0.1;
-            covY = totalCovY / bams.size();
+            totalCovY = fbh * 0.1;
+            covY = totalCovY / (float)bams.size();
         } else {
             totalCovY = 0; covY = 0;
         }
         totalTabixY = 0; tabixY = 0;
         // todo add if bed track here
-        trackY = (opts.canvas_height - totalCovY - totalTabixY) / bams.size();
+        trackY = (fbh - totalCovY - totalTabixY) / (float)bams.size();
+
+        yScaling = (fbh - totalCovY - totalTabixY) / (float)samMaxY; // todo here
     }
 
     void GwPlot::drawScreen(SkCanvas* canvas, GrDirectContext* sContext) {
 
         glfwGetFramebufferSize(window.window, &opts.canvas_width, &opts.canvas_height);
 
-        setYspace();
+        setScaling();
 
         canvas->drawPaint(opts.theme.bgPaint);
 

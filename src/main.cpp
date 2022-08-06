@@ -219,22 +219,11 @@ int main(int argc, char *argv[]) {
         }
     }
 
-
     if (program.is_used("-t")) {
         iopts.threads = program.get<int>("t");
     }
 
-    for (size_t i=0; i < bam_paths.size(); i++){
-        std::cout << bam_paths[i] << std::endl;
-    }
-
-    for (size_t i=0; i < image_glob.size(); i++){
-        std::cout << image_glob[i] << std::endl;
-    }
-
-
     Manager::GwPlot plotter = Manager::GwPlot(genome, bam_paths, iopts, regions);
-
 
     if (!program.get<bool>("-n")) {
 

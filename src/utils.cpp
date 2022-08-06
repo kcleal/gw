@@ -155,7 +155,7 @@ namespace Utils {
         return std::max(0, std::min(end1, end2) - std::max(start1, start2));
     }
 
-    bool isOverlapping(int start1, int end1, int start2, int end2) {
+    bool isOverlapping(uint32_t start1, uint32_t end1, uint32_t start2, uint32_t end2) {
         return start1 <= end2 && start2 <= end1;
     }
 }

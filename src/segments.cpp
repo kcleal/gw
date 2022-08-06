@@ -330,7 +330,7 @@ namespace Segs {
 
         if (ls.empty()) {
             ls.resize(opts.ylim + vScroll, 1215752191);
-            le.resize(opts.ylim + vScroll, -1215752191);
+            le.resize(opts.ylim + vScroll, 0);
         }
 
         int qLen = (int)rc.readQueue.size();  // assume no overflow
@@ -439,30 +439,44 @@ namespace Segs {
 
             for (size_t j=0; j < regions.size(); ++j) {
 
-//                Utils::Region *reg = regions[j];
-                int begin = regions[j].start;
-                int region_end = regions[j].end;
-
                 uint32_t s = regions[i].start;
                 uint32_t e = regions[i].end;
 
-                Align *q_ptr_b = & rcs[idx].readQueue.back();
-                Align *q_ptr_f = & rcs[idx].readQueue.front();
+                std::vector<Align> &q = rcs[idx].readQueue;
+                Align *q_ptr_b = &q.back();
+                Align *q_ptr_f = &q.front();
+
+                std::vector<uint32_t> &ls = rcs[idx].levelsStart;
+                std::vector<uint32_t> &le = rcs[idx].levelsEnd;
 
                 while (q_ptr_b != q_ptr_f) {
-
-                    if (Utils::isOverlapping(begin, region_end, q_ptr_b->cov_start, q_ptr_b->cov_end)) {
+                    if (Utils::isOverlapping(s, e, q_ptr_b->cov_start, q_ptr_b->cov_end)) {
                         break;
                     } else {
-
+                        le[q_ptr_b->y] = q_ptr_b->cov_start;
+                        q.pop_back();
                     }
-
                     --q_ptr_b;
                 }
 
+                q_ptr_b = &q.back();
+                int start_idx = 0;
+                while (q_ptr_f != q_ptr_b) {
+                    if (Utils::isOverlapping(s, e, q_ptr_f->cov_start, q_ptr_f->cov_end)) {
+                        break;
+                    } else {
+                        ls[q_ptr_f->y] = q_ptr_f->cov_end;
+                        start_idx += 1;
+
+                    }
+                    ++q_ptr_f;
+                }
+
+                if (start_idx > 0) {
+                    q.erase(q.begin(), q.begin() + start_idx);
+                }
 
                 idx += 1;
-
 
             }
         }
