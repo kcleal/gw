@@ -17,19 +17,8 @@
 #include "utils.h"
 
 
-//const int NORMAL = 0;
-//const int DEL = 200;
-//const int INV_F = 400;
-//const int INV_R = 600;
-//const int DUP = 800;
-//const int TRA = 1000;
-//const int SC = 2000;
-//const int INS_f = 5000;
-//const int INS_s = 6000;
 
 namespace Segs {
-
-//    typedef std::vector< robin_hood::unordered_map< const char *, std::vector<int> >> linked_t;
 
     typedef ankerl::unordered_dense::map< const char *, std::vector<int>> map_t;
 //    typedef robin_hood::unordered_map< const char *, std::vector<int> > map_t;
@@ -93,12 +82,14 @@ namespace Segs {
 
     class ReadCollection {
     public:
-        ReadCollection() {};
+       ReadCollection() {};
         ~ReadCollection() = default;
-
+        int bamIdx, regionIdx;
+        Utils::Region region;
         std::vector<int> covArr;
         std::vector<uint32_t> levelsStart, levelsEnd;
         std::vector<Align> readQueue;
+        float xScaling, xOffset, yOffset;
     };
 
 
@@ -106,7 +97,7 @@ namespace Segs {
 
     void init_parallel(std::vector<Align> &aligns, int n);
 
-    void addToCovArray(std::vector<int> &arr, Align *align, int begin, int l_arr);
+    void addToCovArray(std::vector<int> &arr, Align *align, int begin, int end, int l_arr);
 
     int findY(int bamIdx, ReadCollection &rc, int vScroll, int linkType, Themes::IniOptions &opts, Utils::Region *region, linked_t &linked, bool joinLeft);
 

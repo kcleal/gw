@@ -47,7 +47,6 @@ namespace Segs {
         size_t md_l = strlen(md_tag);
         std::deque<QueueItem> ins_q;
         MdBlock md_block;
-
         get_md_block(md_tag, 0, md_l, &md_block);
         if (md_block.md_idx == md_l) {
             return;
@@ -104,7 +103,6 @@ namespace Segs {
                     s_idx += ins_q[0].l;
                     ins_q.pop_front();
                 }
-
                 s_idx += md_block.matches;
                 r_pos += md_block.matches;
                 result.push_back({s_idx, r_pos});
@@ -260,15 +258,30 @@ namespace Segs {
     }
 
 
-    void addToCovArray(std::vector<int> &arr, Align *align, int begin, int l_arr) {
+    void addToCovArray(std::vector<int> &arr, Align *align, int begin, int end, int l_arr) {
         size_t n_blocks = align->block_starts.size();
         for (size_t idx=0; idx < n_blocks; ++idx) {
-            uint32_t s = align->block_starts[idx] - begin;
-            uint32_t e = align->block_ends[idx] - begin;
-            if ( s < l_arr || e < l_arr ) {
-                arr[s] += 1;  // s is uint32_t so can be < 0
-                arr[(e > l_arr) ? l_arr : e] -= 1;
-            }
+
+            uint32_t block_s = align->block_starts[idx];
+            if (block_s >= end) { break; }
+
+            uint32_t block_e = align->block_ends[idx];
+            if (block_e < begin) { continue; }
+
+            uint32_t s = (block_s >= begin) ? block_s - begin : 0;
+            uint32_t e = (block_e < end) ? block_e - begin : l_arr;
+
+            arr[s] += 1;  // s is uint32_t so can be < 0
+            arr[e] -= 1;
+
+//            std::cout << align->block_starts[idx] << " " << begin << std::endl;
+//
+//            uint32_t s = align->block_starts[idx] - begin;
+//            uint32_t e = align->block_ends[idx] - begin;
+//            if ( s < l_arr || e < l_arr ) {
+//                arr[s] += 1;  // s is uint32_t so can be < 0
+//                arr[(e > l_arr) ? l_arr : e] -= 1;
+//            }
         }
     }
 
@@ -282,9 +295,7 @@ namespace Segs {
         int i, j;
 
         // first find reads that should be linked together using qname
-
-        auto start = std::chrono::high_resolution_clock::now();
-
+//        auto start = std::chrono::high_resolution_clock::now();
         if (linkType > 0) {
             // find the start and end coverage locations of aligns with same name
             for (i=0; i < (int)rc.readQueue.size(); ++i) {
@@ -348,14 +359,21 @@ namespace Segs {
             stopCondition = -1;
             move = -1;
         }
+//        std::cout << memLen << " " << qLen << std::endl;
 
-        q_ptr = &rc.readQueue.front();
+        if (si == 0) {
+            q_ptr = &rc.readQueue.front();
+        } else {
+            q_ptr = &rc.readQueue.back();
+        }
+
         while (si != stopCondition) {
             si += move;
             if (linkType > 0) {
                 qname = bam_get_qname(q_ptr->delegate);
                 if (linkedSeen.contains(qname)) {
                     q_ptr->y = linkedSeen[qname];
+                    q_ptr += move;
                     continue;
                 }
             }
@@ -380,6 +398,7 @@ namespace Segs {
                 if (i == memLen && linkType > 0 && linked[bamIdx].contains(qname)) {
                     linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
                 }
+                q_ptr += move;
 
             } else {
                 for (i=0; i < memLen; ++i) {
@@ -400,6 +419,7 @@ namespace Segs {
                 if (i == memLen && linkType > 0 && linked[bamIdx].contains(qname)) {
                     linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
                 }
+                q_ptr += move;
             }
         }
 
@@ -421,13 +441,13 @@ namespace Segs {
                     q_ptr->y = regionSize;
                     samMaxY = regionSize;
                 }
+                ++q_ptr;
             }
         }
 
-        auto finish = std::chrono::high_resolution_clock::now();
-        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
-
-        std::cout << "Elapsed Time link: " << m.count() << " m seconds" << std::endl;
+//        auto finish = std::chrono::high_resolution_clock::now();
+//        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
+//        std::cout << "Elapsed Time link: " << m.count() << " m seconds" << std::endl;
 
         return samMaxY;
     }

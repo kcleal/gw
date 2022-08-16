@@ -62,7 +62,7 @@ namespace Themes {
         // line widths
         float lwMateUnmapped, lwSplit, lwCoverage;
 
-        // line colours and Insertion pain
+        // line colours and Insertion painy
         SkPaint lcJoins, lcCoverage, insF, insS;
 
         // text colours
@@ -99,7 +99,7 @@ namespace Themes {
 
         BaseTheme theme;
         Utils::Dims dimensions, number;
-        std::string fmt, labels, link;
+        std::string theme_str, fmt, labels, link, dimensions_str, number_str;
         int canvas_width, canvas_height;
         int indel_length, ylim, split_view_size, threads, pad, link_op;
         bool no_show, coverage, log2_cov, tlen_yscale;
@@ -116,10 +116,27 @@ namespace Themes {
         int delete_labels;
         int enter_interactive_mode;
 
+        int soft_clip_threshold, small_indel_threshold, snp_threshold;
+
         robin_hood::unordered_map<std::string, std::string> references;
         robin_hood::unordered_map<std::string, std::vector<std::string>> tracks;
 
         void readIni(std::string path);
+    };
+
+    class Fonts {
+    public:
+        Fonts();
+        ~Fonts() = default;
+
+        float fontSize, fontHeight;
+        SkRect rect;
+        SkPath path;
+        sk_sp<SkTypeface> face;
+        SkFont fonty;
+        float textWidths[10];  // text size is scaled between 10 values to try and fill a read
+
+        void setFontSize(float yScaling);
     };
 
 }

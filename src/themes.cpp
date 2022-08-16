@@ -108,6 +108,9 @@ namespace Themes {
 
             fcIns.setARGB(255, 186, 85, 211);
 
+            lcJoins.setStyle(SkPaint::kStroke_Style);
+            lcJoins.setStrokeWidth(4);
+
             insF = fcIns;
             insF.setStyle(SkPaint::kFill_Style);
 
@@ -122,7 +125,7 @@ namespace Themes {
                 mate_fc0.push_back(p);
             }
             SkPaint p;
-            for (int i=0; i==1; ++i) {
+            for (int i=0; i==11; ++i) {
                 p = fcA;
                 p.setAlpha(base_qual_alpha[i]);
                 APaint.push_back(p);
@@ -188,10 +191,13 @@ namespace Themes {
 
     IniOptions::IniOptions() {
 
+        theme_str = "igv";
+        dimensions_str = "2048x1042";
         dimensions = {2048, 1024};
         fmt = "png";
         link = "None";
         link_op = 0;
+        number_str = "3x3";
         number = {3, 3};
         labels = "PASS,FAIL";
         canvas_width = 0;
@@ -201,6 +207,10 @@ namespace Themes {
         split_view_size = 10000;
         threads = 3;
         pad = 500;
+
+        soft_clip_threshold = 20000;
+        small_indel_threshold = 100000;
+        snp_threshold = 1000000;
 
         no_show = false;
         coverage = true;
@@ -242,13 +252,15 @@ namespace Themes {
         mINI::INIStructure myIni;
         file.read(myIni);
 
-        if (myIni["general"]["theme"] == "dark") {
+        theme_str = myIni["general"]["theme"];
+        if (theme_str == "dark") {
             theme = Themes::DarkTheme();
         } else {
             theme = Themes::IgvTheme();
         }
 
-        dimensions = Utils::parseDimensions(myIni["general"]["dimensions"]);
+        dimensions_str = myIni["general"]["dimensions"];
+        dimensions = Utils::parseDimensions(dimensions_str);
         fmt = myIni["general"]["fmt"];
 
         std::string lnk = myIni["general"]["link"];
@@ -273,6 +285,10 @@ namespace Themes {
         log2_cov = myIni["general"]["log2_cov"] == "true";
         scroll_speed = std::stof(myIni["general"]["scroll_speed"]);
 
+        soft_clip_threshold = std::stoi(myIni["view_thresholds"]["soft_clip"]);
+        small_indel_threshold = std::stoi(myIni["view_thresholds"]["small_indel"]);
+        snp_threshold = std::stoi(myIni["view_thresholds"]["snp"]);
+
         scroll_right = key_table[myIni["navigation"]["scroll_right"]];
         scroll_left = key_table[myIni["navigation"]["scroll_left"]];
         scroll_up = key_table[myIni["navigation"]["scroll_up"]];
@@ -283,7 +299,8 @@ namespace Themes {
         cycle_link_mode = key_table[myIni["interaction"]["cycle_link_mode"]];
         print_screen = key_table[myIni["interaction"]["print_screen"]];
 
-        number = Utils::parseDimensions(myIni["labelling"]["number"]);
+        number_str = myIni["labelling"]["number"];
+        number = Utils::parseDimensions(number_str);
         labels = myIni["labelling"]["labels"];
         delete_labels = key_table[myIni["labelling"]["delete_labels"]];
         enter_interactive_mode = key_table[myIni["labelling"]["enter_interactive_mode"]];
@@ -293,6 +310,51 @@ namespace Themes {
         }
         for (auto const& it2 : myIni["tracks"]) {
             tracks[it2.first].push_back(it2.second);
+        }
+    }
+
+
+    Fonts::Fonts (){
+        rect = SkRect::MakeEmpty();
+        path = SkPath();
+        char fn[20] = "arial";
+        face = SkTypeface::MakeFromName(fn, SkFontStyle::Normal());
+        SkScalar ts = 12;
+        fonty.setSize(ts);
+        fonty.setTypeface(face);
+    }
+
+    void Fonts::setFontSize(float maxHeight) {
+        const SkGlyphID glyphs[1] = {100};
+        SkRect bounds[1];
+        SkPaint paint1;
+        const SkPaint* pnt = &paint1;
+        SkScalar height;
+        int font_size = 30;
+        bool was_set = false;
+        while (font_size>4) {
+            fonty.setSize(font_size);
+            fonty.getBounds(glyphs, 1, bounds, pnt);
+            height = bounds[0].height();
+            if (height < maxHeight) {
+                was_set = true;
+                break;
+            }
+            --font_size;
+        }
+        if (!was_set) {
+            fontSize = 0;
+            fontHeight = 0;
+            for (int i = 0; i < 10; ++i) {
+                textWidths[i] = 0;
+            }
+        } else {
+            fontSize = font_size;
+            fontHeight = height;
+            SkScalar w = fonty.measureText("9", 1, SkTextEncoding::kUTF8);
+            for (int i = 0; i < 10; ++i) {
+                textWidths[i] = (float)w * (i + 1);
+            }
         }
     }
 

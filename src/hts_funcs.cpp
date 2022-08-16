@@ -31,7 +31,7 @@ namespace HTS {
         bam1_t *src;
         hts_itr_t *iter_q;
 
-        int tid = sam_hdr_name2tid(hdr_ptr, "chr1");
+        int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         int l_arr = (!opts.coverage) ? 0 : col.covArr.size() - 1;
 
         std::vector<Segs::Align>& readQueue = col.readQueue;
@@ -54,8 +54,9 @@ namespace HTS {
         Segs::init_parallel(readQueue, opts.threads);
 
         if (coverage) {
+            std::cout << region->start << std::endl;
             for (size_t i=0; i < readQueue.size(); ++i) {
-                Segs::addToCovArray(col.covArr, &readQueue[i], region->start, l_arr);
+                Segs::addToCovArray(col.covArr, &readQueue[i], region->start, region->end, l_arr);
             }
         }
     }

@@ -23,7 +23,7 @@ else
 	LINK = -L $(wildcard ../skia/out/Rel*)
 endif
 
-LIBS = -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts -lglfw3
+LIBS = -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts -lglfw3 -lfontconfig
 
 .PHONY: default all debug clean
 

@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include "drawing.h"
 #include "hts_funcs.h"
 #include "../inc/robin_hood.h"
 #include "utils.h"
@@ -69,9 +70,7 @@ namespace Manager {
         ~GwPlot();
 
         bool init;
-
         int vScroll;
-
 
         std::string reference;
 
@@ -83,30 +82,34 @@ namespace Manager {
         std::vector<Segs::ReadCollection> collections;
 
         Themes::IniOptions opts;
+        Themes::Fonts fonts;
         faidx_t* fai;
         SkiaWindow window;
 
-        int plotToScreen(SkCanvas* canvas, GrDirectContext* sContext);
+        int startUI(SkCanvas* canvas, GrDirectContext* sContext);
 
     private:
 
         bool redraw;
         bool processed;
+        bool calcScaling;
 
-        float totalCovY, covY, totalTabixY, tabixY, trackY;
+        float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight;
         int fb_width, fb_height;
         int samMaxY;
 
-        float xScaling, yScaling;
+        float yScaling;
 
         linked_t linked;
-        std::vector<Segs::ReadCollection> all_segs;
+
+        SkRect rect;
+        SkPath path;
 
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext);
 
         void setScaling();
 
-        void process_sam(SkCanvas* canvas);
+        void processBam(SkCanvas* canvas);
     };
 
 

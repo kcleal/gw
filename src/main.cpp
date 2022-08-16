@@ -62,17 +62,18 @@ int main(int argc, char *argv[]) {
             .default_value(false).implicit_value(true)
             .help("Dont display images to screen");
     program.add_argument("-d", "--dims")
-            .default_value(iopts.dimensions).append()
+            .default_value(iopts.dimensions_str).append()
             .help("Image dimensions (px)");
     program.add_argument("-u", "--number")
-            .default_value(iopts.number).append()
+            .default_value(iopts.number_str).append()
             .help("Images tiles to display (used with -v and -i)");
     program.add_argument("--theme")
-            .default_value(iopts.theme)
+            .default_value(iopts.theme_str)
             .action([](const std::string& value) {
                 if (std::find(img_themes.begin(), img_themes.end(), value) != img_themes.end()) { return value;}
-                return std::string{ "igv" };
-            }).help("Image colour theme");
+                std::cerr << "Error: --theme not in {igv, dark}" << std::endl;
+                abort();
+            }).help("Image theme igv|dark");
     program.add_argument("--fmt")
             .default_value(iopts.fmt)
             .action([](const std::string& value) {
@@ -205,6 +206,10 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    if (program.is_used("--indel-length")) {
+        iopts.indel_length = program.get<int>("--indel-length");
+    }
+
     if (program.is_used("--link")) {
         auto lnk = program.get<std::string>("--link");
         if (lnk == "none") {
@@ -256,7 +261,7 @@ int main(int argc, char *argv[]) {
             std::terminate();
         }
 
-        int res = plotter.plotToScreen(sSurface->getCanvas(), sContext);
+        int res = plotter.startUI(sSurface->getCanvas(), sContext);
 
         if (res < 0) {
             std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
