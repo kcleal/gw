@@ -51,23 +51,34 @@ namespace Drawing {
     char indelChars[10];
     constexpr float polygonHeight = 0.85;
 
-    void drawRectangle(SkCanvas* canvas, float y, float start, float width, float lw, SkPaint &edgeColor, float xScaling,
-                       float yScaling, float maxX, float xOffset, float yOffset, SkPaint &faceColor, SkRect &rect) {
+    inline void drawRectangle(SkCanvas* canvas, float y, float start, float width, float lw, const SkPaint &edgeColor, float xScaling,
+                       float yScaling, float maxX, float xOffset, float yOffset, const SkPaint &faceColor, SkRect &rect) {
         start *= xScaling;
         width *= xScaling;
-        if (start < 0) {
-            width += start;
-            start = 0;
-        }
-        if (start + width > maxX) {
-            width = maxX - start;
-        }
+//        if (start < 0) {
+//            width += start;
+//            start = 0;
+//        }
+//        if (start + width > maxX) {
+//            width = maxX - start;
+//        }
         rect.setXYWH(start + xOffset, y * yScaling + yOffset, width, polygonHeight * yScaling);
         canvas->drawRect(rect, faceColor);
     }
 
-    void drawLeftPointedRectangle(SkCanvas* canvas, float y0, float start, float width, float lw, SkPaint &edgeColor, float xScaling,
-                              float yScaling, float maxX, float xOffset, float yOffset, SkPaint &faceColor, SkPath &path,
+    // used when drawing with multiple threads
+    inline void drawRectangle(SkCanvas* canvas, float y, float start, float width, float lw, const SkPaint &edgeColor, float xScaling,
+                              float yScaling, float maxX, float xOffset, float yOffset, const SkPaint &faceColor, SkRect &rect,
+                              std::vector<SkRect> &rects, std::vector<SkPaint> &rectPaints) {
+        start *= xScaling;
+        width *= xScaling;
+        rect.setXYWH(start + xOffset, y * yScaling + yOffset, width, polygonHeight * yScaling);
+        rects.push_back(rect);
+        rectPaints.push_back(faceColor);
+    }
+
+    inline void drawLeftPointedRectangle(SkCanvas* canvas, float y0, float start, float width, float lw, const SkPaint &edgeColor, float xScaling,
+                              float yScaling, float maxX, float xOffset, float yOffset, const SkPaint &faceColor, SkPath &path,
                               float slop) {
         start *= xScaling;
         width *= xScaling;
@@ -90,8 +101,8 @@ namespace Drawing {
         canvas->drawPath(path, faceColor);
     }
 
-    void drawRightPointedRectangle(SkCanvas* canvas, float y0, float start, float width, float lw, SkPaint &edgeColor, float xScaling,
-                                  float yScaling, float maxX, float xOffset, float yOffset, SkPaint &faceColor, SkPath &path,
+    inline void drawRightPointedRectangle(SkCanvas* canvas, float y0, float start, float width, float lw, const SkPaint &edgeColor, float xScaling,
+                                  float yScaling, float maxX, float xOffset, float yOffset, const SkPaint &faceColor, SkPath &path,
                                   float slop) {
         start *= xScaling;
         width *= xScaling;
@@ -114,14 +125,37 @@ namespace Drawing {
         canvas->drawPath(path, faceColor);
     }
 
-    void drawBams(Themes::IniOptions &opts, std::vector<Segs::ReadCollection> &collections,
-                  SkCanvas* canvas, float yScaling, Themes::Fonts &fonts, SkRect &rect, SkPath &path){
+    void drawIns(SkCanvas* canvas, float y0, float start, float xScaling, float yScaling, float xOffset,
+                 float yOffset, float textW, const SkPaint &sidesColor, const SkPaint &faceColor, SkPath &path, SkRect &rect) {
 
-        Themes::BaseTheme &theme = opts.theme;
+        float x = start + xOffset;
+        float y = y0 * yScaling;
+        float ph = polygonHeight * yScaling;
+        float overhang = textW * 0.125;
+        rect.setXYWH(x - (textW / 2), y + yOffset, textW, ph);
+        canvas->drawRect(rect, faceColor);
+
+        path.reset();
+        path.moveTo(x - (textW / 2) - overhang, yOffset + y + ph * 0.05);
+        path.lineTo(x + (textW / 2) + overhang, yOffset + y + ph * 0.05);
+        path.moveTo(x - (textW / 2) - overhang, yOffset + y + ph * 0.95);
+        path.lineTo(x + (textW / 2) + overhang, yOffset + y + ph * 0.95);
+        path.moveTo(x, yOffset + y);
+        path.lineTo(x, yOffset + y + ph);
+        canvas->drawPath(path, sidesColor);
+    }
+
+    void drawBams(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
+                  SkCanvas* canvas, float yScaling, const Themes::Fonts &fonts){
+
+        SkRect rect;
+        SkPath path;
+
+        const Themes::BaseTheme &theme = opts.theme;
         std::vector< sk_sp<SkTextBlob> > text;
+        std::vector< sk_sp<SkTextBlob> > text_ins;
         std::vector<float> textX, textY;
-
-//        float ph = 0.8;  // polygon height
+        std::vector<float> textX_ins, textY_ins;
 
         for (auto &cl: collections) {
 
@@ -143,12 +177,12 @@ namespace Drawing {
             SkPaint edgeColor;
             float lineWidth;
 
+            float textDrop = (yScaling - fonts.fontHeight) / 2;
+            std::cout << " " << textDrop << " " << fonts.fontHeight << " " << yScaling << std::endl;
             for (auto & a: cl.readQueue) {
 
                 int Y = a.y;
-                if (Y == -1) {
-                    continue;
-                }
+
                 int mapq = a.delegate->core.qual;
                 if (mapq == 0) {
                     switch (a.orient_pattern) {
@@ -185,6 +219,7 @@ namespace Drawing {
                 size_t nBlocks = a.block_starts.size();
 
                 float yh;
+                float textW;
                 for (size_t idx=0; idx < nBlocks; ++idx) {
                     int s = a.block_starts[idx];
                     if (s > regionEnd) {
@@ -233,7 +268,7 @@ namespace Drawing {
                         if (regionLen < 500000 && size >= opts.indel_length ) { // line and text
                             std::sprintf(indelChars, "%d", size);
                             size_t sl = strlen(indelChars);
-                            float textW = fonts.textWidths[sl];
+                            textW = fonts.textWidths[sl - 1];
                             float textBegin = ((lastEnd + size / 2) * xScaling) - (textW / 2);
                             float textEnd = textBegin + textW;
                             if (textBegin < 0) {
@@ -245,7 +280,7 @@ namespace Drawing {
                             }
                             text.push_back(SkTextBlob::MakeFromString(indelChars, fonts.fonty));
                             textX.push_back(textBegin + xOffset);
-                            textY.push_back((Y + polygonHeight) * yScaling);
+                            textY.push_back((Y + polygonHeight) * yScaling - textDrop);
                             if (textBegin > delBegin) {
                                 path.reset();
                                 path.moveTo(delBegin + xOffset, yh);
@@ -302,19 +337,47 @@ namespace Drawing {
                 }
 
                 // add insertions
+                if (!a.any_ins.empty()) {
+                    for (auto &ins : a.any_ins) {
+                        float p = (ins.pos - regionBegin) * xScaling;
+                        if (0 <= p < regionPixels) {
+                            std::sprintf(indelChars, "%d", ins.length);
+                            size_t sl = strlen(indelChars);
+                            textW = fonts.textWidths[sl - 1];
+                            if (ins.length > opts.indel_length) {
+                                if (regionLen < 500000) {
+                                    // line and text
+                                    drawIns(canvas, Y, p, xScaling, yScaling, xOffset, yOffset, textW, theme.insS, theme.fcIns, path, rect);
 
+                                    text_ins.push_back(SkTextBlob::MakeFromString(indelChars, fonts.fonty));
+                                    textX_ins.push_back(p - (textW / 2) + xOffset);
+                                    textY_ins.push_back(((Y + polygonHeight) * yScaling) + yOffset - textDrop);
+                                } else {
+                                    // line only
+                                    drawIns(canvas, Y, p, xScaling, yScaling, xOffset, yOffset, xScaling, theme.insS, theme.fcIns, path, rect);
+
+                                }
+                            } else if (regionLen < 100000) {
+                                // line only
+                                drawIns(canvas, Y, p, xScaling, yScaling, xOffset, yOffset, xScaling, theme.insS, theme.fcIns, path, rect);
+                            }
+
+                        }
+                    }
+                }
 
 
             }
-
-
-
 
             // draw text last
             for (int i=0; i < text.size(); ++i) {
-                canvas->drawTextBlob(text[i].get(), textX[i], textY[i], theme.tcLabels);
+                canvas->drawTextBlob(text[i].get(), textX[i], textY[i], theme.tcDel);
+            }
+            for (int i=0; i < text_ins.size(); ++i) {
+                canvas->drawTextBlob(text_ins[i].get(), textX_ins[i], textY_ins[i], theme.tcIns);
             }
         }
+
 
 
         return;

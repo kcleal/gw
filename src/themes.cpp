@@ -68,6 +68,8 @@ namespace Themes {
         ecMateUnmapped.setARGB(255, 255, 0, 0);
         ecSplit.setARGB(255, 0, 0, 255);
 
+        fcIns.setARGB(255, 186, 85, 211);
+
         lwMateUnmapped = 0.5;
         lwSplit = 0.5;
         lwCoverage = 1;
@@ -106,8 +108,6 @@ namespace Themes {
             fcTra0.setAlpha(mapq0_alpha);
             fcSoftClip0.setAlpha(mapq0_alpha);
 
-            fcIns.setARGB(255, 186, 85, 211);
-
             lcJoins.setStyle(SkPaint::kStroke_Style);
             lcJoins.setStrokeWidth(4);
 
@@ -116,7 +116,7 @@ namespace Themes {
 
             insS = fcIns;
             insS.setStyle(SkPaint::kStroke_Style);
-            insS.setStrokeWidth(3);
+            insS.setStrokeWidth(4);
 
             for (size_t i=0; i < mate_fc.size(); ++i) {
                 SkPaint p = mate_fc[i];

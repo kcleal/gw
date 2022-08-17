@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include "../inc/BS_thread_pool.h"
 #include "drawing.h"
 #include "hts_funcs.h"
 #include "../inc/robin_hood.h"
@@ -101,9 +102,6 @@ namespace Manager {
         float yScaling;
 
         linked_t linked;
-
-        SkRect rect;
-        SkPath path;
 
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext);
 

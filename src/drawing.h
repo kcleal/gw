@@ -25,6 +25,6 @@
 
 
 namespace Drawing {
-    void drawBams(Themes::IniOptions &opts, std::vector<Segs::ReadCollection> &collections, SkCanvas* canvas,
-                  float yScaling, Themes::Fonts &fonts, SkRect &rect, SkPath &path);
+    void drawBams(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections, SkCanvas* canvas,
+                  float yScaling, const Themes::Fonts &fonts);
 }

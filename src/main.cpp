@@ -30,6 +30,7 @@
 // skia context has to be managed from global space to work
 GrDirectContext *sContext = nullptr;
 SkSurface *sSurface = nullptr;
+SkSurface *sSurface2 = nullptr;
 
 
 int main(int argc, char *argv[]) {
@@ -255,6 +256,7 @@ int main(int argc, char *argv[]) {
                                                           kRGBA_8888_SkColorType,
                                                           nullptr,
                                                           nullptr).release();
+
         if (!sSurface) {
             std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
             sContext->releaseResourcesAndAbandonContext();

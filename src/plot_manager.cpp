@@ -217,10 +217,6 @@ namespace Manager {
         auto start = std::chrono::high_resolution_clock::now();
 
         canvas->drawPaint(opts.theme.bgPaint);
-//        canvas->drawPaint(SK_ColorWHITE);
-//        SkPaint paint;
-//        paint.setColor(SK_ColorBLUE);
-//        canvas->drawRect({100, 200, 300, 500}, paint);
 
         processBam(canvas);
 
@@ -229,7 +225,8 @@ namespace Manager {
         std::cout << "Elapsed Time processBm: " << m.count() << " m seconds" << std::endl;
 
         setScaling();
-        Drawing::drawBams(opts, collections, canvas, yScaling, fonts, rect, path);
+
+        Drawing::drawBams(opts, collections, canvas, yScaling, fonts);
 
         sContext->flush();
         glfwSwapBuffers(window.window);
@@ -239,7 +236,6 @@ namespace Manager {
         finish = std::chrono::high_resolution_clock::now();
         m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
         std::cout << "Elapsed Time drawScreen: " << m.count() << " m seconds" << std::endl;
-
 
     }
 
