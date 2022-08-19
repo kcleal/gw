@@ -66,7 +66,11 @@ namespace Themes {
         }
 
         ecMateUnmapped.setARGB(255, 255, 0, 0);
+        ecMateUnmapped.setStyle(SkPaint::kStroke_Style);
+        ecMateUnmapped.setStrokeWidth(1);
         ecSplit.setARGB(255, 0, 0, 255);
+        ecSplit.setStyle(SkPaint::kStroke_Style);
+        ecSplit.setStrokeWidth(1);
 
         fcIns.setARGB(255, 186, 85, 211);
 

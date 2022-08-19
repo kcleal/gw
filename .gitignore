@@ -11,3 +11,4 @@
 /src/themes.o
 /src/hts_funcs.o
 /src/drawing.o
+/src/drawing_t.o

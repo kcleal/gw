@@ -57,11 +57,11 @@ int main(int argc, char *argv[]) {
             .append()
             .help("Glob path to .png images to displaye e.g. '*.png'. Can not be used with -v");
     program.add_argument("-o", "--outdir")
-            .default_value(std::string{"."}).append()
-            .help("Output folder to store images");
+            .append()
+            .help("Output folder to save images");
     program.add_argument("-n", "--no-show")
             .default_value(false).implicit_value(true)
-            .help("Dont display images to screen");
+            .help("Don't display images to screen");
     program.add_argument("-d", "--dims")
             .default_value(iopts.dimensions_str).append()
             .help("Image dimensions (px)");

@@ -139,6 +139,7 @@ namespace Segs {
         self->left_hard_clip = 0;
         self->right_soft_clip = 0;
 
+        uint32_t last_op = 0;
         for (k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
@@ -160,12 +161,19 @@ namespace Segs {
             }
 
             if (op == BAM_CMATCH || op == BAM_CEQUAL || op == BAM_CDIFF) {
-                self->block_starts.push_back(pos);
-                self->block_ends.push_back(pos + l);
+                if (last_op == 1) {
+                    self->block_ends.back() = pos + l;
+                } else {
+                    self->block_starts.push_back(pos);
+                    self->block_ends.push_back(pos + l);
+                }
+//                self->block_starts.push_back(pos);
+//                self->block_ends.push_back(pos + l);
                 pos += l;
             } else if (op == BAM_CDEL || op == BAM_CREF_SKIP) {
                 pos += l;
             }
+            last_op = op;
         }
 
         if (src->core.flag & 16) {  // reverse strand
@@ -184,6 +192,8 @@ namespace Segs {
         }
         if (bam_aux_get(self->delegate, "SA") != nullptr) {
             self->has_SA = true;
+        } else {
+            self->has_SA = false;
         }
 
         self->y = -1;

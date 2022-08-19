@@ -9,6 +9,8 @@
 #include <utility>
 #include <vector>
 
+
+#include "../inc/BS_thread_pool.h"
 #include "hts_funcs.h"
 #include "../inc/robin_hood.h"
 #include "utils.h"
@@ -25,6 +27,16 @@
 
 
 namespace Drawing {
+
+    inline void chooseFacecolors(int mapq, const Segs::Align &a, SkPaint &faceColor, const Themes::BaseTheme &theme);
+
+    inline void chooseEdgeColor (int edge_type, SkPaint &edgeColor, const Themes::BaseTheme &theme);
+
+    inline void chooseBasecolor(uint8_t base, SkPaint &faceColor, const Themes::BaseTheme &theme, int colorIdx);
+
     void drawBams(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections, SkCanvas* canvas,
                   float yScaling, const Themes::Fonts &fonts);
+
+    void drawBamsThreaded(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
+                          SkCanvas* canvas, float yScaling, const Themes::Fonts &fonts, int threads);
 }

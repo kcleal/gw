@@ -5,6 +5,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <stdlib.h>
 #include <string>
 #include <vector>
 
@@ -93,7 +94,7 @@ namespace Manager {
         this->processed = false;
         this->calcScaling = true;
 
-        for (auto& fn: this->bam_paths) {
+        for (auto &fn: this->bam_paths) {
             htsFile* f = sam_open(fn.c_str(), "r");
             hts_set_threads(f, opt.threads);
             std::cout << opt.threads << std::endl;
@@ -106,13 +107,20 @@ namespace Manager {
 
         this->fonts = Themes::Fonts();
         this->fai = fai_load(reference.c_str());
-
+        // todo defer this step until drawing, run in parallel
+        for (auto &rgn : regions) {
+            int rlen = rgn.end - rgn.start;
+            rgn.refSeq = faidx_fetch_seq(fai, rgn.chrom.c_str(), rgn.start, rgn.end, &rlen);
+        }
         samMaxY = 0;
         vScroll = 0;
         yScaling = 0;
     }
 
     GwPlot::~GwPlot() {
+        for (auto &rgn : regions) {
+            delete rgn.refSeq;
+        }
     }
 
     int GwPlot::startUI(SkCanvas* canvas, GrDirectContext* sContext) {
@@ -227,7 +235,14 @@ namespace Manager {
 
         setScaling();
 
-        Drawing::drawBams(opts, collections, canvas, yScaling, fonts);
+        if (opts.threads > 1) {
+            Drawing::drawBamsThreaded(opts, collections, canvas, yScaling, fonts, opts.threads);
+        } else {
+            Drawing::drawBams(opts, collections, canvas, yScaling, fonts);
+        }
+
+        if (opts.coverage) {
+        }
 
         sContext->flush();
         glfwSwapBuffers(window.window);
