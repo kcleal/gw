@@ -125,7 +125,7 @@ namespace Themes {
                 mate_fc0.push_back(p);
             }
             SkPaint p;
-            for (int i=0; i==11; ++i) {
+            for (size_t i=0; i<11; ++i) {
                 p = fcA;
                 p.setAlpha(base_qual_alpha[i]);
                 APaint.push_back(p);

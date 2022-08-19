@@ -117,15 +117,19 @@ namespace Segs {
         uint8_t *v;
         char *value;
 
-        self->pos = self->delegate->core.pos;
-        self->reference_end = bam_endpos(self->delegate);  // reference_end - already checked for 0 length cigar and mapped
+        bam1_t *src = self->delegate;
+
+        self->pos = src->core.pos;
+        self->reference_end = bam_endpos(src);  // reference_end - already checked for 0 length cigar and mapped
         self->cov_start = self->pos;
         self->cov_end = self->reference_end;
 
         uint32_t pos, l, cigar_l, op, k;
         uint32_t *cigar_p;
-        bam1_t *src;
-        src = self->delegate;
+
+        uint8_t *ptr_seq = bam_get_seq(src);
+        auto *ptr_qual = bam_get_qual(src);
+
         cigar_l = src->core.n_cigar;
 
         pos = src->core.pos;
@@ -238,6 +242,14 @@ namespace Segs {
         }
 
         get_mismatched_bases(self->mismatches, self->MD, self->pos, cigar_l, cigar_p);
+        if (!self->mismatches.empty()) {
+            // note not all mismatches are drawn, so it doesn't make sense to save the color here. defer that to drawing
+            for (auto &mm : self->mismatches) {
+                mm.base = bam_seqi(ptr_seq, mm.idx);
+                mm.qual = ptr_qual[mm.idx];
+            }
+        }
+
         self->initialized = true;
     }
 

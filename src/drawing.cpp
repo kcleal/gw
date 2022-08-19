@@ -51,8 +51,45 @@ namespace Drawing {
     char indelChars[10];
     constexpr float polygonHeight = 0.85;
 
-    inline void drawRectangle(SkCanvas* canvas, float y, float start, float width, float lw, const SkPaint &edgeColor, float xScaling,
-                       float yScaling, float maxX, float xOffset, float yOffset, const SkPaint &faceColor, SkRect &rect) {
+    inline void chooseFacecolors(int mapq, const Segs::Align &a, SkPaint &faceColor, SkPaint &edgeColor, const Themes::BaseTheme &theme, float &lineWidth) {
+        if (mapq == 0) {
+            switch (a.orient_pattern) {
+                case Segs::NORMAL: faceColor = theme.fcNormal0; break;
+                case Segs::DEL: faceColor = theme.fcDel0; break;
+                case Segs::INV_F: faceColor = theme.fcInvF0; break;
+                case Segs::INV_R: faceColor = theme.fcInvR0; break;
+                case Segs::DUP: faceColor = theme.fcDup0; break;
+                case Segs::TRA: faceColor = theme.mate_fc0[a.delegate->core.mtid % 49]; break;
+            }
+        } else {
+            switch (a.orient_pattern) {
+                case Segs::NORMAL: faceColor = theme.fcNormal; break;
+                case Segs::DEL: faceColor = theme.fcDel; break;
+                case Segs::INV_F: faceColor = theme.fcInvF; break;
+                case Segs::INV_R: faceColor = theme.fcInvR; break;
+                case Segs::DUP: faceColor = theme.fcDup; break;
+                case Segs::TRA: faceColor = theme.mate_fc[a.delegate->core.mtid % 49]; break;
+            }
+        }
+        switch (a.edge_type) {
+            case 1: lineWidth = 0; edgeColor = faceColor; break;
+            case 2: lineWidth = 1; edgeColor = theme.ecSplit; break;
+            case 3: lineWidth = 1; edgeColor = theme.ecMateUnmapped; break;
+        }
+    }
+
+    inline void chooseBasecolor(uint8_t base, SkPaint &faceColor, const Themes::BaseTheme &theme, int colorIdx){
+        switch (base) {
+            case 1: faceColor = theme.APaint[colorIdx]; break; // A
+            case 8: faceColor = theme.TPaint[colorIdx]; break; // T
+            case 2: faceColor = theme.CPaint[colorIdx]; break; // C
+            case 4: faceColor = theme.GPaint[colorIdx]; break; // G
+            default: faceColor = theme.NPaint[colorIdx]; // N
+        }
+    }
+
+    inline void drawRectangle(SkCanvas *canvas, float yScaledOffset, float start, float width, float lw, const SkPaint &edgeColor, float xScaling,
+                       float yScaling, float maxX, float xOffset, const SkPaint &faceColor, SkRect &rect) {
         start *= xScaling;
         width *= xScaling;
 //        if (start < 0) {
@@ -62,70 +99,78 @@ namespace Drawing {
 //        if (start + width > maxX) {
 //            width = maxX - start;
 //        }
-        rect.setXYWH(start + xOffset, y * yScaling + yOffset, width, polygonHeight * yScaling);
+        rect.setXYWH(start + xOffset, yScaledOffset, width, polygonHeight * yScaling);
         canvas->drawRect(rect, faceColor);
     }
 
     // used when drawing with multiple threads
-    inline void drawRectangle(SkCanvas* canvas, float y, float start, float width, float lw, const SkPaint &edgeColor, float xScaling,
-                              float yScaling, float maxX, float xOffset, float yOffset, const SkPaint &faceColor, SkRect &rect,
+    inline void drawRectangle_threaded(SkCanvas *canvas, float yScaledOffset, float start, float width, float lw, const SkPaint &edgeColor, float xScaling,
+                              float yScaling, float maxX, float xOffset, const SkPaint &faceColor, SkRect &rect,
                               std::vector<SkRect> &rects, std::vector<SkPaint> &rectPaints) {
         start *= xScaling;
         width *= xScaling;
-        rect.setXYWH(start + xOffset, y * yScaling + yOffset, width, polygonHeight * yScaling);
+        rect.setXYWH(start + xOffset, yScaledOffset, width, polygonHeight * yScaling);
         rects.push_back(rect);
         rectPaints.push_back(faceColor);
     }
 
-    inline void drawLeftPointedRectangle(SkCanvas* canvas, float y0, float start, float width, float lw, const SkPaint &edgeColor, float xScaling,
-                              float yScaling, float maxX, float xOffset, float yOffset, const SkPaint &faceColor, SkPath &path,
+    inline void drawLeftPointedRectangle(SkCanvas *canvas, float yScaledOffset, float start, float width, float lw, const SkPaint &edgeColor, float xScaling,
+                              float yScaling, float maxX, float xOffset, const SkPaint &faceColor, SkPath &path,
                               float slop) {
         start *= xScaling;
         width *= xScaling;
-        float y = y0 * yScaling + yOffset;
+
         float ph = yScaling * polygonHeight;
         if (start < 0) {
             width += start;
             start = 0;
         }
+
         if (start + width > maxX) {
             width = maxX - start;
         }
         path.reset();
-        pArr[0].set(start + xOffset, y);
-        pArr[1].set(start - slop + xOffset, y + ph / 2);
-        pArr[2].set(start + xOffset, y + ph);
-        pArr[3].set(start + width + xOffset, y + ph);
-        pArr[4].set(start + width + xOffset, y);
+        pArr[0].set(start + xOffset, yScaledOffset);
+        pArr[1].set(start - slop + xOffset, yScaledOffset + ph / 2);
+        pArr[2].set(start + xOffset, yScaledOffset + ph);
+        pArr[3].set(start + width + xOffset, yScaledOffset + ph);
+        pArr[4].set(start + width + xOffset, yScaledOffset);
         path.addPoly(pArr, 5, true);
         canvas->drawPath(path, faceColor);
     }
 
-    inline void drawRightPointedRectangle(SkCanvas* canvas, float y0, float start, float width, float lw, const SkPaint &edgeColor, float xScaling,
-                                  float yScaling, float maxX, float xOffset, float yOffset, const SkPaint &faceColor, SkPath &path,
+    inline void drawRightPointedRectangle(SkCanvas *canvas, float yScaledOffset, float start, float width, float lw, const SkPaint &edgeColor, float xScaling,
+                                  float yScaling, float maxX, float xOffset, const SkPaint &faceColor, SkPath &path,
                                   float slop) {
         start *= xScaling;
         width *= xScaling;
-        float y = y0 * yScaling + yOffset;
         float ph = yScaling * polygonHeight;
         if (start < 0) {
             width += start;
             start = 0;
         }
+
         if (start + width > maxX) {
             width = maxX - start;
         }
         path.reset();
-        pArr[0].set(start + xOffset, y);
-        pArr[1].set(start + xOffset, y + ph);
-        pArr[2].set(start + width + xOffset, y + ph);
-        pArr[3].set(start + width + slop + xOffset, y + ph / 2);
-        pArr[4].set(start + width + xOffset, y);
+        pArr[0].set(start + xOffset, yScaledOffset);
+        pArr[1].set(start + xOffset, yScaledOffset + ph);
+        pArr[2].set(start + width + xOffset, yScaledOffset + ph);
+        pArr[3].set(start + width + slop + xOffset, yScaledOffset + ph / 2);
+        pArr[4].set(start + width + xOffset, yScaledOffset);
         path.addPoly(pArr, 5, true);
         canvas->drawPath(path, faceColor);
     }
 
-    void drawIns(SkCanvas* canvas, float y0, float start, float xScaling, float yScaling, float xOffset,
+    inline void drawHLine(SkCanvas *canvas, SkPath &path, const SkPaint &lc, float startX, float y, float endX){
+        path.reset();
+        path.moveTo(startX, y);
+        path.lineTo(endX, y);
+        canvas->drawPath(path, lc);
+    }
+
+    void drawIns(SkCanvas *canvas, float y0, float start, float xScaling, float yScaling, float xOffset,
                  float yOffset, float textW, const SkPaint &sidesColor, const SkPaint &faceColor, SkPath &path, SkRect &rect) {
 
         float x = start + xOffset;
@@ -152,6 +197,7 @@ namespace Drawing {
         SkPath path;
 
         const Themes::BaseTheme &theme = opts.theme;
+
         std::vector< sk_sp<SkTextBlob> > text;
         std::vector< sk_sp<SkTextBlob> > text_ins;
         std::vector<float> textX, textY;
@@ -178,36 +224,17 @@ namespace Drawing {
             float lineWidth;
 
             float textDrop = (yScaling - fonts.fontHeight) / 2;
-            std::cout << " " << textDrop << " " << fonts.fontHeight << " " << yScaling << std::endl;
+
             for (auto & a: cl.readQueue) {
 
                 int Y = a.y;
-
+                if (Y == -1) {
+                    continue;
+                }
                 int mapq = a.delegate->core.qual;
-                if (mapq == 0) {
-                    switch (a.orient_pattern) {
-                        case Segs::NORMAL: faceColor = theme.fcNormal0; break;
-                        case Segs::DEL: faceColor = theme.fcDel0; break;
-                        case Segs::INV_F: faceColor = theme.fcInvF0; break;
-                        case Segs::INV_R: faceColor = theme.fcInvR0; break;
-                        case Segs::DUP: faceColor = theme.fcDup0; break;
-                        case Segs::TRA: faceColor = theme.mate_fc0[a.delegate->core.mtid % 49]; break;
-                    }
-                } else {
-                    switch (a.orient_pattern) {
-                        case Segs::NORMAL: faceColor = theme.fcNormal; break;
-                        case Segs::DEL: faceColor = theme.fcDel; break;
-                        case Segs::INV_F: faceColor = theme.fcInvF; break;
-                        case Segs::INV_R: faceColor = theme.fcInvR; break;
-                        case Segs::DUP: faceColor = theme.fcDup; break;
-                        case Segs::TRA: faceColor = theme.mate_fc[a.delegate->core.mtid % 49]; break;
-                    }
-                }
-                switch (a.edge_type) {
-                    case 1: lineWidth = 0; edgeColor = faceColor; break;
-                    case 2: lineWidth = 1; edgeColor = theme.ecSplit; break;
-                    case 3: lineWidth = 1; edgeColor = theme.ecMateUnmapped; break;
-                }
+                float yScaledOffset = (Y * yScaling) + yOffset;
+
+                chooseFacecolors(mapq, a, faceColor, edgeColor, theme, lineWidth);
 
                 bool pointLeft;
                 if (plotPointedPolygons) {
@@ -215,45 +242,39 @@ namespace Drawing {
                 } else {
                     pointLeft = false;
                 }
-
                 size_t nBlocks = a.block_starts.size();
 
-                float yh;
-                float textW;
+                float width, s, e, yh, textW;
                 for (size_t idx=0; idx < nBlocks; ++idx) {
-                    int s = a.block_starts[idx];
-                    if (s > regionEnd) {
-                        break;
-                    }
-                    int e = a.block_ends[idx];
-                    if (e < regionBegin) {
-                        continue;
-                    }
-                    float width = e - s;
+                    s = a.block_starts[idx];
+                    if (s > regionEnd) { break; }
+                    e = a.block_ends[idx];
+                    if (e < regionBegin) { continue; }
+                    width = e - s;
                     s -= regionBegin;
                     e -= regionBegin;
 
                     if (plotPointedPolygons) {
                         if (pointLeft) {
                             if (s > 0 && idx == 0 && a.left_soft_clip == 0) {
-                                drawLeftPointedRectangle(canvas, Y, s, width, lineWidth, edgeColor, xScaling, yScaling,
-                                                     regionPixels, xOffset, yOffset, faceColor, path, pointSlop);
+                                drawLeftPointedRectangle(canvas, yScaledOffset, s, width, lineWidth, edgeColor, xScaling, yScaling,
+                                                     regionPixels, xOffset, faceColor, path, pointSlop);
                             } else {
-                                drawRectangle(canvas, Y, s, width, lineWidth, edgeColor, xScaling, yScaling,
-                                              regionPixels, xOffset, yOffset, faceColor, rect);
+                                drawRectangle(canvas, yScaledOffset, s, width, lineWidth, edgeColor, xScaling, yScaling,
+                                              regionPixels, xOffset, faceColor, rect);
                             }
                         } else {
                             if (e < regionLen && idx == nBlocks - 1 && a.right_soft_clip == 0) {
-                                drawRightPointedRectangle(canvas, Y, s, width, lineWidth, edgeColor, xScaling, yScaling,
-                                                     regionPixels, xOffset, yOffset, faceColor, path, pointSlop);
+                                drawRightPointedRectangle(canvas, yScaledOffset, s, width, lineWidth, edgeColor, xScaling, yScaling,
+                                                     regionPixels, xOffset, faceColor, path, pointSlop);
                             } else {
-                                drawRectangle(canvas, Y, s, width, lineWidth, edgeColor, xScaling, yScaling,
-                                              regionPixels, xOffset, yOffset, faceColor, rect);
+                                drawRectangle(canvas, yScaledOffset, s, width, lineWidth, edgeColor, xScaling, yScaling,
+                                              regionPixels, xOffset, faceColor, rect);
                             }
                         }
                     } else {
-                        drawRectangle(canvas, Y, s, width, lineWidth, edgeColor, xScaling, yScaling,
-                                      regionPixels, xOffset, yOffset, faceColor, rect);
+                        drawRectangle(canvas, yScaledOffset, s, width, lineWidth, edgeColor, xScaling, yScaling,
+                                      regionPixels, xOffset, faceColor, rect);
                     }
 
                     // add lines and text between gaps
@@ -280,43 +301,34 @@ namespace Drawing {
                             }
                             text.push_back(SkTextBlob::MakeFromString(indelChars, fonts.fonty));
                             textX.push_back(textBegin + xOffset);
-                            textY.push_back((Y + polygonHeight) * yScaling - textDrop);
+                            textY.push_back((Y + polygonHeight) * yScaling - textDrop + yOffset);
                             if (textBegin > delBegin) {
-                                path.reset();
-                                path.moveTo(delBegin + xOffset, yh);
-                                path.lineTo(textBegin + xOffset, yh);
-                                canvas->drawPath(path, theme.lcJoins);
-                                path.reset();
-                                path.moveTo(textEnd + xOffset, yh);
-                                path.lineTo(delEnd + xOffset, yh);
-                                canvas->drawPath(path, theme.lcJoins);
+                                drawHLine(canvas, path, theme.lcJoins, delBegin + xOffset, yh, textBegin + xOffset);
+                                drawHLine(canvas, path, theme.lcJoins, textEnd + xOffset, yh, delEnd + xOffset);
                             }
                         } else if (regionLen < 100000) { // line only
                             delEnd = std::min(regionPixels, delEnd);
-                            path.reset();
-                            path.moveTo(delBegin + xOffset, yh);
-                            path.lineTo(delEnd + xOffset, yh);
-                            canvas->drawPath(path, theme.lcJoins);
+                            drawHLine(canvas, path, theme.lcJoins, delBegin + xOffset, yh, delEnd + xOffset);
                         }
                     }
-
                 }
 
                 // add soft-clip blocks
                 int start = a.delegate->core.pos - regionBegin;
                 int end = a.reference_end - regionBegin;
-                float width, s;
-
                 if (a.left_soft_clip > 0) {
                     width = (plotSoftClipAsBlock) ? (float)a.left_soft_clip : 0;
-                    if (pointLeft && plotPointedPolygons) {
-                        drawLeftPointedRectangle(canvas, Y, start - a.left_soft_clip, width, lineWidth, edgeColor, xScaling, yScaling,
-                                                 regionPixels, xOffset, yOffset,
-                                                 (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip,
-                                                 path, pointSlop);
-                    } else {
-                        drawRectangle(canvas, Y, start - a.left_soft_clip, width, lineWidth, edgeColor, xScaling, yScaling,
-                                      regionPixels, xOffset, yOffset, (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip, rect);
+                    s = start - a.left_soft_clip;
+                    e = start + width;
+                    if (e > 0) {
+                        if (pointLeft && plotPointedPolygons) {
+                            drawLeftPointedRectangle(canvas, yScaledOffset, s, width, lineWidth, edgeColor, xScaling, yScaling,
+                                                     regionPixels, xOffset, (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip,
+                                                     path, pointSlop);
+                        } else {
+                            drawRectangle(canvas, yScaledOffset, s, width, lineWidth, edgeColor, xScaling, yScaling, regionPixels, xOffset,
+                                          (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip, rect);
+                        }
                     }
                 }
                 if (a.right_soft_clip > 0) {
@@ -327,12 +339,15 @@ namespace Drawing {
                         s = end + a.right_soft_clip;
                         width = 0;
                     }
-                    if (!pointLeft && plotPointedPolygons) {
-                        drawRightPointedRectangle(canvas, Y, s, width, lineWidth, edgeColor, xScaling, yScaling,
-                                                 regionPixels, xOffset, yOffset, (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip, path, pointSlop);
-                    } else {
-                        drawRectangle(canvas, Y, s, width, lineWidth, edgeColor, xScaling, yScaling,
-                                      regionPixels, xOffset, yOffset, (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip, rect);
+                    if (s < regionPixels) {
+                        if (!pointLeft && plotPointedPolygons) {
+                            drawRightPointedRectangle(canvas, yScaledOffset, s, width, lineWidth, edgeColor, xScaling, yScaling,
+                                                      regionPixels, xOffset, (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip, path,
+                                                      pointSlop);
+                        } else {
+                            drawRectangle(canvas, yScaledOffset, s, width, lineWidth, edgeColor, xScaling, yScaling,
+                                          regionPixels, xOffset, (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip, rect);
+                        }
                     }
                 }
 
@@ -345,28 +360,96 @@ namespace Drawing {
                             size_t sl = strlen(indelChars);
                             textW = fonts.textWidths[sl - 1];
                             if (ins.length > opts.indel_length) {
-                                if (regionLen < 500000) {
-                                    // line and text
+                                if (regionLen < 500000) {  // line and text
                                     drawIns(canvas, Y, p, xScaling, yScaling, xOffset, yOffset, textW, theme.insS, theme.fcIns, path, rect);
-
                                     text_ins.push_back(SkTextBlob::MakeFromString(indelChars, fonts.fonty));
-                                    textX_ins.push_back(p - (textW / 2) + xOffset);
+                                    textX_ins.push_back(p - (textW / 2) + xOffset - 2);
                                     textY_ins.push_back(((Y + polygonHeight) * yScaling) + yOffset - textDrop);
-                                } else {
-                                    // line only
+                                } else {  // line only
                                     drawIns(canvas, Y, p, xScaling, yScaling, xOffset, yOffset, xScaling, theme.insS, theme.fcIns, path, rect);
-
                                 }
-                            } else if (regionLen < 100000) {
-                                // line only
+                            } else if (regionLen < 100000) {  // line only
                                 drawIns(canvas, Y, p, xScaling, yScaling, xOffset, yOffset, xScaling, theme.insS, theme.fcIns, path, rect);
                             }
-
                         }
                     }
                 }
 
+                // add mismatches
+                if (regionLen > opts.snp_threshold && plotSoftClipAsBlock) {
+                    continue;
+                }
+                size_t l_seq = a.delegate->core.l_qseq;
+                if (l_seq == 0) {
+                    continue;
+                }
+                float mmPosOffset, mmScaling;
+                if (regionLen < 500) {
+                    mmPosOffset = 0.05;
+                    mmScaling = 0.9;
+                } else {
+                    mmPosOffset = 0;
+                    mmScaling = 1;
+                }
+                int colorIdx;
+                int32_t l_qseq = a.delegate->core.l_qseq;
+                if (regionLen <= opts.snp_threshold && !a.mismatches.empty()) {
+                    for (auto &m : a.mismatches) {
+                        int p = (m.pos - regionBegin) * xScaling;
+                        if (0 < p < regionPixels) {
+                            colorIdx = (l_qseq == 0) ? 10 : (m.qual > 10) ? 10 : m.qual;
+                            float mms = xScaling * mmScaling;
+                            width = (regionLen < 100000) ? ((1. > mms) ? 1. : mms) : xScaling;
+                            chooseBasecolor(m.base, faceColor, theme, colorIdx);
+                            rect.setXYWH(p + xOffset + mmPosOffset, yScaledOffset, width, polygonHeight * yScaling);
+                            canvas->drawRect(rect, faceColor);
+                        }
+                    }
+                }
 
+                // add soft-clips
+                if (!plotSoftClipAsBlock) {
+                    uint8_t *ptr_seq = bam_get_seq(a.delegate);
+                    uint8_t *ptr_qual = bam_get_qual(a.delegate);
+                    if (a.right_soft_clip > 0) {
+                        int pos = a.reference_end - regionBegin;
+                        if (pos < regionLen && a.cov_end > regionBegin) {
+                            int opLen = a.right_soft_clip;
+                            for (int idx=l_seq - opLen; idx < l_seq; ++idx) {
+                                float p = pos * xScaling;
+                                if (0 <= p < regionPixels) {
+                                    uint8_t base = bam_seqi(ptr_seq, idx);
+                                    uint8_t qual = ptr_qual[idx];
+                                    colorIdx = (l_qseq == 0) ? 10 : (qual > 10) ? 10 : qual;
+                                    chooseBasecolor(base, faceColor, theme, colorIdx);
+                                    rect.setXYWH(p + xOffset + mmPosOffset, yScaledOffset, xScaling * mmScaling, polygonHeight * yScaling);
+                                    canvas->drawRect(rect, faceColor);
+                                    pos += 1;
+                                } else {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (a.left_soft_clip > 0) {
+                        int opLen = a.left_soft_clip;
+                        int pos = a.pos - regionBegin - opLen;
+                        for (int idx=0; idx < opLen; ++idx) {
+                            float p = pos * xScaling;
+                            if (0 <= p < regionPixels) {
+                                uint8_t base = bam_seqi(ptr_seq, idx);
+                                uint8_t qual = ptr_qual[idx];
+                                colorIdx = (l_qseq == 0) ? 10 : (qual > 10) ? 10 : qual;
+                                chooseBasecolor(base, faceColor, theme, colorIdx);
+                                rect.setXYWH(p + xOffset + mmPosOffset, yScaledOffset, xScaling * mmScaling, polygonHeight * yScaling);
+                                canvas->drawRect(rect, faceColor);
+                                pos += 1;
+                            } else if (p >= regionPixels){
+                                break;
+                            }
+                        }
+                    }
+                }
             }
 
             // draw text last
@@ -377,11 +460,5 @@ namespace Drawing {
                 canvas->drawTextBlob(text_ins[i].get(), textX_ins[i], textY_ins[i], theme.tcIns);
             }
         }
-
-
-
-        return;
     }
-
-
 }

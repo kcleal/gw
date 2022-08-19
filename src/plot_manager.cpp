@@ -116,8 +116,9 @@ namespace Manager {
     }
 
     int GwPlot::startUI(SkCanvas* canvas, GrDirectContext* sContext) {
-
-        this->opts.theme.setAlphas();
+        std::cout << "YOOo\n";
+        opts.theme.setAlphas();
+        std::cout << opts.theme.APaint.size() << std::endl;
 
 //        drawScreen(canvas, sContext);
         GLFWwindow * wind = this->window.window;
@@ -199,16 +200,16 @@ namespace Manager {
         }
         totalTabixY = 0; tabixY = 0;  // todo add if bed track here
         trackY = (fbh - totalCovY - totalTabixY) / (float)bams.size();
-        yScaling = (fbh - totalCovY - totalTabixY) / (float)samMaxY;
+        yScaling = ((fbh - totalCovY - totalTabixY) / (float)samMaxY) / (float)bams.size();
 
         fonts.setFontSize(yScaling);
 
         regionWidth = fbw / (float)regions.size();
         bamHeight = covY + trackY + tabixY;
         for (auto &cl: collections) {
-            cl.xScaling = fbw / ((float)(cl.region.end - cl.region.start));
+            cl.xScaling = regionWidth / ((float)(cl.region.end - cl.region.start));
             cl.xOffset = regionWidth * cl.regionIdx;
-            cl.yOffset = cl.bamIdx * bamHeight;
+            cl.yOffset = cl.bamIdx * bamHeight + covY;
         }
     }
 

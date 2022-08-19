@@ -133,6 +133,10 @@ namespace Utils {
             std::cerr << "Error: unable to parse region";
             std::abort();
         }
+        if (reg.start > reg.end) {
+            std::cerr << "Error: region end < region start";
+            std::abort();
+        }
         return reg;
     }
 
@@ -145,7 +149,7 @@ namespace Utils {
         end = s.find('x', start);
         d.y = std::stoi(s.substr(start, end - start));
         if (d.x == 0) {
-            std::cerr << "Error dimension x was 0" << std::endl;
+            std::cerr << "Error: dimension x was 0" << std::endl;
             std::abort();
         }
         return d;

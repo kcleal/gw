@@ -6,7 +6,9 @@
 #include <deque>
 #include <iostream>
 #include <vector>
-//#inc <thread>
+
+//#include "include/core/SkPaint.h"
+
 #include "../inc/BS_thread_pool.h"
 #include "../inc/robin_hood.h"
 #include "../inc/unordered_dense.h"
@@ -49,6 +51,8 @@ namespace Segs {
 
     struct MMbase {
         uint32_t idx, pos;
+//        SkPaint paint;
+        uint8_t qual, base;
     };
 
 
@@ -93,7 +97,7 @@ namespace Segs {
     };
 
 
-    void align_init(Align *self);
+//    void align_init(Align *self);
 
     void init_parallel(std::vector<Align> &aligns, int n);
 
