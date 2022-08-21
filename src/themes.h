@@ -3,6 +3,7 @@
 //
 #pragma once
 
+#include <array>
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <pwd.h>
@@ -73,7 +74,8 @@ namespace Themes {
 
         uint8_t alpha, mapq0_alpha;
 
-        std::vector<SkPaint> APaint, TPaint, CPaint, GPaint, NPaint;
+//        std::vector<SkPaint> APaint, TPaint, CPaint, GPaint, NPaint;
+        std::array<std::array<SkPaint, 11>, 16> BasePaints;
 
         void setAlphas();
 

@@ -28,15 +28,10 @@
 
 namespace Drawing {
 
-    inline void chooseFacecolors(int mapq, const Segs::Align &a, SkPaint &faceColor, const Themes::BaseTheme &theme);
-
-    inline void chooseEdgeColor (int edge_type, SkPaint &edgeColor, const Themes::BaseTheme &theme);
-
-    inline void chooseBasecolor(uint8_t base, SkPaint &faceColor, const Themes::BaseTheme &theme, int colorIdx);
+    void drawCoverage(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
+                      SkCanvas *canvas, float yScaling, const Themes::Fonts &fonts, const float covY);
 
     void drawBams(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections, SkCanvas* canvas,
                   float yScaling, const Themes::Fonts &fonts);
 
-    void drawBamsThreaded(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
-                          SkCanvas* canvas, float yScaling, const Themes::Fonts &fonts, int threads);
 }

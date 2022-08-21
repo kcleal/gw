@@ -8,6 +8,8 @@ namespace Themes {
 
     BaseTheme::BaseTheme() {
         fcCoverage.setARGB(255, 220, 220, 220);
+        fcCoverage.setStyle(SkPaint::kStrokeAndFill_Style);
+        fcCoverage.setStrokeWidth(0);
 
         std::vector<std::vector<int>> tmp = {{158, 1,   66},
                                              {179, 24,  71},
@@ -129,22 +131,38 @@ namespace Themes {
                 mate_fc0.push_back(p);
             }
             SkPaint p;
+            // A==1, C==2, G==4, T==8, N==>8
             for (size_t i=0; i<11; ++i) {
                 p = fcA;
                 p.setAlpha(base_qual_alpha[i]);
-                APaint.push_back(p);
+//                APaint.push_back(p);
+                BasePaints[1][i] = p;
+
                 p = fcT;
                 p.setAlpha(base_qual_alpha[i]);
-                TPaint.push_back(p);
+//                TPaint.push_back(p);
+                BasePaints[8][i] = p;
+
                 p = fcC;
                 p.setAlpha(base_qual_alpha[i]);
-                CPaint.push_back(p);
+//                CPaint.push_back(p);
+                BasePaints[2][i] = p;
+
                 p = fcG;
                 p.setAlpha(base_qual_alpha[i]);
-                GPaint.push_back(p);
+//                GPaint.push_back(p);
+                BasePaints[4][i] = p;
+
                 p = fcN;
                 p.setAlpha(base_qual_alpha[i]);
-                NPaint.push_back(p);
+//                NPaint.push_back(p);
+                BasePaints[9][i] = p;
+                BasePaints[10][i] = p;
+                BasePaints[11][i] = p;
+                BasePaints[12][i] = p;
+                BasePaints[13][i] = p;
+                BasePaints[14][i] = p;
+                BasePaints[15][i] = p;
             }
 
     }

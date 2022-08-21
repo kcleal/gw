@@ -118,15 +118,14 @@ namespace Manager {
     }
 
     GwPlot::~GwPlot() {
-        for (auto &rgn : regions) {
-            delete rgn.refSeq;
-        }
+//        for (auto &rgn : regions) {
+//            delete rgn.refSeq;  // this malloc_error (not allocated?)
+//        }
     }
 
     int GwPlot::startUI(SkCanvas* canvas, GrDirectContext* sContext) {
-        std::cout << "YOOo\n";
+
         opts.theme.setAlphas();
-        std::cout << opts.theme.APaint.size() << std::endl;
 
 //        drawScreen(canvas, sContext);
         GLFWwindow * wind = this->window.window;
@@ -226,31 +225,22 @@ namespace Manager {
         auto start = std::chrono::high_resolution_clock::now();
 
         canvas->drawPaint(opts.theme.bgPaint);
-
         processBam(canvas);
-
-        auto finish = std::chrono::high_resolution_clock::now();
-        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
-        std::cout << "Elapsed Time processBm: " << m.count() << " m seconds" << std::endl;
-
         setScaling();
 
-        if (opts.threads > 1) {
-            Drawing::drawBamsThreaded(opts, collections, canvas, yScaling, fonts, opts.threads);
-        } else {
-            Drawing::drawBams(opts, collections, canvas, yScaling, fonts);
+        if (opts.coverage) {
+            Drawing::drawCoverage(opts, collections, canvas, yScaling, fonts, covY);
         }
 
-        if (opts.coverage) {
-        }
+        Drawing::drawBams(opts, collections, canvas, yScaling, fonts);
 
         sContext->flush();
         glfwSwapBuffers(window.window);
 
         redraw = false;
 
-        finish = std::chrono::high_resolution_clock::now();
-        m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
+        auto finish = std::chrono::high_resolution_clock::now();
+        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
         std::cout << "Elapsed Time drawScreen: " << m.count() << " m seconds" << std::endl;
 
     }

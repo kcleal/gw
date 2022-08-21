@@ -38,7 +38,6 @@ namespace Segs {
         res->del_length = del_length;
     }
 
-
     void get_mismatched_bases(std::vector<MMbase> &result,
                               char *md_tag, uint32_t r_pos,
                               uint32_t ct_l, uint32_t *cigar_p) {
