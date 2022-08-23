@@ -39,7 +39,7 @@
 namespace Manager {
 
     // keeps track of input commands
-    int GwPlot::registerKey(GLFWwindow* window, int key, int scancode, int action) {
+    int GwPlot::registerKey(GLFWwindow* window, int key, int scancode, int action, int mods) {
         if (action == GLFW_RELEASE) {
             if ((key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) && !captureText) {
                 shiftPress = false;
@@ -47,7 +47,6 @@ namespace Manager {
             ctrlPress = false;
             return 0;
         }
-
         if (key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) {
             shiftPress = true;
         } else if (shiftPress && GLFW_KEY_SEMICOLON && !captureText) {
@@ -57,7 +56,71 @@ namespace Manager {
         } else {
             shiftPress = false;
         }
+        if (captureText) {
+            if (key == GLFW_KEY_ENTER) {
+                captureText = false;
+                processText = true;
+                shiftPress = false;
+                std::cout << "\n";
+                return 0;
+            }
+            if (!commandHistory.empty()) {
+                if (key == GLFW_KEY_UP && commandIndex > 0) {
+                    commandIndex -= 1;
+                    inputText = commandHistory[commandIndex];
+                    std::cout << "\r" << inputText << std::flush;
+                    return 1;
+                } else if (key == GLFW_KEY_DOWN && commandIndex < commandHistory.size() - 1) {
+                    commandIndex += 1;
+                    inputText = commandHistory[commandIndex];
+                    std::cout << "\r" << inputText << std::flush;
+                    return 1;
+                }
+            }
 
+            if (key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_LEFT_SUPER) {
+                if (action == GLFW_PRESS) {
+                    ctrlPress = true;
+                }
+            }
+            if (ctrlPress && key == GLFW_KEY_V) {
+                std::string string = glfwGetClipboardString(window);
+                if (!string.empty()) {
+                    inputText.append(string);
+                    std::cout << "\r" << inputText << std::flush;
+                }
+            } else {  // character entry
+                if (key == GLFW_KEY_SEMICOLON && inputText.size() == 1) {
+                    return 1;
+                } else if (key == GLFW_KEY_BACKSPACE) {
+                    if (inputText.size() > 1) {
+                        inputText.pop_back();
+                        std::string emptyS(100, ' ');
+                        std::cout << "\r" << emptyS << std::flush;
+                        std::cout << "\r" << inputText << std::flush;
+                    }
+                }
+                const char *letter = glfwGetKeyName(key, scancode);
+                if (letter || key == GLFW_KEY_SPACE) {
+                    if (key == GLFW_KEY_SPACE) {
+                        inputText.append(" ");
+                    } else if (key == GLFW_KEY_SEMICOLON && mods == GLFW_MOD_SHIFT) {
+                        inputText.append(":");
+                    } else {
+                        if (mods == GLFW_MOD_SHIFT) { // uppercase
+//                            char let = toupper(*letter);
+//                            std::string str = toupper(*letter);
+//                            inputText.append(str);
+                        } else {
+                            inputText.append(letter);
+                        }
+
+                    }
+                    std::cout << "\r" << inputText << std::flush;
+                }
+            }
+            return 1;
+        }
         return 1;
     }
 
@@ -65,6 +128,6 @@ namespace Manager {
 //        std::cout << key << std::endl;
 //        std::cout << regions.size() << std::endl;
 
-        int res = registerKey(window, key, scancode, action);
+        int res = registerKey(window, key, scancode, action, mods);
     }
 }
