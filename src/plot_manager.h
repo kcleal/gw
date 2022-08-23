@@ -100,7 +100,7 @@ namespace Manager {
 
         void processBam(SkCanvas* canvas);
 
-        int registerKey(int key, int action, int scancode, GLFWwindow* window);
+        int registerKey(GLFWwindow* window, int key, int scancode, int action);
 
         void processCommand();
 

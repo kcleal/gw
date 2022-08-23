@@ -38,8 +38,33 @@
 
 namespace Manager {
 
+    // keeps track of input commands
+    int GwPlot::registerKey(GLFWwindow* window, int key, int scancode, int action) {
+        if (action == GLFW_RELEASE) {
+            if ((key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) && !captureText) {
+                shiftPress = false;
+            }
+            ctrlPress = false;
+            return 0;
+        }
+
+        if (key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) {
+            shiftPress = true;
+        } else if (shiftPress && GLFW_KEY_SEMICOLON && !captureText) {
+            captureText = true;
+            inputText.append(":");
+            std::cout << "\r" << inputText << std::flush;
+        } else {
+            shiftPress = false;
+        }
+
+        return 1;
+    }
+
     void GwPlot::keyPress(GLFWwindow* window, int key, int scancode, int action, int mods) {
-        std::cout << key << std::endl;
-        std::cout << regions.size() << std::endl;
+//        std::cout << key << std::endl;
+//        std::cout << regions.size() << std::endl;
+
+        int res = registerKey(window, key, scancode, action);
     }
 }
