@@ -7,8 +7,6 @@
 #include <iostream>
 #include <vector>
 
-//#include "include/core/SkPaint.h"
-
 #include "../inc/BS_thread_pool.h"
 #include "../inc/robin_hood.h"
 #include "../inc/unordered_dense.h"
@@ -17,7 +15,6 @@
 #include "plot_manager.h"
 #include "themes.h"
 #include "utils.h"
-
 
 
 namespace Segs {
@@ -35,38 +32,29 @@ namespace Segs {
         TRA,
     };
 
-
     typedef int64_t hts_pos_t;
-
 
     struct InsItem {
         uint32_t pos, length;
     };
 
-
     struct QueueItem {
         uint32_t c_s_idx, l;
     };
 
-
     struct MMbase {
         uint32_t idx, pos;
-//        SkPaint paint;
         uint8_t qual, base;
     };
-
 
     struct MdBlock {
         uint32_t matches, md_idx, del_length;
         bool is_mm;
     };
 
-
     void get_md_block(char *md_tag, int md_idx, int md_l, MdBlock *res);
 
-
     void get_mismatched_bases(std::vector<MMbase> &result, char *md_tag, uint32_t r_pos, uint32_t ct_l, uint32_t *cigar_p);
-
 
     struct Align {
         bam1_t *delegate;
@@ -83,7 +71,6 @@ namespace Segs {
         std::vector<MMbase> mismatches;
     };
 
-
     class ReadCollection {
     public:
        ReadCollection() {};
@@ -95,9 +82,6 @@ namespace Segs {
         std::vector<Align> readQueue;
         float xScaling, xOffset, yOffset;
     };
-
-
-//    void align_init(Align *self);
 
     void init_parallel(std::vector<Align> &aligns, int n);
 

@@ -234,9 +234,9 @@ int main(int argc, char *argv[]) {
     if (!program.get<bool>("-n")) {
 
         // Manager::SkiaWindow window = Manager::SkiaWindow();
-        plotter.window.init(iopts.dimensions.x, iopts.dimensions.y);
+        plotter.init(iopts.dimensions.x, iopts.dimensions.y);
         int fb_height, fb_width;
-        glfwGetFramebufferSize(plotter.window.window, &fb_width, &fb_height);
+        glfwGetFramebufferSize(plotter.window, &fb_width, &fb_height);
 
         sContext = GrDirectContext::MakeGL(nullptr).release();
         GrGLFramebufferInfo framebufferInfo;

@@ -39,26 +39,6 @@
 
 namespace Manager {
 
-    /*
-     * Deals with window functions
-     */
-    class SkiaWindow {
-    public:
-        SkiaWindow() {};
-        ~SkiaWindow();
-
-        GLFWwindow* window;
-
-        void init(int width, int height);
-
-        int pollWindow(SkCanvas* canvas, GrDirectContext* sContext);
-
-    };
-
-//    typedef std::vector< robin_hood::unordered_map< const char *, std::vector<int> >> linked_t;
-//    typedef std::vector< ankerl::unordered_dense::map< const char *, std::vector<int> >> linked_t;
-//    typedef robin_hood::unordered_map< const char *, std::vector<int> > map_t;
-
     typedef ankerl::unordered_dense::map< const char *, std::vector<int>> map_t;
     typedef std::vector< map_t > linked_t;
 
@@ -70,7 +50,6 @@ namespace Manager {
         GwPlot(std::string reference, std::vector<std::string>& bams, Themes::IniOptions& opts, std::vector<Utils::Region>& regions);
         ~GwPlot();
 
-        bool init;
         int vScroll;
 
         std::string reference;
@@ -84,16 +63,26 @@ namespace Manager {
 
         Themes::IniOptions opts;
         Themes::Fonts fonts;
+
         faidx_t* fai;
-        SkiaWindow window;
+        GLFWwindow* window;
+
+        void init(int width, int height);
 
         int startUI(SkCanvas* canvas, GrDirectContext* sContext);
+
+        void keyPress(GLFWwindow* window, int key, int scancode, int action, int mods);
 
     private:
 
         bool redraw;
         bool processed;
         bool calcScaling;
+
+        std::string inputText;
+        bool captureText, shiftPress, ctrlPress, processText;
+        std::vector< std::string > commandHistory;
+        int commandIndex;
 
         float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight;
         int fb_width, fb_height;
@@ -103,11 +92,18 @@ namespace Manager {
 
         linked_t linked;
 
+        void fetchRefSeqs();
+
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext);
 
         void setScaling();
 
         void processBam(SkCanvas* canvas);
+
+        int registerKey(int key, int action, int scancode, GLFWwindow* window);
+
+        void processCommand();
+
     };
 
 

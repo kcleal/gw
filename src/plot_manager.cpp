@@ -1,11 +1,10 @@
 
-#include <htslib/faidx.h>
-#include <htslib/hfile.h>
-#include <htslib/sam.h>
+//#include <htslib/faidx.h>
+//#include <htslib/hfile.h>
+//#include <htslib/sam.h>
 
 #include <cstdio>
 #include <cstdlib>
-#include <stdlib.h>
 #include <string>
 #include <vector>
 
@@ -36,64 +35,16 @@
 
 namespace Manager {
 
-    SkiaWindow::~SkiaWindow() {
-        glfwDestroyWindow(window);
-        glfwTerminate();
-    }
-
-    void SkiaWindow::init(int width, int height) {
-
-        if (!glfwInit()) {
-            std::cerr<<"ERROR: could not initialize GLFW3"<<std::endl;
-            std::terminate();
-        }
-
-        glfwWindowHint(GLFW_STENCIL_BITS, 8);
-
-        window = glfwCreateWindow(width, height, "Simple example", NULL, NULL);
-        if (!window) {
-            std::cerr<<"ERROR: could not create window with GLFW3"<<std::endl;
-            glfwTerminate();
-            std::terminate();
-        }
-        glfwMakeContextCurrent(window);
-
-    }
-
-    int SkiaWindow::pollWindow(SkCanvas* canvas, GrDirectContext* sContext) {
-        while (true) {
-            if (glfwWindowShouldClose(window)) {
-                break;
-            } else if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-                break;
-            }
-
-            glfwWaitEvents();
-
-            SkPaint paint;
-            paint.setColor(SK_ColorWHITE);
-            canvas->drawPaint(paint);
-            paint.setColor(SK_ColorBLUE);
-            canvas->drawRect({100, 200, 300, 500}, paint);
-            sContext->flush();
-
-            glfwSwapBuffers(window);
-        }
-
-        return 1;
-
-    }
-
     GwPlot::GwPlot(std::string reference, std::vector<std::string>& bam_paths, Themes::IniOptions& opt, std::vector<Utils::Region>& regions) {
-
         this->reference = reference;
         this->bam_paths = bam_paths;
         this->regions = regions;
         this->opts = opt;
-        this->redraw = true;
-        this->processed = false;
-        this->calcScaling = true;
-
+        redraw = true;
+        processed = false;
+        calcScaling = true;
+        fonts = Themes::Fonts();
+        fai = fai_load(reference.c_str());
         for (auto &fn: this->bam_paths) {
             htsFile* f = sam_open(fn.c_str(), "r");
             hts_set_threads(f, opt.threads);
@@ -104,31 +55,63 @@ namespace Manager {
             hts_idx_t* idx = sam_index_load(f, fn.c_str());
             indexes.push_back(idx);
         }
+        samMaxY = 0;
+        vScroll = 0;
+        yScaling = 0;
+        captureText = shiftPress = ctrlPress = processText = false;
+        commandIndex = 0;
+    }
 
-        this->fonts = Themes::Fonts();
-        this->fai = fai_load(reference.c_str());
-        // todo defer this step until drawing, run in parallel
+    GwPlot::~GwPlot() {
+        glfwDestroyWindow(window);
+        glfwTerminate();
+        for (auto &rgn : regions) {
+            delete rgn.refSeq;
+        }
+    }
+
+    void GwPlot::init(int width, int height) {
+
+        if (!glfwInit()) {
+            std::cerr<<"ERROR: could not initialize GLFW3"<<std::endl;
+            std::terminate();
+        }
+
+        glfwWindowHint(GLFW_STENCIL_BITS, 8);
+
+        window = glfwCreateWindow(width, height, "GW", NULL, NULL);
+
+        // https://stackoverflow.com/questions/7676971/pointing-to-a-function-that-is-a-class-member-glfw-setkeycallback/28660673#28660673
+        glfwSetWindowUserPointer(window, this);
+
+        auto func = [](GLFWwindow* w, int k, int s, int a, int m){
+            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->keyPress(w, k, s, a, m);
+        };
+        glfwSetKeyCallback(window, func);
+
+
+        if (!window) {
+            std::cerr<<"ERROR: could not create window with GLFW3"<<std::endl;
+            glfwTerminate();
+            std::terminate();
+        }
+        glfwMakeContextCurrent(window);
+
+    }
+
+    void GwPlot::fetchRefSeqs() {
         for (auto &rgn : regions) {
             int rlen = rgn.end - rgn.start;
             rgn.refSeq = faidx_fetch_seq(fai, rgn.chrom.c_str(), rgn.start, rgn.end, &rlen);
         }
-        samMaxY = 0;
-        vScroll = 0;
-        yScaling = 0;
-    }
-
-    GwPlot::~GwPlot() {
-//        for (auto &rgn : regions) {
-//            delete rgn.refSeq;  // this malloc_error (not allocated?)
-//        }
     }
 
     int GwPlot::startUI(SkCanvas* canvas, GrDirectContext* sContext) {
 
+        fetchRefSeqs();
         opts.theme.setAlphas();
 
-//        drawScreen(canvas, sContext);
-        GLFWwindow * wind = this->window.window;
+        GLFWwindow * wind = this->window; //.window;
 
         while (true) {
             if (glfwWindowShouldClose(wind)) {
@@ -136,17 +119,11 @@ namespace Manager {
             } else if (glfwGetKey(wind, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
                 break;
             }
-
             glfwWaitEvents();
-
             if (redraw) {
                 drawScreen(canvas, sContext);
             }
-
-//            break;
-
         }
-
         return 1;
     }
 
@@ -192,7 +169,7 @@ namespace Manager {
         if (samMaxY == 0 || !calcScaling) {
             return;
         }
-        glfwGetFramebufferSize(window.window, &fb_width, &fb_height);
+        glfwGetFramebufferSize(window, &fb_width, &fb_height);
         auto fbh = (float) fb_height;
         auto fbw = (float) fb_width;
         if (bams.empty()) {
@@ -233,9 +210,10 @@ namespace Manager {
         }
 
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts);
+        Drawing::drawRef(opts, collections, canvas, fonts);
 
         sContext->flush();
-        glfwSwapBuffers(window.window);
+        glfwSwapBuffers(window);
 
         redraw = false;
 

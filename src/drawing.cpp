@@ -556,4 +556,61 @@ namespace Drawing {
             }
         }
     }
+
+    void drawRef(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
+                  SkCanvas *canvas, const Themes::Fonts &fonts) {
+
+        SkRect rect;
+        SkPaint faceColor;
+        const Themes::BaseTheme &theme = opts.theme;
+        float offset = 0;
+        float h = (opts.dimensions.y / (float)collections.size()) * 0.03;
+        float textW = fonts.textWidths[0];
+        float minLetterSize = opts.dimensions.x / textW;
+        for (auto &cl: collections) {
+            int size = cl.region.end - cl.region.start;
+            float xScaling = cl.xScaling;
+            const char *ref = cl.region.refSeq;
+            float i = cl.xOffset;
+            if (size < minLetterSize) {
+                float v = (xScaling - textW) / 2;
+                while (*ref) {
+                    switch ((unsigned int)*ref) {
+                        case 65: faceColor = theme.fcA; break;
+                        case 67: faceColor = theme.fcC; break;
+                        case 71: faceColor = theme.fcG; break;
+                        case 78: faceColor = theme.fcN; break;
+                        case 84: faceColor = theme.fcT; break;
+                        case 97: faceColor = theme.fcA; break;
+                        case 99: faceColor = theme.fcC; break;
+                        case 103: faceColor = theme.fcG; break;
+                        case 110: faceColor = theme.fcN; break;
+                        case 116: faceColor = theme.fcT; break;
+                    }
+                    canvas->drawTextBlob(SkTextBlob::MakeFromText(ref, 1, fonts.fonty, SkTextEncoding::kUTF8), i + v, offset = h, faceColor);
+                    i += xScaling;
+                    ++ref;
+                }
+            } else if (size < 20000) {
+                while (*ref) {
+                    rect.setXYWH(i, offset, xScaling, h);
+                    switch ((unsigned int)*ref) {
+                        case 65: canvas->drawRect(rect, theme.fcA); break;
+                        case 67: canvas->drawRect(rect, theme.fcC); break;
+                        case 71: canvas->drawRect(rect, theme.fcG); break;
+                        case 78: canvas->drawRect(rect, theme.fcN); break;
+                        case 84: canvas->drawRect(rect, theme.fcT); break;
+                        case 97: canvas->drawRect(rect, theme.fcA); break;
+                        case 99: canvas->drawRect(rect, theme.fcC); break;
+                        case 103: canvas->drawRect(rect, theme.fcG); break;
+                        case 110: canvas->drawRect(rect, theme.fcN); break;
+                        case 116: canvas->drawRect(rect, theme.fcT); break;
+                    }
+                    i += xScaling;
+                    ++ref;
+                }
+            }
+            // todo add pixelHeight to offset
+        }
+    }
 }

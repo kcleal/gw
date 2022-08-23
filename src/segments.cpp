@@ -200,7 +200,7 @@ namespace Segs {
 
         int ptrn = NORMAL;
         uint32_t flag = src->core.flag;
-        if (flag & 1 && ~flag & 14) {  // not; proper-pair, unmapped, mate-unmapped
+        if (flag & 1 && !(flag & 12)) {  // proper-pair, not (unmapped, mate-unmapped)
             if (src->core.tid == src->core.mtid) {
                 if (self->pos <= src->core.mpos) {
                     if (~flag & 16) {
@@ -239,7 +239,6 @@ namespace Segs {
                 ptrn = TRA;
             }
         }
-
         self->orient_pattern = ptrn;
 
         if (flag & 2048 || self->has_SA) {
@@ -282,27 +281,14 @@ namespace Segs {
     void addToCovArray(std::vector<int> &arr, Align *align, int begin, int end, int l_arr) {
         size_t n_blocks = align->block_starts.size();
         for (size_t idx=0; idx < n_blocks; ++idx) {
-
             uint32_t block_s = align->block_starts[idx];
             if (block_s >= end) { break; }
-
             uint32_t block_e = align->block_ends[idx];
             if (block_e < begin) { continue; }
-
             uint32_t s = (block_s >= begin) ? block_s - begin : 0;
             uint32_t e = (block_e < end) ? block_e - begin : l_arr;
-
-            arr[s] += 1;  // s is uint32_t so can be < 0
+            arr[s] += 1;
             arr[e] -= 1;
-
-//            std::cout << align->block_starts[idx] << " " << begin << std::endl;
-//
-//            uint32_t s = align->block_starts[idx] - begin;
-//            uint32_t e = align->block_ends[idx] - begin;
-//            if ( s < l_arr || e < l_arr ) {
-//                arr[s] += 1;  // s is uint32_t so can be < 0
-//                arr[(e > l_arr) ? l_arr : e] -= 1;
-//            }
         }
     }
 
@@ -316,7 +302,6 @@ namespace Segs {
         int i, j;
 
         // first find reads that should be linked together using qname
-//        auto start = std::chrono::high_resolution_clock::now();
         if (linkType > 0) {
             // find the start and end coverage locations of aligns with same name
             for (i=0; i < (int)rc.readQueue.size(); ++i) {
@@ -380,7 +365,6 @@ namespace Segs {
             stopCondition = -1;
             move = -1;
         }
-//        std::cout << memLen << " " << qLen << std::endl;
 
         if (si == 0) {
             q_ptr = &rc.readQueue.front();
@@ -465,11 +449,6 @@ namespace Segs {
                 ++q_ptr;
             }
         }
-
-//        auto finish = std::chrono::high_resolution_clock::now();
-//        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
-//        std::cout << "Elapsed Time link: " << m.count() << " m seconds" << std::endl;
-
         return samMaxY;
     }
 
