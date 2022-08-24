@@ -80,7 +80,7 @@ namespace Segs {
         std::vector<int> covArr;
         std::vector<uint32_t> levelsStart, levelsEnd;
         std::vector<Align> readQueue;
-        float xScaling, xOffset, yOffset;
+        float xScaling, xOffset, yOffset, yPixels;
     };
 
     void init_parallel(std::vector<Align> &aligns, int n);

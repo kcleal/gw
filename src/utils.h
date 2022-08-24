@@ -8,6 +8,16 @@
 
 
 namespace Utils {
+
+    enum GwFileTypes {
+        VCF,
+        BED,
+        BEDPE,
+        None
+    };
+
+    bool endsWith(const std::string &mainStr, const std::string &toMatch);
+
     // https://stackoverflow.com/questions/1528298/get-path-of-executable
     std::string getExecutableDir();
 
@@ -22,6 +32,7 @@ namespace Utils {
             chrom = "";
             start = -1;
             end = -1;
+            refSeq = nullptr;
         }
     };
 

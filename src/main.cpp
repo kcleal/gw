@@ -30,7 +30,6 @@
 // skia context has to be managed from global space to work
 GrDirectContext *sContext = nullptr;
 SkSurface *sSurface = nullptr;
-SkSurface *sSurface2 = nullptr;
 
 
 int main(int argc, char *argv[]) {
@@ -168,8 +167,9 @@ int main(int argc, char *argv[]) {
         image_glob = glob::glob(program.get<std::string>("-i"));
     }
 
+    std::string outdir;
     if (program.is_used("-o")) {
-        auto outdir = program.get<std::string>("-o");
+        outdir = program.get<std::string>("-o");
         if (!std::filesystem::is_directory(outdir) || !std::filesystem::exists(outdir)) { // Check if src folder exists
             std::filesystem::create_directory(outdir); // create src folder
         }
@@ -225,15 +225,27 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (program.is_used("-t")) {
-        iopts.threads = program.get<int>("t");
+    if (program.is_used("--threads")) {
+        iopts.threads = program.get<int>("--threads");
+    }
+    if (program.is_used("--ylim")) {
+        iopts.ylim = program.get<int>("--ylim");
+    }
+    if (program.is_used("--log2-cov")) {
+        iopts.log2_cov = true;
+    }
+    if (program.is_used("--no-cov")) {
+        iopts.coverage = false;
     }
 
+    /*
+     * / Gw start
+     */
     Manager::GwPlot plotter = Manager::GwPlot(genome, bam_paths, iopts, regions);
 
-    if (!program.get<bool>("-n")) {
+    if (!iopts.no_show) {
 
-        // Manager::SkiaWindow window = Manager::SkiaWindow();
+        // initialize display screen
         plotter.init(iopts.dimensions.x, iopts.dimensions.y);
         int fb_height, fb_width;
         glfwGetFramebufferSize(plotter.window, &fb_width, &fb_height);
@@ -241,30 +253,26 @@ int main(int argc, char *argv[]) {
         sContext = GrDirectContext::MakeGL(nullptr).release();
         GrGLFramebufferInfo framebufferInfo;
         framebufferInfo.fFBOID = 0;
-        framebufferInfo.fFormat = GL_SRGB8_ALPHA8; // GL_RGBA8;
-
+        framebufferInfo.fFormat = GL_RGBA8;  // GL_SRGB8_ALPHA8; //
         GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
         if (!backendRenderTarget.isValid()) {
             std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
             glfwTerminate();
             std::terminate();
         }
-
         sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
                                                           backendRenderTarget,
                                                           kBottomLeft_GrSurfaceOrigin,
                                                           kRGBA_8888_SkColorType,
                                                           nullptr,
                                                           nullptr).release();
-
         if (!sSurface) {
             std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
             sContext->releaseResourcesAndAbandonContext();
             std::terminate();
         }
-
+        plotter.opts.theme.setAlphas();
         int res = plotter.startUI(sSurface->getCanvas(), sContext);
-
         if (res < 0) {
             std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
             sContext->releaseResourcesAndAbandonContext();
@@ -272,5 +280,49 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    if (iopts.no_show && !outdir.empty()) {
+        // save image using GPU renderer
+        if (!program.is_used("--variants") && !program.is_used("--images") && !regions.empty()) {
+
+            plotter.initBack(iopts.dimensions.x, iopts.dimensions.y);
+
+            int fb_height, fb_width;
+            glfwGetFramebufferSize(plotter.backWindow, &fb_width, &fb_height);
+            sk_sp<GrDirectContext> context = GrDirectContext::MakeGL(nullptr);
+            SkImageInfo info = SkImageInfo::MakeN32Premul(fb_width, fb_height);
+            sk_sp<SkSurface> gpuSurface(SkSurface::MakeRenderTarget(context.get(), SkBudgeted::kNo, info));
+            if (!gpuSurface) {
+                std::cerr << "ERROR: gpuSurface could not be initialized (nullptr)\n";
+                std::terminate();
+            }
+
+            SkCanvas *canvas = gpuSurface->getCanvas();
+            plotter.opts.theme.setAlphas();
+            plotter.drawSurfaceGpu(canvas);
+
+            sk_sp<SkImage> img(gpuSurface->makeImageSnapshot());
+
+        } else if (program.is_used("--variants")) {
+            auto parseLabel = program.get<std::string>("--parse-label");
+            auto v = program.get<std::string>("--variants");
+            if (Utils::endsWith(v, "vcf") || Utils::endsWith(v, "vcf.gz") || Utils::endsWith(v, "bcf")) {
+
+                auto vcf = HTS::VCF(iopts.pad, iopts.split_view_size, parseLabel.c_str());
+                vcf.open(v);
+                int c =0;
+                while (!vcf.done) {
+                    vcf.next();
+
+                    std::cout << vcf.chrom << ":" << vcf.start << "-" << vcf.stop <<  std::endl;
+                    break;
+//                    c += 1;
+                }
+
+                std::cout << c << " hi " << parseLabel.empty() << "\n";
+            }
+
+        }
+    }
+    std::cout << "Done\n";
     return 0;
 };

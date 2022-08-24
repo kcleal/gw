@@ -7,7 +7,7 @@
 namespace Themes {
 
     BaseTheme::BaseTheme() {
-        fcCoverage.setARGB(255, 220, 220, 220);
+
         fcCoverage.setStyle(SkPaint::kStrokeAndFill_Style);
         fcCoverage.setStrokeWidth(0);
 
@@ -135,27 +135,22 @@ namespace Themes {
             for (size_t i=0; i<11; ++i) {
                 p = fcA;
                 p.setAlpha(base_qual_alpha[i]);
-//                APaint.push_back(p);
                 BasePaints[1][i] = p;
 
                 p = fcT;
                 p.setAlpha(base_qual_alpha[i]);
-//                TPaint.push_back(p);
                 BasePaints[8][i] = p;
 
                 p = fcC;
                 p.setAlpha(base_qual_alpha[i]);
-//                CPaint.push_back(p);
                 BasePaints[2][i] = p;
 
                 p = fcG;
                 p.setAlpha(base_qual_alpha[i]);
-//                GPaint.push_back(p);
                 BasePaints[4][i] = p;
 
                 p = fcN;
                 p.setAlpha(base_qual_alpha[i]);
-//                NPaint.push_back(p);
                 BasePaints[9][i] = p;
                 BasePaints[10][i] = p;
                 BasePaints[11][i] = p;
@@ -169,6 +164,7 @@ namespace Themes {
 
     IgvTheme::IgvTheme() {
         name = "igv";
+        fcCoverage.setARGB(255, 220, 220, 220);
         bgPaint.setARGB(255, 255, 255, 255);
         fcNormal.setARGB(255, 192, 192, 192);
         fcDel.setARGB(255, 220, 20, 60);
@@ -191,7 +187,8 @@ namespace Themes {
 
     DarkTheme::DarkTheme() {
         name = "dark";
-        bgPaint.setARGB(255, 3, 3, 3);
+        fcCoverage.setARGB(255, 90, 90, 100);
+        bgPaint.setARGB(255, 10, 10, 20);
         fcNormal.setARGB(255, 95, 95, 95);
         fcDel.setARGB(255, 185, 25, 25);
         fcDup.setARGB(255, 24, 100, 198);
@@ -358,7 +355,7 @@ namespace Themes {
             fonty.setSize(font_size);
             fonty.getBounds(glyphs, 1, bounds, pnt);
             height = bounds[0].height();
-            if (height < maxHeight) {
+            if (height < maxHeight*0.8) {
                 was_set = true;
                 break;
             }

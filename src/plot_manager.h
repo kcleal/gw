@@ -51,6 +51,7 @@ namespace Manager {
         ~GwPlot();
 
         int vScroll;
+        bool drawToBackWindow;
 
         std::string reference;
 
@@ -66,12 +67,20 @@ namespace Manager {
 
         faidx_t* fai;
         GLFWwindow* window;
+        GLFWwindow* backWindow;
 
         void init(int width, int height);
+
+        void initBack(int width, int height);
 
         int startUI(SkCanvas* canvas, GrDirectContext* sContext);
 
         void keyPress(GLFWwindow* window, int key, int scancode, int action, int mods);
+
+        void drawSurfaceGpu(SkCanvas *canvas);
+
+        void savePng(sk_sp<SkImage> img, std::string &outdir);
+
 
     private:
 
@@ -96,9 +105,11 @@ namespace Manager {
 
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext);
 
+        void setGlfwFrameBufferSize();
+
         void setScaling();
 
-        void processBam(SkCanvas* canvas);
+        void processBam();
 
         int registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
 

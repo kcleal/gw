@@ -9,6 +9,7 @@
 #include "htslib/hfile.h"
 #include "htslib/hts.h"
 #include "htslib/sam.h"
+#include "htslib/vcf.h"
 
 #include "../inc/BS_thread_pool.h"
 
@@ -38,6 +39,10 @@ namespace HTS {
         readQueue.push_back(make_align(bam_init1()));
 
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
+        if (iter_q == nullptr) {
+            std::cerr << "Error: Null iterator when trying to fetch from HTS file\n";
+            std::terminate();
+        }
         while (sam_itr_next(b, iter_q, readQueue.back().delegate) >= 0) {
             src = readQueue.back().delegate;
             if (src->core.flag & 4 || src->core.n_cigar == 0) {
@@ -59,5 +64,42 @@ namespace HTS {
                 Segs::addToCovArray(col.covArr, &readQueue[i], region->start, region->end, l_arr);
             }
         }
+    }
+
+    VCF::~VCF() {
+        vcf_close(fp);
+        bcf_destroy(v);
+    }
+
+    void VCF::open(std::string f) {
+        path = f;
+        fp = bcf_open(f.c_str(), "r");
+        hdr = bcf_hdr_read(fp);
+        v = bcf_init1();
+        v->max_unpack = BCF_UN_SHR;  // don't unpack more data than neeeded
+    }
+
+    void VCF::next() {
+        int res = bcf_read(fp, hdr, v);
+        if (res < -1) {
+            std::cerr << "Error: reading vcf resulted in error code " << res << std::endl;
+            std::terminate();
+        } else if (res == -1) {
+            done = true;
+        }
+
+        start = v->pos;
+        stop = start + v->rlen;
+        chrom = bcf_hdr_id2name(hdr, v->rid);
+
+
+//        int res2 = bcf_unpack(v, BCF_UN_SHR);
+//        if (res2 < -1) {
+//            std::cerr << "Error: unpacking vcf resulted in error code " << res << std::endl;
+//            std::terminate();
+//        }
+
+
+
     }
 }

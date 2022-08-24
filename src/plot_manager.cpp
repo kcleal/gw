@@ -1,8 +1,4 @@
 
-//#include <htslib/faidx.h>
-//#include <htslib/hfile.h>
-//#include <htslib/sam.h>
-
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -43,6 +39,7 @@ namespace Manager {
         redraw = true;
         processed = false;
         calcScaling = true;
+        drawToBackWindow = false;
         fonts = Themes::Fonts();
         fai = fai_load(reference.c_str());
         for (auto &fn: this->bam_paths) {
@@ -66,7 +63,9 @@ namespace Manager {
         glfwDestroyWindow(window);
         glfwTerminate();
         for (auto &rgn : regions) {
-            delete rgn.refSeq;
+            if (rgn.refSeq != nullptr) {
+                delete rgn.refSeq;
+            }
         }
     }
 
@@ -99,6 +98,23 @@ namespace Manager {
 
     }
 
+    void GwPlot::initBack(int width, int height) {
+        if (!glfwInit()) {
+            std::cerr<<"ERROR: could not initialize GLFW3"<<std::endl;
+            std::terminate();
+        }
+        glfwWindowHint(GLFW_STENCIL_BITS, 8);
+        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+        backWindow = glfwCreateWindow(width, height, "GW", NULL, NULL);
+        if (!backWindow) {
+            std::cerr<<"ERROR: could not create back window with GLFW3"<<std::endl;
+            glfwTerminate();
+            std::terminate();
+        }
+        glfwMakeContextCurrent(backWindow);
+        drawToBackWindow = true;
+    }
+
     void GwPlot::fetchRefSeqs() {
         for (auto &rgn : regions) {
             int rlen = rgn.end - rgn.start;
@@ -127,7 +143,7 @@ namespace Manager {
         return 1;
     }
 
-    void GwPlot::processBam(SkCanvas* canvas) {  // collect reads, calc coverage and find y positions on plot
+    void GwPlot::processBam() {  // collect reads, calc coverage and find y positions on plot
         if (!processed) {
             if (opts.link_op != 0) {
                 linked.clear();
@@ -165,11 +181,18 @@ namespace Manager {
         }
     }
 
+    void GwPlot::setGlfwFrameBufferSize() {
+        if (!drawToBackWindow) {
+            glfwGetFramebufferSize(window, &fb_width, &fb_height);
+        } else {
+            glfwGetFramebufferSize(backWindow, &fb_width, &fb_height);
+        }
+    }
+
     void GwPlot::setScaling() {  // sets z_scaling, y_scaling trackY and regionWidth
         if (samMaxY == 0 || !calcScaling) {
             return;
         }
-        glfwGetFramebufferSize(window, &fb_width, &fb_height);
         auto fbh = (float) fb_height;
         auto fbw = (float) fb_width;
         if (bams.empty()) {
@@ -185,15 +208,14 @@ namespace Manager {
         totalTabixY = 0; tabixY = 0;  // todo add if bed track here
         trackY = (fbh - totalCovY - totalTabixY) / (float)bams.size();
         yScaling = ((fbh - totalCovY - totalTabixY) / (float)samMaxY) / (float)bams.size();
-
         fonts.setFontSize(yScaling);
-
         regionWidth = fbw / (float)regions.size();
         bamHeight = covY + trackY + tabixY;
         for (auto &cl: collections) {
             cl.xScaling = regionWidth / ((float)(cl.region.end - cl.region.start));
             cl.xOffset = regionWidth * cl.regionIdx;
             cl.yOffset = cl.bamIdx * bamHeight + covY;
+            cl.yPixels = trackY + covY + tabixY;
         }
     }
 
@@ -202,26 +224,46 @@ namespace Manager {
         auto start = std::chrono::high_resolution_clock::now();
 
         canvas->drawPaint(opts.theme.bgPaint);
-        processBam(canvas);
+        processBam();
+        setGlfwFrameBufferSize();
         setScaling();
-
         if (opts.coverage) {
-            Drawing::drawCoverage(opts, collections, canvas, yScaling, fonts, covY);
+            Drawing::drawCoverage(opts, collections, canvas, fonts, covY);
         }
-
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts);
         Drawing::drawRef(opts, collections, canvas, fonts);
 
+        auto finish = std::chrono::high_resolution_clock::now();
         sContext->flush();
         glfwSwapBuffers(window);
-
         redraw = false;
 
+        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
+        std::cout << "Elapsed Time drawScreen: " << m.count() << " m seconds" << std::endl;
+    }
+
+    void GwPlot::drawSurfaceGpu(SkCanvas *canvas) {
+        auto start = std::chrono::high_resolution_clock::now();
+        canvas->drawPaint(opts.theme.bgPaint);
+        setGlfwFrameBufferSize();
+        processBam();
+        setScaling();
+        if (opts.coverage) {
+            Drawing::drawCoverage(opts, collections, canvas, fonts, covY);
+        }
+        Drawing::drawBams(opts, collections, canvas, yScaling, fonts);
+        Drawing::drawRef(opts, collections, canvas, fonts);
         auto finish = std::chrono::high_resolution_clock::now();
         auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
         std::cout << "Elapsed Time drawScreen: " << m.count() << " m seconds" << std::endl;
-
     }
 
+    void GwPlot::savePng(sk_sp<SkImage> img, std::string &outdir) {
+        if (!img) { return; }
+        sk_sp<SkData> png(img->encodeToData());
+        if (!png) { return; }
+        SkFILEWStream out("testout.png");
+        (void)out.write(png->data(), png->size());
+    }
 }
 
