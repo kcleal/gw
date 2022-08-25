@@ -320,6 +320,7 @@ namespace Themes {
 
         number_str = myIni["labelling"]["number"];
         number = Utils::parseDimensions(number_str);
+        parse_label = myIni["labelling"]["parse_label"];
         labels = myIni["labelling"]["labels"];
         delete_labels = key_table[myIni["labelling"]["delete_labels"]];
         enter_interactive_mode = key_table[myIni["labelling"]["enter_interactive_mode"]];

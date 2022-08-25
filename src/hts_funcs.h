@@ -37,7 +37,10 @@ namespace HTS {
         const bcf_hdr_t *hdr;
         bcf1_t *v;
         std::string path;
-        std::string chrom, chrom2, rid, vartype, label;
+        std::string chrom, chrom2, rid, vartype, label, tag;
+
+        int parse;
+        int info_field_type;
         const char *label_to_parse;
         long start, stop, pad, split_view_size;
         bool done;

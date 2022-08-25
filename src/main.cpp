@@ -87,8 +87,8 @@ int main(int argc, char *argv[]) {
             .default_value(iopts.threads).append().scan<'i', int>()
             .help("Number of threads to use");
     program.add_argument("--parse-label")
-            .default_value(iopts.labels).append()
-            .help("Label to parse from vcf file (used with -v) e.g. 'filter' or 'info.SU'");
+            .default_value(iopts.parse_label).append()
+            .help("Label to parse from vcf file (used with -v) e.g. 'filter' or 'info.SU' or 'qual'");
     program.add_argument("--in-labels")
             .default_value(std::string{""}).append()
             .help("Overlay labels from FILE on images (use with -v or -i)");
@@ -280,7 +280,11 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (iopts.no_show && !outdir.empty()) {
+    if (iopts.no_show) {
+        if (outdir.empty()) {
+            std::cerr << "Error: please provide an output directory using --outdir\n";
+            std::terminate();
+        }
         // save image using GPU renderer
         if (!program.is_used("--variants") && !program.is_used("--images") && !regions.empty()) {
 
@@ -303,6 +307,7 @@ int main(int argc, char *argv[]) {
             sk_sp<SkImage> img(gpuSurface->makeImageSnapshot());
 
         } else if (program.is_used("--variants")) {
+
             auto parseLabel = program.get<std::string>("--parse-label");
             auto v = program.get<std::string>("--variants");
             if (Utils::endsWith(v, "vcf") || Utils::endsWith(v, "vcf.gz") || Utils::endsWith(v, "bcf")) {
@@ -312,10 +317,9 @@ int main(int argc, char *argv[]) {
                 int c =0;
                 while (!vcf.done) {
                     vcf.next();
-
-                    std::cout << vcf.chrom << ":" << vcf.start << "-" << vcf.stop <<  std::endl;
+                    std::cout << vcf.chrom << ":" << vcf.start << "-" << vcf.stop << " " << vcf.rid <<  std::endl;
                     break;
-//                    c += 1;
+                    c += 1;
                 }
 
                 std::cout << c << " hi " << parseLabel.empty() << "\n";
