@@ -123,7 +123,7 @@ namespace Themes {
         robin_hood::unordered_map<std::string, std::string> references;
         robin_hood::unordered_map<std::string, std::vector<std::string>> tracks;
 
-        void readIni(std::string path);
+        void readIni();
     };
 
     class Fonts {

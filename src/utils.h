@@ -25,7 +25,7 @@ namespace Utils {
 
     struct Region {
         std::string chrom;
-        int start, end;
+        long start, end;
         const char *refSeq;
 
         Region() {

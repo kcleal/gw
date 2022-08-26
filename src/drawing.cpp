@@ -197,7 +197,6 @@ namespace Drawing {
                              const float xScaling, const float maxX, const float xOffset, const SkPaint &faceColor, SkPath &path, const float slop) {
         start *= xScaling;
         width *= xScaling;
-
         if (start < 0) {
             width += start;
             start = 0;
@@ -206,12 +205,19 @@ namespace Drawing {
             width = maxX - start;
         }
         path.reset();
-        pArr[0].set(start + xOffset, yScaledOffset);
-        pArr[1].set(start - slop + xOffset, yScaledOffset + polygonH / 2);
-        pArr[2].set(start + xOffset, yScaledOffset + polygonH);
-        pArr[3].set(start + width + xOffset, yScaledOffset + polygonH);
-        pArr[4].set(start + width + xOffset, yScaledOffset);
-        path.addPoly(pArr, 5, true);
+        path.moveTo(start + xOffset, yScaledOffset);
+        path.lineTo(start - slop + xOffset, yScaledOffset + polygonH / 2);
+        path.lineTo(start + xOffset, yScaledOffset + polygonH);
+        path.lineTo(start + width + xOffset, yScaledOffset + polygonH);
+        path.lineTo(start + width + xOffset, yScaledOffset);
+        path.close();
+
+//        pArr[0].set(start + xOffset, yScaledOffset);
+//        pArr[1].set(start - slop + xOffset, yScaledOffset + polygonH / 2);
+//        pArr[2].set(start + xOffset, yScaledOffset + polygonH);
+//        pArr[3].set(start + width + xOffset, yScaledOffset + polygonH);
+//        pArr[4].set(start + width + xOffset, yScaledOffset);
+//        path.addPoly(pArr, 5, true);
         canvas->drawPath(path, faceColor);
     }
 
@@ -229,12 +235,19 @@ namespace Drawing {
             width = maxX - start;
         }
         path.reset();
-        pArr[0].set(start + xOffset, yScaledOffset);
-        pArr[1].set(start + xOffset, yScaledOffset + polygonH);
-        pArr[2].set(start + width + xOffset, yScaledOffset + polygonH);
-        pArr[3].set(start + width + slop + xOffset, yScaledOffset + polygonH / 2);
-        pArr[4].set(start + width + xOffset, yScaledOffset);
-        path.addPoly(pArr, 5, true);
+        path.moveTo(start + xOffset, yScaledOffset);
+        path.lineTo(start + xOffset, yScaledOffset + polygonH);
+        path.lineTo(start + width + xOffset, yScaledOffset + polygonH);
+        path.lineTo(start + width + slop + xOffset, yScaledOffset + polygonH / 2);
+        path.lineTo(start + width + xOffset, yScaledOffset);
+        path.close();
+
+//        pArr[0].set(start + xOffset, yScaledOffset);
+//        pArr[1].set(start + xOffset, yScaledOffset + polygonH);
+//        pArr[2].set(start + width + xOffset, yScaledOffset + polygonH);
+//        pArr[3].set(start + width + slop + xOffset, yScaledOffset + polygonH / 2);
+//        pArr[4].set(start + width + xOffset, yScaledOffset);
+//        path.addPoly(pArr, 5, true);
         canvas->drawPath(path, faceColor);
     }
 

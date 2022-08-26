@@ -31,7 +31,23 @@
 
 namespace Manager {
 
-    GwPlot::GwPlot(std::string reference, std::vector<std::string>& bam_paths, Themes::IniOptions& opt, std::vector<Utils::Region>& regions) {
+    void HiddenWindow::init(int width, int height) {
+        if (!glfwInit()) {
+            std::cerr<<"ERROR: could not initialize GLFW3"<<std::endl;
+            std::terminate();
+        }
+        glfwWindowHint(GLFW_STENCIL_BITS, 8);
+        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+        window = glfwCreateWindow(width, height, "GW", NULL, NULL);
+        if (!window) {
+            std::cerr<<"ERROR: could not create back window with GLFW3"<<std::endl;
+            glfwTerminate();
+            std::terminate();
+        }
+        glfwMakeContextCurrent(window);
+    }
+
+    GwPlot::GwPlot(std::string reference, std::vector<std::string> &bam_paths, Themes::IniOptions &opt, std::vector<Utils::Region> &regions) {
         this->reference = reference;
         this->bam_paths = bam_paths;
         this->regions = regions;
@@ -45,7 +61,6 @@ namespace Manager {
         for (auto &fn: this->bam_paths) {
             htsFile* f = sam_open(fn.c_str(), "r");
             hts_set_threads(f, opt.threads);
-            std::cout << opt.threads << std::endl;
             bams.push_back(f);
             sam_hdr_t *hdr_ptr = sam_hdr_read(f);
             headers.push_back(hdr_ptr);
@@ -122,6 +137,26 @@ namespace Manager {
         }
     }
 
+    void GwPlot::setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop) {
+
+        long rlen = stop - start;
+        if (chrom == chrom2 && rlen <= opts.split_view_size) {
+            Utils::Region r;
+            regions.resize(1);
+            regions[0].chrom = chrom;
+            regions[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
+            regions[0].end = stop + opts.pad;
+        } else {
+            regions.resize(2);
+            regions[0].chrom = chrom;
+            regions[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
+            regions[0].end = start + opts.pad;
+            regions[1].chrom = chrom2;
+            regions[1].start = (1 > stop - opts.pad) ? 1 : stop - opts.pad;
+            regions[1].end = stop + opts.pad;
+        }
+    }
+
     int GwPlot::startUI(SkCanvas* canvas, GrDirectContext* sContext) {
 
         fetchRefSeqs();
@@ -153,7 +188,6 @@ namespace Manager {
             collections.clear();
             collections.resize(bams.size() * regions.size());
 
-            // with some work this could be run this in parallel for each region
             for (int i=0; i<bams.size(); ++i) {
                 htsFile* b = bams[i];
                 sam_hdr_t *hdr_ptr = headers[i];
@@ -258,11 +292,20 @@ namespace Manager {
         std::cout << "Elapsed Time drawScreen: " << m.count() << " m seconds" << std::endl;
     }
 
-    void GwPlot::savePng(sk_sp<SkImage> img, std::string &outdir) {
+    void GwPlot::runDraw(SkCanvas *canvas) {
+        canvas->drawPaint(opts.theme.bgPaint);
+        if (opts.coverage) {
+            Drawing::drawCoverage(opts, collections, canvas, fonts, covY);
+        }
+        Drawing::drawBams(opts, collections, canvas, yScaling, fonts);
+        Drawing::drawRef(opts, collections, canvas, fonts);
+    }
+
+    void imageToPng(sk_sp<SkImage> &img, std::string &path) {
         if (!img) { return; }
         sk_sp<SkData> png(img->encodeToData());
         if (!png) { return; }
-        SkFILEWStream out("testout.png");
+        SkFILEWStream out(path.c_str());
         (void)out.write(png->data(), png->size());
     }
 }

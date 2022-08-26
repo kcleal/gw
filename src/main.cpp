@@ -3,12 +3,11 @@
 //
 #include <filesystem>
 #include <htslib/faidx.h>
-#include <htslib/hfile.h>
-#include <htslib/sam.h>
 #include <iostream>
 #include <string>
 
 #include "argparse.h"
+#include "../inc/BS_thread_pool.h"
 #include "glob.h"
 #include "plot_manager.h"
 #include "themes.h"
@@ -35,9 +34,11 @@ SkSurface *sSurface = nullptr;
 int main(int argc, char *argv[]) {
 
     Themes::IniOptions iopts;
+    iopts.readIni();
     static const std::vector<std::string> img_fmt = { "png", "pdf" };
     static const std::vector<std::string> img_themes = { "igv", "dark" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
+    static const std::vector<std::string> backend = { "raster", "gpu" };
 
     argparse::ArgumentParser program("gw", "0.1");
     program.add_argument("genome")
@@ -228,6 +229,9 @@ int main(int argc, char *argv[]) {
     if (program.is_used("--threads")) {
         iopts.threads = program.get<int>("--threads");
     }
+    if (program.is_used("--parse-label")) {
+        iopts.parse_label = program.get<std::string>("--parse-label");
+    }
     if (program.is_used("--ylim")) {
         iopts.ylim = program.get<int>("--ylim");
     }
@@ -278,9 +282,7 @@ int main(int argc, char *argv[]) {
             sContext->releaseResourcesAndAbandonContext();
             std::terminate();
         }
-    }
-
-    if (iopts.no_show) {
+    } else {
         if (outdir.empty()) {
             std::cerr << "Error: please provide an output directory using --outdir\n";
             std::terminate();
@@ -305,24 +307,62 @@ int main(int argc, char *argv[]) {
             plotter.drawSurfaceGpu(canvas);
 
             sk_sp<SkImage> img(gpuSurface->makeImageSnapshot());
+            if (!img) { std::cout << "!img" << std::endl; return 1; }
+            sk_sp<SkData> png(img->encodeToData());
+            if (!png) { std::cout << "!png" << std::endl; return 1; }
+            SkFILEWStream out("restout.png");
+            (void)out.write(png->data(), png->size());
 
         } else if (program.is_used("--variants")) {
 
-            auto parseLabel = program.get<std::string>("--parse-label");
+
             auto v = program.get<std::string>("--variants");
             if (Utils::endsWith(v, "vcf") || Utils::endsWith(v, "vcf.gz") || Utils::endsWith(v, "bcf")) {
 
-                auto vcf = HTS::VCF(iopts.pad, iopts.split_view_size, parseLabel.c_str());
+                iopts.theme.setAlphas();
+
+                auto vcf = HTS::VCF(iopts.parse_label.c_str());
                 vcf.open(v);
-                int c =0;
+
+                std::vector<Manager::VariantJob> jobs;
                 while (!vcf.done) {
                     vcf.next();
-                    std::cout << vcf.chrom << ":" << vcf.start << "-" << vcf.stop << " " << vcf.rid <<  std::endl;
-                    break;
-                    c += 1;
+                    Manager::VariantJob job;
+                    job.chrom = vcf.chrom;
+                    job.chrom2 = vcf.chrom2;
+                    job.start = vcf.start;
+                    job.stop = vcf.stop;
+                    jobs.push_back(job);
+//                    if (jobs.size() >= 1000)
+//                        break;
                 }
 
-                std::cout << c << " hi " << parseLabel.empty() << "\n";
+                BS::thread_pool pool(iopts.threads);
+                iopts.threads = 1;
+                pool.parallelize_loop(0, jobs.size(),
+                                      [&](const int a, const int b) {
+
+                                          Manager::GwPlot plt = Manager::GwPlot(genome, bam_paths, iopts, regions);
+                                          plt.fb_width = iopts.dimensions.x;
+                                          plt.fb_height = iopts.dimensions.y;
+                                          sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
+                                          SkCanvas *canvas = rasterSurface->getCanvas();
+
+                                          for (int i = a; i < b; ++i) {
+                                              Manager::VariantJob job = jobs[i];
+                                              plt.setVariantSite(job.chrom, job.start, job.chrom2, job.stop);
+
+                                              plt.fetchRefSeqs();
+                                              plt.processBam();
+                                              plt.setScaling();
+                                              plt.runDraw(canvas);
+                                              sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
+                                              std::string outname = "/home/kez/CLionProjects/gw_dev/testout/" + std::to_string(i) + ".png";
+                                              Manager::imageToPng(img, outname);
+                                              plt.regions.clear();
+                                          }
+                                      })
+                        .wait();
             }
 
         }

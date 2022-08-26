@@ -42,15 +42,24 @@ namespace Manager {
     typedef ankerl::unordered_dense::map< const char *, std::vector<int>> map_t;
     typedef std::vector< map_t > linked_t;
 
+    class HiddenWindow {
+    public:
+        HiddenWindow () {};
+        ~HiddenWindow () = default;
+        GLFWwindow *window;
+        void init(int width, int height);
+    };
+
     /*
      * Deals with managing genomic data
      */
     class GwPlot {
     public:
-        GwPlot(std::string reference, std::vector<std::string>& bams, Themes::IniOptions& opts, std::vector<Utils::Region>& regions);
+        GwPlot(std::string reference, std::vector<std::string> &bams, Themes::IniOptions &opts, std::vector<Utils::Region> &regions);
         ~GwPlot();
 
         int vScroll;
+        int fb_width, fb_height;
         bool drawToBackWindow;
 
         std::string reference;
@@ -73,13 +82,23 @@ namespace Manager {
 
         void initBack(int width, int height);
 
+        void setGlfwFrameBufferSize();
+
+        void fetchRefSeqs();
+
+        void processBam();
+
+        void setScaling();
+
+        void setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop);
+
         int startUI(SkCanvas* canvas, GrDirectContext* sContext);
 
         void keyPress(GLFWwindow* window, int key, int scancode, int action, int mods);
 
         void drawSurfaceGpu(SkCanvas *canvas);
 
-        void savePng(sk_sp<SkImage> img, std::string &outdir);
+        void runDraw(SkCanvas *canvas);
 
 
     private:
@@ -94,22 +113,14 @@ namespace Manager {
         int commandIndex;
 
         float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight;
-        int fb_width, fb_height;
+
         int samMaxY;
 
         float yScaling;
 
         linked_t linked;
 
-        void fetchRefSeqs();
-
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext);
-
-        void setGlfwFrameBufferSize();
-
-        void setScaling();
-
-        void processBam();
 
         int registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
 
@@ -117,5 +128,13 @@ namespace Manager {
 
     };
 
+    void imageToPng(sk_sp<SkImage> &img, std::string &outdir);
+
+    struct VariantJob {
+        std::string chrom;
+        std::string chrom2;
+        long start;
+        long stop;
+    };
 
 }

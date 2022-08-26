@@ -250,18 +250,25 @@ namespace Themes {
         delete_labels = GLFW_KEY_DELETE;
         enter_interactive_mode = GLFW_KEY_ENTER;
 
-        struct passwd *pw = getpwuid(getuid());
-        std::string home(pw->pw_dir);
-        if (Utils::is_file_exist(home + "/.gw.ini")) {
-            readIni(home + "/.gw.ini");
-        } else if (Utils::is_file_exist(home + "/.config/.gw.ini")) {
-            readIni(home + "/.config/.gw.ini");
-        } else if (Utils::is_file_exist(Utils::getExecutableDir() + "/.gw.ini")) {
-            readIni(Utils::getExecutableDir() + "/.gw.ini");
-        }
+
     }
 
-    void IniOptions::readIni(std::string path) {
+    void IniOptions::readIni() {
+
+        struct passwd *pw = getpwuid(getuid());
+        std::string home(pw->pw_dir);
+        std::string path;
+        if (Utils::is_file_exist(home + "/.gw.ini")) {
+            path = home + "/.gw.ini";
+        } else if (Utils::is_file_exist(home + "/.config/.gw.ini")) {
+            path = home + "/.config/.gw.ini";
+        } else if (Utils::is_file_exist(Utils::getExecutableDir() + "/.gw.ini")) {
+            path = Utils::getExecutableDir() + "/.gw.ini";
+        }
+        if (path.empty()) {
+            return;
+        }
+
         robin_hood::unordered_map<std::string, int> key_table;
         Keys::getKeyTable(key_table);
 
@@ -321,6 +328,7 @@ namespace Themes {
         number_str = myIni["labelling"]["number"];
         number = Utils::parseDimensions(number_str);
         parse_label = myIni["labelling"]["parse_label"];
+
         labels = myIni["labelling"]["labels"];
         delete_labels = key_table[myIni["labelling"]["delete_labels"]];
         enter_interactive_mode = key_table[myIni["labelling"]["enter_interactive_mode"]];

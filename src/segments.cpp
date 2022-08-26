@@ -161,7 +161,10 @@ namespace Segs {
 
             if (op == BAM_CMATCH || op == BAM_CEQUAL || op == BAM_CDIFF) {
                 if (last_op == 1) {
-                    self->block_ends.back() = pos + l;
+                    if (!self->block_ends.empty() ) {
+                        self->block_ends.back() = pos + l;
+                    }
+//                    self->block_ends.back() = pos + l;
                 } else {
                     self->block_starts.push_back(pos);
                     self->block_ends.push_back(pos + l);
@@ -263,9 +266,12 @@ namespace Segs {
 
     void init_parallel(std::vector<Align> &aligns, int n) {
         if (n == 1) {
-            for (size_t i = 0; i < aligns.size(); ++i)
-                align_init(&aligns[i]);
-
+//            for (size_t i = 0; i < aligns.size(); ++i) {
+//                align_init(&aligns[i]);
+//            }
+            for (auto &aln : aligns) {
+                align_init(&aln);
+            }
         } else {
             BS::thread_pool pool(n);
             pool.parallelize_loop(0, aligns.size(),

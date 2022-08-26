@@ -18,17 +18,13 @@
 
 namespace HTS {
 
-
-
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, Themes::IniOptions &opts, Utils::Region *region, bool coverage);
 
     class VCF {
     public:
-        VCF (int pad, int split_view_size, const char *label_to_parse) {
+        VCF (const char *label_to_parse) {
             done = false;
-            this->pad = pad;
-            this->split_view_size = split_view_size;
             this->label_to_parse = label_to_parse;
         };
         ~VCF();
@@ -42,7 +38,7 @@ namespace HTS {
         int parse;
         int info_field_type;
         const char *label_to_parse;
-        long start, stop, pad, split_view_size;
+        long start, stop;
         bool done;
 
         void open(std::string f);
