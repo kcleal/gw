@@ -169,4 +169,25 @@ namespace Utils {
     bool isOverlapping(uint32_t start1, uint32_t end1, uint32_t start2, uint32_t end2) {
         return start1 <= end2 && start2 <= end1;
     }
+
+    std::vector<BoundingBox> imageBoundingBoxes(Dims &dims, float windowWidth, float windowHeight, float padX, float padY) {
+        float w = windowWidth / dims.x;
+        float h = windowHeight / dims.y;
+        std::vector<BoundingBox> bboxes;
+        bboxes.resize(dims.x * dims.y);
+        int i = 0;
+        for (int x=0; x<dims.x; ++x) {
+            for (int y=0; y<dims.y; ++y) {
+                BoundingBox &b = bboxes[i];
+                b.xStart = (w * (float)x) + padX;
+                b.yStart = (h * (float)y) + padY;
+                b.xEnd = b.xStart + w - padX;
+                b.yEnd = b.yStart + h - padY;
+                b.width = w - padX * 2;
+                b.height = h - padY * 2;
+                ++ i;
+            }
+        }
+        return bboxes;
+    }
 }

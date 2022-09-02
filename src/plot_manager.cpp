@@ -1,7 +1,9 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <mutex>
 #include <string>
+#include <thread>         // std::thread
 #include <vector>
 
 #ifdef __APPLE__
@@ -20,6 +22,7 @@
 #include "include/gpu/gl/GrGLInterface.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColorSpace.h"
+#include "include/core/SkSamplingOptions.h"
 #include "include/core/SkSurface.h"
 
 #include "drawing.h"
@@ -27,6 +30,8 @@
 #include "plot_manager.h"
 #include "segments.h"
 #include "themes.h"
+
+std::mutex mtx;
 
 
 namespace Manager {
@@ -45,6 +50,11 @@ namespace Manager {
             std::terminate();
         }
         glfwMakeContextCurrent(window);
+    }
+
+    GwPlot makePlot(std::string reference, std::vector<std::string> &bam_paths, Themes::IniOptions &opt, std::vector<Utils::Region> &regions) {
+        GwPlot plt = GwPlot(reference, bam_paths, opt, regions);
+        return plt;
     }
 
     GwPlot::GwPlot(std::string reference, std::vector<std::string> &bam_paths, Themes::IniOptions &opt, std::vector<Utils::Region> &regions) {
@@ -72,15 +82,15 @@ namespace Manager {
         yScaling = 0;
         captureText = shiftPress = ctrlPress = processText = false;
         commandIndex = 0;
+        blockStart = 0;
+        mode = Show::SINGLE;
     }
 
     GwPlot::~GwPlot() {
         glfwDestroyWindow(window);
         glfwTerminate();
         for (auto &rgn : regions) {
-            if (rgn.refSeq != nullptr) {
-                delete rgn.refSeq;
-            }
+            delete rgn.refSeq;
         }
     }
 
@@ -138,7 +148,7 @@ namespace Manager {
     }
 
     void GwPlot::setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop) {
-
+        this->clearCollections();
         long rlen = stop - start;
         if (chrom == chrom2 && rlen <= opts.split_view_size) {
             Utils::Region r;
@@ -157,8 +167,30 @@ namespace Manager {
         }
     }
 
-    int GwPlot::startUI(SkCanvas* canvas, GrDirectContext* sContext) {
+    void GwPlot::appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop) {
+        this->clearCollections();
+        long rlen = stop - start;
+        std::vector<Utils::Region> v;
+        if (chrom == chrom2 && rlen <= opts.split_view_size) {
+            Utils::Region r;
+            v.resize(1);
+            v[0].chrom = chrom;
+            v[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
+            v[0].end = stop + opts.pad;
+        } else {
+            v.resize(2);
+            v[0].chrom = chrom;
+            v[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
+            v[0].end = start + opts.pad;
+            v[1].chrom = chrom2;
+            v[1].start = (1 > stop - opts.pad) ? 1 : stop - opts.pad;
+            v[1].end = stop + opts.pad;
+        }
+        multiRegions.push_back(v);
+    }
 
+    int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface) {
+        SkCanvas * canvas = sSurface->getCanvas();
         fetchRefSeqs();
         opts.theme.setAlphas();
 
@@ -172,10 +204,26 @@ namespace Manager {
             }
             glfwWaitEvents();
             if (redraw) {
-                drawScreen(canvas, sContext);
+                if (mode == Show::SINGLE) {
+                    drawScreen(canvas, sContext);
+                } else {
+                    drawTiles(canvas, sContext, sSurface);
+                }
+
             }
         }
+
         return 1;
+    }
+
+    void GwPlot::clearCollections() {
+        regions.clear();
+        for (auto & cl : collections) {
+            for (auto & a : cl.readQueue) {
+                bam_destroy1(a.delegate);
+            }
+        }
+        collections.clear();
     }
 
     void GwPlot::processBam() {  // collect reads, calc coverage and find y positions on plot
@@ -276,6 +324,64 @@ namespace Manager {
         std::cout << "Elapsed Time drawScreen: " << m.count() << " m seconds" << std::endl;
     }
 
+    void GwPlot::tileDrawingThread(SkCanvas* canvas, SkSurface *sSurface) {
+        mtx.lock();
+        int bStart = blockStart;
+        int bLen = opts.number.x * opts.number.y;
+        mtx.unlock();
+        int endIdx = bStart + bLen;
+        for (int i=bStart; i<endIdx; ++i) {
+            mtx.lock();
+            bool c = imageCache.contains(i);
+            mtx.unlock();
+            if (!c) {
+                regions = multiRegions[i];
+                runDraw(canvas);
+                sk_sp<SkImage> img(sSurface->makeImageSnapshot());
+                mtx.lock();
+                imageCache[i] = img;
+                glfwPostEmptyEvent();
+                mtx.unlock();
+            }
+        }
+    }
+
+    void GwPlot::drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
+        auto start = std::chrono::high_resolution_clock::now();
+        int bStart = blockStart;
+        int bLen = opts.number.x * opts.number.y;
+        setGlfwFrameBufferSize();
+        std::vector<Utils::BoundingBox> bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height);
+        SkSamplingOptions sampOpts = SkSamplingOptions();
+        std::thread tile_t = std::thread(&GwPlot::tileDrawingThread, this, canvas, sSurface);
+        std::vector<sk_sp<SkImage>> blockImages;
+
+        mtx.lock();
+        canvas->drawPaint(opts.theme.bgPaint);
+        int i = bStart;
+        int count = 0;
+        canvas->drawPaint(opts.theme.bgPaint);
+        for (auto &b : bboxes) {
+            SkRect rect;
+            rect.setXYWH(b.xStart, b.yStart, b.width, b.height);
+            if (imageCache.contains(i)) {
+                canvas->drawImageRect(imageCache[i], rect, sampOpts);
+                count += 1;
+            }
+            ++i;
+        }
+        if (count == bStart + bLen || count == multiRegions.size()) {
+            redraw = false;
+        }
+        sContext->flush();
+        glfwSwapBuffers(window);
+        mtx.unlock();
+        auto finish = std::chrono::high_resolution_clock::now();
+        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
+        std::cout << "Elapsed Time drawTiles: " << m.count() << " m seconds" << std::endl;
+        tile_t.join();
+    }
+
     void GwPlot::drawSurfaceGpu(SkCanvas *canvas) {
         auto start = std::chrono::high_resolution_clock::now();
         canvas->drawPaint(opts.theme.bgPaint);
@@ -293,6 +399,9 @@ namespace Manager {
     }
 
     void GwPlot::runDraw(SkCanvas *canvas) {
+        fetchRefSeqs();
+        processBam();
+        setScaling();
         canvas->drawPaint(opts.theme.bgPaint);
         if (opts.coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY);
@@ -307,6 +416,15 @@ namespace Manager {
         if (!png) { return; }
         SkFILEWStream out(path.c_str());
         (void)out.write(png->data(), png->size());
+    }
+
+    sk_sp<SkImage> GwPlot::makeImage() {
+        setScaling();
+        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(fb_width, fb_height);
+        SkCanvas *canvas = rasterSurface->getCanvas();
+        runDraw(canvas);
+        sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
+        return img;
     }
 }
 

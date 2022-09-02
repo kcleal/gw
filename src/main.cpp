@@ -1,9 +1,11 @@
 //
 // Created by Kez Cleal on 25/07/2022.
 //
+#include <algorithm>
 #include <filesystem>
 #include <htslib/faidx.h>
 #include <iostream>
+#include <random>
 #include <string>
 
 #include "argparse.h"
@@ -32,6 +34,13 @@ SkSurface *sSurface = nullptr;
 
 
 int main(int argc, char *argv[]) {
+
+    std::cout << "\n"
+                 "  ___\n"
+                 "/  _  | /| / \n"
+                 "\\__/  |/ |/   \n"
+                 "\n"
+                 "" << std::endl;
 
     Themes::IniOptions iopts;
     iopts.readIni();
@@ -146,7 +155,6 @@ int main(int argc, char *argv[]) {
         std::cerr << "Error: Genome not found" << std::endl;
         abort();
     }
-    std::cout << "Genome: " << genome << std::endl;
 
     std::vector<std::string> bam_paths;
     if (program.is_used("-b")) {
@@ -247,7 +255,7 @@ int main(int argc, char *argv[]) {
      */
     Manager::GwPlot plotter = Manager::GwPlot(genome, bam_paths, iopts, regions);
 
-    if (!iopts.no_show) {
+    if (!iopts.no_show) {  // plot to screen
 
         // initialize display screen
         plotter.init(iopts.dimensions.x, iopts.dimensions.y);
@@ -276,18 +284,40 @@ int main(int argc, char *argv[]) {
             std::terminate();
         }
         plotter.opts.theme.setAlphas();
-        int res = plotter.startUI(sSurface->getCanvas(), sContext);
-        if (res < 0) {
-            std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
-            sContext->releaseResourcesAndAbandonContext();
-            std::terminate();
+
+        if (!program.is_used("--variants") && !program.is_used("--images")) {
+            int res = plotter.startUI(sContext, sSurface);  // plot regions
+            if (res < 0) {
+                std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
+                sContext->releaseResourcesAndAbandonContext();
+                std::terminate();
+            }
+        } else if (program.is_used("--variants")) {  // plot variants as tiled images
+
+            auto vcf = HTS::VCF(iopts.parse_label.c_str());
+            vcf.open(program.get<std::string>("--variants"));
+            while (!vcf.done) {
+                vcf.next();
+                plotter.appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop);
+            }
+            plotter.mode = Manager::Show::TILED;
+
+            int res = plotter.startUI(sContext, sSurface);
+            if (res < 0) {
+                std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
+                sContext->releaseResourcesAndAbandonContext();
+                std::terminate();
+            }
+
         }
-    } else {
+
+    //todo internalize raster plotting inside the GwPlot class?
+    } else {  // save plot to file, use GPU if single image and GPU available, or use raster backend otherwise
         if (outdir.empty()) {
             std::cerr << "Error: please provide an output directory using --outdir\n";
             std::terminate();
         }
-        // save image using GPU renderer
+
         if (!program.is_used("--variants") && !program.is_used("--images") && !regions.empty()) {
 
             plotter.initBack(iopts.dimensions.x, iopts.dimensions.y);
@@ -315,7 +345,6 @@ int main(int argc, char *argv[]) {
 
         } else if (program.is_used("--variants")) {
 
-
             auto v = program.get<std::string>("--variants");
             if (Utils::endsWith(v, "vcf") || Utils::endsWith(v, "vcf.gz") || Utils::endsWith(v, "bcf")) {
 
@@ -333,12 +362,15 @@ int main(int argc, char *argv[]) {
                     job.start = vcf.start;
                     job.stop = vcf.stop;
                     jobs.push_back(job);
-//                    if (jobs.size() >= 1000)
-//                        break;
-                }
+                    if (jobs.size() >= 500)
+                        break;
+                } // shuffling might help distribute high cov regions between jobs
+                std::shuffle(std::begin(jobs), std::end(jobs), std::random_device());
 
                 BS::thread_pool pool(iopts.threads);
                 iopts.threads = 1;
+                fs::path dir(outdir);
+
                 pool.parallelize_loop(0, jobs.size(),
                                       [&](const int a, const int b) {
 
@@ -351,22 +383,20 @@ int main(int argc, char *argv[]) {
                                           for (int i = a; i < b; ++i) {
                                               Manager::VariantJob job = jobs[i];
                                               plt.setVariantSite(job.chrom, job.start, job.chrom2, job.stop);
-
-                                              plt.fetchRefSeqs();
-                                              plt.processBam();
-                                              plt.setScaling();
                                               plt.runDraw(canvas);
                                               sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
-                                              std::string outname = "/home/kez/CLionProjects/gw_dev/testout/" + std::to_string(i) + ".png";
+                                              fs::path file (std::to_string(i) + ".png");
+                                              fs::path full_path = dir / file;
+                                              std::string outname = full_path.string();
                                               Manager::imageToPng(img, outname);
-                                              plt.regions.clear();
                                           }
                                       })
                         .wait();
+
             }
 
         }
     }
-    std::cout << "Done\n";
+    std::cout << "Gw finished\n";
     return 0;
 };

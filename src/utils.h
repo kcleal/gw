@@ -5,6 +5,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 
 namespace Utils {
@@ -47,5 +48,11 @@ namespace Utils {
     int intervalOverlap(int start1, int end1, int start2, int end2);
 
     bool isOverlapping(uint32_t start1, uint32_t end1, uint32_t start2, uint32_t end2);
+
+    struct BoundingBox {
+        float xStart, yStart, xEnd, yEnd, width, height;
+    };
+
+    std::vector<BoundingBox> imageBoundingBoxes(Dims &dims, float wndowWidth, float windowHeight, float padX=5, float padY=5);
 
 }

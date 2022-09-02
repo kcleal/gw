@@ -42,6 +42,11 @@ namespace Manager {
     typedef ankerl::unordered_dense::map< const char *, std::vector<int>> map_t;
     typedef std::vector< map_t > linked_t;
 
+    enum Show {
+        SINGLE,
+        TILED
+    };
+
     class HiddenWindow {
     public:
         HiddenWindow () {};
@@ -69,7 +74,10 @@ namespace Manager {
         std::vector<sam_hdr_t* > headers;
         std::vector<hts_idx_t* > indexes;
         std::vector<Utils::Region> regions;
+        std::vector<std::vector<Utils::Region>> multiRegions;  // used for creating tiled regions
         std::vector<Segs::ReadCollection> collections;
+
+        ankerl::unordered_dense::map< int, sk_sp<SkImage>> imageCache;
 
         Themes::IniOptions opts;
         Themes::Fonts fonts;
@@ -77,6 +85,8 @@ namespace Manager {
         faidx_t* fai;
         GLFWwindow* window;
         GLFWwindow* backWindow;
+
+        Show mode;
 
         void init(int width, int height);
 
@@ -86,19 +96,25 @@ namespace Manager {
 
         void fetchRefSeqs();
 
+        void clearCollections();
+
         void processBam();
 
         void setScaling();
 
         void setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop);
 
-        int startUI(SkCanvas* canvas, GrDirectContext* sContext);
+        void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop);
+
+        int startUI(GrDirectContext* sContext, SkSurface *sSurface);
 
         void keyPress(GLFWwindow* window, int key, int scancode, int action, int mods);
 
         void drawSurfaceGpu(SkCanvas *canvas);
 
         void runDraw(SkCanvas *canvas);
+
+        sk_sp<SkImage> makeImage();
 
 
     private:
@@ -120,11 +136,15 @@ namespace Manager {
 
         linked_t linked;
 
+        int blockStart, blockLen;
+
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext);
 
-        int registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
+        void tileDrawingThread(SkCanvas* canvas, SkSurface *sSurface);
 
-        void processCommand();
+        void drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
+
+        int registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
 
     };
 
