@@ -42,7 +42,7 @@ ifeq ($(UNAME_S),Linux)
 		LIBS += -lglfw
 	endif
 
-	endif
+endif
 ifeq ($(UNAME_S),Darwin)
 	LIBS += -lglfw3
 endif
