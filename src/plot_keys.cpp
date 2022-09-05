@@ -39,13 +39,13 @@
 namespace Manager {
 
     // keeps track of input commands
-    int GwPlot::registerKey(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    bool GwPlot::registerKey(GLFWwindow* window, int key, int scancode, int action, int mods) {
         if (action == GLFW_RELEASE) {
             if ((key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) && !captureText) {
                 shiftPress = false;
             }
             ctrlPress = false;
-            return 0;
+            return false;
         }
         if (key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) {
             shiftPress = true;
@@ -62,19 +62,19 @@ namespace Manager {
                 processText = true;
                 shiftPress = false;
                 std::cout << "\n";
-                return 0;
+                return false;
             }
             if (!commandHistory.empty()) {
                 if (key == GLFW_KEY_UP && commandIndex > 0) {
                     commandIndex -= 1;
                     inputText = commandHistory[commandIndex];
                     std::cout << "\r" << inputText << std::flush;
-                    return 1;
+                    return true;
                 } else if (key == GLFW_KEY_DOWN && commandIndex < commandHistory.size() - 1) {
                     commandIndex += 1;
                     inputText = commandHistory[commandIndex];
                     std::cout << "\r" << inputText << std::flush;
-                    return 1;
+                    return true;
                 }
             }
 
@@ -91,7 +91,7 @@ namespace Manager {
                 }
             } else {  // character entry
                 if (key == GLFW_KEY_SEMICOLON && inputText.size() == 1) {
-                    return 1;
+                    return true;
                 } else if (key == GLFW_KEY_BACKSPACE) {
                     if (inputText.size() > 1) {
                         inputText.pop_back();
@@ -119,15 +119,84 @@ namespace Manager {
                     std::cout << "\r" << inputText << std::flush;
                 }
             }
-            return 1;
+            return true;
         }
-        return 1;
+        return true;
     }
 
     void GwPlot::keyPress(GLFWwindow* window, int key, int scancode, int action, int mods) {
-//        std::cout << key << std::endl;
-//        std::cout << regions.size() << std::endl;
 
-        int res = registerKey(window, key, scancode, action, mods);
+        if (action == GLFW_RELEASE) {
+            return;
+        }
+
+        // decide if the input key is part of a command or a redraw request
+        bool res = registerKey(window, key, scancode, action, mods);
+
+        if (captureText) {
+            return;
+        }
+
+        if (mode == Show::SINGLE) {
+            if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+                if (key == opts.scroll_right) {
+                    int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
+                    regions[regionSelection].start += shift;
+                    regions[regionSelection].end += shift;
+                    processed = false;
+                    redraw = true;
+                } else if (key == opts.scroll_left) {
+                    int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
+                    shift = (regions[regionSelection].start - shift > 0) ? shift : regions[regionSelection].start;
+                    regions[regionSelection].start -= shift;
+                    regions[regionSelection].end -= shift;
+                    processed = false;
+                    redraw = true;
+                } else if (key == opts.zoom_out) {
+                    int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
+                    int shift_left = (regions[regionSelection].start - shift > 0) ? shift : regions[regionSelection].start;
+                    regions[regionSelection].start -= shift_left;
+                    regions[regionSelection].end += shift;
+                    processed = false;
+                    redraw = true;
+                } else if (key == opts.zoom_in) {
+                    if (regions[regionSelection].end - regions[regionSelection].start > 50) {
+                        int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
+                        int shift_left = (regions[regionSelection].start - shift > 0) ? shift : regions[regionSelection].start;
+                        regions[regionSelection].start += shift_left;
+                        regions[regionSelection].end -= shift;
+                        processed = false;
+                        redraw = true;
+                    }
+                } else if (key == opts.next_region_view) {
+                    regionSelection += 1;
+                    if (regionSelection >= regions.size()) {
+                        regionSelection = 0;
+                    }
+                    std::cout << "Region selection " << regionSelection << std::endl;
+                }
+            }
+        } else {  // show::TILED
+            int bLen = opts.number.x * opts.number.y;
+            if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+                if (key == opts.scroll_right) {
+                    blockStart += bLen;
+                    redraw = true;
+                } else if (key == opts.scroll_left) {
+                    blockStart = (blockStart - bLen > 0) ? blockStart - bLen : 0;
+                    redraw = true;
+                } else if (key == opts.zoom_out) {
+                    opts.number.x += 1;
+                    opts.number.y += 1;
+                    redraw = true;
+                } else if (key == opts.zoom_in) {
+                    opts.number.x = (opts.number.x - 1 > 0) ? opts.number.x - 1 : 1;
+                    opts.number.y = (opts.number.y - 1 > 0) ? opts.number.y - 1 : 1;
+                    redraw = true;
+                }
+
+            }
+        }
+
     }
 }

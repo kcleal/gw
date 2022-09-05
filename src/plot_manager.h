@@ -136,7 +136,7 @@ namespace Manager {
 
         linked_t linked;
 
-        int blockStart, blockLen;
+        int blockStart, blockLen, regionSelection;
 
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext);
 
@@ -144,7 +144,7 @@ namespace Manager {
 
         void drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
-        int registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
+        bool registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
 
     };
 

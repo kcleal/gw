@@ -36,10 +36,9 @@ SkSurface *sSurface = nullptr;
 int main(int argc, char *argv[]) {
 
     std::cout << "\n"
-                 "  ___\n"
+                 " ___\n"
                  "/  _  | /| / \n"
                  "\\__/  |/ |/   \n"
-                 "\n"
                  "" << std::endl;
 
     Themes::IniOptions iopts;
@@ -255,7 +254,7 @@ int main(int argc, char *argv[]) {
      */
     Manager::GwPlot plotter = Manager::GwPlot(genome, bam_paths, iopts, regions);
 
-    if (!iopts.no_show) {  // plot to screen
+    if (!iopts.no_show) {  // plot something to screen
 
         // initialize display screen
         plotter.init(iopts.dimensions.x, iopts.dimensions.y);
@@ -362,8 +361,8 @@ int main(int argc, char *argv[]) {
                     job.start = vcf.start;
                     job.stop = vcf.stop;
                     jobs.push_back(job);
-                    if (jobs.size() >= 500)
-                        break;
+//                    if (jobs.size() >= 500)
+//                        break;
                 } // shuffling might help distribute high cov regions between jobs
                 std::shuffle(std::begin(jobs), std::end(jobs), std::random_device());
 

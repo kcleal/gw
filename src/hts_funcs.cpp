@@ -55,7 +55,6 @@ namespace HTS {
         if (src->core.flag & 4 || src->core.n_cigar == 0) {
             readQueue.pop_back();
         }
-
         Segs::init_parallel(readQueue, opts.threads);
 
         if (coverage) {

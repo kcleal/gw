@@ -266,9 +266,6 @@ namespace Segs {
 
     void init_parallel(std::vector<Align> &aligns, int n) {
         if (n == 1) {
-//            for (size_t i = 0; i < aligns.size(); ++i) {
-//                align_init(&aligns[i]);
-//            }
             for (auto &aln : aligns) {
                 align_init(&aln);
             }

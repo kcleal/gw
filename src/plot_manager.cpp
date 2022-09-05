@@ -83,6 +83,7 @@ namespace Manager {
         captureText = shiftPress = ctrlPress = processText = false;
         commandIndex = 0;
         blockStart = 0;
+        regionSelection = 0;
         mode = Show::SINGLE;
     }
 
@@ -207,6 +208,7 @@ namespace Manager {
                 if (mode == Show::SINGLE) {
                     drawScreen(canvas, sContext);
                 } else {
+                    std::cout << "drawing tiles\n";
                     drawTiles(canvas, sContext, sSurface);
                 }
 
@@ -313,7 +315,7 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY);
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts);
-        Drawing::drawRef(opts, collections, canvas, fonts);
+        Drawing::drawRef(opts, collections, canvas, fonts, bams.size());
 
         auto finish = std::chrono::high_resolution_clock::now();
         sContext->flush();
@@ -327,7 +329,7 @@ namespace Manager {
     void GwPlot::tileDrawingThread(SkCanvas* canvas, SkSurface *sSurface) {
         mtx.lock();
         int bStart = blockStart;
-        int bLen = opts.number.x * opts.number.y;
+        int bLen = (int)opts.number.x * (int)opts.number.y;
         mtx.unlock();
         int endIdx = bStart + bLen;
         for (int i=bStart; i<endIdx; ++i) {
@@ -349,6 +351,7 @@ namespace Manager {
     void GwPlot::drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
         auto start = std::chrono::high_resolution_clock::now();
         int bStart = blockStart;
+        std::cout << "block start " << blockStart << std::endl;
         int bLen = opts.number.x * opts.number.y;
         setGlfwFrameBufferSize();
         std::vector<Utils::BoundingBox> bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height);
@@ -392,7 +395,7 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY);
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts);
-        Drawing::drawRef(opts, collections, canvas, fonts);
+        Drawing::drawRef(opts, collections, canvas, fonts, bams.size());
         auto finish = std::chrono::high_resolution_clock::now();
         auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
         std::cout << "Elapsed Time drawScreen: " << m.count() << " m seconds" << std::endl;
@@ -407,7 +410,7 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY);
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts);
-        Drawing::drawRef(opts, collections, canvas, fonts);
+        Drawing::drawRef(opts, collections, canvas, fonts, bams.size());
     }
 
     void imageToPng(sk_sp<SkImage> &img, std::string &path) {

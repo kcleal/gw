@@ -55,7 +55,7 @@ namespace Drawing {
     std::mutex mtx;
 
     void drawCoverage(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
-                      SkCanvas *canvas, const Themes::Fonts &fonts, const float covY) {
+                      SkCanvas *canvas, const Themes::Fonts &fonts, float covY) {
 
         const Themes::BaseTheme &theme = opts.theme;
         SkPaint paint = theme.fcCoverage;
@@ -112,7 +112,6 @@ namespace Drawing {
                 if (i % step == 0 || i == c.size() - 1) {
                     path.lineTo(x, lastY);
                     path.lineTo(x, c[i]);
-//                    std::cout << "line@ " << x << " " << c[i] << std::endl;
                 }
                 lastY = c[i];
                 x += xScaling;
@@ -584,13 +583,13 @@ namespace Drawing {
     }
 
     void drawRef(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
-                  SkCanvas *canvas, const Themes::Fonts &fonts) {
+                  SkCanvas *canvas, const Themes::Fonts &fonts, size_t nbams) {
 
         SkRect rect;
         SkPaint faceColor;
         const Themes::BaseTheme &theme = opts.theme;
         float offset = 0;
-        float h = (opts.dimensions.y / (float)collections.size()) * 0.03;
+        float h = (opts.dimensions.y / nbams) * 0.03;
         float textW = fonts.textWidths[0];
         float minLetterSize = opts.dimensions.x / textW;
         for (auto &cl: collections) {

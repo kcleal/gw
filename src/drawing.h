@@ -35,5 +35,5 @@ namespace Drawing {
                   float yScaling, const Themes::Fonts &fonts);
 
     void drawRef(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
-                 SkCanvas *canvas, const Themes::Fonts &fonts);
+                 SkCanvas *canvas, const Themes::Fonts &fonts, size_t nbams);
 }
