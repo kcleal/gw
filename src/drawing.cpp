@@ -1,17 +1,12 @@
 //
 // Created by Kez Cleal on 12/08/2022.
 //
-#include <array>
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdint>
-#include <iostream>
-#include <mutex>
 #include <vector>
 #include <utility>
-#include <string>
 #include <stdio.h>
 
 #include <GLFW/glfw3.h>
@@ -49,10 +44,8 @@
 
 namespace Drawing {
 
-    SkPoint pArr[5];
     char indelChars[10];
     constexpr float polygonHeight = 0.85;
-    std::mutex mtx;
 
     void drawCoverage(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
                       SkCanvas *canvas, const Themes::Fonts &fonts, float covY) {
@@ -210,13 +203,6 @@ namespace Drawing {
         path.lineTo(start + width + xOffset, yScaledOffset + polygonH);
         path.lineTo(start + width + xOffset, yScaledOffset);
         path.close();
-
-//        pArr[0].set(start + xOffset, yScaledOffset);
-//        pArr[1].set(start - slop + xOffset, yScaledOffset + polygonH / 2);
-//        pArr[2].set(start + xOffset, yScaledOffset + polygonH);
-//        pArr[3].set(start + width + xOffset, yScaledOffset + polygonH);
-//        pArr[4].set(start + width + xOffset, yScaledOffset);
-//        path.addPoly(pArr, 5, true);
         canvas->drawPath(path, faceColor);
     }
 
@@ -240,13 +226,6 @@ namespace Drawing {
         path.lineTo(start + width + slop + xOffset, yScaledOffset + polygonH / 2);
         path.lineTo(start + width + xOffset, yScaledOffset);
         path.close();
-
-//        pArr[0].set(start + xOffset, yScaledOffset);
-//        pArr[1].set(start + xOffset, yScaledOffset + polygonH);
-//        pArr[2].set(start + width + xOffset, yScaledOffset + polygonH);
-//        pArr[3].set(start + width + slop + xOffset, yScaledOffset + polygonH / 2);
-//        pArr[4].set(start + width + xOffset, yScaledOffset);
-//        path.addPoly(pArr, 5, true);
         canvas->drawPath(path, faceColor);
     }
 
@@ -589,19 +568,20 @@ namespace Drawing {
         SkPaint faceColor;
         const Themes::BaseTheme &theme = opts.theme;
         float offset = 0;
-        float h = (opts.dimensions.y / nbams) * 0.03;
+        double h = (opts.dimensions.y / (double)nbams) * 0.03;
         float textW = fonts.textWidths[0];
-        float minLetterSize = opts.dimensions.x / textW;
+        float minLetterSize = (float)opts.dimensions.x / textW;
+
         for (auto &cl: collections) {
-            int size = cl.region.end - cl.region.start;
-            float xScaling = cl.xScaling;
+            long size = cl.region.end - cl.region.start;
+            double xScaling = cl.xScaling;
             const char *ref = cl.region.refSeq;
             if (ref == nullptr) {
                 continue;
             }
-            float i = cl.xOffset;
-            if (size < minLetterSize) {
-                float v = (xScaling - textW) / 2;
+            double i = cl.xOffset;
+            if (textW > 0 && (float)size < minLetterSize) {
+                double v = (xScaling - textW) / 2;
                 while (*ref) {
                     switch ((unsigned int)*ref) {
                         case 65: faceColor = theme.fcA; break;
@@ -622,6 +602,7 @@ namespace Drawing {
             } else if (size < 20000) {
                 while (*ref) {
                     rect.setXYWH(i, offset, xScaling, h);
+
                     switch ((unsigned int)*ref) {
                         case 65: canvas->drawRect(rect, theme.fcA); break;
                         case 67: canvas->drawRect(rect, theme.fcC); break;

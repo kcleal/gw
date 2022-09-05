@@ -295,11 +295,14 @@ namespace Manager {
         fonts.setFontSize(yScaling);
         regionWidth = fbw / (float)regions.size();
         bamHeight = covY + trackY + tabixY;
+        double gap = fbw * 0.002;
+
         for (auto &cl: collections) {
-            cl.xScaling = regionWidth / ((float)(cl.region.end - cl.region.start));
-            cl.xOffset = regionWidth * cl.regionIdx;
+            cl.xScaling = (regionWidth - (gap * 2)) / ((double)(cl.region.end - cl.region.start));
+            cl.xOffset = (regionWidth * cl.regionIdx) + gap;
             cl.yOffset = cl.bamIdx * bamHeight + covY;
             cl.yPixels = trackY + covY + tabixY;
+
         }
     }
 
