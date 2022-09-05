@@ -6,10 +6,10 @@ Aim for directory structure like this::
     ..../gw
     ..../skia
 
+Installing dependencies
+-----------------------
 
-# Installing dependencies
-
-## For linux::
+For linux::
     
     sudo apt install clang cmake 
     sudo apt install libglfw3 libglfw-dev
@@ -22,14 +22,25 @@ or::
     cd build && \
     sudo make install
 
-## For Mac::
+For Mac::
 
     brew install glew glfw3
 
-# Installing gw
+Installing gw:
+===============
+
+For linux::
 
     git clone https://github.com/kcleal/gw.git && \
     mkdir skia && cd skia && \
     wget https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip && \
+    unzip Skia-m93-87e8842e8c-linux-Release-x64.zip && cd ../gw && \
+    make
+
+For mac::
+
+    git clone https://github.com/kcleal/gw.git && \
+    mkdir skia && cd skia && \
+    wget https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-x64.zip && \
     unzip Skia-m93-87e8842e8c-linux-Release-x64.zip && cd ../gw && \
     make
