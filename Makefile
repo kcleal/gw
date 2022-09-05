@@ -29,19 +29,19 @@ LIBS = -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts -lfontconfig
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
+	# included if installed from package manager as required to compile
 	ifeq (${XDG_SESSION_TYPE},"x11")
 		LIBS += -lX11
 	endif
 	ifeq (${XDG_SESSION_TYPE},"wayland")
 		LIBS += -lwayland-client
 	endif
-
+	# check if installed from package manager or manually compiled, assumed manually compiled if not package manager
 	ifeq ($(ls /usr/lib/x86_64-linux-gnu/libglfw.so),"")
 		LIBS += -lglfw3
 	else
 		LIBS += -lglfw
 	endif
-
 endif
 ifeq ($(UNAME_S),Darwin)
 	LIBS += -lglfw3
