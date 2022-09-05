@@ -149,8 +149,8 @@ namespace Utils {
 
     Dims parseDimensions(std::string &s) {
         Dims d = {0, 0};
-        unsigned int start = 0;
-        unsigned int end = s.find('x');
+        int start = 0;
+        int end = s.find('x');
         d.x = std::stoi(s.substr(start, end - start));
         start = end + 1;
         end = s.find('x', start);

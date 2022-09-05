@@ -40,7 +40,7 @@ namespace Utils {
     Region parseRegion(std::string &r);
 
     struct Dims {
-        unsigned int x, y;
+        int x, y;
     };
 
     Dims parseDimensions(std::string &s);

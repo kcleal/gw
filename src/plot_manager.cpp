@@ -351,7 +351,6 @@ namespace Manager {
     void GwPlot::drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
         auto start = std::chrono::high_resolution_clock::now();
         int bStart = blockStart;
-        std::cout << "block start " << blockStart << std::endl;
         int bLen = opts.number.x * opts.number.y;
         setGlfwFrameBufferSize();
         std::vector<Utils::BoundingBox> bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height);

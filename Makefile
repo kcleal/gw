@@ -2,7 +2,7 @@ TARGET = gw
 
 
 CXX = clang++
-CXXFLAGS = -g -Wall -std=c++17  -fno-common -dynamic -fwrapv #-O3
+CXXFLAGS = -g -Wall -std=c++17  -fno-common -dynamic -fwrapv -O3
 
 INCLUDE = -I./inc -I./src -I. -I./gw -I/usr/local/include
 LINK = -L $(wildcard ../skia/out/Rel*) -L/usr/local/lib
@@ -23,7 +23,29 @@ else
 	LINK = -L $(wildcard ../skia/out/Rel*)
 endif
 
-LIBS = -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts -lglfw3 -lfontconfig
+LINK += -L /usr/local/lib
+
+LIBS = -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts -lfontconfig
+
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+	ifeq (${XDG_SESSION_TYPE},"x11")
+		LIBS += -lX11
+	endif
+	ifeq (${XDG_SESSION_TYPE},"wayland")
+		LIBS += -lwayland-client
+	endif
+
+	ifeq ($(ls /usr/lib/x86_64-linux-gnu/libglfw.so),"")
+		LIBS += -lglfw3
+	else
+		LIBS += -lglfw
+	endif
+
+	endif
+ifeq ($(UNAME_S),Darwin)
+	LIBS += -lglfw3
+endif
 
 .PHONY: default all debug clean
 
