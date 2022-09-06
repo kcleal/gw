@@ -258,7 +258,7 @@ namespace Drawing {
     }
 
     void drawBams(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
-                  SkCanvas *canvas, float yScaling, const Themes::Fonts &fonts) {
+                  SkCanvas *canvas, float yScaling, const Themes::Fonts &fonts, const Segs::linked_t &linked, int linkOp) {
 
         SkPaint faceColor;
         SkPaint edgeColor;
@@ -557,6 +557,59 @@ namespace Drawing {
             }
             for (int i = 0; i < text_ins.size(); ++i) {
                 canvas->drawTextBlob(text_ins[i].get(), textX_ins[i], textY_ins[i], theme.tcIns);
+            }
+        }
+
+        // draw connecting lines between linked alignments
+        if (linkOp > 0) {
+            for (int idx=0; idx < linked.size(); ++idx) {
+                Segs::map_t lm = linked[idx];
+                if (!linked.empty()) {
+                    SkPaint paint;
+                    for (auto const& keyVal : lm) {
+                        const std::vector<int> &ind = keyVal.second;
+                        int size = (int)ind.size();
+                        if (size > 1) {
+                            const Segs::ReadCollection & rc = collections[idx];
+                            float max_x = rc.xOffset + (((float)rc.region.end - (float)rc.region.start) * rc.xScaling);
+
+                            for (int jdx=0; jdx < size - 1; ++jdx) {
+                                const Segs::Align &segA = rc.readQueue[ind[jdx]];
+                                const Segs::Align &segB = rc.readQueue[ind[jdx + 1]];
+                                if (segA.y == -1 || segB.y == -1 || (segA.delegate->core.tid != segB.delegate->core.tid)) {
+                                    continue;
+                                }
+                                long cstart = std::min(segA.block_starts.front(), segB.block_starts.front());
+                                long cend = std::max(segA.block_ends.back(), segB.block_ends.back());
+
+                                double x_a = ((double)cstart - (double)rc.region.start) * rc.xScaling;
+                                double x_b = ((double)cend - (double)rc.region.start) * rc.xScaling;
+
+                                x_a = (x_a < 0) ? 0: x_a;
+                                x_b = (x_b < 0) ? 0 : x_b;
+                                x_a += rc.xOffset;
+                                x_b += rc.xOffset;
+                                x_a = (x_a > max_x) ? max_x : x_a;
+                                x_b = (x_b > max_x) ? max_x : x_b;
+                                float y = ((float)segA.y * yScaling) + ((polygonHeight / 2) * yScaling) + rc.yOffset;
+
+                                switch (segA.orient_pattern) {
+                                    case Segs::DEL: paint = theme.fcDel; break;
+                                    case Segs::DUP: paint = theme.fcDup; break;
+                                    case Segs::INV_F: paint = theme.fcInvF; break;
+                                    case Segs::INV_R: paint = theme.fcInvR; break;
+                                    default: paint = theme.fcNormal; break;
+                                }
+                                paint.setStyle(SkPaint::kStroke_Style);
+                                paint.setStrokeWidth(2);
+                                path.reset();
+                                path.moveTo(x_a, y);
+                                path.lineTo(x_b, y);
+                                canvas->drawPath(path, paint);
+                            }
+                        }
+                    }
+                }
             }
         }
     }

@@ -318,7 +318,7 @@ namespace Manager {
         if (opts.coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY);
         }
-        Drawing::drawBams(opts, collections, canvas, yScaling, fonts);
+        Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op);
         Drawing::drawRef(opts, collections, canvas, fonts, bams.size());
 
         auto finish = std::chrono::high_resolution_clock::now();
@@ -397,7 +397,7 @@ namespace Manager {
         if (opts.coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY);
         }
-        Drawing::drawBams(opts, collections, canvas, yScaling, fonts);
+        Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op);
         Drawing::drawRef(opts, collections, canvas, fonts, bams.size());
         auto finish = std::chrono::high_resolution_clock::now();
         auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
@@ -412,7 +412,7 @@ namespace Manager {
         if (opts.coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY);
         }
-        Drawing::drawBams(opts, collections, canvas, yScaling, fonts);
+        Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op);
         Drawing::drawRef(opts, collections, canvas, fonts, bams.size());
     }
 

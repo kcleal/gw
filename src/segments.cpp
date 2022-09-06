@@ -300,18 +300,20 @@ namespace Segs {
         if (rc.readQueue.empty()) {
             return 0;
         }
-        Align *q_ptr = &rc.readQueue.front();
+        std::vector<Align> &rQ = rc.readQueue;
+        Align *q_ptr = &rQ.front();
         const char *qname = nullptr;
-        int i, j;
+        Segs::map_t & lm = linked[bamIdx];
+
+        int i;
         // first find reads that should be linked together using qname
         if (linkType > 0) {
             // find the start and end coverage locations of aligns with same name
-            Segs::map_t & lm = linked[bamIdx];
-            for (i=0; i < (int)rc.readQueue.size(); ++i) {
+            for (i=0; i < (int)rQ.size(); ++i) {
                 qname = bam_get_qname(q_ptr->delegate);
                 if (linkType == 1) {
-                    uint16_t flag = q_ptr->delegate->core.flag;
-                    if (~flag & 2 || q_ptr->has_SA) {
+                    uint32_t flag = q_ptr->delegate->core.flag;
+                    if (q_ptr->has_SA || ~flag & 2) {
                         lm[qname].push_back(i);
                     }
                 } else {
@@ -321,32 +323,21 @@ namespace Segs {
             }
 
             // set all aligns with same name to have the same start and end coverage locations
-            for (i=0; i < (int)linked.size(); ++i) {
-//                Segs::map_t & lm = linked[i];
-                for (auto const& keyVal : linked[i]) {
-                    const std::vector<int> &ind = keyVal.second;
-                    int size = (int)ind.size();
-                    std::cout << keyVal.first << " " << size << std::endl;
-                    if (size < 2) {
-                        break;
-                    }
-                    uint32_t cs = q_ptr[ind.front()].cov_start;
-                    uint32_t ce = q_ptr[ind.back()].cov_end;
-                    std::cout << cs << " " << ce << std::endl;
-                    for (j=0; j < size; ++j) {
-                        if (j > 0) {
-                            q_ptr[j].cov_start = cs;
-                        }
-                        if (j < size - 2) {
-                            q_ptr[j].cov_start = ce;
-                        }
+            for (auto const& keyVal : lm) {
+                const std::vector<int> &ind = keyVal.second;
+                int size = (int)ind.size();
+                if (size > 1) {
+                    uint32_t cs = rQ[ind.front()].cov_start;
+                    uint32_t ce = rQ[ind.back()].cov_end;
+                      for (auto const j : ind) {
+                          rQ[j].cov_start = cs;
+                          rQ[j].cov_end = ce;
                     }
                 }
             }
         }
 
         ankerl::unordered_dense::map< std::string, int > linkedSeen;  // Mapping of qname to y value
-
         std::vector<uint32_t> &ls = rc.levelsStart;
         std::vector<uint32_t> &le = rc.levelsEnd;
 
@@ -355,10 +346,9 @@ namespace Segs {
             le.resize(opts.ylim + vScroll, 0);
         }
 
-        int qLen = (int)rc.readQueue.size();  // assume no overflow
+        int qLen = (int)rQ.size();  // assume no overflow
         int stopCondition, move, si;
         int k = -1;
-
         int memLen = (int)ls.size();
 
         if (!joinLeft) {
@@ -372,9 +362,9 @@ namespace Segs {
         }
 
         if (si == 0) {
-            q_ptr = &rc.readQueue.front();
+            q_ptr = &rQ.front();
         } else {
-            q_ptr = &rc.readQueue.back();
+            q_ptr = &rQ.back();
         }
 
         while (si != stopCondition) {
@@ -391,21 +381,22 @@ namespace Segs {
             if (!joinLeft) {
                 for (i=0; i < memLen; ++i) {
                     if (q_ptr->cov_start > le[i]) {
-                        if (i > k) {// input is sorted so this is always true: s.cov_start < ol_start[i]:
+                        if (i > k) {  // input is sorted so this is always true: s.cov_start < ol_start[i]:
                             ls[i] = q_ptr->cov_start;
-                            k = (int)i;
+                            k = i;
                         }
+                        le[i] = q_ptr->cov_end;
                         if (i >= vScroll) {
                             q_ptr->y = i - vScroll;
                         }
-                        if (linkType > 0 && linked[bamIdx].contains(qname)) {
+                        if (linkType > 0 && lm.contains(qname)) {
                             linkedSeen[qname] = q_ptr->y;
                         }
-                        le[i] = q_ptr->cov_end;
+
                         break;
                     }
                 }
-                if (i == memLen && linkType > 0 && linked[bamIdx].contains(qname)) {
+                if (i == memLen && linkType > 0 && lm.contains(qname)) {
                     linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
                 }
                 q_ptr += move;
@@ -413,20 +404,21 @@ namespace Segs {
             } else {
                 for (i=0; i < memLen; ++i) {
                     if (q_ptr->cov_end < ls[i]) {
+                        ls[i] = q_ptr->cov_start;
                         if (q_ptr->cov_end > le[i]) {
                             le[i] = q_ptr->cov_end;
                         }
                         if (i >vScroll) {
                             q_ptr->y = i - vScroll;
                         }
-                        if (linkType > 0 && linked[bamIdx].contains(qname)) {
+                        if (linkType > 0 && lm.contains(qname)) {
                             linkedSeen[qname] = q_ptr->y;
                         }
-                        ls[i] = q_ptr->cov_start;
+
                         break;
                     }
                 }
-                if (i == memLen && linkType > 0 && linked[bamIdx].contains(qname)) {
+                if (i == memLen && linkType > 0 && lm.contains(qname)) {
                     linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
                 }
                 q_ptr += move;
@@ -439,8 +431,8 @@ namespace Segs {
         } else {
             int regionSize = region->end - region->start;
             samMaxY = memLen;
-            q_ptr = &rc.readQueue.front();
-            for (i=0; i < (int)rc.readQueue.size(); ++i) {
+            q_ptr = &rQ.front();
+            for (i=0; i < (int)rQ.size(); ++i) {
                 int tlen = (int)std::abs(q_ptr->delegate->core.isize);
                 if (tlen < regionSize) {
                     q_ptr->y = tlen;

@@ -203,6 +203,9 @@ namespace Manager {
 
             }
         }
+        if (redraw) {
+            linked.clear();
+        }
 
     }
 }
