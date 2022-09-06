@@ -77,6 +77,7 @@ namespace Manager {
             hts_idx_t* idx = sam_index_load(f, fn.c_str());
             indexes.push_back(idx);
         }
+        linked.resize(bams.size());
         samMaxY = 0;
         vScroll = 0;
         yScaling = 0;

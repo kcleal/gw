@@ -19,7 +19,7 @@
 
 namespace Segs {
 
-    typedef ankerl::unordered_dense::map< const char *, std::vector<int>> map_t;
+    typedef ankerl::unordered_dense::map< std::string, std::vector<int>> map_t;
 //    typedef robin_hood::unordered_map< const char *, std::vector<int> > map_t;
     typedef std::vector< map_t > linked_t;
 

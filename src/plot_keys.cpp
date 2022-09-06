@@ -174,6 +174,12 @@ namespace Manager {
                         regionSelection = 0;
                     }
                     std::cout << "Region selection " << regionSelection << std::endl;
+                } else if (key == opts.cycle_link_mode) {
+                    opts.link_op = (opts.link_op == 2) ? 0 : opts.link_op += 1;
+                    std::string lk = (opts.link_op > 0) ? ((opts.link_op == 1) ? "sv" : "all") : "none";
+                    std::cout << "Linking selection " << lk << std::endl;
+                    processed = false;
+                    redraw = true;
                 }
             }
         } else {  // show::TILED

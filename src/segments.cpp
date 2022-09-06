@@ -301,36 +301,38 @@ namespace Segs {
             return 0;
         }
         Align *q_ptr = &rc.readQueue.front();
-        const char *qname;
+        const char *qname = nullptr;
         int i, j;
-
         // first find reads that should be linked together using qname
         if (linkType > 0) {
             // find the start and end coverage locations of aligns with same name
+            Segs::map_t & lm = linked[bamIdx];
             for (i=0; i < (int)rc.readQueue.size(); ++i) {
                 qname = bam_get_qname(q_ptr->delegate);
                 if (linkType == 1) {
                     uint16_t flag = q_ptr->delegate->core.flag;
                     if (~flag & 2 || q_ptr->has_SA) {
-                        linked[bamIdx][qname].push_back(i);
+                        lm[qname].push_back(i);
                     }
                 } else {
-                    linked[bamIdx][qname].push_back(i);
+                    lm[qname].push_back(i);
                 }
                 ++q_ptr;
             }
 
-            // set all aligns with same name to have same start and end coverage locations
+            // set all aligns with same name to have the same start and end coverage locations
             for (i=0; i < (int)linked.size(); ++i) {
-                map_t map = linked[i];
-                for (auto const& keyVal : map) {
+//                Segs::map_t & lm = linked[i];
+                for (auto const& keyVal : linked[i]) {
                     const std::vector<int> &ind = keyVal.second;
                     int size = (int)ind.size();
+                    std::cout << keyVal.first << " " << size << std::endl;
                     if (size < 2) {
                         break;
                     }
                     uint32_t cs = q_ptr[ind.front()].cov_start;
                     uint32_t ce = q_ptr[ind.back()].cov_end;
+                    std::cout << cs << " " << ce << std::endl;
                     for (j=0; j < size; ++j) {
                         if (j > 0) {
                             q_ptr[j].cov_start = cs;
@@ -343,7 +345,7 @@ namespace Segs {
             }
         }
 
-        ankerl::unordered_dense::map< const char*, int > linkedSeen;  // Mapping of qname to y value
+        ankerl::unordered_dense::map< std::string, int > linkedSeen;  // Mapping of qname to y value
 
         std::vector<uint32_t> &ls = rc.levelsStart;
         std::vector<uint32_t> &le = rc.levelsEnd;
