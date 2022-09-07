@@ -65,11 +65,14 @@ namespace HTS {
     }
 
     VCF::~VCF() {
-        vcf_close(fp);
-        bcf_destroy(v);
+        if (fp != nullptr) {
+            vcf_close(fp);
+            bcf_destroy(v);
+        }
     }
 
     void VCF::open(std::string f) {
+        done = false;
         path = f;
         fp = bcf_open(f.c_str(), "r");
         hdr = bcf_hdr_read(fp);

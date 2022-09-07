@@ -30,7 +30,7 @@
 #include "include/core/SkSurface.h"
 
 #include "drawing.h"
-#include "hts_funcs.h"
+//#include "hts_funcs.h"
 #include "plot_manager.h"
 #include "segments.h"
 #include "themes.h"
@@ -39,7 +39,7 @@
 namespace Manager {
 
     // keeps track of input commands
-    bool GwPlot::registerKey(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    bool GwPlot::registerKey(GLFWwindow* wind, int key, int scancode, int action, int mods) {
         if (action == GLFW_RELEASE) {
             if ((key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) && !captureText) {
                 shiftPress = false;
@@ -124,7 +124,7 @@ namespace Manager {
         return true;
     }
 
-    void GwPlot::keyPress(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    void GwPlot::keyPress(GLFWwindow* wind, int key, int scancode, int action, int mods) {
 
         if (action == GLFW_RELEASE) {
             return;
@@ -200,12 +200,42 @@ namespace Manager {
                     opts.number.y = (opts.number.y - 1 > 0) ? opts.number.y - 1 : 1;
                     redraw = true;
                 }
-
             }
         }
         if (redraw) {
             linked.clear();
         }
+    }
 
+    void GwPlot::pathDrop(GLFWwindow* wind, int count, const char** paths) {
+        bool good = false;
+        for (int i=0; i < count; ++ i) {
+            std::string pth = *paths;
+            if (Utils::endsWith(pth, ".bam") || Utils::endsWith(pth, ".cram")) {
+                good = true;
+                std::cout << "Loading: " << pth << std::endl;
+                bam_paths.push_back(pth);
+                htsFile* f = sam_open(pth.c_str(), "r");
+                hts_set_threads(f, opts.threads);
+                bams.push_back(f);
+                sam_hdr_t *hdr_ptr = sam_hdr_read(f);
+                headers.push_back(hdr_ptr);
+                hts_idx_t* idx = sam_index_load(f, pth.c_str());
+                indexes.push_back(idx);
+                linked.resize(bams.size());
+            } else if (Utils::endsWith(pth, ".vcf.gz") || Utils::endsWith(pth, ".vcf") || Utils::endsWith(pth, ".bcf")) {
+                good = true;
+                std::cout << "Loading: " << pth << std::endl;
+                setVariantFile(pth);
+                imageCache.clear();
+                blockStart = 0;
+                mode = Manager::Show::TILED;
+            }
+            ++paths;
+        }
+        if (good) {
+            processed = false;
+            redraw = true;
+        }
     }
 }

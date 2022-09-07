@@ -40,7 +40,7 @@ ifeq ($(UNAME_S),Linux)
 	ifeq ($(ls /usr/lib/x86_64-linux-gnu/libglfw.so),"")
 		LIBS += -lglfw3
 	else
-		LIBS += -lglfw
+		LIBS += -lglfw3
 	endif
 endif
 ifeq ($(UNAME_S),Darwin)

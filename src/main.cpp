@@ -293,12 +293,8 @@ int main(int argc, char *argv[]) {
             }
         } else if (program.is_used("--variants")) {  // plot variants as tiled images
 
-            auto vcf = HTS::VCF(iopts.parse_label.c_str());
-            vcf.open(program.get<std::string>("--variants"));
-            while (!vcf.done) {
-                vcf.next();
-                plotter.appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop);
-            }
+            plotter.setVariantFile(program.get<std::string>("--variants"));
+
             plotter.mode = Manager::Show::TILED;
 
             int res = plotter.startUI(sContext, sSurface);
@@ -349,7 +345,8 @@ int main(int argc, char *argv[]) {
 
                 iopts.theme.setAlphas();
 
-                auto vcf = HTS::VCF(iopts.parse_label.c_str());
+                auto vcf = HTS::VCF();
+                vcf.label_to_parse = iopts.parse_label.c_str();
                 vcf.open(v);
 
                 std::vector<Manager::VariantJob> jobs;

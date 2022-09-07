@@ -26,7 +26,7 @@
 #include "include/core/SkSurface.h"
 
 #include "drawing.h"
-#include "hts_funcs.h"
+//#include "hts_funcs.h"
 #include "plot_manager.h"
 #include "segments.h"
 #include "themes.h"
@@ -110,11 +110,15 @@ namespace Manager {
         // https://stackoverflow.com/questions/7676971/pointing-to-a-function-that-is-a-class-member-glfw-setkeycallback/28660673#28660673
         glfwSetWindowUserPointer(window, this);
 
-        auto func = [](GLFWwindow* w, int k, int s, int a, int m){
+        auto func_key = [](GLFWwindow* w, int k, int s, int a, int m){
             static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->keyPress(w, k, s, a, m);
         };
-        glfwSetKeyCallback(window, func);
+        glfwSetKeyCallback(window, func_key);
 
+        auto func_drop = [](GLFWwindow* w, int c, const char**paths){
+            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->pathDrop(w, c, paths);
+        };
+        glfwSetDropCallback(window, func_drop);
 
         if (!window) {
             std::cerr<<"ERROR: could not create window with GLFW3"<<std::endl;
@@ -147,6 +151,11 @@ namespace Manager {
             int rlen = rgn.end - rgn.start;
             rgn.refSeq = faidx_fetch_seq(fai, rgn.chrom.c_str(), rgn.start, rgn.end, &rlen);
         }
+    }
+
+    void GwPlot::setVariantFile(const std::string &path) {
+        vcf.label_to_parse = opts.parse_label.c_str();
+        vcf.open(path);  // todo some error checking needed?
     }
 
     void GwPlot::setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop) {
@@ -209,7 +218,6 @@ namespace Manager {
                 if (mode == Show::SINGLE) {
                     drawScreen(canvas, sContext);
                 } else {
-                    std::cout << "drawing tiles\n";
                     drawTiles(canvas, sContext, sSurface);
                 }
 
@@ -340,7 +348,7 @@ namespace Manager {
             mtx.lock();
             bool c = imageCache.contains(i);
             mtx.unlock();
-            if (!c) {
+            if (!c && i < multiRegions.size() && !bams.empty()) {
                 regions = multiRegions[i];
                 runDraw(canvas);
                 sk_sp<SkImage> img(sSurface->makeImageSnapshot());
@@ -353,9 +361,18 @@ namespace Manager {
     }
 
     void GwPlot::drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
-        auto start = std::chrono::high_resolution_clock::now();
         int bStart = blockStart;
         int bLen = opts.number.x * opts.number.y;
+        if (!vcf.done && bStart + bLen > multiRegions.size()) {
+            for (int i=0; i < bLen; ++ i) {
+                if (vcf.done) {
+                    break;
+                }
+                vcf.next();
+                appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop);
+            }
+        }
+
         setGlfwFrameBufferSize();
         std::vector<Utils::BoundingBox> bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height);
         SkSamplingOptions sampOpts = SkSamplingOptions();
@@ -382,9 +399,6 @@ namespace Manager {
         sContext->flush();
         glfwSwapBuffers(window);
         mtx.unlock();
-        auto finish = std::chrono::high_resolution_clock::now();
-        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
-        std::cout << "Elapsed Time drawTiles: " << m.count() << " m seconds" << std::endl;
         tile_t.join();
     }
 

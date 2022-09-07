@@ -37,6 +37,35 @@
 #include "include/core/SkSurface.h"
 
 
+namespace HTS {
+    void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
+                                 hts_idx_t *index, Themes::IniOptions &opts, Utils::Region *region, bool coverage);
+
+    class VCF {
+    public:
+//        VCF (const char *label_to_parse) {
+//            done = false;
+//            this->label_to_parse = label_to_parse;
+//        };
+        VCF () {};
+        ~VCF();
+        htsFile *fp;
+        const bcf_hdr_t *hdr;
+        bcf1_t *v;
+        std::string path;
+        std::string chrom, chrom2, rid, vartype, label, tag;
+        int parse;
+        int info_field_type;
+        const char *label_to_parse;
+        long start, stop;
+        bool done;
+
+        void open(std::string f);
+        void next();
+    };
+}
+
+
 namespace Manager {
 
     typedef ankerl::unordered_dense::map< std::string, std::vector<int>> map_t;
@@ -78,6 +107,8 @@ namespace Manager {
         std::vector<std::vector<Utils::Region>> multiRegions;  // used for creating tiled regions
         std::vector<Segs::ReadCollection> collections;
 
+        HTS::VCF vcf;
+
         ankerl::unordered_dense::map< int, sk_sp<SkImage>> imageCache;
 
         Themes::IniOptions opts;
@@ -95,6 +126,8 @@ namespace Manager {
 
         void setGlfwFrameBufferSize();
 
+        void setVariantFile(const std::string &path);
+
         void fetchRefSeqs();
 
         void clearCollections();
@@ -110,6 +143,8 @@ namespace Manager {
         int startUI(GrDirectContext* sContext, SkSurface *sSurface);
 
         void keyPress(GLFWwindow* window, int key, int scancode, int action, int mods);
+
+        void pathDrop(GLFWwindow* window, int count, const char** paths);
 
         void drawSurfaceGpu(SkCanvas *canvas);
 
