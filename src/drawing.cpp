@@ -118,15 +118,16 @@ namespace Drawing {
             path.lineTo(x - xScaling, yOffsetAll + covY);
             path.lineTo(xOffset, yOffsetAll + covY);
             path.close();
+            canvas->drawPath(path, paint);
+
             std::sprintf(indelChars, "%d", cMaxi);
             sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(indelChars, fonts.overlay);
+            canvas->drawTextBlob(blob, xOffset + 25, (covY * 0.3) + yOffsetAll + 10, theme.tcDel);
 
             path.reset();
             path.moveTo(xOffset, (covY * 0.3) + yOffsetAll);
             path.lineTo(xOffset + 20, (covY * 0.3) + yOffsetAll);
             canvas->drawPath(path, theme.lcJoins);
-            canvas->drawPath(path, paint);
-            canvas->drawTextBlob(blob, xOffset + 25, (covY * 0.3) + yOffsetAll + 10, theme.tcDel);
 
             last_bamIdx = cl.bamIdx;
         }
