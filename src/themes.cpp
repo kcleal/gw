@@ -347,9 +347,11 @@ namespace Themes {
         path = SkPath();
         char fn[20] = "arial";
         face = SkTypeface::MakeFromName(fn, SkFontStyle::Normal());
-        SkScalar ts = 12;
+        SkScalar ts = 14;
         fonty.setSize(ts);
         fonty.setTypeface(face);
+        overlay.setSize(ts);
+        overlay.setTypeface(face);
     }
 
     void Fonts::setFontSize(float maxHeight) {
@@ -378,6 +380,9 @@ namespace Themes {
             }
         } else {
             fontSize = font_size;
+            if (font_size > 14) {
+                overlay.setSize(font_size);
+            }
             fontHeight = height;
             SkScalar w = fonty.measureText("9", 1, SkTextEncoding::kUTF8);
             for (int i = 0; i < 10; ++i) {

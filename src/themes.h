@@ -135,7 +135,7 @@ namespace Themes {
         SkRect rect;
         SkPath path;
         sk_sp<SkTypeface> face;
-        SkFont fonty;
+        SkFont fonty, overlay;
         float textWidths[10];  // text size is scaled between 10 values to try and fill a read
 
         void setFontSize(float yScaling);

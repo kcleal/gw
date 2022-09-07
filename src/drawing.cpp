@@ -53,27 +53,33 @@ namespace Drawing {
         const Themes::BaseTheme &theme = opts.theme;
         SkPaint paint = theme.fcCoverage;
         SkPath path;
-
         std::vector<sk_sp < SkTextBlob> > text;
         std::vector<sk_sp < SkTextBlob> > text_ins;
         std::vector<float> textX, textY;
         std::vector<float> textX_ins, textY_ins;
 
-        float cOff = 0;
+        int last_bamIdx = 0;
         float yOffsetAll = 0;
-        int cMaxi = 0;
+
         for (auto &cl: collections) {
+            if (cl.covArr.empty()) {
+                continue;
+            }
+            if (cl.bamIdx != last_bamIdx) {
+                yOffsetAll += cl.yPixels;
+            }
             float xScaling = cl.xScaling;
             float xOffset = cl.xOffset;
-            std::vector<int> covArr = cl.covArr;
+            const std::vector<int> & covArr_r = cl.covArr;
             std::vector<float> c;
-            c.resize(covArr.size());
-            c[0] = covArr[0];
-            float cMax = 0;
+            c.resize(cl.covArr.size());
+            c[0] = cl.covArr[0];
+            int cMaxi = 0;
+            float cMax;
             for (size_t i=1; i<c.size(); ++i) { // cum sum
-                c[i] = covArr[i] + c[i-1];
+                c[i] = ((float)covArr_r[i]) + c[i-1];
                 if (c[i] > cMaxi) {
-                    cMaxi = c[i];
+                    cMaxi = (int)c[i];
                 }
             }
             if (opts.log2_cov) {
@@ -84,23 +90,23 @@ namespace Drawing {
             } else {
                 cMax = cMaxi;
             }
-
             // normalize to space available
             for (auto &i : c) {
                 i = ((1 - (i / cMax)) * covY) * 0.7;
                 i += yOffsetAll + (covY * 0.3);
             }
-            cOff += covY;
             int step;
             if (c.size() > 2000) {
                 step = std::max(1, (int)(c.size() / 2000));
             } else {
                 step = 1;
             }
-            float lastY = cOff;
+
+            float lastY = yOffsetAll + covY;
             double x = xOffset;
+
             path.reset();
-            path.moveTo(x, cOff);
+            path.moveTo(x, lastY);
             for (size_t i=0; i<c.size(); ++i)  {
                 if (i % step == 0 || i == c.size() - 1) {
                     path.lineTo(x, lastY);
@@ -109,17 +115,20 @@ namespace Drawing {
                 lastY = c[i];
                 x += xScaling;
             }
-            path.lineTo(x - xScaling, cOff);
-            path.lineTo(xOffset, cOff);
-
+            path.lineTo(x - xScaling, yOffsetAll + covY);
+            path.lineTo(xOffset, yOffsetAll + covY);
             path.close();
-            sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(indelChars, fonts.fonty);
+            std::sprintf(indelChars, "%d", cMaxi);
+            sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(indelChars, fonts.overlay);
 
+            path.reset();
+            path.moveTo(xOffset, (covY * 0.3) + yOffsetAll);
+            path.lineTo(xOffset + 20, (covY * 0.3) + yOffsetAll);
+            canvas->drawPath(path, theme.lcJoins);
             canvas->drawPath(path, paint);
-            canvas->drawTextBlob(blob, xOffset + 25, (cOff * 0.3) + yOffsetAll + 10, theme.tcDel);
+            canvas->drawTextBlob(blob, xOffset + 25, (covY * 0.3) + yOffsetAll + 10, theme.tcDel);
 
-            yOffsetAll += cl.yPixels;
-            cOff += -covY + cl.yPixels;
+            last_bamIdx = cl.bamIdx;
         }
     }
 
@@ -416,7 +425,7 @@ namespace Drawing {
                     width = (plotSoftClipAsBlock) ? (float) a.left_soft_clip : 0;
                     s = start - a.left_soft_clip;
                     e = start + width;
-                    if (e > 0) {
+                    if (e > 0 && s < regionLen) {
                         if (pointLeft && plotPointedPolygons) {
                             drawLeftPointedRectangle(canvas, pH, yScaledOffset, s, width, xScaling,
                                                      regionPixels, xOffset,
@@ -436,7 +445,7 @@ namespace Drawing {
                         s = end + a.right_soft_clip;
                         width = 0;
                     }
-                    if (s < regionPixels) {
+                    if (s < regionLen) {
                         if (!pointLeft && plotPointedPolygons) {
                             drawRightPointedRectangle(canvas, pH, yScaledOffset, s, width, xScaling,
                                                       regionPixels, xOffset,
@@ -497,7 +506,7 @@ namespace Drawing {
                 int32_t l_qseq = a.delegate->core.l_qseq;
                 if (regionLen <= opts.snp_threshold && !a.mismatches.empty()) {
                     for (auto &m: a.mismatches) {
-                        int p = (m.pos - regionBegin) * xScaling;
+                        float p = (m.pos - regionBegin) * xScaling;
                         if (0 < p && p < regionPixels) {
                             colorIdx = (l_qseq == 0) ? 10 : (m.qual > 10) ? 10 : m.qual;
                             float mms = xScaling * mmScaling;
@@ -518,7 +527,7 @@ namespace Drawing {
                             int opLen = a.right_soft_clip;
                             for (int idx = l_seq - opLen; idx < l_seq; ++idx) {
                                 float p = pos * xScaling;
-                                if (0 <= p < regionPixels) {
+                                if (0 <= p && p < regionPixels) {
                                     uint8_t base = bam_seqi(ptr_seq, idx);
                                     uint8_t qual = ptr_qual[idx];
                                     colorIdx = (l_qseq == 0) ? 10 : (qual > 10) ? 10 : qual;
