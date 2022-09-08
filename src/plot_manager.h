@@ -43,11 +43,7 @@ namespace HTS {
 
     class VCF {
     public:
-//        VCF (const char *label_to_parse) {
-//            done = false;
-//            this->label_to_parse = label_to_parse;
-//        };
-        VCF () {};
+        VCF () = default;
         ~VCF();
         htsFile *fp;
         const bcf_hdr_t *hdr;
@@ -68,6 +64,13 @@ namespace HTS {
 
 namespace Manager {
 
+    class CloseException : public std::exception {
+    public:
+        char * what () {
+            return "Gw closing";
+        }
+    };
+
     typedef ankerl::unordered_dense::map< std::string, std::vector<int>> map_t;
 //    typedef robin_hood::unordered_flat_map< const char *, std::vector<int>> map_t;
     typedef std::vector< map_t > linked_t;
@@ -79,7 +82,7 @@ namespace Manager {
 
     class HiddenWindow {
     public:
-        HiddenWindow () {};
+        HiddenWindow () = default;
         ~HiddenWindow () = default;
         GLFWwindow *window;
         void init(int width, int height);
@@ -127,6 +130,8 @@ namespace Manager {
         void setGlfwFrameBufferSize();
 
         void setVariantFile(const std::string &path);
+
+        void fetchRefSeq(Utils::Region &rgn);
 
         void fetchRefSeqs();
 
@@ -183,6 +188,8 @@ namespace Manager {
         void drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
         bool registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
+
+        bool commandProcessed();
 
     };
 

@@ -147,10 +147,16 @@ namespace Manager {
         drawToBackWindow = true;
     }
 
+    void GwPlot::fetchRefSeq(Utils::Region &rgn) {
+        int rlen = rgn.end - rgn.start;
+        rgn.refSeq = faidx_fetch_seq(fai, rgn.chrom.c_str(), rgn.start, rgn.end, &rlen);
+    }
+
     void GwPlot::fetchRefSeqs() {
         for (auto &rgn : regions) {
-            int rlen = rgn.end - rgn.start;
-            rgn.refSeq = faidx_fetch_seq(fai, rgn.chrom.c_str(), rgn.start, rgn.end, &rlen);
+            fetchRefSeq(rgn);
+//            int rlen = rgn.end - rgn.start;
+//            rgn.refSeq = faidx_fetch_seq(fai, rgn.chrom.c_str(), rgn.start, rgn.end, &rlen);
         }
     }
 

@@ -41,6 +41,7 @@
 
 namespace Themes {
 
+
     constexpr float base_qual_alpha[11] = {51, 51, 51, 51, 51, 128, 128, 128, 128, 128, 255};
 
     class BaseTheme {

@@ -126,6 +126,23 @@ namespace Manager {
         return true;
     }
 
+    bool GwPlot::commandProcessed() {
+        if (inputText.empty()) {
+            return false;
+        }
+        bool valid = false;
+
+        if (inputText == ":q" || inputText == ":quit" || inputText == ":exit") {
+            throw CloseException();
+        } //else if (inputText.)
+
+        if (valid) {
+            commandHistory.push_back(inputText);
+        }
+
+        return true;
+    }
+
     std::string removeZeros(float value) {  // https://stackoverflow.com/questions/57882748/remove-trailing-zero-in-c
         std::stringstream ss;
         ss << std::fixed << std::setprecision(2) << value;
@@ -194,6 +211,15 @@ namespace Manager {
             return;
         }
 
+        try {
+            if (commandProcessed()) {
+                return;
+            }
+        } catch (CloseException & mce) {
+            glfwSetWindowShouldClose(wind, GLFW_TRUE);
+        }
+
+
         if (mode == Show::SINGLE) {
             if (action == GLFW_PRESS || action == GLFW_REPEAT) {
                 if (key == opts.scroll_right) {
@@ -202,6 +228,7 @@ namespace Manager {
                     regions[regionSelection].end += shift;
                     processed = false;
                     redraw = true;
+                    fetchRefSeq(regions[regionSelection]);
                     printRegionInfo();
                 } else if (key == opts.scroll_left) {
                     int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
@@ -210,6 +237,7 @@ namespace Manager {
                     regions[regionSelection].end -= shift;
                     processed = false;
                     redraw = true;
+                    fetchRefSeq(regions[regionSelection]);
                     printRegionInfo();
                 } else if (key == opts.zoom_out) {
                     int shift = ((regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed) + 10;
@@ -218,6 +246,7 @@ namespace Manager {
                     regions[regionSelection].end += shift;
                     processed = false;
                     redraw = true;
+                    fetchRefSeq(regions[regionSelection]);
                     printRegionInfo();
                 } else if (key == opts.zoom_in) {
                     if (regions[regionSelection].end - regions[regionSelection].start > 50) {
@@ -227,6 +256,7 @@ namespace Manager {
                         regions[regionSelection].end -= shift;
                         processed = false;
                         redraw = true;
+                        fetchRefSeq(regions[regionSelection]);
                         printRegionInfo();
                     }
                 } else if (key == opts.next_region_view) {
