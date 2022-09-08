@@ -166,7 +166,6 @@ int main(int argc, char *argv[]) {
         regions_str = program.get<std::vector<std::string>>("-r");
         for (size_t i=0; i < regions_str.size(); i++){
             regions.push_back(Utils::parseRegion(regions_str[i]));
-            std::cout << regions[i].chrom << ":" << regions[i].start << " " << regions[i].end << std::endl;
         }
     }
 

@@ -204,9 +204,10 @@ namespace Manager {
         SkCanvas * canvas = sSurface->getCanvas();
         fetchRefSeqs();
         opts.theme.setAlphas();
-
-        GLFWwindow * wind = this->window; //.window;
-
+        GLFWwindow * wind = this->window;
+        if (mode == Show::SINGLE) {
+            printRegionInfo();
+        }
         while (true) {
             if (glfwWindowShouldClose(wind)) {
                 break;
@@ -220,7 +221,6 @@ namespace Manager {
                 } else {
                     drawTiles(canvas, sContext, sSurface);
                 }
-
             }
         }
 
@@ -317,7 +317,7 @@ namespace Manager {
 
     void GwPlot::drawScreen(SkCanvas* canvas, GrDirectContext* sContext) {
 
-        auto start = std::chrono::high_resolution_clock::now();
+//        auto start = std::chrono::high_resolution_clock::now();
 
         canvas->drawPaint(opts.theme.bgPaint);
         processBam();
@@ -329,13 +329,13 @@ namespace Manager {
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op);
         Drawing::drawRef(opts, collections, canvas, fonts, bams.size());
 
-        auto finish = std::chrono::high_resolution_clock::now();
+//        auto finish = std::chrono::high_resolution_clock::now();
         sContext->flush();
         glfwSwapBuffers(window);
         redraw = false;
 
-        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
-        std::cout << "Elapsed Time drawScreen: " << m.count() << " m seconds" << std::endl;
+//        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
+//        std::cout << "Elapsed Time drawScreen: " << m.count() << " m seconds" << std::endl;
     }
 
     void GwPlot::tileDrawingThread(SkCanvas* canvas, SkSurface *sSurface) {
@@ -403,7 +403,7 @@ namespace Manager {
     }
 
     void GwPlot::drawSurfaceGpu(SkCanvas *canvas) {
-        auto start = std::chrono::high_resolution_clock::now();
+//        auto start = std::chrono::high_resolution_clock::now();
         canvas->drawPaint(opts.theme.bgPaint);
         setGlfwFrameBufferSize();
         processBam();
@@ -413,9 +413,9 @@ namespace Manager {
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op);
         Drawing::drawRef(opts, collections, canvas, fonts, bams.size());
-        auto finish = std::chrono::high_resolution_clock::now();
-        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
-        std::cout << "Elapsed Time drawScreen: " << m.count() << " m seconds" << std::endl;
+//        auto finish = std::chrono::high_resolution_clock::now();
+//        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
+//        std::cout << "Elapsed Time drawScreen: " << m.count() << " m seconds" << std::endl;
     }
 
     void GwPlot::runDraw(SkCanvas *canvas) {

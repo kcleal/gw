@@ -7,6 +7,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cmath>
 #include <stdlib.h>
 #include <string>
 #include <vector>
@@ -33,6 +34,7 @@
 //#include "hts_funcs.h"
 #include "plot_manager.h"
 #include "segments.h"
+#include "../inc/termcolor.h"
 #include "themes.h"
 
 
@@ -124,6 +126,61 @@ namespace Manager {
         return true;
     }
 
+    std::string removeZeros(float value) {  // https://stackoverflow.com/questions/57882748/remove-trailing-zero-in-c
+        std::stringstream ss;
+        ss << std::fixed << std::setprecision(2) << value;
+        std::string str = ss.str();
+        if(str.find('.') != std::string::npos) {
+            str = str.substr(0, str.find_last_not_of('0')+1);
+            if(str.find('.') == str.size()-1) {
+                str = str.substr(0, str.size()-1);
+            }
+        }
+        return str;
+    }
+
+    std::string getSize(long num) {
+        int chars_needed = std::ceil(std::log10(num));
+        double d;
+        std::string a;
+        std::string b = " bp";
+        if (chars_needed > 3) {
+            if (chars_needed > 6) {
+                d = (double)num / 1e6;
+                d = std::ceil(d * 10) / 10;
+                a = removeZeros(d);
+                b = " mb";
+            } else {
+                d = (double)num / 1e3;
+                d = std::ceil(d * 10) / 10;
+                a = removeZeros(d);
+                b = " kb";
+            }
+        } else {
+            a = std::to_string(num);
+        }
+        return a + b;
+
+    }
+
+    void GwPlot::printRegionInfo() {
+        if (regions.empty()) {
+            return;
+        }
+        std::cout << termcolor::magenta << "Showing   " ;
+        int i = 0;
+        for (auto &r : regions) {
+            std::cout << termcolor::cyan << regions[0].chrom << ":" << r.start << "-" << r.end << termcolor::white << "  (" << getSize(r.end - r.start) << ")";
+            if (i != regions.size() - 1) {
+                std::cout << termcolor::magenta << "  |  ";
+            }
+            i += 1;
+        }
+
+        std::cout << termcolor::reset << std::endl;
+
+    }
+
     void GwPlot::keyPress(GLFWwindow* wind, int key, int scancode, int action, int mods) {
 
         if (action == GLFW_RELEASE) {
@@ -145,6 +202,7 @@ namespace Manager {
                     regions[regionSelection].end += shift;
                     processed = false;
                     redraw = true;
+                    printRegionInfo();
                 } else if (key == opts.scroll_left) {
                     int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
                     shift = (regions[regionSelection].start - shift > 0) ? shift : regions[regionSelection].start;
@@ -152,6 +210,7 @@ namespace Manager {
                     regions[regionSelection].end -= shift;
                     processed = false;
                     redraw = true;
+                    printRegionInfo();
                 } else if (key == opts.zoom_out) {
                     int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
                     int shift_left = (regions[regionSelection].start - shift > 0) ? shift : regions[regionSelection].start;
@@ -159,6 +218,7 @@ namespace Manager {
                     regions[regionSelection].end += shift;
                     processed = false;
                     redraw = true;
+                    printRegionInfo();
                 } else if (key == opts.zoom_in) {
                     if (regions[regionSelection].end - regions[regionSelection].start > 50) {
                         int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
@@ -167,6 +227,7 @@ namespace Manager {
                         regions[regionSelection].end -= shift;
                         processed = false;
                         redraw = true;
+                        printRegionInfo();
                     }
                 } else if (key == opts.next_region_view) {
                     regionSelection += 1;

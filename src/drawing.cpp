@@ -121,6 +121,7 @@ namespace Drawing {
             canvas->drawPath(path, paint);
 
             std::sprintf(indelChars, "%d", cMaxi);
+
             sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(indelChars, fonts.overlay);
             canvas->drawTextBlob(blob, xOffset + 25, (covY * 0.3) + yOffsetAll + 10, theme.tcDel);
 
@@ -392,8 +393,9 @@ namespace Drawing {
                         yh = (Y + polygonHeight * 0.5) * yScaling + yOffset;
                         if (size <= 0) { continue; }
                         if (regionLen < 500000 && size >= opts.indel_length) { // line and text
-                            std::sprintf(indelChars, "%d", size);
-                            size_t sl = strlen(indelChars);
+//                            std::sprintf(indelChars, "%d", size);
+//                            size_t sl = strlen(indelChars);
+                            int sl = ceil(log10(size));
                             textW = fonts.textWidths[sl - 1];
                             float textBegin = ((lastEnd + size / 2) * xScaling) - (textW / 2);
                             float textEnd = textBegin + textW;
@@ -464,8 +466,9 @@ namespace Drawing {
                     for (auto &ins: a.any_ins) {
                         float p = (ins.pos - regionBegin) * xScaling;
                         if (0 <= p && p < regionPixels) {
-                            std::sprintf(indelChars, "%d", ins.length);
-                            size_t sl = strlen(indelChars);
+//                            std::sprintf(indelChars, "%d", ins.length);
+//                            size_t sl = strlen(indelChars);
+                            int sl = ceil(log10(ins.length));
                             textW = fonts.textWidths[sl - 1];
                             if (ins.length > opts.indel_length) {
                                 if (regionLen < 500000) {  // line and text
