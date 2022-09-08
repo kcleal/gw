@@ -109,15 +109,20 @@ namespace Utils {
     }
 
     void strToRegion(Region *r, std::string& s, const char delim){
-        unsigned int start = 0;
-        unsigned int end = s.find(delim);
+        size_t start = 0;
+        size_t end = s.find(delim);
         r->chrom = s.substr(start, end - start);
         start = end + 1;
         end = s.find(delim, start);
-        r->start = std::stoi(s.substr(start, end - start));
-        start = end + 1;
-        end = s.find(delim, start);
-        r->end = std::stoi(s.substr(start, end - start));
+        if (end != std::string::npos) {
+            r->start = std::stoi(s.substr(start, end - start));
+            start = end + 1;
+            end = s.find(delim, start);
+            r->end = std::stoi(s.substr(start, end - start));
+        } else {
+            r->start = std::stoi(s.substr(start, s.size()));
+            r->end = r->start + 1;
+        }
     }
 
     Region parseRegion(std::string& s) {
@@ -143,6 +148,9 @@ namespace Utils {
         if (reg.start > reg.end) {
             std::cerr << "Error: region end < region start";
             std::abort();
+        }
+        if (reg.start == reg.end) {
+            reg.end += 1;
         }
         return reg;
     }

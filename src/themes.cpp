@@ -115,7 +115,10 @@ namespace Themes {
             fcSoftClip0.setAlpha(mapq0_alpha);
 
             lcJoins.setStyle(SkPaint::kStroke_Style);
-            lcJoins.setStrokeWidth(4);
+            lcJoins.setStrokeWidth(2);
+
+            lcLightJoins.setStyle(SkPaint::kStroke_Style);
+            lcLightJoins.setStrokeWidth(1);
 
             insF = fcIns;
             insF.setStyle(SkPaint::kFill_Style);
@@ -178,7 +181,8 @@ namespace Themes {
         fcC.setARGB(255, 0, 0, 255);
         fcG.setARGB(255, 205, 133, 63);
         fcN.setARGB(255, 128, 128, 128);
-        lcJoins.setARGB(255, 0, 0, 0);
+        lcJoins.setARGB(255, 20, 20, 20);
+        lcLightJoins.setARGB(255, 170, 170, 170);
         tcDel.setARGB(255, 0, 0, 0);
         tcLabels.setARGB(255, 0, 0, 0);
         tcIns.setARGB(255, 255, 255, 255);
@@ -202,6 +206,7 @@ namespace Themes {
         fcG.setARGB(255, 236, 132, 19);
         fcN.setARGB(255, 128, 128, 128);
         lcJoins.setARGB(255, 142, 142, 142);
+        lcLightJoins.setARGB(255, 62, 62, 62);
         tcDel.setARGB(255, 227, 227, 227);
         tcLabels.setARGB(255, 0, 0, 0);
         tcIns.setARGB(255, 227, 227, 227);

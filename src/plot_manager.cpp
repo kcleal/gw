@@ -70,6 +70,7 @@ namespace Manager {
         fai = fai_load(reference.c_str());
         for (auto &fn: this->bam_paths) {
             htsFile* f = sam_open(fn.c_str(), "r");
+            hts_set_fai_filename(f, reference.c_str());
             hts_set_threads(f, opt.threads);
             bams.push_back(f);
             sam_hdr_t *hdr_ptr = sam_hdr_read(f);
@@ -328,6 +329,7 @@ namespace Manager {
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op);
         Drawing::drawRef(opts, collections, canvas, fonts, bams.size());
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size());
 
 //        auto finish = std::chrono::high_resolution_clock::now();
         sContext->flush();
@@ -413,6 +415,7 @@ namespace Manager {
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op);
         Drawing::drawRef(opts, collections, canvas, fonts, bams.size());
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size());
 //        auto finish = std::chrono::high_resolution_clock::now();
 //        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
 //        std::cout << "Elapsed Time drawScreen: " << m.count() << " m seconds" << std::endl;
@@ -428,6 +431,7 @@ namespace Manager {
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op);
         Drawing::drawRef(opts, collections, canvas, fonts, bams.size());
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size());
     }
 
     void imageToPng(sk_sp<SkImage> &img, std::string &path) {

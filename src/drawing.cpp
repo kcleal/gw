@@ -328,7 +328,7 @@ namespace Drawing {
                     edged = false;
                 }
 
-                float width, s, e, yh, textW;
+                double width, s, e, yh, textW;
                 for (size_t idx = 0; idx < nBlocks; ++idx) {
                     s = a.block_starts[idx];
                     if (s > regionEnd) { break; }
@@ -393,9 +393,9 @@ namespace Drawing {
                         yh = (Y + polygonHeight * 0.5) * yScaling + yOffset;
                         if (size <= 0) { continue; }
                         if (regionLen < 500000 && size >= opts.indel_length) { // line and text
-//                            std::sprintf(indelChars, "%d", size);
-//                            size_t sl = strlen(indelChars);
-                            int sl = ceil(log10(size));
+                            std::sprintf(indelChars, "%d", size);
+                            size_t sl = strlen(indelChars);
+//                            int sl = ceil(log10(size));
                             textW = fonts.textWidths[sl - 1];
                             float textBegin = ((lastEnd + size / 2) * xScaling) - (textW / 2);
                             float textEnd = textBegin + textW;
@@ -413,8 +413,7 @@ namespace Drawing {
                                 drawHLine(canvas, path, theme.lcJoins, delBegin + xOffset, yh, textBegin + xOffset);
                                 drawHLine(canvas, path, theme.lcJoins, textEnd + xOffset, yh, delEnd + xOffset);
                             }
-                        } else if (size / (float) regionLen >
-                                   0.0005) { // (regionLen < 50000 || size > 100) { // line only
+                        } else if (size / (float) regionLen > 0.0005) { // (regionLen < 50000 || size > 100) { // line only
                             delEnd = std::min(regionPixels, delEnd);
                             drawHLine(canvas, path, theme.lcJoins, delBegin + xOffset, yh, delEnd + xOffset);
                         }
@@ -466,9 +465,9 @@ namespace Drawing {
                     for (auto &ins: a.any_ins) {
                         float p = (ins.pos - regionBegin) * xScaling;
                         if (0 <= p && p < regionPixels) {
-//                            std::sprintf(indelChars, "%d", ins.length);
-//                            size_t sl = strlen(indelChars);
-                            int sl = ceil(log10(ins.length));
+                            std::sprintf(indelChars, "%d", ins.length);
+                            size_t sl = strlen(indelChars);
+//                            int sl = ceil(log10(ins.length));
                             textW = fonts.textWidths[sl - 1];
                             if (ins.length > opts.indel_length) {
                                 if (regionLen < 500000) {  // line and text
@@ -686,6 +685,32 @@ namespace Drawing {
                 }
             }
             // todo add pixelHeight to offset
+        }
+    }
+
+    void drawBorders(const Themes::IniOptions &opts, const float fb_width, const float fb_height,
+                 SkCanvas *canvas, const size_t nbams, const size_t nregions) {
+        SkPath path;
+        if (nregions > 1) {
+            float x = fb_width / nregions;
+            float step = x;
+            for (int i=0; i<nregions - 1; ++i) {
+                path.moveTo(x, 0);
+                path.lineTo(x, fb_height);
+                x += step;
+            }
+            canvas->drawPath(path, opts.theme.lcLightJoins);
+        }
+        if (nbams > 1) {
+            path.reset();
+            float y = fb_height / nbams;
+            float step = y;
+            for (int i=0; i<nregions - 1; ++i) {
+                path.moveTo(0, y);
+                path.lineTo(fb_width, y);
+                y += step;
+            }
+            canvas->drawPath(path, opts.theme.lcLightJoins);
         }
     }
 }

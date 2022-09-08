@@ -212,7 +212,7 @@ namespace Manager {
                     redraw = true;
                     printRegionInfo();
                 } else if (key == opts.zoom_out) {
-                    int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
+                    int shift = ((regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed) + 10;
                     int shift_left = (regions[regionSelection].start - shift > 0) ? shift : regions[regionSelection].start;
                     regions[regionSelection].start -= shift_left;
                     regions[regionSelection].end += shift;

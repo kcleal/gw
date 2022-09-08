@@ -64,7 +64,7 @@ namespace Themes {
         float lwMateUnmapped, lwSplit, lwCoverage;
 
         // line colours and Insertion painy
-        SkPaint lcJoins, lcCoverage, insF, insS;
+        SkPaint lcJoins, lcCoverage, lcLightJoins, insF, insS;
 
         // text colours
         SkPaint tcDel, tcIns, tcLabels;

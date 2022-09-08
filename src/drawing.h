@@ -36,4 +36,7 @@ namespace Drawing {
 
     void drawRef(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
                  SkCanvas *canvas, const Themes::Fonts &fonts, size_t nbams);
+
+    void drawBorders(const Themes::IniOptions &opts, const float fb_width, const float fb_height,
+                     SkCanvas *canvas, const size_t nbams, const size_t nregions);
 }
