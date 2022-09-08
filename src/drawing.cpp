@@ -689,12 +689,12 @@ namespace Drawing {
     }
 
     void drawBorders(const Themes::IniOptions &opts, const float fb_width, const float fb_height,
-                 SkCanvas *canvas, const size_t nbams, const size_t nregions) {
+                 SkCanvas *canvas, const size_t nregions, const size_t nbams) {
         SkPath path;
         if (nregions > 1) {
             float x = fb_width / nregions;
             float step = x;
-            for (int i=0; i<nregions - 1; ++i) {
+            for (int i=0; i < nregions - 1; ++i) {
                 path.moveTo(x, 0);
                 path.lineTo(x, fb_height);
                 x += step;
