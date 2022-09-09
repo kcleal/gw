@@ -147,8 +147,14 @@ namespace Manager {
             std::vector<std::string> split = Utils::split(inputText, delim);
             if (split.size() > 1 && split.size() < 4) {
                 int index = (split.size() == 3) ? std::stoi(split.back()) : 0;
-                regions[index] = Utils::parseRegion(split[1]);
-                valid = true;
+                if (index < regions.size()) {
+                    regions[index] = Utils::parseRegion(split[1]);
+                    valid = true;
+                } else {
+                    std::cerr << "Error: region index is out of range\n";
+                    inputText = "";
+                    return true;
+                }
             }
         }
 
