@@ -4,7 +4,9 @@
 #include <algorithm>
 #include <filesystem>
 #include <iostream>
+#include <iterator>
 #include <cstring>
+#include <sstream>
 #include <string>
 
 #include "utils.h"
@@ -106,6 +108,33 @@ namespace Utils {
             return true;
         else
             return false;
+    }
+
+    bool startsWith(const std::string &mainStr, const std::string &toMatch) {
+        if(mainStr.size() >= toMatch.size() && mainStr.compare(0, toMatch.size(), toMatch) == 0)
+            return true;
+        else
+            return false;
+    }
+
+    template <typename Out>
+    void split(const std::string &s, char delim, Out result) {
+        std::istringstream iss(s);
+        std::string item;
+        while (std::getline(iss, item, delim)) {
+            *result++ = item;
+        }
+    }
+
+    std::vector<std::string> split(const std::string &s, char delim) {
+        std::vector<std::string> elems;
+        split(s, delim, std::back_inserter(elems));
+        elems.erase(std::remove_if(elems.begin(), elems.end(),  // remove empty strings
+                       [&](std::string const& cmp) -> bool
+                       {
+                           return cmp == "";
+                       }), elems.end());
+        return elems;
     }
 
     void strToRegion(Region *r, std::string& s, const char delim){

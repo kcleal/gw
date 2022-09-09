@@ -64,12 +64,7 @@ namespace HTS {
 
 namespace Manager {
 
-    class CloseException : public std::exception {
-    public:
-        char * what () {
-            return "Gw closing";
-        }
-    };
+    class CloseException : public std::exception {};
 
     typedef ankerl::unordered_dense::map< std::string, std::vector<int>> map_t;
 //    typedef robin_hood::unordered_flat_map< const char *, std::vector<int>> map_t;

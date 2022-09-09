@@ -19,6 +19,10 @@ namespace Utils {
 
     bool endsWith(const std::string &mainStr, const std::string &toMatch);
 
+    bool startsWith(const std::string &mainStr, const std::string &toMatch);
+
+    std::vector<std::string> split(const std::string &s, char delim);
+
     // https://stackoverflow.com/questions/1528298/get-path-of-executable
     std::string getExecutableDir();
 

@@ -8,7 +8,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <iterator>
 #include <stdlib.h>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -134,11 +136,30 @@ namespace Manager {
 
         if (inputText == ":q" || inputText == ":quit" || inputText == ":exit") {
             throw CloseException();
-        } //else if (inputText.)
+        } else if (inputText == ":link" || inputText == ":link all") {
+            opts.link_op = 2; valid = true;
+        } else if (inputText == ":link sv") {
+            opts.link_op = 1; valid = true;
+        } else if (inputText == ":link none" || inputText == ":unlink") {
+            opts.link_op = 0; valid = true;
+        } else if (Utils::startsWith(inputText, ":goto")) {
+            constexpr char delim = ' ';
+            std::vector<std::string> split = Utils::split(inputText, delim);
+            if (split.size() > 1 && split.size() < 4) {
+                int index = (split.size() == 3) ? std::stoi(split.back()) : 0;
+                regions[index] = Utils::parseRegion(split[1]);
+                valid = true;
+            }
+        }
 
         if (valid) {
             commandHistory.push_back(inputText);
+            redraw = true;
+            processed = false;
+        } else {
+            std::cerr << "Error: command not understood\n";
         }
+        inputText = "";
 
         return true;
     }
