@@ -81,13 +81,14 @@ namespace Segs {
         std::vector<uint32_t> levelsStart, levelsEnd;
         std::vector<Align> readQueue;
         float xScaling, xOffset, yOffset, yPixels;
+        bool processed;
     };
 
     void init_parallel(std::vector<Align> &aligns, int n);
 
-    void addToCovArray(std::vector<int> &arr, Align *align, int begin, int end, int l_arr);
+    void addToCovArray(std::vector<int> &arr, Align &align, int begin, int end, int l_arr);
 
-    int findY(int bamIdx, ReadCollection &rc, int vScroll, int linkType, Themes::IniOptions &opts, Utils::Region *region, linked_t &linked, bool joinLeft);
+    int findY(int bamIdx, ReadCollection &rc, std::vector<Align> &rQ, int vScroll, int linkType, Themes::IniOptions &opts, Utils::Region *region, linked_t &linked, bool joinLeft);
 
     void dropOutOfScope(std::vector< Utils::Region > &regions, std::vector< Segs::ReadCollection >& rcs, size_t nBams);
 }

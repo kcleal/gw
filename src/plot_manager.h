@@ -41,6 +41,11 @@ namespace HTS {
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, Themes::IniOptions &opts, Utils::Region *region, bool coverage);
 
+    void trimToRegion(Segs::ReadCollection &col, bool coverage);
+
+    void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
+                                 hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *vScroll, Segs::linked_t &linked, int *samMaxY);
+
     class VCF {
     public:
         VCF () = default;

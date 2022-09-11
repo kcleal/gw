@@ -2,6 +2,7 @@
 // Created by Kez Cleal on 04/08/2022.
 //
 
+#include <algorithm>
 #include <chrono>
 #include <string>
 #include <vector>
@@ -28,16 +29,12 @@ namespace HTS {
 
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, Themes::IniOptions &opts, Utils::Region *region, bool coverage) {
-
         bam1_t *src;
         hts_itr_t *iter_q;
 
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
-        int l_arr = (!opts.coverage) ? 0 : col.covArr.size() - 1;
-
         std::vector<Segs::Align>& readQueue = col.readQueue;
         readQueue.push_back(make_align(bam_init1()));
-
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
             std::cerr << "Error: Null iterator when trying to fetch from HTS file\n";
@@ -50,19 +47,161 @@ namespace HTS {
             }
             readQueue.push_back(make_align(bam_init1()));
         }
-
         src = readQueue.back().delegate;
         if (src->core.flag & 4 || src->core.n_cigar == 0) {
+            bam_destroy1(src);
             readQueue.pop_back();
         }
         Segs::init_parallel(readQueue, opts.threads);
-
         if (coverage) {
-            for (size_t i=0; i < readQueue.size(); ++i) {
-                Segs::addToCovArray(col.covArr, &readQueue[i], region->start, region->end, l_arr);
+            int l_arr = (int)col.covArr.size() - 1;
+            for (auto &i : readQueue) {
+                Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
             }
         }
+        col.processed = true;
     }
+
+    void trimToRegion(Segs::ReadCollection &col, bool coverage) {
+        std::vector<Segs::Align>& readQueue = col.readQueue;
+        Utils::Region *region = &col.region;
+        while (!readQueue.empty()) {
+            Segs::Align &item = readQueue.back();
+            if (item.cov_start > region->end) {
+                if (item.y != -1) {
+                    col.levelsEnd[item.y] = item.cov_start;
+                }
+                readQueue.pop_back();
+            } else {
+                break;
+            }
+        }
+        int idx = 0;
+        for (auto &item : readQueue) {  // drop out of scope reads
+            if (item.cov_end < region->start) {
+                if (item.y != -1) {
+                    col.levelsStart[item.y] = item.cov_end;
+                }
+                bam_destroy1(item.delegate);
+                idx += 1;
+            } else {
+                break;
+            }
+        }
+        if (idx > 0) {
+            readQueue.erase(readQueue.begin(), readQueue.begin() + idx);
+        }
+    }
+
+    void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
+                                 hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *vScroll, Segs::linked_t &linked, int *samMaxY) {
+
+        bam1_t *src;
+        hts_itr_t *iter_q;
+        std::vector<Segs::Align>& readQueue = col.readQueue;
+        Utils::Region *region = &col.region;
+        int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
+        int lastPos;
+        if (left) {
+            lastPos = readQueue.front().pos;
+        } else {
+            lastPos = readQueue.back().pos;
+        }
+
+        std::vector<Segs::Align> newReads;
+
+        if (left && lastPos > region->start) {
+
+            while (!readQueue.empty()) {
+                Segs::Align &item = readQueue.back();
+                if (item.cov_start > region->end) {
+                    if (item.y != -1) {
+                        col.levelsEnd[item.y] = item.cov_start;
+                    }
+                    readQueue.pop_back();
+                } else {
+                    break;
+                }
+            }
+
+            iter_q = sam_itr_queryi(index, tid, region->start, lastPos);
+            newReads.push_back(make_align(bam_init1()));
+            while (sam_itr_next(b, iter_q, newReads.back().delegate) >= 0) {
+                src = newReads.back().delegate;
+                if (src->core.flag & 4 || src->core.n_cigar == 0) {
+                    continue;
+                }
+                if (src->core.pos >= lastPos) {
+                    break;
+                }
+                newReads.push_back(make_align(bam_init1()));
+            }
+            src = newReads.back().delegate;
+            if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos >= lastPos) {
+                bam_destroy1(src);
+                newReads.pop_back();
+            }
+
+
+        } else if (!left && lastPos + 1 < region->end) {
+            int idx = 0;
+            for (auto &item : readQueue) {  // drop out of scope reads
+                if (item.cov_end < region->start) {
+                    if (item.y != -1) {
+                        col.levelsStart[item.y] = item.cov_end;
+                    }
+                    bam_destroy1(item.delegate);
+                    idx += 1;
+                } else {
+                    break;
+                }
+            }
+            if (idx > 0) {
+                readQueue.erase(readQueue.begin(), readQueue.begin() + idx);
+            }
+
+            iter_q = sam_itr_queryi(index, tid, lastPos + 1, region->end);
+            newReads.push_back(make_align(bam_init1()));
+            while (sam_itr_next(b, iter_q, newReads.back().delegate) >= 0) {
+                src = newReads.back().delegate;
+                if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos <= lastPos) {
+                    continue;
+                }
+                newReads.push_back(make_align(bam_init1()));
+            }
+            src = newReads.back().delegate;
+            if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos <= lastPos) {
+                bam_destroy1(src);
+                newReads.pop_back();
+            }
+
+
+        }
+        if (!newReads.empty()) {
+            Segs::init_parallel(newReads, 1);
+            int maxY = Segs::findY(col.bamIdx, col, newReads, *vScroll, opts.link_op, opts, region, linked, left);
+            if (maxY > *samMaxY) {
+                *samMaxY = maxY;
+            }
+            if (!left) {
+                std::move(newReads.begin(), newReads.end(), std::back_inserter(readQueue));
+            } else {
+                std::move(readQueue.begin(), readQueue.end(), std::back_inserter(newReads));
+                col.readQueue = newReads;
+            }
+
+            if (coverage) {  // re process coverage for all reads
+                col.covArr.resize(region->end - region->start);
+                std::fill(col.covArr.begin(), col.covArr.end(), 0);
+                int l_arr = (int)col.covArr.size() - 1;
+                for (auto &i : readQueue) {
+                    Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
+                }
+            }
+        }
+        col.processed = true;
+    }
+
 
     VCF::~VCF() {
         if (fp != nullptr) {

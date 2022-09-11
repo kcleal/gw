@@ -253,16 +253,33 @@ namespace Manager {
                     int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
                     regions[regionSelection].start += shift;
                     regions[regionSelection].end += shift;
-                    processed = false;
+                    processed = true;
+                    int i = 0;
+                    for (auto &cl : collections) {
+                        if (cl.regionIdx == regionSelection) {
+                            cl.region = regions[regionSelection];
+                            HTS::appendReadsAndCoverage(cl,  bams[i], headers[i], indexes[i], opts, opts.coverage, false, &vScroll, linked, &samMaxY);
+                        }
+                        ++i;
+                    }
                     redraw = true;
                     fetchRefSeq(regions[regionSelection]);
                     printRegionInfo();
+
                 } else if (key == opts.scroll_left) {
                     int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
                     shift = (regions[regionSelection].start - shift > 0) ? shift : regions[regionSelection].start;
                     regions[regionSelection].start -= shift;
                     regions[regionSelection].end -= shift;
-                    processed = false;
+                    processed = true;
+                    int i = 0;
+                    for (auto &cl : collections) {
+                        if (cl.regionIdx == regionSelection) {
+                            cl.region = regions[regionSelection];
+                            HTS::appendReadsAndCoverage(cl,  bams[i], headers[i], indexes[i], opts, opts.coverage, true, &vScroll, linked, &samMaxY);
+                        }
+                        ++i;
+                    }
                     redraw = true;
                     fetchRefSeq(regions[regionSelection]);
                     printRegionInfo();
@@ -271,7 +288,26 @@ namespace Manager {
                     int shift_left = (regions[regionSelection].start - shift > 0) ? shift : regions[regionSelection].start;
                     regions[regionSelection].start -= shift_left;
                     regions[regionSelection].end += shift;
-                    processed = false;
+//                    processed = false;
+                    processed = true;
+                    int i = 0;
+                    for (auto &cl : collections) {
+                        if (cl.regionIdx == regionSelection) {
+                            cl.region = regions[regionSelection];
+                            HTS::appendReadsAndCoverage(cl,  bams[i], headers[i], indexes[i], opts, false, true, &vScroll, linked, &samMaxY);
+                            HTS::appendReadsAndCoverage(cl,  bams[i], headers[i], indexes[i], opts, false, false, &vScroll, linked, &samMaxY);
+                            if (opts.coverage) {  // re process coverage for all reads
+                                cl.covArr.resize(cl.region.end - cl.region.start);
+                                std::fill(cl.covArr.begin(), cl.covArr.end(), 0);
+                                int l_arr = (int)cl.covArr.size() - 1;
+                                for (auto &i : cl.readQueue) {
+                                    Segs::addToCovArray(cl.covArr, i, cl.region.start, cl.region.end, l_arr);
+                                }
+                            }
+                        }
+                        ++i;
+                    }
+
                     redraw = true;
                     fetchRefSeq(regions[regionSelection]);
                     printRegionInfo();
@@ -281,7 +317,16 @@ namespace Manager {
                         int shift_left = (regions[regionSelection].start - shift > 0) ? shift : regions[regionSelection].start;
                         regions[regionSelection].start += shift_left;
                         regions[regionSelection].end -= shift;
-                        processed = false;
+//                        processed = false;
+                        processed = true;
+                        int i = 0;
+                        for (auto &cl : collections) {
+                            if (cl.regionIdx == regionSelection) {
+                                cl.region = regions[regionSelection];
+                                HTS::trimToRegion(cl, opts.coverage);
+                            }
+                            ++i;
+                        }
                         redraw = true;
                         fetchRefSeq(regions[regionSelection]);
                         printRegionInfo();

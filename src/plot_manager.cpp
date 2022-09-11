@@ -269,15 +269,15 @@ namespace Manager {
                     }
                     HTS::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index,opts, reg, opts.coverage);
 
-                    int maxY = Segs::findY(idx, collections[idx], vScroll, opts.link_op, opts, reg, linked, false);
+                    int maxY = Segs::findY(idx, collections[idx], collections[idx].readQueue, vScroll, opts.link_op, opts, reg, linked, false);
                     if (maxY > samMaxY) {
                         samMaxY = maxY;
                     }
                     idx += 1;
                 }
             }
-        } else {
-            Segs::dropOutOfScope(regions, collections, bams.size());
+//        } else {
+//            Segs::dropOutOfScope(regions, collections, bams.size());
         }
     }
 

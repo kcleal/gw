@@ -281,12 +281,12 @@ namespace Segs {
     }
 
 
-    void addToCovArray(std::vector<int> &arr, Align *align, int begin, int end, int l_arr) {
-        size_t n_blocks = align->block_starts.size();
+    void addToCovArray(std::vector<int> &arr, Align &align, int begin, int end, int l_arr) {
+        size_t n_blocks = align.block_starts.size();
         for (size_t idx=0; idx < n_blocks; ++idx) {
-            uint32_t block_s = align->block_starts[idx];
+            uint32_t block_s = align.block_starts[idx];
             if (block_s >= end) { break; }
-            uint32_t block_e = align->block_ends[idx];
+            uint32_t block_e = align.block_ends[idx];
             if (block_e < begin) { continue; }
             uint32_t s = (block_s >= begin) ? block_s - begin : 0;
             uint32_t e = (block_e < end) ? block_e - begin : l_arr;
@@ -295,12 +295,11 @@ namespace Segs {
         }
     }
 
-    int findY(int bamIdx, ReadCollection &rc, int vScroll, int linkType, Themes::IniOptions &opts, Utils::Region *region, linked_t &linked, bool joinLeft) {
+    int findY(int bamIdx, ReadCollection &rc, std::vector<Align> &rQ, int vScroll, int linkType, Themes::IniOptions &opts, Utils::Region *region, linked_t &linked, bool joinLeft) {
 
         if (rc.readQueue.empty()) {
             return 0;
         }
-        std::vector<Align> &rQ = rc.readQueue;
         Align *q_ptr = &rQ.front();
         const char *qname = nullptr;
         Segs::map_t & lm = linked[bamIdx];
@@ -408,7 +407,7 @@ namespace Segs {
                         if (q_ptr->cov_end > le[i]) {
                             le[i] = q_ptr->cov_end;
                         }
-                        if (i >vScroll) {
+                        if (i >= vScroll) {
                             q_ptr->y = i - vScroll;
                         }
                         if (linkType > 0 && lm.contains(qname)) {
@@ -450,7 +449,7 @@ namespace Segs {
     }
 
     void dropOutOfScope(std::vector< Utils::Region > &regions, std::vector< Segs::ReadCollection >& rcs, size_t nBams) {
-
+        //todo memory leaks from here need bam1_destroy
         int idx = 0;
         for (size_t i=0; i < nBams; ++i) {
 
