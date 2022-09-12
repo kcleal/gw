@@ -241,6 +241,7 @@ namespace Manager {
             for (auto & a : cl.readQueue) {
                 bam_destroy1(a.delegate);
             }
+            delete cl.region.refSeq;
         }
         collections.clear();
     }

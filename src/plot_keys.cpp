@@ -288,6 +288,7 @@ namespace Manager {
             if (action == GLFW_PRESS || action == GLFW_REPEAT) {
                 if (key == opts.scroll_right) {
                     int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
+                    delete regions[regionSelection].refSeq;
                     Utils::Region N;
                     N.chrom = regions[regionSelection].chrom;
                     N.start = regions[regionSelection].start + shift;
@@ -309,6 +310,7 @@ namespace Manager {
                 } else if (key == opts.scroll_left) {
                     int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
                     shift = (regions[regionSelection].start - shift > 0) ? shift : 0;
+                    delete regions[regionSelection].refSeq;
                     Utils::Region N;
                     N.chrom = regions[regionSelection].chrom;
                     N.start = regions[regionSelection].start - shift;
@@ -329,6 +331,7 @@ namespace Manager {
                 } else if (key == opts.zoom_out) {
                     int shift = ((regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed) + 10;
                     int shift_left = (regions[regionSelection].start - shift > 0) ? shift : 0;
+                    delete regions[regionSelection].refSeq;
                     Utils::Region N;
                     N.chrom = regions[regionSelection].chrom;
                     N.start = regions[regionSelection].start - shift_left;
@@ -359,6 +362,7 @@ namespace Manager {
                     if (regions[regionSelection].end - regions[regionSelection].start > 50) {
                         int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
                         int shift_left = (regions[regionSelection].start - shift > 0) ? shift : 0;
+                        delete regions[regionSelection].refSeq;
                         Utils::Region N;
                         N.chrom = regions[regionSelection].chrom;
                         N.start = regions[regionSelection].start + shift_left;
