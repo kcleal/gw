@@ -36,10 +36,8 @@ SkSurface *sSurface = nullptr;
 int main(int argc, char *argv[]) {
 
     std::cout << "\n"
-                 " ___\n"
-                 "/  _  | /| / \n"
-                 "\\__/  |/ |/   \n"
-                 "" << std::endl;
+                 "█▀▀ █ █ █\n"
+                 "█▄█ ▀▄▀▄▀" << std::endl;
 
     Themes::IniOptions iopts;
     iopts.readIni();

@@ -591,8 +591,8 @@ namespace Drawing {
                                 if (segA.y == -1 || segB.y == -1 || (segA.delegate->core.tid != segB.delegate->core.tid)) {
                                     continue;
                                 }
-                                long cstart = std::min(segA.block_starts.front(), segB.block_starts.front());
-                                long cend = std::max(segA.block_ends.back(), segB.block_ends.back());
+                                long cstart = std::min(segA.block_ends.front(), segB.block_ends.front());
+                                long cend = std::max(segA.block_starts.back(), segB.block_starts.back());
 
                                 double x_a = ((double)cstart - (double)rc.region.start) * rc.xScaling;
                                 double x_b = ((double)cend - (double)rc.region.start) * rc.xScaling;
@@ -628,15 +628,13 @@ namespace Drawing {
 
     void drawRef(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
                   SkCanvas *canvas, const Themes::Fonts &fonts, size_t nbams) {
-
         SkRect rect;
         SkPaint faceColor;
         const Themes::BaseTheme &theme = opts.theme;
         float offset = 0;
-        double h = (opts.dimensions.y / (double)nbams) * 0.03;
+        float h = fonts.fontHeight; //((opts.dimensions.y / (float)nbams)) * 0.02;
         float textW = fonts.textWidths[0];
         float minLetterSize = (float)opts.dimensions.x / textW;
-
         for (auto &cl: collections) {
             long size = cl.region.end - cl.region.start;
             double xScaling = cl.xScaling;
@@ -667,7 +665,6 @@ namespace Drawing {
             } else if (size < 20000) {
                 while (*ref) {
                     rect.setXYWH(i, offset, xScaling, h);
-
                     switch ((unsigned int)*ref) {
                         case 65: canvas->drawRect(rect, theme.fcA); break;
                         case 67: canvas->drawRect(rect, theme.fcC); break;

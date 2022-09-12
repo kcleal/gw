@@ -14,3 +14,4 @@
 /src/drawing_t.o
 /src/plot_keys.o
 /src/text_input.o
+/src/glfw_keys.o

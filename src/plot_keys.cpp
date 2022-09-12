@@ -33,9 +33,11 @@
 #include "include/core/SkSurface.h"
 
 #include "drawing.h"
+//#include "../inc/glfw_keys.h"
 //#include "hts_funcs.h"
 #include "plot_manager.h"
 #include "segments.h"
+#include "../inc/robin_hood.h"
 #include "../inc/termcolor.h"
 #include "themes.h"
 
@@ -128,21 +130,54 @@ namespace Manager {
         return true;
     }
 
+    void printKeyFromValue(int v) {
+        robin_hood::unordered_map<std::string, int> key_table;
+        Keys::getKeyTable(key_table);
+        for (auto &p: key_table) {
+            if (p.second == v) {
+                std::cout << p.first;
+                break;
+            }
+        }
+    }
+
+    void help(Themes::IniOptions &opts) {
+        std::cout << termcolor::italic << "\n** Enter a command by selecting the GW window (not the terminal) and type ':[COMMAND]' **\n" << termcolor::reset;
+        std::cout << termcolor::underline << "\nCommand          Modifier        Description                                          \n" << termcolor::reset; // 15 spaces
+        std::cout << termcolor::green << "goto             loci, index     " << termcolor::reset << "e.g. 'goto chr1:20000'. Use index if multiple regions \n                                 are open e.g. 'goto chr1:20000 1'\n";
+        std::cout << termcolor::green << "link             [none/sv/all]   " << termcolor::reset << "Switch read-linking ':link all'\n";
+        std::cout << termcolor::green << "quit, q                          " << termcolor::reset << "Quit GW\n";
+        std::cout << termcolor::green << "refresh, r                       " << termcolor::reset << "Refresh and re-draw the window\n";
+        std::cout << termcolor::underline << "\nHot keys                   \n" << termcolor::reset;
+        std::cout << "scroll left       " << termcolor::bright_yellow; printKeyFromValue(opts.scroll_left); std::cout << "\n" << termcolor::reset;
+        std::cout << "scroll right      " << termcolor::bright_yellow; printKeyFromValue(opts.scroll_right); std::cout << "\n" << termcolor::reset;
+        std::cout << "scroll down       " << termcolor::bright_yellow; printKeyFromValue(opts.scroll_down); std::cout << "\n" << termcolor::reset;
+        std::cout << "scroll up         " << termcolor::bright_yellow; printKeyFromValue(opts.scroll_up); std::cout << "\n" << termcolor::reset;
+        std::cout << "zoom in           " << termcolor::bright_yellow; printKeyFromValue(opts.zoom_in); std::cout << "\n" << termcolor::reset;
+        std::cout << "zoom out          " << termcolor::bright_yellow; printKeyFromValue(opts.zoom_out); std::cout << "\n" << termcolor::reset;
+        std::cout << "next region view  " << termcolor::bright_yellow; printKeyFromValue(opts.next_region_view); std::cout << "\n" << termcolor::reset;
+        std::cout << "cycle link mode   " << termcolor::bright_yellow; printKeyFromValue(opts.cycle_link_mode); std::cout << "\n" << termcolor::reset;
+        std::cout << "\n";
+    }
+
     bool GwPlot::commandProcessed() {
         if (inputText.empty()) {
             return false;
         }
         bool valid = false;
 
-        if (inputText == ":q" || inputText == ":quit" || inputText == ":exit") {
+        if (inputText == ":q" || inputText == ":quit") {
             throw CloseException();
-        } else if (inputText == ":refresh") {
+        } else if (inputText == ":help" || inputText == ":h") {
+            help(opts);
+            valid = true;
+        } else if (inputText == ":refresh" || inputText == ":r") {
             redraw = true; processed = false; valid = true;
         } else if (inputText == ":link" || inputText == ":link all") {
             opts.link_op = 2; valid = true;
         } else if (inputText == ":link sv") {
             opts.link_op = 1; valid = true;
-        } else if (inputText == ":link none" || inputText == ":unlink") {
+        } else if (inputText == ":link none") {
             opts.link_op = 0; valid = true;
         } else if (Utils::startsWith(inputText, ":goto")) {
             constexpr char delim = ' ';
@@ -153,19 +188,18 @@ namespace Manager {
                     regions[index] = Utils::parseRegion(split[1]);
                     valid = true;
                 } else {
-                    std::cerr << "Error: region index is out of range\n";
+                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " region index is out of range. Use 0-based indexing\n";
                     inputText = "";
                     return true;
                 }
             }
         }
-
         if (valid) {
             commandHistory.push_back(inputText);
             redraw = true;
             processed = false;
         } else {
-            std::cerr << "Error: command not understood\n";
+            std::cerr << termcolor::red << "Error:" << termcolor::reset << " command not understood\n";
         }
         inputText = "";
 
@@ -250,31 +284,39 @@ namespace Manager {
 
 
         if (mode == Show::SINGLE) {
+            int i;
             if (action == GLFW_PRESS || action == GLFW_REPEAT) {
                 if (key == opts.scroll_right) {
                     int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
-                    regions[regionSelection].start += shift;
-                    regions[regionSelection].end += shift;
+                    Utils::Region N;
+                    N.chrom = regions[regionSelection].chrom;
+                    N.start = regions[regionSelection].start + shift;
+                    N.end = regions[regionSelection].end + shift;
+                    fetchRefSeq(N);
+                    regions[regionSelection] = N;
                     processed = true;
                     int i = 0;
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
-                            cl.region = regions[regionSelection];
+                            cl.region = N; //regions[regionSelection];
                             HTS::appendReadsAndCoverage(cl,  bams[i], headers[i], indexes[i], opts, opts.coverage, false, &vScroll, linked, &samMaxY);
                         }
                         ++i;
                     }
                     redraw = true;
-                    fetchRefSeq(regions[regionSelection]);
                     printRegionInfo();
 
                 } else if (key == opts.scroll_left) {
                     int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
-                    shift = (regions[regionSelection].start - shift > 0) ? shift : regions[regionSelection].start;
-                    regions[regionSelection].start -= shift;
-                    regions[regionSelection].end -= shift;
+                    shift = (regions[regionSelection].start - shift > 0) ? shift : 0;
+                    Utils::Region N;
+                    N.chrom = regions[regionSelection].chrom;
+                    N.start = regions[regionSelection].start - shift;
+                    N.end = regions[regionSelection].end - shift;
+                    fetchRefSeq(N);
+                    regions[regionSelection] = N;
                     processed = true;
-                    int i = 0;
+                    i = 0;
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
                             cl.region = regions[regionSelection];
@@ -283,16 +325,18 @@ namespace Manager {
                         ++i;
                     }
                     redraw = true;
-                    fetchRefSeq(regions[regionSelection]);
                     printRegionInfo();
                 } else if (key == opts.zoom_out) {
                     int shift = ((regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed) + 10;
-                    int shift_left = (regions[regionSelection].start - shift > 0) ? shift : regions[regionSelection].start;
-                    regions[regionSelection].start -= shift_left;
-                    regions[regionSelection].end += shift;
-//                    processed = false;
+                    int shift_left = (regions[regionSelection].start - shift > 0) ? shift : 0;
+                    Utils::Region N;
+                    N.chrom = regions[regionSelection].chrom;
+                    N.start = regions[regionSelection].start - shift_left;
+                    N.end = regions[regionSelection].end + shift;
+                    fetchRefSeq(N);
+                    regions[regionSelection] = N;
                     processed = true;
-                    int i = 0;
+                    i = 0;
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
                             cl.region = regions[regionSelection];
@@ -310,17 +354,19 @@ namespace Manager {
                         ++i;
                     }
                     redraw = true;
-                    fetchRefSeq(regions[regionSelection]);
                     printRegionInfo();
                 } else if (key == opts.zoom_in) {
                     if (regions[regionSelection].end - regions[regionSelection].start > 50) {
                         int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
-                        int shift_left = (regions[regionSelection].start - shift > 0) ? shift : regions[regionSelection].start;
-                        regions[regionSelection].start += shift_left;
-                        regions[regionSelection].end -= shift;
-//                        processed = false;
+                        int shift_left = (regions[regionSelection].start - shift > 0) ? shift : 0;
+                        Utils::Region N;
+                        N.chrom = regions[regionSelection].chrom;
+                        N.start = regions[regionSelection].start + shift_left;
+                        N.end = regions[regionSelection].end - shift;
+                        fetchRefSeq(N);
+                        regions[regionSelection] = N;
                         processed = true;
-                        int i = 0;
+                        i = 0;
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = regions[regionSelection];
@@ -329,7 +375,6 @@ namespace Manager {
                             ++i;
                         }
                         redraw = true;
-                        fetchRefSeq(regions[regionSelection]);
                         printRegionInfo();
                     }
                 } else if (key == opts.next_region_view) {

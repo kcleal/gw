@@ -208,6 +208,7 @@ namespace Manager {
     }
 
     int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface) {
+        std::cout << "Type ':help' for more info\n";
         SkCanvas * canvas = sSurface->getCanvas();
         fetchRefSeqs();
         opts.theme.setAlphas();
@@ -334,6 +335,7 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY);
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op);
+
         Drawing::drawRef(opts, collections, canvas, fonts, bams.size());
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size());
 

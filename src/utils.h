@@ -32,7 +32,6 @@ namespace Utils {
         std::string chrom;
         long start, end;
         const char *refSeq;
-
         Region() {
             chrom = "";
             start = -1;

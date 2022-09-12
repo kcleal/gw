@@ -22,6 +22,7 @@
 
 #include "../inc/BS_thread_pool.h"
 #include "drawing.h"
+#include "glfw_keys.h"
 #include "hts_funcs.h"
 #include "../inc/robin_hood.h"
 #include "utils.h"
