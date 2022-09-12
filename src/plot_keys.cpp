@@ -136,6 +136,8 @@ namespace Manager {
 
         if (inputText == ":q" || inputText == ":quit" || inputText == ":exit") {
             throw CloseException();
+        } else if (inputText == ":refresh") {
+            redraw = true; processed = false; valid = true;
         } else if (inputText == ":link" || inputText == ":link all") {
             opts.link_op = 2; valid = true;
         } else if (inputText == ":link sv") {
@@ -307,7 +309,6 @@ namespace Manager {
                         }
                         ++i;
                     }
-
                     redraw = true;
                     fetchRefSeq(regions[regionSelection]);
                     printRegionInfo();

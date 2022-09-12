@@ -91,6 +91,14 @@ namespace HTS {
         if (idx > 0) {
             readQueue.erase(readQueue.begin(), readQueue.begin() + idx);
         }
+        if (coverage) {  // re process coverage for all reads
+            col.covArr.resize(col.region.end - col.region.start);
+            std::fill(col.covArr.begin(), col.covArr.end(), 0);
+            int l_arr = (int)col.covArr.size() - 1;
+            for (auto &i : col.readQueue) {
+                Segs::addToCovArray(col.covArr, i, col.region.start, col.region.end, l_arr);
+            }
+        }
     }
 
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
@@ -103,28 +111,36 @@ namespace HTS {
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         int lastPos;
         if (left) {
-            lastPos = readQueue.front().pos;
+            lastPos = readQueue.front().pos + 1;
         } else {
             lastPos = readQueue.back().pos;
         }
 
         std::vector<Segs::Align> newReads;
 
-        if (left && lastPos > region->start) {
+        if (left && readQueue.front().reference_end > region->start) {
 
-            while (!readQueue.empty()) {
+            while (!readQueue.empty()) {  // remove items from RHS of queue, reduce levelsEnd
                 Segs::Align &item = readQueue.back();
                 if (item.cov_start > region->end) {
                     if (item.y != -1) {
-                        col.levelsEnd[item.y] = item.cov_start;
+                        if (item.cov_end > col.levelsEnd[item.y]) {
+                            col.levelsEnd[item.y] = item.cov_end;
+                        }
+
+//                        col.levelsEnd[item.y] = item.cov_start;
                     }
                     readQueue.pop_back();
                 } else {
                     break;
                 }
             }
+            if (readQueue.empty()) {
+                std::fill(col.levelsStart.begin(), col.levelsStart.end(), 1215752191);
+                std::fill(col.levelsEnd.begin(), col.levelsEnd.end(), 0);
+            }
 
-            iter_q = sam_itr_queryi(index, tid, region->start, lastPos);
+            iter_q = sam_itr_queryi(index, tid, region->start, readQueue.front().reference_end);
             newReads.push_back(make_align(bam_init1()));
             while (sam_itr_next(b, iter_q, newReads.back().delegate) >= 0) {
                 src = newReads.back().delegate;
@@ -142,7 +158,6 @@ namespace HTS {
                 newReads.pop_back();
             }
 
-
         } else if (!left && lastPos + 1 < region->end) {
             int idx = 0;
             for (auto &item : readQueue) {  // drop out of scope reads
@@ -159,7 +174,10 @@ namespace HTS {
             if (idx > 0) {
                 readQueue.erase(readQueue.begin(), readQueue.begin() + idx);
             }
-
+            if (readQueue.empty()) {
+                std::fill(col.levelsStart.begin(), col.levelsStart.end(), 1215752191);
+                std::fill(col.levelsEnd.begin(), col.levelsEnd.end(), 0);
+            }
             iter_q = sam_itr_queryi(index, tid, lastPos + 1, region->end);
             newReads.push_back(make_align(bam_init1()));
             while (sam_itr_next(b, iter_q, newReads.back().delegate) >= 0) {
@@ -174,8 +192,6 @@ namespace HTS {
                 bam_destroy1(src);
                 newReads.pop_back();
             }
-
-
         }
         if (!newReads.empty()) {
             Segs::init_parallel(newReads, 1);
@@ -189,14 +205,13 @@ namespace HTS {
                 std::move(readQueue.begin(), readQueue.end(), std::back_inserter(newReads));
                 col.readQueue = newReads;
             }
-
-            if (coverage) {  // re process coverage for all reads
-                col.covArr.resize(region->end - region->start);
-                std::fill(col.covArr.begin(), col.covArr.end(), 0);
-                int l_arr = (int)col.covArr.size() - 1;
-                for (auto &i : readQueue) {
-                    Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
-                }
+        }
+        if (coverage) {  // re process coverage for all reads
+            col.covArr.resize(region->end - region->start);
+            std::fill(col.covArr.begin(), col.covArr.end(), 0);
+            int l_arr = (int)col.covArr.size() - 1;
+            for (auto &i : readQueue) {
+                Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
             }
         }
         col.processed = true;
