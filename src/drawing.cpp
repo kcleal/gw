@@ -44,7 +44,7 @@
 
 namespace Drawing {
 
-    char indelChars[10];
+    char indelChars[50];
     constexpr float polygonHeight = 0.85;
 
     void drawCoverage(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
@@ -70,18 +70,35 @@ namespace Drawing {
             }
             float xScaling = cl.xScaling;
             float xOffset = cl.xOffset;
+            float tot, mean, n;
             const std::vector<int> & covArr_r = cl.covArr;
             std::vector<float> c;
             c.resize(cl.covArr.size());
             c[0] = cl.covArr[0];
-            int cMaxi = 0;
+            int cMaxi = c[0];
+            tot = (float)cMaxi;
+            n = 0;
+            if (tot > 0) {
+                n += 1;
+            }
             float cMax;
             for (size_t i=1; i<c.size(); ++i) { // cum sum
                 c[i] = ((float)covArr_r[i]) + c[i-1];
                 if (c[i] > cMaxi) {
                     cMaxi = (int)c[i];
                 }
+                if (c[i] > 0) {
+                    tot += c[i];
+                    n += 1;
+                }
             }
+            if (n > 0) {
+                mean = tot / n;
+                mean = ((float)((int)(mean * 10))) / 10;
+            } else {
+                mean = 0;
+            }
+
             if (opts.log2_cov) {
                 for (size_t i=1; i<c.size(); ++i) {
                     if (c[i] > 0) { c[i] = std::log2(c[i]); }
@@ -124,6 +141,11 @@ namespace Drawing {
 
             sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(indelChars, fonts.overlay);
             canvas->drawTextBlob(blob, xOffset + 25, (covY * 0.3) + yOffsetAll + 10, theme.tcDel);
+            char * ap = indelChars;
+            ap += std::sprintf(indelChars, "%s", "avg. ");
+            std::sprintf(ap, "%.1f", mean);
+            blob = SkTextBlob::MakeFromString(indelChars, fonts.overlay);
+            canvas->drawTextBlob(blob, xOffset + 25, (covY * 0.5) + yOffsetAll + 10, theme.tcDel);
 
             path.reset();
             path.moveTo(xOffset, (covY * 0.3) + yOffsetAll);
