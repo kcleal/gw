@@ -357,6 +357,7 @@ namespace Themes {
         fonty.setTypeface(face);
         overlay.setSize(ts);
         overlay.setTypeface(face);
+        fontMaxSize = 0;
     }
 
     void Fonts::setFontSize(float maxHeight) {
@@ -367,7 +368,8 @@ namespace Themes {
         SkScalar height;
         int font_size = 30;
         bool was_set = false;
-        while (font_size>4) {
+
+        while (font_size>5) {
             fonty.setSize(font_size);
             fonty.getBounds(glyphs, 1, bounds, pnt);
             height = bounds[0].height();
@@ -385,9 +387,15 @@ namespace Themes {
             }
         } else {
             fontSize = font_size;
-            if (font_size > 14) {
+            if (font_size > 16) {
                 overlay.setSize(font_size);
+                overlay.getBounds(glyphs, 1, bounds, pnt);
+            } else {
+                overlay.setSize(16);
+                overlay.getBounds(glyphs, 1, bounds, pnt);
             }
+            fontMaxSize = bounds[0].height();
+            overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
             fontHeight = height;
             SkScalar w = fonty.measureText("9", 1, SkTextEncoding::kUTF8);
             for (int i = 0; i < 10; ++i) {

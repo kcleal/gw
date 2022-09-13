@@ -52,14 +52,14 @@ namespace Manager {
         glfwMakeContextCurrent(window);
     }
 
-    GwPlot makePlot(std::string reference, std::vector<std::string> &bam_paths, Themes::IniOptions &opt, std::vector<Utils::Region> &regions) {
-        GwPlot plt = GwPlot(reference, bam_paths, opt, regions);
+    GwPlot makePlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opt, std::vector<Utils::Region> &regions) {
+        GwPlot plt = GwPlot(reference, bampaths, opt, regions);
         return plt;
     }
 
-    GwPlot::GwPlot(std::string reference, std::vector<std::string> &bam_paths, Themes::IniOptions &opt, std::vector<Utils::Region> &regions) {
+    GwPlot::GwPlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opt, std::vector<Utils::Region> &regions) {
         this->reference = reference;
-        this->bam_paths = bam_paths;
+        this->bam_paths = bampaths;
         this->regions = regions;
         this->opts = opt;
         redraw = true;
@@ -68,7 +68,7 @@ namespace Manager {
         drawToBackWindow = false;
         fonts = Themes::Fonts();
         fai = fai_load(reference.c_str());
-        for (auto &fn: this->bam_paths) {
+        for (auto &fn: bampaths) {
             htsFile* f = sam_open(fn.c_str(), "r");
             hts_set_fai_filename(f, reference.c_str());
             hts_set_threads(f, opt.threads);
@@ -267,7 +267,7 @@ namespace Manager {
                     collections[idx].regionIdx = j;
                     collections[idx].region = regions[j];
                     if (opts.coverage) {
-                        collections[idx].covArr.resize(reg->end - reg->start, 0);
+                        collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
                     }
                     HTS::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index,opts, reg, opts.coverage);
 
@@ -307,18 +307,19 @@ namespace Manager {
         } else {
             totalCovY = 0; covY = 0;
         }
+        double gap = fbw * 0.002;
+        double gap2 = gap*2;
         totalTabixY = 0; tabixY = 0;  // todo add if bed track here
-        trackY = (fbh - totalCovY - totalTabixY) / (float)bams.size();
-        yScaling = ((fbh - totalCovY - totalTabixY) / (float)samMaxY) / (float)bams.size();
+        trackY = (fbh - totalCovY - totalTabixY - gap2) / (float)bams.size();
+        yScaling = ((fbh - totalCovY - totalTabixY - gap2) / (float)samMaxY) / (float)bams.size();
         fonts.setFontSize(yScaling);
         regionWidth = fbw / (float)regions.size();
         bamHeight = covY + trackY + tabixY;
-        double gap = fbw * 0.002;
 
         for (auto &cl: collections) {
-            cl.xScaling = (regionWidth - (gap * 2)) / ((double)(cl.region.end - cl.region.start));
+            cl.xScaling = (regionWidth - gap2) / ((double)(cl.region.end - cl.region.start));
             cl.xOffset = (regionWidth * cl.regionIdx) + gap;
-            cl.yOffset = cl.bamIdx * bamHeight + covY;
+            cl.yOffset = (cl.bamIdx * bamHeight + covY);
             cl.yPixels = trackY + covY + tabixY;
 
         }

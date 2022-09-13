@@ -385,7 +385,8 @@ namespace Drawing {
 
                     // add lines and text between gaps
                     if (idx > 0) {
-                        float lastEnd = a.block_ends[idx - 1] - regionBegin;
+                        float lastEnd = (int)a.block_ends[idx - 1] - regionBegin;
+                        int isize = s - lastEnd;
                         lastEnd = (lastEnd < 0) ? 0 : lastEnd;
                         int size = s - lastEnd;
                         float delBegin = lastEnd * xScaling;
@@ -393,7 +394,7 @@ namespace Drawing {
                         yh = (Y + polygonHeight * 0.5) * yScaling + yOffset;
                         if (size <= 0) { continue; }
                         if (regionLen < 500000 && size >= opts.indel_length) { // line and text
-                            std::sprintf(indelChars, "%d", size);
+                            std::sprintf(indelChars, "%d", isize);
                             size_t sl = strlen(indelChars);
 //                            int sl = ceil(log10(size));
                             textW = fonts.textWidths[sl - 1];
@@ -632,12 +633,14 @@ namespace Drawing {
         SkPaint faceColor;
         const Themes::BaseTheme &theme = opts.theme;
         float offset = 0;
-        float h = fonts.fontHeight; //((opts.dimensions.y / (float)nbams)) * 0.02;
-        float textW = fonts.textWidths[0];
+        float h = fonts.fontMaxSize;
+        float textW = fonts.overlayWidth;//fonts.textWidths[0];
         float minLetterSize = (float)opts.dimensions.x / textW;
+        float gap = opts.dimensions.x * 0.002;
         for (auto &cl: collections) {
             long size = cl.region.end - cl.region.start;
             double xScaling = cl.xScaling;
+            double xPixels = (xScaling * size) + cl.xOffset;
             const char *ref = cl.region.refSeq;
             if (ref == nullptr) {
                 continue;
@@ -658,7 +661,11 @@ namespace Drawing {
                         case 110: faceColor = theme.fcN; break;
                         case 116: faceColor = theme.fcT; break;
                     }
-                    canvas->drawTextBlob(SkTextBlob::MakeFromText(ref, 1, fonts.fonty, SkTextEncoding::kUTF8), i + v, offset = h, faceColor);
+                    if (i + v > xPixels) {
+                        break;
+                    }
+                    canvas->drawTextBlob(SkTextBlob::MakeFromText(ref, 1, fonts.overlay, SkTextEncoding::kUTF8),
+                                         i + v, h, faceColor);
                     i += xScaling;
                     ++ref;
                 }

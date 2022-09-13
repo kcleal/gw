@@ -94,7 +94,7 @@ namespace Manager {
      */
     class GwPlot {
     public:
-        GwPlot(std::string reference, std::vector<std::string> &bams, Themes::IniOptions &opts, std::vector<Utils::Region> &regions);
+        GwPlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opts, std::vector<Utils::Region> &regions);
         ~GwPlot();
 
         int vScroll;

@@ -92,7 +92,7 @@ namespace HTS {
             readQueue.erase(readQueue.begin(), readQueue.begin() + idx);
         }
         if (coverage) {  // re process coverage for all reads
-            col.covArr.resize(col.region.end - col.region.start);
+            col.covArr.resize(col.region.end - col.region.start + 1);
             std::fill(col.covArr.begin(), col.covArr.end(), 0);
             int l_arr = (int)col.covArr.size() - 1;
             for (auto &i : col.readQueue) {
@@ -106,9 +106,12 @@ namespace HTS {
 
         bam1_t *src;
         hts_itr_t *iter_q;
+
         std::vector<Segs::Align>& readQueue = col.readQueue;
         Utils::Region *region = &col.region;
+
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
+
         int lastPos;
         if (left) {
             lastPos = readQueue.front().pos + 1;
@@ -117,7 +120,6 @@ namespace HTS {
         }
 
         std::vector<Segs::Align> newReads;
-
         if (left && readQueue.front().reference_end > region->start) {
 
             while (!readQueue.empty()) {  // remove items from RHS of queue, reduce levelsEnd
@@ -127,7 +129,6 @@ namespace HTS {
                         if (item.cov_end > col.levelsEnd[item.y]) {
                             col.levelsEnd[item.y] = item.cov_end;
                         }
-
 //                        col.levelsEnd[item.y] = item.cov_start;
                     }
                     readQueue.pop_back();
@@ -142,6 +143,7 @@ namespace HTS {
 
             iter_q = sam_itr_queryi(index, tid, region->start, readQueue.front().reference_end);
             newReads.push_back(make_align(bam_init1()));
+
             while (sam_itr_next(b, iter_q, newReads.back().delegate) >= 0) {
                 src = newReads.back().delegate;
                 if (src->core.flag & 4 || src->core.n_cigar == 0) {
@@ -193,6 +195,7 @@ namespace HTS {
                 newReads.pop_back();
             }
         }
+
         if (!newReads.empty()) {
             Segs::init_parallel(newReads, 1);
             int maxY = Segs::findY(col.bamIdx, col, newReads, *vScroll, opts.link_op, opts, region, linked, left);
@@ -207,7 +210,7 @@ namespace HTS {
             }
         }
         if (coverage) {  // re process coverage for all reads
-            col.covArr.resize(region->end - region->start);
+            col.covArr.resize(region->end - region->start + 1);
             std::fill(col.covArr.begin(), col.covArr.end(), 0);
             int l_arr = (int)col.covArr.size() - 1;
             for (auto &i : readQueue) {
