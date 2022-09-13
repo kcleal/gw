@@ -295,31 +295,34 @@ namespace Manager {
         if (samMaxY == 0 || !calcScaling) {
             return;
         }
-        auto fbh = (float) fb_height;
+        refSpace = 15;
+        auto fbh = (float) fb_height - refSpace;
         auto fbw = (float) fb_width;
         if (bams.empty()) {
             covY = 0; totalCovY = 0; totalTabixY = 0; tabixY = 0;
             return;
         }
+
+        auto nbams = (float)bams.size();
         if (opts.coverage) {
             totalCovY = fbh * 0.1;
-            covY = totalCovY / (float)bams.size();
+            covY = totalCovY / nbams;
         } else {
             totalCovY = 0; covY = 0;
         }
-        double gap = fbw * 0.002;
-        double gap2 = gap*2;
+        float gap = fbw * 0.002;
+        float gap2 = gap*2;
         totalTabixY = 0; tabixY = 0;  // todo add if bed track here
-        trackY = (fbh - totalCovY - totalTabixY - gap2) / (float)bams.size();
-        yScaling = ((fbh - totalCovY - totalTabixY - gap2) / (float)samMaxY) / (float)bams.size();
+        trackY = (fbh - totalCovY - totalTabixY - gap2 - refSpace) / nbams;
+        yScaling = ((fbh - totalCovY - totalTabixY - gap2 - refSpace) / (float)samMaxY) / nbams;
         fonts.setFontSize(yScaling);
         regionWidth = fbw / (float)regions.size();
         bamHeight = covY + trackY + tabixY;
 
         for (auto &cl: collections) {
             cl.xScaling = (regionWidth - gap2) / ((double)(cl.region.end - cl.region.start));
-            cl.xOffset = (regionWidth * cl.regionIdx) + gap;
-            cl.yOffset = (cl.bamIdx * bamHeight + covY);
+            cl.xOffset = (regionWidth * (float)cl.regionIdx) + gap;
+            cl.yOffset = (float)cl.bamIdx * bamHeight + covY + refSpace;
             cl.yPixels = trackY + covY + tabixY;
 
         }
@@ -334,11 +337,11 @@ namespace Manager {
         setGlfwFrameBufferSize();
         setScaling();
         if (opts.coverage) {
-            Drawing::drawCoverage(opts, collections, canvas, fonts, covY);
+            Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op);
 
-        Drawing::drawRef(opts, collections, canvas, fonts, bams.size());
+        Drawing::drawRef(opts, collections, canvas, fonts, refSpace, (float)regions.size());
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size());
 
 //        auto finish = std::chrono::high_resolution_clock::now();
@@ -421,10 +424,10 @@ namespace Manager {
         processBam();
         setScaling();
         if (opts.coverage) {
-            Drawing::drawCoverage(opts, collections, canvas, fonts, covY);
+            Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op);
-        Drawing::drawRef(opts, collections, canvas, fonts, bams.size());
+        Drawing::drawRef(opts, collections, canvas, fonts, refSpace, (float)regions.size());
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size());
 //        auto finish = std::chrono::high_resolution_clock::now();
 //        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
@@ -437,10 +440,10 @@ namespace Manager {
         setScaling();
         canvas->drawPaint(opts.theme.bgPaint);
         if (opts.coverage) {
-            Drawing::drawCoverage(opts, collections, canvas, fonts, covY);
+            Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op);
-        Drawing::drawRef(opts, collections, canvas, fonts, bams.size());
+        Drawing::drawRef(opts, collections, canvas, fonts, refSpace, (float)regions.size());
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size());
     }
 

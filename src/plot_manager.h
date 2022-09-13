@@ -172,7 +172,7 @@ namespace Manager {
         std::vector< std::string > commandHistory;
         int commandIndex;
 
-        float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight;
+        float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace;
 
         int samMaxY;
 

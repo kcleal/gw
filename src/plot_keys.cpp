@@ -143,11 +143,15 @@ namespace Manager {
 
     void help(Themes::IniOptions &opts) {
         std::cout << termcolor::italic << "\n** Enter a command by selecting the GW window (not the terminal) and type ':[COMMAND]' **\n" << termcolor::reset;
-        std::cout << termcolor::underline << "\nCommand          Modifier        Description                                          \n" << termcolor::reset; // 15 spaces
-        std::cout << termcolor::green << "goto             loci, index     " << termcolor::reset << "e.g. 'goto chr1:20000'. Use index if multiple regions \n                                 are open e.g. 'goto chr1:20000 1'\n";
+        std::cout << termcolor::underline << "\nCommand          Modifier        Description                                          \n" << termcolor::reset;
+        std::cout << termcolor::green << "cov              of, off         " << termcolor::reset << "Trun coverage on/off e.g. ':cov off'\n";
+        std::cout << termcolor::green << "goto             loci, index     " << termcolor::reset << "e.g. ':goto chr1:20000'. Use index if multiple regions\n                                 are open e.g. ':goto chr1:20000 1'\n";
         std::cout << termcolor::green << "link             [none/sv/all]   " << termcolor::reset << "Switch read-linking ':link all'\n";
-        std::cout << termcolor::green << "quit, q                          " << termcolor::reset << "Quit GW\n";
-        std::cout << termcolor::green << "refresh, r                       " << termcolor::reset << "Refresh and re-draw the window\n";
+        std::cout << termcolor::green << "log2-cov         of, off         " << termcolor::reset << "Scale coverage by log2 e.g. ':log2-cov on'\n";
+        std::cout << termcolor::green << "quit, q          -               " << termcolor::reset << "Quit GW\n";
+        std::cout << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
+        std::cout << termcolor::green << "theme            [igv/dark]      " << termcolor::reset << "Switch color theme e.g. ':theme dark'\n";
+        std::cout << termcolor::green << "ylim             number          " << termcolor::reset << "The maximum y-limit for the image e.g. ':ylim 100'\n";
         std::cout << termcolor::underline << "\nHot keys                   \n" << termcolor::reset;
         std::cout << "scroll left       " << termcolor::bright_yellow; printKeyFromValue(opts.scroll_left); std::cout << "\n" << termcolor::reset;
         std::cout << "scroll right      " << termcolor::bright_yellow; printKeyFromValue(opts.scroll_right); std::cout << "\n" << termcolor::reset;
@@ -165,6 +169,7 @@ namespace Manager {
             return false;
         }
         bool valid = false;
+        constexpr char delim = ' ';
 
         if (inputText == ":q" || inputText == ":quit") {
             throw CloseException();
@@ -179,8 +184,39 @@ namespace Manager {
             opts.link_op = 1; valid = true;
         } else if (inputText == ":link none") {
             opts.link_op = 0; valid = true;
+        } else if (Utils::startsWith(inputText, ":ylim")) {
+            std::vector<std::string> split = Utils::split(inputText, delim);
+            opts.ylim = std::stoi(split.back());
+            samMaxY = opts.ylim;
+            valid = true;
+        } else if (Utils::startsWith(inputText, ":cov")) {
+            std::vector<std::string> split = Utils::split(inputText, delim);
+            if (split.back() == "on") {
+                opts.coverage = true; valid = true;
+            } else if (split.back() == "off") {
+                opts.coverage = false; valid = true;
+            } else {
+                valid = false;
+            }
+        } else if (Utils::startsWith(inputText, ":log2-cov")) {
+            std::vector<std::string> split = Utils::split(inputText, delim);
+            if (split.back() == "on") {
+                opts.log2_cov = true; valid = true;
+            } else if (split.back() == "off") {
+                opts.log2_cov = false; valid = true;
+            } else {
+                valid = false;
+            }
+        } else if (Utils::startsWith(inputText, ":theme")) {
+            std::vector<std::string> split = Utils::split(inputText, delim);
+            if (split.back() == "dark") {
+                opts.theme = Themes::DarkTheme();  opts.theme.setAlphas(); valid = true;
+            } else if (split.back() == "igv") {
+                opts.theme = Themes::IgvTheme(); opts.theme.setAlphas(); valid = true;
+            } else {
+                valid = false;
+            }
         } else if (Utils::startsWith(inputText, ":goto")) {
-            constexpr char delim = ' ';
             std::vector<std::string> split = Utils::split(inputText, delim);
             if (split.size() > 1 && split.size() < 4) {
                 int index = (split.size() == 3) ? std::stoi(split.back()) : 0;

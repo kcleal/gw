@@ -113,15 +113,22 @@ namespace HTS {
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
 
         int lastPos;
-        if (left) {
-            lastPos = readQueue.front().pos + 1;
+        if (!readQueue.empty()) {
+            if (left) {
+                lastPos = readQueue.front().pos + 1;
+            } else {
+                lastPos = readQueue.back().pos;
+            }
         } else {
-            lastPos = readQueue.back().pos;
+            if (left) {
+                lastPos = 1215752191;
+            } else {
+                lastPos = 0;
+            }
         }
 
         std::vector<Segs::Align> newReads;
         if (left && readQueue.front().reference_end > region->start) {
-
             while (!readQueue.empty()) {  // remove items from RHS of queue, reduce levelsEnd
                 Segs::Align &item = readQueue.back();
                 if (item.cov_start > region->end) {

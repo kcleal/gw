@@ -48,7 +48,7 @@ namespace Drawing {
     constexpr float polygonHeight = 0.85;
 
     void drawCoverage(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
-                      SkCanvas *canvas, const Themes::Fonts &fonts, float covY) {
+                      SkCanvas *canvas, const Themes::Fonts &fonts, const float covY, const float refSpace) {
 
         const Themes::BaseTheme &theme = opts.theme;
         SkPaint paint = theme.fcCoverage;
@@ -59,7 +59,7 @@ namespace Drawing {
         std::vector<float> textX_ins, textY_ins;
 
         int last_bamIdx = 0;
-        float yOffsetAll = 0;
+        float yOffsetAll = refSpace;
 
         for (auto &cl: collections) {
             if (cl.covArr.empty()) {
@@ -493,7 +493,7 @@ namespace Drawing {
                 if (regionLen > opts.snp_threshold && plotSoftClipAsBlock) {
                     continue;
                 }
-                size_t l_seq = a.delegate->core.l_qseq;
+                auto l_seq = (int)a.delegate->core.l_qseq;
                 if (l_seq == 0) {
                     continue;
                 }
@@ -510,7 +510,7 @@ namespace Drawing {
                 int32_t l_qseq = a.delegate->core.l_qseq;
                 if (regionLen <= opts.snp_threshold && !a.mismatches.empty()) {
                     for (auto &m: a.mismatches) {
-                        float p = (m.pos - regionBegin) * xScaling;
+                        float p = ((int)m.pos - regionBegin) * xScaling;
                         if (0 < p && p < regionPixels) {
                             colorIdx = (l_qseq == 0) ? 10 : (m.qual > 10) ? 10 : m.qual;
                             float mms = xScaling * mmScaling;
@@ -526,9 +526,9 @@ namespace Drawing {
                     uint8_t *ptr_seq = bam_get_seq(a.delegate);
                     uint8_t *ptr_qual = bam_get_qual(a.delegate);
                     if (a.right_soft_clip > 0) {
-                        int pos = a.reference_end - regionBegin;
+                        int pos = (int)a.reference_end - regionBegin;
                         if (pos < regionLen && a.cov_end > regionBegin) {
-                            int opLen = a.right_soft_clip;
+                            int opLen = (int)a.right_soft_clip;
                             for (int idx = l_seq - opLen; idx < l_seq; ++idx) {
                                 float p = pos * xScaling;
                                 if (0 <= p && p < regionPixels) {
@@ -537,16 +537,16 @@ namespace Drawing {
                                     colorIdx = (l_qseq == 0) ? 10 : (qual > 10) ? 10 : qual;
                                     rect.setXYWH(p + xOffset + mmPosOffset, yScaledOffset, xScaling * mmScaling, pH);
                                     canvas->drawRect(rect, theme.BasePaints[base][colorIdx]);
-                                    pos += 1;
-                                } else {
+                                } else if (p > regionPixels) {
                                     break;
                                 }
+                                pos += 1;
                             }
                         }
                     }
                     if (a.left_soft_clip > 0) {
-                        int opLen = a.left_soft_clip;
-                        int pos = a.pos - regionBegin - opLen;
+                        int opLen = (int)a.left_soft_clip;
+                        int pos = (int)a.pos - regionBegin - opLen;
                         for (int idx = 0; idx < opLen; ++idx) {
                             float p = pos * xScaling;
                             if (0 <= p && p < regionPixels) {
@@ -555,10 +555,10 @@ namespace Drawing {
                                 colorIdx = (l_qseq == 0) ? 10 : (qual > 10) ? 10 : qual;
                                 rect.setXYWH(p + xOffset + mmPosOffset, yScaledOffset, xScaling * mmScaling, pH);
                                 canvas->drawRect(rect, theme.BasePaints[base][colorIdx]);
-                                pos += 1;
                             } else if (p >= regionPixels) {
                                 break;
                             }
+                            pos += 1;
                         }
                     }
                 }
@@ -628,14 +628,15 @@ namespace Drawing {
     }
 
     void drawRef(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
-                  SkCanvas *canvas, const Themes::Fonts &fonts, size_t nbams) {
+                  SkCanvas *canvas, const Themes::Fonts &fonts, float h, float nRegions) {
         SkRect rect;
         SkPaint faceColor;
         const Themes::BaseTheme &theme = opts.theme;
         float offset = 0;
-        float h = fonts.fontMaxSize;
+
+//        float h = fonts.fontMaxSize;
         float textW = fonts.overlayWidth;//fonts.textWidths[0];
-        float minLetterSize = (float)opts.dimensions.x / textW;
+        float minLetterSize = ((float)opts.dimensions.x / nRegions) / textW;
         float gap = opts.dimensions.x * 0.002;
         for (auto &cl: collections) {
             long size = cl.region.end - cl.region.start;
@@ -692,8 +693,8 @@ namespace Drawing {
         }
     }
 
-    void drawBorders(const Themes::IniOptions &opts, const float fb_width, const float fb_height,
-                 SkCanvas *canvas, const size_t nregions, const size_t nbams) {
+    void drawBorders(const Themes::IniOptions &opts, float fb_width, float fb_height,
+                 SkCanvas *canvas, size_t nregions, size_t nbams) {
         SkPath path;
         if (nregions > 1) {
             float x = fb_width / nregions;

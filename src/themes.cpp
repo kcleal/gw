@@ -357,7 +357,7 @@ namespace Themes {
         fonty.setTypeface(face);
         overlay.setSize(ts);
         overlay.setTypeface(face);
-        fontMaxSize = 0;
+        fontMaxSize = 25; // in pixels
     }
 
     void Fonts::setFontSize(float maxHeight) {
@@ -385,13 +385,18 @@ namespace Themes {
             for (int i = 0; i < 10; ++i) {
                 textWidths[i] = 0;
             }
+            overlay.setSize(14);
+            overlay.getBounds(glyphs, 1, bounds, pnt);
+            fontMaxSize = bounds[0].height();
+            overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
+
         } else {
             fontSize = font_size;
-            if (font_size > 16) {
+            if (font_size > 14) {
                 overlay.setSize(font_size);
                 overlay.getBounds(glyphs, 1, bounds, pnt);
             } else {
-                overlay.setSize(16);
+                overlay.setSize(14);
                 overlay.getBounds(glyphs, 1, bounds, pnt);
             }
             fontMaxSize = bounds[0].height();
@@ -403,6 +408,5 @@ namespace Themes {
             }
         }
     }
-
 
 }
