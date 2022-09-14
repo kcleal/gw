@@ -152,6 +152,8 @@ namespace Manager {
 
         void mouseButton(GLFWwindow* wind, int button, int action, int mods);
 
+        void mousePos(GLFWwindow* wind, double x, double y);
+
         void pathDrop(GLFWwindow* window, int count, const char** paths);
 
         void drawSurfaceGpu(SkCanvas *canvas);
@@ -185,6 +187,8 @@ namespace Manager {
         linked_t linked;
 
         int blockStart, blockLen, regionSelection;
+
+        Utils::Region clicked;
 
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext);
 

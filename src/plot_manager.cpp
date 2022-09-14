@@ -127,6 +127,11 @@ namespace Manager {
         };
         glfwSetMouseButtonCallback(window, func_mouse);
 
+        auto func_pos = [](GLFWwindow* w, double x, double y){
+            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->mousePos(w, x, y);
+        };
+        glfwSetCursorPosCallback(window, func_pos);
+
         if (!window) {
             std::cerr<<"ERROR: could not create window with GLFW3"<<std::endl;
             glfwTerminate();
