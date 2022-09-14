@@ -98,7 +98,7 @@ namespace Themes {
     class IniOptions {
     public:
         IniOptions();
-        ~IniOptions() = default;
+        ~IniOptions() {};
 
         BaseTheme theme;
         Utils::Dims dimensions, number;

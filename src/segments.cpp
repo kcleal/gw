@@ -143,8 +143,6 @@ namespace Segs {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
             if (op == 4) {
-                self->cov_end += l;
-                self->right_soft_clip = l;
                 if (k == 0) {
                     self->cov_start -= l;
                     self->left_soft_clip = l;

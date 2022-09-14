@@ -150,6 +150,8 @@ namespace Manager {
 
         void keyPress(GLFWwindow* window, int key, int scancode, int action, int mods);
 
+        void mouseButton(GLFWwindow* wind, int button, int action, int mods);
+
         void pathDrop(GLFWwindow* window, int count, const char** paths);
 
         void drawSurfaceGpu(SkCanvas *canvas);
@@ -174,6 +176,8 @@ namespace Manager {
 
         float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace;
 
+        double xDrag, xOri;
+
         int samMaxY;
 
         float yScaling;
@@ -191,6 +195,8 @@ namespace Manager {
         bool registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
 
         bool commandProcessed();
+
+        int getCollectionIdx(float x, float y);
 
     };
 

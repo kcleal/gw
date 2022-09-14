@@ -507,4 +507,169 @@ namespace Manager {
             redraw = true;
         }
     }
+    int GwPlot::getCollectionIdx(float x, float y) {
+        if (y <= refSpace) {
+            return -1;
+        }
+        int idx = 0;
+        for (auto &cl: collections) {
+            float min_x = cl.xOffset;
+            float max_x = cl.xScaling * ((float)(cl.region.end - cl.region.start)) + min_x;
+            float min_y = cl.yOffset;
+            float max_y = min_y + trackY;
+            if (x > min_x && x < max_x && y > min_y && y < max_y) {
+                return idx;
+            }
+            idx += 1;
+        }
+        return -1;
+    }
+
+    void printCigar(std::vector<Segs::Align>::iterator r) {
+        uint32_t l, cigar_l, op, k;
+        uint32_t *cigar_p;
+        cigar_l = r->delegate->core.n_cigar;
+        cigar_p = bam_get_cigar(r->delegate);
+        for (k = 0; k < cigar_l; k++) {
+            op = cigar_p[k] & BAM_CIGAR_MASK;
+            l = cigar_p[k] >> BAM_CIGAR_SHIFT;
+            if (op == 0) {
+                std::cout << l << "M";
+            } else if (op == 1) {
+                std::cout << termcolor::magenta << l << "I" << termcolor::reset;
+            } else if (op == 2) {
+                std::cout << termcolor::red << l << "D"<< termcolor::reset;
+            } else if (op == 8) {
+                std::cout << l << "X";
+            } else if (op == 4) {
+                std::cout << termcolor::bright_blue << l << "S"<< termcolor::reset;
+            } else if (op == 5) {
+                std::cout << termcolor::blue << l << "H" << termcolor::reset;
+            }
+            else {
+                std::cout << termcolor::blue << l << "?" << termcolor::reset;
+            }
+        }
+    }
+
+    void printSeq(std::vector<Segs::Align>::iterator r) {
+        uint32_t l, cigar_l, op, k;
+        uint32_t *cigar_p;
+        cigar_l = r->delegate->core.n_cigar;
+        cigar_p = bam_get_cigar(r->delegate);
+        uint8_t *ptr_seq = bam_get_seq(r->delegate);
+        int i = 0;
+        constexpr char basemap[] = {'.', 'A', 'C', '.', 'G', '.', '.', '.', 'T', '.', '.', '.', '.', '.', 'N', 'N', 'N'};
+        for (k = 0; k < cigar_l; k++) {
+            op = cigar_p[k] & BAM_CIGAR_MASK;
+            l = cigar_p[k] >> BAM_CIGAR_SHIFT;
+            if (op == 5) {
+                continue;
+            }
+            if (op == 2) {
+                for (int n=0; n < l; ++n) {
+                    std::cout << "-";
+                }
+                continue;
+            }
+            if (op == 0) {
+                for (int n=0; n < l; ++n) {
+                    uint8_t base = bam_seqi(ptr_seq, i);
+                    bool mm = false;
+                    for (auto &item: r->mismatches) {
+                        if (i == item.idx) {
+                            std::cout << termcolor::underline;
+                            switch (basemap[base]) {
+                                case 65 : std::cout << termcolor::green << "A" << termcolor::reset; break;
+                                case 67 : std::cout << termcolor::blue << "C" << termcolor::reset; break;
+                                case 71 : std::cout << termcolor::yellow << "G" << termcolor::reset; break;
+                                case 78 : std::cout << termcolor::grey << "N" << termcolor::reset; break;
+                                case 84 : std::cout << termcolor::red << "T" << termcolor::reset; break;
+                            }
+                            mm = true;
+                            break;
+                        }
+                    }
+                    if (!mm) {
+                        switch (basemap[base]) {
+                            case 65 : std::cout << "A"; break;
+                            case 67 : std::cout << "C"; break;
+                            case 71 : std::cout << "G"; break;
+                            case 78 : std::cout << "N"; break;
+                            case 84 : std::cout << "T"; break;
+                        }
+                    }
+                    i += 1;
+                }
+                continue;
+            } else {
+                for (int n=0; n < l; ++n) {
+                    uint8_t base = bam_seqi(ptr_seq, i);
+                    switch (basemap[base]) {
+                        case 65 : std::cout << termcolor::green << "A" << termcolor::reset; break;
+                        case 67 : std::cout << termcolor::blue << "C" << termcolor::reset; break;
+                        case 71 : std::cout << termcolor::yellow << "G" << termcolor::reset; break;
+                        case 78 : std::cout << termcolor::grey << "N" << termcolor::reset; break;
+                        case 84 : std::cout << termcolor::red << "T" << termcolor::reset; break;
+                    }
+                    i += 1;
+                }
+            }
+        }
+    }
+
+    void printRead(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr) {
+        const char *rname = sam_hdr_tid2name(hdr, r->delegate->core.tid);
+        const char *rnext = sam_hdr_tid2name(hdr, r->delegate->core.mtid);
+        std::cout << std::endl;
+        std::cout << termcolor::bold << "qname    " << termcolor::reset << bam_get_qname(r->delegate) << std::endl;
+        std::cout << termcolor::bold << "span     " << termcolor::reset << rname << ":" << r->pos << "-" << r->reference_end << std::endl;
+        std::cout << termcolor::bold << "mate     " << termcolor::reset << rnext << ":" << r->delegate->core.mpos << std::endl;
+        std::cout << termcolor::bold << "flag     " << termcolor::reset << r->delegate->core.flag << std::endl;
+        std::cout << termcolor::bold << "cigar    " << termcolor::reset; printCigar(r); std::cout << std::endl;
+        std::cout << termcolor::bold << "seq      " << termcolor::reset; printSeq(r); std::cout << std::endl;
+        std::cout << std::endl;
+    }
+
+    void GwPlot::mouseButton(GLFWwindow* wind, int button, int action, int mods) {
+        double x, y;
+        glfwGetCursorPos(window, &x, &y);
+        if (xDrag == -1000000) {
+            xDrag = 0;
+            xOri = x;
+        }
+
+        xDrag = x - xOri;
+
+        if (mode == Manager::SINGLE && action == GLFW_RELEASE) {
+            if (collections.empty()) {
+                return;
+            }
+            int windowW, windowH;  // convert screen coords to frame buffer coords
+            glfwGetWindowSize(wind, &windowW, &windowH);
+            if (fb_width > windowW) {
+                x *= (float)fb_width / (float)windowW;
+                y *= (float)fb_height / (float)windowH;
+            }
+
+            int idx = getCollectionIdx(x, y);
+            if (idx != -1) {
+                int pos = (int)(((x - (float)collections[idx].xOffset) / collections[idx].xScaling) + (float)collections[idx].region.start);
+                int level = (int)((y - (float)collections[idx].yOffset) / (trackY / (float)collections[idx].levelsStart.size()));
+                std::vector<Segs::Align>::iterator bnd;
+                bnd=std::lower_bound(collections[idx].readQueue.begin(), collections[idx].readQueue.end(), pos,
+                                     [&](const Segs::Align &lhs, const int pos){return lhs.pos < pos;});//compareValue);
+                while (bnd != collections[idx].readQueue.begin()) {
+                    if (bnd->y == level && bnd->pos <= pos && pos < bnd->reference_end) {
+                        printRead(bnd, headers[collections[idx].bamIdx]);
+                        break;
+                    }
+                    --bnd;
+                }
+            }
+
+        }
+
+
+    }
 }

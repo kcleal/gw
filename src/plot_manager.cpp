@@ -83,6 +83,7 @@ namespace Manager {
         vScroll = 0;
         yScaling = 0;
         captureText = shiftPress = ctrlPress = processText = false;
+        xDrag = xOri = -1000000;
         commandIndex = 0;
         blockStart = 0;
         regionSelection = 0;
@@ -120,6 +121,11 @@ namespace Manager {
             static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->pathDrop(w, c, paths);
         };
         glfwSetDropCallback(window, func_drop);
+
+        auto func_mouse = [](GLFWwindow* w, int b, int a, int m){
+            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->mouseButton(w, b, a, m);
+        };
+        glfwSetMouseButtonCallback(window, func_mouse);
 
         if (!window) {
             std::cerr<<"ERROR: could not create window with GLFW3"<<std::endl;
