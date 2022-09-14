@@ -295,14 +295,13 @@ namespace Manager {
         if (samMaxY == 0 || !calcScaling) {
             return;
         }
-        refSpace = 15;
+        refSpace = fb_height * 0.02;
         auto fbh = (float) fb_height - refSpace;
         auto fbw = (float) fb_width;
         if (bams.empty()) {
             covY = 0; totalCovY = 0; totalTabixY = 0; tabixY = 0;
             return;
         }
-
         auto nbams = (float)bams.size();
         if (opts.coverage) {
             totalCovY = fbh * 0.1;
@@ -312,6 +311,8 @@ namespace Manager {
         }
         float gap = fbw * 0.002;
         float gap2 = gap*2;
+
+
         totalTabixY = 0; tabixY = 0;  // todo add if bed track here
         trackY = (fbh - totalCovY - totalTabixY - gap2 - refSpace) / nbams;
         yScaling = ((fbh - totalCovY - totalTabixY - gap2 - refSpace) / (float)samMaxY) / nbams;

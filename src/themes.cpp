@@ -382,8 +382,8 @@ namespace Themes {
         if (!was_set) {
             fontSize = 0;
             fontHeight = 0;
-            for (int i = 0; i < 10; ++i) {
-                textWidths[i] = 0;
+            for (auto &i : textWidths) {
+                i = 0;
             }
             overlay.setSize(14);
             overlay.getBounds(glyphs, 1, bounds, pnt);
@@ -391,7 +391,7 @@ namespace Themes {
             overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
 
         } else {
-            fontSize = font_size;
+            fontSize = (float)font_size;
             if (font_size > 14) {
                 overlay.setSize(font_size);
                 overlay.getBounds(glyphs, 1, bounds, pnt);

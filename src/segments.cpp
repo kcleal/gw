@@ -347,22 +347,17 @@ namespace Segs {
 
         int qLen = (int)rQ.size();  // assume no overflow
         int stopCondition, move, si;
-        int k = -1;
         int memLen = (int)ls.size();
 
         if (!joinLeft) {
             si = 0;
             stopCondition = qLen;
             move = 1;
+            q_ptr = &rQ.front();
         } else {
             si = qLen - 1;
             stopCondition = -1;
             move = -1;
-        }
-
-        if (si == 0) {
-            q_ptr = &rQ.front();
-        } else {
             q_ptr = &rQ.back();
         }
 
@@ -380,18 +375,16 @@ namespace Segs {
             if (!joinLeft) {
                 for (i=0; i < memLen; ++i) {
                     if (q_ptr->cov_start > le[i]) {
-                        if (i > k) {  // input is sorted so this is always true: s.cov_start < ol_start[i]:
-                            ls[i] = q_ptr->cov_start;
-                            k = i;
-                        }
                         le[i] = q_ptr->cov_end;
+                        if (q_ptr->cov_start < ls[i]) {
+                            ls[i] = q_ptr->cov_start;
+                        }
                         if (i >= vScroll) {
                             q_ptr->y = i - vScroll;
                         }
                         if (linkType > 0 && lm.contains(qname)) {
                             linkedSeen[qname] = q_ptr->y;
                         }
-
                         break;
                     }
                 }
@@ -413,7 +406,6 @@ namespace Segs {
                         if (linkType > 0 && lm.contains(qname)) {
                             linkedSeen[qname] = q_ptr->y;
                         }
-
                         break;
                     }
                 }

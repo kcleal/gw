@@ -133,10 +133,7 @@ namespace HTS {
                 Segs::Align &item = readQueue.back();
                 if (item.cov_start > region->end) {
                     if (item.y != -1) {
-                        if (item.cov_end > col.levelsEnd[item.y]) {
-                            col.levelsEnd[item.y] = item.cov_end;
-                        }
-//                        col.levelsEnd[item.y] = item.cov_start;
+                        col.levelsEnd[item.y] = item.cov_start - 1;
                     }
                     readQueue.pop_back();
                 } else {
@@ -202,7 +199,6 @@ namespace HTS {
                 newReads.pop_back();
             }
         }
-
         if (!newReads.empty()) {
             Segs::init_parallel(newReads, 1);
             int maxY = Segs::findY(col.bamIdx, col, newReads, *vScroll, opts.link_op, opts, region, linked, left);

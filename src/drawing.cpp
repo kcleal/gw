@@ -100,7 +100,7 @@ namespace Drawing {
             }
 
             if (opts.log2_cov) {
-                for (size_t i=1; i<c.size(); ++i) {
+                for (size_t i=0; i<c.size(); ++i) {
                     if (c[i] > 0) { c[i] = std::log2(c[i]); }
                 }
                 cMax = std::log2(cMaxi);
@@ -351,9 +351,24 @@ namespace Drawing {
                 }
 
                 double width, s, e, yh, textW;
+                int lastEnd = 1215752191;
+                bool line_only;
                 for (size_t idx = 0; idx < nBlocks; ++idx) {
                     s = a.block_starts[idx];
-                    if (s > regionEnd) { break; }
+                    if (idx > 0) {
+                        lastEnd = a.block_ends[idx-1];
+                    }
+
+                    if (s > regionEnd) {
+                        if (lastEnd < regionEnd) {
+                            line_only = true;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        line_only = false;
+                    }
+
                     e = a.block_ends[idx];
                     if (e < regionBegin) { continue; }
                     s -= regionBegin;
@@ -361,49 +376,50 @@ namespace Drawing {
                     s = (s < 0) ? 0: s;
                     e = (e > regionLen) ? regionLen : e;
                     width = e - s;
-                    if (plotPointedPolygons) {
-                        if (pointLeft) {
-                            if (s > 0 && idx == 0 && a.left_soft_clip == 0) {
-                                drawLeftPointedRectangle(canvas, pH, yScaledOffset, s, width, xScaling,
-                                                         regionPixels, xOffset, faceColor, path, pointSlop);
-                                if (edged) {
+                    if (!line_only) {
+                        if (plotPointedPolygons) {
+                            if (pointLeft) {
+                                if (s > 0 && idx == 0 && a.left_soft_clip == 0) {
                                     drawLeftPointedRectangle(canvas, pH, yScaledOffset, s, width, xScaling,
-                                                             regionPixels, xOffset, edgeColor, path, pointSlop);
+                                                             regionPixels, xOffset, faceColor, path, pointSlop);
+                                    if (edged) {
+                                        drawLeftPointedRectangle(canvas, pH, yScaledOffset, s, width, xScaling,
+                                                                 regionPixels, xOffset, edgeColor, path, pointSlop);
+                                    }
+                                } else {
+                                    drawRectangle(canvas, pH, yScaledOffset, s, width, xScaling, xOffset,
+                                                  faceColor, rect);
+                                    if (edged) {
+                                        drawRectangle(canvas, pH, yScaledOffset, s, width, xScaling, xOffset,
+                                                      edgeColor, rect);
+                                    }
                                 }
                             } else {
-                                drawRectangle(canvas, pH, yScaledOffset, s, width, xScaling, xOffset,
-                                              faceColor, rect);
-                                if (edged) {
+                                if (e < regionLen && idx == nBlocks - 1 && a.right_soft_clip == 0) {
+                                    drawRightPointedRectangle(canvas, pH, yScaledOffset, s, width, xScaling,
+                                                              regionPixels, xOffset, faceColor, path, pointSlop);
+                                    if (edged) {
+                                        drawRightPointedRectangle(canvas, pH, yScaledOffset, s, width, xScaling,
+                                                                  regionPixels, xOffset, edgeColor, path, pointSlop);
+                                    }
+                                } else {
                                     drawRectangle(canvas, pH, yScaledOffset, s, width, xScaling, xOffset,
-                                                  edgeColor, rect);
+                                                  faceColor, rect);
+                                    if (edged) {
+                                        drawRectangle(canvas, pH, yScaledOffset, s, width, xScaling, xOffset,
+                                                      edgeColor, rect);
+                                    }
                                 }
                             }
                         } else {
-                            if (e < regionLen && idx == nBlocks - 1 && a.right_soft_clip == 0) {
-                                drawRightPointedRectangle(canvas, pH, yScaledOffset, s, width, xScaling,
-                                                          regionPixels, xOffset, faceColor, path, pointSlop);
-                                if (edged) {
-                                    drawRightPointedRectangle(canvas, pH, yScaledOffset, s, width, xScaling,
-                                                              regionPixels, xOffset, edgeColor, path, pointSlop);
-                                }
-                            } else {
+                            drawRectangle(canvas, pH, yScaledOffset, s, width, xScaling, xOffset, faceColor,
+                                          rect);
+                            if (edged) {
                                 drawRectangle(canvas, pH, yScaledOffset, s, width, xScaling, xOffset,
-                                              faceColor, rect);
-                                if (edged) {
-                                    drawRectangle(canvas, pH, yScaledOffset, s, width, xScaling, xOffset,
-                                                  edgeColor, rect);
-                                }
+                                              edgeColor, rect);
                             }
                         }
-                    } else {
-                        drawRectangle(canvas, pH, yScaledOffset, s, width, xScaling, xOffset, faceColor,
-                                      rect);
-                        if (edged) {
-                            drawRectangle(canvas, pH, yScaledOffset, s, width, xScaling, xOffset,
-                                          edgeColor, rect);
-                        }
                     }
-
 
                     // add lines and text between gaps
                     if (idx > 0) {
@@ -418,7 +434,6 @@ namespace Drawing {
                         if (regionLen < 500000 && size >= opts.indel_length) { // line and text
                             std::sprintf(indelChars, "%d", isize);
                             size_t sl = strlen(indelChars);
-//                            int sl = ceil(log10(size));
                             textW = fonts.textWidths[sl - 1];
                             float textBegin = ((lastEnd + size / 2) * xScaling) - (textW / 2);
                             float textEnd = textBegin + textW;
@@ -659,7 +674,6 @@ namespace Drawing {
 //        float h = fonts.fontMaxSize;
         float textW = fonts.overlayWidth;//fonts.textWidths[0];
         float minLetterSize = ((float)opts.dimensions.x / nRegions) / textW;
-        float gap = opts.dimensions.x * 0.002;
         for (auto &cl: collections) {
             long size = cl.region.end - cl.region.start;
             double xScaling = cl.xScaling;
@@ -669,8 +683,10 @@ namespace Drawing {
                 continue;
             }
             double i = cl.xOffset;
+
             if (textW > 0 && (float)size < minLetterSize) {
                 double v = (xScaling - textW) / 2;
+                float yp = h * 0.66;
                 while (*ref) {
                     switch ((unsigned int)*ref) {
                         case 65: faceColor = theme.fcA; break;
@@ -688,7 +704,7 @@ namespace Drawing {
                         break;
                     }
                     canvas->drawTextBlob(SkTextBlob::MakeFromText(ref, 1, fonts.overlay, SkTextEncoding::kUTF8),
-                                         i + v, h, faceColor);
+                                         i + v, yp, faceColor);
                     i += xScaling;
                     ++ref;
                 }
