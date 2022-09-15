@@ -251,6 +251,7 @@ namespace Manager {
                 }
             }
             if (resizeTriggered && std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - resizeTimer) > 100ms) {
+                imageCache.clear();
                 redraw = true;
                 processed = false;
                 int x, y;

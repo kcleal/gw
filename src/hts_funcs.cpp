@@ -127,7 +127,6 @@ namespace HTS {
             }
         }
 
-
 //        std::cout << "before " << readQueue.front().pos << " " << readQueue.back().pos << std::endl;
 
         std::vector<Segs::Align> newReads;
@@ -137,6 +136,10 @@ namespace HTS {
                 if (item.cov_start > region->end) {
                     if (item.y != -1) {
                         col.levelsEnd[item.y] = item.cov_start - 1;
+                        if (col.levelsStart[item.y] == col.levelsEnd[item.y]) {
+                            col.levelsStart[item.y] = 1215752191;
+                            col.levelsEnd[item.y] = 0;
+                        }
                     }
                     bam_destroy1(readQueue.back().delegate);
                     readQueue.pop_back();
@@ -144,7 +147,6 @@ namespace HTS {
                     break;
                 }
             }
-
             if (readQueue.empty()) {
                 std::fill(col.levelsStart.begin(), col.levelsStart.end(), 1215752191);
                 std::fill(col.levelsEnd.begin(), col.levelsEnd.end(), 0);
@@ -174,7 +176,11 @@ namespace HTS {
             for (auto &item : readQueue) {  // drop out of scope reads
                 if (item.cov_end < region->start) {
                     if (item.y != -1) {
-                        col.levelsStart[item.y] = item.cov_end + 1;
+                        col.levelsStart[item.y] = item.cov_end;
+                        if (col.levelsStart[item.y] == col.levelsEnd[item.y]) {
+                            col.levelsStart[item.y] = 1215752191;
+                            col.levelsEnd[item.y] = 0;
+                        }
                     }
                     bam_destroy1(item.delegate);
                     idx += 1;
@@ -185,6 +191,9 @@ namespace HTS {
             if (idx > 0) {
                 readQueue.erase(readQueue.begin(), readQueue.begin() + idx);
             }
+
+
+
             if (readQueue.empty()) {
                 std::fill(col.levelsStart.begin(), col.levelsStart.end(), 1215752191);
                 std::fill(col.levelsEnd.begin(), col.levelsEnd.end(), 0);
@@ -193,11 +202,6 @@ namespace HTS {
             newReads.push_back(make_align(bam_init1()));
             while (sam_itr_next(b, iter_q, newReads.back().delegate) >= 0) {
                 src = newReads.back().delegate;
-//                std::string t = "D00360:19:H8VDAADXX:1:1207:16351:79377";
-//                std::string v = bam_get_qname(src);
-//                if (t == v && src->core.pos == 94684) {
-//                    std::cout << (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos <= lastPos) << " " << src->core.pos << " " << lastPos << " HI\n";
-//                }
                 if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos <= lastPos) {
                     continue;
                 }
@@ -234,8 +238,6 @@ namespace HTS {
             }
         }
         col.processed = true;
-
-//        std::cout << "after " << readQueue.front().pos << " " << readQueue.back().pos << std::endl;
     }
 
 

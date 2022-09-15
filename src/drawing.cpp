@@ -48,7 +48,7 @@ namespace Drawing {
     constexpr float polygonHeight = 0.85;
 
     void drawCoverage(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
-                      SkCanvas *canvas, const Themes::Fonts &fonts, const float covY, const float refSpace) {
+                      SkCanvas *canvas, const Themes::Fonts &fonts, const float covYh, const float refSpace) {
 
         const Themes::BaseTheme &theme = opts.theme;
         SkPaint paint = theme.fcCoverage;
@@ -57,6 +57,8 @@ namespace Drawing {
         std::vector<sk_sp < SkTextBlob> > text_ins;
         std::vector<float> textX, textY;
         std::vector<float> textX_ins, textY_ins;
+
+        float covY = covYh * 0.95;
 
         int last_bamIdx = 0;
         float yOffsetAll = refSpace;
@@ -75,7 +77,7 @@ namespace Drawing {
             std::vector<float> c;
             c.resize(cl.covArr.size());
             c[0] = cl.covArr[0];
-            int cMaxi = c[0];
+            int cMaxi = (c[0] > 10) ? c[0] : 10;
             tot = (float)cMaxi;
             n = 0;
             if (tot > 0) {
