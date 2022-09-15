@@ -741,12 +741,16 @@ namespace Manager {
                 regions[cl.regionIdx] = N;
                 cl.region = N;
                 processed = true;
-                cl.processed = false;
+                cl.processed = true;
                 HTS::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts,
                                             opts.coverage, travel > 0, &vScroll, linked, &samMaxY);
                 redraw = true;
             }
         }
+    }
 
+    void GwPlot::windowResize(GLFWwindow* wind, int x, int y) {
+        resizeTriggered = true;
+        resizeTimer = std::chrono::high_resolution_clock::now();
     }
 }

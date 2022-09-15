@@ -115,31 +115,36 @@ namespace HTS {
         int lastPos;
         if (!readQueue.empty()) {
             if (left) {
-                lastPos = readQueue.front().pos + 1;
+                lastPos = readQueue.front().pos; // + 1;
             } else {
-                lastPos = readQueue.back().pos;
+                lastPos = readQueue.back().pos; // + 1;
             }
         } else {
             if (left) {
-                lastPos = 1215752191;
+                lastPos = 1215752190;
             } else {
                 lastPos = 0;
             }
         }
 
+
+//        std::cout << "before " << readQueue.front().pos << " " << readQueue.back().pos << std::endl;
+
         std::vector<Segs::Align> newReads;
-        if (left && readQueue.front().reference_end > region->start) {
+        if (left && readQueue.front().cov_end > region->start) {
             while (!readQueue.empty()) {  // remove items from RHS of queue, reduce levelsEnd
                 Segs::Align &item = readQueue.back();
                 if (item.cov_start > region->end) {
                     if (item.y != -1) {
                         col.levelsEnd[item.y] = item.cov_start - 1;
                     }
+                    bam_destroy1(readQueue.back().delegate);
                     readQueue.pop_back();
                 } else {
                     break;
                 }
             }
+
             if (readQueue.empty()) {
                 std::fill(col.levelsStart.begin(), col.levelsStart.end(), 1215752191);
                 std::fill(col.levelsEnd.begin(), col.levelsEnd.end(), 0);
@@ -164,12 +169,12 @@ namespace HTS {
                 newReads.pop_back();
             }
 
-        } else if (!left && lastPos + 1 < region->end) {
+        } else if (!left && lastPos < region->end) {
             int idx = 0;
             for (auto &item : readQueue) {  // drop out of scope reads
                 if (item.cov_end < region->start) {
                     if (item.y != -1) {
-                        col.levelsStart[item.y] = item.cov_end;
+                        col.levelsStart[item.y] = item.cov_end + 1;
                     }
                     bam_destroy1(item.delegate);
                     idx += 1;
@@ -184,17 +189,25 @@ namespace HTS {
                 std::fill(col.levelsStart.begin(), col.levelsStart.end(), 1215752191);
                 std::fill(col.levelsEnd.begin(), col.levelsEnd.end(), 0);
             }
-            iter_q = sam_itr_queryi(index, tid, lastPos + 1, region->end);
+            iter_q = sam_itr_queryi(index, tid, lastPos, region->end);
             newReads.push_back(make_align(bam_init1()));
             while (sam_itr_next(b, iter_q, newReads.back().delegate) >= 0) {
                 src = newReads.back().delegate;
+//                std::string t = "D00360:19:H8VDAADXX:1:1207:16351:79377";
+//                std::string v = bam_get_qname(src);
+//                if (t == v && src->core.pos == 94684) {
+//                    std::cout << (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos <= lastPos) << " " << src->core.pos << " " << lastPos << " HI\n";
+//                }
                 if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos <= lastPos) {
                     continue;
+                }
+                if (src->core.pos > region->end) {
+                    break;
                 }
                 newReads.push_back(make_align(bam_init1()));
             }
             src = newReads.back().delegate;
-            if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos <= lastPos) {
+            if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos <= lastPos || src->core.pos > region->end) {
                 bam_destroy1(src);
                 newReads.pop_back();
             }
@@ -221,6 +234,8 @@ namespace HTS {
             }
         }
         col.processed = true;
+
+//        std::cout << "after " << readQueue.front().pos << " " << readQueue.back().pos << std::endl;
     }
 
 

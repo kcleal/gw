@@ -33,6 +33,7 @@
 
 std::mutex mtx;
 
+using namespace std::literals;
 
 namespace Manager {
 
@@ -132,6 +133,11 @@ namespace Manager {
         };
         glfwSetCursorPosCallback(window, func_pos);
 
+        auto func_resize = [](GLFWwindow* w, int x, int y){
+            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->windowResize(w, x, y);
+        };
+        glfwSetWindowSizeCallback(window, func_resize);
+
         if (!window) {
             std::cerr<<"ERROR: could not create window with GLFW3"<<std::endl;
             glfwTerminate();
@@ -219,14 +225,17 @@ namespace Manager {
     }
 
     int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface) {
-        std::cout << "Type ':help' for more info\n";
-        SkCanvas * canvas = sSurface->getCanvas();
+        std::cout << "Type ':help' or ':h' for more info\n";
+
+        setGlfwFrameBufferSize();
+
         fetchRefSeqs();
         opts.theme.setAlphas();
         GLFWwindow * wind = this->window;
         if (mode == Show::SINGLE) {
             printRegionInfo();
         }
+
         while (true) {
             if (glfwWindowShouldClose(wind)) {
                 break;
@@ -236,9 +245,43 @@ namespace Manager {
             glfwWaitEvents();
             if (redraw) {
                 if (mode == Show::SINGLE) {
-                    drawScreen(canvas, sContext);
+                    drawScreen(sSurface->getCanvas(), sContext);
                 } else {
-                    drawTiles(canvas, sContext, sSurface);
+                    drawTiles(sSurface->getCanvas(), sContext, sSurface);
+                }
+            }
+            if (resizeTriggered && std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - resizeTimer) > 100ms) {
+                redraw = true;
+                processed = false;
+                int x, y;
+                glfwGetFramebufferSize(window, &x, &y);
+
+                fb_width = x;
+                fb_height = y;
+                opts.dimensions.x = x;
+                opts.dimensions.y = y;
+                resizeTriggered = false;
+
+                GrGLFramebufferInfo framebufferInfo;
+                framebufferInfo.fFBOID = 0;
+                framebufferInfo.fFormat = GL_RGBA8;  // GL_SRGB8_ALPHA8; //
+                GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
+                if (!backendRenderTarget.isValid()) {
+                    std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
+                    glfwTerminate();
+                    std::terminate();
+                }
+
+                sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
+                                                                  backendRenderTarget,
+                                                                  kBottomLeft_GrSurfaceOrigin,
+                                                                  kRGBA_8888_SkColorType,
+                                                                  nullptr,
+                                                                  nullptr).release();
+                if (!sSurface) {
+                    std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
+                    sContext->releaseResourcesAndAbandonContext();
+                    std::terminate();
                 }
             }
         }

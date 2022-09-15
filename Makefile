@@ -2,7 +2,7 @@ TARGET = gw
 
 
 CXX = clang++
-CXXFLAGS = -g -Wall -std=c++17  -fno-common -dynamic -fwrapv -O3
+CXXFLAGS = -g -Wall -std=c++17  -fno-common -dynamic -fwrapv #-O3
 
 INCLUDE = -I./inc -I./src -I. -I./gw -I/usr/local/include
 LINK = -L $(wildcard ../skia/out/Rel*) -L/usr/local/lib
@@ -50,7 +50,7 @@ endif
 .PHONY: default all debug clean
 
 default: $(TARGET)
-all: CXXFLAGS += -DNDEBUG -O3
+#all: CXXFLAGS += -DNDEBUG -O3
 all: default
 debug: default
 

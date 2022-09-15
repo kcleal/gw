@@ -14,7 +14,7 @@
 #include "htslib/hts.h"
 #include "htslib/sam.h"
 
-
+#include <chrono>
 #include <GLFW/glfw3.h>
 #include <string>
 #include <utility>
@@ -154,6 +154,8 @@ namespace Manager {
 
         void mousePos(GLFWwindow* wind, double x, double y);
 
+        void windowResize(GLFWwindow* wind, int x, int y);
+
         void pathDrop(GLFWwindow* window, int count, const char** paths);
 
         void drawSurfaceGpu(SkCanvas *canvas);
@@ -170,6 +172,9 @@ namespace Manager {
         bool redraw;
         bool processed;
         bool calcScaling;
+
+        bool resizeTriggered;
+        std::chrono::high_resolution_clock::time_point resizeTimer;
 
         std::string inputText;
         bool captureText, shiftPress, ctrlPress, processText;
