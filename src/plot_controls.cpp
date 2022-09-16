@@ -180,7 +180,7 @@ namespace Manager {
             help(opts);
             valid = true;
         } else if (inputText == ":refresh" || inputText == ":r") {
-            redraw = true; processed = false; valid = true;
+            redraw = true; processed = false; valid = true; imageCache.clear();
         } else if (inputText == ":link" || inputText == ":link all") {
             opts.link_op = 2; valid = true;
         } else if (inputText == ":link sv") {
@@ -197,13 +197,15 @@ namespace Manager {
             int ind = std::stoi(split.back());
             inputText = "";
             valid = true;
+            if (ind > regionSelection) {
+                regionSelection = 0;
+            }
             if (!regions.empty() && ind < regions.size()) {
                 if (regions.size() == 1 && ind == 0) {
                     regions.clear();
                 } else {
                     regions.erase(regions.begin() + ind);
                 }
-
             } else {
                 std::cerr << termcolor::red << "Error:" << termcolor::reset << " region index is out of range. Use 0-based indexing\n";
                 return true;
@@ -756,7 +758,7 @@ namespace Manager {
                 }
             } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
                 if (std::fabs(xDrag) > fb_width / 4) {
-                    if (xDrag < 0) {
+                    if (xDrag > 0) {
                         blockStart = (blockStart - 1 < 0) ? 0 : blockStart - 1;
                         redraw = true;
                         xDrag = -1000000;
@@ -815,11 +817,20 @@ namespace Manager {
     }
 
     void GwPlot::scrollGesture(GLFWwindow* wind, double xoffset, double yoffset) {
-        if (yoffset < 0) {
-            keyPress(wind, opts.zoom_out, 0, GLFW_PRESS, 0);
+        if (mode == Manager::SINGLE) {
+            if (yoffset < 0) {
+                keyPress(wind, opts.zoom_out, 0, GLFW_PRESS, 0);
+            } else {
+                keyPress(wind, opts.zoom_in, 0, GLFW_PRESS, 0);
+            }
         } else {
-            keyPress(wind, opts.zoom_in, 0, GLFW_PRESS, 0);
+            if (yoffset < 0) {
+                keyPress(wind, opts.scroll_right, 0, GLFW_PRESS, 0);
+            } else {
+                keyPress(wind, opts.scroll_left, 0, GLFW_PRESS, 0);
+            }
         }
+
     }
 
     void GwPlot::windowResize(GLFWwindow* wind, int x, int y) {

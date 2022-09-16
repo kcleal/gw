@@ -298,9 +298,9 @@ namespace HTS {
 
         int variant_type = bcf_get_variant_types(v);
         char *strmem = nullptr;
-        int *intmem;
+        int *intmem = nullptr;
         int mem = 0;
-        int imem = sizeof(int);
+        int imem = 0; //sizeof(int);
         if (variant_type == VCF_SNP || variant_type == VCF_INDEL || variant_type == VCF_OVERLAP) {
             chrom2 = chrom;
         } else {  // variant type is VCF_REF or VCF_OTHER or VCF_BND
