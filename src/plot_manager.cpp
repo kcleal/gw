@@ -390,26 +390,23 @@ namespace Manager {
     }
 
     void GwPlot::drawScreen(SkCanvas* canvas, GrDirectContext* sContext) {
-
 //        auto start = std::chrono::high_resolution_clock::now();
-
         canvas->drawPaint(opts.theme.bgPaint);
-        processBam();
-        setGlfwFrameBufferSize();
-        setScaling();
-        if (opts.coverage) {
-            Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
+        if (!regions.empty()) {
+            processBam();
+            setGlfwFrameBufferSize();
+            setScaling();
+            if (opts.coverage) {
+                Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
+            }
+            Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op);
+            Drawing::drawRef(opts, collections, canvas, fonts, refSpace, (float)regions.size());
+            Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size());
         }
-        Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op);
-
-        Drawing::drawRef(opts, collections, canvas, fonts, refSpace, (float)regions.size());
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size());
-
 //        auto finish = std::chrono::high_resolution_clock::now();
         sContext->flush();
         glfwSwapBuffers(window);
         redraw = false;
-
 //        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
 //        std::cout << "Elapsed Time drawScreen: " << m.count() << " m seconds" << std::endl;
     }

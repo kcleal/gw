@@ -298,7 +298,9 @@ namespace HTS {
 
         int variant_type = bcf_get_variant_types(v);
         char *strmem = nullptr;
+        int *intmem;
         int mem = 0;
+        int imem = sizeof(int);
         if (variant_type == VCF_SNP || variant_type == VCF_INDEL || variant_type == VCF_OVERLAP) {
             chrom2 = chrom;
         } else {  // variant type is VCF_REF or VCF_OTHER or VCF_BND
@@ -315,6 +317,15 @@ namespace HTS {
                     chrom2 = strmem;
                 } else {
                     chrom2 = chrom;  // todo deal should this raise an error?
+                }
+                info_field = bcf_get_info(hdr, v, "CHR2_POS");  // try and find chrom2 in info
+                if (info_field != nullptr) {
+                    int resc = bcf_get_info_int32(hdr, v, "CHR2_POS", &intmem, &imem);
+                    if (resc < 0) {
+                        std::cerr << "Error: could not parse CHR2 field, error was " << resc << std::endl;
+                        std::terminate();
+                    }
+                    stop = *intmem;
                 }
             }
         }

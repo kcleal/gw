@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <iomanip>
 #include <iterator>
 #include <stdlib.h>
 #include <sstream>
@@ -142,14 +143,16 @@ namespace Manager {
     }
 
     void help(Themes::IniOptions &opts) {
-        std::cout << termcolor::italic << "\n** Enter a command by selecting the GW window (not the terminal) and type ':[COMMAND]' **\n" << termcolor::reset;
-        std::cout << termcolor::underline << "\nCommand          Modifier        Description                                          \n" << termcolor::reset;
-        std::cout << termcolor::green << "cov              of, off         " << termcolor::reset << "Trun coverage on/off e.g. ':cov off'\n";
+        std::cout << termcolor::italic << "\n* Enter a command by selecting the GW window (not the terminal) and type ':[COMMAND]' *\n" << termcolor::reset;
+        std::cout << termcolor::underline << "\nCommand          Modifier        Description                                            \n" << termcolor::reset;
+        std::cout << termcolor::green << "add              region(s)       " << termcolor::reset << "Add one or more regions e.g. ':add chr1:1-20000'\n";
+        std::cout << termcolor::green << "cov              of, off         " << termcolor::reset << "Turn coverage on/off e.g. ':cov off'\n";
         std::cout << termcolor::green << "goto             loci, index     " << termcolor::reset << "e.g. ':goto chr1:20000'. Use index if multiple regions\n                                 are open e.g. ':goto chr1:20000 1'\n";
         std::cout << termcolor::green << "link             [none/sv/all]   " << termcolor::reset << "Switch read-linking ':link all'\n";
         std::cout << termcolor::green << "log2-cov         of, off         " << termcolor::reset << "Scale coverage by log2 e.g. ':log2-cov on'\n";
         std::cout << termcolor::green << "quit, q          -               " << termcolor::reset << "Quit GW\n";
         std::cout << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
+        std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. ':rm 1'\n";
         std::cout << termcolor::green << "theme            [igv/dark]      " << termcolor::reset << "Switch color theme e.g. ':theme dark'\n";
         std::cout << termcolor::green << "ylim             number          " << termcolor::reset << "The maximum y-limit for the image e.g. ':ylim 100'\n";
         std::cout << termcolor::underline << "\nHot keys                   \n" << termcolor::reset;
@@ -189,6 +192,22 @@ namespace Manager {
             opts.ylim = std::stoi(split.back());
             samMaxY = opts.ylim;
             valid = true;
+        } else if (Utils::startsWith(inputText, ":remove") || Utils::startsWith(inputText, ":rm")) {
+            std::vector<std::string> split = Utils::split(inputText, delim);
+            int ind = std::stoi(split.back());
+            inputText = "";
+            valid = true;
+            if (!regions.empty() && ind < regions.size()) {
+                if (regions.size() == 1 && ind == 0) {
+                    regions.clear();
+                } else {
+                    regions.erase(regions.begin() + ind);
+                }
+
+            } else {
+                std::cerr << termcolor::red << "Error:" << termcolor::reset << " region index is out of range. Use 0-based indexing\n";
+                return true;
+            }
         } else if (Utils::startsWith(inputText, ":cov")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             if (split.back() == "on") {
@@ -228,6 +247,18 @@ namespace Manager {
                     inputText = "";
                     return true;
                 }
+            }
+        } else if (Utils::startsWith(inputText, ":add"))  {
+            std::vector<std::string> split = Utils::split(inputText, delim);
+            if (split.size() > 1) {
+                for (int i=1; i < split.size(); ++i) {
+                    regions.push_back(Utils::parseRegion(split[1]));
+                }
+                valid = true;
+            } else {
+                std::cerr << termcolor::red << "Error:" << termcolor::reset << " expected a Region e.g. chr1:1-20000\n";
+                inputText = "";
+                return true;
             }
         }
         if (valid) {
@@ -298,18 +329,15 @@ namespace Manager {
     }
 
     void GwPlot::keyPress(GLFWwindow* wind, int key, int scancode, int action, int mods) {
-
         if (action == GLFW_RELEASE) {
             return;
         }
 
         // decide if the input key is part of a command or a redraw request
         bool res = registerKey(window, key, scancode, action, mods);
-
         if (captureText) {
             return;
         }
-
         try {
             if (commandProcessed()) {
                 return;
@@ -317,8 +345,6 @@ namespace Manager {
         } catch (CloseException & mce) {
             glfwSetWindowShouldClose(wind, GLFW_TRUE);
         }
-
-
         if (mode == Show::SINGLE) {
             int i;
             if (action == GLFW_PRESS || action == GLFW_REPEAT) {
@@ -725,6 +751,7 @@ namespace Manager {
                         glfwPostEmptyEvent();
                         redraw = true;
                         processed = false;
+                        printRegionInfo();
                     }
                 }
             } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
