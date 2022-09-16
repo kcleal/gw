@@ -103,15 +103,11 @@ namespace HTS {
 
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *vScroll, Segs::linked_t &linked, int *samMaxY) {
-
         bam1_t *src;
         hts_itr_t *iter_q;
-
         std::vector<Segs::Align>& readQueue = col.readQueue;
         Utils::Region *region = &col.region;
-
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
-
         int lastPos;
         if (!readQueue.empty()) {
             if (left) {
@@ -126,11 +122,8 @@ namespace HTS {
                 lastPos = 0;
             }
         }
-
-//        std::cout << "before " << readQueue.front().pos << " " << readQueue.back().pos << std::endl;
-
         std::vector<Segs::Align> newReads;
-        if (left && readQueue.front().cov_end > region->start) {
+        if (left && (readQueue.empty() || readQueue.front().cov_end > region->start)) {
             while (!readQueue.empty()) {  // remove items from RHS of queue, reduce levelsEnd
                 Segs::Align &item = readQueue.back();
                 if (item.cov_start > region->end) {
@@ -191,15 +184,13 @@ namespace HTS {
             if (idx > 0) {
                 readQueue.erase(readQueue.begin(), readQueue.begin() + idx);
             }
-
-
-
             if (readQueue.empty()) {
                 std::fill(col.levelsStart.begin(), col.levelsStart.end(), 1215752191);
                 std::fill(col.levelsEnd.begin(), col.levelsEnd.end(), 0);
             }
             iter_q = sam_itr_queryi(index, tid, lastPos, region->end);
             newReads.push_back(make_align(bam_init1()));
+
             while (sam_itr_next(b, iter_q, newReads.back().delegate) >= 0) {
                 src = newReads.back().delegate;
                 if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos <= lastPos) {

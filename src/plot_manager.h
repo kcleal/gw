@@ -154,6 +154,8 @@ namespace Manager {
 
         void mousePos(GLFWwindow* wind, double x, double y);
 
+        void scrollGesture(GLFWwindow* wind, double xoffset, double yoffset);
+
         void windowResize(GLFWwindow* wind, int x, int y);
 
         void pathDrop(GLFWwindow* window, int count, const char** paths);
@@ -194,6 +196,7 @@ namespace Manager {
         int blockStart, blockLen, regionSelection;
 
         Utils::Region clicked;
+        int clickedIdx;
 
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext);
 

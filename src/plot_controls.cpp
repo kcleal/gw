@@ -638,39 +638,36 @@ namespace Manager {
             xDrag = 0;
             xOri = x;
         }
-
         xDrag = x - xOri;
-
         if (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_LEFT) {
             if (collections.empty()) {
                 return;
             }
-
             int windowW, windowH;  // convert screen coords to frame buffer coords
             glfwGetWindowSize(wind, &windowW, &windowH);
             if (fb_width > windowW) {
                 x *= (float) fb_width / (float) windowW;
                 y *= (float) fb_height / (float) windowH;
             }
-
             int idx = getCollectionIdx(x, y);
+
             if (idx == -1) {
                 return;
             }
+            regionSelection = idx;
             Segs::ReadCollection &cl = collections[idx];
             if (action == GLFW_PRESS) {
                 clicked = cl.region;
+                clickedIdx = idx;
             }
-
             if (std::abs(xDrag) < 2 && action == GLFW_RELEASE) {
-
                 int pos = (int) (((x - (float) cl.xOffset) / cl.xScaling) +
                                  (float) cl.region.start);
                 int level = (int) ((y - (float) cl.yOffset) /
                                    (trackY / (float) cl.levelsStart.size()));
                 std::vector<Segs::Align>::iterator bnd;
                 bnd = std::lower_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
-                                       [&](const Segs::Align &lhs, const int pos) {return lhs.pos < pos;});
+                                       [&](const Segs::Align &lhs, const int pos) { return lhs.pos < pos; });
                 while (bnd != cl.readQueue.begin()) {
                     if (bnd->y == level && bnd->pos <= pos && pos < bnd->reference_end) {
                         printRead(bnd, headers[cl.bamIdx]);
@@ -681,8 +678,8 @@ namespace Manager {
                 xDrag = -1000000;
 
             } else if (action == GLFW_RELEASE) {
-                auto w = (float) (cl.region.end - cl.region.start);
-                if (w >= 20000) {
+                auto w = (float) ((cl.region.end - cl.region.start) * (float) regions.size());
+                if (w >= 50000) {
                     int travel = (int) (w * (xDrag / windowW));
                     if (cl.region.start - travel < 0) {
                         travel = cl.region.start;
@@ -702,50 +699,99 @@ namespace Manager {
                 }
                 printRegionInfo();
             }
+            xOri = x;
+        } else if  (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
+            if (!multiRegions.empty() || !imageCache.empty()) {
+                mode = Manager::TILED;
+                redraw = true;
+            }
+        } else if (mode == Manager::TILED) {
+            if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
+                std::vector<Utils::BoundingBox> bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height);
+                int i = 0;
+                for (auto &b: bboxes) {
+                    if (x > b.xStart && x < b.xEnd && y > b.yStart && y < b.yEnd) {
+                        break;
+                    }
+                    ++i;
+                }
+                if (i == bboxes.size()) {
+                    return;
+                }
+                if (bams.size() > 0) {
+                    if (i < multiRegions.size() && !bams.empty()) {
+                        mode = Manager::SINGLE;
+                        regions = multiRegions[blockStart + i];
+                        glfwPostEmptyEvent();
+                        redraw = true;
+                        processed = false;
+                    }
+                }
+            } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+                if (std::fabs(xDrag) > fb_width / 4) {
+                    if (xDrag < 0) {
+                        blockStart = (blockStart - 1 < 0) ? 0 : blockStart - 1;
+                        redraw = true;
+                        xDrag = -1000000;
+                    } else {
+                        blockStart += 1;
+                        redraw = true;
+                        xDrag = -1000000;
+                    }
+                }
+            }
         }
     }
 
     void GwPlot::mousePos(GLFWwindow* wind, double x, double y) {
+
         int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
         if (state == GLFW_PRESS) {
             xDrag = x - xOri;
 
-            if (collections.empty()) {
-                return;
-            }
-
-            int windowW, windowH;  // convert screen coords to frame buffer coords
-            glfwGetWindowSize(wind, &windowW, &windowH);
-            if (fb_width > windowW) {
-                x *= (float) fb_width / (float) windowW;
-                y *= (float) fb_height / (float) windowH;
-            }
-
-            int idx = getCollectionIdx(x, y);
-            if (idx == -1) {
-                return;
-            }
-            Segs::ReadCollection &cl = collections[idx];
-
-            if (cl.region.end - cl.region.start < 20000) {
-                auto w = (float) (cl.region.end - cl.region.start);
-                int travel = (int) (w * (xDrag / windowW));
-                if (cl.region.start - travel < 0) {
-                    travel = cl.region.start;
+            if (mode == Manager::SINGLE) {
+                if (collections.empty()) {
+                    return;
                 }
-                Utils::Region N;
-                N.chrom = cl.region.chrom;
-                N.start = clicked.start - travel;
-                N.end = clicked.end - travel;
-                fetchRefSeq(N);
-                regions[cl.regionIdx] = N;
-                cl.region = N;
-                processed = true;
-                cl.processed = true;
-                HTS::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts,
-                                            opts.coverage, travel > 0, &vScroll, linked, &samMaxY);
-                redraw = true;
+                int windowW, windowH;  // convert screen coords to frame buffer coords
+                glfwGetWindowSize(wind, &windowW, &windowH);
+                if (fb_width > windowW) {
+                    x *= (float) fb_width / (float) windowW;
+                    y *= (float) fb_height / (float) windowH;
+                }
+                int idx = getCollectionIdx(x, y);
+                if (idx == -1) {
+                    return;
+                }
+                Segs::ReadCollection &cl = collections[idx];
+                if (cl.region.end - cl.region.start < 50000 && clickedIdx == idx) {
+                    auto w = (float) ((cl.region.end - cl.region.start) * (float) regions.size());
+                    int travel = (int) (w * (xDrag / windowW));
+                    if (cl.region.start - travel < 0) {
+                        travel = cl.region.start;
+                    }
+                    Utils::Region N;
+                    N.chrom = cl.region.chrom;
+                    N.start = clicked.start - travel;
+                    N.end = clicked.end - travel;
+                    fetchRefSeq(N);
+                    regions[cl.regionIdx] = N;
+                    cl.region = N;
+                    processed = true;
+                    cl.processed = true;
+                    HTS::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts,
+                                                opts.coverage, travel > 0, &vScroll, linked, &samMaxY);
+                    redraw = true;
+                }
             }
+        }
+    }
+
+    void GwPlot::scrollGesture(GLFWwindow* wind, double xoffset, double yoffset) {
+        if (yoffset < 0) {
+            keyPress(wind, opts.zoom_out, 0, GLFW_PRESS, 0);
+        } else {
+            keyPress(wind, opts.zoom_in, 0, GLFW_PRESS, 0);
         }
     }
 

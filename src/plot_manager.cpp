@@ -133,6 +133,11 @@ namespace Manager {
         };
         glfwSetCursorPosCallback(window, func_pos);
 
+        auto func_scroll = [](GLFWwindow* w, double x, double y){
+            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->scrollGesture(w, x, y);
+        };
+        glfwSetScrollCallback(window, func_scroll);
+
         auto func_resize = [](GLFWwindow* w, int x, int y){
             static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->windowResize(w, x, y);
         };
