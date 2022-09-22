@@ -13,6 +13,7 @@
 #include "htslib/hfile.h"
 #include "htslib/hts.h"
 #include "htslib/sam.h"
+#include "htslib/tbx.h"
 
 #include <chrono>
 #include <GLFW/glfw3.h>
@@ -64,6 +65,17 @@ namespace HTS {
 
         void open(std::string f);
         void next();
+    };
+
+    class Tab2Bam {
+    public:
+        Tab2Bam() = default;
+        ~Tab2Bam();
+        htsFile *fp;
+        tbx_t *idx;
+        hts_itr_t * itr;
+        void open(std::string f);
+        void fetch(std::string chrom, int start, int end, Segs::ReadCollection &cl);
     };
 }
 

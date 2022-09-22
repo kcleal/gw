@@ -10,6 +10,7 @@
 #include "htslib/hfile.h"
 #include "htslib/hts.h"
 #include "htslib/sam.h"
+#include "htslib/tbx.h"
 #include "htslib/vcf.h"
 
 #include "../inc/BS_thread_pool.h"
@@ -380,5 +381,26 @@ namespace HTS {
                 }
                 break;
         }
+    }
+
+
+    Tab2Bam::~Tab2Bam() {
+        hts_close(fp);
+        tbx_destroy(idx);
+    }
+
+    void Tab2Bam::open(std::string f) {
+        fp = hts_open(f.c_str(), "r");
+        idx = tbx_index_load(f.c_str());
+        hts_itr_destroy(itr);
+    }
+
+    void Tab2Bam::fetch(std::string chrom, int start, int end, Segs::ReadCollection &cl) {
+
+        int tid = tbx_name2id(idx, chrom.c_str());
+        itr = tbx_itr_queryi(idx, tid, start, end);
+
+
+
     }
 }
