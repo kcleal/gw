@@ -70,6 +70,7 @@ namespace Themes {
         ecMateUnmapped.setARGB(255, 255, 0, 0);
         ecMateUnmapped.setStyle(SkPaint::kStroke_Style);
         ecMateUnmapped.setStrokeWidth(1);
+
         ecSplit.setARGB(255, 0, 0, 255);
         ecSplit.setStyle(SkPaint::kStroke_Style);
         ecSplit.setStrokeWidth(1);
@@ -187,6 +188,10 @@ namespace Themes {
         tcLabels.setARGB(255, 0, 0, 0);
         tcIns.setARGB(255, 255, 255, 255);
         marker_paint.setARGB(255, 0, 0, 0);
+
+        ecSelected.setARGB(255, 0, 0, 0);
+        ecSelected.setStyle(SkPaint::kStroke_Style);
+        ecSelected.setStrokeWidth(2);
     }
 
     DarkTheme::DarkTheme() {
@@ -211,6 +216,10 @@ namespace Themes {
         tcLabels.setARGB(255, 0, 0, 0);
         tcIns.setARGB(255, 227, 227, 227);
         marker_paint.setARGB(255, 220, 220, 220);
+
+        ecSelected.setARGB(255, 255, 255, 255);
+        ecSelected.setStyle(SkPaint::kStroke_Style);
+        ecSelected.setStrokeWidth(2);
     }
 
     IniOptions::IniOptions() {

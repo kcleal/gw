@@ -59,7 +59,7 @@ namespace Themes {
         std::vector<SkPaint> mate_fc0;
 
         // edge colours
-        SkPaint ecMateUnmapped, ecSplit;
+        SkPaint ecMateUnmapped, ecSplit, ecSelected;
 
         // line widths
         float lwMateUnmapped, lwSplit, lwCoverage;

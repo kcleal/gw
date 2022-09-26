@@ -85,6 +85,7 @@ namespace Manager {
         yScaling = 0;
         captureText = shiftPress = ctrlPress = processText = false;
         xDrag = xOri = -1000000;
+        lastX = -1;
         commandIndex = 0;
         blockStart = 0;
         regionSelection = 0;

@@ -191,13 +191,15 @@ namespace Manager {
         std::chrono::high_resolution_clock::time_point resizeTimer;
 
         std::string inputText;
+        std::string target_qname;
+
         bool captureText, shiftPress, ctrlPress, processText;
         std::vector< std::string > commandHistory;
         int commandIndex;
 
         float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace;
 
-        double xDrag, xOri;
+        double xDrag, xOri, lastX;
 
         int samMaxY;
 
@@ -221,6 +223,8 @@ namespace Manager {
         bool commandProcessed();
 
         int getCollectionIdx(float x, float y);
+
+        void highlightQname();
 
     };
 

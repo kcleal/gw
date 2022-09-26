@@ -142,11 +142,22 @@ namespace Manager {
         }
     }
 
+    void GwPlot::highlightQname() {
+        for (auto &cl : collections) {
+            for (auto &a: cl.readQueue) {
+                if (bam_get_qname(a.delegate) == target_qname) {
+                    a.edge_type = 4;
+                }
+            }
+        }
+    }
+
     void help(Themes::IniOptions &opts) {
         std::cout << termcolor::italic << "\n* Enter a command by selecting the GW window (not the terminal) and type ':[COMMAND]' *\n" << termcolor::reset;
         std::cout << termcolor::underline << "\nCommand          Modifier        Description                                            \n" << termcolor::reset;
         std::cout << termcolor::green << "add              region(s)       " << termcolor::reset << "Add one or more regions e.g. ':add chr1:1-20000'\n";
         std::cout << termcolor::green << "cov              of, off         " << termcolor::reset << "Turn coverage on/off e.g. ':cov off'\n";
+        std::cout << termcolor::green << "find, f             qname?     " << termcolor::reset << "To find other alignments from selected read use ':find'. Or\n                                 use ':find [QNAME]' to find target read'\n";
         std::cout << termcolor::green << "goto             loci, index     " << termcolor::reset << "e.g. ':goto chr1:20000'. Use index if multiple regions\n                                 are open e.g. ':goto chr1:20000 1'\n";
         std::cout << termcolor::green << "link             [none/sv/all]   " << termcolor::reset << "Switch read-linking ':link all'\n";
         std::cout << termcolor::green << "log2-cov         of, off         " << termcolor::reset << "Scale coverage by log2 e.g. ':log2-cov on'\n";
@@ -187,6 +198,21 @@ namespace Manager {
             opts.link_op = 1; valid = true;
         } else if (inputText == ":link none") {
             opts.link_op = 0; valid = true;
+        } else if (Utils::startsWith(inputText, ":f") || Utils::startsWith(inputText, ":find")) {
+            std::vector<std::string> split = Utils::split(inputText, delim);
+            if (!target_qname.empty() && split.size() == 1) {
+            } else if (split.size() == 2) {
+                target_qname = split.back();
+            } else {
+                std::cerr << termcolor::red << "Error:" << termcolor::reset << " please provide one qname\n";
+                return true;
+            }
+            redraw = true;
+            processed = true;
+            highlightQname();
+            inputText = "";
+            return true;
+
         } else if (Utils::startsWith(inputText, ":ylim")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             opts.ylim = std::stoi(split.back());
@@ -271,7 +297,6 @@ namespace Manager {
             std::cerr << termcolor::red << "Error:" << termcolor::reset << " command not understood\n";
         }
         inputText = "";
-
         return true;
     }
 
@@ -698,7 +723,11 @@ namespace Manager {
                                        [&](const Segs::Align &lhs, const int pos) { return lhs.pos < pos; });
                 while (bnd != cl.readQueue.begin()) {
                     if (bnd->y == level && bnd->pos <= pos && pos < bnd->reference_end) {
+                        bnd->edge_type = 4;
+                        target_qname = bam_get_qname(bnd->delegate);
                         printRead(bnd, headers[cl.bamIdx]);
+                        redraw = true;
+                        processed = true;
                         break;
                     }
                     --bnd;
@@ -773,11 +802,14 @@ namespace Manager {
     }
 
     void GwPlot::mousePos(GLFWwindow* wind, double x, double y) {
-
+        if (lastX == -1) {
+            lastX = x;
+        }
         int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+        bool lt_last = x < lastX;
+        lastX = x;
         if (state == GLFW_PRESS) {
             xDrag = x - xOri;
-
             if (mode == Manager::SINGLE) {
                 if (collections.empty()) {
                     return;
@@ -809,7 +841,7 @@ namespace Manager {
                     processed = true;
                     cl.processed = true;
                     HTS::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts,
-                                                opts.coverage, travel > 0, &vScroll, linked, &samMaxY);
+                                                opts.coverage, !lt_last, &vScroll, linked, &samMaxY);
                     redraw = true;
                 }
             }

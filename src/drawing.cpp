@@ -207,6 +207,8 @@ namespace Drawing {
     inline void chooseEdgeColor(int edge_type, SkPaint &edgeColor, const Themes::BaseTheme &theme) {
         if (edge_type == 2) {
             edgeColor = theme.ecSplit;
+        } else if (edge_type == 4) {
+            edgeColor = theme.ecSelected;
         } else {
             edgeColor = theme.ecMateUnmapped;
         }
