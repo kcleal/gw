@@ -29,7 +29,7 @@
 namespace Drawing {
 
     void drawCoverage(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
-                      SkCanvas *canvas, const Themes::Fonts &fonts, const float covY, const float refSpace);
+                      SkCanvas *canvas, const Themes::Fonts &fonts, float covY, float refSpace);
 
     void drawBams(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections, SkCanvas* canvas,
                   float yScaling, const Themes::Fonts &fonts, const Segs::linked_t &linked, int linkOp);
@@ -37,6 +37,8 @@ namespace Drawing {
     void drawRef(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
                  SkCanvas *canvas, const Themes::Fonts &fonts, float refSpace, float nRegions);
 
-    void drawBorders(const Themes::IniOptions &opts, const float fb_width, const float fb_height,
-                     SkCanvas *canvas, const size_t nbams, const size_t nregions);
+    void drawBorders(const Themes::IniOptions &opts, float fb_width, float fb_height,
+                     SkCanvas *canvas, size_t nbams, size_t nregions);
+
+    void drawLabel(Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts);
 }

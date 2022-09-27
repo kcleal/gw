@@ -96,6 +96,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("--parse-label")
             .default_value(iopts.parse_label).append()
             .help("Label to parse from vcf file (used with -v) e.g. 'filter' or 'info.SU' or 'qual'");
+    program.add_argument("--labels")
+            .default_value(iopts.labels).append()
+            .help("Choice of labels to use. Provide as comma-separated list e.g. 'PASS,FAIL'");
     program.add_argument("--in-labels")
             .default_value(std::string{""}).append()
             .help("Overlay labels from FILE on images (use with -v or -i)");
@@ -236,6 +239,9 @@ int main(int argc, char *argv[]) {
     if (program.is_used("--parse-label")) {
         iopts.parse_label = program.get<std::string>("--parse-label");
     }
+    if (program.is_used("--labels")) {
+        iopts.labels = program.get<std::string>("--labels");
+    }
     if (program.is_used("--ylim")) {
         iopts.ylim = program.get<int>("--ylim");
     }
@@ -289,9 +295,11 @@ int main(int argc, char *argv[]) {
                 std::terminate();
             }
         } else if (program.is_used("--variants")) {  // plot variants as tiled images
+            char delim = ',';
+            std::vector<std::string> labels = Utils::split(iopts.labels, delim);
 
             plotter.setVariantFile(program.get<std::string>("--variants"));
-
+            plotter.setLabelChoices(labels);
             plotter.mode = Manager::Show::TILED;
 
             int res = plotter.startUI(sContext, sSurface);
@@ -390,6 +398,6 @@ int main(int argc, char *argv[]) {
 
         }
     }
-    std::cout << "Gw finished\n";
+    std::cout << "\nGw finished\n";
     return 0;
 };

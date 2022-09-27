@@ -41,83 +41,86 @@
 
 namespace Utils {
 
-    #if defined(_WIN32)
-        std::string getExecutablePath() {
-            char rawPathName[MAX_PATH];
-            GetModuleFileNameA(NULL, rawPathName, MAX_PATH);
-            return std::string(rawPathName);
+#if defined(_WIN32)
+    std::string getExecutablePath() {
+        char rawPathName[MAX_PATH];
+        GetModuleFileNameA(NULL, rawPathName, MAX_PATH);
+        return std::string(rawPathName);
+    }
+
+    std::string getExecutableDir() {
+        std::string executablePath = getExecutablePath();
+        char* exePath = new char[executablePath.length()];
+        strcpy(exePath, executablePath.c_str());
+        PathRemoveFileSpecA(exePath);
+        std::string directory = std::string(exePath);
+        delete[] exePath;
+        return directory;
+    }
+#endif
+
+#ifdef __linux__
+
+    std::string getExecutablePath() {
+        char rawPathName[PATH_MAX];
+        realpath(PROC_SELF_EXE, rawPathName);
+        return std::string(rawPathName);
+    }
+
+    std::string getExecutableDir() {
+        std::string executablePath = getExecutablePath();
+        char *executablePathStr = new char[executablePath.length() + 1];
+        strcpy(executablePathStr, executablePath.c_str());
+        char *executableDir = dirname(executablePathStr);
+        delete[] executablePathStr;
+        return std::string(executableDir);
+    }
+
+#endif
+
+#ifdef __APPLE__
+    std::string getExecutablePath() {
+        char rawPathName[PATH_MAX];
+        char realPathName[PATH_MAX];
+        uint32_t rawPathSize = (uint32_t) sizeof(rawPathName);
+
+        if (!_NSGetExecutablePath(rawPathName, &rawPathSize)) {
+            realpath(rawPathName, realPathName);
         }
+        return std::string(realPathName);
+    }
 
-        std::string getExecutableDir() {
-            std::string executablePath = getExecutablePath();
-            char* exePath = new char[executablePath.length()];
-            strcpy(exePath, executablePath.c_str());
-            PathRemoveFileSpecA(exePath);
-            std::string directory = std::string(exePath);
-            delete[] exePath;
-            return directory;
-        }
-    #endif
+    std::string getExecutableDir() {
+        std::string executablePath = getExecutablePath();
+        char *executablePathStr = new char[executablePath.length() + 1];
+        strcpy(executablePathStr, executablePath.c_str());
+        char *executableDir = dirname(executablePathStr);
+        delete[] executablePathStr;
+        return std::string(executableDir);
+    }
+#endif
 
-    #ifdef __linux__
-        std::string getExecutablePath() {
-           char rawPathName[PATH_MAX];
-           realpath(PROC_SELF_EXE, rawPathName);
-           return  std::string(rawPathName);
-        }
-
-        std::string getExecutableDir() {
-            std::string executablePath = getExecutablePath();
-            char *executablePathStr = new char[executablePath.length() + 1];
-            strcpy(executablePathStr, executablePath.c_str());
-            char* executableDir = dirname(executablePathStr);
-            delete [] executablePathStr;
-            return std::string(executableDir);
-        }
-    #endif
-
-    #ifdef __APPLE__
-        std::string getExecutablePath() {
-            char rawPathName[PATH_MAX];
-            char realPathName[PATH_MAX];
-            uint32_t rawPathSize = (uint32_t) sizeof(rawPathName);
-
-            if (!_NSGetExecutablePath(rawPathName, &rawPathSize)) {
-                realpath(rawPathName, realPathName);
-            }
-            return std::string(realPathName);
-        }
-
-        std::string getExecutableDir() {
-            std::string executablePath = getExecutablePath();
-            char *executablePathStr = new char[executablePath.length() + 1];
-            strcpy(executablePathStr, executablePath.c_str());
-            char *executableDir = dirname(executablePathStr);
-            delete[] executablePathStr;
-            return std::string(executableDir);
-        }
-    #endif
-
-    bool is_file_exist( std::string FileName ) {
-        const std::filesystem::path p = FileName ;
-        return ( std::filesystem::exists(p) );
+    bool is_file_exist(std::string FileName) {
+        const std::filesystem::path p = FileName;
+        return (std::filesystem::exists(p));
     }
 
     bool endsWith(const std::string &mainStr, const std::string &toMatch) {
-        if(mainStr.size() >= toMatch.size() && mainStr.compare(mainStr.size() - toMatch.size(), toMatch.size(), toMatch) == 0)
+        if (mainStr.size() >= toMatch.size() &&
+            mainStr.compare(mainStr.size() - toMatch.size(), toMatch.size(), toMatch) == 0)
             return true;
         else
             return false;
     }
 
     bool startsWith(const std::string &mainStr, const std::string &toMatch) {
-        if(mainStr.size() >= toMatch.size() && mainStr.compare(0, toMatch.size(), toMatch) == 0)
+        if (mainStr.size() >= toMatch.size() && mainStr.compare(0, toMatch.size(), toMatch) == 0)
             return true;
         else
             return false;
     }
 
-    template <typename Out>
+    template<typename Out>
     void split(const std::string &s, char delim, Out result) {
         std::istringstream iss(s);
         std::string item;
@@ -130,14 +133,13 @@ namespace Utils {
         std::vector<std::string> elems;
         split(s, delim, std::back_inserter(elems));
         elems.erase(std::remove_if(elems.begin(), elems.end(),  // remove empty strings
-                       [&](std::string const& cmp) -> bool
-                       {
-                           return cmp == "";
-                       }), elems.end());
+                                   [&](std::string const &cmp) -> bool {
+                                       return cmp == "";
+                                   }), elems.end());
         return elems;
     }
 
-    void strToRegion(Region *r, std::string& s, const char delim){
+    void strToRegion(Region *r, std::string &s, const char delim) {
         size_t start = 0;
         size_t end = s.find(delim);
         r->chrom = s.substr(start, end - start);
@@ -154,7 +156,7 @@ namespace Utils {
         }
     }
 
-    Region parseRegion(std::string& s) {
+    Region parseRegion(std::string &s) {
         Region reg;
         std::string s2;
         if (s.find(":") != std::string::npos) {
@@ -207,24 +209,49 @@ namespace Utils {
         return start1 <= end2 && start2 <= end1;
     }
 
-    std::vector<BoundingBox> imageBoundingBoxes(Dims &dims, float windowWidth, float windowHeight, float padX, float padY) {
+    std::vector<BoundingBox>
+    imageBoundingBoxes(Dims &dims, float windowWidth, float windowHeight, float padX, float padY) {
         float w = windowWidth / dims.x;
         float h = windowHeight / dims.y;
         std::vector<BoundingBox> bboxes;
         bboxes.resize(dims.x * dims.y);
         int i = 0;
-        for (int x=0; x<dims.x; ++x) {
-            for (int y=0; y<dims.y; ++y) {
+        for (int x = 0; x < dims.x; ++x) {
+            for (int y = 0; y < dims.y; ++y) {
                 BoundingBox &b = bboxes[i];
-                b.xStart = (w * (float)x) + padX;
-                b.yStart = (h * (float)y) + padY;
+                b.xStart = (w * (float) x) + padX;
+                b.yStart = (h * (float) y) + padY;
                 b.xEnd = b.xStart + w - padX;
                 b.yEnd = b.yStart + h - padY;
                 b.width = w - padX * 2;
                 b.height = h - padY * 2;
-                ++ i;
+                ++i;
             }
         }
         return bboxes;
+    }
+
+    Label::Label(std::string &parsed, std::vector<std::string> &inputLabels, std::string &variantId) {
+        this->variantId = variantId;
+        i = 0;
+        clicked = false;
+        labels.push_back(parsed);
+        for (auto &v : inputLabels) {
+            if (v != parsed) {
+                labels.push_back(v);
+            }
+        }
+    }
+
+    void Label::next() {
+        if (i == labels.size() - 1) {
+            i = 0;
+        } else {
+            i += 1;
+        }
+    }
+
+    std::string & Label::current() {
+        return labels[i];
     }
 }

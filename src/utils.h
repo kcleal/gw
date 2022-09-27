@@ -58,4 +58,17 @@ namespace Utils {
 
     std::vector<BoundingBox> imageBoundingBoxes(Dims &dims, float wndowWidth, float windowHeight, float padX=5, float padY=5);
 
+    class Label {
+    public:
+        Label(std::string &parsed, std::vector<std::string> &labels, std::string &variantId);
+        ~Label() = default;
+        std::string variantId;
+        std::vector<std::string> labels;
+        int i;
+        bool clicked;
+
+        void next();
+        std::string& current();
+    };
+
 }

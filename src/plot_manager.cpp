@@ -26,9 +26,9 @@
 #include "include/core/SkSurface.h"
 
 #include "drawing.h"
-//#include "hts_funcs.h"
 #include "plot_manager.h"
 #include "segments.h"
+#include "../inc/termcolor.h"
 #include "themes.h"
 
 std::mutex mtx;
@@ -188,6 +188,10 @@ namespace Manager {
         vcf.open(path);  // todo some error checking needed?
     }
 
+    void GwPlot::setLabelChoices(std::vector<std::string> &labels) {
+        labelChoices = labels;
+    }
+
     void GwPlot::setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop) {
         this->clearCollections();
         long rlen = stop - start;
@@ -208,7 +212,7 @@ namespace Manager {
         }
     }
 
-    void GwPlot::appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop) {
+    void GwPlot::appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label) {
         this->clearCollections();
         long rlen = stop - start;
         std::vector<Utils::Region> v;
@@ -228,6 +232,7 @@ namespace Manager {
             v[1].end = stop + opts.pad;
         }
         multiRegions.push_back(v);
+        multiLabels.push_back({label, labelChoices, rid});
     }
 
     int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface) {
@@ -240,6 +245,8 @@ namespace Manager {
         GLFWwindow * wind = this->window;
         if (mode == Show::SINGLE) {
             printRegionInfo();
+        } else {
+            std::cout << termcolor::magenta << "Index     " << termcolor::reset << blockStart << std::flush;
         }
 
         while (true) {
@@ -443,7 +450,7 @@ namespace Manager {
                     break;
                 }
                 vcf.next();
-                appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop);
+                appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label);
             }
         }
 
@@ -463,6 +470,7 @@ namespace Manager {
             rect.setXYWH(b.xStart, b.yStart, b.width, b.height);
             if (imageCache.contains(i)) {
                 canvas->drawImageRect(imageCache[i], rect, sampOpts);
+                Drawing::drawLabel(opts, canvas, rect, multiLabels[i], fonts);
                 count += 1;
             }
             ++i;

@@ -121,6 +121,10 @@ namespace Manager {
         std::vector<hts_idx_t* > indexes;
         std::vector<Utils::Region> regions;
         std::vector<std::vector<Utils::Region>> multiRegions;  // used for creating tiled regions
+
+        std::vector<std::string> labelChoices;
+        std::vector<Utils::Label> multiLabels;  // used for labelling tiles
+
         std::vector<Segs::ReadCollection> collections;
 
         HTS::VCF vcf;
@@ -144,6 +148,8 @@ namespace Manager {
 
         void setVariantFile(const std::string &path);
 
+        void setLabelChoices(std::vector<std::string> & labels);
+
         void fetchRefSeq(Utils::Region &rgn);
 
         void fetchRefSeqs();
@@ -156,7 +162,7 @@ namespace Manager {
 
         void setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop);
 
-        void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop);
+        void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string & rid, std::string &label);
 
         int startUI(GrDirectContext* sContext, SkSurface *sSurface);
 

@@ -59,7 +59,7 @@ namespace Manager {
         } else if (shiftPress && GLFW_KEY_SEMICOLON && !captureText) {
             captureText = true;
             inputText.append(":");
-            std::cout << "\r" << inputText << std::flush;
+            std::cout <<  "\n" << inputText << std::flush;
         } else {
             shiftPress = false;
         }
@@ -157,7 +157,7 @@ namespace Manager {
         std::cout << termcolor::underline << "\nCommand          Modifier        Description                                            \n" << termcolor::reset;
         std::cout << termcolor::green << "add              region(s)       " << termcolor::reset << "Add one or more regions e.g. ':add chr1:1-20000'\n";
         std::cout << termcolor::green << "cov              of, off         " << termcolor::reset << "Turn coverage on/off e.g. ':cov off'\n";
-        std::cout << termcolor::green << "find, f             qname?     " << termcolor::reset << "To find other alignments from selected read use ':find'. Or\n                                 use ':find [QNAME]' to find target read'\n";
+        std::cout << termcolor::green << "find, f          qname?     " << termcolor::reset << "To find other alignments from selected read use ':find'. Or\n                                 use ':find [QNAME]' to find target read'\n";
         std::cout << termcolor::green << "goto             loci, index     " << termcolor::reset << "e.g. ':goto chr1:20000'. Use index if multiple regions\n                                 are open e.g. ':goto chr1:20000 1'\n";
         std::cout << termcolor::green << "link             [none/sv/all]   " << termcolor::reset << "Switch read-linking ':link all'\n";
         std::cout << termcolor::green << "log2-cov         of, off         " << termcolor::reset << "Scale coverage by log2 e.g. ':log2-cov on'\n";
@@ -341,17 +341,17 @@ namespace Manager {
         if (regions.empty()) {
             return;
         }
-        std::cout << termcolor::magenta << "Showing   " ;
+        std::cout << "\r                                                                                ";
+        std::cout << termcolor::magenta << "\rShowing   " ;
         int i = 0;
         for (auto &r : regions) {
             std::cout << termcolor::cyan << regions[0].chrom << ":" << r.start << "-" << r.end << termcolor::white << "  (" << getSize(r.end - r.start) << ")";
             if (i != regions.size() - 1) {
-                std::cout << termcolor::magenta << "  |  ";
+                std::cout << "    ";
             }
             i += 1;
         }
-
-        std::cout << termcolor::reset << std::endl;
+        std::cout << termcolor::reset << std::flush;
 
     }
 
@@ -495,7 +495,7 @@ namespace Manager {
                     if (regionSelection >= regions.size()) {
                         regionSelection = 0;
                     }
-                    std::cout << "Region selection " << regionSelection << std::endl;
+                    std::cout << "\nRegion    " << regionSelection << std::endl;
                 } else if (key == opts.cycle_link_mode) {
                     opts.link_op = (opts.link_op == 2) ? 0 : opts.link_op += 1;
                     std::string lk = (opts.link_op > 0) ? ((opts.link_op == 1) ? "sv" : "all") : "none";
@@ -510,9 +510,14 @@ namespace Manager {
                 if (key == opts.scroll_right) {
                     blockStart += bLen;
                     redraw = true;
+                    std::cout << "\r                      ";
+                    std::cout << termcolor::magenta << "\rIndex     " << termcolor::reset << blockStart << std::flush;
+
                 } else if (key == opts.scroll_left) {
                     blockStart = (blockStart - bLen > 0) ? blockStart - bLen : 0;
                     redraw = true;
+                    std::cout << "\r                      ";
+                    std::cout << termcolor::magenta << "\rIndex     " << termcolor::reset << blockStart << std::flush;
                 } else if (key == opts.zoom_out) {
                     opts.number.x += 1;
                     opts.number.y += 1;
@@ -552,6 +557,7 @@ namespace Manager {
                 imageCache.clear();
                 blockStart = 0;
                 mode = Manager::Show::TILED;
+                std::cout << termcolor::magenta << "Index     " << termcolor::reset << blockStart << std::endl;
             }
             ++paths;
         }
@@ -674,14 +680,13 @@ namespace Manager {
     void printRead(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr) {
         const char *rname = sam_hdr_tid2name(hdr, r->delegate->core.tid);
         const char *rnext = sam_hdr_tid2name(hdr, r->delegate->core.mtid);
-        std::cout << std::endl;
+        std::cout << std::endl << std::endl;
         std::cout << termcolor::bold << "qname    " << termcolor::reset << bam_get_qname(r->delegate) << std::endl;
         std::cout << termcolor::bold << "span     " << termcolor::reset << rname << ":" << r->pos << "-" << r->reference_end << std::endl;
         std::cout << termcolor::bold << "mate     " << termcolor::reset << rnext << ":" << r->delegate->core.mpos << std::endl;
         std::cout << termcolor::bold << "flag     " << termcolor::reset << r->delegate->core.flag << std::endl;
         std::cout << termcolor::bold << "cigar    " << termcolor::reset; printCigar(r); std::cout << std::endl;
         std::cout << termcolor::bold << "seq      " << termcolor::reset; printSeq(r); std::cout << std::endl;
-        std::cout << std::endl;
     }
 
     void GwPlot::mouseButton(GLFWwindow* wind, int button, int action, int mods) {
@@ -760,7 +765,9 @@ namespace Manager {
         } else if  (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
             if (!multiRegions.empty() || !imageCache.empty()) {
                 mode = Manager::TILED;
+                xDrag = -1000000;
                 redraw = true;
+                std::cout << termcolor::magenta << "\nIndex     " << termcolor::reset << blockStart << std::flush;
             }
         } else if (mode == Manager::TILED) {
             if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
@@ -773,11 +780,13 @@ namespace Manager {
                     ++i;
                 }
                 if (i == bboxes.size()) {
+                    xDrag = -1000000;
                     return;
                 }
                 if (bams.size() > 0) {
                     if (i < multiRegions.size() && !bams.empty()) {
                         mode = Manager::SINGLE;
+                        std::cout << termcolor::magenta << "\nVariant   " << termcolor::reset << multiLabels[blockStart + i].variantId << std::endl;
                         regions = multiRegions[blockStart + i];
                         glfwPostEmptyEvent();
                         redraw = true;
@@ -787,16 +796,36 @@ namespace Manager {
                 }
             } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
                 if (std::fabs(xDrag) > fb_width / 4) {
+                    int nmb = opts.number.x * opts.number.y;
                     if (xDrag > 0) {
-                        blockStart = (blockStart - 1 < 0) ? 0 : blockStart - 1;
+                        blockStart = (blockStart - nmb< 0) ? 0 : blockStart - nmb;
                         redraw = true;
-                        xDrag = -1000000;
+                        std::cout << "\r                      ";
+                        std::cout << termcolor::magenta << "\rIndex     " << termcolor::reset << blockStart << std::flush;
                     } else {
-                        blockStart += 1;
+                        blockStart += nmb;
                         redraw = true;
-                        xDrag = -1000000;
+                        std::cout << "\r                      ";
+                        std::cout << termcolor::magenta << "\rIndex     " << termcolor::reset << blockStart << std::flush;
                     }
+                } else if (std::fabs(xDrag) < 5) {
+                    std::vector<Utils::BoundingBox> bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height);
+                    int i = 0;
+                    for (auto &b: bboxes) {
+                        if (x > b.xStart && x < b.xEnd && y > b.yStart && y < b.yEnd) {
+                            break;
+                        }
+                        ++i;
+                    }
+                    if (i == bboxes.size()) {
+                        xDrag = -1000000;
+                        return;
+                    }
+                    multiLabels[blockStart + i].next();
+                    multiLabels[blockStart + i].clicked = true;
+                    redraw = true;
                 }
+                xDrag = -1000000;
             }
         }
     }

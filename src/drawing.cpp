@@ -760,4 +760,13 @@ namespace Drawing {
             canvas->drawPath(path, opts.theme.lcLightJoins);
         }
     }
+
+    void drawLabel(Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts) {
+        float pad = 5;
+        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(label.current().c_str(), fonts.overlay);
+        canvas->drawTextBlob(blob, rect.left() + pad, rect.bottom() - pad, opts.theme.tcDel);
+        if (label.clicked) {
+            canvas->drawRect(rect, opts.theme.lcJoins);
+        }
+    }
 }

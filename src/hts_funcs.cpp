@@ -337,7 +337,7 @@ namespace HTS {
         int mem2 = 0;
         int32_t *ires = nullptr;
         float *fres = nullptr;
-        std::string parsedVal;
+//        std::string parsedVal;
         switch (parse) {
             case -1:
                 label = ""; break;
@@ -357,22 +357,22 @@ namespace HTS {
                 switch (info_field_type) {
                     case BCF_HT_INT:
                         resw = bcf_get_info_int32(hdr,v,tag.c_str(),&ires,&mem2);
-                        parsedVal = std::to_string(*ires);
+                        label = std::to_string(*ires);
                         break;
                     case BCF_HT_REAL:
                         resw = bcf_get_info_float(hdr,v,tag.c_str(),&fres,&mem2);
-                        parsedVal = std::to_string(*fres);
+                        label = std::to_string(*fres);
                         break;
                     case BCF_HT_STR:
                         resw = bcf_get_info_string(hdr,v,tag.c_str(),&strmem2,&mem2);
-                        parsedVal = strmem2;
+                        label = strmem2;
                         break;
                     case BCF_HT_FLAG:
                         resw = bcf_get_info_flag(hdr,v,tag.c_str(),0,0);
                         break;
                     default:
                         resw = bcf_get_info_string(hdr,v,tag.c_str(),&strmem2,&mem2);
-                        parsedVal = strmem2;
+                        label = strmem2;
                         break;
                 }
                 if (resw == -1) {
