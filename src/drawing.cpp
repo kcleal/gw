@@ -64,7 +64,7 @@ namespace Drawing {
         float yOffsetAll = refSpace;
 
         for (auto &cl: collections) {
-            if (cl.covArr.empty()) {
+            if (cl.covArr.empty() || cl.readQueue.empty()) {
                 continue;
             }
             if (cl.bamIdx != last_bamIdx) {
@@ -143,17 +143,19 @@ namespace Drawing {
 
             sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(indelChars, fonts.overlay);
             canvas->drawTextBlob(blob, xOffset + 25, (covY * 0.3) + yOffsetAll + 10, theme.tcDel);
-            char * ap = indelChars;
-            ap += std::sprintf(indelChars, "%s", "avg. ");
-            std::sprintf(ap, "%.1f", mean);
-            blob = SkTextBlob::MakeFromString(indelChars, fonts.overlay);
-            canvas->drawTextBlob(blob, xOffset + 25, (covY * 0.5) + yOffsetAll + 10, theme.tcDel);
-
             path.reset();
             path.moveTo(xOffset, (covY * 0.3) + yOffsetAll);
             path.lineTo(xOffset + 20, (covY * 0.3) + yOffsetAll);
             canvas->drawPath(path, theme.lcJoins);
 
+            char * ap = indelChars;
+            ap += std::sprintf(indelChars, "%s", "avg. ");
+            std::sprintf(ap, "%.1f", mean);
+
+            if (((covY * 0.5) + yOffsetAll + 10 - fonts.fontMaxSize) - ((covY * 0.3) + yOffsetAll + 10) > 0) { // dont overlap text
+                blob = SkTextBlob::MakeFromString(indelChars, fonts.overlay);
+                canvas->drawTextBlob(blob, xOffset + 25, (covY * 0.5) + yOffsetAll + 10, theme.tcDel);
+            }
             last_bamIdx = cl.bamIdx;
         }
     }
@@ -676,7 +678,7 @@ namespace Drawing {
         float offset = 0;
 
 //        float h = fonts.fontMaxSize;
-        float textW = fonts.overlayWidth;//fonts.textWidths[0];
+        float textW = fonts.overlayWidth;
         float minLetterSize = ((float)opts.dimensions.x / nRegions) / textW;
         for (auto &cl: collections) {
             long size = cl.region.end - cl.region.start;
@@ -688,7 +690,7 @@ namespace Drawing {
             }
             double i = cl.xOffset;
 
-            if (textW > 0 && (float)size < minLetterSize) {
+            if (textW > 0 && (float)size < minLetterSize && fonts.fontMaxSize <= h) {
                 double v = (xScaling - textW) / 2;
                 float yp = h * 0.66;
                 while (*ref) {

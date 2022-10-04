@@ -156,11 +156,11 @@ namespace Manager {
         std::cout << termcolor::italic << "\n* Enter a command by selecting the GW window (not the terminal) and type ':[COMMAND]' *\n" << termcolor::reset;
         std::cout << termcolor::underline << "\nCommand          Modifier        Description                                            \n" << termcolor::reset;
         std::cout << termcolor::green << "add              region(s)       " << termcolor::reset << "Add one or more regions e.g. ':add chr1:1-20000'\n";
-        std::cout << termcolor::green << "cov              of, off         " << termcolor::reset << "Turn coverage on/off e.g. ':cov off'\n";
-        std::cout << termcolor::green << "find, f          qname?     " << termcolor::reset << "To find other alignments from selected read use ':find'. Or\n                                 use ':find [QNAME]' to find target read'\n";
-        std::cout << termcolor::green << "goto             loci, index     " << termcolor::reset << "e.g. ':goto chr1:20000'. Use index if multiple regions\n                                 are open e.g. ':goto chr1:20000 1'\n";
+        std::cout << termcolor::green << "cov              [of/off]        " << termcolor::reset << "Turn coverage on/off e.g. ':cov off'\n";
+        std::cout << termcolor::green << "find, f          qname?          " << termcolor::reset << "To find other alignments from selected read use ':find'. Or\n                                 use ':find [QNAME]' to find target read'\n";
+        std::cout << termcolor::green << "goto             loci index?     " << termcolor::reset << "e.g. ':goto chr1:1-20000'. Use index if multiple \n                                 regions are open e.g. ':goto 'chr1 20000' 1'\n";
         std::cout << termcolor::green << "link             [none/sv/all]   " << termcolor::reset << "Switch read-linking ':link all'\n";
-        std::cout << termcolor::green << "log2-cov         of, off         " << termcolor::reset << "Scale coverage by log2 e.g. ':log2-cov on'\n";
+        std::cout << termcolor::green << "log2-cov         [of/off]        " << termcolor::reset << "Scale coverage by log2 e.g. ':log2-cov on'\n";
         std::cout << termcolor::green << "quit, q          -               " << termcolor::reset << "Quit GW\n";
         std::cout << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
         std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. ':rm 1'\n";
@@ -184,6 +184,7 @@ namespace Manager {
         }
         bool valid = false;
         constexpr char delim = ' ';
+        constexpr char delim_q = '\'';
 
         if (inputText == ":q" || inputText == ":quit") {
             throw CloseException();
@@ -264,7 +265,10 @@ namespace Manager {
                 valid = false;
             }
         } else if (Utils::startsWith(inputText, ":goto")) {
-            std::vector<std::string> split = Utils::split(inputText, delim);
+            std::vector<std::string> split = Utils::split(inputText, delim_q);
+            if (split.size() == 1) {
+                split = Utils::split(inputText, delim);
+            }
             if (split.size() > 1 && split.size() < 4) {
                 int index = (split.size() == 3) ? std::stoi(split.back()) : 0;
                 if (index < regions.size()) {
@@ -277,7 +281,10 @@ namespace Manager {
                 }
             }
         } else if (Utils::startsWith(inputText, ":add"))  {
-            std::vector<std::string> split = Utils::split(inputText, delim);
+            std::vector<std::string> split = Utils::split(inputText, delim_q);
+            if (split.size() == 1) {
+                split = Utils::split(inputText, delim);
+            }
             if (split.size() > 1) {
                 for (int i=1; i < split.size(); ++i) {
                     regions.push_back(Utils::parseRegion(split[1]));

@@ -38,7 +38,7 @@ namespace HTS {
         readQueue.push_back(make_align(bam_init1()));
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
-            std::cerr << "Error: Null iterator when trying to fetch from HTS file\n";
+            std::cerr << "\nError: Null iterator when trying to fetch from HTS file " << region->chrom << " " << region->start << " " << region->end << std::endl;
             std::terminate();
         }
         while (sam_itr_next(b, iter_q, readQueue.back().delegate) >= 0) {
@@ -141,12 +141,20 @@ namespace HTS {
                     break;
                 }
             }
+            int end_r;
             if (readQueue.empty()) {
                 std::fill(col.levelsStart.begin(), col.levelsStart.end(), 1215752191);
                 std::fill(col.levelsEnd.begin(), col.levelsEnd.end(), 0);
+                end_r = region->end;
+            } else {
+                end_r = readQueue.front().reference_end;
             }
 
-            iter_q = sam_itr_queryi(index, tid, region->start, readQueue.front().reference_end);
+            iter_q = sam_itr_queryi(index, tid, region->start, end_r);
+            if (iter_q == nullptr) {
+                std::cerr << "\nError: Null iterator when trying to fetch from HTS file\n" << region->start<< " " << end_r<< std::endl;
+                std::terminate();
+            }
             newReads.push_back(make_align(bam_init1()));
 
             while (sam_itr_next(b, iter_q, newReads.back().delegate) >= 0) {
@@ -190,6 +198,10 @@ namespace HTS {
                 std::fill(col.levelsEnd.begin(), col.levelsEnd.end(), 0);
             }
             iter_q = sam_itr_queryi(index, tid, lastPos, region->end);
+            if (iter_q == nullptr) {
+                std::cerr << "\nError: Null iterator when trying to fetch from HTS file\n" << lastPos << " " << region->end << std::endl;
+                std::terminate();
+            }
             newReads.push_back(make_align(bam_init1()));
 
             while (sam_itr_next(b, iter_q, newReads.back().delegate) >= 0) {
