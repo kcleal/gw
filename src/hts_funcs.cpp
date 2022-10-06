@@ -38,7 +38,7 @@ namespace HTS {
         readQueue.push_back(make_align(bam_init1()));
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
-            std::cerr << "\nError: Null iterator when trying to fetch from HTS file " << region->chrom << " " << region->start << " " << region->end << std::endl;
+            std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
             std::terminate();
         }
         while (sam_itr_next(b, iter_q, readQueue.back().delegate) >= 0) {
@@ -53,7 +53,7 @@ namespace HTS {
             bam_destroy1(src);
             readQueue.pop_back();
         }
-        Segs::init_parallel(readQueue, opts.threads);
+        Segs::init_parallel(readQueue, opts.threads, col.region.refSeq, col.region.start);
         if (coverage) {
             int l_arr = (int)col.covArr.size() - 1;
             for (auto &i : readQueue) {
@@ -68,9 +68,9 @@ namespace HTS {
         Utils::Region *region = &col.region;
         while (!readQueue.empty()) {
             Segs::Align &item = readQueue.back();
-            if (item.cov_start > region->end) {
+            if (item.cov_start > region->end + 1000) {
                 if (item.y != -1) {
-                    col.levelsEnd[item.y] = item.cov_start;
+                    col.levelsEnd[item.y] = item.cov_start - 1;
                 }
                 readQueue.pop_back();
             } else {
@@ -79,9 +79,9 @@ namespace HTS {
         }
         int idx = 0;
         for (auto &item : readQueue) {  // drop out of scope reads
-            if (item.cov_end < region->start) {
+            if (item.cov_end < region->start - 1000) {
                 if (item.y != -1) {
-                    col.levelsStart[item.y] = item.cov_end;
+                    col.levelsStart[item.y] = item.cov_end + 1;
                 }
                 bam_destroy1(item.delegate);
                 idx += 1;
@@ -104,6 +104,7 @@ namespace HTS {
 
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *vScroll, Segs::linked_t &linked, int *samMaxY) {
+
         bam1_t *src;
         hts_itr_t *iter_q;
         std::vector<Segs::Align>& readQueue = col.readQueue;
@@ -147,12 +148,17 @@ namespace HTS {
                 std::fill(col.levelsEnd.begin(), col.levelsEnd.end(), 0);
                 end_r = region->end;
             } else {
+//                end_r = region->end; //readQueue.front().reference_end; //pos;
                 end_r = readQueue.front().reference_end;
+                if (end_r < region->start) {
+                    return; // reads are already in the queue
+                }
             }
-
-            iter_q = sam_itr_queryi(index, tid, region->start, end_r);
+            // not sure why this is needed. Without the left pad, some alignments are not collected for small regions??
+            long begin = (region->start - 1000) > 0 ? region->start - 1000 : 0;
+            iter_q = sam_itr_queryi(index, tid, begin, end_r);
             if (iter_q == nullptr) {
-                std::cerr << "\nError: Null iterator when trying to fetch from HTS file\n" << region->start<< " " << end_r<< std::endl;
+                std::cerr << "\nError: Null iterator when trying to fetch from HTS file in appendReadsAndCoverage (left) " << region->chrom << " " << region->start<< " " << end_r << " " << region->end << std::endl;
                 std::terminate();
             }
             newReads.push_back(make_align(bam_init1()));
@@ -176,9 +182,9 @@ namespace HTS {
         } else if (!left && lastPos < region->end) {
             int idx = 0;
             for (auto &item : readQueue) {  // drop out of scope reads
-                if (item.cov_end < region->start) {
+                if (item.cov_end < region->start - 1000) {
                     if (item.y != -1) {
-                        col.levelsStart[item.y] = item.cov_end;
+                        col.levelsStart[item.y] = item.cov_end + 1;
                         if (col.levelsStart[item.y] == col.levelsEnd[item.y]) {
                             col.levelsStart[item.y] = 1215752191;
                             col.levelsEnd[item.y] = 0;
@@ -199,7 +205,7 @@ namespace HTS {
             }
             iter_q = sam_itr_queryi(index, tid, lastPos, region->end);
             if (iter_q == nullptr) {
-                std::cerr << "\nError: Null iterator when trying to fetch from HTS file\n" << lastPos << " " << region->end << std::endl;
+                std::cerr << "\nError: Null iterator when trying to fetch from HTS file in appendReadsAndCoverage (!left) " << region->chrom << " " << lastPos << " " << region->end << std::endl;
                 std::terminate();
             }
             newReads.push_back(make_align(bam_init1()));
@@ -221,7 +227,7 @@ namespace HTS {
             }
         }
         if (!newReads.empty()) {
-            Segs::init_parallel(newReads, 1);
+            Segs::init_parallel(newReads, 1, col.region.refSeq, col.region.start);
             int maxY = Segs::findY(col.bamIdx, col, newReads, *vScroll, opts.link_op, opts, region, linked, left);
             if (maxY > *samMaxY) {
                 *samMaxY = maxY;

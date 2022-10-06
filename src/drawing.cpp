@@ -78,7 +78,7 @@ namespace Drawing {
             c.resize(cl.covArr.size());
             c[0] = cl.covArr[0];
             int cMaxi = (c[0] > 10) ? c[0] : 10;
-            tot = (float)cMaxi;
+            tot = (float)c[0];
             n = 0;
             if (tot > 0) {
                 n += 1;
@@ -146,6 +146,8 @@ namespace Drawing {
             path.reset();
             path.moveTo(xOffset, (covY * 0.3) + yOffsetAll);
             path.lineTo(xOffset + 20, (covY * 0.3) + yOffsetAll);
+            path.moveTo(xOffset, covY + yOffsetAll);
+            path.lineTo(xOffset + 20, covY + yOffsetAll);
             canvas->drawPath(path, theme.lcJoins);
 
             char * ap = indelChars;

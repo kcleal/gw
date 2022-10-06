@@ -84,7 +84,7 @@ namespace Segs {
         bool processed;
     };
 
-    void init_parallel(std::vector<Align> &aligns, int n);
+    void init_parallel(std::vector<Align> &aligns, int n, const char *refSeq, int begin);
 
     void addToCovArray(std::vector<int> &arr, Align &align, int begin, int end, int l_arr);
 

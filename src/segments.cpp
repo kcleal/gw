@@ -112,7 +112,64 @@ namespace Segs {
         }
     }
 
-    void align_init(Align *self) {
+    void get_mismatched_bases_no_MD(std::vector<MMbase> &result,
+                                    const char *refSeq, uint32_t begin, uint32_t r_pos,
+                                    uint32_t cigar_l, uint32_t *cigar_p, uint8_t *ptr_seq) {
+        int r_idx;
+        uint32_t idx = 0;
+        //uint32_t r_seq_pos = r_pos - (uint32_t)begin;
+        int op, l;
+        for (int k = 0; k < cigar_l; k++) {
+            op = cigar_p[k] & BAM_CIGAR_MASK;
+            l = cigar_p[k] >> BAM_CIGAR_SHIFT;
+
+            if (op == BAM_CSOFT_CLIP) {
+                idx += l;
+                continue;
+            }
+            else if (op == BAM_CINS) {
+                idx += l;
+                r_pos += 1;
+                continue;
+            }
+            else if (op == BAM_CDEL) {
+                r_pos += l;
+                continue;
+            }
+            else if (op == BAM_CREF_SKIP) {
+                r_pos += l;
+                continue;
+            }
+            else if (op == BAM_CHARD_CLIP || op == BAM_CEQUAL) {
+                continue;
+            }
+            else if (op == BAM_CDIFF) {
+
+                for (int i=0; i < l; ++l) {
+                    result.push_back({idx, r_pos});
+                    idx += 1;
+                    r_pos += 1;
+                }
+            }
+            else {  // BAM_CMATCH
+                for (int i=0; i < l; ++i) {
+                    r_idx = (int)r_pos - begin;
+                    if (r_idx < 0) {
+                        idx += 1;
+                        continue;
+                    }
+                    if (bam_seqi(ptr_seq, idx) != refSeq[r_idx]) {
+                        result.push_back({idx, r_pos});
+                    }
+                    idx += 1;
+                    r_pos += 1;
+                }
+            }
+        }
+        std::cout << result.size() << std::endl;
+    }
+
+    void align_init(Align *self, const char *refSeq, int begin) {
         uint8_t *v;
         char *value;
 
@@ -249,8 +306,11 @@ namespace Segs {
         } else {
             self->edge_type = 1;  // "NORMAL"
         }
-
-        get_mismatched_bases(self->mismatches, self->MD, self->pos, cigar_l, cigar_p);
+        if (self->has_MD) {
+            get_mismatched_bases(self->mismatches, self->MD, self->pos, cigar_l, cigar_p);
+        } else {
+            get_mismatched_bases_no_MD(self->mismatches, refSeq, begin, self->pos, cigar_l, cigar_p, ptr_seq);
+        }
         if (!self->mismatches.empty()) {
             // note not all mismatches are drawn, so it doesn't make sense to save the color here. defer that to drawing
             for (auto &mm : self->mismatches) {
@@ -259,20 +319,21 @@ namespace Segs {
             }
         }
 
+
         self->initialized = true;
     }
 
-    void init_parallel(std::vector<Align> &aligns, int n) {
+    void init_parallel(std::vector<Align> &aligns, int n, const char *refSeq, int begin) {
         if (n == 1) {
             for (auto &aln : aligns) {
-                align_init(&aln);
+                align_init(&aln, refSeq, begin);
             }
         } else {
             BS::thread_pool pool(n);
             pool.parallelize_loop(0, aligns.size(),
-                                  [&aligns](const int a, const int b) {
+                                  [&aligns, &refSeq, &begin](const int a, const int b) {
                                       for (int i = a; i < b; ++i)
-                                          align_init(&aligns[i]);
+                                          align_init(&aligns[i], refSeq, begin);
                                   })
                     .wait();
         }
@@ -295,7 +356,7 @@ namespace Segs {
 
     int findY(int bamIdx, ReadCollection &rc, std::vector<Align> &rQ, int vScroll, int linkType, Themes::IniOptions &opts, Utils::Region *region, linked_t &linked, bool joinLeft) {
 
-        if (rc.readQueue.empty()) {
+        if (rQ.empty()) {
             return 0;
         }
         Align *q_ptr = &rQ.front();
@@ -410,6 +471,21 @@ namespace Segs {
                 if (i == memLen && linkType > 0 && lm.contains(qname)) {
                     linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
                 }
+//                std::string qnamestr = bam_get_qname(q_ptr->delegate);
+////                std::cout << "\n idx 39 is " << ls[39] << std::endl;
+//
+//                if (qnamestr == "HISEQ1:11:H8GV6ADXX:1:1105:8878:96886" && q_ptr->delegate->core.flag == 163 ) {
+//                    std::cout << "\nn reads " << rQ.size() << std::endl;
+//                    std::cout << "\n idx " << q_ptr->y <<  " " << bam_get_qname(q_ptr->delegate) << " at pos " << q_ptr->pos << std::endl;
+//                    int ii = 0;
+//                    std::cout << "\n" << q_ptr->y << std::endl;
+//                    for (auto &itm : ls) {
+//                        std::cout << ii << ": "  << itm <<  ", ";
+//                        ii += 1;
+//                    }
+//                    std::cout << std::endl;
+//                }
+
                 q_ptr += move;
             }
         }
