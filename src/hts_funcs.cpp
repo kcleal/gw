@@ -53,7 +53,7 @@ namespace HTS {
             bam_destroy1(src);
             readQueue.pop_back();
         }
-        Segs::init_parallel(readQueue, opts.threads, col.region.refSeq, col.region.start);
+        Segs::init_parallel(readQueue, opts.threads, col.region.refSeq, col.region.start, col.region.end - col.region.start);
         if (coverage) {
             int l_arr = (int)col.covArr.size() - 1;
             for (auto &i : readQueue) {
@@ -227,7 +227,7 @@ namespace HTS {
             }
         }
         if (!newReads.empty()) {
-            Segs::init_parallel(newReads, 1, col.region.refSeq, col.region.start);
+            Segs::init_parallel(newReads, 1, col.region.refSeq, col.region.start, col.region.end - col.region.start);
             int maxY = Segs::findY(col.bamIdx, col, newReads, *vScroll, opts.link_op, opts, region, linked, left);
             if (maxY > *samMaxY) {
                 *samMaxY = maxY;

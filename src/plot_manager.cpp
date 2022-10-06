@@ -309,7 +309,9 @@ namespace Manager {
             for (auto & a : cl.readQueue) {
                 bam_destroy1(a.delegate);
             }
-            delete cl.region.refSeq;
+//            if (cl.region.refSeq != nullptr) {
+//                delete cl.region.refSeq;
+//            }
         }
         collections.clear();
     }
