@@ -610,7 +610,13 @@ namespace Manager {
         }
     }
 
-    void printSeq(std::vector<Segs::Align>::iterator r) {
+    void printSeq(std::vector<Segs::Align>::iterator r, int max=5000) {
+        auto l_seq = (int)r->delegate->core.l_qseq;
+
+        if (l_seq == 0) {
+            std::cout << "*";
+            return;
+        }
         uint32_t l, cigar_l, op, k;
         uint32_t *cigar_p;
         cigar_l = r->delegate->core.n_cigar;
@@ -618,31 +624,44 @@ namespace Manager {
         uint8_t *ptr_seq = bam_get_seq(r->delegate);
         int i = 0;
         constexpr char basemap[] = {'.', 'A', 'C', '.', 'G', '.', '.', '.', 'T', '.', '.', '.', '.', '.', 'N', 'N', 'N'};
+
         for (k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
-            if (op == 5) {
-                continue;
+            if (i >= max) {
+                std::cout << "...";
+                return;
             }
-            if (op == 2) {
+            if (op == BAM_CHARD_CLIP) {
+                continue;
+            } else if (op == BAM_CDEL) {
                 for (int n=0; n < l; ++n) {
                     std::cout << "-";
                 }
-                continue;
-            }
-            if (op == 0) {
-                for (int n=0; n < l; ++n) {
+
+            } else if (op == BAM_CMATCH) {
+                for (int n = 0; n < l; ++n) {
                     uint8_t base = bam_seqi(ptr_seq, i);
                     bool mm = false;
                     for (auto &item: r->mismatches) {
                         if (i == item.idx) {
                             std::cout << termcolor::underline;
                             switch (basemap[base]) {
-                                case 65 : std::cout << termcolor::green << "A" << termcolor::reset; break;
-                                case 67 : std::cout << termcolor::blue << "C" << termcolor::reset; break;
-                                case 71 : std::cout << termcolor::yellow << "G" << termcolor::reset; break;
-                                case 78 : std::cout << termcolor::grey << "N" << termcolor::reset; break;
-                                case 84 : std::cout << termcolor::red << "T" << termcolor::reset; break;
+                                case 65 :
+                                    std::cout << termcolor::green << "A" << termcolor::reset;
+                                    break;
+                                case 67 :
+                                    std::cout << termcolor::blue << "C" << termcolor::reset;
+                                    break;
+                                case 71 :
+                                    std::cout << termcolor::yellow << "G" << termcolor::reset;
+                                    break;
+                                case 78 :
+                                    std::cout << termcolor::grey << "N" << termcolor::reset;
+                                    break;
+                                case 84 :
+                                    std::cout << termcolor::red << "T" << termcolor::reset;
+                                    break;
                             }
                             mm = true;
                             break;
@@ -650,16 +669,72 @@ namespace Manager {
                     }
                     if (!mm) {
                         switch (basemap[base]) {
-                            case 65 : std::cout << "A"; break;
-                            case 67 : std::cout << "C"; break;
-                            case 71 : std::cout << "G"; break;
-                            case 78 : std::cout << "N"; break;
-                            case 84 : std::cout << "T"; break;
+                            case 65 :
+                                std::cout << "A";
+                                break;
+                            case 67 :
+                                std::cout << "C";
+                                break;
+                            case 71 :
+                                std::cout << "G";
+                                break;
+                            case 78 :
+                                std::cout << "N";
+                                break;
+                            case 84 :
+                                std::cout << "T";
+                                break;
                         }
                     }
                     i += 1;
                 }
-                continue;
+
+            } else if (op == BAM_CEQUAL) {
+                for (int n = 0; n < l; ++n) {
+                    uint8_t base = bam_seqi(ptr_seq, i);
+                    switch (basemap[base]) {
+                        case 65 :
+                            std::cout << "A";
+                            break;
+                        case 67 :
+                            std::cout << "C";
+                            break;
+                        case 71 :
+                            std::cout << "G";
+                            break;
+                        case 78 :
+                            std::cout << "N";
+                            break;
+                        case 84 :
+                            std::cout << "T";
+                            break;
+                    }
+                    i += 1;
+                }
+
+            } else if (op == BAM_CDIFF) {
+                for (int n = 0; n < l; ++n) {
+                    uint8_t base = bam_seqi(ptr_seq, i);
+                    switch (basemap[base]) {
+                        case 65 :
+                            std::cout << termcolor::green << "A" << termcolor::reset;
+                            break;
+                        case 67 :
+                            std::cout << termcolor::blue << "C" << termcolor::reset;
+                            break;
+                        case 71 :
+                            std::cout << termcolor::yellow << "G" << termcolor::reset;
+                            break;
+                        case 78 :
+                            std::cout << termcolor::grey << "N" << termcolor::reset;
+                            break;
+                        case 84 :
+                            std::cout << termcolor::red << "T" << termcolor::reset;
+                            break;
+                    }
+                    i += 1;
+                }
+
             } else {
                 for (int n=0; n < l; ++n) {
                     uint8_t base = bam_seqi(ptr_seq, i);
@@ -682,7 +757,9 @@ namespace Manager {
         std::cout << std::endl << std::endl;
         std::cout << termcolor::bold << "qname    " << termcolor::reset << bam_get_qname(r->delegate) << std::endl;
         std::cout << termcolor::bold << "span     " << termcolor::reset << rname << ":" << r->pos << "-" << r->reference_end << std::endl;
-        std::cout << termcolor::bold << "mate     " << termcolor::reset << rnext << ":" << r->delegate->core.mpos << std::endl;
+        if (rnext) {
+            std::cout << termcolor::bold << "mate     " << termcolor::reset << rnext << ":" << r->delegate->core.mpos << std::endl;
+        }
         std::cout << termcolor::bold << "flag     " << termcolor::reset << r->delegate->core.flag << std::endl;
         std::cout << termcolor::bold << "cigar    " << termcolor::reset; printCigar(r); std::cout << std::endl;
         std::cout << termcolor::bold << "seq      " << termcolor::reset; printSeq(r); std::cout << std::endl;

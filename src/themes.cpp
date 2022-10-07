@@ -75,13 +75,13 @@ namespace Themes {
         ecSplit.setStyle(SkPaint::kStroke_Style);
         ecSplit.setStrokeWidth(1);
 
-        fcIns.setARGB(255, 186, 85, 211);
+        fcIns.setARGB(255, 136, 85, 201);
 
         lwMateUnmapped = 0.5;
         lwSplit = 0.5;
         lwCoverage = 1;
 
-        lcCoverage.setARGB(255, 192, 192, 192);
+        lcCoverage.setARGB(255, 162, 192, 192);
 
         alpha = 204;
         mapq0_alpha = 102;
@@ -198,7 +198,7 @@ namespace Themes {
         name = "dark";
         fcCoverage.setARGB(255, 90, 90, 100);
         bgPaint.setARGB(255, 10, 10, 20);
-        fcNormal.setARGB(255, 95, 95, 95);
+        fcNormal.setARGB(255, 90, 90, 95);
         fcDel.setARGB(255, 185, 25, 25);
         fcDup.setARGB(255, 24, 100, 198);
         fcInvF.setARGB(255, 49, 167, 118);

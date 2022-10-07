@@ -285,7 +285,7 @@ namespace Drawing {
         float y = y0 * yScaling;
         float ph = polygonHeight * yScaling;
         float overhang = textW * 0.125;
-        rect.setXYWH(x - (textW / 2), y + yOffset, textW, ph);
+        rect.setXYWH(x - (textW / 2) - 2, y + yOffset, textW + 2, ph);
         canvas->drawRect(rect, faceColor);
 
         path.reset();
@@ -296,6 +296,110 @@ namespace Drawing {
         path.moveTo(x, yOffset + y);
         path.lineTo(x, yOffset + y + ph);
         canvas->drawPath(path, sidesColor);
+    }
+
+    void drawMismatchesNoMD(SkCanvas *canvas, SkRect &rect, const Themes::BaseTheme &theme, const Utils::Region &region, const Segs::Align &align,
+                            float width, float xScaling, float xOffset, float mmPosOffset, float yScaledOffset, float pH, int l_qseq) {
+        uint32_t r_pos = align.pos;
+        uint32_t cigar_l = align.cigar_l;
+        uint8_t *ptr_seq = bam_get_seq(align.delegate);
+        uint32_t *cigar_p = bam_get_cigar(align.delegate);
+        auto *ptr_qual = bam_get_qual(align.delegate);
+
+        int r_idx;
+        uint32_t idx = 0;
+        const char *refSeq = region.refSeq;
+        int rlen = region.end - region.start;
+        int op, l, colorIdx;
+        float p;
+
+        for (int k = 0; k < cigar_l; k++) {
+            op = cigar_p[k] & BAM_CIGAR_MASK;
+            l = cigar_p[k] >> BAM_CIGAR_SHIFT;
+
+
+            if (op == BAM_CSOFT_CLIP) {
+                idx += l;
+                continue;
+            }
+            else if (op == BAM_CINS) {
+                idx += l;
+                continue;
+            }
+            else if (op == BAM_CDEL) {
+                r_pos += l;
+                continue;
+            }
+            else if (op == BAM_CREF_SKIP) {
+                r_pos += l;
+                continue;
+            }
+            else if (op == BAM_CHARD_CLIP || op == BAM_CEQUAL) {
+                continue;
+            }
+            else if (op == BAM_CDIFF) {
+                for (int i=0; i < l; ++l) {
+                    if (r_pos >= region.start) {
+                        char bam_base = bam_seqi(ptr_seq, idx);
+                        p = ((int)r_pos - region.start) * xScaling;
+                        colorIdx = (l_qseq == 0) ? 10 : (ptr_qual[idx] > 10) ? 10 : ptr_qual[idx];
+                        rect.setXYWH(p + xOffset + mmPosOffset, yScaledOffset, width, pH);
+                        switch (bam_base) {
+                            case 1: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
+                            case 2: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
+                            case 4: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
+                            case 8: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
+                            default: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
+                        }
+                    }
+                    idx += 1;
+                    r_pos += 1;
+                }
+            }
+            else {  // BAM_CMATCH
+                // A==1, C==2, G==4, T==8, N==>8
+                for (int i=0; i < l; ++i) {
+                    r_idx = (int)r_pos - region.start;
+                    if (r_idx < 0) {
+                        idx += 1;
+                        r_pos += 1;
+                        continue;
+                    }
+
+                    if (r_idx > rlen) {
+                        break;
+                    }
+                    char ref_base;
+                    switch (refSeq[r_idx]) {
+                        case 'A': ref_base = 1; break;
+                        case 'C': ref_base = 2; break;
+                        case 'G': ref_base = 4; break;
+                        case 'T': ref_base = 8; break;
+                        case 'N': ref_base = 15; break;
+                        case 'a': ref_base = 1; break;
+                        case 'c': ref_base = 2; break;
+                        case 'g': ref_base = 4; break;
+                        case 't': ref_base = 8; break;
+                        case 'n': ref_base = 15; break;
+                    }
+                    char bam_base = bam_seqi(ptr_seq, idx);
+                    if (bam_base != ref_base) {
+                        p = ((int)r_pos - region.start) * xScaling;
+                        colorIdx = (l_qseq == 0) ? 10 : (ptr_qual[idx] > 10) ? 10 : ptr_qual[idx];
+                        rect.setXYWH(p + xOffset + mmPosOffset, yScaledOffset, width, pH);
+                        switch (bam_base) {
+                            case 1: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
+                            case 2: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
+                            case 4: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
+                            case 8: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
+                            default: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
+                        }
+                    }
+                    idx += 1;
+                    r_pos += 1;
+                }
+            }
+        }
     }
 
     void drawBams(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
@@ -469,9 +573,15 @@ namespace Drawing {
                 // add soft-clip blocks
                 int start = a.delegate->core.pos - regionBegin;
                 int end = a.reference_end - regionBegin;
+                auto l_seq = (int)a.delegate->core.l_qseq;
+
                 if (a.left_soft_clip > 0) {
-                    width = (plotSoftClipAsBlock) ? (float) a.left_soft_clip : 0;
+                    width = (plotSoftClipAsBlock || l_seq == 0) ? (float) a.left_soft_clip : 0;
                     s = start - a.left_soft_clip;
+                    if (s < 0) {
+                        width += s;
+                        s = 0;
+                    }
                     e = start + width;
                     if (e > 0 && s < regionLen) {
                         if (pointLeft && plotPointedPolygons) {
@@ -486,7 +596,7 @@ namespace Drawing {
                     }
                 }
                 if (a.right_soft_clip > 0) {
-                    if (plotSoftClipAsBlock) {
+                    if (plotSoftClipAsBlock || l_seq == 0) {
                         s = end;
                         width = (float) a.right_soft_clip;
                     } else {
@@ -538,7 +648,6 @@ namespace Drawing {
                 if (regionLen > opts.snp_threshold && plotSoftClipAsBlock) {
                     continue;
                 }
-                auto l_seq = (int)a.delegate->core.l_qseq;
                 if (l_seq == 0) {
                     continue;
                 }
@@ -554,16 +663,20 @@ namespace Drawing {
 
                 int32_t l_qseq = a.delegate->core.l_qseq;
                 if (regionLen <= opts.snp_threshold && !a.mismatches.empty()) {
+                    float mms = xScaling * mmScaling;
+                    width = (regionLen < 500000) ? ((1. > mms) ? 1. : mms) : xScaling;
                     for (auto &m: a.mismatches) {
                         float p = ((int)m.pos - regionBegin) * xScaling;
                         if (0 < p && p < regionPixels) {
                             colorIdx = (l_qseq == 0) ? 10 : (m.qual > 10) ? 10 : m.qual;
-                            float mms = xScaling * mmScaling;
-                            width = (regionLen < 500000) ? ((1. > mms) ? 1. : mms) : xScaling;
                             rect.setXYWH(p + xOffset + mmPosOffset, yScaledOffset, width, pH);
                             canvas->drawRect(rect, theme.BasePaints[m.base][colorIdx]);
                         }
                     }
+                } else if (!a.has_MD) {
+                    float mms = xScaling * mmScaling;
+                    width = (regionLen < 500000) ? ((1. > mms) ? 1. : mms) : xScaling;
+                    drawMismatchesNoMD(canvas, rect, theme, cl.region, a, width, xScaling, xOffset, mmPosOffset, yScaledOffset, pH, l_qseq);
                 }
 
                 // add soft-clips

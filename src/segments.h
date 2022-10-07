@@ -59,7 +59,7 @@ namespace Segs {
     struct Align {
         bam1_t *delegate;
 
-        uint32_t cov_start, cov_end, orient_pattern, left_soft_clip, right_soft_clip, left_hard_clip;
+        int cov_start, cov_end, orient_pattern, left_soft_clip, right_soft_clip, left_hard_clip;
         float polygon_height;
         bool has_SA, has_NM, has_MD, initialized;
         int NM, y, edge_type;
@@ -84,7 +84,7 @@ namespace Segs {
         bool processed;
     };
 
-    void init_parallel(std::vector<Align> &aligns, int n, const char *refSeq, int begin, int rlen);
+    void init_parallel(std::vector<Align> &aligns, int n); //const char *refSeq, int begin, int rlen);
 
     void addToCovArray(std::vector<int> &arr, Align &align, int begin, int end, int l_arr);
 
