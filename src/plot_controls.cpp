@@ -809,13 +809,16 @@ namespace Manager {
                 std::vector<Segs::Align>::iterator bnd;
                 bnd = std::lower_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
                                        [&](const Segs::Align &lhs, const int pos) { return lhs.pos < pos; });
-                while (bnd != cl.readQueue.begin()) {
+                while (true) {
                     if (bnd->y == level && bnd->pos <= pos && pos < bnd->reference_end) {
                         bnd->edge_type = 4;
                         target_qname = bam_get_qname(bnd->delegate);
                         printRead(bnd, headers[cl.bamIdx]);
                         redraw = true;
                         processed = true;
+                        break;
+                    }
+                    if (bnd == cl.readQueue.begin()) {
                         break;
                     }
                     --bnd;
@@ -884,6 +887,7 @@ namespace Manager {
                         redraw = true;
                         processed = false;
                         printRegionInfo();
+                        fetchRefSeqs();
                     }
                 }
             } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {

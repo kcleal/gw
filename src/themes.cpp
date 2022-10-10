@@ -75,7 +75,7 @@ namespace Themes {
         ecSplit.setStyle(SkPaint::kStroke_Style);
         ecSplit.setStrokeWidth(1);
 
-        fcIns.setARGB(255, 136, 85, 201);
+        fcIns.setARGB(255, 156, 85, 201);
 
         lwMateUnmapped = 0.5;
         lwSplit = 0.5;

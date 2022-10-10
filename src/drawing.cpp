@@ -309,6 +309,9 @@ namespace Drawing {
         int r_idx;
         uint32_t idx = 0;
         const char *refSeq = region.refSeq;
+        if (refSeq == nullptr) {
+            return;
+        }
         int rlen = region.end - region.start;
         int op, l, colorIdx;
         float p;
@@ -571,7 +574,7 @@ namespace Drawing {
                 }
 
                 // add soft-clip blocks
-                int start = a.delegate->core.pos - regionBegin;
+                int start = a.pos - regionBegin;
                 int end = a.reference_end - regionBegin;
                 auto l_seq = (int)a.delegate->core.l_qseq;
 
@@ -582,8 +585,20 @@ namespace Drawing {
                         width += s;
                         s = 0;
                     }
+
                     e = start + width;
-                    if (e > 0 && s < regionLen) {
+                    if (start > regionLen) {
+                        //width -= regionLen - start;
+//                        width -= e - regionLen;
+                        width = regionLen - start;
+                    }
+
+//                    std::string qq = "SRR9001772.54163";
+//                    if (bam_get_qname(a.delegate) == qq) {
+//                        std::cout << width << std::endl;
+//                    }
+
+                    if (e > 0 && s < regionLen && width > 0) {
                         if (pointLeft && plotPointedPolygons) {
                             drawLeftPointedRectangle(canvas, pH, yScaledOffset, s, width, xScaling,
                                                      regionPixels, xOffset,
@@ -603,7 +618,16 @@ namespace Drawing {
                         s = end + a.right_soft_clip;
                         width = 0;
                     }
-                    if (s < regionLen) {
+                    e = s + width;
+                    if (s < 0) {
+                        width += s;
+                        s = 0;
+                    }
+                    if (e > regionLen) {
+                        width = regionLen - s;
+                        e = regionLen;
+                    }
+                    if (s < regionLen && e > 0) {
                         if (!pointLeft && plotPointedPolygons) {
                             drawRightPointedRectangle(canvas, pH, yScaledOffset, s, width, xScaling,
                                                       regionPixels, xOffset,
