@@ -124,6 +124,7 @@ namespace HTS {
                 lastPos = 0;
             }
         }
+
         std::vector<Segs::Align> newReads;
         if (left && (readQueue.empty() || readQueue.front().cov_end > region->start)) {
             while (!readQueue.empty()) {  // remove items from RHS of queue, reduce levelsEnd
@@ -154,6 +155,12 @@ namespace HTS {
                     return; // reads are already in the queue
                 }
             }
+
+//            std::cout << std::endl;
+//            for (auto &itm : col.levelsEnd) {
+//                std::cout << itm << ", ";
+//            }; std::cout << std::endl;
+
             // not sure why this is needed. Without the left pad, some alignments are not collected for small regions??
             long begin = (region->start - 1000) > 0 ? region->start - 1000 : 0;
             iter_q = sam_itr_queryi(index, tid, begin, end_r);
@@ -226,6 +233,7 @@ namespace HTS {
                 newReads.pop_back();
             }
         }
+
         if (!newReads.empty()) {
             Segs::init_parallel(newReads, opts.threads);
             int maxY = Segs::findY(col.bamIdx, col, newReads, *vScroll, opts.link_op, opts, region, linked, left);

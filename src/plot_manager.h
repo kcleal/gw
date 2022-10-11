@@ -129,7 +129,8 @@ namespace Manager {
 
         HTS::VCF vcf;
 
-        ankerl::unordered_dense::map< int, sk_sp<SkImage>> imageCache;
+        robin_hood::unordered_flat_map< int, sk_sp<SkImage>> imageCache;
+//        ankerl::unordered_dense::map< int, sk_sp<SkImage>> imageCache;
 
         Themes::IniOptions opts;
         Themes::Fonts fonts;
@@ -220,7 +221,7 @@ namespace Manager {
 
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext);
 
-        void tileDrawingThread(SkCanvas* canvas, SkSurface *sSurface);
+        void tileDrawingThread(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
         void drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
