@@ -50,3 +50,9 @@ Remote
 ======
 
 gw can be used on remote servers. Simply use `ssh -X remote` and when gw gets used, the window will show up on your screen.
+
+
+User Guide
+==========
+
+For labelling data, make sure all variantIDs in your inout vcf are unique!

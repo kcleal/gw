@@ -7,7 +7,6 @@
 #include <string>
 #include <vector>
 
-#include "htslib/hfile.h"
 #include "htslib/hts.h"
 #include "htslib/sam.h"
 #include "htslib/tbx.h"

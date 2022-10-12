@@ -62,13 +62,16 @@ namespace Utils {
     public:
         Label(std::string &parsed, std::vector<std::string> &labels, std::string &variantId);
         ~Label() = default;
-        std::string variantId;
+        std::string variantId, savedDate;
         std::vector<std::string> labels;
         int i;
         bool clicked;
 
+
         void next();
         std::string& current();
     };
+
+    void saveLabels(std::vector<Utils::Label> &multiLabels, std::string path);
 
 }

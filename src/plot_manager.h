@@ -147,7 +147,7 @@ namespace Manager {
 
         void setGlfwFrameBufferSize();
 
-        void setVariantFile(const std::string &path);
+        void setVariantFile(const std::string &path, int startIndex);
 
         void setLabelChoices(std::vector<std::string> & labels);
 

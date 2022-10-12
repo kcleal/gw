@@ -178,14 +178,35 @@ namespace Manager {
     void GwPlot::fetchRefSeqs() {
         for (auto &rgn : regions) {
             fetchRefSeq(rgn);
-//            int rlen = rgn.end - rgn.start;
-//            rgn.refSeq = faidx_fetch_seq(fai, rgn.chrom.c_str(), rgn.start, rgn.end, &rlen);
         }
     }
 
-    void GwPlot::setVariantFile(const std::string &path) {
+    void GwPlot::setVariantFile(const std::string &path, int startIndex) {
         vcf.label_to_parse = opts.parse_label.c_str();
         vcf.open(path);  // todo some error checking needed?
+        if (startIndex > 0) {
+            int bLen = opts.number.x * opts.number.y;
+            bool done = false;
+            while (!done) {
+                if (vcf.done) {
+                    done = true;
+                } else {
+                    for (int i=0; i < bLen; ++ i) {
+                        if (vcf.done) {
+                            done = true;
+                            break;
+                        }
+                        vcf.next();
+                        appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label);
+                    }
+                    if (blockStart + bLen > startIndex) {
+                        done = true;
+                    } else if (!done) {
+                        blockStart += bLen;
+                    }
+               }
+            }
+        }
     }
 
     void GwPlot::setLabelChoices(std::vector<std::string> &labels) {

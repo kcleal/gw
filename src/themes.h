@@ -118,7 +118,7 @@ namespace Themes {
         int print_screen;
         int delete_labels;
         int enter_interactive_mode;
-
+        int start_index;
         int soft_clip_threshold, small_indel_threshold, snp_threshold;
 
         robin_hood::unordered_map<std::string, std::string> references;
