@@ -240,6 +240,7 @@ namespace Themes {
         split_view_size = 10000;
         threads = 3;
         pad = 500;
+        start_index = 0;
 
         soft_clip_threshold = 20000;
         small_indel_threshold = 100000;

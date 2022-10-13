@@ -3,9 +3,12 @@
 //
 #include <algorithm>
 #include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <iterator>
 #include <cstring>
+#include <ctime>
 #include <sstream>
 #include <string>
 
@@ -233,6 +236,7 @@ namespace Utils {
 
     Label::Label(std::string &parsed, std::vector<std::string> &inputLabels, std::string &variantId) {
         this->variantId = variantId;
+        savedDate = "";
         i = 0;
         clicked = false;
         labels.push_back(parsed);
@@ -244,6 +248,7 @@ namespace Utils {
     }
 
     void Label::next() {
+        savedDate = "";
         if (i == labels.size() - 1) {
             i = 0;
         } else {
@@ -253,5 +258,24 @@ namespace Utils {
 
     std::string & Label::current() {
         return labels[i];
+    }
+
+    void saveLabels(std::vector<Utils::Label> &multiLabels, std::string path) {
+        auto t = std::time(nullptr);
+        auto tm = *std::localtime(&t);
+        std::ostringstream oss;
+        oss << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
+        auto str = oss.str();
+        std::ofstream f;
+        f.open (path);
+        f << "#variant_ID\tlabel\tsave_date\tlabelled_by_user\n";
+        for (auto &l : multiLabels) {
+            if (l.savedDate == "") {
+                f << l.variantId << "\t" << l.current() << "\t" << str << "\t" << l.clicked << std::endl;
+            } else {
+                f << l.variantId << "\t" << l.current() << "\t" << l.savedDate << "\t" << l.clicked << std::endl;
+            }
+        }
+        f.close();
     }
 }

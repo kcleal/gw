@@ -178,14 +178,35 @@ namespace Manager {
     void GwPlot::fetchRefSeqs() {
         for (auto &rgn : regions) {
             fetchRefSeq(rgn);
-//            int rlen = rgn.end - rgn.start;
-//            rgn.refSeq = faidx_fetch_seq(fai, rgn.chrom.c_str(), rgn.start, rgn.end, &rlen);
         }
     }
 
-    void GwPlot::setVariantFile(const std::string &path) {
+    void GwPlot::setVariantFile(const std::string &path, int startIndex) {
         vcf.label_to_parse = opts.parse_label.c_str();
         vcf.open(path);  // todo some error checking needed?
+        if (startIndex > 0) {
+            int bLen = opts.number.x * opts.number.y;
+            bool done = false;
+            while (!done) {
+                if (vcf.done) {
+                    done = true;
+                } else {
+                    for (int i=0; i < bLen; ++ i) {
+                        if (vcf.done) {
+                            done = true;
+                            break;
+                        }
+                        vcf.next();
+                        appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label);
+                    }
+                    if (blockStart + bLen > startIndex) {
+                        done = true;
+                    } else if (!done) {
+                        blockStart += bLen;
+                    }
+               }
+            }
+        }
     }
 
     void GwPlot::setLabelChoices(std::vector<std::string> &labels) {
@@ -239,7 +260,6 @@ namespace Manager {
         std::cout << "Type ':help' or ':h' for more info\n";
 
         setGlfwFrameBufferSize();
-
         fetchRefSeqs();
         opts.theme.setAlphas();
         GLFWwindow * wind = this->window;
@@ -400,7 +420,6 @@ namespace Manager {
     }
 
     void GwPlot::drawScreen(SkCanvas* canvas, GrDirectContext* sContext) {
-//        auto start = std::chrono::high_resolution_clock::now();
         canvas->drawPaint(opts.theme.bgPaint);
         if (!regions.empty()) {
             processBam();
@@ -413,32 +432,25 @@ namespace Manager {
             Drawing::drawRef(opts, collections, canvas, fonts, refSpace, (float)regions.size());
             Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size());
         }
-//        auto finish = std::chrono::high_resolution_clock::now();
         sContext->flush();
         glfwSwapBuffers(window);
         redraw = false;
-//        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
-//        std::cout << "Elapsed Time drawScreen: " << m.count() << " m seconds" << std::endl;
     }
 
-    void GwPlot::tileDrawingThread(SkCanvas* canvas, SkSurface *sSurface) {
-        mtx.lock();
+    void GwPlot::tileDrawingThread(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
         int bStart = blockStart;
         int bLen = (int)opts.number.x * (int)opts.number.y;
-        mtx.unlock();
         int endIdx = bStart + bLen;
         for (int i=bStart; i<endIdx; ++i) {
-            mtx.lock();
             bool c = imageCache.contains(i);
-            mtx.unlock();
             if (!c && i < multiRegions.size() && !bams.empty()) {
                 regions = multiRegions[i];
                 runDraw(canvas);
                 sk_sp<SkImage> img(sSurface->makeImageSnapshot());
-                mtx.lock();
                 imageCache[i] = img;
-                glfwPostEmptyEvent();
-                mtx.unlock();
+                sContext->flush();
+//                glfwPostEmptyEvent();
+//                mtx.unlock();
             }
         }
     }
@@ -457,33 +469,29 @@ namespace Manager {
         }
 
         setGlfwFrameBufferSize();
+        setScaling();
         std::vector<Utils::BoundingBox> bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height);
         SkSamplingOptions sampOpts = SkSamplingOptions();
-        std::thread tile_t = std::thread(&GwPlot::tileDrawingThread, this, canvas, sSurface);
-        std::vector<sk_sp<SkImage>> blockImages;
 
-        mtx.lock();
-        canvas->drawPaint(opts.theme.bgPaint);
+//        std::thread tile_t = std::thread(&GwPlot::tileDrawingThread, this, canvas, sSurface);
+        std::vector<sk_sp<SkImage>> blockImages;
+        tileDrawingThread(canvas, sContext, sSurface);
+
         int i = bStart;
-        int count = 0;
         canvas->drawPaint(opts.theme.bgPaint);
         for (auto &b : bboxes) {
             SkRect rect;
-            rect.setXYWH(b.xStart, b.yStart, b.width, b.height);
             if (imageCache.contains(i)) {
+                rect.setXYWH(b.xStart, b.yStart, b.width, b.height);
                 canvas->drawImageRect(imageCache[i], rect, sampOpts);
                 Drawing::drawLabel(opts, canvas, rect, multiLabels[i], fonts);
-                count += 1;
             }
             ++i;
         }
-        if (count == bStart + bLen || count == multiRegions.size()) {
-            redraw = false;
-        }
+
         sContext->flush();
         glfwSwapBuffers(window);
-        mtx.unlock();
-        tile_t.join();
+        redraw = false;
     }
 
     void GwPlot::drawSurfaceGpu(SkCanvas *canvas) {

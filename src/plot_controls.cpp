@@ -751,7 +751,7 @@ namespace Manager {
             } else if (Utils::endsWith(pth, ".vcf.gz") || Utils::endsWith(pth, ".vcf") || Utils::endsWith(pth, ".bcf")) {
                 good = true;
                 std::cout << "Loading: " << pth << std::endl;
-                setVariantFile(pth);
+                setVariantFile(pth, opts.start_index);
                 imageCache.clear();
                 blockStart = 0;
                 mode = Manager::Show::TILED;
@@ -786,6 +786,18 @@ namespace Manager {
         double x, y;
         glfwGetCursorPos(window, &x, &y);
 
+        int windowW, windowH;  // convert screen coords to frame buffer coords
+        glfwGetWindowSize(wind, &windowW, &windowH);
+        float xW, yW;
+        if (fb_width > windowW) {
+            float ratio = (float) fb_width / (float) windowW;
+            xW = x * ratio;
+            yW = y * ratio;
+        } else {
+            xW = x;
+            yW = y;
+        }
+
         if (xDrag == -1000000) {
             xDrag = 0;
             xOri = x;
@@ -796,17 +808,7 @@ namespace Manager {
             if (collections.empty()) {
                 return;
             }
-            int windowW, windowH;  // convert screen coords to frame buffer coords
-            glfwGetWindowSize(wind, &windowW, &windowH);
-            float xW, yW;
-            if (fb_width > windowW) {
-                float ratio = (float) fb_width / (float) windowW;
-                xW = x * ratio;
-                yW = y * ratio;
-            } else {
-                xW = x;
-                yW = y;
-            }
+
             int idx = getCollectionIdx(xW, yW);
 
             if (idx == -1) {
@@ -855,6 +857,7 @@ namespace Manager {
                     N.start = cl.region.start - travel;
                     N.end = cl.region.end - travel;
                     fetchRefSeq(N);
+                    bool lt_last = N.start < cl.region.start;
                     regions[regionSelection] = N;
                     if (opts.link_op != 0) {
                         processed = false;
@@ -864,7 +867,7 @@ namespace Manager {
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = regions[regionSelection];
-                                HTS::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, true, &vScroll, linked, &samMaxY);
+                                HTS::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, lt_last, &vScroll, linked, &samMaxY);
                             }
                         }
                         redraw = true;
@@ -874,19 +877,20 @@ namespace Manager {
             }
             xOri = x;
 
-        } else if  (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
-            if (!multiRegions.empty() || !imageCache.empty()) {
+        } else if (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
+             if (!multiRegions.empty() || !imageCache.empty()) {
                 mode = Manager::TILED;
                 xDrag = -1000000;
                 redraw = true;
+                processed = false;
                 std::cout << termcolor::magenta << "\nIndex     " << termcolor::reset << blockStart << std::flush;
-            }
+             }
         } else if (mode == Manager::TILED) {
             if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
                 std::vector<Utils::BoundingBox> bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height);
                 int i = 0;
                 for (auto &b: bboxes) {
-                    if (x > b.xStart && x < b.xEnd && y > b.yStart && y < b.yEnd) {
+                    if (xW > b.xStart && xW < b.xEnd && yW > b.yStart && yW < b.yEnd) {
                         break;
                     }
                     ++i;
@@ -900,7 +904,6 @@ namespace Manager {
                         mode = Manager::SINGLE;
                         std::cout << termcolor::magenta << "\nVariant   " << termcolor::reset << multiLabels[blockStart + i].variantId << std::endl;
                         regions = multiRegions[blockStart + i];
-                        glfwPostEmptyEvent();
                         redraw = true;
                         processed = false;
                         printRegionInfo();
@@ -911,7 +914,7 @@ namespace Manager {
                 if (std::fabs(xDrag) > fb_width / 4) {
                     int nmb = opts.number.x * opts.number.y;
                     if (xDrag > 0) {
-                        blockStart = (blockStart - nmb< 0) ? 0 : blockStart - nmb;
+                        blockStart = (blockStart - nmb < 0) ? 0 : blockStart - nmb;
                         redraw = true;
                         std::cout << "\r                      ";
                         std::cout << termcolor::magenta << "\rIndex     " << termcolor::reset << blockStart << std::flush;
@@ -925,7 +928,7 @@ namespace Manager {
                     std::vector<Utils::BoundingBox> bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height);
                     int i = 0;
                     for (auto &b: bboxes) {
-                        if (x > b.xStart && x < b.xEnd && y > b.yStart && y < b.yEnd) {
+                        if (xW > b.xStart && xW < b.xEnd && yW > b.yStart && yW < b.yEnd) {
                             break;
                         }
                         ++i;

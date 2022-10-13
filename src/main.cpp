@@ -251,6 +251,10 @@ int main(int argc, char *argv[]) {
     if (program.is_used("--no-cov")) {
         iopts.coverage = false;
     }
+    if (program.is_used("--start-index")) {
+        iopts.start_index = program.get<int>("--start-index");
+    }
+
 
     /*
      * / Gw start
@@ -298,7 +302,7 @@ int main(int argc, char *argv[]) {
             char delim = ',';
             std::vector<std::string> labels = Utils::split(iopts.labels, delim);
 
-            plotter.setVariantFile(program.get<std::string>("--variants"));
+            plotter.setVariantFile(program.get<std::string>("--variants"), iopts.start_index);
             plotter.setLabelChoices(labels);
             plotter.mode = Manager::Show::TILED;
 
@@ -308,7 +312,10 @@ int main(int argc, char *argv[]) {
                 sContext->releaseResourcesAndAbandonContext();
                 std::terminate();
             }
+        }
 
+        if (!plotter.multiLabels.empty() && program.is_used("--out-labels")) {
+            Utils::saveLabels(plotter.multiLabels, program.get<std::string>("--out-labels"));
         }
 
     //todo internalize raster plotting inside the GwPlot class?
