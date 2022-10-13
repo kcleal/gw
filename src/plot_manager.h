@@ -140,6 +140,8 @@ namespace Manager {
 
         Show mode;
 
+        std::string selectedAlign;
+
         void init(int width, int height);
 
         void initBack(int width, int height);

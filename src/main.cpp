@@ -41,6 +41,7 @@ int main(int argc, char *argv[]) {
 
     Themes::IniOptions iopts;
     iopts.readIni();
+
     static const std::vector<std::string> img_fmt = { "png", "pdf" };
     static const std::vector<std::string> img_themes = { "igv", "dark" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
@@ -189,8 +190,7 @@ int main(int argc, char *argv[]) {
 
     if (program.is_used("--theme") && program.get<std::string>("--theme") == "dark") {
         iopts.theme = Themes::DarkTheme();
-    } else {
-        iopts.theme = Themes::IgvTheme();
+    } else {  // defaults to igv theme
     }
 
     if (program.is_used("--dims")) {

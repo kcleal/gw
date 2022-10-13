@@ -152,6 +152,196 @@ namespace Manager {
         }
     }
 
+    void printCigar(std::vector<Segs::Align>::iterator r) {
+        uint32_t l, cigar_l, op, k;
+        uint32_t *cigar_p;
+        cigar_l = r->delegate->core.n_cigar;
+        cigar_p = bam_get_cigar(r->delegate);
+        for (k = 0; k < cigar_l; k++) {
+            op = cigar_p[k] & BAM_CIGAR_MASK;
+            l = cigar_p[k] >> BAM_CIGAR_SHIFT;
+            if (op == 0) {
+                std::cout << l << "M";
+            } else if (op == 1) {
+                std::cout << termcolor::magenta << l << "I" << termcolor::reset;
+            } else if (op == 2) {
+                std::cout << termcolor::red << l << "D"<< termcolor::reset;
+            } else if (op == 8) {
+                std::cout << l << "X";
+            } else if (op == 4) {
+                std::cout << termcolor::bright_blue << l << "S"<< termcolor::reset;
+            } else if (op == 5) {
+                std::cout << termcolor::blue << l << "H" << termcolor::reset;
+            }
+            else {
+                std::cout << termcolor::blue << l << "?" << termcolor::reset;
+            }
+        }
+    }
+
+    void printSeq(std::vector<Segs::Align>::iterator r, int max=5000) {
+        auto l_seq = (int)r->delegate->core.l_qseq;
+
+        if (l_seq == 0) {
+            std::cout << "*";
+            return;
+        }
+        uint32_t l, cigar_l, op, k;
+        uint32_t *cigar_p;
+        cigar_l = r->delegate->core.n_cigar;
+        cigar_p = bam_get_cigar(r->delegate);
+        uint8_t *ptr_seq = bam_get_seq(r->delegate);
+        int i = 0;
+        constexpr char basemap[] = {'.', 'A', 'C', '.', 'G', '.', '.', '.', 'T', '.', '.', '.', '.', '.', 'N', 'N', 'N'};
+
+        for (k = 0; k < cigar_l; k++) {
+            op = cigar_p[k] & BAM_CIGAR_MASK;
+            l = cigar_p[k] >> BAM_CIGAR_SHIFT;
+            if (i >= max) {
+                std::cout << "...";
+                return;
+            }
+            if (op == BAM_CHARD_CLIP) {
+                continue;
+            } else if (op == BAM_CDEL) {
+                for (int n=0; n < l; ++n) {
+                    std::cout << "-";
+                }
+
+            } else if (op == BAM_CMATCH) {
+                for (int n = 0; n < l; ++n) {
+                    uint8_t base = bam_seqi(ptr_seq, i);
+                    bool mm = false;
+                    for (auto &item: r->mismatches) {
+                        if (i == item.idx) {
+                            std::cout << termcolor::underline;
+                            switch (basemap[base]) {
+                                case 65 :
+                                    std::cout << termcolor::green << "A" << termcolor::reset;
+                                    break;
+                                case 67 :
+                                    std::cout << termcolor::blue << "C" << termcolor::reset;
+                                    break;
+                                case 71 :
+                                    std::cout << termcolor::yellow << "G" << termcolor::reset;
+                                    break;
+                                case 78 :
+                                    std::cout << termcolor::grey << "N" << termcolor::reset;
+                                    break;
+                                case 84 :
+                                    std::cout << termcolor::red << "T" << termcolor::reset;
+                                    break;
+                            }
+                            mm = true;
+                            break;
+                        }
+                    }
+                    if (!mm) {
+                        switch (basemap[base]) {
+                            case 65 :
+                                std::cout << "A";
+                                break;
+                            case 67 :
+                                std::cout << "C";
+                                break;
+                            case 71 :
+                                std::cout << "G";
+                                break;
+                            case 78 :
+                                std::cout << "N";
+                                break;
+                            case 84 :
+                                std::cout << "T";
+                                break;
+                        }
+                    }
+                    i += 1;
+                }
+
+            } else if (op == BAM_CEQUAL) {
+                for (int n = 0; n < l; ++n) {
+                    uint8_t base = bam_seqi(ptr_seq, i);
+                    switch (basemap[base]) {
+                        case 65 :
+                            std::cout << "A";
+                            break;
+                        case 67 :
+                            std::cout << "C";
+                            break;
+                        case 71 :
+                            std::cout << "G";
+                            break;
+                        case 78 :
+                            std::cout << "N";
+                            break;
+                        case 84 :
+                            std::cout << "T";
+                            break;
+                    }
+                    i += 1;
+                }
+
+            } else if (op == BAM_CDIFF) {
+                for (int n = 0; n < l; ++n) {
+                    uint8_t base = bam_seqi(ptr_seq, i);
+                    switch (basemap[base]) {
+                        case 65 :
+                            std::cout << termcolor::green << "A" << termcolor::reset;
+                            break;
+                        case 67 :
+                            std::cout << termcolor::blue << "C" << termcolor::reset;
+                            break;
+                        case 71 :
+                            std::cout << termcolor::yellow << "G" << termcolor::reset;
+                            break;
+                        case 78 :
+                            std::cout << termcolor::grey << "N" << termcolor::reset;
+                            break;
+                        case 84 :
+                            std::cout << termcolor::red << "T" << termcolor::reset;
+                            break;
+                    }
+                    i += 1;
+                }
+
+            } else {
+                for (int n=0; n < l; ++n) {
+                    uint8_t base = bam_seqi(ptr_seq, i);
+                    switch (basemap[base]) {
+                        case 65 : std::cout << termcolor::green << "A" << termcolor::reset; break;
+                        case 67 : std::cout << termcolor::blue << "C" << termcolor::reset; break;
+                        case 71 : std::cout << termcolor::yellow << "G" << termcolor::reset; break;
+                        case 78 : std::cout << termcolor::grey << "N" << termcolor::reset; break;
+                        case 84 : std::cout << termcolor::red << "T" << termcolor::reset; break;
+                    }
+                    i += 1;
+                }
+            }
+        }
+    }
+
+    void printRead(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam) {
+        const char *rname = sam_hdr_tid2name(hdr, r->delegate->core.tid);
+        const char *rnext = sam_hdr_tid2name(hdr, r->delegate->core.mtid);
+        std::cout << std::endl << std::endl;
+        std::cout << termcolor::bold << "qname    " << termcolor::reset << bam_get_qname(r->delegate) << std::endl;
+        std::cout << termcolor::bold << "span     " << termcolor::reset << rname << ":" << r->pos << "-" << r->reference_end << std::endl;
+        if (rnext) {
+            std::cout << termcolor::bold << "mate     " << termcolor::reset << rnext << ":" << r->delegate->core.mpos << std::endl;
+        }
+        std::cout << termcolor::bold << "flag     " << termcolor::reset << r->delegate->core.flag << std::endl;
+        std::cout << termcolor::bold << "mapq     " << termcolor::reset << (int)r->delegate->core.qual << std::endl;
+        std::cout << termcolor::bold << "cigar    " << termcolor::reset; printCigar(r); std::cout << std::endl;
+        std::cout << termcolor::bold << "seq      " << termcolor::reset; printSeq(r); std::cout << std::endl;
+
+        std::string d = "\t";
+        sam += std::string(bam_get_qname(r->delegate)) + d;
+    }
+
+    void printSelectedSam(std::string &sam) {
+        std::cout << std::endl << sam << std::endl;
+    }
+
     void help(Themes::IniOptions &opts) {
         std::cout << termcolor::italic << "\n* Enter a command by selecting the GW window (not the terminal) and type ':[COMMAND]' *\n" << termcolor::reset;
         std::cout << termcolor::underline << "\nCommand          Modifier        Description                                            \n" << termcolor::reset;
@@ -164,6 +354,7 @@ namespace Manager {
         std::cout << termcolor::green << "quit, q          -               " << termcolor::reset << "Quit GW\n";
         std::cout << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
         std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. ':rm 1'\n";
+        std::cout << termcolor::green << "sam                              " << termcolor::reset << "Print selected read in sam format'\n";
         std::cout << termcolor::green << "theme            [igv/dark]      " << termcolor::reset << "Switch color theme e.g. ':theme dark'\n";
         std::cout << termcolor::green << "ylim             number          " << termcolor::reset << "The maximum y-limit for the image e.g. ':ylim 100'\n";
         std::cout << termcolor::underline << "\nHot keys                   \n" << termcolor::reset;
@@ -199,6 +390,14 @@ namespace Manager {
             opts.link_op = 1; valid = true;
         } else if (inputText == ":link none") {
             opts.link_op = 0; valid = true;
+        } else if (inputText == ":sam") {
+            valid = true;
+            if (!selectedAlign.empty()) {
+                printSelectedSam(selectedAlign);
+            }
+            redraw = false;
+            processed = true;
+            return false;
         } else if (Utils::startsWith(inputText, ":f") || Utils::startsWith(inputText, ":find")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             if (!target_qname.empty() && split.size() == 1) {
@@ -583,188 +782,6 @@ namespace Manager {
         return -1;
     }
 
-    void printCigar(std::vector<Segs::Align>::iterator r) {
-        uint32_t l, cigar_l, op, k;
-        uint32_t *cigar_p;
-        cigar_l = r->delegate->core.n_cigar;
-        cigar_p = bam_get_cigar(r->delegate);
-        for (k = 0; k < cigar_l; k++) {
-            op = cigar_p[k] & BAM_CIGAR_MASK;
-            l = cigar_p[k] >> BAM_CIGAR_SHIFT;
-            if (op == 0) {
-                std::cout << l << "M";
-            } else if (op == 1) {
-                std::cout << termcolor::magenta << l << "I" << termcolor::reset;
-            } else if (op == 2) {
-                std::cout << termcolor::red << l << "D"<< termcolor::reset;
-            } else if (op == 8) {
-                std::cout << l << "X";
-            } else if (op == 4) {
-                std::cout << termcolor::bright_blue << l << "S"<< termcolor::reset;
-            } else if (op == 5) {
-                std::cout << termcolor::blue << l << "H" << termcolor::reset;
-            }
-            else {
-                std::cout << termcolor::blue << l << "?" << termcolor::reset;
-            }
-        }
-    }
-
-    void printSeq(std::vector<Segs::Align>::iterator r, int max=5000) {
-        auto l_seq = (int)r->delegate->core.l_qseq;
-
-        if (l_seq == 0) {
-            std::cout << "*";
-            return;
-        }
-        uint32_t l, cigar_l, op, k;
-        uint32_t *cigar_p;
-        cigar_l = r->delegate->core.n_cigar;
-        cigar_p = bam_get_cigar(r->delegate);
-        uint8_t *ptr_seq = bam_get_seq(r->delegate);
-        int i = 0;
-        constexpr char basemap[] = {'.', 'A', 'C', '.', 'G', '.', '.', '.', 'T', '.', '.', '.', '.', '.', 'N', 'N', 'N'};
-
-        for (k = 0; k < cigar_l; k++) {
-            op = cigar_p[k] & BAM_CIGAR_MASK;
-            l = cigar_p[k] >> BAM_CIGAR_SHIFT;
-            if (i >= max) {
-                std::cout << "...";
-                return;
-            }
-            if (op == BAM_CHARD_CLIP) {
-                continue;
-            } else if (op == BAM_CDEL) {
-                for (int n=0; n < l; ++n) {
-                    std::cout << "-";
-                }
-
-            } else if (op == BAM_CMATCH) {
-                for (int n = 0; n < l; ++n) {
-                    uint8_t base = bam_seqi(ptr_seq, i);
-                    bool mm = false;
-                    for (auto &item: r->mismatches) {
-                        if (i == item.idx) {
-                            std::cout << termcolor::underline;
-                            switch (basemap[base]) {
-                                case 65 :
-                                    std::cout << termcolor::green << "A" << termcolor::reset;
-                                    break;
-                                case 67 :
-                                    std::cout << termcolor::blue << "C" << termcolor::reset;
-                                    break;
-                                case 71 :
-                                    std::cout << termcolor::yellow << "G" << termcolor::reset;
-                                    break;
-                                case 78 :
-                                    std::cout << termcolor::grey << "N" << termcolor::reset;
-                                    break;
-                                case 84 :
-                                    std::cout << termcolor::red << "T" << termcolor::reset;
-                                    break;
-                            }
-                            mm = true;
-                            break;
-                        }
-                    }
-                    if (!mm) {
-                        switch (basemap[base]) {
-                            case 65 :
-                                std::cout << "A";
-                                break;
-                            case 67 :
-                                std::cout << "C";
-                                break;
-                            case 71 :
-                                std::cout << "G";
-                                break;
-                            case 78 :
-                                std::cout << "N";
-                                break;
-                            case 84 :
-                                std::cout << "T";
-                                break;
-                        }
-                    }
-                    i += 1;
-                }
-
-            } else if (op == BAM_CEQUAL) {
-                for (int n = 0; n < l; ++n) {
-                    uint8_t base = bam_seqi(ptr_seq, i);
-                    switch (basemap[base]) {
-                        case 65 :
-                            std::cout << "A";
-                            break;
-                        case 67 :
-                            std::cout << "C";
-                            break;
-                        case 71 :
-                            std::cout << "G";
-                            break;
-                        case 78 :
-                            std::cout << "N";
-                            break;
-                        case 84 :
-                            std::cout << "T";
-                            break;
-                    }
-                    i += 1;
-                }
-
-            } else if (op == BAM_CDIFF) {
-                for (int n = 0; n < l; ++n) {
-                    uint8_t base = bam_seqi(ptr_seq, i);
-                    switch (basemap[base]) {
-                        case 65 :
-                            std::cout << termcolor::green << "A" << termcolor::reset;
-                            break;
-                        case 67 :
-                            std::cout << termcolor::blue << "C" << termcolor::reset;
-                            break;
-                        case 71 :
-                            std::cout << termcolor::yellow << "G" << termcolor::reset;
-                            break;
-                        case 78 :
-                            std::cout << termcolor::grey << "N" << termcolor::reset;
-                            break;
-                        case 84 :
-                            std::cout << termcolor::red << "T" << termcolor::reset;
-                            break;
-                    }
-                    i += 1;
-                }
-
-            } else {
-                for (int n=0; n < l; ++n) {
-                    uint8_t base = bam_seqi(ptr_seq, i);
-                    switch (basemap[base]) {
-                        case 65 : std::cout << termcolor::green << "A" << termcolor::reset; break;
-                        case 67 : std::cout << termcolor::blue << "C" << termcolor::reset; break;
-                        case 71 : std::cout << termcolor::yellow << "G" << termcolor::reset; break;
-                        case 78 : std::cout << termcolor::grey << "N" << termcolor::reset; break;
-                        case 84 : std::cout << termcolor::red << "T" << termcolor::reset; break;
-                    }
-                    i += 1;
-                }
-            }
-        }
-    }
-
-    void printRead(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr) {
-        const char *rname = sam_hdr_tid2name(hdr, r->delegate->core.tid);
-        const char *rnext = sam_hdr_tid2name(hdr, r->delegate->core.mtid);
-        std::cout << std::endl << std::endl;
-        std::cout << termcolor::bold << "qname    " << termcolor::reset << bam_get_qname(r->delegate) << std::endl;
-        std::cout << termcolor::bold << "span     " << termcolor::reset << rname << ":" << r->pos << "-" << r->reference_end << std::endl;
-        if (rnext) {
-            std::cout << termcolor::bold << "mate     " << termcolor::reset << rnext << ":" << r->delegate->core.mpos << std::endl;
-        }
-        std::cout << termcolor::bold << "flag     " << termcolor::reset << r->delegate->core.flag << std::endl;
-        std::cout << termcolor::bold << "cigar    " << termcolor::reset; printCigar(r); std::cout << std::endl;
-        std::cout << termcolor::bold << "seq      " << termcolor::reset; printSeq(r); std::cout << std::endl;
-    }
-
     void GwPlot::mouseButton(GLFWwindow* wind, int button, int action, int mods) {
         double x, y;
         glfwGetCursorPos(window, &x, &y);
@@ -813,7 +830,7 @@ namespace Manager {
                     if (bnd->y == level && bnd->pos <= pos && pos < bnd->reference_end) {
                         bnd->edge_type = 4;
                         target_qname = bam_get_qname(bnd->delegate);
-                        printRead(bnd, headers[cl.bamIdx]);
+                        printRead(bnd, headers[cl.bamIdx], selectedAlign);
                         redraw = true;
                         processed = true;
                         break;

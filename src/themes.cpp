@@ -298,7 +298,6 @@ namespace Themes {
         } else {
             theme = Themes::IgvTheme();
         }
-
         dimensions_str = myIni["general"]["dimensions"];
         dimensions = Utils::parseDimensions(dimensions_str);
         fmt = myIni["general"]["fmt"];
