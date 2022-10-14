@@ -1,7 +1,7 @@
 GW
 ==
 
-![alt text](https://github.com/kcleal/gw/blob/master/inc/banner.png)
+![Screenshot](./inc/banner.png)
 
 GW is a fast genome browser for sequencing data (.bam/.cram format) that is used directly from the terminal. GW can also be used to
 view and label variant data from vcf files, and display these as image-tiles for annotation. Check out the examples below!
