@@ -197,7 +197,7 @@ namespace Manager {
                             break;
                         }
                         vcf.next();
-                        appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label);
+                        appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype);
                     }
                     if (blockStart + bLen > startIndex) {
                         done = true;
@@ -233,7 +233,7 @@ namespace Manager {
         }
     }
 
-    void GwPlot::appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label) {
+    void GwPlot::appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label, std::string &vartype) {
         this->clearCollections();
         long rlen = stop - start;
         std::vector<Utils::Region> v;
@@ -253,7 +253,11 @@ namespace Manager {
             v[1].end = stop + opts.pad;
         }
         multiRegions.push_back(v);
-        multiLabels.push_back({label, labelChoices, rid});
+        if (inputLabels.contains(rid)) {
+            multiLabels.push_back(inputLabels[rid]);
+        } else {
+            multiLabels.push_back(Utils::makeLabel(label, labelChoices, rid, vartype, "", 0));
+        }
     }
 
     int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface) {
@@ -464,7 +468,7 @@ namespace Manager {
                     break;
                 }
                 vcf.next();
-                appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label);
+                appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype);
             }
         }
 

@@ -1016,6 +1016,7 @@ namespace Manager {
                     }
                     multiLabels[blockStart + i].next();
                     multiLabels[blockStart + i].clicked = true;
+                    multiLabels[blockStart + i].savedDate = Utils::dateTime();
                     redraw = true;
                 }
                 xDrag = -1000000;

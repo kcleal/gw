@@ -129,8 +129,9 @@ namespace Manager {
 
         HTS::VCF vcf;
 
-        robin_hood::unordered_flat_map< int, sk_sp<SkImage>> imageCache;
-//        ankerl::unordered_dense::map< int, sk_sp<SkImage>> imageCache;
+//        robin_hood::unordered_flat_map< int, sk_sp<SkImage>> imageCache;
+        ankerl::unordered_dense::map< int, sk_sp<SkImage>> imageCache;
+        ankerl::unordered_dense::map< std::string, Utils::Label> inputLabels;
 
         Themes::IniOptions opts;
         Themes::Fonts fonts;
@@ -165,7 +166,7 @@ namespace Manager {
 
         void setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop);
 
-        void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string & rid, std::string &label);
+        void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string & rid, std::string &label, std::string &vartype);
 
         int startUI(GrDirectContext* sContext, SkSurface *sSurface);
 

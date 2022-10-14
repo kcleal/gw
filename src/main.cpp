@@ -299,8 +299,12 @@ int main(int argc, char *argv[]) {
                 std::terminate();
             }
         } else if (program.is_used("--variants")) {  // plot variants as tiled images
-            char delim = ',';
-            std::vector<std::string> labels = Utils::split(iopts.labels, delim);
+
+            std::vector<std::string> labels = Utils::split(iopts.labels, ',');
+
+            if (program.is_used("--in-labels")) {
+                Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels);
+            }
 
             plotter.setVariantFile(program.get<std::string>("--variants"), iopts.start_index);
             plotter.setLabelChoices(labels);

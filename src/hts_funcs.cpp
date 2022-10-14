@@ -327,13 +327,23 @@ namespace HTS {
         int *intmem = nullptr;
         int mem = 0;
         int imem = 0; //sizeof(int);
+        bcf_info_t *info_field;
+
+        switch (variant_type) {
+            case VCF_SNP: vartype = "SNP"; break;
+            case VCF_INDEL: vartype = "INDEL"; break;
+            case VCF_OVERLAP: vartype = "OVERLAP"; break;
+            case VCF_BND: vartype = "BND"; break;
+            default: vartype = "NA"; break;
+        }
+
         if (variant_type == VCF_SNP || variant_type == VCF_INDEL || variant_type == VCF_OVERLAP) {
             chrom2 = chrom;
         } else {  // variant type is VCF_REF or VCF_OTHER or VCF_BND
             if (variant_type == VCF_BND) {
                 chrom2 = chrom;  // todo deal with BND types here
             } else {
-                bcf_info_t *info_field = bcf_get_info(hdr, v, "CHR2");  // try and find chrom2 in info
+                info_field = bcf_get_info(hdr, v, "CHR2");  // try and find chrom2 in info
                 if (info_field != nullptr) {
                     int resc = bcf_get_info_string(hdr,v,"CHR2",&strmem,&mem);
                     if (resc < 0) {
@@ -353,6 +363,17 @@ namespace HTS {
                     }
                     stop = *intmem;
                 }
+            }
+        }
+
+        info_field = bcf_get_info(hdr, v, "SVTYPE");  // try and find chrom2 in info
+        if (info_field != nullptr) {
+            char *svtmem = nullptr;
+            mem = 0;
+            int resc = bcf_get_info_string(hdr, v, "SVTYPE", &svtmem,&mem);
+            if (resc < 0) {
+            } else {
+                vartype = svtmem;
             }
         }
 

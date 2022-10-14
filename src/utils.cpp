@@ -12,6 +12,7 @@
 #include <sstream>
 #include <string>
 
+#include "../inc/unordered_dense.h"
 #include "utils.h"
 
 #if defined(_WIN32)
@@ -234,17 +235,35 @@ namespace Utils {
         return bboxes;
     }
 
-    Label::Label(std::string &parsed, std::vector<std::string> &inputLabels, std::string &variantId) {
-        this->variantId = variantId;
-        savedDate = "";
-        i = 0;
-        clicked = false;
-        labels.push_back(parsed);
+//    Label::Label(std::string &parsed, std::vector<std::string> &inputLabels, std::string &variantId, std::string &vartype) {
+//        this->variantId = variantId;
+//        this->vartype = vartype;
+//        savedDate = "";
+//        i = 0;
+//        clicked = false;
+//        labels.push_back(parsed);
+//        for (auto &v : inputLabels) {
+//            if (v != parsed) {
+//                labels.push_back(v);
+//            }
+//        }
+//    }
+
+    Label makeLabel(std::string &parsed, std::vector<std::string> &inputLabels, std::string &variantId, std::string &vartype,
+                    std::string savedDate, bool clicked) {
+        Label l;
+        l.variantId = variantId;
+        l.vartype = vartype;
+        l.savedDate = savedDate;
+        l.i = 0;
+        l.clicked = clicked;
+        l.labels.push_back(parsed);
         for (auto &v : inputLabels) {
             if (v != parsed) {
-                labels.push_back(v);
+                l.labels.push_back(v);
             }
         }
+        return l;
     }
 
     void Label::next() {
@@ -260,22 +279,44 @@ namespace Utils {
         return labels[i];
     }
 
-    void saveLabels(std::vector<Utils::Label> &multiLabels, std::string path) {
+    std::string dateTime() {
         auto t = std::time(nullptr);
         auto tm = *std::localtime(&t);
         std::ostringstream oss;
         oss << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
         auto str = oss.str();
+        return str;
+    }
+
+    void saveLabels(std::vector<Utils::Label> &multiLabels, std::string path) {
+        std::string str = dateTime();
         std::ofstream f;
         f.open (path);
-        f << "#variant_ID\tlabel\tsave_date\tlabelled_by_user\n";
+        f << "#variant_ID\tlabel\tvar_type\tupdated_on\tlabelled_by_user\n";
         for (auto &l : multiLabels) {
             if (l.savedDate == "") {
-                f << l.variantId << "\t" << l.current() << "\t" << str << "\t" << l.clicked << std::endl;
+                f << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" << str << "\t" << l.clicked << std::endl;
             } else {
-                f << l.variantId << "\t" << l.current() << "\t" << l.savedDate << "\t" << l.clicked << std::endl;
+                f << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" << l.savedDate << "\t" << l.clicked << std::endl;
             }
         }
         f.close();
+    }
+
+    void openLabels(std::string path, ankerl::unordered_dense::map< std::string, Utils::Label> &label_dict, std::vector<std::string> &inputLabels) {
+        std::ifstream f;
+        std::string s;
+        f.open(path);
+        int idx = 0;
+        while (std::getline(f, s)) {
+            if (idx > 0) {
+                std::vector<std::string> v = split(s, '\t');
+                bool clicked = v[4] == "1";
+                Label l = makeLabel(v[1], inputLabels, v[0], v[2], v[3], clicked);
+                std::string key = v[0];
+                label_dict[key] = l;
+            }
+            idx += 1;
+        }
     }
 }

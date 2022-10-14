@@ -6,6 +6,7 @@
 
 #include <string>
 #include <vector>
+#include "../inc/unordered_dense.h"
 
 
 namespace Utils {
@@ -60,18 +61,25 @@ namespace Utils {
 
     class Label {
     public:
-        Label(std::string &parsed, std::vector<std::string> &labels, std::string &variantId);
+        Label() {};
         ~Label() = default;
-        std::string variantId, savedDate;
+        std::string variantId, savedDate, vartype;
         std::vector<std::string> labels;
         int i;
         bool clicked;
-
 
         void next();
         std::string& current();
     };
 
+    std::string dateTime();
+
+    Label makeLabel(std::string &parsed, std::vector<std::string> &inputLabels, std::string &variantId, std::string &vartype,
+                    std::string savedDate, bool clicked);
+
+
     void saveLabels(std::vector<Utils::Label> &multiLabels, std::string path);
+
+    void openLabels(std::string path, ankerl::unordered_dense::map< std::string, Utils::Label> &label_dict, std::vector<std::string> &inputLabels);
 
 }
