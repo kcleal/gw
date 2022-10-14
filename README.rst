@@ -98,7 +98,7 @@ Various commands are also available via the GW window. Simply click on the GW wi
 
 .. image:: inc/help.png
     :align: center
-    :scale: 50
+    :scale: 50%
 
 A GW window can also be started with only the reference genome as a positional argument::
 
