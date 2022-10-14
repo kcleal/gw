@@ -5,8 +5,8 @@ GW
     :align: center
 
 
-GW is a fast genome browser for sequencing data (.bam/.cram format) that is used directly from the terminal. GW can also be used to
-view and label variant data from vcf files, and display these as image-tiles for annotation. Check out the examples below!
+GW is a fast browser for sequencing data (.bam/.cram format) used directly from the terminal. GW can also be used to
+view and label variant data from vcf files and display these as image-tiles for annotation. Check out the examples below!
 
 
 Installing GW
@@ -16,8 +16,8 @@ The easiest way to get GW up and running is to grab one of the pre-built binarie
 
     wget https://github.com/kcleal/gw/releases/gw....blah
 
-GW is built using clang and make, and requires glfw and skia libraries. To get glfw.
-If you need to build GW from source, we have put together a build script to try and make this pain free. You can run this using one of the
+GW is built using clang and make, and requires glfw and skia libraries. If you need to build GW from source,
+we have put together a build script to try and make this pain free. You can run this using one of the
 following::
 
     build_gw.sh linux
@@ -83,13 +83,84 @@ For mac::
 User Guide
 ==========
 
-For labelling data, make sure all variantIDs in your inout vcf are unique!
+Sequencing data
+--------------------
+To view a genomic region e.g. chr1:1-20000, supply an indexed reference genome and an alignment file (using -b option)::
 
+    gw hg38 -b your.bam -r chr1:1-20000
+
+This will pop open a GW window that can be used interactively using the mouse and keyboard. Note multiple -b and -r options can be used.
+Various commands are also available via the GW window. Simply click on the GW window and type ":help" which will display a list of commands in your terminal.
+
+A GW window can also be started with only the reference genome as a positional argument::
+
+    gw hg38
+
+You can then drag-and-drop alignment files and vcf files into the window, and use commands to navigate to regions etc.
+
+GW can also be used to generate images in .png format of target genomic regions.
+To use this function apply the --no-show option along with an output folder --outdir::
+
+    gw hg38 -b your.bam -r chr1:1-20000 --outdir . --no-show
+
+
+
+Variant data
+-----------------
+A variant file in .vcf/.bcf format can be opened in a GW window by either dragging-and-dropping or via the -v option::
+
+    gw hg38.fa -b your.bam -v variants.vcf
+
+This will open a window in tiled mode. To change the number of tiles use the up/down arrow keys to change interactively or use the -n option to control the dimensions::
+
+    gw hg38.fa -n 8x8 -b your.bam -v variants.vcf
+
+
+Labelling variant data
+----------------------
+For labelling data, it will be assumed that all variant IDs in your input vcf are unique. GW by default will try and parse
+the FILTER column from the input vcf - these labels will be displayed as an overlay on the tiled images. Parsed labels can be
+controlled using the --parse-label option. For example, the SU tag can be parsed from the info column using::
+
+    gw hg38 -b your.bam -v variants.vcf --parse-label info.SU
+
+You can also provide an list of potential labels using the --labels option, for example::
+
+    gw hg38 -b your.bam -v variants.vcf --labels Yes,No,Maybe
+
+Now you can click on a tiled image and cycle through this list.
+
+To save or open a list of annotations use the --in-labels and --out-labels options::
+
+    gw hg38 -b your.bam -v variants.vcf --in-labels labels.tsv --out-labels labels.tsv
+
+The output labels are a tab-separated file::
+
+.. list-table:: Title
+   :widths: 25 25 25 25
+   :header-rows: 1
+
+   * - #variant_ID
+     - label
+     - var_type
+     - labelled_by_user_on
+   * - 27390
+     - PASS
+     - DEL
+     -
+   * - 2720
+     - FAIL
+     - SNP
+     - 14-10-2022 16-05-46
+
+The labelled_by_user_on column is only filled out if one of the tiled images was manually clicked - if this field is blank then
+the --parsed-label was used. This allows you to keep track of which variants were user labelled over multiple sessions.
 
 Remote
-======
+------
 
-gw can be used on remote servers. Simply use `ssh -X remote` and when gw gets used, the window will show up on your screen.
+GW can be used on remote servers. Simply use `ssh -X remote` when logging on to the server.
+When GW is run the window will show up on your local screen.
 
 
 

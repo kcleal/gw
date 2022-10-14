@@ -335,23 +335,50 @@ int main(int argc, char *argv[]) {
 
             int fb_height, fb_width;
             glfwGetFramebufferSize(plotter.backWindow, &fb_width, &fb_height);
-            sk_sp<GrDirectContext> context = GrDirectContext::MakeGL(nullptr);
-            SkImageInfo info = SkImageInfo::MakeN32Premul(fb_width, fb_height);
-            sk_sp<SkSurface> gpuSurface(SkSurface::MakeRenderTarget(context.get(), SkBudgeted::kNo, info));
-            if (!gpuSurface) {
-                std::cerr << "ERROR: gpuSurface could not be initialized (nullptr)\n";
+
+
+//            sk_sp<GrDirectContext> context = GrDirectContext::MakeGL(nullptr);
+//            SkImageInfo info = SkImageInfo::MakeN32Premul(fb_width, fb_height);
+//            sk_sp<SkSurface> gpuSurface(SkSurface::MakeRenderTarget(context.get(), SkBudgeted::kNo, info));
+//            if (!gpuSurface) {
+//                std::cerr << "ERROR: gpuSurface could not be initialized (nullptr)\n";
+//                std::terminate();
+//            }
+//            SkCanvas *canvas = gpuSurface->getCanvas();
+
+            sContext = GrDirectContext::MakeGL(nullptr).release();
+            GrGLFramebufferInfo framebufferInfo;
+            framebufferInfo.fFBOID = 0;
+            framebufferInfo.fFormat = GL_RGBA8;  // GL_SRGB8_ALPHA8; //
+            GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
+            if (!backendRenderTarget.isValid()) {
+                std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
+                glfwTerminate();
                 std::terminate();
             }
+            sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
+                                                              backendRenderTarget,
+                                                              kBottomLeft_GrSurfaceOrigin,
+                                                              kRGBA_8888_SkColorType,
+                                                              nullptr,
+                                                              nullptr).release();
+            if (!sSurface) {
+                std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
+                sContext->releaseResourcesAndAbandonContext();
+                std::terminate();
+            }
+            SkCanvas *canvas = sSurface->getCanvas();
 
-            SkCanvas *canvas = gpuSurface->getCanvas();
             plotter.opts.theme.setAlphas();
             plotter.drawSurfaceGpu(canvas);
 
-            sk_sp<SkImage> img(gpuSurface->makeImageSnapshot());
+            sk_sp<SkImage> img(sSurface->makeImageSnapshot());
             if (!img) { std::cout << "!img" << std::endl; return 1; }
             sk_sp<SkData> png(img->encodeToData());
             if (!png) { std::cout << "!png" << std::endl; return 1; }
-            SkFILEWStream out("restout.png");
+            fs::path fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".png";
+            fs::path out_path = outdir / fname;
+            SkFILEWStream out(out_path.c_str());
             (void)out.write(png->data(), png->size());
 
         } else if (program.is_used("--variants")) {
