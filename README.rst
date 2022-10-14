@@ -127,6 +127,14 @@ This will open a window in tiled mode. To change the number of tiles use the up/
 If you right-click on one of the tiles then the region will be opened for browsing. To get back to the tiled-image view,
 just right-click again.
 
+You can also generate an image of every variant in your vcf file - as before use the --outdir and --no-show options. Also,
+you might want to increase the number of threads used here to speed things up a bit. Be warned this will probably generate a huge number of files::
+
+    gw hg38 -b your.bam -v variants.vcf --outdir all_images --no-show -t 16
+
+The time taken here depends a great deal on the speed of your hard drive and depth of coverage, but using a fast
+NVMe SSD for example, you can expect a throughput around 30-80 images per second.
+
 Labelling variant data
 ----------------------
 For labelling data, it is assumed that all variant IDs in your input vcf are unique. GW by default will try and parse
