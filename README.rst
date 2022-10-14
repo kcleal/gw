@@ -96,6 +96,9 @@ This will pop open a GW window that can be used interactively using the mouse an
 
 Various commands are also available via the GW window. Simply click on the GW window and type ":help" which will display a list of commands in your terminal.
 
+.. image:: inc/help.png
+    :align: center
+
 A GW window can also be started with only the reference genome as a positional argument::
 
     gw hg38
