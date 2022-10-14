@@ -45,6 +45,8 @@
 
 namespace Manager {
 
+    constexpr char basemap[] = {'.', 'A', 'C', '.', 'G', '.', '.', '.', 'T', '.', '.', '.', '.', '.', 'N', 'N', 'N'};
+
     // keeps track of input commands
     bool GwPlot::registerKey(GLFWwindow* wind, int key, int scancode, int action, int mods) {
         if (action == GLFW_RELEASE) {
@@ -192,7 +194,6 @@ namespace Manager {
         cigar_p = bam_get_cigar(r->delegate);
         uint8_t *ptr_seq = bam_get_seq(r->delegate);
         int i = 0;
-        constexpr char basemap[] = {'.', 'A', 'C', '.', 'G', '.', '.', '.', 'T', '.', '.', '.', '.', '.', 'N', 'N', 'N'};
 
         for (k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
@@ -320,6 +321,83 @@ namespace Manager {
         }
     }
 
+    void read2sam(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam) {
+        uint32_t l, cigar_l, op, k;
+        uint32_t *cigar_p;
+        cigar_l = r->delegate->core.n_cigar;
+        cigar_p = bam_get_cigar(r->delegate);
+        const char *rname = sam_hdr_tid2name(hdr, r->delegate->core.tid);
+        std::string d = "\t";
+        std::ostringstream oss;
+        oss << bam_get_qname(r->delegate) << d
+            << r->delegate->core.flag << d
+            << rname << d
+            << r->pos + 1 << d
+            << (int)r->delegate->core.qual << d;
+        if (cigar_l) {
+            for (k = 0; k < cigar_l; k++) {
+                op = cigar_p[k] & BAM_CIGAR_MASK;
+                l = cigar_p[k] >> BAM_CIGAR_SHIFT;
+                oss << l;
+                switch (op) {
+                    case 0: oss << "M"; break;
+                    case 1: oss << "I"; break;
+                    case 2: oss << "D"; break;
+                    case 3: oss << "N"; break;
+                    case 4: oss << "S"; break;
+                    case 5: oss << "H"; break;
+                    case 6: oss << "P"; break;
+                    case 7: oss << "="; break;
+                    case 8: oss << "X"; break;
+                    default: oss << "B";
+                }
+            } oss << d;
+        } else {
+            oss << "*" << d;
+        }
+        if (r->delegate->core.mtid < 0) {
+            oss << "*" << d;
+        } else if (r->delegate->core.mtid == r->delegate->core.tid) {
+            oss << "=" << d;
+        } else {
+            oss << sam_hdr_tid2name(hdr, r->delegate->core.mtid) << d;
+        }
+        oss << r->delegate->core.mpos + 1 << d;
+        oss << r->delegate->core.isize << d;
+        if (r->delegate->core.l_qseq) {
+            uint8_t *ptr_seq = bam_get_seq(r->delegate);
+            for (int n = 0; n < r->delegate->core.l_qseq; ++n) {
+                oss << basemap[bam_seqi(ptr_seq, n)];
+            }
+            oss << d;
+            uint8_t *ptr_qual = bam_get_qual(r->delegate);
+            for (int n = 0; n < r->delegate->core.l_qseq; ++n) {
+                uint8_t qual = ptr_qual[n];
+                oss << (char)(qual + 33);
+            }
+            oss << d;
+        } else {
+            oss << "*" << d << "*" << d;
+        }
+        uint8_t *s = bam_get_aux(r->delegate);
+        uint8_t *end = r->delegate->data + r->delegate->l_data;
+        kstring_t str = { 0, 0, NULL };
+        while (end - s >= 4) {
+            kputc_('\t', &str);
+            if ((s = (uint8_t *)sam_format_aux1(s, s[2], s+3, end, &str)) == NULL) {
+
+            }
+        }
+        kputsn("", 0, &str); // nul terminate
+        char * si = str.s;
+        for (int n = 0; n < str.l; ++n) {
+            oss << *si;
+            si ++;
+        }
+        sam = oss.str();
+        ks_free(&str);
+    }
+
     void printRead(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam) {
         const char *rname = sam_hdr_tid2name(hdr, r->delegate->core.tid);
         const char *rnext = sam_hdr_tid2name(hdr, r->delegate->core.mtid);
@@ -334,8 +412,7 @@ namespace Manager {
         std::cout << termcolor::bold << "cigar    " << termcolor::reset; printCigar(r); std::cout << std::endl;
         std::cout << termcolor::bold << "seq      " << termcolor::reset; printSeq(r); std::cout << std::endl;
 
-        std::string d = "\t";
-        sam += std::string(bam_get_qname(r->delegate)) + d;
+        read2sam(r, hdr, sam);
     }
 
     void printSelectedSam(std::string &sam) {
@@ -397,7 +474,7 @@ namespace Manager {
             }
             redraw = false;
             processed = true;
-            return false;
+
         } else if (Utils::startsWith(inputText, ":f") || Utils::startsWith(inputText, ":find")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             if (!target_qname.empty() && split.size() == 1) {
