@@ -134,9 +134,9 @@ To save or open a list of annotations use the --in-labels and --out-labels optio
 
     gw hg38 -b your.bam -v variants.vcf --in-labels labels.tsv --out-labels labels.tsv
 
-The output labels are a tab-separated file::
+The output labels are a tab-separated file:
 
-.. list-table:: Title
+.. list-table::
    :widths: 25 25 25 25
    :header-rows: 1
 
