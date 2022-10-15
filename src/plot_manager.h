@@ -48,12 +48,14 @@ namespace HTS {
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *vScroll, Segs::linked_t &linked, int *samMaxY);
 
+
     class VCF {
     public:
         VCF () = default;
         ~VCF();
         htsFile *fp;
         const bcf_hdr_t *hdr;
+        std::vector<bcf1_t*> lines;
         bcf1_t *v;
         std::string path;
         std::string chrom, chrom2, rid, vartype, label, tag;
@@ -62,9 +64,11 @@ namespace HTS {
         const char *label_to_parse;
         long start, stop;
         bool done;
+        bool cacheStdin;
 
         void open(std::string f);
         void next();
+
     };
 
     class Tab2Bam {
@@ -77,6 +81,8 @@ namespace HTS {
         void open(std::string f);
         void fetch(std::string chrom, int start, int end, Segs::ReadCollection &cl);
     };
+
+    void saveVcf(VCF &input_vcf, std::string path, std::vector<Utils::Label> multiLabels);
 }
 
 
@@ -150,7 +156,7 @@ namespace Manager {
 
         void setGlfwFrameBufferSize();
 
-        void setVariantFile(const std::string &path, int startIndex);
+        void setVariantFile(const std::string &path, int startIndex, bool cacheStdin);
 
         void setLabelChoices(std::vector<std::string> & labels);
 

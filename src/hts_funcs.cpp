@@ -263,6 +263,11 @@ namespace HTS {
             vcf_close(fp);
             bcf_destroy(v);
         }
+        if (!lines.empty()) {
+            for (auto &v: lines) {
+                bcf_destroy1(v);
+            }
+        }
     }
 
     void VCF::open(std::string f) {
@@ -309,6 +314,11 @@ namespace HTS {
 
     void VCF::next() {
         int res = bcf_read(fp, hdr, v);
+
+        if (cacheStdin) {
+            lines.push_back(bcf_dup(v));
+        }
+
         if (res < -1) {
             std::cerr << "Error: reading vcf resulted in error code " << res << std::endl;
             std::terminate();
@@ -334,6 +344,10 @@ namespace HTS {
             case VCF_INDEL: vartype = "INDEL"; break;
             case VCF_OVERLAP: vartype = "OVERLAP"; break;
             case VCF_BND: vartype = "BND"; break;
+            case VCF_REF: vartype = "REF"; break;
+            case VCF_OTHER: vartype = "OTHER"; break;
+            //case VCF_ANY: vartype = "ANY"; break;
+            case VCF_MNP: vartype = "MNP"; break;
             default: vartype = "NA"; break;
         }
 
@@ -446,6 +460,33 @@ namespace HTS {
         int tid = tbx_name2id(idx, chrom.c_str());
         itr = tbx_itr_queryi(idx, tid, start, end);
 
+
+
+    }
+
+    void saveVcf(VCF &input_vcf, std::string path, std::vector<Utils::Label> multiLabels) {
+
+        std::cout << "\nSAVING\n";
+        if (multiLabels.empty()) {
+            return;
+        }
+        int res;
+
+        bcf_hdr_t *new_hdr = bcf_hdr_dup(input_vcf.hdr);
+
+        const char *l0 = "##INFO=<ID=GW_DATE,Number=1,Type=String,Description=\"Date of GW label\">";
+        const char *l1 = "##INFO=<ID=GW_PREV,Number=1,Type=String,Description=\"Previous GW label\">";
+
+        res = bcf_hdr_append(new_hdr, l0);
+        res = bcf_hdr_append(new_hdr, l1);
+
+        htsFile *fp_out = bcf_open(path.c_str(), "w");
+
+        res = bcf_hdr_write(fp_out, new_hdr);
+        if (res < 0) {
+            std::cerr << "Error: Unable to write new header\n";
+            std::terminate();
+        }
 
 
     }

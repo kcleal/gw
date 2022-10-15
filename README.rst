@@ -5,14 +5,14 @@ GW
     :align: center
 
 
-GW is a fast browser for sequencing data (.bam/.cram format) used directly from the terminal. GW can also be used to
-view and label variant data from vcf files and display these as image-tiles for annotation. Check out the examples below!
+GW is a fast browser for genomic sequencing data (.bam/.cram format), used directly from the terminal. GW also
+makes viewing and annotating variants from vcf files a doddle. Check out the examples below!
 
 
 Installing GW
 --------------
 
-The easiest way to get GW up and running is to grab one of the pre-built binaries from the release page::
+The easiest way to get up and running is to grab one of the pre-built binaries from the release page::
 
     wget https://github.com/kcleal/gw/releases/gw....blah
 
@@ -24,7 +24,8 @@ following::
     build_gw.sh mac
     build_gw.sh windows
 
-If you want to manually build GW, we recommend using a pre-built skia binary from jetbrains https://github.com/JetBrains/skia-build/releases/tag/m93-87e8842e8c.
+If you want to manually build GW, we recommend using a pre-built skia binary from jetbrains
+`here <https://github.com/JetBrains/skia-build/releases/tag/m93-87e8842e8c>`_ .
 Aim for directory structure like this::
 
     ./dir
@@ -137,49 +138,73 @@ NVMe SSD for example, you can expect a throughput around 30-80 images per second
 
 Labelling variant data
 ----------------------
-For labelling data, it is assumed that all variant IDs in your input vcf are unique. GW by default will try and parse
-the FILTER column from the vcf and use these as the labels displayed at the bottom-left of tiled images. Parsed labels can be
-controlled using the --parse-label option. For example, the SU tag can be parsed from the info column using::
+GW is designed to make manually labelling 100s - 1000s of variants as pain free as possible. Labels can be saved to
+a tab-separated file, and opened at a later date to support labelling over multiple sessions.
+GW can also write a modified vcf with manual labels.
+
+To use labelling in GW, first ensure all variant IDs in your input vcf are unique.
+
+When you open a vcf file, GW will parse the 'filter' column and display this as a label in the bottom
+left-hand corner of image tiles. Other labels can be parsed from the vcf using the --parse-label option.
+For example, the SU tag can be parsed from the info column using::
 
     gw hg38 -b your.bam -v variants.vcf --parse-label info.SU
 
-You can also provide a list of alternate labels using the --labels option, for example::
+Image tiles can then be click-on to modify the label, choosing between PASS/FAIL by default.
+To provide a list of alternate labels, use the --labels option::
 
     gw hg38 -b your.bam -v variants.vcf --labels Yes,No,Maybe
 
 Now when you left-click on a tiled image, you can cycle through this list.
 
-To save or open a list of annotations use the --in-labels and --out-labels options::
+To save or open a list of annotations, we recommend using the --in-labels and --out-labels options. This makes it
+straightforward to keep track of labelling progress between sessions. Only variants that have been displayed to screen will be appended to
+the results in --out-labels::
 
     gw hg38 -b your.bam -v variants.vcf --in-labels labels.tsv --out-labels labels.tsv
 
-The output labels are a tab-separated file:
+Labels are output as a tab-separated file, for example:
 
 .. list-table::
-   :widths: 25 25 25 25
+   :widths: 25 25 25 25 25 25
    :header-rows: 1
 
-   * - #variant_ID
+   * - #chrom
+     - pos
+     - variant_ID
      - label
      - var_type
-     - labelled_by_user_on
-   * - 27390
+     - labelled_date
+   * - chr1
+     - 200000
+     - 27390
      - PASS
      - DEL
      -
-   * - 2720
+   * - chr1
+     - 250000
+     - 2720
      - FAIL
      - SNP
      - 14-10-2022 16-05-46
 
-The labelled_by_user_on column is only filled out if one of the tiled images was manually clicked - if this field is blank then
-the --parsed-label was used. This feature allows you to keep track of which variants were user labelled over multiple sessions.
+The labelled_date column is only filled out if one of the tiled images was manually clicked - if this field is blank then
+the --parsed-label was used. This feature allows you to keep track of which variants were user-labelled over multiple sessions.
+
+GW can also write labels to a vcf file. We recommend using this feature to finalise your annotation - the whole vcf file
+will be written to --out-vcf. The final label will appear in the 'filter' column in the vcf. Additionally, the date and previous filter label
+are kept in the info column under GW_DATE, GW_PREV::
+
+    gw hg38 -b your.bam -v variants.vcf --in-labels labels.tsv --out-vcf final_annotations.vcf
+
+Note, the --in-labels option is not required here, but could be used if labelling over multiple sessions, for example. Also,
+a GW window will still pop-up here, but this could be supressed using the --no-show option.
 
 Remote
 ------
 
 GW can be used on remote servers. Simply use `ssh -X remote` when logging on to the server.
-When GW is run the window will show up on your local screen.
+When GW is run, the window will show up on your local screen.
 
 Config file
 -----------
@@ -188,10 +213,12 @@ GW ships with a .gw.ini config file. You can manually set various options within
 typing them in every time.
 
 Some useful options to set in your .gw.ini file are a list of reference genomes so these can be selected without using a full path.
-Also things like the theme and image dimentions and hot-keys can be set.
+Also things like the theme, image dimensions and hot-keys can be set.
 
 The .gw.ini file can be copied to your home directory or .config directory for safe-keeping - gw will look in these locations before checking the
 local install directory.
 
 
-
+Issues
+------
+If you find bugs, or have feature requests please open an issue, or drop me an email clealk@cardiff.ac.uk

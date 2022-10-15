@@ -249,9 +249,11 @@ namespace Utils {
 //        }
 //    }
 
-    Label makeLabel(std::string &parsed, std::vector<std::string> &inputLabels, std::string &variantId, std::string &vartype,
+    Label makeLabel(std::string &chrom, int pos, std::string &parsed, std::vector<std::string> &inputLabels, std::string &variantId, std::string &vartype,
                     std::string savedDate, bool clicked) {
         Label l;
+        l.chrom = chrom;
+        l.pos = pos;
         l.variantId = variantId;
         l.vartype = vartype;
         l.savedDate = savedDate;
@@ -292,13 +294,9 @@ namespace Utils {
         std::string str = dateTime();
         std::ofstream f;
         f.open (path);
-        f << "#variant_ID\tlabel\tvar_type\tupdated_on\tlabelled_by_user\n";
+        f << "#chrom\tpos\tvariant_ID\tlabel\tvar_type\tlabelled_date\n";
         for (auto &l : multiLabels) {
-            if (l.savedDate == "") {
-                f << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" << str << "\t" << l.clicked << std::endl;
-            } else {
-                f << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" << l.savedDate << "\t" << l.clicked << std::endl;
-            }
+            f << l.chrom << "\t" << l.pos << "\t" << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" << ((l.i > 0) ? str : l.savedDate) << std::endl;
         }
         f.close();
     }
@@ -306,14 +304,21 @@ namespace Utils {
     void openLabels(std::string path, ankerl::unordered_dense::map< std::string, Utils::Label> &label_dict, std::vector<std::string> &inputLabels) {
         std::ifstream f;
         std::string s;
+        std::string savedDate;
         f.open(path);
         int idx = 0;
         while (std::getline(f, s)) {
             if (idx > 0) {
                 std::vector<std::string> v = split(s, '\t');
-                bool clicked = v[4] == "1";
-                Label l = makeLabel(v[1], inputLabels, v[0], v[2], v[3], clicked);
-                std::string key = v[0];
+                bool clicked = v[5] != "";
+                int pos = std::stoi(v[1]);
+                if (v.size() == 5) {
+                    savedDate = "";
+                } else {
+                    savedDate = v[5];
+                }
+                Label l = makeLabel(v[0], pos, v[3], inputLabels, v[2], v[4], savedDate, clicked);
+                std::string key = v[2];
                 label_dict[key] = l;
             }
             idx += 1;

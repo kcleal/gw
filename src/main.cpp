@@ -11,6 +11,7 @@
 #include "argparse.h"
 #include "../inc/BS_thread_pool.h"
 #include "glob.h"
+#include "hts_funcs.h"
 #include "plot_manager.h"
 #include "themes.h"
 #include "utils.h"
@@ -102,16 +103,19 @@ int main(int argc, char *argv[]) {
             .help("Choice of labels to use. Provide as comma-separated list e.g. 'PASS,FAIL'");
     program.add_argument("--in-labels")
             .default_value(std::string{""}).append()
-            .help("Overlay labels from FILE on images (use with -v or -i)");
+            .help("Input labels from tab-separated FILE (use with -v or -i)");
+    program.add_argument("--out-vcf")
+            .default_value(std::string{""}).append()
+            .help("Output labelling results to vcf FILE (the -v option is required)");
     program.add_argument("--out-labels")
             .default_value(std::string{""}).append()
-            .help("Save labelling results to FILE (use with -v or -i)");
+            .help("Output labelling results to tab-separated FILE (use with -v or -i)");
     program.add_argument("--start-index")
             .default_value(0).append().scan<'i', int>()
             .help("Start labelling from -v / -i index (zero-based)");
     program.add_argument("--resume")
             .default_value(false).implicit_value(true)
-            .help("Resume labelling from first un-reviewed block of images");
+            .help("Resume labelling from last user-labelled variant");
     program.add_argument("--pad")
             .default_value(iopts.pad).append().scan<'i', int>()
             .help("Padding +/- in bp to add to each region from -v or -r");
@@ -300,13 +304,14 @@ int main(int argc, char *argv[]) {
             }
         } else if (program.is_used("--variants")) {  // plot variants as tiled images
 
+            auto v = program.get<std::string>("--variants");
             std::vector<std::string> labels = Utils::split(iopts.labels, ',');
-
+            bool cacheStdin = v == "-" && program.is_used("--out-vcf");
             if (program.is_used("--in-labels")) {
                 Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels);
             }
 
-            plotter.setVariantFile(program.get<std::string>("--variants"), iopts.start_index);
+            plotter.setVariantFile(v, iopts.start_index, cacheStdin);
             plotter.setLabelChoices(labels);
             plotter.mode = Manager::Show::TILED;
 
@@ -316,11 +321,17 @@ int main(int argc, char *argv[]) {
                 sContext->releaseResourcesAndAbandonContext();
                 std::terminate();
             }
+
+            if (program.is_used("--out-vcf")) {
+                HTS::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
+
+            }
         }
 
-        if (!plotter.multiLabels.empty() && program.is_used("--out-labels")) {
+        if (program.is_used("--out-labels")) {
             Utils::saveLabels(plotter.multiLabels, program.get<std::string>("--out-labels"));
         }
+
 
     //todo internalize raster plotting inside the GwPlot class?
     } else {  // save plot to file, use GPU if single image and GPU available, or use raster backend otherwise
@@ -384,11 +395,14 @@ int main(int argc, char *argv[]) {
         } else if (program.is_used("--variants")) {
 
             auto v = program.get<std::string>("--variants");
+
+
             if (Utils::endsWith(v, "vcf") || Utils::endsWith(v, "vcf.gz") || Utils::endsWith(v, "bcf")) {
 
                 iopts.theme.setAlphas();
 
                 auto vcf = HTS::VCF();
+                vcf.cacheStdin = false;
                 vcf.label_to_parse = iopts.parse_label.c_str();
                 vcf.open(v);
 

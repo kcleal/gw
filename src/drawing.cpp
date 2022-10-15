@@ -906,7 +906,7 @@ namespace Drawing {
         float pad = 5;
         sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(label.current().c_str(), fonts.overlay);
         canvas->drawTextBlob(blob, rect.left() + pad, rect.bottom() - pad, opts.theme.tcDel);
-        if (label.clicked) {
+        if (label.i > 0) {
             canvas->drawRect(rect, opts.theme.lcJoins);
         }
     }

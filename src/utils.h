@@ -63,9 +63,9 @@ namespace Utils {
     public:
         Label() {};
         ~Label() = default;
-        std::string variantId, savedDate, vartype;
+        std::string chrom, variantId, savedDate, vartype;
         std::vector<std::string> labels;
-        int i;
+        int i, pos;
         bool clicked;
 
         void next();
@@ -74,7 +74,7 @@ namespace Utils {
 
     std::string dateTime();
 
-    Label makeLabel(std::string &parsed, std::vector<std::string> &inputLabels, std::string &variantId, std::string &vartype,
+    Label makeLabel(std::string &chrom, int pos, std::string &parsed, std::vector<std::string> &inputLabels, std::string &variantId, std::string &vartype,
                     std::string savedDate, bool clicked);
 
 

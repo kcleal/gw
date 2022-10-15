@@ -181,7 +181,8 @@ namespace Manager {
         }
     }
 
-    void GwPlot::setVariantFile(const std::string &path, int startIndex) {
+    void GwPlot::setVariantFile(const std::string &path, int startIndex, bool cacheStdin) {
+        vcf.cacheStdin = cacheStdin;
         vcf.label_to_parse = opts.parse_label.c_str();
         vcf.open(path);  // todo some error checking needed?
         if (startIndex > 0) {
@@ -256,7 +257,7 @@ namespace Manager {
         if (inputLabels.contains(rid)) {
             multiLabels.push_back(inputLabels[rid]);
         } else {
-            multiLabels.push_back(Utils::makeLabel(label, labelChoices, rid, vartype, "", 0));
+            multiLabels.push_back(Utils::makeLabel(chrom, start, label, labelChoices, rid, vartype, "", 0));
         }
     }
 

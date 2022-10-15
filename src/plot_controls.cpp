@@ -828,7 +828,7 @@ namespace Manager {
             } else if (Utils::endsWith(pth, ".vcf.gz") || Utils::endsWith(pth, ".vcf") || Utils::endsWith(pth, ".bcf")) {
                 good = true;
                 std::cout << "Loading: " << pth << std::endl;
-                setVariantFile(pth, opts.start_index);
+                setVariantFile(pth, opts.start_index, false);
                 imageCache.clear();
                 blockStart = 0;
                 mode = Manager::Show::TILED;
