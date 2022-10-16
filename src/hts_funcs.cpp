@@ -346,7 +346,6 @@ namespace HTS {
             case VCF_BND: vartype = "BND"; break;
             case VCF_REF: vartype = "REF"; break;
             case VCF_OTHER: vartype = "OTHER"; break;
-            //case VCF_ANY: vartype = "ANY"; break;
             case VCF_MNP: vartype = "MNP"; break;
             default: vartype = "NA"; break;
         }
@@ -466,13 +465,39 @@ namespace HTS {
 
     void saveVcf(VCF &input_vcf, std::string path, std::vector<Utils::Label> multiLabels) {
 
-        std::cout << "\nSAVING\n";
+        std::cout << "\nSaving output vcf\n";
         if (multiLabels.empty()) {
+            std::cerr << "Error: no labels detected\n";
             return;
         }
+
+        ankerl::unordered_dense::map< std::string, Utils::Label> label_dict;
+        for (auto &l : multiLabels) {
+            label_dict[l.variantId] = l;
+        }
+
         int res;
 
-        bcf_hdr_t *new_hdr = bcf_hdr_dup(input_vcf.hdr);
+        bcf_hdr_t *new_hdr = bcf_hdr_init("w");
+
+        new_hdr = bcf_hdr_merge(new_hdr, input_vcf.hdr);
+        if (bcf_hdr_sync(new_hdr) < 0) {
+            std::cerr << "bcf_hdr_sync(hdr2) after merge\n";
+            std::terminate();
+        }
+
+        const char *lg = "##source=GW>";
+        res = bcf_hdr_append(new_hdr, lg);
+        for (auto &l: multiLabels[0].labels) {
+            if (l != "PASS") {
+                std::string str = "##FILTER=<ID=" + l + ",Description=\"GW custom label\">";
+                res = bcf_hdr_append(new_hdr, str.c_str());
+                if (res < 0) {
+                    std::cerr << "bcf_hdr_append(new_hdr) failed\n";
+                    std::terminate();
+                }
+            }
+        }
 
         const char *l0 = "##INFO=<ID=GW_DATE,Number=1,Type=String,Description=\"Date of GW label\">";
         const char *l1 = "##INFO=<ID=GW_PREV,Number=1,Type=String,Description=\"Previous GW label\">";
@@ -481,12 +506,65 @@ namespace HTS {
         res = bcf_hdr_append(new_hdr, l1);
 
         htsFile *fp_out = bcf_open(path.c_str(), "w");
-
         res = bcf_hdr_write(fp_out, new_hdr);
         if (res < 0) {
             std::cerr << "Error: Unable to write new header\n";
             std::terminate();
         }
+
+        if (!input_vcf.lines.empty()) {
+            // loop over cached lines here
+        } else {
+            // reset to start of file
+            input_vcf.open(input_vcf.path);
+        }
+
+        while (true) {
+            input_vcf.next();
+            if (input_vcf.done) {
+                break;
+            }
+
+            if (label_dict.contains(input_vcf.rid)) {
+                Utils::Label &l =  label_dict[input_vcf.rid];
+
+                const char *prev_label = new_hdr->id[BCF_DT_ID][*input_vcf.v->d.flt].key;
+
+                int filter_id = bcf_hdr_id2int(new_hdr, BCF_DT_ID, l.current().c_str());
+
+                res = bcf_update_filter(new_hdr, input_vcf.v, &filter_id, 1);
+                if (res < 0) {
+                    std::cerr << "Error: Failed to update filter, id " << input_vcf.v->rid << std::endl;
+                }
+
+                if (!l.savedDate.empty()) {
+                    res = bcf_update_info_string(new_hdr, input_vcf.v, "GW_PREV", prev_label);
+                    if (res < 0) {
+                        std::cerr << "Error: Updating GW_PREV failed, id " << input_vcf.v->rid << std::endl;
+                    }
+
+                    res = bcf_update_info_string(new_hdr, input_vcf.v, "GW_DATE", l.savedDate.c_str());
+                    if (res < 0) {
+                        std::cerr << "Error: Updating GW_DATE failed, id " << input_vcf.v->rid << std::endl;
+                    }
+                }
+
+                res = bcf_write(fp_out, new_hdr, input_vcf.v);
+                if (res < 0) {
+                    std::cerr << "Error: Writing new vcf record failed, id " << input_vcf.v->rid << std::endl;
+                }
+
+            } else {
+                res = bcf_write(fp_out, new_hdr, input_vcf.v);
+                if (res < 0) {
+                    std::cerr << "Error: Writing new vcf record failed, id " << input_vcf.v->rid << std::endl;
+                    break;
+                }
+            }
+        }
+
+        bcf_hdr_destroy(new_hdr);
+        bcf_close(fp_out);
 
 
     }

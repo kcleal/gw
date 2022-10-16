@@ -54,7 +54,7 @@ namespace HTS {
         VCF () = default;
         ~VCF();
         htsFile *fp;
-        const bcf_hdr_t *hdr;
+        bcf_hdr_t *hdr;
         std::vector<bcf1_t*> lines;
         bcf1_t *v;
         std::string path;

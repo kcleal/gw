@@ -219,6 +219,7 @@ The .gw.ini file can be copied to your home directory or .config directory for s
 local install directory.
 
 
-Issues
-------
-If you find bugs, or have feature requests please open an issue, or drop me an email clealk@cardiff.ac.uk
+Issues and contributing
+-----------------------
+If you find bugs, or have feature requests please open an issue, or drop me an email clealk@cardiff.ac.uk.
+GW is under active development, and would welcome any contributions!

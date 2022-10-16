@@ -335,12 +335,14 @@ int main(int argc, char *argv[]) {
 
     //todo internalize raster plotting inside the GwPlot class?
     } else {  // save plot to file, use GPU if single image and GPU available, or use raster backend otherwise
-        if (outdir.empty()) {
-            std::cerr << "Error: please provide an output directory using --outdir\n";
-            std::terminate();
-        }
+
 
         if (!program.is_used("--variants") && !program.is_used("--images") && !regions.empty()) {
+
+            if (outdir.empty()) {
+                std::cerr << "Error: please provide an output directory using --outdir\n";
+                std::terminate();
+            }
 
             plotter.initBack(iopts.dimensions.x, iopts.dimensions.y);
 
@@ -392,7 +394,12 @@ int main(int argc, char *argv[]) {
             SkFILEWStream out(out_path.c_str());
             (void)out.write(png->data(), png->size());
 
-        } else if (program.is_used("--variants")) {
+        } else if (program.is_used("--variants") && !program.is_used("--out-vcf")) {
+
+            if (outdir.empty()) {
+                std::cerr << "Error: please provide an output directory using --outdir\n";
+                std::terminate();
+            }
 
             auto v = program.get<std::string>("--variants");
 
@@ -448,6 +455,31 @@ int main(int argc, char *argv[]) {
 
             }
 
+        } else if (program.is_used("--variants") && program.is_used("--out-vcf") && program.is_used("--in-labels")) {
+
+            auto v = program.get<std::string>("--variants");
+            std::vector<std::string> labels = Utils::split(iopts.labels, ',');
+            if (program.is_used("--in-labels")) {
+                Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels);
+            }
+            plotter.setVariantFile(v, iopts.start_index, false);
+            plotter.setLabelChoices(labels);
+            plotter.mode = Manager::Show::TILED;
+
+            HTS::VCF & vcf = plotter.vcf;
+            std::vector<std::string> empty_labels{};
+            while (true) {
+                vcf.next();
+                if (vcf.done) {break; }
+                if (plotter.inputLabels.contains(vcf.rid)) {
+                    plotter.multiLabels.push_back(plotter.inputLabels[vcf.rid]);
+                } else {
+                    plotter.multiLabels.push_back(Utils::makeLabel(vcf.chrom, vcf.start, vcf.label, empty_labels, vcf.rid, vcf.vartype, "", 0));
+                }
+            }
+            if (program.is_used("--out-vcf")) {
+                HTS::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
+            }
         }
     }
     std::cout << "\nGw finished\n";

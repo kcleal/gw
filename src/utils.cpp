@@ -285,7 +285,7 @@ namespace Utils {
         auto t = std::time(nullptr);
         auto tm = *std::localtime(&t);
         std::ostringstream oss;
-        oss << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
+        oss << std::put_time(&tm, "%d-%m-%Y_%H-%M-%S");
         auto str = oss.str();
         return str;
     }
@@ -310,7 +310,7 @@ namespace Utils {
         while (std::getline(f, s)) {
             if (idx > 0) {
                 std::vector<std::string> v = split(s, '\t');
-                bool clicked = v[5] != "";
+                bool clicked = !v[5].empty();
                 int pos = std::stoi(v[1]);
                 if (v.size() == 5) {
                     savedDate = "";
