@@ -903,6 +903,7 @@ namespace Manager {
             }
             regionSelection = idx;
             Segs::ReadCollection &cl = collections[idx];
+            regionSelection = cl.regionIdx;
             if (action == GLFW_PRESS) {
                 clicked = cl.region;
                 clickedIdx = idx;
@@ -938,6 +939,8 @@ namespace Manager {
                     if (cl.region.start - travel < 0) {
                         travel = cl.region.start;
                     }
+//                    regionSelection = cl.regionIdx;
+
                     delete regions[regionSelection].refSeq;
                     Utils::Region N;
                     N.chrom = cl.region.chrom;
@@ -1059,14 +1062,19 @@ namespace Manager {
                 if (regionSelection == -1) {
                     return;
                 }
+
                 Segs::ReadCollection &cl = collections[regionSelection];
+
                 if (cl.region.end - cl.region.start < 50000 && clickedIdx == regionSelection) {
                     auto w = (float) ((cl.region.end - cl.region.start) * (float) regions.size());
                     int travel = (int) (w * (xDrag / windowW));
                     if (cl.region.start - travel < 0) {
                         travel = cl.region.start;
                     }
+                    regionSelection = cl.regionIdx;
+
                     delete regions[regionSelection].refSeq;
+
                     Utils::Region N;
                     N.chrom = cl.region.chrom;
                     N.start = clicked.start - travel;
@@ -1076,6 +1084,7 @@ namespace Manager {
                     fetchRefSeq(N);
 
                     regions[regionSelection] = N;
+
                     if (opts.link_op != 0) {
                         processed = false;
                         redraw = true;
