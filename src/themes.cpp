@@ -128,6 +128,11 @@ namespace Themes {
             insS.setStyle(SkPaint::kStroke_Style);
             insS.setStrokeWidth(4);
 
+            marker_paint.setStyle(SkPaint::kStrokeAndFill_Style);
+            marker_paint.setAntiAlias(true);
+            marker_paint.setStrokeMiter(0.1);
+            marker_paint.setStrokeWidth(0.5);
+
             for (size_t i=0; i < mate_fc.size(); ++i) {
                 SkPaint p = mate_fc[i];
                 mate_fc[i].setAlpha(alpha);

@@ -406,7 +406,7 @@ namespace Drawing {
     }
 
     void drawBams(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
-                  SkCanvas *canvas, float yScaling, const Themes::Fonts &fonts, const Segs::linked_t &linked, int linkOp) {
+                  SkCanvas *canvas, float yScaling, const Themes::Fonts &fonts, const Segs::linked_t &linked, int linkOp, float refSpace) {
 
         SkPaint faceColor;
         SkPaint edgeColor;
@@ -746,6 +746,31 @@ namespace Drawing {
                 }
             }
 
+            // draw markers
+            if (cl.region.markerPos != -1) {
+                float rp = refSpace + 6 + (cl.bamIdx * cl.yPixels);
+                float markerP = (xScaling * (float)(cl.region.markerPos - cl.region.start)) + cl.xOffset;
+                if (markerP > cl.xOffset && markerP < regionPixels - cl.xOffset) {
+                    path.reset();
+                    path.moveTo(markerP, rp);
+                    path.moveTo(markerP - 5, rp);
+                    path.lineTo(markerP, rp + refSpace);
+                    path.lineTo(markerP + 5, rp);
+                    path.lineTo(markerP, rp);
+                    canvas->drawPath(path, theme.marker_paint);
+                }
+                float markerP2 = (xScaling * (float)(cl.region.markerPosEnd - cl.region.start)) + cl.xOffset;
+                if (markerP2 > cl.xOffset && markerP2 < (regionPixels + cl.xOffset)) {
+                    path.reset();
+                    path.moveTo(markerP2, rp);
+                    path.moveTo(markerP2 - 5, rp);
+                    path.lineTo(markerP2, rp + refSpace);
+                    path.lineTo(markerP2 + 5, rp);
+                    path.lineTo(markerP2, rp);
+                    canvas->drawPath(path, theme.marker_paint);
+                }
+            }
+
             // draw text last
             for (int i = 0; i < text.size(); ++i) {
                 canvas->drawTextBlob(text[i].get(), textX[i], textY[i], theme.tcDel);
@@ -820,7 +845,7 @@ namespace Drawing {
         float textW = fonts.overlayWidth;
         float minLetterSize = ((float)opts.dimensions.x / nRegions) / textW;
         for (auto &cl: collections) {
-            long size = cl.region.end - cl.region.start;
+            int size = cl.region.end - cl.region.start;
             double xScaling = cl.xScaling;
             double xPixels = (xScaling * size) + cl.xOffset;
             const char *ref = cl.region.refSeq;
@@ -882,6 +907,7 @@ namespace Drawing {
         if (nregions > 1) {
             float x = fb_width / nregions;
             float step = x;
+            path.reset();
             for (int i=0; i < nregions - 1; ++i) {
                 path.moveTo(x, 0);
                 path.lineTo(x, fb_height);
@@ -893,7 +919,7 @@ namespace Drawing {
             path.reset();
             float y = fb_height / nbams;
             float step = y;
-            for (int i=0; i<nregions - 1; ++i) {
+            for (int i=0; i<nbams - 1; ++i) {
                 path.moveTo(0, y);
                 path.lineTo(fb_width, y);
                 y += step;

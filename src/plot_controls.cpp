@@ -628,7 +628,7 @@ namespace Manager {
         std::cout << termcolor::magenta << "\rShowing   " ;
         int i = 0;
         for (auto &r : regions) {
-            std::cout << termcolor::cyan << regions[0].chrom << ":" << r.start << "-" << r.end << termcolor::white << "  (" << getSize(r.end - r.start) << ")";
+            std::cout << termcolor::cyan << r.chrom << ":" << r.start << "-" << r.end << termcolor::white << "  (" << getSize(r.end - r.start) << ")";
             if (i != regions.size() - 1) {
                 std::cout << "    ";
             }
@@ -665,6 +665,8 @@ namespace Manager {
                     N.chrom = regions[regionSelection].chrom;
                     N.start = regions[regionSelection].start + shift;
                     N.end = regions[regionSelection].end + shift;
+                    N.markerPos = regions[regionSelection].markerPos;
+                    N.markerPosEnd = regions[regionSelection].markerPosEnd;
                     fetchRefSeq(N);
                     regions[regionSelection] = N;
                     if (opts.link_op != 0) {
@@ -690,6 +692,8 @@ namespace Manager {
                     N.chrom = regions[regionSelection].chrom;
                     N.start = regions[regionSelection].start - shift;
                     N.end = regions[regionSelection].end - shift;
+                    N.markerPos = regions[regionSelection].markerPos;
+                    N.markerPosEnd = regions[regionSelection].markerPosEnd;
                     fetchRefSeq(N);
                     regions[regionSelection] = N;
                     if (opts.link_op != 0) {
@@ -714,6 +718,8 @@ namespace Manager {
                     N.chrom = regions[regionSelection].chrom;
                     N.start = regions[regionSelection].start - shift_left;
                     N.end = regions[regionSelection].end + shift;
+                    N.markerPos = regions[regionSelection].markerPos;
+                    N.markerPosEnd = regions[regionSelection].markerPosEnd;
                     fetchRefSeq(N);
                     regions[regionSelection] = N;
                     if (opts.link_op != 0) {
@@ -748,6 +754,8 @@ namespace Manager {
                         N.chrom = regions[regionSelection].chrom;
                         N.start = regions[regionSelection].start + shift_left;
                         N.end = regions[regionSelection].end - shift;
+                        N.markerPos = regions[regionSelection].markerPos;
+                        N.markerPosEnd = regions[regionSelection].markerPosEnd;
                         fetchRefSeq(N);
                         regions[regionSelection] = N;
                         if (opts.link_op != 0) {
@@ -771,12 +779,6 @@ namespace Manager {
                         regionSelection = 0;
                     }
                     std::cout << "\nRegion    " << regionSelection << std::endl;
-                } else if (key == opts.cycle_link_mode) {
-                    opts.link_op = (opts.link_op == 2) ? 0 : opts.link_op += 1;
-                    std::string lk = (opts.link_op > 0) ? ((opts.link_op == 1) ? "sv" : "all") : "none";
-                    std::cout << "Linking selection " << lk << std::endl;
-                    processed = false;
-                    redraw = true;
                 }
             }
         } else {  // show::TILED
@@ -803,6 +805,14 @@ namespace Manager {
                     redraw = true;
                 }
             }
+        }
+        if (key == opts.cycle_link_mode) {
+            opts.link_op = (opts.link_op == 2) ? 0 : opts.link_op += 1;
+            std::string lk = (opts.link_op > 0) ? ((opts.link_op == 1) ? "sv" : "all") : "none";
+            std::cout << "\nLinking selection " << lk << std::endl;
+            imageCache.clear();
+            processed = false;
+            redraw = true;
         }
         if (redraw) {
             linked.clear();
@@ -933,6 +943,8 @@ namespace Manager {
                     N.chrom = cl.region.chrom;
                     N.start = cl.region.start - travel;
                     N.end = cl.region.end - travel;
+                    N.markerPos = regions[regionSelection].markerPos;
+                    N.markerPosEnd = regions[regionSelection].markerPosEnd;
                     fetchRefSeq(N);
                     bool lt_last = N.start < cl.region.start;
                     regions[regionSelection] = N;
@@ -988,7 +1000,7 @@ namespace Manager {
                     }
                 }
             } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
-                if (std::fabs(xDrag) > fb_width / 4) {
+                if (std::fabs(xDrag) > fb_width / 8) {
                     int nmb = opts.number.x * opts.number.y;
                     if (xDrag > 0) {
                         blockStart = (blockStart - nmb < 0) ? 0 : blockStart - nmb;
@@ -1059,6 +1071,8 @@ namespace Manager {
                     N.chrom = cl.region.chrom;
                     N.start = clicked.start - travel;
                     N.end = clicked.end - travel;
+                    N.markerPos = regions[regionSelection].markerPos;
+                    N.markerPosEnd = regions[regionSelection].markerPosEnd;
                     fetchRefSeq(N);
 
                     regions[regionSelection] = N;

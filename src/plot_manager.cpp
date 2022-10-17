@@ -217,20 +217,26 @@ namespace Manager {
     void GwPlot::setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop) {
         this->clearCollections();
         long rlen = stop - start;
-        if (chrom == chrom2 && rlen <= opts.split_view_size) {
-            Utils::Region r;
+        bool isTrans = chrom != chrom2;
+        if (!isTrans && rlen <= opts.split_view_size) {
             regions.resize(1);
             regions[0].chrom = chrom;
             regions[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
             regions[0].end = stop + opts.pad;
+            regions[0].markerPos = start;
+            regions[0].markerPosEnd = stop;
         } else {
             regions.resize(2);
             regions[0].chrom = chrom;
             regions[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
             regions[0].end = start + opts.pad;
+            regions[0].markerPos = start;
+            regions[0].markerPosEnd = (isTrans) ? start : stop;
             regions[1].chrom = chrom2;
             regions[1].start = (1 > stop - opts.pad) ? 1 : stop - opts.pad;
             regions[1].end = stop + opts.pad;
+            regions[1].markerPos = stop;
+            regions[1].markerPosEnd = (isTrans) ? stop : start;
         }
     }
 
@@ -238,20 +244,28 @@ namespace Manager {
         this->clearCollections();
         long rlen = stop - start;
         std::vector<Utils::Region> v;
-        if (chrom == chrom2 && rlen <= opts.split_view_size) {
+        bool isTrans = chrom != chrom2;
+        if (!isTrans && rlen <= opts.split_view_size) {
             Utils::Region r;
             v.resize(1);
             v[0].chrom = chrom;
             v[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
             v[0].end = stop + opts.pad;
+            v[0].markerPos = start;
+            v[0].markerPosEnd = stop;
         } else {
             v.resize(2);
             v[0].chrom = chrom;
             v[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
             v[0].end = start + opts.pad;
+            v[0].markerPos = start;
+            v[0].markerPosEnd = (isTrans) ? start : stop;
             v[1].chrom = chrom2;
             v[1].start = (1 > stop - opts.pad) ? 1 : stop - opts.pad;
             v[1].end = stop + opts.pad;
+            v[1].markerPos = stop;
+            v[1].markerPosEnd = (isTrans) ? stop : start;
+
         }
         multiRegions.push_back(v);
         if (inputLabels.contains(rid)) {
@@ -433,7 +447,7 @@ namespace Manager {
             if (opts.coverage) {
                 Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
             }
-            Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op);
+            Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op, refSpace);
             Drawing::drawRef(opts, collections, canvas, fonts, refSpace, (float)regions.size());
             Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size());
         }
@@ -508,7 +522,7 @@ namespace Manager {
         if (opts.coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
-        Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op);
+        Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op, refSpace);
         Drawing::drawRef(opts, collections, canvas, fonts, refSpace, (float)regions.size());
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size());
 //        auto finish = std::chrono::high_resolution_clock::now();
@@ -524,7 +538,7 @@ namespace Manager {
         if (opts.coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
-        Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op);
+        Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op, refSpace);
         Drawing::drawRef(opts, collections, canvas, fonts, refSpace, (float)regions.size());
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size());
     }

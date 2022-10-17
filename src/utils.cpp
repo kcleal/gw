@@ -187,6 +187,7 @@ namespace Utils {
         if (reg.start == reg.end) {
             reg.end += 1;
         }
+        reg.markerPos = -1;
         return reg;
     }
 
