@@ -1,0 +1,28 @@
+package:
+  name: gw
+  version: 0.1
+
+source:
+  path: ./gw
+
+build:
+  os: ubuntu-21
+#  features:
+#    - vc9               [win and py27]
+#    - vc10              [win and py34]
+#    - vc14              [win and py35]
+
+requirements:
+  build:
+    - clang             [unix]
+    - icu
+    - zlib
+    - htslib
+    - fontconfig
+    - glfw
+    - curl
+
+
+about:
+  home: https://github.com/kcleal/gw
+  license: MIT
