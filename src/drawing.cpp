@@ -749,13 +749,14 @@ namespace Drawing {
             // draw markers
             if (cl.region.markerPos != -1) {
                 float rp = refSpace + 6 + (cl.bamIdx * cl.yPixels);
+                float xp = refSpace * 0.3;
                 float markerP = (xScaling * (float)(cl.region.markerPos - cl.region.start)) + cl.xOffset;
                 if (markerP > cl.xOffset && markerP < regionPixels - cl.xOffset) {
                     path.reset();
                     path.moveTo(markerP, rp);
-                    path.moveTo(markerP - 5, rp);
+                    path.lineTo(markerP - xp, rp);
                     path.lineTo(markerP, rp + refSpace);
-                    path.lineTo(markerP + 5, rp);
+                    path.lineTo(markerP + xp, rp);
                     path.lineTo(markerP, rp);
                     canvas->drawPath(path, theme.marker_paint);
                 }
@@ -763,9 +764,9 @@ namespace Drawing {
                 if (markerP2 > cl.xOffset && markerP2 < (regionPixels + cl.xOffset)) {
                     path.reset();
                     path.moveTo(markerP2, rp);
-                    path.moveTo(markerP2 - 5, rp);
+                    path.lineTo(markerP2 - xp, rp);
                     path.lineTo(markerP2, rp + refSpace);
-                    path.lineTo(markerP2 + 5, rp);
+                    path.lineTo(markerP2 + xp, rp);
                     path.lineTo(markerP2, rp);
                     canvas->drawPath(path, theme.marker_paint);
                 }
