@@ -257,9 +257,8 @@ namespace HTS {
         col.processed = true;
     }
 
-
     VCF::~VCF() {
-        if (fp != nullptr) {
+        if (fp && !path.empty()) {
             vcf_close(fp);
             bcf_destroy(v);
         }
@@ -443,6 +442,86 @@ namespace HTS {
     }
 
 
+    void Track::open(std::string &p) {
+        path = p;
+        if (Utils::endsWith(p, ".bed")) {
+            kind = 2;
+        } else if (Utils::endsWith(p, ".bed.gz")) {
+            kind = 0;
+        } else if (Utils::endsWith(p, ".vcf") || Utils::endsWith(p, ".bcf")) {
+            kind = 1;
+        } else {
+            kind = 3;
+        }
+        if (kind > 1) {
+            std::fstream fpu;
+            fpu.open(p, std::ios::in);
+            if (!fpu.is_open()) {
+                std::cerr << "Error: opening track file " << path << std::endl;
+                std::terminate();
+            }
+            std::string tp;
+            const char delim = '\t';
+            int lastb = -1;
+            bool sorted = true;
+            while(getline(fpu, tp)) {
+                if (tp[0] == '#') {
+                    continue;
+                }
+                std::vector<std::string> parts = Utils::split(tp, delim);
+                if (parts.size() < 3) {
+                    std::cerr << "Error: parsing file, not enough columns in line split by tab " << parts.size() << std::endl;
+                }
+                Utils::TrackBlock b;
+                b.line = tp;
+                b.chrom = parts[0];
+                b.start = std::stoi(parts[1]);
+                b.strand = 0;
+                if (kind == 2) {  // bed
+                    b.end = std::stoi(parts[2]);
+                    if (parts.size() > 3) {
+                        b.name = parts[3];
+                        if (parts.size() >= 6) {
+                            if (parts[5] == "+") {
+                                b.strand = 1;
+                            } else if (parts[5] == "-") {
+                                b.strand = 2;
+                            }
+                        }
+                    }
+                } else { // kind == 3
+                    b.end = b.start + 1;
+                }
+                allBlocks[b.chrom].push_back(b);
+                if (b.start > lastb) {
+                    sorted = false;
+                }
+                lastb = b.start;
+            }
+            if (!sorted) {
+                std::cout << "Unsorted file: sorting blocks from " << path << std::endl;
+                for (auto &item : allBlocks) {
+                    std::sort(item.second.begin(), item.second.end(),
+                              [](const Utils::TrackBlock &a, const Utils::TrackBlock &b)-> bool { return a.start < b.start || (a.start == b.start && a.end > b.end);});
+                }
+            }
+        } else {
+            fp = hts_open(p.c_str(), "r");
+            idx = tbx_index_load(p.c_str());
+        }
+    }
+
+    void Track::fetch(std::string &chrom, int start, int stop) {
+        if (kind > 1) {
+            std::cout << "fetching > 1\n";
+        } else {
+            std::cout << "fetching <= 1\n";
+            int tid = tbx_name2id(idx, chrom.c_str());
+            itr = tbx_itr_queryi(idx, tid, start, stop);
+        }
+    }
+
+
     Tab2Bam::~Tab2Bam() {
         hts_close(fp);
         tbx_destroy(idx);
@@ -458,8 +537,6 @@ namespace HTS {
 
         int tid = tbx_name2id(idx, chrom.c_str());
         itr = tbx_itr_queryi(idx, tid, start, end);
-
-
 
     }
 
@@ -511,32 +588,25 @@ namespace HTS {
             std::cerr << "Error: Unable to write new header\n";
             std::terminate();
         }
-
         if (!input_vcf.lines.empty()) {
-            // loop over cached lines here
+            // todo loop over cached lines here
         } else {
             // reset to start of file
             input_vcf.open(input_vcf.path);
         }
-
         while (true) {
             input_vcf.next();
             if (input_vcf.done) {
                 break;
             }
-
             if (label_dict.contains(input_vcf.rid)) {
                 Utils::Label &l =  label_dict[input_vcf.rid];
-
                 const char *prev_label = new_hdr->id[BCF_DT_ID][*input_vcf.v->d.flt].key;
-
                 int filter_id = bcf_hdr_id2int(new_hdr, BCF_DT_ID, l.current().c_str());
-
                 res = bcf_update_filter(new_hdr, input_vcf.v, &filter_id, 1);
                 if (res < 0) {
                     std::cerr << "Error: Failed to update filter, id " << input_vcf.v->rid << std::endl;
                 }
-
                 if (!l.savedDate.empty()) {
                     res = bcf_update_info_string(new_hdr, input_vcf.v, "GW_PREV", prev_label);
                     if (res < 0) {
@@ -548,7 +618,6 @@ namespace HTS {
                         std::cerr << "Error: Updating GW_DATE failed, id " << input_vcf.v->rid << std::endl;
                     }
                 }
-
                 res = bcf_write(fp_out, new_hdr, input_vcf.v);
                 if (res < 0) {
                     std::cerr << "Error: Writing new vcf record failed, id " << input_vcf.v->rid << std::endl;
@@ -562,10 +631,7 @@ namespace HTS {
                 }
             }
         }
-
         bcf_hdr_destroy(new_hdr);
         bcf_close(fp_out);
-
-
     }
 }

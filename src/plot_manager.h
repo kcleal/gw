@@ -48,6 +48,29 @@ namespace HTS {
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *vScroll, Segs::linked_t &linked, int *samMaxY);
 
+    class Track {
+    public:
+        Track() = default;
+        ~Track() = default;
+
+        std::string path;
+        std::string chrom, chrom2, rid;
+        long start, stop;
+        int kind;  // 0 bed no idx, 1 bed with idx, 2 vcf-like with idx, 3 gw label file
+
+        htsFile *fp;
+        tbx_t *idx;
+        hts_itr_t * itr;
+
+        ankerl::unordered_dense::map< std::string, std::vector<Utils::TrackBlock>>  allBlocks;
+        Utils::TrackBlock block;
+        bool done;
+
+        void open(std::string &p);
+        void fetch(std::string &chrom, int start, int stop);
+        void next();
+    };
+
 
     class VCF {
     public:
@@ -112,7 +135,8 @@ namespace Manager {
      */
     class GwPlot {
     public:
-        GwPlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opts, std::vector<Utils::Region> &regions);
+        GwPlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opts, std::vector<Utils::Region> &regions,
+               std::vector<std::string> &track_paths);
         ~GwPlot();
 
         int vScroll;
@@ -125,6 +149,9 @@ namespace Manager {
         std::vector<htsFile* > bams;
         std::vector<sam_hdr_t* > headers;
         std::vector<hts_idx_t* > indexes;
+
+        std::vector<HTS::Track> tracks;
+
         std::vector<Utils::Region> regions;
         std::vector<std::vector<Utils::Region>> multiRegions;  // used for creating tiled regions
 

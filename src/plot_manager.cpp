@@ -53,12 +53,13 @@ namespace Manager {
         glfwMakeContextCurrent(window);
     }
 
-    GwPlot makePlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opt, std::vector<Utils::Region> &regions) {
-        GwPlot plt = GwPlot(reference, bampaths, opt, regions);
-        return plt;
-    }
+//    GwPlot makePlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opt, std::vector<Utils::Region> &regions) {
+//        GwPlot plt = GwPlot(reference, bampaths, opt, regions);
+//        return plt;
+//    }
 
-    GwPlot::GwPlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opt, std::vector<Utils::Region> &regions) {
+    GwPlot::GwPlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opt, std::vector<Utils::Region> &regions,
+                   std::vector<std::string> &track_paths) {
         this->reference = reference;
         this->bam_paths = bampaths;
         this->regions = regions;
@@ -79,6 +80,12 @@ namespace Manager {
             hts_idx_t* idx = sam_index_load(f, fn.c_str());
             indexes.push_back(idx);
         }
+
+        for (auto &tp: track_paths) {
+            HTS::Track trk;
+            tracks.push_back(trk);
+            tracks.back().open(tp);
+        }
         linked.resize(bams.size());
         samMaxY = 0;
         vScroll = 0;
@@ -93,11 +100,27 @@ namespace Manager {
     }
 
     GwPlot::~GwPlot() {
-        glfwDestroyWindow(window);
+        if (window) {
+            glfwDestroyWindow(window);
+        }
+        if (backWindow) {
+            glfwDestroyWindow(backWindow);
+        }
         glfwTerminate();
+        delete clicked.refSeq;
         for (auto &rgn : regions) {
             delete rgn.refSeq;
         }
+        for (auto &bm : bams) {
+            hts_close(bm);
+        }
+        for (auto &hd: headers) {
+            bam_hdr_destroy(hd);
+        }
+        for (auto &idx: indexes) {
+            hts_idx_destroy(idx);
+        }
+        fai_destroy(fai);
     }
 
     void GwPlot::init(int width, int height) {
@@ -421,8 +444,15 @@ namespace Manager {
         float gap = fbw * 0.002;
         float gap2 = gap*2;
 
-
-        totalTabixY = 0; tabixY = 0;  // todo add if bed track here
+        if (tracks.empty()) {
+            totalTabixY = 0; tabixY = 0;
+        } else {
+            totalTabixY = fbh * (0.06 * tracks.size());
+            if (totalTabixY > 0.2 * fbh) {
+                totalTabixY = 0.2 * fbh;
+            }
+            tabixY = tracks.size() / totalTabixY;
+        }
         trackY = (fbh - totalCovY - totalTabixY - gap2 - refSpace) / nbams;
         yScaling = ((fbh - totalCovY - totalTabixY - gap2 - refSpace) / (float)samMaxY) / nbams;
         fonts.setFontSize(yScaling);
@@ -449,7 +479,7 @@ namespace Manager {
             }
             Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op, refSpace);
             Drawing::drawRef(opts, collections, canvas, fonts, refSpace, (float)regions.size());
-            Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size());
+            Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
         }
         sContext->flush();
         glfwSwapBuffers(window);
@@ -524,7 +554,7 @@ namespace Manager {
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op, refSpace);
         Drawing::drawRef(opts, collections, canvas, fonts, refSpace, (float)regions.size());
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size());
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
 //        auto finish = std::chrono::high_resolution_clock::now();
 //        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
 //        std::cout << "Elapsed Time drawScreen: " << m.count() << " m seconds" << std::endl;
@@ -540,7 +570,7 @@ namespace Manager {
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op, refSpace);
         Drawing::drawRef(opts, collections, canvas, fonts, refSpace, (float)regions.size());
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size());
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
     }
 
     void imageToPng(sk_sp<SkImage> &img, std::string &path) {

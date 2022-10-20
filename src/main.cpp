@@ -89,9 +89,9 @@ int main(int argc, char *argv[]) {
                 if (std::find(img_fmt.begin(), img_fmt.end(), value) != img_fmt.end()) { return value;}
                 return std::string{ "png" };
             }).help("Output file format");
-    program.add_argument("--bed")
+    program.add_argument("--track")
             .default_value(std::string{""}).append()
-            .help("Bed track to display at bottom of window. Repeat for multiple files stacked vertically");
+            .help("Track to display at bottom of window BED/VCF. Repeat for multiple files stacked vertically");
     program.add_argument("-t", "--threads")
             .default_value(iopts.threads).append().scan<'i', int>()
             .help("Number of threads to use");
@@ -207,15 +207,15 @@ int main(int argc, char *argv[]) {
         iopts.number = Utils::parseDimensions(d);
     }
 
-    if (program.is_used("--bed")) {
-        std::vector<std::string> bed_regions;
-        bed_regions = program.get<std::vector<std::string>>("--bed");
-        for (size_t i=0; i < bed_regions.size(); i++){
-            if (!Utils::is_file_exist(bed_regions[i])) {
-                std::cerr << "Error: bed file does not exists - " << bed_regions[i] << std::endl;
+    std::vector<std::string> tracks;
+    if (program.is_used("--track")) {
+        tracks = program.get<std::vector<std::string>>("--track");
+        for (auto &trk: tracks){
+            if (!Utils::is_file_exist(trk)) {
+                std::cerr << "Error: track file does not exists - " << trk << std::endl;
                 std::abort();
             }
-            iopts.tracks[genome].push_back(bed_regions[i]);
+            iopts.tracks[genome].push_back(trk);
         }
     }
 
@@ -263,7 +263,7 @@ int main(int argc, char *argv[]) {
     /*
      * / Gw start
      */
-    Manager::GwPlot plotter = Manager::GwPlot(genome, bam_paths, iopts, regions);
+    Manager::GwPlot plotter = Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
 
     if (!iopts.no_show) {  // plot something to screen
 
@@ -434,7 +434,7 @@ int main(int argc, char *argv[]) {
                 pool.parallelize_loop(0, jobs.size(),
                                       [&](const int a, const int b) {
 
-                                          Manager::GwPlot plt = Manager::GwPlot(genome, bam_paths, iopts, regions);
+                                          Manager::GwPlot plt = Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
                                           plt.fb_width = iopts.dimensions.x;
                                           plt.fb_height = iopts.dimensions.y;
                                           sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);

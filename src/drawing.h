@@ -38,7 +38,7 @@ namespace Drawing {
                  SkCanvas *canvas, const Themes::Fonts &fonts, float refSpace, float nRegions);
 
     void drawBorders(const Themes::IniOptions &opts, float fb_width, float fb_height,
-                     SkCanvas *canvas, size_t nbams, size_t nregions);
+                     SkCanvas *canvas, size_t nbams, size_t nregions, float totalTabixY, float tabixY, size_t tracks_size);
 
     void drawLabel(Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts);
 }

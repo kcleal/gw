@@ -29,6 +29,14 @@ namespace Utils {
 
     bool is_file_exist(std::string FileName);
 
+    struct TrackBlock {
+        std::string chrom, name, line;
+        int start, end;
+        int strand;  // 0 is none, 1 forward, 2 reverse
+        std::vector<int> s;  // block starts and block ends for bed12
+        std::vector<int> e;
+    };
+
     struct Region {
         std::string chrom;
         int start, end;
