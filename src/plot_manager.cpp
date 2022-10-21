@@ -82,7 +82,7 @@ namespace Manager {
         }
 
         for (auto &tp: track_paths) {
-            HTS::Track trk;
+            HGW::GwTrack trk;
             tracks.push_back(trk);
             tracks.back().open(tp);
         }
@@ -401,7 +401,7 @@ namespace Manager {
                     if (opts.coverage) {
                         collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
                     }
-                    HTS::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index,opts, reg, opts.coverage);
+                    HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index,opts, reg, opts.coverage);
 
                     int maxY = Segs::findY(idx, collections[idx], collections[idx].readQueue, vScroll, opts.link_op, opts, reg, linked, false);
                     if (maxY > samMaxY) {
@@ -428,7 +428,7 @@ namespace Manager {
             return;
         }
         refSpace = fb_height * 0.02;
-        auto fbh = (float) fb_height - refSpace;
+        auto fbh = (float) fb_height; // - refSpace;
         auto fbw = (float) fb_width;
         if (bams.empty()) {
             covY = 0; totalCovY = 0; totalTabixY = 0; tabixY = 0;
@@ -451,7 +451,7 @@ namespace Manager {
             if (totalTabixY > 0.2 * fbh) {
                 totalTabixY = 0.2 * fbh;
             }
-            tabixY = tracks.size() / totalTabixY;
+            tabixY = totalTabixY / tracks.size();
         }
         trackY = (fbh - totalCovY - totalTabixY - gap2 - refSpace) / nbams;
         yScaling = ((fbh - totalCovY - totalTabixY - gap2 - refSpace) / (float)samMaxY) / nbams;
@@ -480,6 +480,8 @@ namespace Manager {
             Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op, refSpace);
             Drawing::drawRef(opts, collections, canvas, fonts, refSpace, (float)regions.size());
             Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
+            Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
+
         }
         sContext->flush();
         glfwSwapBuffers(window);

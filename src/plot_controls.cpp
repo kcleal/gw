@@ -35,7 +35,7 @@
 
 #include "drawing.h"
 //#include "../inc/glfw_keys.h"
-//#include "hts_funcs.h"
+#include "hts_funcs.h"
 #include "plot_manager.h"
 #include "segments.h"
 #include "../inc/robin_hood.h"
@@ -677,7 +677,7 @@ namespace Manager {
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = N; //regions[regionSelection];
-                                HTS::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, false, &vScroll, linked, &samMaxY);
+                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, false, &vScroll, linked, &samMaxY);
                             }
                         }
                         redraw = true;
@@ -704,7 +704,7 @@ namespace Manager {
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = regions[regionSelection];
-                                HTS::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, true, &vScroll, linked, &samMaxY);
+                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, true, &vScroll, linked, &samMaxY);
                             }
                         }
                         redraw = true;
@@ -730,8 +730,8 @@ namespace Manager {
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = regions[regionSelection];
-                                HTS::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, false, true, &vScroll, linked, &samMaxY);
-                                HTS::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, false, false, &vScroll, linked, &samMaxY);
+                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, false, true, &vScroll, linked, &samMaxY);
+                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, false, false, &vScroll, linked, &samMaxY);
                                 if (opts.coverage) {  // re process coverage for all reads
                                     cl.covArr.resize(cl.region.end - cl.region.start + 1);
                                     std::fill(cl.covArr.begin(), cl.covArr.end(), 0);
@@ -766,7 +766,7 @@ namespace Manager {
                             for (auto &cl : collections) {
                                 if (cl.regionIdx == regionSelection) {
                                     cl.region = regions[regionSelection];
-                                    HTS::trimToRegion(cl, opts.coverage);
+                                    HGW::trimToRegion(cl, opts.coverage);
                                 }
                             }
                             redraw = true;
@@ -959,7 +959,7 @@ namespace Manager {
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = regions[regionSelection];
-                                HTS::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, lt_last, &vScroll, linked, &samMaxY);
+                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, lt_last, &vScroll, linked, &samMaxY);
                             }
                         }
                         redraw = true;
@@ -1093,7 +1093,7 @@ namespace Manager {
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = regions[regionSelection];
-                                HTS::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, !lt_last, &vScroll, linked, &samMaxY);
+                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, !lt_last, &vScroll, linked, &samMaxY);
                             }
                         }
                         redraw = true;

@@ -9,14 +9,6 @@
 #include <utility>
 #include <vector>
 
-
-#include "../inc/BS_thread_pool.h"
-#include "hts_funcs.h"
-#include "../inc/robin_hood.h"
-#include "utils.h"
-#include "segments.h"
-#include "themes.h"
-
 #define SK_GL
 #include "include/gpu/GrBackendSurface.h"
 #include "include/gpu/GrDirectContext.h"
@@ -24,6 +16,14 @@
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkSurface.h"
+
+#include "../inc/BS_thread_pool.h"
+#include "../inc/robin_hood.h"
+#include "hts_funcs.h"
+
+#include "utils.h"
+#include "segments.h"
+#include "themes.h"
 
 
 namespace Drawing {
@@ -40,5 +40,10 @@ namespace Drawing {
     void drawBorders(const Themes::IniOptions &opts, float fb_width, float fb_height,
                      SkCanvas *canvas, size_t nbams, size_t nregions, float totalTabixY, float tabixY, size_t tracks_size);
 
-    void drawLabel(Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts);
+    void drawLabel(const Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts);
+
+    void drawTracks(const Themes::IniOptions &opts, float fb_width, float fb_height,
+                    SkCanvas *canvas, float totalTabixY, float tabixY, std::vector<HGW::GwTrack> &tracks,
+                    const std::vector<Utils::Region> &regions, const Themes::Fonts &fonts);
+
 }

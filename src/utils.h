@@ -11,12 +11,12 @@
 
 namespace Utils {
 
-    enum GwFileTypes {
-        VCF,
-        BED,
-        BEDPE,
-        None
-    };
+//    enum GwFileTypes {
+//        VCF,
+//        BED,
+//        BEDPE,
+//        None
+//    };
 
     bool endsWith(const std::string &mainStr, const std::string &toMatch);
 

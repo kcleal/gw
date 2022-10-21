@@ -11,15 +11,16 @@
 #include "htslib/sam.h"
 #include "htslib/tbx.h"
 #include "htslib/vcf.h"
+#include "htslib/synced_bcf_reader.h"
 
 #include "../inc/BS_thread_pool.h"
 
-#include "plot_manager.h"
 #include "segments.h"
 #include "themes.h"
+#include "hts_funcs.h"
 
 
-namespace HTS {
+namespace HGW {
 
     Segs::Align make_align(bam1_t* src) {
         Segs::Align a;
@@ -257,7 +258,7 @@ namespace HTS {
         col.processed = true;
     }
 
-    VCF::~VCF() {
+    VCFfile::~VCFfile() {
         if (fp && !path.empty()) {
             vcf_close(fp);
             bcf_destroy(v);
@@ -269,7 +270,7 @@ namespace HTS {
         }
     }
 
-    void VCF::open(std::string f) {
+    void VCFfile::open(std::string f) {
         done = false;
         path = f;
         fp = bcf_open(f.c_str(), "r");
@@ -311,7 +312,7 @@ namespace HTS {
         }
     }
 
-    void VCF::next() {
+    void VCFfile::next() {
         int res = bcf_read(fp, hdr, v);
 
         if (cacheStdin) {
@@ -442,18 +443,21 @@ namespace HTS {
     }
 
 
-    void Track::open(std::string &p) {
+    void GwTrack::open(std::string &p) {
         path = p;
         if (Utils::endsWith(p, ".bed")) {
-            kind = 2;
+            kind = BED_NOI;
         } else if (Utils::endsWith(p, ".bed.gz")) {
-            kind = 0;
-        } else if (Utils::endsWith(p, ".vcf") || Utils::endsWith(p, ".bcf")) {
-            kind = 1;
+            kind = BED_IDX;
+        } else if (Utils::endsWith(p, ".vcf.gz") || Utils::endsWith(p, ".vcf")) {
+            std::cerr << "Error: only indexed .bcf.gz variant files are supported as tracks, not vcf's" << std::endl;
+            std::terminate();
+        } else if (Utils::endsWith(p, ".bcf")) {
+            kind = BCF_IDX;
         } else {
-            kind = 3;
+            kind = GW_LABEL;
         }
-        if (kind > 1) {
+        if (kind == BED_NOI || kind == GW_LABEL) {
             std::fstream fpu;
             fpu.open(p, std::ios::in);
             if (!fpu.is_open()) {
@@ -475,9 +479,12 @@ namespace HTS {
                 Utils::TrackBlock b;
                 b.line = tp;
                 b.chrom = parts[0];
+                if (!allBlocks.contains(b.chrom)) {
+                    lastb = -1;
+                }
                 b.start = std::stoi(parts[1]);
                 b.strand = 0;
-                if (kind == 2) {  // bed
+                if (kind == BED_NOI) {  // bed
                     b.end = std::stoi(parts[2]);
                     if (parts.size() > 3) {
                         b.name = parts[3];
@@ -489,7 +496,7 @@ namespace HTS {
                             }
                         }
                     }
-                } else { // kind == 3
+                } else { // assume gw_label file
                     b.end = b.start + 1;
                 }
                 allBlocks[b.chrom].push_back(b);
@@ -505,42 +512,117 @@ namespace HTS {
                               [](const Utils::TrackBlock &a, const Utils::TrackBlock &b)-> bool { return a.start < b.start || (a.start == b.start && a.end > b.end);});
                 }
             }
-        } else {
+        } else if (kind == BED_IDX) {
             fp = hts_open(p.c_str(), "r");
-            idx = tbx_index_load(p.c_str());
+            idx_t = tbx_index_load(p.c_str());
+        } else if (kind == BCF_IDX) {
+            fp = bcf_open(p.c_str(), "r");
+            hdr = bcf_hdr_read(fp);
+            idx_v = bcf_index_load(p.c_str());
+            v = bcf_init1();
         }
     }
 
-    void Track::fetch(std::string &chrom, int start, int stop) {
-        if (kind > 1) {
-            std::cout << "fetching > 1\n";
+    void GwTrack::fetch(const Utils::Region *rgn) {
+        if (kind > 2) {  // non-indexed
+            if (allBlocks.contains(rgn->chrom)) {
+                std::vector<Utils::TrackBlock> vals = allBlocks[rgn->chrom];
+                vals_end = vals.end();
+                iter_blk = std::lower_bound(vals.begin(), vals.end(), rgn->start,
+                                            [](Utils::TrackBlock &a, int x)-> bool { return a.start < x;});
+                region_end = rgn->end;
+                done = false;
+            } else {
+                done = true;
+            }
         } else {
-            std::cout << "fetching <= 1\n";
-            int tid = tbx_name2id(idx, chrom.c_str());
-            itr = tbx_itr_queryi(idx, tid, start, stop);
+            if (kind == BED_IDX) {
+                int tid = tbx_name2id(idx_t, rgn->chrom.c_str());
+                iter_q = tbx_itr_queryi(idx_t, tid, rgn->start, rgn->end);
+                if (iter_q == nullptr) {
+                    std::cerr << "\nError: Null iterator when trying to fetch from indexed bed file in fetch " << rgn->chrom
+                              << " " << rgn->start << " " << rgn->end << std::endl;
+                    std::terminate();
+                }
+                done = false;
+            } else if (kind == BCF_IDX) {
+                int tid = bcf_hdr_name2id(hdr, rgn->chrom.c_str());
+                iter_q = bcf_itr_queryi(idx_v, tid, rgn->start, rgn->end);
+                if (iter_q == nullptr) {
+                    std::cerr << "\nError: Null iterator when trying to fetch from vcf file in fetch " << rgn->chrom << " " << rgn->start << " " << rgn->end << std::endl;
+                    std::terminate();
+                }
+                done = false;
+            }
         }
     }
 
+    void GwTrack::next() {
 
-    Tab2Bam::~Tab2Bam() {
-        hts_close(fp);
-        tbx_destroy(idx);
+        int res;
+        if (kind == BCF_IDX) {
+            res = bcf_itr_next(fp, iter_q, v);
+            if (res < 0) {
+                if (res < -1) {
+                    std::cerr << "Error: iterating bcf file returned " << res << std::endl;
+                }
+                done = true;
+                return;
+            }
+            bcf_unpack(v, BCF_UN_INFO);
+            start = v->pos;
+            stop = start + v->rlen;
+            chrom = bcf_hdr_id2name(hdr, v->rid);
+            rid = v->d.id;
+            int variant_type = bcf_get_variant_types(v);
+            switch (variant_type) {
+                case VCF_SNP: vartype = "SNP"; break;
+                case VCF_INDEL: vartype = "INDEL"; break;
+                case VCF_OVERLAP: vartype = "OVERLAP"; break;
+                case VCF_BND: vartype = "BND"; break;
+                case VCF_OTHER: vartype = "OTHER"; break;
+                case VCF_MNP: vartype = "MNP"; break;
+                default: vartype = "REF";
+            }
+        } else if (kind == BED_IDX) {
+            kstring_t str = {0,0,0};
+            res = tbx_itr_next(fp, idx_t, iter_q, &str);
+            if (res < 0) {
+                if (res < -1) {
+                    std::cerr << "Error: iterating bcf file returned " << res << std::endl;
+                }
+                done = true;
+                return;
+            }
+            std::vector<std::string> parts = Utils::split(str.s, '\t');
+            chrom = parts[0];
+            start = std::stoi(parts[1]);
+            stop = std::stoi(parts[2]);
+            if (parts.size() > 2) {
+                rid = parts[3];
+            } else {
+                rid = "";
+            }
+            vartype = "";
+
+        } else if (kind > 2) {
+            if (iter_blk != vals_end) {
+                if (iter_blk->start < region_end) {
+                    chrom = iter_blk->chrom;
+                    start = iter_blk->start;
+                    stop = iter_blk->end;
+                    rid = iter_blk->name;
+                    ++iter_blk;
+                } else {
+                    done = true;
+                }
+            } else {
+                done = true;
+            }
+        }
     }
 
-    void Tab2Bam::open(std::string f) {
-        fp = hts_open(f.c_str(), "r");
-        idx = tbx_index_load(f.c_str());
-        hts_itr_destroy(itr);
-    }
-
-    void Tab2Bam::fetch(std::string chrom, int start, int end, Segs::ReadCollection &cl) {
-
-        int tid = tbx_name2id(idx, chrom.c_str());
-        itr = tbx_itr_queryi(idx, tid, start, end);
-
-    }
-
-    void saveVcf(VCF &input_vcf, std::string path, std::vector<Utils::Label> multiLabels) {
+    void saveVcf(VCFfile &input_vcf, std::string path, std::vector<Utils::Label> multiLabels) {
 
         std::cout << "\nSaving output vcf\n";
         if (multiLabels.empty()) {

@@ -12,7 +12,7 @@
 #include "../inc/unordered_dense.h"
 #include "htslib/sam.h"
 
-#include "plot_manager.h"
+//#include "plot_manager.h"
 #include "themes.h"
 #include "utils.h"
 

@@ -11,10 +11,13 @@
 #include "argparse.h"
 #include "../inc/BS_thread_pool.h"
 #include "glob.h"
+
 #include "hts_funcs.h"
 #include "plot_manager.h"
 #include "themes.h"
 #include "utils.h"
+
+
 
 #ifdef __APPLE__
     #include <OpenGL/gl.h>
@@ -323,7 +326,7 @@ int main(int argc, char *argv[]) {
             }
 
             if (program.is_used("--out-vcf")) {
-                HTS::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
+                HGW::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
 
             }
         }
@@ -408,7 +411,7 @@ int main(int argc, char *argv[]) {
 
                 iopts.theme.setAlphas();
 
-                auto vcf = HTS::VCF();
+                auto vcf = HGW::VCFfile();
                 vcf.cacheStdin = false;
                 vcf.label_to_parse = iopts.parse_label.c_str();
                 vcf.open(v);
@@ -466,7 +469,7 @@ int main(int argc, char *argv[]) {
             plotter.setLabelChoices(labels);
             plotter.mode = Manager::Show::TILED;
 
-            HTS::VCF & vcf = plotter.vcf;
+            HGW::VCFfile & vcf = plotter.vcf;
             std::vector<std::string> empty_labels{};
             while (true) {
                 vcf.next();
@@ -478,7 +481,7 @@ int main(int argc, char *argv[]) {
                 }
             }
             if (program.is_used("--out-vcf")) {
-                HTS::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
+                HGW::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
             }
         }
     }

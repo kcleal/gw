@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <vector>
 
-#include "plot_manager.h"
+//#include "plot_manager.h"
 #include "segments.h"
 #include "utils.h"
 

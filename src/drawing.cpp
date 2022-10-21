@@ -34,12 +34,14 @@
 #include "htslib/sam.h"
 
 #include "../inc/BS_thread_pool.h"
-#include "drawing.h"
-#include "hts_funcs.h"
 #include "../inc/robin_hood.h"
-#include "utils.h"
-#include "segments.h"
-#include "themes.h"
+
+#include "hts_funcs.h"
+#include "drawing.h"
+
+//#include "utils.h"
+//#include "segments.h"
+//#include "themes.h"
 
 
 namespace Drawing {
@@ -905,6 +907,8 @@ namespace Drawing {
     void drawBorders(const Themes::IniOptions &opts, float fb_width, float fb_height,
                  SkCanvas *canvas, size_t nregions, size_t nbams, float totalTabixY, float tabixY, size_t tracks_size) {
         SkPath path;
+        float refSpace = fb_height * 0.02;
+        float gap2 = fb_width * 0.004;
         if (nregions > 1) {
             float x = fb_width / nregions;
             float step = x;
@@ -917,8 +921,9 @@ namespace Drawing {
             canvas->drawPath(path, opts.theme.lcLightJoins);
         }
         if (nbams > 1) {
-            float y = (fb_height - totalTabixY) / nbams;
+            float y = (fb_height - totalTabixY - refSpace - gap2) / nbams;
             float step = y;
+            y += refSpace;
             path.reset();
             for (int i=0; i<nbams - 1; ++i) {
                 path.moveTo(0, y);
@@ -928,7 +933,7 @@ namespace Drawing {
             canvas->drawPath(path, opts.theme.lcLightJoins);
         }
         if (tracks_size) {
-            float y = (fb_height - totalTabixY);
+            float y = (fb_height - totalTabixY - refSpace);
             float step = totalTabixY / tracks_size;
 //            path.moveTo(0, y);
 //            path.lineTo(fb_width, y);
@@ -942,12 +947,58 @@ namespace Drawing {
         }
     }
 
-    void drawLabel(Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts) {
+    void drawLabel(const Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts) {
         float pad = 5;
         sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(label.current().c_str(), fonts.overlay);
         canvas->drawTextBlob(blob, rect.left() + pad, rect.bottom() - pad, opts.theme.tcDel);
         if (label.i > 0) {
             canvas->drawRect(rect, opts.theme.lcJoins);
         }
+    }
+
+    void drawTracks(const Themes::IniOptions &opts, float fb_width, float fb_height,
+                     SkCanvas *canvas, float totalTabixY, float tabixY, std::vector<HGW::GwTrack> &tracks,
+                     const std::vector<Utils::Region> &regions, const Themes::Fonts &fonts) {
+
+        float padX = 0;
+        float stepX = fb_width / regions.size();
+        float y = fb_height - totalTabixY;
+        float h = tabixY / 3;
+        std::cout << "h " << h << std::endl;
+        SkRect rect;
+        float pad = 5;
+        for (auto &rgn : regions) {
+
+            float xScaling = stepX / (rgn.end - rgn.start);
+
+            for (auto & trk : tracks) {
+                trk.fetch(&rgn);
+
+                while (true) {
+                    trk.next();
+                    if (trk.done) {
+                        std::cout << "DONE" << std::endl;
+                        break;
+                    }
+                    std::cout << " " << trk.chrom << " " << trk.start << std::endl;
+
+                    float x = (trk.start - rgn.start) * xScaling;
+
+                    std::cout << trk.start << " " << trk.stop << std::endl;
+                    rect.setXYWH(x + padX, y, (trk.stop - trk.start) * xScaling, 20);
+
+                    canvas->drawRect(rect, opts.theme.fcNormal);
+
+                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(trk.rid.c_str(), fonts.overlay);
+                    canvas->drawTextBlob(blob, rect.left() + pad, rect.bottom() - pad, opts.theme.tcDel);
+//                    if (label.i > 0) {
+//                        canvas->drawRect(rect, opts.theme.lcJoins);
+//                    }
+
+                }
+            }
+            padX += stepX;
+        }
+
     }
 }

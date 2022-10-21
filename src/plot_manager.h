@@ -12,6 +12,7 @@
 #include "htslib/faidx.h"
 #include "htslib/hfile.h"
 #include "htslib/hts.h"
+#include "htslib/vcf.h"
 #include "htslib/sam.h"
 #include "htslib/tbx.h"
 
@@ -37,76 +38,6 @@
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkSurface.h"
-
-
-namespace HTS {
-    void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
-                                 hts_idx_t *index, Themes::IniOptions &opts, Utils::Region *region, bool coverage);
-
-    void trimToRegion(Segs::ReadCollection &col, bool coverage);
-
-    void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
-                                 hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *vScroll, Segs::linked_t &linked, int *samMaxY);
-
-    class Track {
-    public:
-        Track() = default;
-        ~Track() = default;
-
-        std::string path;
-        std::string chrom, chrom2, rid;
-        long start, stop;
-        int kind;  // 0 bed no idx, 1 bed with idx, 2 vcf-like with idx, 3 gw label file
-
-        htsFile *fp;
-        tbx_t *idx;
-        hts_itr_t * itr;
-
-        ankerl::unordered_dense::map< std::string, std::vector<Utils::TrackBlock>>  allBlocks;
-        Utils::TrackBlock block;
-        bool done;
-
-        void open(std::string &p);
-        void fetch(std::string &chrom, int start, int stop);
-        void next();
-    };
-
-
-    class VCF {
-    public:
-        VCF () = default;
-        ~VCF();
-        htsFile *fp;
-        bcf_hdr_t *hdr;
-        std::vector<bcf1_t*> lines;
-        bcf1_t *v;
-        std::string path;
-        std::string chrom, chrom2, rid, vartype, label, tag;
-        int parse;
-        int info_field_type;
-        const char *label_to_parse;
-        long start, stop;
-        bool done;
-        bool cacheStdin;
-
-        void open(std::string f);
-        void next();
-
-    };
-
-    class Tab2Bam {
-    public:
-        Tab2Bam() = default;
-        ~Tab2Bam();
-        htsFile *fp;
-        tbx_t *idx;
-        hts_itr_t * itr;
-        void open(std::string f);
-        void fetch(std::string chrom, int start, int end, Segs::ReadCollection &cl);
-    };
-
-    void saveVcf(VCF &input_vcf, std::string path, std::vector<Utils::Label> multiLabels);
-}
 
 
 namespace Manager {
@@ -150,7 +81,7 @@ namespace Manager {
         std::vector<sam_hdr_t* > headers;
         std::vector<hts_idx_t* > indexes;
 
-        std::vector<HTS::Track> tracks;
+        std::vector<HGW::GwTrack> tracks;
 
         std::vector<Utils::Region> regions;
         std::vector<std::vector<Utils::Region>> multiRegions;  // used for creating tiled regions
@@ -160,7 +91,7 @@ namespace Manager {
 
         std::vector<Segs::ReadCollection> collections;
 
-        HTS::VCF vcf;
+        HGW::VCFfile vcf;
 
 //        robin_hood::unordered_flat_map< int, sk_sp<SkImage>> imageCache;
         ankerl::unordered_dense::map< int, sk_sp<SkImage>> imageCache;
