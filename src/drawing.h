@@ -42,7 +42,7 @@ namespace Drawing {
 
     void drawLabel(const Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts);
 
-    void drawTracks(const Themes::IniOptions &opts, float fb_width, float fb_height,
+    void drawTracks(Themes::IniOptions &opts, float fb_width, float fb_height,
                     SkCanvas *canvas, float totalTabixY, float tabixY, std::vector<HGW::GwTrack> &tracks,
                     const std::vector<Utils::Region> &regions, const Themes::Fonts &fonts);
 

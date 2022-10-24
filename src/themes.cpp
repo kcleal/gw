@@ -173,7 +173,8 @@ namespace Themes {
 
     IgvTheme::IgvTheme() {
         name = "igv";
-        fcCoverage.setARGB(255, 220, 220, 220);
+        fcCoverage.setARGB(255, 200, 200, 200);
+        fcTrack.setARGB(155, 2, 60, 180);
         bgPaint.setARGB(255, 255, 255, 255);
         fcNormal.setARGB(255, 192, 192, 192);
         fcDel.setARGB(255, 220, 20, 60);
@@ -188,12 +189,11 @@ namespace Themes {
         fcG.setARGB(255, 205, 133, 63);
         fcN.setARGB(255, 128, 128, 128);
         lcJoins.setARGB(255, 20, 20, 20);
-        lcLightJoins.setARGB(255, 170, 170, 170);
+        lcLightJoins.setARGB(255, 120, 120, 120);
         tcDel.setARGB(255, 0, 0, 0);
         tcLabels.setARGB(255, 0, 0, 0);
         tcIns.setARGB(255, 255, 255, 255);
         marker_paint.setARGB(255, 0, 0, 0);
-
         ecSelected.setARGB(255, 0, 0, 0);
         ecSelected.setStyle(SkPaint::kStroke_Style);
         ecSelected.setStrokeWidth(2);
@@ -202,6 +202,7 @@ namespace Themes {
     DarkTheme::DarkTheme() {
         name = "dark";
         fcCoverage.setARGB(255, 90, 90, 100);
+        fcTrack.setARGB(125, 14, 74, 135);
         bgPaint.setARGB(255, 10, 10, 20);
         fcNormal.setARGB(255, 90, 90, 95);
         fcDel.setARGB(255, 185, 25, 25);
@@ -216,12 +217,11 @@ namespace Themes {
         fcG.setARGB(255, 236, 132, 19);
         fcN.setARGB(255, 128, 128, 128);
         lcJoins.setARGB(255, 142, 142, 142);
-        lcLightJoins.setARGB(255, 62, 62, 62);
+        lcLightJoins.setARGB(255, 82, 82, 82);
         tcDel.setARGB(255, 227, 227, 227);
         tcLabels.setARGB(255, 0, 0, 0);
         tcIns.setARGB(255, 227, 227, 227);
         marker_paint.setARGB(255, 220, 220, 220);
-
         ecSelected.setARGB(255, 255, 255, 255);
         ecSelected.setStyle(SkPaint::kStroke_Style);
         ecSelected.setStrokeWidth(2);

@@ -60,8 +60,8 @@ namespace HGW {
 
     class GwTrack {
     public:
-        GwTrack() = default;
-        ~GwTrack() = default;
+        GwTrack() {};
+        ~GwTrack(); // = default;
 
         std::string path;
         std::string chrom, chrom2, rid, vartype;

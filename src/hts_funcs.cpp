@@ -442,6 +442,24 @@ namespace HGW {
         }
     }
 
+    GwTrack::~GwTrack() {
+        // these cause segfaults?
+//        if (fp != nullptr) {
+//            hts_close(fp);
+//        }
+//        if (idx_v != nullptr) {
+//            hts_idx_destroy(idx_v);
+//        }
+//        if (hdr != nullptr) {
+//            bcf_hdr_destroy(hdr);
+//        }
+//        if (v != nullptr) {
+//            bcf_destroy1(v);
+//        }
+//        if (t != nullptr) {
+//            tbx_destroy(t);
+//        }
+    }
 
     void GwTrack::open(std::string &p) {
         path = p;

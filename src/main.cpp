@@ -272,10 +272,13 @@ int main(int argc, char *argv[]) {
 
         // initialize display screen
         plotter.init(iopts.dimensions.x, iopts.dimensions.y);
+
         int fb_height, fb_width;
         glfwGetFramebufferSize(plotter.window, &fb_width, &fb_height);
 
         sContext = GrDirectContext::MakeGL(nullptr).release();
+
+
         GrGLFramebufferInfo framebufferInfo;
         framebufferInfo.fFBOID = 0;
         framebufferInfo.fFormat = GL_RGBA8;  // GL_SRGB8_ALPHA8; //
@@ -300,9 +303,9 @@ int main(int argc, char *argv[]) {
 
         if (!program.is_used("--variants") && !program.is_used("--images")) {
             int res = plotter.startUI(sContext, sSurface);  // plot regions
+            sContext->releaseResourcesAndAbandonContext();
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
-                sContext->releaseResourcesAndAbandonContext();
                 std::terminate();
             }
         } else if (program.is_used("--variants")) {  // plot variants as tiled images
@@ -335,8 +338,6 @@ int main(int argc, char *argv[]) {
             Utils::saveLabels(plotter.multiLabels, program.get<std::string>("--out-labels"));
         }
 
-
-    //todo internalize raster plotting inside the GwPlot class?
     } else {  // save plot to file, use GPU if single image and GPU available, or use raster backend otherwise
 
 

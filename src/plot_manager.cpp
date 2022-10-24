@@ -80,11 +80,11 @@ namespace Manager {
             hts_idx_t* idx = sam_index_load(f, fn.c_str());
             indexes.push_back(idx);
         }
-
+        tracks.resize(track_paths.size());
+        int i = 0;
         for (auto &tp: track_paths) {
-            HGW::GwTrack trk;
-            tracks.push_back(trk);
-            tracks.back().open(tp);
+            tracks[i].open(tp);
+            i += 1;
         }
         linked.resize(bams.size());
         samMaxY = 0;
@@ -107,10 +107,14 @@ namespace Manager {
             glfwDestroyWindow(backWindow);
         }
         glfwTerminate();
-        delete clicked.refSeq;
-        for (auto &rgn : regions) {
-            delete rgn.refSeq;
-        }
+//        if (clicked.refSeq != nullptr) {
+//            delete clicked.refSeq;
+//        }
+//        for (auto &rgn : regions) {
+//            if (rgn.refSeq != nullptr) {
+//                delete rgn.refSeq;
+//            }
+//        }
         for (auto &bm : bams) {
             hts_close(bm);
         }
@@ -338,10 +342,13 @@ namespace Manager {
                 opts.dimensions.y = y;
                 resizeTriggered = false;
 
+                sContext->resetContext();
+
                 GrGLFramebufferInfo framebufferInfo;
                 framebufferInfo.fFBOID = 0;
-                framebufferInfo.fFormat = GL_RGBA8;  // GL_SRGB8_ALPHA8; //
+                framebufferInfo.fFormat = GL_RGBA8;
                 GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
+
                 if (!backendRenderTarget.isValid()) {
                     std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
                     glfwTerminate();
@@ -361,7 +368,6 @@ namespace Manager {
                 }
             }
         }
-
         return 1;
     }
 
@@ -447,9 +453,9 @@ namespace Manager {
         if (tracks.empty()) {
             totalTabixY = 0; tabixY = 0;
         } else {
-            totalTabixY = fbh * (0.06 * tracks.size());
-            if (totalTabixY > 0.2 * fbh) {
-                totalTabixY = 0.2 * fbh;
+            totalTabixY = fbh * (0.05 * tracks.size());
+            if (totalTabixY > 0.15 * fbh) {
+                totalTabixY = 0.15 * fbh;
             }
             tabixY = totalTabixY / tracks.size();
         }
@@ -457,13 +463,13 @@ namespace Manager {
         yScaling = ((fbh - totalCovY - totalTabixY - gap2 - refSpace) / (float)samMaxY) / nbams;
         fonts.setFontSize(yScaling);
         regionWidth = fbw / (float)regions.size();
-        bamHeight = covY + trackY + tabixY;
+        bamHeight = covY + trackY; // + tabixY;
 
         for (auto &cl: collections) {
             cl.xScaling = (regionWidth - gap2) / ((double)(cl.region.end - cl.region.start));
             cl.xOffset = (regionWidth * (float)cl.regionIdx) + gap;
             cl.yOffset = (float)cl.bamIdx * bamHeight + covY + refSpace;
-            cl.yPixels = trackY + covY + tabixY;
+            cl.yPixels = trackY + covY; // + tabixY;
 
         }
     }

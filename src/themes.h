@@ -52,7 +52,7 @@ namespace Themes {
         std::string name;
         // face colours
         SkPaint bgPaint, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip, \
-                fcA, fcT, fcC, fcG, fcN, fcCoverage;
+                fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack;
         SkPaint fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0, fcSoftClip0;
 
         std::vector<SkPaint> mate_fc;
