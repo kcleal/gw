@@ -82,6 +82,7 @@ namespace Manager {
         std::vector<hts_idx_t* > indexes;
 
         std::vector<HGW::GwTrack> tracks;
+        std::string outLabelFile;
 
         std::vector<Utils::Region> regions;
         std::vector<std::vector<Utils::Region>> multiRegions;  // used for creating tiled regions
@@ -116,7 +117,11 @@ namespace Manager {
 
         void setVariantFile(const std::string &path, int startIndex, bool cacheStdin);
 
+        void setOutLabelFile(const std::string &path);
+
         void setLabelChoices(std::vector<std::string> & labels);
+
+        void saveLabels();
 
         void fetchRefSeq(Utils::Region &rgn);
 

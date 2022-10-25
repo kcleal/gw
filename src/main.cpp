@@ -276,8 +276,8 @@ int main(int argc, char *argv[]) {
         int fb_height, fb_width;
         glfwGetFramebufferSize(plotter.window, &fb_width, &fb_height);
 
-        sContext = GrDirectContext::MakeGL(nullptr).release();
 
+        sContext = GrDirectContext::MakeGL(nullptr).release();
 
         GrGLFramebufferInfo framebufferInfo;
         framebufferInfo.fFBOID = 0;
@@ -299,11 +299,9 @@ int main(int argc, char *argv[]) {
             sContext->releaseResourcesAndAbandonContext();
             std::terminate();
         }
-        plotter.opts.theme.setAlphas();
 
         if (!program.is_used("--variants") && !program.is_used("--images")) {
             int res = plotter.startUI(sContext, sSurface);  // plot regions
-            sContext->releaseResourcesAndAbandonContext();
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
                 std::terminate();
@@ -317,6 +315,10 @@ int main(int argc, char *argv[]) {
                 Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels);
             }
 
+            if (program.is_used("--out-labels")) {
+                plotter.setOutLabelFile(program.get<std::string>("--out-labels"));
+            }
+
             plotter.setVariantFile(v, iopts.start_index, cacheStdin);
             plotter.setLabelChoices(labels);
             plotter.mode = Manager::Show::TILED;
@@ -324,18 +326,12 @@ int main(int argc, char *argv[]) {
             int res = plotter.startUI(sContext, sSurface);
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
-                sContext->releaseResourcesAndAbandonContext();
                 std::terminate();
             }
 
             if (program.is_used("--out-vcf")) {
                 HGW::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
-
             }
-        }
-
-        if (program.is_used("--out-labels")) {
-            Utils::saveLabels(plotter.multiLabels, program.get<std::string>("--out-labels"));
         }
 
     } else {  // save plot to file, use GPU if single image and GPU available, or use raster backend otherwise

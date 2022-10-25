@@ -237,6 +237,14 @@ namespace Manager {
         }
     }
 
+    void GwPlot::setOutLabelFile(const std::string &path) {
+        outLabelFile = path;
+    }
+
+    void GwPlot::saveLabels() {
+        if (!outLabelFile.empty()) Utils::saveLabels(multiLabels, outLabelFile);
+    }
+
     void GwPlot::setLabelChoices(std::vector<std::string> &labels) {
         labelChoices = labels;
     }
@@ -303,6 +311,7 @@ namespace Manager {
     }
 
     int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface) {
+
         std::cout << "Type ':help' or ':h' for more info\n";
 
         setGlfwFrameBufferSize();
@@ -314,6 +323,8 @@ namespace Manager {
         } else {
             std::cout << termcolor::magenta << "Index     " << termcolor::reset << blockStart << std::flush;
         }
+        bool wasResized = false;
+        std::chrono::high_resolution_clock::time_point autoSaveTimer = std::chrono::high_resolution_clock::now();
 
         while (true) {
             if (glfwWindowShouldClose(wind)) {
@@ -333,16 +344,16 @@ namespace Manager {
                 imageCache.clear();
                 redraw = true;
                 processed = false;
+                wasResized = true;
                 int x, y;
                 glfwGetFramebufferSize(window, &x, &y);
+
 
                 fb_width = x;
                 fb_height = y;
                 opts.dimensions.x = x;
                 opts.dimensions.y = y;
                 resizeTriggered = false;
-
-                sContext->resetContext();
 
                 GrGLFramebufferInfo framebufferInfo;
                 framebufferInfo.fFBOID = 0;
@@ -363,11 +374,23 @@ namespace Manager {
                                                                   nullptr).release();
                 if (!sSurface) {
                     std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
-                    sContext->releaseResourcesAndAbandonContext();
                     std::terminate();
                 }
+                resizeTimer = std::chrono::high_resolution_clock::now();
+
+            }
+            if (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - autoSaveTimer) > 1min) {
+                saveLabels();
+                autoSaveTimer = std::chrono::high_resolution_clock::now();
             }
         }
+        saveLabels();
+        if (wasResized) {
+            // no idea why, but unless exit is here then we get an abort error if we return to main. Something to do with lifetime of backendRenderTarget
+            std::cout << "\nGw finished\n";
+            exit(EXIT_SUCCESS);
+        }
+
         return 1;
     }
 
