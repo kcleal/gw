@@ -12,7 +12,7 @@
 #include <sstream>
 #include <string>
 
-#include "../inc/unordered_dense.h"
+#include "../include/unordered_dense.h"
 #include "utils.h"
 
 #if defined(_WIN32)

@@ -9,7 +9,7 @@
 #include <string>
 
 #include "argparse.h"
-#include "../inc/BS_thread_pool.h"
+#include "../include/BS_thread_pool.h"
 #include "glob.h"
 
 #include "hts_funcs.h"

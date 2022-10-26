@@ -22,11 +22,11 @@
 #include <utility>
 #include <vector>
 
-#include "../inc/BS_thread_pool.h"
+#include "../include/BS_thread_pool.h"
 #include "drawing.h"
 #include "glfw_keys.h"
 #include "hts_funcs.h"
-#include "../inc/robin_hood.h"
+#include "../include/robin_hood.h"
 #include "utils.h"
 #include "segments.h"
 #include "themes.h"

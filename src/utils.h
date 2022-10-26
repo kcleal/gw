@@ -6,7 +6,7 @@
 
 #include <string>
 #include <vector>
-#include "../inc/unordered_dense.h"
+#include "../include/unordered_dense.h"
 
 
 namespace Utils {

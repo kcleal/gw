@@ -13,7 +13,7 @@
 #include "htslib/vcf.h"
 #include "htslib/synced_bcf_reader.h"
 
-#include "../inc/BS_thread_pool.h"
+#include "../include/BS_thread_pool.h"
 
 #include "segments.h"
 #include "themes.h"

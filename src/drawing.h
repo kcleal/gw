@@ -17,8 +17,8 @@
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkSurface.h"
 
-#include "../inc/BS_thread_pool.h"
-#include "../inc/robin_hood.h"
+#include "../include/BS_thread_pool.h"
+#include "../include/robin_hood.h"
 #include "hts_funcs.h"
 
 #include "utils.h"

@@ -34,12 +34,12 @@
 #include "include/core/SkSurface.h"
 
 #include "drawing.h"
-//#include "../inc/glfw_keys.h"
+//#include "../include/glfw_keys.h"
 #include "hts_funcs.h"
 #include "plot_manager.h"
 #include "segments.h"
-#include "../inc/robin_hood.h"
-#include "../inc/termcolor.h"
+#include "../include/robin_hood.h"
+#include "../include/termcolor.h"
 #include "themes.h"
 
 

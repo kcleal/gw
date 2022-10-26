@@ -7,9 +7,9 @@
 #include <iostream>
 #include <vector>
 
-#include "../inc/BS_thread_pool.h"
-#include "../inc/robin_hood.h"
-#include "../inc/unordered_dense.h"
+#include "../include/BS_thread_pool.h"
+#include "../include/robin_hood.h"
+#include "../include/unordered_dense.h"
 #include "htslib/sam.h"
 
 //#include "plot_manager.h"

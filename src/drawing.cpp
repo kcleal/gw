@@ -33,8 +33,8 @@
 #include "htslib/hts.h"
 #include "htslib/sam.h"
 
-#include "../inc/BS_thread_pool.h"
-#include "../inc/robin_hood.h"
+#include "../include/BS_thread_pool.h"
+#include "../include/robin_hood.h"
 
 #include "hts_funcs.h"
 #include "drawing.h"

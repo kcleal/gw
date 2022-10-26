@@ -28,7 +28,7 @@
 #include "drawing.h"
 #include "plot_manager.h"
 #include "segments.h"
-#include "../inc/termcolor.h"
+#include "../include/termcolor.h"
 #include "themes.h"
 
 std::mutex mtx;

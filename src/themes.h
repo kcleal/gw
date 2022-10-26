@@ -32,10 +32,10 @@
 #include "include/core/SkFont.h"
 #include "include/core/SkTextBlob.h"
 
-#include "robin_hood.h"
-#include "argparse.h"
+#include "../include/robin_hood.h"
+#include "../include/argparse.h"
 #include "glob.h"
-#include "ini.h"
+#include "../include/ini.h"
 #include "utils.h"
 
 

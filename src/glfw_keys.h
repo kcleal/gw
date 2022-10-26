@@ -7,7 +7,7 @@
 #include <string>
 #include <GLFW/glfw3.h>
 //#include <unordered_map>
-#include "../inc/robin_hood.h"
+#include "../include/robin_hood.h"
 
 namespace Keys {
 

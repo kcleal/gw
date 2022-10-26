@@ -1,28 +1,52 @@
+
+{% set version = "0.1.0" %}
+
 package:
   name: gw
-  version: 0.1
+  version: {{ version }}
 
 source:
-  path: ./gw
+  path: /home/kez/CLionProjects/gw_dev/gw
 
 build:
-  os: ubuntu-21
-#  features:
-#    - vc9               [win and py27]
-#    - vc10              [win and py34]
-#    - vc14              [win and py35]
+  os: ubuntu
+  binary_relocation: True
+  number: 2
+  binary_has_prefix_files: gw
 
 requirements:
   build:
-    - clang             [unix]
+    - clang
+    - make
+    - cmake
+  host:
     - icu
     - zlib
-    - htslib
     - fontconfig
+    - libcurl
+    - wget
+    - git
+    - jpeg
+    - libpng
+#    - libsvg
+    - libdeflate
+    - htslib
+    - pthread-stubs
     - glfw
-    - curl
+    - xorg-libx11
 
+outputs:
+  - name: gw
+    files: ./gw
+
+app:
+  entry: gw
+  summary: The genome viewer GW
 
 about:
   home: https://github.com/kcleal/gw
   license: MIT
+
+extra:
+  maintainers:
+    - Kez Cleal
