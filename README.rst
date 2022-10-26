@@ -14,72 +14,13 @@ Installing GW
 
 The easiest way to get up and running is to grab one of the pre-built binaries from the release page::
 
-    wget https://github.com/kcleal/gw/releases/gw....blah
+    wget https://github.com/kcleal/gw/releases/download/v0.1.0/gw-Linux-x64
+    wget https://github.com/kcleal/gw/releases/download/v0.1.0/gw-MacOS-x64
 
-GW is built using clang and make, and requires glfw and skia libraries. If you need to build GW from source,
-we have put together a build script to try and make this pain free. You can run this using one of the
-following::
+GW is built using clang and make and requires the skia library. To build from source you can try the following::
 
-    build_gw.sh linux
-    build_gw.sh mac
-    build_gw.sh windows
-
-If you want to manually build GW, we recommend using a pre-built skia binary from jetbrains
-`here <https://github.com/JetBrains/skia-build/releases/tag/m93-87e8842e8c>`_ .
-Aim for directory structure like this::
-
-    ./dir
-    ..../gw
-    ..../skia
-
-And build GW using::
-
-    cd gw && make
-
-
-Old build instructions
------------------------
-
-For linux::
-
-    sudo apt install clang cmake
-    sudo apt install libglfw3 libglfw-dev
-
-or::
-
-    wget https://github.com/glfw/glfw/releases/download/3.3.8/glfw-3.3.8.zip && \
-    cd glfw-3.3.8 && \
-    cmake -S . -B build && \
-    cd build && \
-    sudo make install
-
-For Mac::
-
-    brew install glew glfw3
-
-Get skia binaries from https://github.com/JetBrains/skia-build/releases/tag/m93-87e8842e8c
-
-Aim for directory structure like this::
-
-    ./dir
-    ..../gw
-    ..../skia
-
-For linux::
-
-    git clone https://github.com/kcleal/gw.git && \
-    mkdir skia && cd skia && \
-    wget https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip && \
-    unzip Skia-m93-87e8842e8c-linux-Release-x64.zip && cd ../gw && \
-    make
-
-For mac::
-
-    git clone https://github.com/kcleal/gw.git && \
-    mkdir skia && cd skia && \
-    wget https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-x64.zip && \
-    unzip Skia-m93-87e8842e8c-linux-Release-x64.zip && cd ../gw && \
-    make
+    git clone https://github.com/kcleal/gw.git && cd gw
+    make prep && make
 
 User Guide
 ==========
@@ -88,7 +29,7 @@ Sequencing data
 --------------------
 To view a genomic region e.g. chr1:1-20000, supply an indexed reference genome and an alignment file (using -b option)::
 
-    gw hg38 -b your.bam -r chr1:1-20000
+    gw hg38.fa -b your.bam -r chr1:1-20000
 
 .. image:: inc/igv.png
     :align: center
@@ -103,14 +44,14 @@ Various commands are also available via the GW window. Simply click on the GW wi
 
 A GW window can also be started with only the reference genome as a positional argument::
 
-    gw hg38
+    gw hg38.fa
 
 You can then drag-and-drop alignment files and vcf files into the window, and use commands to navigate to regions etc.
 
 GW can also be used to generate images in .png format of target genomic regions.
 To use this function apply the --no-show option along with an output folder --outdir::
 
-    gw hg38 -b your.bam -r chr1:1-20000 --outdir . --no-show
+    gw hg38.fa -b your.bam -r chr1:1-20000 --outdir . --no-show
 
 Variant data
 -----------------
@@ -131,7 +72,7 @@ just right-click again.
 You can also generate an image of every variant in your vcf file - as before use the --outdir and --no-show options. Also,
 you might want to increase the number of threads used here to speed things up a bit. Be warned this will probably generate a huge number of files::
 
-    gw hg38 -b your.bam -v variants.vcf --outdir all_images --no-show -t 16
+    gw hg38.fa -b your.bam -v variants.vcf --outdir all_images --no-show -t 16
 
 The time taken here depends a great deal on the speed of your hard drive and depth of coverage, but using a fast
 NVMe SSD for example, you can expect a throughput around 30-80 images per second.
@@ -140,20 +81,20 @@ Labelling variant data
 ----------------------
 GW is designed to make manually labelling 100s - 1000s of variants as pain free as possible. Labels can be saved to
 a tab-separated file, and opened at a later date to support labelling over multiple sessions.
-GW can also write a modified vcf with manual labels.
+GW can also write a modified vcf, updating the vcf filter column with the curated labels.
 
 To use labelling in GW, first ensure all variant IDs in your input vcf are unique.
 
 When you open a vcf file, GW will parse the 'filter' column and display this as a label in the bottom
 left-hand corner of image tiles. Other labels can be parsed from the vcf using the --parse-label option.
-For example, the SU tag can be parsed from the info column using::
+For example, the "SU" tag can be parsed from the info column using::
 
-    gw hg38 -b your.bam -v variants.vcf --parse-label info.SU
+    gw hg38.fa -b your.bam -v variants.vcf --parse-label info.SU
 
 Image tiles can then be click-on to modify the label, choosing between PASS/FAIL by default.
 To provide a list of alternate labels, use the --labels option::
 
-    gw hg38 -b your.bam -v variants.vcf --labels Yes,No,Maybe
+    gw hg38.fa -b your.bam -v variants.vcf --labels Yes,No,Maybe
 
 Now when you left-click on a tiled image, you can cycle through this list.
 
@@ -190,12 +131,13 @@ Labels are output as a tab-separated file, for example:
 
 The labelled_date column is only filled out if one of the tiled images was manually clicked - if this field is blank then
 the --parsed-label was used. This feature allows you to keep track of which variants were user-labelled over multiple sessions.
+Additionally, the --out-labels file is auto-saved every minute for safe keeping.
 
 GW can also write labels to a vcf file. We recommend using this feature to finalise your annotation - the whole vcf file
 will be written to --out-vcf. The final label will appear in the 'filter' column in the vcf. Additionally, the date and previous filter label
 are kept in the info column under GW_DATE, GW_PREV::
 
-    gw hg38 -b your.bam -v variants.vcf --in-labels labels.tsv --out-vcf final_annotations.vcf
+    gw hg38.fa -b your.bam -v variants.vcf --in-labels labels.tsv --out-vcf final_annotations.vcf
 
 Note, the --in-labels option is not required here, but could be used if labelling over multiple sessions, for example. Also,
 a GW window will still pop-up here, but this could be supressed using the --no-show option.
@@ -222,4 +164,4 @@ local install directory.
 Issues and contributing
 -----------------------
 If you find bugs, or have feature requests please open an issue, or drop me an email clealk@cardiff.ac.uk.
-GW is under active development, and would welcome any contributions!
+GW is under active development, and we would welcome any contributions!

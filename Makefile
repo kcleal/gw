@@ -23,7 +23,7 @@ else
 endif
 
 
-LIBS = -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts -lfontconfig -lpthread -lglfw3 -luuid
+LIBS = -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts -lfontconfig -lpthread -lglfw3
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
@@ -54,7 +54,7 @@ else
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Linux)
         CXXFLAGS += -D LINUX
-        LIBS += -lGL -lfreetype -lfontconfig
+        LIBS += -lGL -lfreetype -lfontconfig -luuid
         SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip
     endif
     ifeq ($(UNAME_S),Darwin)
@@ -80,7 +80,7 @@ OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 prep:
 	$(info "System: $(shell uname -s)")
 	$(info "Downloading pre-build skia skia from: $(SKIA_LINK)")
-	wget -O lib/skia/skia.zip $(SKIA_LINK)
+	mkdir -p lib/skia && wget -O lib/skia/skia.zip $(SKIA_LINK)
 	cd lib/skia && unzip -o skia.zip && rm skia.zip && cd ../../
 
 
