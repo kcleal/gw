@@ -1,12 +1,13 @@
 
-{% set version = "0.1.0" %}
+{% set version = "0.1.1" %}
 
 package:
   name: gw
   version: {{ version }}
 
 source:
-  path: /Users/kezcleal/Documents/Data/gw_dev/gw
+#  path: /Users/kezcleal/Documents/Data/gw_dev/gw
+  url: https://github.com/kcleal/gw/archive/refs/tags/v{{ version }}.tar.gz
 
 build:
   number: 0
