@@ -40,7 +40,8 @@ test:
 about:
   home: https://github.com/kcleal/gw
   license: MIT
+  summary: 'View genomic sequencing data and vcf files'
 
 extra:
-  maintainers:
+  recipe-maintainers:
     - kcleal
