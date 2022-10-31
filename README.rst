@@ -1,7 +1,7 @@
 GW
 ==
 
-.. image:: inc/banner.png
+.. image:: include/banner.png
     :align: center
 
 
@@ -31,14 +31,14 @@ To view a genomic region e.g. chr1:1-20000, supply an indexed reference genome a
 
     gw hg38.fa -b your.bam -r chr1:1-20000
 
-.. image:: inc/igv.png
+.. image:: include/igv.png
     :align: center
 
 This will pop open a GW window that can be used interactively using the mouse and keyboard. Note multiple -b and -r options can be used.
 
 Various commands are also available via the GW window. Simply click on the GW window and type ":help" which will display a list of commands in your terminal.
 
-.. image:: inc/help.png
+.. image:: include/help.png
     :align: center
     :scale: 50%
 
@@ -59,7 +59,7 @@ A variant file in .vcf/.bcf format can be opened in a GW window by either draggi
 
     gw hg38.fa -b your.bam -v variants.vcf
 
-.. image:: inc/tiles.png
+.. image:: include/tiles.png
     :align: center
 
 This will open a window in tiled mode. To change the number of tiles use the up/down arrow keys to change interactively or use the -n option to control the dimensions::
