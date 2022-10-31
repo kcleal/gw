@@ -440,6 +440,9 @@ namespace HGW {
                 }
                 break;
         }
+        if (!seenLabels.contains(label)) {
+            seenLabels.insert(label);
+        }
     }
 
     GwTrack::~GwTrack() {

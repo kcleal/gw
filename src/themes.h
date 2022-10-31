@@ -57,6 +57,7 @@ namespace Themes {
 
         std::vector<SkPaint> mate_fc;
         std::vector<SkPaint> mate_fc0;
+        std::vector<SkPaint> fcLabel;
 
         // edge colours
         SkPaint ecMateUnmapped, ecSplit, ecSelected;
@@ -64,7 +65,7 @@ namespace Themes {
         // line widths
         float lwMateUnmapped, lwSplit, lwCoverage;
 
-        // line colours and Insertion painy
+        // line colours and Insertion paint
         SkPaint lcJoins, lcCoverage, lcLightJoins, insF, insS;
 
         // text colours
@@ -75,7 +76,6 @@ namespace Themes {
 
         uint8_t alpha, mapq0_alpha;
 
-//        std::vector<SkPaint> APaint, TPaint, CPaint, GPaint, NPaint;
         std::array<std::array<SkPaint, 11>, 16> BasePaints;
 
         void setAlphas();
@@ -139,7 +139,7 @@ namespace Themes {
         SkFont fonty, overlay;
         float textWidths[10];  // text size is scaled between 10 values to try and fill a read
 
-        void setFontSize(float yScaling);
+        void setFontSize(float yScaling, float yScale);
     };
 
 }

@@ -534,9 +534,9 @@ namespace Manager {
         } else if (Utils::startsWith(inputText, ":theme")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             if (split.back() == "dark") {
-                opts.theme = Themes::DarkTheme();  opts.theme.setAlphas(); valid = true;
+                opts.theme = Themes::DarkTheme();  opts.theme.setAlphas(); valid = true; imageCache.clear();
             } else if (split.back() == "igv") {
-                opts.theme = Themes::IgvTheme(); opts.theme.setAlphas(); valid = true;
+                opts.theme = Themes::IgvTheme(); opts.theme.setAlphas(); valid = true; imageCache.clear();
             } else {
                 valid = false;
             }

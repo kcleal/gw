@@ -947,10 +947,79 @@ namespace Drawing {
         }
     }
 
-    void drawLabel(const Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts) {
+    void drawLabel(const Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts,
+                   robin_hood::unordered_set<std::string> &seenLabels) {
+
+        if (seenLabels.empty()) {
+            return;
+        }
         float pad = 5;
-        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(label.current().c_str(), fonts.overlay);
-        canvas->drawTextBlob(blob, rect.left() + pad, rect.bottom() - pad, opts.theme.tcDel);
+        std::string cur = label.current();
+        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(cur.c_str(), fonts.overlay);
+        float wl = fonts.overlayWidth * (cur.size() + 1);
+        //float wb = rect.right() - rect.left();
+        //float x = rect.left() + ((wb - wl) / 2);
+
+        std::vector<std::string> srt;
+        for (auto &itm: seenLabels) {
+            srt.push_back(itm);
+        }
+        std::sort(srt.begin(), srt.end());
+        auto pivot = std::find_if(srt.begin(),  // put PASS at front if available
+                                  srt.end(),
+                                  [](const std::string& s) -> bool {
+                                      return s == "PASS";
+                                  });
+        if (pivot != srt.end()) {
+            std::rotate(srt.begin(), pivot, pivot + 1);
+        }
+
+        auto it = std::find(srt.begin(), srt.end(), cur);
+        int idx;
+        if (it != srt.end()) {
+            idx = it - srt.begin();
+        } else {
+            idx = label.i + srt.size();
+        }
+
+        float step, start;
+        step = -1;
+        start = 1;
+
+        float value = start;
+        for (int i=0; i < idx; i++) {
+            value += step;
+            step *= -1;
+            step = step / 2;
+        }
+
+        SkRect bg;
+        float x = rect.left() + pad;
+//        bg.setXYWH(x - pad, rect.bottom() - fonts.fontMaxSize,  wl + pad + pad, fonts.fontMaxSize);
+        bg.setXYWH(x - pad, rect.bottom() - fonts.fontMaxSize,  wl + pad + pad, fonts.fontMaxSize);
+        SkPaint p;
+        int v;
+        if (opts.theme.name == "igv") {
+            v = 255 - (int)(value * 255);
+        } else {
+            v = (int)(value * 255);
+        }
+        p.setARGB(255, v, v, v);
+        canvas->drawRoundRect(bg,  5, 5, p);
+        canvas->drawRoundRect(bg,  5, 5, opts.theme.lcJoins);
+        if (opts.theme.name == "igv") {
+            if (v == 0) {
+                canvas->drawTextBlob(blob, x, rect.bottom() - pad, opts.theme.bgPaint);
+            } else {
+                canvas->drawTextBlob(blob, x, rect.bottom() - pad, opts.theme.tcDel);
+            }
+        } else {
+            if (v == 255) {
+                canvas->drawTextBlob(blob, x, rect.bottom() - pad, opts.theme.bgPaint);
+            } else {
+                canvas->drawTextBlob(blob, x, rect.bottom() - pad, opts.theme.tcDel);
+            }
+        }
         if (label.i > 0) {
             canvas->drawRect(rect, opts.theme.lcJoins);
         }

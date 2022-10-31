@@ -197,6 +197,16 @@ namespace Themes {
         ecSelected.setARGB(255, 0, 0, 0);
         ecSelected.setStyle(SkPaint::kStroke_Style);
         ecSelected.setStrokeWidth(2);
+
+//        SkPaint p;
+//        p.setARGB(255, 214, 234, 248);
+//        fcLabel.push_back(p);
+//        p.setARGB(255, 242, 215, 213);
+//        fcLabel.push_back(p);
+//        p.setARGB(255, 213, 245, 227);
+//        fcLabel.push_back(p);
+//        p.setARGB(255, 252, 243, 207);
+//        fcLabel.push_back(p);
     }
 
     DarkTheme::DarkTheme() {
@@ -374,7 +384,7 @@ namespace Themes {
         fontMaxSize = 25; // in pixels
     }
 
-    void Fonts::setFontSize(float maxHeight) {
+    void Fonts::setFontSize(float maxHeight, float yScale) {
         const SkGlyphID glyphs[1] = {100};
         SkRect bounds[1];
         SkPaint paint1;
@@ -383,7 +393,7 @@ namespace Themes {
         int font_size = 30;
         bool was_set = false;
 
-        while (font_size>5) {
+        while (font_size > 10 * yScale) {
             fonty.setSize(font_size);
             fonty.getBounds(glyphs, 1, bounds, pnt);
             height = bounds[0].height();
@@ -399,20 +409,21 @@ namespace Themes {
             for (auto &i : textWidths) {
                 i = 0;
             }
-            overlay.setSize(14);
+            overlay.setSize(14 * yScale);
             overlay.getBounds(glyphs, 1, bounds, pnt);
             fontMaxSize = bounds[0].height();
             overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
 
         } else {
             fontSize = (float)font_size;
-            if (font_size > 14) {
+            if (font_size > 14 * yScale) {
                 overlay.setSize(font_size);
                 overlay.getBounds(glyphs, 1, bounds, pnt);
             } else {
-                overlay.setSize(14);
+                overlay.setSize(14 * yScale);
                 overlay.getBounds(glyphs, 1, bounds, pnt);
             }
+
             fontMaxSize = bounds[0].height();
             overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
             fontHeight = height;

@@ -33,9 +33,9 @@ ifeq ($(UNAME_S),Linux)
 		LIBS += -lX11
 	endif
 endif
-ifeq ($(UNAME_S),Darwin)
+#ifeq ($(UNAME_S),Darwin)
 	#LIBS += -lglfw3
-endif
+#endif
 
 .PHONY: default all debug clean
 
@@ -93,7 +93,6 @@ LINK = -L./lib/skia/out/Release-x64 -L/usr/local/lib
 
 
 $(TARGET): $(OBJECTS)
-	ls /
 	$(CXX) $(CXXFLAGS_link) -g $(OBJECTS) $(LINK) $(LIBS) -o $@
 
 clean:

@@ -456,6 +456,9 @@ namespace Manager {
         if (samMaxY == 0 || !calcScaling) {
             return;
         }
+        float xscale, yscale;
+        glfwGetWindowContentScale(window, &xscale, &yscale);
+
         refSpace = fb_height * 0.02;
         auto fbh = (float) fb_height; // - refSpace;
         auto fbw = (float) fb_width;
@@ -484,7 +487,7 @@ namespace Manager {
         }
         trackY = (fbh - totalCovY - totalTabixY - gap2 - refSpace) / nbams;
         yScaling = ((fbh - totalCovY - totalTabixY - gap2 - refSpace) / (float)samMaxY) / nbams;
-        fonts.setFontSize(yScaling);
+        fonts.setFontSize(yScaling, yscale);
         regionWidth = fbw / (float)regions.size();
         bamHeight = covY + trackY; // + tabixY;
 
@@ -564,7 +567,7 @@ namespace Manager {
             if (imageCache.contains(i)) {
                 rect.setXYWH(b.xStart, b.yStart, b.width, b.height);
                 canvas->drawImageRect(imageCache[i], rect, sampOpts);
-                Drawing::drawLabel(opts, canvas, rect, multiLabels[i], fonts);
+                Drawing::drawLabel(opts, canvas, rect, multiLabels[i], fonts, vcf.seenLabels);
             }
             ++i;
         }
@@ -602,6 +605,7 @@ namespace Manager {
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op, refSpace);
         Drawing::drawRef(opts, collections, canvas, fonts, refSpace, (float)regions.size());
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
+        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
     }
 
     void imageToPng(sk_sp<SkImage> &img, std::string &path) {

@@ -6,42 +6,35 @@ package:
   version: {{ version }}
 
 source:
-  path: /home/kez/CLionProjects/gw_dev/gw
+  path: /Users/kezcleal/Documents/Data/gw_dev/gw
 
 build:
-  os: ubuntu
-  binary_relocation: True
-  number: 2
-  binary_has_prefix_files: gw
+  number: 0
+  script:
+    - "make prep"
+    - "make"
+    - "mkdir -p $PREFIX/bin"
+    - "cp gw $PREFIX/bin/gw"
+    - "chmod u+x $PREFIX/bin/gw"
 
 requirements:
   build:
     - clang
     - make
-    - cmake
   host:
-    - icu
-    - zlib
     - fontconfig
     - libcurl
     - wget
     - git
-    - jpeg
-    - libpng
-#    - libsvg
     - libdeflate
     - htslib
     - pthread-stubs
     - glfw
     - xorg-libx11
 
-outputs:
-  - name: gw
-    files: ./gw
-
-app:
-  entry: gw
-  summary: The genome viewer GW
+test:
+  commands:
+    - gw --version
 
 about:
   home: https://github.com/kcleal/gw
@@ -49,4 +42,4 @@ about:
 
 extra:
   maintainers:
-    - Kez Cleal
+    - kcleal

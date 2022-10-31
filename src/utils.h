@@ -66,7 +66,7 @@ namespace Utils {
         float xStart, yStart, xEnd, yEnd, width, height;
     };
 
-    std::vector<BoundingBox> imageBoundingBoxes(Dims &dims, float wndowWidth, float windowHeight, float padX=5, float padY=5);
+    std::vector<BoundingBox> imageBoundingBoxes(Dims &dims, float wndowWidth, float windowHeight, float padX=15, float padY=15);
 
     class Label {
     public:

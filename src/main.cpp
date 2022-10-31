@@ -318,9 +318,8 @@ int main(int argc, char *argv[]) {
             if (program.is_used("--out-labels")) {
                 plotter.setOutLabelFile(program.get<std::string>("--out-labels"));
             }
-
-            plotter.setVariantFile(v, iopts.start_index, cacheStdin);
             plotter.setLabelChoices(labels);
+            plotter.setVariantFile(v, iopts.start_index, cacheStdin);
             plotter.mode = Manager::Show::TILED;
 
             int res = plotter.startUI(sContext, sSurface);
