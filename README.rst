@@ -6,7 +6,7 @@ GW
 
 
 GW is a fast browser for genomic sequencing data (.bam/.cram format), used directly from the terminal. GW also
-makes viewing and annotating variants from vcf files a doddle. Check out the examples below!
+allows you to viewing and annotate variants from vcf/bcf file. Check out the examples below!
 
 
 Installing GW
@@ -15,10 +15,6 @@ GW is built using clang++/g++ and make and requires glfw3 and htslib to be avail
 
     git clone https://github.com/kcleal/gw.git && cd gw
     make prep && make
-
-We also have a pre-built binary for debian systems on the release page::
-
-    wget -O gw https://github.com/kcleal/gw/releases/download/v0.1.1/gw-Linux-x64
 
 A conda package will be made available shortly.
 
@@ -34,7 +30,7 @@ To view a genomic region e.g. chr1:1-20000, supply an indexed reference genome a
 .. image:: include/igv.png
     :align: center
 
-This will pop open a GW window that can be used interactively using the mouse and keyboard. Note multiple -b and -r options can be used.
+This will open a GW window that can be used interactively with the mouse and keyboard. Note multiple -b and -r options can be used.
 
 Various commands are also available via the GW window. Simply click on the GW window and type ":help" which will display a list of commands in your terminal.
 
