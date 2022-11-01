@@ -1,6 +1,6 @@
 TARGET = gw
 
-CXX = clang++
+CXX = g++
 CXXFLAGS = -g -Wall -std=c++17  -fno-common -dynamic -fwrapv -O3 -DNDEBUG
 
 INCLUDE = -I./include -I./src -I. -I./gw -I/usr/local/include
@@ -32,9 +32,6 @@ ifeq ($(UNAME_S),Linux)
 		LIBS += -lX11
 	endif
 endif
-#ifeq ($(UNAME_S),Darwin)
-	#LIBS += -lglfw3
-#endif
 
 .PHONY: default all debug clean
 

@@ -286,7 +286,7 @@ namespace Segs {
     }
 
 
-    void addToCovArray(std::vector<int> &arr, Align &align, int begin, int end, int l_arr) {
+    void addToCovArray(std::vector<int> &arr, Align &align, uint32_t begin, uint32_t end, uint32_t l_arr) {
         size_t n_blocks = align.block_starts.size();
         for (size_t idx=0; idx < n_blocks; ++idx) {
             uint32_t block_s = align.block_starts[idx];
@@ -342,8 +342,8 @@ namespace Segs {
         }
 
         ankerl::unordered_dense::map< std::string, int > linkedSeen;  // Mapping of qname to y value
-        std::vector<uint32_t> &ls = rc.levelsStart;
-        std::vector<uint32_t> &le = rc.levelsEnd;
+        std::vector<int> &ls = rc.levelsStart;
+        std::vector<int> &le = rc.levelsEnd;
 
         if (ls.empty()) {
             ls.resize(opts.ylim + vScroll, 1215752191);

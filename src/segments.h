@@ -78,7 +78,7 @@ namespace Segs {
         int bamIdx, regionIdx;
         Utils::Region region;
         std::vector<int> covArr;
-        std::vector<uint32_t> levelsStart, levelsEnd;
+        std::vector<int> levelsStart, levelsEnd;
         std::vector<Align> readQueue;
         float xScaling, xOffset, yOffset, yPixels;
         bool processed;
@@ -86,7 +86,7 @@ namespace Segs {
 
     void init_parallel(std::vector<Align> &aligns, int n); //const char *refSeq, int begin, int rlen);
 
-    void addToCovArray(std::vector<int> &arr, Align &align, int begin, int end, int l_arr);
+    void addToCovArray(std::vector<int> &arr, Align &align, uint32_t begin, uint32_t end, uint32_t l_arr);
 
     int findY(int bamIdx, ReadCollection &rc, std::vector<Align> &rQ, int vScroll, int linkType, Themes::IniOptions &opts, Utils::Region *region, linked_t &linked, bool joinLeft);
 

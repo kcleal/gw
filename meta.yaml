@@ -37,9 +37,10 @@ build:
 
 requirements:
   build:
-    - clang
+    - {{ compiler('cxx') }}
     - make
   host:
+    - unzip
     - fontconfig
     - libcurl
     - wget

@@ -11,7 +11,7 @@ makes viewing and annotating variants from vcf files a doddle. Check out the exa
 
 Installing GW
 --------------
-GW is built using clang and make and requires glfw3 and htslib to be available. To build from source use::
+GW is built using clang++/g++ and make and requires glfw3 and htslib to be available. To build from source use::
 
     git clone https://github.com/kcleal/gw.git && cd gw
     make prep && make

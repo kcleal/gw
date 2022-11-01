@@ -318,7 +318,7 @@ namespace Drawing {
         int op, l, colorIdx;
         float p;
 
-        for (int k = 0; k < cigar_l; k++) {
+        for (int k = 0; k < (int)cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
 
@@ -344,7 +344,7 @@ namespace Drawing {
             }
             else if (op == BAM_CDIFF) {
                 for (int i=0; i < l; ++l) {
-                    if (r_pos >= region.start) {
+                    if (r_pos >= (uint32_t)region.start) {
                         char bam_base = bam_seqi(ptr_seq, idx);
                         p = ((int)r_pos - region.start) * xScaling;
                         colorIdx = (l_qseq == 0) ? 10 : (ptr_qual[idx] > 10) ? 10 : ptr_qual[idx];
@@ -385,7 +385,7 @@ namespace Drawing {
                         case 'c': ref_base = 2; break;
                         case 'g': ref_base = 4; break;
                         case 't': ref_base = 8; break;
-                        case 'n': ref_base = 15; break;
+                        default: ref_base = 15; break;
                     }
                     char bam_base = bam_seqi(ptr_seq, idx);
                     if (bam_base != ref_base) {
@@ -653,7 +653,7 @@ namespace Drawing {
                             size_t sl = strlen(indelChars);
 //                            int sl = ceil(log10(ins.length));
                             textW = fonts.textWidths[sl - 1];
-                            if (ins.length > opts.indel_length) {
+                            if (ins.length > (uint32_t)opts.indel_length) {
                                 if (regionLen < 500000) {  // line and text
                                     drawIns(canvas, Y, p, yScaling, xOffset, yOffset, textW, theme.insS,
                                             theme.fcIns, path, rect);
@@ -778,17 +778,17 @@ namespace Drawing {
             }
 
             // draw text last
-            for (int i = 0; i < text.size(); ++i) {
+            for (int i = 0; i < (int)text.size(); ++i) {
                 canvas->drawTextBlob(text[i].get(), textX[i], textY[i], theme.tcDel);
             }
-            for (int i = 0; i < text_ins.size(); ++i) {
+            for (int i = 0; i < (int)text_ins.size(); ++i) {
                 canvas->drawTextBlob(text_ins[i].get(), textX_ins[i], textY_ins[i], theme.tcIns);
             }
         }
 
         // draw connecting lines between linked alignments
         if (linkOp > 0) {
-            for (int idx=0; idx < linked.size(); ++idx) {
+            for (int idx=0; idx < (int)linked.size(); ++idx) {
                 Segs::map_t lm = linked[idx];
                 if (!linked.empty()) {
                     SkPaint paint;
@@ -916,7 +916,7 @@ namespace Drawing {
             float x = fb_width / nregions;
             float step = x;
             path.reset();
-            for (int i=0; i < nregions - 1; ++i) {
+            for (int i=0; i < (int)nregions - 1; ++i) {
                 path.moveTo(x, 0);
                 path.lineTo(x, fb_height);
                 x += step;
@@ -928,7 +928,7 @@ namespace Drawing {
             float step = y;
             y += refSpace;
             path.reset();
-            for (int i=0; i<nbams - 1; ++i) {
+            for (int i=0; i<(int)nbams - 1; ++i) {
                 path.moveTo(0, y);
                 path.lineTo(fb_width, y);
                 y += step;
@@ -938,7 +938,7 @@ namespace Drawing {
         if (tracks_size) {
             float step = totalTabixY / tracks_size;
             float y = fb_height - totalTabixY + step;
-            for (int i=0; i<tracks_size-1; ++i) {
+            for (int i=0; i<(int)tracks_size-1; ++i) {
                 path.moveTo(0, y);
                 path.lineTo(fb_width, y);
                 y += step;

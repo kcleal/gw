@@ -417,12 +417,12 @@ namespace Manager {
             collections.clear();
             collections.resize(bams.size() * regions.size());
 
-            for (int i=0; i<bams.size(); ++i) {
+            for (int i=0; i<(int)bams.size(); ++i) {
                 htsFile* b = bams[i];
                 sam_hdr_t *hdr_ptr = headers[i];
                 hts_idx_t *index = indexes[i];
 
-                for (int j=0; j<regions.size(); ++j) {
+                for (int j=0; j<(int)regions.size(); ++j) {
                     Utils::Region *reg = &regions[j];
                     collections[idx].bamIdx = i;
                     collections[idx].regionIdx = j;
@@ -526,7 +526,7 @@ namespace Manager {
         int endIdx = bStart + bLen;
         for (int i=bStart; i<endIdx; ++i) {
             bool c = imageCache.contains(i);
-            if (!c && i < multiRegions.size() && !bams.empty()) {
+            if (!c && i < (int)multiRegions.size() && !bams.empty()) {
                 regions = multiRegions[i];
                 runDraw(canvas);
                 sk_sp<SkImage> img(sSurface->makeImageSnapshot());
@@ -541,7 +541,7 @@ namespace Manager {
     void GwPlot::drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
         int bStart = blockStart;
         int bLen = opts.number.x * opts.number.y;
-        if (!vcf.done && bStart + bLen > multiRegions.size()) {
+        if (!vcf.done && bStart + bLen > (int)multiRegions.size()) {
             for (int i=0; i < bLen; ++ i) {
                 if (vcf.done) {
                     break;

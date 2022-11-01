@@ -271,7 +271,7 @@ namespace Utils {
 
     void Label::next() {
         savedDate = "";
-        if (i == labels.size() - 1) {
+        if (i == (int)labels.size() - 1) {
             i = 0;
         } else {
             i += 1;

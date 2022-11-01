@@ -79,7 +79,7 @@ namespace Manager {
                     inputText = commandHistory[commandIndex];
                     std::cout << "\r" << inputText << std::flush;
                     return true;
-                } else if (key == GLFW_KEY_DOWN && commandIndex < commandHistory.size() - 1) {
+                } else if (key == GLFW_KEY_DOWN && commandIndex < (int)commandHistory.size() - 1) {
                     commandIndex += 1;
                     inputText = commandHistory[commandIndex];
                     std::cout << "\r" << inputText << std::flush;
@@ -205,16 +205,16 @@ namespace Manager {
             if (op == BAM_CHARD_CLIP) {
                 continue;
             } else if (op == BAM_CDEL) {
-                for (int n=0; n < l; ++n) {
+                for (int n=0; n < (int)l; ++n) {
                     std::cout << "-";
                 }
 
             } else if (op == BAM_CMATCH) {
-                for (int n = 0; n < l; ++n) {
+                for (int n = 0; n < (int)l; ++n) {
                     uint8_t base = bam_seqi(ptr_seq, i);
                     bool mm = false;
                     for (auto &item: r->mismatches) {
-                        if (i == item.idx) {
+                        if (i == (int)item.idx) {
                             std::cout << termcolor::underline;
                             switch (basemap[base]) {
                                 case 65 :
@@ -260,7 +260,7 @@ namespace Manager {
                 }
 
             } else if (op == BAM_CEQUAL) {
-                for (int n = 0; n < l; ++n) {
+                for (int n = 0; n < (int)l; ++n) {
                     uint8_t base = bam_seqi(ptr_seq, i);
                     switch (basemap[base]) {
                         case 65 :
@@ -283,7 +283,7 @@ namespace Manager {
                 }
 
             } else if (op == BAM_CDIFF) {
-                for (int n = 0; n < l; ++n) {
+                for (int n = 0; n < (int)l; ++n) {
                     uint8_t base = bam_seqi(ptr_seq, i);
                     switch (basemap[base]) {
                         case 65 :
@@ -306,7 +306,7 @@ namespace Manager {
                 }
 
             } else {
-                for (int n=0; n < l; ++n) {
+                for (int n=0; n < (int)l; ++n) {
                     uint8_t base = bam_seqi(ptr_seq, i);
                     switch (basemap[base]) {
                         case 65 : std::cout << termcolor::green << "A" << termcolor::reset; break;
@@ -390,7 +390,7 @@ namespace Manager {
         }
         kputsn("", 0, &str); // nul terminate
         char * si = str.s;
-        for (int n = 0; n < str.l; ++n) {
+        for (int n = 0; n < (int)str.l; ++n) {
             oss << *si;
             si ++;
         }
@@ -503,7 +503,7 @@ namespace Manager {
             if (ind > regionSelection) {
                 regionSelection = 0;
             }
-            if (!regions.empty() && ind < regions.size()) {
+            if (!regions.empty() && ind < (int)regions.size()) {
                 if (regions.size() == 1 && ind == 0) {
                     regions.clear();
                 } else {
@@ -547,7 +547,7 @@ namespace Manager {
             }
             if (split.size() > 1 && split.size() < 4) {
                 int index = (split.size() == 3) ? std::stoi(split.back()) : 0;
-                if (index < regions.size()) {
+                if (index < (int)regions.size()) {
                     regions[index] = Utils::parseRegion(split[1]);
                     valid = true;
                 } else {
@@ -562,7 +562,7 @@ namespace Manager {
                 split = Utils::split(inputText, delim);
             }
             if (split.size() > 1) {
-                for (int i=1; i < split.size(); ++i) {
+                for (int i=1; i < (int)split.size(); ++i) {
                     regions.push_back(Utils::parseRegion(split[1]));
                 }
                 valid = true;
@@ -629,7 +629,7 @@ namespace Manager {
         int i = 0;
         for (auto &r : regions) {
             std::cout << termcolor::cyan << r.chrom << ":" << r.start << "-" << r.end << termcolor::white << "  (" << getSize(r.end - r.start) << ")";
-            if (i != regions.size() - 1) {
+            if (i != (int)regions.size() - 1) {
                 std::cout << "    ";
             }
             i += 1;
@@ -775,7 +775,7 @@ namespace Manager {
                     }
                 } else if (key == opts.next_region_view) {
                     regionSelection += 1;
-                    if (regionSelection >= regions.size()) {
+                    if (regionSelection >= (int)regions.size()) {
                         regionSelection = 0;
                     }
                     std::cout << "\nRegion    " << regionSelection << std::endl;
@@ -915,9 +915,9 @@ namespace Manager {
                                    (trackY / (float) cl.levelsStart.size()));
                 std::vector<Segs::Align>::iterator bnd;
                 bnd = std::lower_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
-                                       [&](const Segs::Align &lhs, const int pos) { return lhs.pos < pos; });
+                                       [&](const Segs::Align &lhs, const int pos) { return (int)lhs.pos < pos; });
                 while (true) {
-                    if (bnd->y == level && bnd->pos <= pos && pos < bnd->reference_end) {
+                    if (bnd->y == level && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
                         bnd->edge_type = 4;
                         target_qname = bam_get_qname(bnd->delegate);
                         printRead(bnd, headers[cl.bamIdx], selectedAlign);
@@ -987,12 +987,12 @@ namespace Manager {
                     }
                     ++i;
                 }
-                if (i == bboxes.size()) {
+                if (i == (int)bboxes.size()) {
                     xDrag = -1000000;
                     return;
                 }
                 if (bams.size() > 0) {
-                    if (i < multiRegions.size() && !bams.empty()) {
+                    if (i < (int)multiRegions.size() && !bams.empty()) {
                         mode = Manager::SINGLE;
                         std::cout << termcolor::magenta << "\nVariant   " << termcolor::reset << multiLabels[blockStart + i].variantId << std::endl;
                         regions = multiRegions[blockStart + i];
@@ -1025,7 +1025,7 @@ namespace Manager {
                         }
                         ++i;
                     }
-                    if (i == bboxes.size()) {
+                    if (i == (int)bboxes.size()) {
                         xDrag = -1000000;
                         return;
                     }
