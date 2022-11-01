@@ -1,6 +1,5 @@
 TARGET = gw
 
-
 CXX = clang++
 CXXFLAGS = -g -Wall -std=c++17  -fno-common -dynamic -fwrapv -O3 -DNDEBUG
 

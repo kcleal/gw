@@ -64,9 +64,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("-v", "--variants")
             .default_value(std::string{""}).append()
             .help("VCF/BCF/BED/BEDPE file to derive regions from. Can not be used with -i");
-    program.add_argument("-i", "--images")
-            .append()
-            .help("Glob path to .png images to displaye e.g. '*.png'. Can not be used with -v");
+//    program.add_argument("-i", "--images")
+//            .append()
+//            .help("Glob path to .png images to displaye e.g. '*.png'. Can not be used with -v");
     program.add_argument("-o", "--outdir")
             .append()
             .help("Output folder to save images");
@@ -79,6 +79,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("-u", "--number")
             .default_value(iopts.number_str).append()
             .help("Images tiles to display (used with -v and -i)");
+    program.add_argument("-t", "--threads")
+            .default_value(iopts.threads).append().scan<'i', int>()
+            .help("Number of threads to use");
     program.add_argument("--theme")
             .default_value(iopts.theme_str)
             .action([](const std::string& value) {
@@ -86,18 +89,15 @@ int main(int argc, char *argv[]) {
                 std::cerr << "Error: --theme not in {igv, dark}" << std::endl;
                 abort();
             }).help("Image theme igv|dark");
-    program.add_argument("--fmt")
-            .default_value(iopts.fmt)
-            .action([](const std::string& value) {
-                if (std::find(img_fmt.begin(), img_fmt.end(), value) != img_fmt.end()) { return value;}
-                return std::string{ "png" };
-            }).help("Output file format");
+//    program.add_argument("--fmt")
+//            .default_value(iopts.fmt)
+//            .action([](const std::string& value) {
+//                if (std::find(img_fmt.begin(), img_fmt.end(), value) != img_fmt.end()) { return value;}
+//                return std::string{ "png" };
+//            }).help("Output file format");
     program.add_argument("--track")
             .default_value(std::string{""}).append()
             .help("Track to display at bottom of window BED/VCF. Repeat for multiple files stacked vertically");
-    program.add_argument("-t", "--threads")
-            .default_value(iopts.threads).append().scan<'i', int>()
-            .help("Number of threads to use");
     program.add_argument("--parse-label")
             .default_value(iopts.parse_label).append()
             .help("Label to parse from vcf file (used with -v) e.g. 'filter' or 'info.SU' or 'qual'");
@@ -131,14 +131,14 @@ int main(int argc, char *argv[]) {
     program.add_argument("--log2-cov")
             .default_value(false).implicit_value(true)
             .help("Scale coverage track to log2");
-    program.add_argument("--split-view-size")
-            .default_value(iopts.split_view_size).append().scan<'i', int>()
-            .help("Max variant size before region is split into two smaller panes (used with -v only)");
+//    program.add_argument("--split-view-size")
+//            .default_value(iopts.split_view_size).append().scan<'i', int>()
+//            .help("Max variant size before region is split into two smaller panes (used with -v only)");
     program.add_argument("--indel-length")
             .default_value(iopts.indel_length).append().scan<'i', int>()
             .help("Indels >= this length (bp) will have text labels");
-    program.add_argument("--tlen-y").default_value(false).implicit_value(true)
-            .help("Y-axis will be set to template-length (tlen) bp. Relevant for paired-end reads only");
+//    program.add_argument("--tlen-y").default_value(false).implicit_value(true)
+//            .help("Y-axis will be set to template-length (tlen) bp. Relevant for paired-end reads only");
     program.add_argument("--link")
             .default_value(iopts.link)
             .action([](const std::string& value) {
@@ -178,10 +178,10 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    std::vector<std::filesystem::path> image_glob;
-    if (program.is_used("-i")) {
-        image_glob = glob::glob(program.get<std::string>("-i"));
-    }
+//    std::vector<std::filesystem::path> image_glob;
+//    if (program.is_used("-i")) {
+//        image_glob = glob::glob(program.get<std::string>("-i"));
+//    }
 
     std::string outdir;
     if (program.is_used("-o")) {

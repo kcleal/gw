@@ -57,7 +57,6 @@ namespace Themes {
 
         std::vector<SkPaint> mate_fc;
         std::vector<SkPaint> mate_fc0;
-        std::vector<SkPaint> fcLabel;
 
         // edge colours
         SkPaint ecMateUnmapped, ecSplit, ecSelected;
@@ -66,7 +65,7 @@ namespace Themes {
         float lwMateUnmapped, lwSplit, lwCoverage;
 
         // line colours and Insertion paint
-        SkPaint lcJoins, lcCoverage, lcLightJoins, insF, insS;
+        SkPaint lcJoins, lcCoverage, lcLightJoins, insF, insS, lcLabel;
 
         // text colours
         SkPaint tcDel, tcIns, tcLabels;

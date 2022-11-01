@@ -14,10 +14,9 @@ Installing GW
 
 The easiest way to get up and running is to grab one of the pre-built binaries from the release page::
 
-    wget -O gw https://github.com/kcleal/gw/releases/download/v0.1.0/gw-Linux-x64
-    wget -O gw https://github.com/kcleal/gw/releases/download/v0.1.0/gw-MacOS-x64
+    wget -O gw https://github.com/kcleal/gw/releases/download/v0.1.1/gw-Linux-x64  # ubuntu/debian
 
-GW is built using clang and make and requires glfw3 and htslib to be available. To build from source you can try the following::
+GW is built using clang and make and requires glfw3 and htslib to be available. To build from source use::
 
     git clone https://github.com/kcleal/gw.git && cd gw
     make prep && make

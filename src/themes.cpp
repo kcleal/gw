@@ -121,6 +121,10 @@ namespace Themes {
             lcLightJoins.setStyle(SkPaint::kStroke_Style);
             lcLightJoins.setStrokeWidth(1);
 
+            lcLabel.setStyle(SkPaint::kStroke_Style);
+            lcLabel.setStrokeWidth(1);
+            lcLabel.setAntiAlias(true);
+
             insF = fcIns;
             insF.setStyle(SkPaint::kFill_Style);
 
@@ -190,6 +194,7 @@ namespace Themes {
         fcN.setARGB(255, 128, 128, 128);
         lcJoins.setARGB(255, 20, 20, 20);
         lcLightJoins.setARGB(255, 120, 120, 120);
+        lcLabel.setARGB(255, 0, 0, 0);
         tcDel.setARGB(255, 0, 0, 0);
         tcLabels.setARGB(255, 0, 0, 0);
         tcIns.setARGB(255, 255, 255, 255);
@@ -228,6 +233,7 @@ namespace Themes {
         fcN.setARGB(255, 128, 128, 128);
         lcJoins.setARGB(255, 142, 142, 142);
         lcLightJoins.setARGB(255, 82, 82, 82);
+        lcLabel.setARGB(255, 182, 182, 182);
         tcDel.setARGB(255, 227, 227, 227);
         tcLabels.setARGB(255, 0, 0, 0);
         tcIns.setARGB(255, 227, 227, 227);
@@ -301,8 +307,6 @@ namespace Themes {
 
         robin_hood::unordered_map<std::string, int> key_table;
         Keys::getKeyTable(key_table);
-
-        std::cout << "Loading " << path << std::endl;
 
         mINI::INIFile file(path);
         mINI::INIStructure myIni;
@@ -392,7 +396,6 @@ namespace Themes {
         SkScalar height;
         int font_size = 30;
         bool was_set = false;
-
         while (font_size > 10 * yScale) {
             fonty.setSize(font_size);
             fonty.getBounds(glyphs, 1, bounds, pnt);
