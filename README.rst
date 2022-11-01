@@ -11,15 +11,16 @@ makes viewing and annotating variants from vcf files a doddle. Check out the exa
 
 Installing GW
 --------------
-
-The easiest way to get up and running is to grab one of the pre-built binaries from the release page::
-
-    wget -O gw https://github.com/kcleal/gw/releases/download/v0.1.1/gw-Linux-x64  # ubuntu/debian
-
 GW is built using clang and make and requires glfw3 and htslib to be available. To build from source use::
 
     git clone https://github.com/kcleal/gw.git && cd gw
     make prep && make
+
+We also have a pre-built binary for debian systems on the release page::
+
+    wget -O gw https://github.com/kcleal/gw/releases/download/v0.1.1/gw-Linux-x64
+
+A conda package will be made available shortly.
 
 User Guide
 ==========
