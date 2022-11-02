@@ -4,6 +4,15 @@ CXXFLAGS = -g -Wall -std=c++17  -fno-common -dynamic -fwrapv -O3 -DNDEBUG
 
 INCLUDE = -I./include -I./src -I. -I./gw -I/usr/local/include
 
+LIBS = -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts -lfontconfig -lpthread -lglfw3
+
+LINK = -L./lib/skia/out/Release-x64 -L/usr/local/lib
+
+ifdef ($(PREFIX))
+	LINK += $(PREFIX)/lib
+	INCLUDE += $(PREFIX)/include
+endif
+
 # Options to use target htslib or skia
 HTSLIB ?= ""
 ifneq ($(HTSLIB),"")
@@ -20,8 +29,6 @@ else
 	LINK = -L $(wildcard ../skia/out/Rel*)
 endif
 
-
-LIBS = -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts -lfontconfig -lpthread -lglfw3
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
@@ -78,8 +85,6 @@ prep:
 	mkdir -p lib/skia && wget -O lib/skia/skia.zip $(SKIA_LINK)
 	cd lib/skia && unzip -o skia.zip && rm skia.zip && cd ../../
 
-
-LINK = -L./lib/skia/out/Release-x64 -L/usr/local/lib
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -g $(INCLUDE) -c $< -o $@
