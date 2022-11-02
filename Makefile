@@ -8,9 +8,9 @@ LIBS = -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts -lfontconfig -lpthr
 
 LINK = -L./lib/skia/out/Release-x64 -L/usr/local/lib
 
-ifdef ($(PREFIX))
-	LINK += $(PREFIX)/lib
-	INCLUDE += $(PREFIX)/include
+ifdef ($(BUILD_PREFIX))
+	LINK += $(BUILD_PREFIX)/lib
+	INCLUDE += $(BUILD_PREFIX)/include
 endif
 
 # Options to use target htslib or skia
