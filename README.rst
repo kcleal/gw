@@ -87,7 +87,7 @@ For example, the "SU" tag can be parsed from the info column using::
 
     gw hg38.fa -b your.bam -v variants.vcf --parse-label info.SU
 
-Image tiles can then be click-on to modify the label, choosing between PASS/FAIL by default.
+Image tiles can then be clicked-on to modify the label, choosing between PASS/FAIL by default.
 To provide a list of alternate labels, use the --labels option::
 
     gw hg38.fa -b your.bam -v variants.vcf --labels Yes,No,Maybe
