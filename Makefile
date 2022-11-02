@@ -8,9 +8,10 @@ LIBS = -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts -lfontconfig -lpthr
 
 LINK = -L./lib/skia/out/Release-x64 -L/usr/local/lib
 
-ifdef ($(BUILD_PREFIX))
-	LINK += $(BUILD_PREFIX)/lib
-	INCLUDE += $(BUILD_PREFIX)/include
+PREFIX ?= ""
+ifneq ($(PREFIX),"")
+	LINK += $(PREFIX)/lib
+	INCLUDE += $(PREFIX)/include
 endif
 
 # Options to use target htslib or skia
@@ -61,7 +62,7 @@ else
     endif
     ifeq ($(UNAME_S),Darwin)
     	IS_DARWIN = 1
-        CXXFLAGS += -D OSX -stdlib=libc++ -arch x86_64 -fvisibility=hidden  # -mmacosx-version-min=10.15 ?
+        CXXFLAGS += -D OSX -stdlib=libc++ -arch x86_64 -fvisibility=hidden
         SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-x64.zip
     endif
     ifeq ($(UNAME_S),arm64)
