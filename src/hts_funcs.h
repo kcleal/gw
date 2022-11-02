@@ -50,7 +50,7 @@ namespace HGW {
     void trimToRegion(Segs::ReadCollection &col, bool coverage);
 
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
-                                hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *vScroll, Segs::linked_t &linked, int *samMaxY);
+                                hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, Segs::linked_t &linked, int *samMaxY);
 
     enum FType {
         BED_IDX,

@@ -285,6 +285,9 @@ namespace Segs {
         }
     }
 
+    ReadCollection::ReadCollection() {
+        vScroll = 0;
+    }
 
     void addToCovArray(std::vector<int> &arr, Align &align, uint32_t begin, uint32_t end, uint32_t l_arr) {
         size_t n_blocks = align.block_starts.size();
@@ -300,11 +303,12 @@ namespace Segs {
         }
     }
 
-    int findY(int bamIdx, ReadCollection &rc, std::vector<Align> &rQ, int vScroll, int linkType, Themes::IniOptions &opts, Utils::Region *region, linked_t &linked, bool joinLeft) {
+    int findY(int bamIdx, ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, Utils::Region *region, linked_t &linked, bool joinLeft) {
 
         if (rQ.empty()) {
             return 0;
         }
+        int vScroll = rc.vScroll;
         Align *q_ptr = &rQ.front();
         const char *qname = nullptr;
         Segs::map_t & lm = linked[bamIdx];

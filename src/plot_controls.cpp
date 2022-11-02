@@ -677,7 +677,7 @@ namespace Manager {
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = N; //regions[regionSelection];
-                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, false, &vScroll, linked, &samMaxY);
+                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, false, linked, &samMaxY);
                             }
                         }
                         redraw = true;
@@ -704,7 +704,7 @@ namespace Manager {
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = regions[regionSelection];
-                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, true, &vScroll, linked, &samMaxY);
+                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, true, linked, &samMaxY);
                             }
                         }
                         redraw = true;
@@ -730,8 +730,8 @@ namespace Manager {
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = regions[regionSelection];
-                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, false, true, &vScroll, linked, &samMaxY);
-                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, false, false, &vScroll, linked, &samMaxY);
+                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, false, true, linked, &samMaxY);
+                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, false, false, linked, &samMaxY);
                                 if (opts.coverage) {  // re process coverage for all reads
                                     cl.covArr.resize(cl.region.end - cl.region.start + 1);
                                     std::fill(cl.covArr.begin(), cl.covArr.end(), 0);
@@ -779,6 +779,22 @@ namespace Manager {
                         regionSelection = 0;
                     }
                     std::cout << "\nRegion    " << regionSelection << std::endl;
+                } else if (key == opts.scroll_down) {
+                    for (auto &cl : collections) {
+                        if (cl.regionIdx == regionSelection) {
+                            cl.vScroll += 2;
+                        }
+                    }
+                    redraw = true;
+                    processed = false;
+                } else if (key == opts.scroll_up) {
+                    for (auto &cl : collections) {
+                        if (cl.regionIdx == regionSelection) {
+                            cl.vScroll = (cl.vScroll - 2 < 0) ? 0 : cl.vScroll - 2;
+                        }
+                    }
+                    redraw = true;
+                    processed = false;
                 }
             }
         } else {  // show::TILED
@@ -959,7 +975,7 @@ namespace Manager {
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = regions[regionSelection];
-                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, lt_last, &vScroll, linked, &samMaxY);
+                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, lt_last, linked, &samMaxY);
                             }
                         }
                         redraw = true;
@@ -1093,7 +1109,7 @@ namespace Manager {
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = regions[regionSelection];
-                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, !lt_last, &vScroll, linked, &samMaxY);
+                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, !lt_last, linked, &samMaxY);
                             }
                         }
                         redraw = true;

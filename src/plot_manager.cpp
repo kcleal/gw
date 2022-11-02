@@ -88,7 +88,6 @@ namespace Manager {
         }
         linked.resize(bams.size());
         samMaxY = 0;
-        vScroll = 0;
         yScaling = 0;
         captureText = shiftPress = ctrlPress = processText = false;
         xDrag = xOri = -1000000;
@@ -414,8 +413,17 @@ namespace Manager {
                 linked.resize(bams.size() * regions.size());
             }
             int idx = 0;
-            collections.clear();
-            collections.resize(bams.size() * regions.size());
+            if (collections.size() != bams.size() * regions.size()) {
+                collections.clear();
+                collections.resize(bams.size() * regions.size());
+            } else {
+                for (auto &cl: collections) {
+                    cl.readQueue.clear();
+                    cl.covArr.clear();
+                    cl.levelsStart.clear();
+                    cl.levelsEnd.clear();
+                }
+            }
 
             for (int i=0; i<(int)bams.size(); ++i) {
                 htsFile* b = bams[i];
@@ -432,7 +440,7 @@ namespace Manager {
                     }
                     HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index,opts, reg, opts.coverage);
 
-                    int maxY = Segs::findY(idx, collections[idx], collections[idx].readQueue, vScroll, opts.link_op, opts, reg, linked, false);
+                    int maxY = Segs::findY(idx, collections[idx], collections[idx].readQueue, opts.link_op, opts, reg, linked, false);
                     if (maxY > samMaxY) {
                         samMaxY = maxY;
                     }

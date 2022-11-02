@@ -103,7 +103,7 @@ namespace HGW {
     }
 
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
-                                 hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *vScroll, Segs::linked_t &linked, int *samMaxY) {
+                                 hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, Segs::linked_t &linked, int *samMaxY) {
 
         bam1_t *src;
         hts_itr_t *iter_q;
@@ -236,16 +236,29 @@ namespace HGW {
 
         if (!newReads.empty()) {
             Segs::init_parallel(newReads, opts.threads);
-            int maxY = Segs::findY(col.bamIdx, col, newReads, *vScroll, opts.link_op, opts, region, linked, left);
-            if (maxY > *samMaxY) {
-                *samMaxY = maxY;
+            if (col.vScroll == 0) {
+                int maxY = Segs::findY(col.bamIdx, col, newReads, opts.link_op, opts, region, linked, left);
+                if (maxY > *samMaxY) {
+                    *samMaxY = maxY;
+                }
             }
+
             if (!left) {
                 std::move(newReads.begin(), newReads.end(), std::back_inserter(readQueue));
             } else {
                 std::move(readQueue.begin(), readQueue.end(), std::back_inserter(newReads));
                 col.readQueue = newReads;
             }
+
+            if (col.vScroll > 0) {
+                col.levelsStart.clear();
+                col.levelsEnd.clear();
+                int maxY = Segs::findY(col.bamIdx, col, col.readQueue, opts.link_op, opts, region, linked, left);
+                if (maxY > *samMaxY) {
+                    *samMaxY = maxY;
+                }
+            }
+
         }
         if (coverage) {  // re process coverage for all reads
             col.covArr.resize(region->end - region->start + 1);

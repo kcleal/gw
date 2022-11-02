@@ -70,7 +70,6 @@ namespace Manager {
                std::vector<std::string> &track_paths);
         ~GwPlot();
 
-        int vScroll;
         int fb_width, fb_height;
         bool drawToBackWindow;
 

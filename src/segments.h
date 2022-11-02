@@ -73,9 +73,9 @@ namespace Segs {
 
     class ReadCollection {
     public:
-       ReadCollection() {};
+       ReadCollection();
         ~ReadCollection() = default;
-        int bamIdx, regionIdx;
+        int bamIdx, regionIdx, vScroll;
         Utils::Region region;
         std::vector<int> covArr;
         std::vector<int> levelsStart, levelsEnd;
@@ -88,7 +88,7 @@ namespace Segs {
 
     void addToCovArray(std::vector<int> &arr, Align &align, uint32_t begin, uint32_t end, uint32_t l_arr);
 
-    int findY(int bamIdx, ReadCollection &rc, std::vector<Align> &rQ, int vScroll, int linkType, Themes::IniOptions &opts, Utils::Region *region, linked_t &linked, bool joinLeft);
+    int findY(int bamIdx, ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, Utils::Region *region, linked_t &linked, bool joinLeft);
 
     void dropOutOfScope(std::vector< Utils::Region > &regions, std::vector< Segs::ReadCollection >& rcs, size_t nBams);
 }
