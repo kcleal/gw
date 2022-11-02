@@ -22,7 +22,7 @@ ifneq ($(SKIA),"")
 	LDFLAGS += -L $(wildcard $(SKIA)/out/Rel*)
 else
 	CPPFLAGS += -I./lib/skia
-	LDFLAGS += -L $(wildcard ../skia/out/Rel*)
+	LDFLAGS += -L./lib/skia/out/Release-x64
 endif
 
 
@@ -78,8 +78,7 @@ OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 prep:
 	$(info "System: $(shell uname -s)")
 	$(info "Downloading pre-build skia skia from: $(SKIA_LINK)")
-	mkdir -p lib/skia && wget -O lib/skia/skia.zip $(SKIA_LINK)
-	cd lib/skia && unzip -o skia.zip && rm skia.zip && cd ../../
+	cd lib/skia && wget -O skia.zip $(SKIA_LINK) && unzip -o skia.zip && rm skia.zip && cd ../../
 
 
 %.o: %.cpp
