@@ -1,42 +1,37 @@
 TARGET = gw
 
-CXXFLAGS = -g -Wall -std=c++17  -fno-common -dynamic -fwrapv -O3 -DNDEBUG
+CXXFLAGS += -g -Wall -std=c++17  -fno-common -dynamic -fwrapv -O3 -DNDEBUG
 
-INCLUDE = -I./include -I./src -I. -I./gw -I/usr/local/include
+CPPFLAGS += -I./include -I./src -I. -I./gw -I/usr/local/include
 
-LIBS = -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts -lfontconfig -lpthread -lglfw3
+LDLIBS += -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts -lfontconfig -lpthread -lglfw3
 
-LINK = -L./lib/skia/out/Release-x64 -L/usr/local/lib
+LDFLAGS += -L./lib/skia/out/Release-x64 -L/usr/local/lib
 
-PREFIX ?= ""
-ifneq ($(PREFIX),"")
-	LINK += $(PREFIX)/lib
-	INCLUDE += $(PREFIX)/include
-endif
 
 # Options to use target htslib or skia
 HTSLIB ?= ""
 ifneq ($(HTSLIB),"")
-	INCLUDE += -I$(HTSLIB)
-	LINK += -L$(HTSLIB)
+	CPPFLAGS += -I$(HTSLIB)
+	LDFLAGS += -L$(HTSLIB)
 endif
 
 SKIA ?= ""
 ifneq ($(SKIA),"")
-	INCLUDE += -I$(SKIA)
-	LINK += -L $(wildcard $(SKIA)/out/Rel*)
+	CPPFLAGS += -I$(SKIA)
+	LDFLAGS += -L $(wildcard $(SKIA)/out/Rel*)
 else
-	INCLUDE += -I./lib/skia
-	LINK = -L $(wildcard ../skia/out/Rel*)
+	CPPFLAGS += -I./lib/skia
+	LDFLAGS += -L $(wildcard ../skia/out/Rel*)
 endif
 
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
 	ifeq (${XDG_SESSION_TYPE},"wayland")
-		LIBS += -lwayland-client
+		LDLIBS += -lwayland-client
 	else
-		LIBS += -lX11
+		LDLIBS += -lX11
 	endif
 endif
 
@@ -49,7 +44,7 @@ debug: default
 
 # windows untested here
 IS_DARWIN=0
-SKIA_LINK =
+SKIA_LINK=
 ifeq ($(OS),Windows_NT)
     CXXFLAGS += -lglfw3 -D WIN32
     SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-windows-Release-x64.zip
@@ -57,7 +52,7 @@ else
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Linux)
         CXXFLAGS += -D LINUX
-        LIBS += -lGL -lfreetype -lfontconfig -luuid
+        LDLIBS += -lGL -lfreetype -lfontconfig -luuid
         SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip
     endif
     ifeq ($(UNAME_S),Darwin)
@@ -72,9 +67,9 @@ else
     endif
 endif
 
-CXXFLAGS_link = $(CXXFLAGS)
+
 ifeq ($(IS_DARWIN),1)
-	CXXFLAGS_link += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices
+	LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices
 endif
 
 
@@ -88,13 +83,13 @@ prep:
 
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -g $(INCLUDE) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -g $(CPPFLAGS) -c $< -o $@
 
 .PRECIOUS: $(TARGET) $(OBJECTS)
 
 
 $(TARGET): $(OBJECTS)
-	$(CXX) $(CXXFLAGS_link) -g $(OBJECTS) $(LINK) $(LIBS) -o $@
+	$(CXX) -g $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $@
 
 clean:
 	-rm -f *.o ./src/*.o ./src/*.o.tmp
