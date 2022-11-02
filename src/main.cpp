@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> links = { "none", "sv", "all" };
     static const std::vector<std::string> backend = { "raster", "gpu" };
 
-    argparse::ArgumentParser program("gw", "0.1.3");
+    argparse::ArgumentParser program("gw", "0.1.4");
     program.add_argument("genome")
             .required()
             .help("Reference genome in .fasta format with .fai index file");
@@ -64,9 +64,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("-v", "--variants")
             .default_value(std::string{""}).append()
             .help("VCF/BCF/BED/BEDPE file to derive regions from. Can not be used with -i");
-//    program.add_argument("-i", "--images")
-//            .append()
-//            .help("Glob path to .png images to displaye e.g. '*.png'. Can not be used with -v");
+    program.add_argument("-i", "--images")
+            .append()
+            .help("Glob path to .png images to displaye e.g. '*.png'. Can not be used with -v");
     program.add_argument("-o", "--outdir")
             .append()
             .help("Output folder to save images");
