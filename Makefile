@@ -4,7 +4,7 @@ CXXFLAGS += -g -Wall -std=c++17  -fno-common -dynamic -fwrapv -O3 -DNDEBUG
 
 CPPFLAGS += -I./include -I./src -I. -I./gw -I/usr/local/include
 
-LDLIBS += -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts -lfontconfig -lpthread -lglfw3
+LDLIBS += -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts -lfontconfig -lpthread -lglfw
 
 LDFLAGS += -L./lib/skia/out/Release-x64 -L/usr/local/lib
 
