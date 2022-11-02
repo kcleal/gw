@@ -1,6 +1,9 @@
 TARGET = gw
 
-CXX = gcc
+ifndef ($CXX)
+	CXX = g++
+endif
+
 CXXFLAGS = -g -Wall -std=c++17  -fno-common -dynamic -fwrapv -O3 -DNDEBUG
 
 INCLUDE = -I./include -I./src -I. -I./gw -I/usr/local/include
