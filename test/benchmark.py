@@ -6,6 +6,8 @@ import pandas as pd
 import resource
 import os
 
+random.seed(1)
+
 
 def plot_gw(chrom, start, end, args):
     t0 = time.time()
@@ -90,7 +92,7 @@ if __name__ == "__main__":
             start = pos - half_size
             end = pos + half_size
             avg_time, maxRSS = prog(chrom, start, end, args)
-            results.append({'name': name, 'time (s)': avg_time, 'region size (bp)': end - start, 'MaxRSS (mb)': maxRSS})
+            results.append({'name': name, 'time (s)': avg_time, 'region size (bp)': end - start, 'MaxRSS': maxRSS})
 
     df = pd.DataFrame.from_records(results)
     df.to_csv(f'{name}.benchmark.csv')

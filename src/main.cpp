@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> links = { "none", "sv", "all" };
     static const std::vector<std::string> backend = { "raster", "gpu" };
 
-    argparse::ArgumentParser program("gw", "0.1.6");
+    argparse::ArgumentParser program("gw", "0.1.7");
     program.add_argument("genome")
             .required()
             .help("Reference genome in .fasta format with .fai index file");

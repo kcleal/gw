@@ -1,9 +1,6 @@
 
-#include <cstdio>
 #include <cstdlib>
-#include <mutex>
 #include <string>
-#include <thread>         // std::thread
 #include <vector>
 
 #ifdef __APPLE__
@@ -31,7 +28,6 @@
 #include "../include/termcolor.h"
 #include "themes.h"
 
-std::mutex mtx;
 
 using namespace std::literals;
 
@@ -52,11 +48,6 @@ namespace Manager {
         }
         glfwMakeContextCurrent(window);
     }
-
-//    GwPlot makePlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opt, std::vector<Utils::Region> &regions) {
-//        GwPlot plt = GwPlot(reference, bampaths, opt, regions);
-//        return plt;
-//    }
 
     GwPlot::GwPlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opt, std::vector<Utils::Region> &regions,
                    std::vector<std::string> &track_paths) {
@@ -590,7 +581,6 @@ namespace Manager {
     }
 
     void GwPlot::drawSurfaceGpu(SkCanvas *canvas) {
-//        auto start = std::chrono::high_resolution_clock::now();
         canvas->drawPaint(opts.theme.bgPaint);
         setGlfwFrameBufferSize();
         processBam();
@@ -601,9 +591,7 @@ namespace Manager {
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op, refSpace);
         Drawing::drawRef(opts, collections, canvas, fonts, refSpace, (float)regions.size());
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
-//        auto finish = std::chrono::high_resolution_clock::now();
-//        auto m = std::chrono::duration_cast<std::chrono::milliseconds >(finish - start);
-//        std::cout << "Elapsed Time drawScreen: " << m.count() << " m seconds" << std::endl;
+        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
     }
 
     void GwPlot::runDraw(SkCanvas *canvas) {

@@ -57,19 +57,19 @@ else
     endif
     ifeq ($(UNAME_S),Darwin)
     	IS_DARWIN = 1
-        CXXFLAGS += -D OSX -stdlib=libc++ -arch x86_64 -fvisibility=hidden
+        CXXFLAGS += -D OSX -stdlib=libc++ -arch x86_64 -fvisibility=hidden -mmacosx-version-min=10.15
         SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-x64.zip
     endif
     ifeq ($(UNAME_S),arm64)
 		IS_DARWIN = 1
-		CXXFLAGS += -D OSX -stdlib=libc++ -arch arm64 -fvisibility=hidden
+		CXXFLAGS += -D OSX -stdlib=libc++ -arch arm64 -fvisibility=hidden -mmacosx-version-min=10.15
 		SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-arm64.zip
     endif
 endif
 
 
 ifeq ($(IS_DARWIN),1)
-	LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices
+	LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=10.15
 endif
 
 
