@@ -39,10 +39,6 @@ SkSurface *sSurface = nullptr;
 
 int main(int argc, char *argv[]) {
 
-    std::cout << "\n"
-                 "█▀▀ █ █ █\n"
-                 "█▄█ ▀▄▀▄▀" << std::endl;
-
     Themes::IniOptions iopts;
     iopts.readIni();
 
@@ -262,13 +258,16 @@ int main(int argc, char *argv[]) {
         iopts.start_index = program.get<int>("--start-index");
     }
 
-
     /*
      * / Gw start
      */
     Manager::GwPlot plotter = Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
 
     if (!iopts.no_show) {  // plot something to screen
+
+        std::cout << "\n"
+                     "█▀▀ █ █ █\n"
+                     "█▄█ ▀▄▀▄▀" << std::endl;
 
         // initialize display screen
         plotter.init(iopts.dimensions.x, iopts.dimensions.y);
@@ -481,6 +480,7 @@ int main(int argc, char *argv[]) {
             }
         }
     }
-    std::cout << "\nGw finished\n";
+    if (!iopts.no_show)
+        std::cout << "\nGw finished\n";
     return 0;
 };

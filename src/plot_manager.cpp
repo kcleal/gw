@@ -465,7 +465,11 @@ namespace Manager {
             return;
         }
         float xscale, yscale;
-        glfwGetWindowContentScale(window, &xscale, &yscale);
+        if (drawToBackWindow) {
+            glfwGetWindowContentScale(backWindow, &xscale, &yscale);
+        } else {
+            glfwGetWindowContentScale(window, &xscale, &yscale);
+        }
 
         refSpace = fb_height * 0.02;
         auto fbh = (float) fb_height; // - refSpace;
