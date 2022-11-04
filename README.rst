@@ -11,12 +11,14 @@ allows you to view and annotate variants from vcf/bcf files. Check out the examp
 
 Installing GW
 --------------
+GW is available on conda::
+
+    conda install -c bioconda gw
+
 GW is built using clang++/g++ and make and requires glfw3 and htslib to be available. To build from source use::
 
     git clone https://github.com/kcleal/gw.git && cd gw
     make prep && make
-
-A conda package will be made available shortly.
 
 User Guide
 ==========
