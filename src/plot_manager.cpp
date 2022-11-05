@@ -476,7 +476,7 @@ namespace Manager {
         } else {
             totalCovY = 0; covY = 0;
         }
-        float gap = fbw * 0.002;
+        float gap = 6; //fbw * 0.002;
         float gap2 = gap*2;
 
         if (tracks.empty()) {

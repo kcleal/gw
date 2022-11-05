@@ -624,7 +624,7 @@ namespace Manager {
         if (regions.empty()) {
             return;
         }
-        std::cout << "\r                                                                                ";
+        std::cout << "\r                                                                                                    ";
         std::cout << termcolor::magenta << "\rShowing   " ;
         int i = 0;
         for (auto &r : regions) {
@@ -635,7 +635,6 @@ namespace Manager {
             i += 1;
         }
         std::cout << termcolor::reset << std::flush;
-
     }
 
     void GwPlot::keyPress(GLFWwindow* wind, int key, int scancode, int action, int mods) {
@@ -1055,6 +1054,24 @@ namespace Manager {
         }
     }
 
+    void GwPlot::updateCursorGenomePos(Segs::ReadCollection &cl, float xPos) {
+        float regionPixels = (float)fb_width / (float)regions.size();
+        int relativeX = (int)((xPos - cl.xOffset) / cl.xScaling);
+
+        int pos = (int) (((xPos - (float) cl.xOffset) / cl.xScaling) +
+                         (float) cl.region.start);
+
+        auto s = std::to_string(pos);
+        int n = s.length() - 3;
+        int end = (pos >= 0) ? 0 : 1; // Support for negative numbers
+        while (n > end) {
+            s.insert(n, ",");
+            n -= 3;
+        }
+        printRegionInfo();
+        std::cout << termcolor::bold << "    " << s << termcolor::reset << std::flush;
+    }
+
     void GwPlot::mousePos(GLFWwindow* wind, double xPos, double yPos) {
         if (lastX == -1) {
             lastX = xPos;
@@ -1082,6 +1099,9 @@ namespace Manager {
                 Segs::ReadCollection &cl = collections[regionSelection];
 
                 if (cl.region.end - cl.region.start < 50000 && clickedIdx == regionSelection) {
+
+                    printRegionInfo();
+
                     auto w = (float) ((cl.region.end - cl.region.start) * (float) regions.size());
                     int travel = (int) (w * (xDrag / windowW));
                     if (cl.region.start - travel < 0) {
@@ -1116,6 +1136,25 @@ namespace Manager {
                     }
                 }
             }
+        } else {
+            if (mode == Manager::SINGLE) {
+                if (collections.empty()) {
+                    return;
+                }
+                int windowW, windowH;  // convert screen coords to frame buffer coords
+                glfwGetWindowSize(wind, &windowW, &windowH);
+                if (fb_width > windowW) {
+                    xPos *= (float) fb_width / (float) windowW;
+                    yPos *= (float) fb_height / (float) windowH;
+                }
+                int regionSelection = getCollectionIdx(xPos, yPos);
+                if (regionSelection == -1) {
+                    return;
+                }
+                Segs::ReadCollection &cl = collections[regionSelection];
+                updateCursorGenomePos(cl, xPos);
+            }
+
         }
     }
 

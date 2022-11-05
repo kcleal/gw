@@ -170,6 +170,7 @@ namespace Manager {
 
         std::string inputText;
         std::string target_qname;
+        std::string cursorGenomePos;
 
         bool captureText, shiftPress, ctrlPress, processText;
         std::vector< std::string > commandHistory;
@@ -203,6 +204,8 @@ namespace Manager {
         int getCollectionIdx(float x, float y);
 
         void highlightQname();
+
+        void updateCursorGenomePos(Segs::ReadCollection &cl, float xPos);
 
     };
 
