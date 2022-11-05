@@ -1055,12 +1055,8 @@ namespace Manager {
     }
 
     void GwPlot::updateCursorGenomePos(Segs::ReadCollection &cl, float xPos) {
-        float regionPixels = (float)fb_width / (float)regions.size();
-        int relativeX = (int)((xPos - cl.xOffset) / cl.xScaling);
-
         int pos = (int) (((xPos - (float) cl.xOffset) / cl.xScaling) +
                          (float) cl.region.start);
-
         auto s = std::to_string(pos);
         int n = s.length() - 3;
         int end = (pos >= 0) ? 0 : 1; // Support for negative numbers
