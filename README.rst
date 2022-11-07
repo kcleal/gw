@@ -173,8 +173,8 @@ The machine used was an Intel i9-11900K, NVMe WD 2TB, 64 GB memory.
     :align: center
 
 FWIW plotting a 2Mb region in GW took ~0.06s compared to IGV 2-7s, although its worth noting IGV needed around 0.2s to start up. For reference,
-using `samtools view -c -@3` took ~0.011s, which is a measure of how fast a bam file can be read.
-Maximum memory use for a 2Mb region was ~700 Mb for GW vs IGV 6.2 GB. Wally had a relatively constant memory usage, but offers not interactivity.
+using :code:`samtools view -c -@3` took ~0.011s, which is a measure of how fast a bam file can be read.
+Maximum memory use for a 2Mb region was ~700 Mb for GW vs IGV 6.2 GB. Wally had a relatively constant memory usage, but offers no interactivity.
 
 Issues and contributing
 =======================
