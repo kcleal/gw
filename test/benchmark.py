@@ -1,5 +1,5 @@
 import argparse
-from subprocess import run, Popen
+from subprocess import run, Popen, PIPE
 import random
 import time
 import pandas as pd
@@ -50,6 +50,26 @@ def plot_samplot(chrom, start, end, args):
     return t, resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1e6
 
 
+def plot_wally(chrom, start, end, args):
+    t0 = time.time()
+    com = "{wally} region -g {genome} -r {chrom}:{start}-{end} {bam}" \
+        .format(wally=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
+    p = Popen(com, shell=True)
+    p.wait()
+    t = (time.time() - t0) / 10
+    run('rm *.png', shell=True)
+    return t, resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1e6
+
+
+def samtools_count(chrom, start, end, args):
+    t0 = time.time()
+    p = Popen(f'samtools view -@3 -c {args.bam} {chrom}:{start}-{end}', stdout=PIPE, shell=True)
+    out, err = p.communicate()
+    t = (time.time() - t0) / 10
+    reads = int(out.decode('ascii').strip())
+    return t, reads
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
@@ -60,7 +80,7 @@ if __name__ == "__main__":
     parser.add_argument('ref_genome')
     parser.add_argument('bam')
     parser.add_argument('tool_path')
-    parser.add_argument('tool_name', choices=['gw', 'igv', 'samplot'])
+    parser.add_argument('tool_name', choices=['gw', 'igv', 'samplot', 'wally'])
     args = parser.parse_args()
 
     if not os.path.exists('images'):
@@ -75,26 +95,27 @@ if __name__ == "__main__":
                 fai[l[0]] = length
 
     results = []
-    progs = {'gw': plot_gw, 'igv': plot_igv, 'samplot': plot_samplot}
+    progs = {'gw': plot_gw, 'igv': plot_igv, 'samplot': plot_samplot, 'wally': plot_wally}
     name = args.tool_name
     prog = progs[name]
 
     # Select some random regions
     chroms = list(fai.keys())
-    region_sizes = [2000, 20_000, 200_000, 2_000_000]
+    region_sizes = [2, 2000, 20_000, 200_000, 2_000_000]
     for size in region_sizes:
         print('Size: ', size)
         half_size = int(size * 0.5)
         random.shuffle(chroms)
         for c in range(10):
             chrom = chroms[c]
-            pos = random.randint(half_size, fai[chrom] - half_size + 1)
+            pos = random.randint(half_size, fai[chrom] - half_size)
             start = pos - half_size
             end = pos + half_size
             avg_time, maxRSS = prog(chrom, start, end, args)
-            results.append({'name': name, 'time (s)': avg_time, 'region size (bp)': end - start, 'MaxRSS': maxRSS})
+            st_t, reads = samtools_count(chrom, start, end, args)
+            results.append({'name': name, 'time (s)': avg_time, 'region size (bp)': end - start, 'MaxRSS': maxRSS,
+                            'samtools_count_t3 (s)': st_t, 'reads': reads})
 
     df = pd.DataFrame.from_records(results)
-    df.to_csv(f'{name}.benchmark.csv')
-    # sns.pointplot(df, x='region size (bp)', y='time (s)', hue='name')
-    # plt.show()
+    df = df[['name', 'reads', 'region size (bp)', 'samtools_count_t3 (s)', 'time (s)', 'MaxRSS']]
+    df.to_csv(f'{name}.benchmark.csv', index=False)

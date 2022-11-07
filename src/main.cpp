@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
             .help("VCF/BCF/BED/BEDPE file to derive regions from. Can not be used with -i");
     program.add_argument("-i", "--images")
             .append()
-            .help("Glob path to .png images to displaye e.g. '*.png'. Can not be used with -v");
+            .help("Glob path to .png images to display e.g. '*.png'. Can not be used with -v");
     program.add_argument("-o", "--outdir")
             .append()
             .help("Output folder to save images");

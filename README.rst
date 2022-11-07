@@ -6,7 +6,7 @@ GW
 
 
 GW is a fast browser for genomic sequencing data (.bam/.cram format), used directly from the terminal. GW also
-allows you to view and annotate variants from vcf/bcf files. Check out the examples below!
+allows you to view and annotate variants from vcf/bcf files. Check out the examples and benchmark below!
 
 
 Installing GW
@@ -159,7 +159,24 @@ The .gw.ini file can be copied to your home directory or .config directory for s
 local install directory.
 
 
+Benchmark
+=========
+
+Here we're testing the resource usage of GW when generating a single .png image using::
+
+    gw $HG19 -b HG002.bam -r {region} --no-show
+
+The bam file was 40X coverage, paired-end data mapped with bwa mem. All other tools were run with default settings (see the `benchmark.py` script in the test folder for details).
+The machine used was an Intel i9-11900K, NVMe WD 2TB, 64 GB memory.
+
+.. image:: test/benchmark.png
+    :align: center
+
+FWIW plotting a 2Mb region in GW took ~0.06s compared to IGV 2-7s, although its worth noting IGV needed around 0.2s to start up. For reference,
+using `samtools view -c -@3` took ~0.011s, which is a measure of how fast a bam file can be read.
+Maximum memory use for a 2Mb region was ~700 Mb for GW vs IGV 6.2 GB. Wally had a relatively constant memory usage, but offers not interactivity.
+
 Issues and contributing
------------------------
+=======================
 If you find bugs, or have feature requests please open an issue, or drop me an email clealk@cardiff.ac.uk.
 GW is under active development, and we would welcome any contributions!
