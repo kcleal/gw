@@ -477,7 +477,7 @@ namespace HGW {
 //        }
     }
 
-    void GwTrack::open(std::string &p) {
+    void GwTrack::open(std::string &p, bool add_to_dict=true) {
         path = p;
         if (Utils::endsWith(p, ".bed")) {
             kind = BED_NOI;
@@ -513,7 +513,7 @@ namespace HGW {
                 Utils::TrackBlock b;
                 b.line = tp;
                 b.chrom = parts[0];
-                if (!allBlocks.contains(b.chrom)) {
+                if (add_to_dict && !allBlocks.contains(b.chrom)) {
                     lastb = -1;
                 }
                 b.start = std::stoi(parts[1]);
@@ -533,11 +533,15 @@ namespace HGW {
                 } else { // assume gw_label file
                     b.end = b.start + 1;
                 }
-                allBlocks[b.chrom].push_back(b);
-                if (b.start > lastb) {
-                    sorted = false;
+                if (add_to_dict) {
+                    allBlocks[b.chrom].push_back(b);
+                    if (b.start > lastb) {
+                        sorted = false;
+                    }
+                    lastb = b.start;
+                } else {
+                    allBlocks_flat.push_back(b);
                 }
-                lastb = b.start;
             }
             if (!sorted) {
                 std::cout << "Unsorted file: sorting blocks from " << path << std::endl;
@@ -559,15 +563,22 @@ namespace HGW {
 
     void GwTrack::fetch(const Utils::Region *rgn) {
         if (kind > 2) {  // non-indexed
-            if (allBlocks.contains(rgn->chrom)) {
-                std::vector<Utils::TrackBlock> vals = allBlocks[rgn->chrom];
-                vals_end = vals.end();
-                iter_blk = std::lower_bound(vals.begin(), vals.end(), rgn->start,
-                                            [](Utils::TrackBlock &a, int x)-> bool { return a.start < x;});
-                region_end = rgn->end;
+            if (rgn == nullptr) {
+                iter_blk = allBlocks_flat.begin();
+                vals_end = allBlocks_flat.end();
+                region_end = 2000000000;
                 done = false;
             } else {
-                done = true;
+                if (allBlocks.contains(rgn->chrom)) {
+                    std::vector<Utils::TrackBlock> vals = allBlocks[rgn->chrom];
+                    vals_end = vals.end();
+                    iter_blk = std::lower_bound(vals.begin(), vals.end(), rgn->start,
+                                                [](Utils::TrackBlock &a, int x)-> bool { return a.start < x;});
+                    region_end = rgn->end;
+                    done = false;
+                } else {
+                    done = true;
+                }
             }
         } else {
             if (kind == BED_IDX) {
@@ -592,7 +603,6 @@ namespace HGW {
     }
 
     void GwTrack::next() {
-
         int res;
         if (kind == BCF_IDX) {
             res = bcf_itr_next(fp, iter_q, v);

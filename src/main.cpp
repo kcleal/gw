@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
             .help("Region of alignment file to display in window. Repeat to horizontally split window into multiple regions");
     program.add_argument("-v", "--variants")
             .default_value(std::string{""}).append()
-            .help("VCF/BCF/BED/BEDPE file to derive regions from. Can not be used with -i");
+            .help("VCF/BCF/BED file to derive regions from. Can not be used with -i");
     program.add_argument("-i", "--images")
             .append()
             .help("Glob path to .png images to display e.g. '*.png'. Can not be used with -v");
@@ -127,9 +127,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("--log2-cov")
             .default_value(false).implicit_value(true)
             .help("Scale coverage track to log2");
-//    program.add_argument("--split-view-size")
-//            .default_value(iopts.split_view_size).append().scan<'i', int>()
-//            .help("Max variant size before region is split into two smaller panes (used with -v only)");
+    program.add_argument("--split-view-size")
+            .default_value(iopts.split_view_size).append().scan<'i', int>()
+            .help("Max variant size before region is split into two smaller panes (used with -v only)");
     program.add_argument("--indel-length")
             .default_value(iopts.indel_length).append().scan<'i', int>()
             .help("Indels >= this length (bp) will have text labels");
@@ -250,6 +250,9 @@ int main(int argc, char *argv[]) {
     }
     if (program.is_used("--log2-cov")) {
         iopts.log2_cov = true;
+    }
+    if (program.is_used("--split-view-size")) {
+        iopts.split_view_size = program.get<int>("--split-view-size");
     }
     if (program.is_used("--no-cov")) {
         iopts.coverage = false;

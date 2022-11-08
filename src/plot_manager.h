@@ -91,9 +91,9 @@ namespace Manager {
 
         std::vector<Segs::ReadCollection> collections;
 
-        HGW::VCFfile vcf;
+        HGW::VCFfile vcf;  // These two are input files for generating tiled images
+        HGW::GwTrack variantTrack;
 
-//        robin_hood::unordered_flat_map< int, sk_sp<SkImage>> imageCache;
         ankerl::unordered_dense::map< int, sk_sp<SkImage>> imageCache;
         ankerl::unordered_dense::map< std::string, Utils::Label> inputLabels;
 
@@ -114,7 +114,7 @@ namespace Manager {
 
         void setGlfwFrameBufferSize();
 
-        void setVariantFile(const std::string &path, int startIndex, bool cacheStdin);
+        void setVariantFile(std::string &path, int startIndex, bool cacheStdin);
 
         void setOutLabelFile(const std::string &path);
 

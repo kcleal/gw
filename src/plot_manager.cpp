@@ -74,7 +74,7 @@ namespace Manager {
         tracks.resize(track_paths.size());
         int i = 0;
         for (auto &tp: track_paths) {
-            tracks[i].open(tp);
+            tracks[i].open(tp, true);
             i += 1;
         }
         linked.resize(bams.size());
@@ -198,31 +198,66 @@ namespace Manager {
         }
     }
 
-    void GwPlot::setVariantFile(const std::string &path, int startIndex, bool cacheStdin) {
-        vcf.cacheStdin = cacheStdin;
-        vcf.label_to_parse = opts.parse_label.c_str();
-        vcf.open(path);  // todo some error checking needed?
-        if (startIndex > 0) {
-            int bLen = opts.number.x * opts.number.y;
-            bool done = false;
-            while (!done) {
-                if (vcf.done) {
-                    done = true;
-                } else {
-                    for (int i=0; i < bLen; ++ i) {
-                        if (vcf.done) {
-                            done = true;
-                            break;
-                        }
-                        vcf.next();
-                        appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype);
-                    }
-                    if (blockStart + bLen > startIndex) {
+    void GwPlot::setVariantFile(std::string &path, int startIndex, bool cacheStdin) {
+
+        if (cacheStdin || Utils::endsWith(path, ".vcf") ||
+            Utils::endsWith(path, ".vcf.gz") ||
+            Utils::endsWith(path, ".bcf")) {
+
+            vcf.cacheStdin = cacheStdin;
+            vcf.label_to_parse = opts.parse_label.c_str();
+            vcf.open(path);  // todo some error checking needed?
+            if (startIndex > 0) {
+                int bLen = opts.number.x * opts.number.y;
+                bool done = false;
+                while (!done) {
+                    if (vcf.done) {
                         done = true;
-                    } else if (!done) {
-                        blockStart += bLen;
+                    } else {
+                        for (int i=0; i < bLen; ++ i) {
+                            if (vcf.done) {
+                                done = true;
+                                break;
+                            }
+                            vcf.next();
+                            appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype);
+                        }
+                        if (blockStart + bLen > startIndex) {
+                            done = true;
+                        } else if (!done) {
+                            blockStart += bLen;
+                        }
                     }
-               }
+                }
+            }
+        } else {
+            vcf.done = true;
+            variantTrack.open(path, false);
+            variantTrack.fetch(nullptr);  // initialize iterators
+            if (startIndex > 0) {
+                int bLen = opts.number.x * opts.number.y;
+                bool done = false;
+                while (!done) {
+                    if (variantTrack.done) {
+                        done = true;
+                    } else {
+                        for (int i=0; i < bLen; ++ i) {
+                            if (variantTrack.done) {
+                                done = true;
+                                break;
+                            }
+                            variantTrack.next();
+                            std::string label = "";
+                            appendVariantSite(variantTrack.chrom, variantTrack.start, variantTrack.chrom2,
+                                              variantTrack.stop, variantTrack.rid, label, variantTrack.vartype);
+                        }
+                        if (blockStart + bLen > startIndex) {
+                            done = true;
+                        } else if (!done) {
+                            blockStart += bLen;
+                        }
+                    }
+                }
             }
         }
     }
@@ -544,13 +579,23 @@ namespace Manager {
     void GwPlot::drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
         int bStart = blockStart;
         int bLen = opts.number.x * opts.number.y;
+
         if (!vcf.done && bStart + bLen > (int)multiRegions.size()) {
             for (int i=0; i < bLen; ++ i) {
+                vcf.next();
                 if (vcf.done) {
                     break;
                 }
-                vcf.next();
                 appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype);
+            }
+        } else if (!variantTrack.done) {
+            std::string empty_label = "";
+            for (int i=0; i < bLen; ++ i) {
+                variantTrack.next();
+                if (variantTrack.done) {
+                    break;
+                }
+                appendVariantSite(variantTrack.chrom, variantTrack.start, variantTrack.chrom, variantTrack.stop, variantTrack.rid, empty_label, variantTrack.vartype);
             }
         }
 

@@ -67,6 +67,10 @@ This will open a window in tiled mode. To change the number of tiles use the up/
 If you right-click on one of the tiles then the region will be opened for browsing. To get back to the tiled-image view,
 just right-click again.
 
+Vcf/bcf files can be open in a stream e.g. using bcftools + gw to select and view regions::
+
+    bcftools view -r chr1:1-1000000 your.bcf | gw hg38 -b your.bam -v -
+
 You can also generate an image of every variant in your vcf file - as before use the --outdir and --no-show options. Also,
 you might want to increase the number of threads used here to speed things up a bit. Be warned this will probably generate a huge number of files::
 
