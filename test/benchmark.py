@@ -1,7 +1,6 @@
 import argparse
 from subprocess import run, Popen, PIPE
 import random
-import time
 import pandas as pd
 import resource
 import os
@@ -10,12 +9,11 @@ random.seed(1)
 
 
 def plot_gw(chrom, start, end, args):
-    t0 = time.time()
-    com = "{gw} {genome} -b {bam} -r {chrom}:{start}-{end} --outdir images --no-show"\
+    com = "/usr/bin/time --format '%e' {gw} {genome} -b {bam} -r {chrom}:{start}-{end} --outdir images --no-show"\
         .format(gw=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
-    p = Popen(com, shell=True)
-    p.wait()
-    t = (time.time() - t0) / 10
+    p = Popen(com, shell=True, stdout=PIPE, stderr=PIPE)
+    out, err = p.communicate()
+    t = float(err.decode('ascii').split('\n')[0].strip())
     return t, resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1e6
 
 
@@ -32,40 +30,37 @@ exit""".format(genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, e
         b.write(v)
 
     run(f"echo {chrom}\t{start}\t{end}\n > regions.bed", shell=True)
-    t0 = time.time()
-    com = "{igv} --batch igv_batch.bat".format(igv=args.tool_path)
-    p = Popen(com, shell=True)
-    p.wait()
-    t = (time.time() - t0) / 10
+    com = "/usr/bin/time -o igvtime.txt --format '%e' {igv} --batch igv_batch.bat".format(igv=args.tool_path)
+    p = Popen(com, shell=True, stderr=PIPE)
+    out, err = p.communicate()
+    t = float(open('igvtime.txt', 'r').readlines()[0].strip())
     return t, resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1e6
 
 
 def plot_samplot(chrom, start, end, args):
-    t0 = time.time()
-    com = "{samplot} plot -r {genome} -b {bam} -c {chrom} -s {start} -e {end} -o images/samplot_image.png" \
+    com = "/usr/bin/time --format '%e' {samplot} plot -r {genome} -b {bam} -c {chrom} -s {start} -e {end} -o images/samplot_image.png" \
         .format(samplot=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
-    p = Popen(com, shell=True)
-    p.wait()
-    t = (time.time() - t0) / 10
+    p = Popen(com, shell=True, stderr=PIPE)
+    out, err = p.communicate()
+    err = [i for i in err.decode('ascii').split('\n') if 'Warning' not in i][0]
+    t = float(err)
     return t, resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1e6
 
 
 def plot_wally(chrom, start, end, args):
-    t0 = time.time()
-    com = "{wally} region -g {genome} -r {chrom}:{start}-{end} {bam}" \
+    com = "/usr/bin/time --format '%e' {wally} region -g {genome} -r {chrom}:{start}-{end} {bam}" \
         .format(wally=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
-    p = Popen(com, shell=True)
-    p.wait()
-    t = (time.time() - t0) / 10
+    p = Popen(com, shell=True, stderr=PIPE)
+    out, err = p.communicate()
+    t = float(err.decode('ascii').split('\n')[0].strip())
     run('rm *.png', shell=True)
     return t, resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1e6
 
 
 def samtools_count(chrom, start, end, args):
-    t0 = time.time()
-    p = Popen(f'samtools view -@3 -c {args.bam} {chrom}:{start}-{end}', stdout=PIPE, shell=True)
+    p = Popen(f'/usr/bin/time --format "%e" samtools view -@3 -c {args.bam} {chrom}:{start}-{end}', stdout=PIPE, stderr=PIPE, shell=True)
     out, err = p.communicate()
-    t = (time.time() - t0) / 10
+    t = float(err.decode('ascii').split('\n')[0].strip())
     reads = int(out.decode('ascii').strip())
     return t, reads
 
