@@ -248,6 +248,9 @@ int main(int argc, char *argv[]) {
     if (program.is_used("--ylim")) {
         iopts.ylim = program.get<int>("--ylim");
     }
+    if (program.is_used("--pad")) {
+        iopts.pad = program.get<int>("--pad");
+    }
     if (program.is_used("--log2-cov")) {
         iopts.log2_cov = true;
     }
@@ -314,7 +317,7 @@ int main(int argc, char *argv[]) {
             std::vector<std::string> labels = Utils::split(iopts.labels, ',');
             bool cacheStdin = v == "-" && program.is_used("--out-vcf");
             if (program.is_used("--in-labels")) {
-                Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels);
+                Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels, plotter.seenLabels);
             }
 
             if (program.is_used("--out-labels")) {
@@ -461,7 +464,7 @@ int main(int argc, char *argv[]) {
             auto v = program.get<std::string>("--variants");
             std::vector<std::string> labels = Utils::split(iopts.labels, ',');
             if (program.is_used("--in-labels")) {
-                Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels);
+                Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels, plotter.seenLabels);
             }
             plotter.setVariantFile(v, iopts.start_index, false);
             plotter.setLabelChoices(labels);

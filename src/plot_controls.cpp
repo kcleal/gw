@@ -614,7 +614,7 @@ namespace Manager {
         if (regions.empty()) {
             return;
         }
-        std::cout << "\r                                                                                                    ";
+        std::cout << "\r                                                                               ";
         std::cout << termcolor::bold << "\rShowing   " << termcolor::reset ;
         int i = 0;
         for (auto &r : regions) {
@@ -793,13 +793,16 @@ namespace Manager {
                     if (blockStart + bLen <= multiRegions.size()) {
                         blockStart += bLen;
                         redraw = true;
-                        std::cout << "\r                                                                                   ";
+                        std::cout << "\r                                                                               ";
                         std::cout << termcolor::green << "\rIndex     " << termcolor::reset << blockStart << std::endl;
                     }
                 } else if (key == opts.scroll_left) {
+                    if (blockStart == 0) {
+                        return;
+                    }
                     blockStart = (blockStart - bLen > 0) ? blockStart - bLen : 0;
                     redraw = true;
-                    std::cout << "\r                      ";
+                    std::cout << "\r                                                                               ";
                     std::cout << termcolor::green << "\rIndex     " << termcolor::reset << blockStart << std::endl;
                 } else if (key == opts.zoom_out) {
                     opts.number.x += 1;
@@ -848,7 +851,7 @@ namespace Manager {
                 imageCache.clear();
                 blockStart = 0;
                 mode = Manager::Show::TILED;
-                std::cout << termcolor::magenta << "Index     " << termcolor::reset << blockStart << std::endl;
+                std::cout << termcolor::green << "Index     " << termcolor::reset << blockStart << std::endl;
             }
             ++paths;
         }
@@ -904,7 +907,6 @@ namespace Manager {
             }
 
             int idx = getCollectionIdx(xW, yW);
-
             if (idx == -1) {
                 return;
             }
@@ -980,7 +982,7 @@ namespace Manager {
                 xDrag = -1000000;
                 redraw = true;
                 processed = false;
-                std::cout << termcolor::magenta << "\nIndex     " << termcolor::reset << blockStart << std::flush;
+                //std::cout << termcolor::green << "\nIndex     " << termcolor::reset << blockStart << std::endl;
              }
         } else if (mode == Manager::TILED) {
             if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
@@ -997,13 +999,13 @@ namespace Manager {
                 }
                 if (!bams.empty()) {
                     if (i < (int)multiRegions.size() && !bams.empty()) {
-                        mode = Manager::SINGLE;
-                        std::cout << std::endl;
-                        regions = multiRegions[blockStart + i];
-                        redraw = true;
-                        processed = false;
-//                        printRegionInfo();
-                        fetchRefSeqs();
+                        if (blockStart + i < multiRegions.size()) {
+                            mode = Manager::SINGLE;
+                            regions = multiRegions[blockStart + i];
+                            redraw = true;
+                            processed = false;
+                            fetchRefSeqs();
+                        }
                     }
                 }
             } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
@@ -1012,12 +1014,12 @@ namespace Manager {
                     if (xDrag > 0) {
                         blockStart = (blockStart - nmb < 0) ? 0 : blockStart - nmb;
                         redraw = true;
-                        std::cout << "\r                      ";
+                        std::cout << "\r                                                                               ";
                         std::cout << termcolor::green << "\rIndex     " << termcolor::reset << blockStart << std::flush;
                     } else {
                         blockStart += nmb;
                         redraw = true;
-                        std::cout << "\r                      ";
+                        std::cout << "\r                                                                               ";
                         std::cout << termcolor::green << "\rIndex     " << termcolor::reset << blockStart << std::flush;
                     }
                 } else if (std::fabs(xDrag) < 5) {
@@ -1032,10 +1034,12 @@ namespace Manager {
                         xDrag = -1000000;
                         return;
                     }
-                    multiLabels[blockStart + i].next();
-                    multiLabels[blockStart + i].clicked = true;
-                    multiLabels[blockStart + i].savedDate = Utils::dateTime();
-                    redraw = true;
+                    if (blockStart + i < multiLabels.size()) {
+                        multiLabels[blockStart + i].next();
+                        multiLabels[blockStart + i].clicked = true;
+                        multiLabels[blockStart + i].savedDate = Utils::dateTime();
+                        redraw = true;
+                    }
                 }
                 xDrag = -1000000;
             }
@@ -1157,11 +1161,16 @@ namespace Manager {
                 }
                 if (blockStart + i < (int)multiRegions.size()) {
                     Utils::Label &lbl = multiLabels[blockStart + i];
-                    std::cout << "\r                                                                                                           ";
-                    std::cout << termcolor::bold << "\rVariant   " << termcolor::reset << lbl.variantId  << termcolor::bold <<
-                        "    Position  "  << termcolor::reset << lbl.chrom << ":" << lbl.pos << "," << termcolor::bold <<
-                        "    Type  "  << termcolor::reset << lbl.vartype;
+                    std::cout << "\r                                                                               ";
+                    std::cout << termcolor::bold << "\rPosition  " << termcolor::reset << lbl.chrom << ":" << lbl.pos << termcolor::bold <<
+                              "    ID  "  << termcolor::reset << lbl.variantId << termcolor::bold <<
+                              "    Type  "  << termcolor::reset << lbl.vartype;
                     std::cout << std::flush;
+
+//                    std::cout << termcolor::bold << "\rVariant   " << termcolor::reset << lbl.variantId  << termcolor::bold <<
+//                        "    Position  "  << termcolor::reset << lbl.chrom << ":" << lbl.pos << termcolor::bold <<
+//                        "    Type  "  << termcolor::reset << lbl.vartype;
+//                    std::cout << std::flush;
                 }
             }
 

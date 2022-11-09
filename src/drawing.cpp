@@ -950,22 +950,24 @@ namespace Drawing {
     void drawLabel(const Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts,
                    robin_hood::unordered_set<std::string> &seenLabels) {
 
-        if (seenLabels.empty()) {
-            return;
-        }
+//        if (seenLabels.empty()) {
+//            return;
+//        }
+
         float pad = 2;
         std::string cur = label.current();
+        if (cur.empty()) {
+            return;
+        }
         sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(cur.c_str(), fonts.overlay);
         float wl = fonts.overlayWidth * (cur.size() + 1);
-        //float wb = rect.right() - rect.left();
-        //float x = rect.left() + ((wb - wl) / 2);
 
         std::vector<std::string> srt;
         for (auto &itm: seenLabels) {
             srt.push_back(itm);
         }
         std::sort(srt.begin(), srt.end());
-        auto pivot = std::find_if(srt.begin(),  // put PASS at front if available
+        auto pivot = std::find_if(srt.begin(),  // put PASS at front if available, forces label to be black/white for igv/dark theme
                                   srt.end(),
                                   [](const std::string& s) -> bool {
                                       return s == "PASS";
@@ -995,8 +997,8 @@ namespace Drawing {
 
         SkRect bg;
         float x = rect.left() + pad;
-//        bg.setXYWH(x - pad, rect.bottom() - fonts.fontMaxSize,  wl + pad + pad, fonts.fontMaxSize);
-        bg.setXYWH(x - pad, rect.bottom() - fonts.fontMaxSize - 1,  wl + pad + pad, fonts.fontMaxSize + pad + pad);
+
+        bg.setXYWH(x + pad, rect.bottom() - fonts.fontMaxSize - pad - pad - pad - pad,  wl + pad, fonts.fontMaxSize + pad + pad);
 
         SkPaint p;
         int v;
@@ -1010,15 +1012,15 @@ namespace Drawing {
         canvas->drawRoundRect(bg,  5, 5, opts.theme.lcLabel);
         if (opts.theme.name == "igv") {
             if (v == 0) {
-                canvas->drawTextBlob(blob, x, rect.bottom(), opts.theme.bgPaint);
+                canvas->drawTextBlob(blob, x + pad + pad, bg.bottom() - pad, opts.theme.bgPaint);
             } else {
-                canvas->drawTextBlob(blob, x, rect.bottom(), opts.theme.tcDel);
+                canvas->drawTextBlob(blob, x + pad + pad, bg.bottom() - pad, opts.theme.tcDel);
             }
         } else {
             if (v == 255) {
-                canvas->drawTextBlob(blob, x, rect.bottom(), opts.theme.bgPaint);
+                canvas->drawTextBlob(blob, x + pad + pad, bg.bottom() - pad, opts.theme.bgPaint);
             } else {
-                canvas->drawTextBlob(blob, x, rect.bottom(), opts.theme.tcDel);
+                canvas->drawTextBlob(blob, x + pad + pad, bg.bottom() - pad, opts.theme.tcDel);
             }
         }
         if (label.i > 0) {

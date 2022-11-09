@@ -302,7 +302,8 @@ namespace Utils {
         f.close();
     }
 
-    void openLabels(std::string path, ankerl::unordered_dense::map< std::string, Utils::Label> &label_dict, std::vector<std::string> &inputLabels) {
+    void openLabels(std::string path, ankerl::unordered_dense::map< std::string, Utils::Label> &label_dict,
+                    std::vector<std::string> &inputLabels, robin_hood::unordered_set<std::string> &seenLabels) {
         std::ifstream f;
         std::string s;
         std::string savedDate;
@@ -317,6 +318,9 @@ namespace Utils {
                     savedDate = "";
                 } else {
                     savedDate = v[5];
+                }
+                if (!seenLabels.contains(v[3])) {
+                    seenLabels.insert(v[3]);
                 }
                 Label l = makeLabel(v[0], pos, v[3], inputLabels, v[2], v[4], savedDate, clicked);
                 std::string key = v[2];

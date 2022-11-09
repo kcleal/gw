@@ -97,6 +97,8 @@ namespace Manager {
         ankerl::unordered_dense::map< int, sk_sp<SkImage>> imageCache;
         ankerl::unordered_dense::map< std::string, Utils::Label> inputLabels;
 
+        robin_hood::unordered_set<std::string> seenLabels;
+
         Themes::IniOptions opts;
         Themes::Fonts fonts;
 

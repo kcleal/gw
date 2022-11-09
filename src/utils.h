@@ -7,16 +7,11 @@
 #include <string>
 #include <vector>
 #include "../include/unordered_dense.h"
+#include "../include/robin_hood.h"
 
 
 namespace Utils {
 
-//    enum GwFileTypes {
-//        VCF,
-//        BED,
-//        BEDPE,
-//        None
-//    };
 
     bool endsWith(const std::string &mainStr, const std::string &toMatch);
 
@@ -89,6 +84,7 @@ namespace Utils {
 
     void saveLabels(std::vector<Utils::Label> &multiLabels, std::string path);
 
-    void openLabels(std::string path, ankerl::unordered_dense::map< std::string, Utils::Label> &label_dict, std::vector<std::string> &inputLabels);
+    void openLabels(std::string path, ankerl::unordered_dense::map< std::string, Utils::Label> &label_dict,
+                    std::vector<std::string> &inputLabels, robin_hood::unordered_set<std::string> &seenLabels);
 
 }

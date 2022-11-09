@@ -478,6 +478,7 @@ namespace HGW {
     }
 
     void GwTrack::open(std::string &p, bool add_to_dict=true) {
+        fileIndex = 0;
         path = p;
         if (Utils::endsWith(p, ".bed")) {
             kind = BED_NOI;
@@ -529,6 +530,9 @@ namespace HGW {
                                 b.strand = 2;
                             }
                         }
+                    } else {
+                        b.name = std::to_string(fileIndex);
+                        fileIndex += 1;
                     }
                 } else { // assume gw_label file
                     b.end = b.start + 1;
@@ -645,9 +649,10 @@ namespace HGW {
             if (parts.size() > 2) {
                 rid = parts[3];
             } else {
-                rid = "";
+                rid = std::to_string(fileIndex);
+                fileIndex += 1;
             }
-            vartype = "";
+            vartype = "NA";
 
         } else if (kind > 2) {
             if (iter_blk != vals_end) {
@@ -656,6 +661,7 @@ namespace HGW {
                     start = iter_blk->start;
                     stop = iter_blk->end;
                     rid = iter_blk->name;
+                    vartype = "NA";
                     ++iter_blk;
                 } else {
                     done = true;

@@ -203,7 +203,8 @@ namespace Manager {
         if (cacheStdin || Utils::endsWith(path, ".vcf") ||
             Utils::endsWith(path, ".vcf.gz") ||
             Utils::endsWith(path, ".bcf")) {
-
+            variantTrack.done = true;
+            vcf.seenLabels = seenLabels;
             vcf.cacheStdin = cacheStdin;
             vcf.label_to_parse = opts.parse_label.c_str();
             vcf.open(path);  // todo some error checking needed?
@@ -230,7 +231,7 @@ namespace Manager {
                     }
                 }
             }
-        } else {
+        } else {  // bed file or labels file, or some other tsv
             vcf.done = true;
             variantTrack.open(path, false);
             variantTrack.fetch(nullptr);  // initialize iterators
@@ -347,7 +348,7 @@ namespace Manager {
             printRegionInfo();
         } else {
             bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
-            std::cout << termcolor::green << "Index     " << termcolor::reset << blockStart << std::flush;
+            std::cout << termcolor::green << "Index     " << termcolor::reset << blockStart << std::endl;
         }
         bool wasResized = false;
         std::chrono::high_resolution_clock::time_point autoSaveTimer = std::chrono::high_resolution_clock::now();
@@ -597,24 +598,24 @@ namespace Manager {
                 appendVariantSite(variantTrack.chrom, variantTrack.start, variantTrack.chrom, variantTrack.stop, variantTrack.rid, empty_label, variantTrack.vartype);
             }
         }
-
         setGlfwFrameBufferSize();
         setScaling();
         bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height);
         SkSamplingOptions sampOpts = SkSamplingOptions();
 
-//        std::thread tile_t = std::thread(&GwPlot::tileDrawingThread, this, canvas, sSurface);
         std::vector<sk_sp<SkImage>> blockImages;
+
         tileDrawingThread(canvas, sContext, sSurface);
 
         int i = bStart;
         canvas->drawPaint(opts.theme.bgPaint);
+
         for (auto &b : bboxes) {
             SkRect rect;
             if (imageCache.contains(i)) {
                 rect.setXYWH(b.xStart, b.yStart, b.width, b.height);
                 canvas->drawImageRect(imageCache[i], rect, sampOpts);
-                Drawing::drawLabel(opts, canvas, rect, multiLabels[i], fonts, vcf.seenLabels);
+                Drawing::drawLabel(opts, canvas, rect, multiLabels[i], fonts, seenLabels);
             }
             ++i;
         }
