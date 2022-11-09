@@ -1,44 +1,31 @@
 //
 // Created by Kez Cleal on 23/08/2022.
 //
-#include <htslib/faidx.h>
-#include <htslib/hfile.h>
 #include <htslib/sam.h>
 
-#include <cstdio>
-#include <cstdlib>
 #include <cmath>
 #include <iomanip>
 #include <iterator>
-#include <stdlib.h>
-#include <sstream>
+#include <cstdlib>
+
 #include <string>
+#include <thread>
 #include <vector>
 
-#ifdef __APPLE__
-#include <OpenGL/gl.h>
-#endif
+//#ifdef __APPLE__
+//#include <OpenGL/gl.h>
+//#endif
 
-#include "htslib/faidx.h"
-#include "htslib/hfile.h"
 #include "htslib/hts.h"
-#include "htslib/sam.h"
 
 #include <GLFW/glfw3.h>
 #define SK_GL
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/gl/GrGLInterface.h"
-#include "include/core/SkCanvas.h"
-#include "include/core/SkColorSpace.h"
-#include "include/core/SkSurface.h"
 
 #include "drawing.h"
-//#include "../include/glfw_keys.h"
+
 #include "hts_funcs.h"
 #include "plot_manager.h"
 #include "segments.h"
-#include "../include/robin_hood.h"
 #include "../include/termcolor.h"
 #include "themes.h"
 
@@ -381,10 +368,10 @@ namespace Manager {
         }
         uint8_t *s = bam_get_aux(r->delegate);
         uint8_t *end = r->delegate->data + r->delegate->l_data;
-        kstring_t str = { 0, 0, NULL };
+        kstring_t str = { 0, 0, nullptr };
         while (end - s >= 4) {
             kputc_('\t', &str);
-            if ((s = (uint8_t *)sam_format_aux1(s, s[2], s+3, end, &str)) == NULL) {
+            if ((s = (uint8_t *)sam_format_aux1(s, s[2], s+3, end, &str)) == nullptr) {
 
             }
         }
@@ -456,6 +443,9 @@ namespace Manager {
 
         if (inputText == ":q" || inputText == ":quit") {
             throw CloseException();
+        } else if (inputText == ":") {
+            inputText = "";
+            return true;
         } else if (inputText == ":help" || inputText == ":h") {
             help(opts);
             valid = true;
@@ -605,12 +595,12 @@ namespace Manager {
             if (chars_needed > 6) {
                 d = (double)num / 1e6;
                 d = std::ceil(d * 10) / 10;
-                a = removeZeros(d);
+                a = removeZeros((float)d);
                 b = " mb";
             } else {
                 d = (double)num / 1e3;
                 d = std::ceil(d * 10) / 10;
-                a = removeZeros(d);
+                a = removeZeros((float)d);
                 b = " kb";
             }
         } else {
@@ -625,7 +615,7 @@ namespace Manager {
             return;
         }
         std::cout << "\r                                                                                                    ";
-        std::cout << termcolor::magenta << "\rShowing   " ;
+        std::cout << termcolor::bold << "\rShowing   " << termcolor::reset ;
         int i = 0;
         for (auto &r : regions) {
             std::cout << termcolor::cyan << r.chrom << ":" << r.start << "-" << r.end << termcolor::white << "  (" << getSize(r.end - r.start) << ")";
@@ -658,7 +648,7 @@ namespace Manager {
 
             if (action == GLFW_PRESS || action == GLFW_REPEAT) {
                 if (key == opts.scroll_right) {
-                    int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
+                    int shift = (int)(((float)regions[regionSelection].end - (float)regions[regionSelection].start) * opts.scroll_speed);
                     delete regions[regionSelection].refSeq;
                     Utils::Region N;
                     N.chrom = regions[regionSelection].chrom;
@@ -684,7 +674,7 @@ namespace Manager {
                     printRegionInfo();
 
                 } else if (key == opts.scroll_left) {
-                    int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
+                    int shift = (int)(((float)regions[regionSelection].end - (float)regions[regionSelection].start) * opts.scroll_speed);
                     shift = (regions[regionSelection].start - shift > 0) ? shift : 0;
                     delete regions[regionSelection].refSeq;
                     Utils::Region N;
@@ -710,7 +700,7 @@ namespace Manager {
                     }
                     printRegionInfo();
                 } else if (key == opts.zoom_out) {
-                    int shift = ((regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed) + 10;
+                    int shift = (int)((((float)regions[regionSelection].end - (float)regions[regionSelection].start) * opts.scroll_speed)) + 10;
                     int shift_left = (regions[regionSelection].start - shift > 0) ? shift : 0;
                     delete regions[regionSelection].refSeq;
                     Utils::Region N;
@@ -746,7 +736,7 @@ namespace Manager {
                     printRegionInfo();
                 } else if (key == opts.zoom_in) {
                     if (regions[regionSelection].end - regions[regionSelection].start > 50) {
-                        int shift = (regions[regionSelection].end - regions[regionSelection].start) * opts.scroll_speed;
+                        int shift = (int)(((float)regions[regionSelection].end - (float)regions[regionSelection].start) * opts.scroll_speed);
                         int shift_left = (regions[regionSelection].start - shift > 0) ? shift : 0;
                         delete regions[regionSelection].refSeq;
                         Utils::Region N;
@@ -800,16 +790,17 @@ namespace Manager {
             int bLen = opts.number.x * opts.number.y;
             if (action == GLFW_PRESS || action == GLFW_REPEAT) {
                 if (key == opts.scroll_right) {
-                    blockStart += bLen;
-                    redraw = true;
-                    std::cout << "\r                      ";
-                    std::cout << termcolor::magenta << "\rIndex     " << termcolor::reset << blockStart << std::flush;
-
+                    if (blockStart + bLen <= multiRegions.size()) {
+                        blockStart += bLen;
+                        redraw = true;
+                        std::cout << "\r                                                                                   ";
+                        std::cout << termcolor::green << "\rIndex     " << termcolor::reset << blockStart << std::endl;
+                    }
                 } else if (key == opts.scroll_left) {
                     blockStart = (blockStart - bLen > 0) ? blockStart - bLen : 0;
                     redraw = true;
                     std::cout << "\r                      ";
-                    std::cout << termcolor::magenta << "\rIndex     " << termcolor::reset << blockStart << std::flush;
+                    std::cout << termcolor::green << "\rIndex     " << termcolor::reset << blockStart << std::endl;
                 } else if (key == opts.zoom_out) {
                     opts.number.x += 1;
                     opts.number.y += 1;
@@ -866,6 +857,7 @@ namespace Manager {
             redraw = true;
         }
     }
+
     int GwPlot::getCollectionIdx(float x, float y) {
         if (y <= refSpace) {
             return -1;
@@ -893,11 +885,11 @@ namespace Manager {
         float xW, yW;
         if (fb_width > windowW) {
             float ratio = (float) fb_width / (float) windowW;
-            xW = x * ratio;
-            yW = y * ratio;
+            xW = (float)x * ratio;
+            yW = (float)y * ratio;
         } else {
-            xW = x;
-            yW = y;
+            xW = (float)x;
+            yW = (float)y;
         }
 
         if (xDrag == -1000000) {
@@ -948,14 +940,12 @@ namespace Manager {
                 xDrag = -1000000;
 
             } else if (action == GLFW_RELEASE) {
-                auto w = (float) ((cl.region.end - cl.region.start) * (float) regions.size());
+                auto w = (float) (((float)cl.region.end - (float)cl.region.start) * (float) regions.size());
                 if (w >= 50000) {
                     int travel = (int) (w * (xDrag / windowW));
                     if (cl.region.start - travel < 0) {
                         travel = cl.region.start;
                     }
-//                    regionSelection = cl.regionIdx;
-
                     delete regions[regionSelection].refSeq;
                     Utils::Region N;
                     N.chrom = cl.region.chrom;
@@ -971,16 +961,16 @@ namespace Manager {
                         redraw = true;
                     } else {
                         processed = true;
-                        for (auto &cl : collections) {
-                            if (cl.regionIdx == regionSelection) {
-                                cl.region = regions[regionSelection];
-                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, lt_last, linked, &samMaxY);
+                        for (auto &col : collections) {
+                            if (col.regionIdx == regionSelection) {
+                                col.region = regions[regionSelection];
+                                HGW::appendReadsAndCoverage(col,  bams[col.bamIdx], headers[col.bamIdx], indexes[col.bamIdx], opts, opts.coverage, lt_last, linked, &samMaxY);
                             }
                         }
                         redraw = true;
                     }
                 }
-                printRegionInfo();
+//                printRegionInfo();
             }
             xOri = x;
 
@@ -994,7 +984,6 @@ namespace Manager {
              }
         } else if (mode == Manager::TILED) {
             if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
-                std::vector<Utils::BoundingBox> bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height);
                 int i = 0;
                 for (auto &b: bboxes) {
                     if (xW > b.xStart && xW < b.xEnd && yW > b.yStart && yW < b.yEnd) {
@@ -1006,33 +995,32 @@ namespace Manager {
                     xDrag = -1000000;
                     return;
                 }
-                if (bams.size() > 0) {
+                if (!bams.empty()) {
                     if (i < (int)multiRegions.size() && !bams.empty()) {
                         mode = Manager::SINGLE;
-                        std::cout << termcolor::magenta << "\nVariant   " << termcolor::reset << multiLabels[blockStart + i].variantId << std::endl;
+                        std::cout << std::endl;
                         regions = multiRegions[blockStart + i];
                         redraw = true;
                         processed = false;
-                        printRegionInfo();
+//                        printRegionInfo();
                         fetchRefSeqs();
                     }
                 }
             } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
-                if (std::fabs(xDrag) > fb_width / 8) {
+                if (std::fabs(xDrag) > fb_width / 8.) {
                     int nmb = opts.number.x * opts.number.y;
                     if (xDrag > 0) {
                         blockStart = (blockStart - nmb < 0) ? 0 : blockStart - nmb;
                         redraw = true;
                         std::cout << "\r                      ";
-                        std::cout << termcolor::magenta << "\rIndex     " << termcolor::reset << blockStart << std::flush;
+                        std::cout << termcolor::green << "\rIndex     " << termcolor::reset << blockStart << std::flush;
                     } else {
                         blockStart += nmb;
                         redraw = true;
                         std::cout << "\r                      ";
-                        std::cout << termcolor::magenta << "\rIndex     " << termcolor::reset << blockStart << std::flush;
+                        std::cout << termcolor::green << "\rIndex     " << termcolor::reset << blockStart << std::flush;
                     }
                 } else if (std::fabs(xDrag) < 5) {
-                    std::vector<Utils::BoundingBox> bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height);
                     int i = 0;
                     for (auto &b: bboxes) {
                         if (xW > b.xStart && xW < b.xEnd && yW > b.yStart && yW < b.yEnd) {
@@ -1058,14 +1046,14 @@ namespace Manager {
         int pos = (int) (((xPos - (float) cl.xOffset) / cl.xScaling) +
                          (float) cl.region.start);
         auto s = std::to_string(pos);
-        int n = s.length() - 3;
+        int n = (int)s.length() - 3;
         int end = (pos >= 0) ? 0 : 1; // Support for negative numbers
         while (n > end) {
             s.insert(n, ",");
             n -= 3;
         }
         printRegionInfo();
-        std::cout << termcolor::bold << "    " << s << termcolor::reset << std::flush;
+        std::cout << "    " << s << std::flush;
     }
 
     void GwPlot::mousePos(GLFWwindow* wind, double xPos, double yPos) {
@@ -1087,7 +1075,7 @@ namespace Manager {
                     xPos *= (float) fb_width / (float) windowW;
                     yPos *= (float) fb_height / (float) windowH;
                 }
-                int regionSelection = getCollectionIdx(xPos, yPos);
+                regionSelection = getCollectionIdx((float)xPos, (float)yPos);
                 if (regionSelection == -1) {
                     return;
                 }
@@ -1098,7 +1086,7 @@ namespace Manager {
 
                     printRegionInfo();
 
-                    auto w = (float) ((cl.region.end - cl.region.start) * (float) regions.size());
+                    auto w = (float) (((float)cl.region.end - (float)cl.region.start) * (float) regions.size());
                     int travel = (int) (w * (xDrag / windowW));
                     if (cl.region.start - travel < 0) {
                         travel = cl.region.start;
@@ -1122,10 +1110,10 @@ namespace Manager {
                         redraw = true;
                     } else {
                         processed = true;
-                        for (auto &cl : collections) {
-                            if (cl.regionIdx == regionSelection) {
-                                cl.region = regions[regionSelection];
-                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, !lt_last, linked, &samMaxY);
+                        for (auto &col : collections) {
+                            if (col.regionIdx == regionSelection) {
+                                col.region = regions[regionSelection];
+                                HGW::appendReadsAndCoverage(col,  bams[col.bamIdx], headers[col.bamIdx], indexes[col.bamIdx], opts, opts.coverage, !lt_last, linked, &samMaxY);
                             }
                         }
                         redraw = true;
@@ -1143,12 +1131,38 @@ namespace Manager {
                     xPos *= (float) fb_width / (float) windowW;
                     yPos *= (float) fb_height / (float) windowH;
                 }
-                int regionSelection = getCollectionIdx(xPos, yPos);
+                regionSelection = getCollectionIdx((float)xPos, (float)yPos);
                 if (regionSelection == -1) {
                     return;
                 }
                 Segs::ReadCollection &cl = collections[regionSelection];
-                updateCursorGenomePos(cl, xPos);
+                updateCursorGenomePos(cl, (float)xPos);
+            } else {
+                int windowW, windowH;  // convert screen coords to frame buffer coords
+                glfwGetWindowSize(wind, &windowW, &windowH);
+                if (fb_width > windowW) {
+                    xPos *= (float) fb_width / (float) windowW;
+                    yPos *= (float) fb_height / (float) windowH;
+                }
+
+                int i = 0;
+                for (auto &b: bboxes) {
+                    if (xPos > b.xStart && xPos < b.xEnd && yPos > b.yStart && yPos < b.yEnd) {
+                        break;
+                    }
+                    ++i;
+                }
+                if (i == (int)bboxes.size()) {
+                    return;
+                }
+                if (blockStart + i < (int)multiRegions.size()) {
+                    Utils::Label &lbl = multiLabels[blockStart + i];
+                    std::cout << "\r                                                                                                           ";
+                    std::cout << termcolor::bold << "\rVariant   " << termcolor::reset << lbl.variantId  << termcolor::bold <<
+                        "    Position  "  << termcolor::reset << lbl.chrom << ":" << lbl.pos << "," << termcolor::bold <<
+                        "    Type  "  << termcolor::reset << lbl.vartype;
+                    std::cout << std::flush;
+                }
             }
 
         }
@@ -1168,11 +1182,12 @@ namespace Manager {
                 keyPress(wind, opts.scroll_left, 0, GLFW_PRESS, 0);
             }
         }
-
     }
 
     void GwPlot::windowResize(GLFWwindow* wind, int x, int y) {
         resizeTriggered = true;
         resizeTimer = std::chrono::high_resolution_clock::now();
+        glfwGetFramebufferSize(window, &fb_width, &fb_height);
+        bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
     }
 }

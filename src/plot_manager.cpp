@@ -346,7 +346,8 @@ namespace Manager {
         if (mode == Show::SINGLE) {
             printRegionInfo();
         } else {
-            std::cout << termcolor::magenta << "Index     " << termcolor::reset << blockStart << std::flush;
+            bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
+            std::cout << termcolor::green << "Index     " << termcolor::reset << blockStart << std::flush;
         }
         bool wasResized = false;
         std::chrono::high_resolution_clock::time_point autoSaveTimer = std::chrono::high_resolution_clock::now();
@@ -370,14 +371,12 @@ namespace Manager {
                 redraw = true;
                 processed = false;
                 wasResized = true;
-                int x, y;
-                glfwGetFramebufferSize(window, &x, &y);
 
+                glfwGetFramebufferSize(window, &fb_width, &fb_height);
+                bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
 
-                fb_width = x;
-                fb_height = y;
-                opts.dimensions.x = x;
-                opts.dimensions.y = y;
+                opts.dimensions.x = fb_width;
+                opts.dimensions.y = fb_height;
                 resizeTriggered = false;
 
                 GrGLFramebufferInfo framebufferInfo;
@@ -601,7 +600,7 @@ namespace Manager {
 
         setGlfwFrameBufferSize();
         setScaling();
-        std::vector<Utils::BoundingBox> bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height);
+        bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height);
         SkSamplingOptions sampOpts = SkSamplingOptions();
 
 //        std::thread tile_t = std::thread(&GwPlot::tileDrawingThread, this, canvas, sSurface);

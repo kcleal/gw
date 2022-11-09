@@ -85,10 +85,11 @@ namespace HGW {
         std::vector<Utils::TrackBlock>::iterator iter_blk;
 
         ankerl::unordered_dense::map< std::string, std::vector<Utils::TrackBlock>>  allBlocks;
+        std::vector<Utils::TrackBlock> allBlocks_flat;
         Utils::TrackBlock block;
         bool done;
 
-        void open(std::string &p);
+        void open(std::string &p, bool add_to_dict);
         void fetch(const Utils::Region *rgn);
         void next();
     };

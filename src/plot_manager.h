@@ -163,6 +163,7 @@ namespace Manager {
 
         bool redraw;
         bool processed;
+
         bool calcScaling;
 
         bool resizeTriggered;
@@ -190,6 +191,8 @@ namespace Manager {
 
         Utils::Region clicked;
         int clickedIdx;
+
+        std::vector<Utils::BoundingBox> bboxes;
 
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext);
 
