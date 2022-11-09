@@ -68,6 +68,7 @@ namespace HGW {
         std::string path;
         std::string chrom, chrom2, rid, vartype;
         int start, stop;
+        int fileIndex;
         FType kind;  // 0 bed no idx, 1 bed with idx, 2 vcf-like with idx, 3 gw label file
 
         htsFile *fp;
