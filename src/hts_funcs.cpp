@@ -514,6 +514,7 @@ namespace HGW {
                 Utils::TrackBlock b;
                 b.line = tp;
                 b.chrom = parts[0];
+
                 if (add_to_dict && !allBlocks.contains(b.chrom)) {
                     lastb = -1;
                 }
@@ -574,12 +575,19 @@ namespace HGW {
                 done = false;
             } else {
                 if (allBlocks.contains(rgn->chrom)) {
-                    std::vector<Utils::TrackBlock> vals = allBlocks[rgn->chrom];
+                    vals = allBlocks[rgn->chrom];
                     vals_end = vals.end();
                     iter_blk = std::lower_bound(vals.begin(), vals.end(), rgn->start,
                                                 [](Utils::TrackBlock &a, int x)-> bool { return a.start < x;});
+                    if (iter_blk != vals.begin()) {
+                        --iter_blk;
+                    }
                     region_end = rgn->end;
-                    done = false;
+                    if (iter_blk == vals_end) {
+                        done = true;
+                    } else {
+                        done = false;
+                    }
                 } else {
                     done = true;
                 }
@@ -608,6 +616,9 @@ namespace HGW {
 
     void GwTrack::next() {
         int res;
+        if (done) {
+            return;
+        }
         if (kind == BCF_IDX) {
             res = bcf_itr_next(fp, iter_q, v);
             if (res < 0) {

@@ -188,8 +188,8 @@ namespace Manager {
     }
 
     void GwPlot::fetchRefSeq(Utils::Region &rgn) {
-        int rlen = rgn.end - rgn.start;
-        rgn.refSeq = faidx_fetch_seq(fai, rgn.chrom.c_str(), rgn.start, rgn.end, &rlen);
+        int rlen = rgn.end - rgn.start - 1;
+        rgn.refSeq = faidx_fetch_seq(fai, rgn.chrom.c_str(), rgn.start, rgn.end - 1, &rlen);
     }
 
     void GwPlot::fetchRefSeqs() {
@@ -487,9 +487,9 @@ namespace Manager {
     }
 
     void GwPlot::setScaling() {  // sets z_scaling, y_scaling trackY and regionWidth
-        if (samMaxY == 0 || !calcScaling) {
-            return;
-        }
+//        if (samMaxY == 0 || !calcScaling) {
+//            return;
+//        }
         float xscale, yscale;
         if (drawToBackWindow) {
             glfwGetWindowContentScale(backWindow, &xscale, &yscale);
@@ -502,10 +502,10 @@ namespace Manager {
         auto fbw = (float) fb_width;
         if (bams.empty()) {
             covY = 0; totalCovY = 0; totalTabixY = 0; tabixY = 0;
-            return;
+//            return;
         }
         auto nbams = (float)bams.size();
-        if (opts.coverage) {
+        if (opts.coverage && nbams > 0) {
             totalCovY = fbh * 0.1;
             covY = totalCovY / nbams;
         } else {
@@ -523,8 +523,13 @@ namespace Manager {
             }
             tabixY = totalTabixY / tracks.size();
         }
-        trackY = (fbh - totalCovY - totalTabixY - gap2 - refSpace) / nbams;
-        yScaling = ((fbh - totalCovY - totalTabixY - gap2 - refSpace) / (float)samMaxY) / nbams;
+        if (nbams) {
+            trackY = (fbh - totalCovY - totalTabixY - gap2 - refSpace) / nbams;
+            yScaling = ((fbh - totalCovY - totalTabixY - gap2 - refSpace) / (float)samMaxY) / nbams;
+        } else {
+            trackY = 0;
+            yScaling = 0;
+        }
         fonts.setFontSize(yScaling, yscale);
         regionWidth = fbw / (float)regions.size();
         bamHeight = covY + trackY; // + tabixY;
@@ -548,7 +553,7 @@ namespace Manager {
                 Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
             }
             Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op, refSpace);
-            Drawing::drawRef(opts, collections, canvas, fonts, refSpace, (float)regions.size());
+            Drawing::drawRef(opts, collections, regions, canvas, fonts, refSpace, (float)regions.size());
             Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
             Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
 
@@ -634,7 +639,7 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op, refSpace);
-        Drawing::drawRef(opts, collections, canvas, fonts, refSpace, (float)regions.size());
+        Drawing::drawRef(opts, collections, regions, canvas, fonts, refSpace, (float)regions.size());
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
     }
@@ -648,7 +653,7 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op, refSpace);
-        Drawing::drawRef(opts, collections, canvas, fonts, refSpace, (float)regions.size());
+        Drawing::drawRef(opts, collections, regions, canvas, fonts, refSpace, (float)regions.size());
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
     }

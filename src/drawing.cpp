@@ -841,21 +841,27 @@ namespace Drawing {
     }
 
     void drawRef(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
+                  std::vector<Utils::Region> regions,
                   SkCanvas *canvas, const Themes::Fonts &fonts, float h, float nRegions) {
+        if (regions.empty()) {
+            return;
+        }
+        float gap = 6;
         SkRect rect;
         SkPaint faceColor;
         const Themes::BaseTheme &theme = opts.theme;
-        float offset = 0;
+        double offset = 0;
+        double xPixels = (double)opts.dimensions.x / (double)regions.size();
 
-//        float h = fonts.fontMaxSize;
         float textW = fonts.overlayWidth;
-        float minLetterSize = ((float)opts.dimensions.x / nRegions) / textW;
-        for (auto &cl: collections) {
-            int size = cl.region.end - cl.region.start;
-            double xScaling = cl.xScaling;
-            double xPixels = (xScaling * size) + cl.xOffset;
-            const char *ref = cl.region.refSeq;
-            float mmPosOffset, mmScaling;
+        float minLetterSize;
+        minLetterSize = (textW > 0) ? ((float)opts.dimensions.x / (float)regions.size()) / textW : 0;
+        int index = 0;
+        for (auto &rgn: regions) {
+            int size = rgn.end - rgn.start;
+            double xScaling = (xPixels - 12) / size;
+            const char *ref = rgn.refSeq;
+            double mmPosOffset, mmScaling;
             if (size < 250) {
                 mmPosOffset = 0.05;
                 mmScaling = 0.9;
@@ -866,7 +872,7 @@ namespace Drawing {
             if (ref == nullptr) {
                 continue;
             }
-            double i = cl.xOffset;
+            double i = (index * xPixels) + gap;
 
             if (textW > 0 && (float)size < minLetterSize && fonts.fontMaxSize <= h) {
                 double v = (xScaling - textW) / 2;
@@ -911,7 +917,8 @@ namespace Drawing {
                     ++ref;
                 }
             }
-            // todo add pixelHeight to offset
+            offset += xPixels;
+            index += 1;
         }
     }
 
@@ -1040,7 +1047,7 @@ namespace Drawing {
                      SkCanvas *canvas, float totalTabixY, float tabixY, std::vector<HGW::GwTrack> &tracks,
                      const std::vector<Utils::Region> &regions, const Themes::Fonts &fonts) {
 
-        if (tracks.empty()) {
+        if (tracks.empty() || regions.empty()) {
             return;
         }
         float gap = fb_width*0.002;
@@ -1124,7 +1131,6 @@ namespace Drawing {
             padY = 0;
             padX += stepX;
         }
-//        opts.theme.lcJoins.setAntiAlias(false);
         opts.theme.lcLightJoins.setAntiAlias(false);
     }
 }
