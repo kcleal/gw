@@ -9,6 +9,13 @@
 #include "../include/unordered_dense.h"
 #include "../include/robin_hood.h"
 
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#define VC_EXTRALEAN
+#include <Windows.h>
+#elif defined(__linux__)
+#include <sys/ioctl.h>
+#endif // Windows/Linux
 
 namespace Utils {
 
@@ -86,5 +93,7 @@ namespace Utils {
 
     void openLabels(std::string path, ankerl::unordered_dense::map< std::string, Utils::Label> &label_dict,
                     std::vector<std::string> &inputLabels, robin_hood::unordered_set<std::string> &seenLabels);
+
+    int get_terminal_width();
 
 }

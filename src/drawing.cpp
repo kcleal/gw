@@ -855,6 +855,14 @@ namespace Drawing {
             double xScaling = cl.xScaling;
             double xPixels = (xScaling * size) + cl.xOffset;
             const char *ref = cl.region.refSeq;
+            float mmPosOffset, mmScaling;
+            if (size < 250) {
+                mmPosOffset = 0.05;
+                mmScaling = 0.9;
+            } else {
+                mmPosOffset = 0;
+                mmScaling = 1;
+            }
             if (ref == nullptr) {
                 continue;
             }
@@ -886,7 +894,7 @@ namespace Drawing {
                 }
             } else if (size < 20000) {
                 while (*ref) {
-                    rect.setXYWH(i, offset, xScaling, h);
+                    rect.setXYWH(i, offset + mmPosOffset, mmScaling * xScaling, h);
                     switch ((unsigned int)*ref) {
                         case 65: canvas->drawRect(rect, theme.fcA); break;
                         case 67: canvas->drawRect(rect, theme.fcC); break;

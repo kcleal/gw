@@ -537,13 +537,19 @@ namespace Manager {
             }
             if (split.size() > 1 && split.size() < 4) {
                 int index = (split.size() == 3) ? std::stoi(split.back()) : 0;
-                if (index < (int)regions.size()) {
-                    regions[index] = Utils::parseRegion(split[1]);
+                std::cout << "  " << index << " " << regions.size() << std::endl;
+                if (regions.empty()) {
+                    regions.push_back(Utils::parseRegion(split[1]));
                     valid = true;
                 } else {
-                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " region index is out of range. Use 0-based indexing\n";
-                    inputText = "";
-                    return true;
+                    if (index < (int)regions.size()) {
+                        regions[index] = Utils::parseRegion(split[1]);
+                        valid = true;
+                    } else {
+                        std::cerr << termcolor::red << "Error:" << termcolor::reset << " region index is out of range. Use 0-based indexing\n";
+                        inputText = "";
+                        return true;
+                    }
                 }
             }
         } else if (Utils::startsWith(inputText, ":add"))  {
@@ -610,11 +616,17 @@ namespace Manager {
 
     }
 
+    void clearLine() {
+        std::string s(Utils::get_terminal_width() - 1, ' ');
+        std::cout << "\r" << s << std::flush;
+        return;
+    }
+
     void GwPlot::printRegionInfo() {
         if (regions.empty()) {
             return;
         }
-        std::cout << "\r                                                                               ";
+        clearLine();
         std::cout << termcolor::bold << "\rShowing   " << termcolor::reset ;
         int i = 0;
         for (auto &r : regions) {
@@ -645,6 +657,10 @@ namespace Manager {
             glfwSetWindowShouldClose(wind, GLFW_TRUE);
         }
         if (mode == Show::SINGLE) {
+
+            if (bams.empty() || regions.empty() || regionSelection < 0) {
+                return;
+            }
 
             if (action == GLFW_PRESS || action == GLFW_REPEAT) {
                 if (key == opts.scroll_right) {
@@ -790,10 +806,10 @@ namespace Manager {
             int bLen = opts.number.x * opts.number.y;
             if (action == GLFW_PRESS || action == GLFW_REPEAT) {
                 if (key == opts.scroll_right) {
-                    if (blockStart + bLen <= multiRegions.size()) {
+                    if (blockStart + bLen <= (int)multiRegions.size()) {
                         blockStart += bLen;
                         redraw = true;
-                        std::cout << "\r                                                                               ";
+                        clearLine();
                         std::cout << termcolor::green << "\rIndex     " << termcolor::reset << blockStart << std::endl;
                     }
                 } else if (key == opts.scroll_left) {
@@ -802,7 +818,7 @@ namespace Manager {
                     }
                     blockStart = (blockStart - bLen > 0) ? blockStart - bLen : 0;
                     redraw = true;
-                    std::cout << "\r                                                                               ";
+                    clearLine();
                     std::cout << termcolor::green << "\rIndex     " << termcolor::reset << blockStart << std::endl;
                 } else if (key == opts.zoom_out) {
                     opts.number.x += 1;
@@ -863,7 +879,7 @@ namespace Manager {
 
     int GwPlot::getCollectionIdx(float x, float y) {
         if (y <= refSpace) {
-            return -1;
+            return -2;
         }
         int idx = 0;
         for (auto &cl: collections) {
@@ -877,6 +893,36 @@ namespace Manager {
             idx += 1;
         }
         return -1;
+    }
+
+    void printRefSeq(float x, std::vector<Segs::ReadCollection> &collections) {
+        for (auto &cl: collections) {
+            float min_x = cl.xOffset;
+            float max_x = cl.xScaling * ((float)(cl.region.end - cl.region.start)) + min_x;
+            int size = cl.region.end - cl.region.start;
+            if (x > min_x && x < max_x && size <= 20000) {
+                const char * s = cl.region.refSeq;
+                std::cout << "\n\n" << cl.region.chrom << ":" << cl.region.start << "-" << cl.region.end << "\n";
+                while (*s) {
+                    switch ((unsigned int)*s) {
+                        case 65: std::cout << termcolor::green << "a"; break;
+                        case 67: std::cout << termcolor::blue << "c"; break;
+                        case 71: std::cout << termcolor::yellow << "g"; break;
+                        case 78: std::cout << termcolor::bright_grey << "n"; break;
+                        case 84: std::cout << termcolor::red << "t"; break;
+                        case 97: std::cout << termcolor::green << "A"; break;
+                        case 99: std::cout << termcolor::blue << "C"; break;
+                        case 103: std::cout << termcolor::yellow << "G"; break;
+                        case 110: std::cout << termcolor::bright_grey << "N"; break;
+                        case 116: std::cout << termcolor::red << "T"; break;
+                        default: std::cout << "?"; break;
+                    }
+                    ++s;
+                }
+                std::cout << termcolor::reset << std::endl << std::endl;
+                return;
+            }
+        }
     }
 
     void GwPlot::mouseButton(GLFWwindow* wind, int button, int action, int mods) {
@@ -907,7 +953,11 @@ namespace Manager {
             }
 
             int idx = getCollectionIdx(xW, yW);
-            if (idx == -1) {
+
+            if (idx == -2 && action == GLFW_RELEASE) {
+                printRefSeq(xW, collections);
+            }
+            if (idx < 0) {
                 return;
             }
             regionSelection = idx;
@@ -999,7 +1049,7 @@ namespace Manager {
                 }
                 if (!bams.empty()) {
                     if (i < (int)multiRegions.size() && !bams.empty()) {
-                        if (blockStart + i < multiRegions.size()) {
+                        if (blockStart + i < (int)multiRegions.size()) {
                             mode = Manager::SINGLE;
                             regions = multiRegions[blockStart + i];
                             redraw = true;
@@ -1034,7 +1084,7 @@ namespace Manager {
                         xDrag = -1000000;
                         return;
                     }
-                    if (blockStart + i < multiLabels.size()) {
+                    if (blockStart + i < (int)multiLabels.size()) {
                         multiLabels[blockStart + i].next();
                         multiLabels[blockStart + i].clicked = true;
                         multiLabels[blockStart + i].savedDate = Utils::dateTime();
@@ -1060,6 +1110,55 @@ namespace Manager {
         std::cout << "    " << s << std::flush;
     }
 
+    void updateRefGenomeSeq(float xW, std::vector<Segs::ReadCollection> &collections) {
+        for (auto &cl: collections) {
+            float min_x = cl.xOffset;
+            float max_x = cl.xScaling * ((float)(cl.region.end - cl.region.start)) + min_x;
+            if (xW > min_x && xW < max_x) {
+                int pos = (int) (((xW - (float) cl.xOffset) / cl.xScaling) + (float) cl.region.start);
+                int chars =  Utils::get_terminal_width() - 11;
+                if (chars <= 0) {
+                    return;
+                }
+                int i = chars / 2; //30;
+                int startIdx = pos - cl.region.start - i;
+                if (startIdx < 0) {
+                    i += startIdx;
+                    startIdx = 0;
+                }
+                if (startIdx > cl.region.end - cl.region.start) {
+                    return;  // something went wrong
+                }
+                if (cl.region.refSeq == nullptr) {
+                    return;
+                }
+                const char * s = &cl.region.refSeq[startIdx];
+                clearLine();
+                std::cout << termcolor::bold << "\rRef       " << termcolor::reset ;
+                int l = 0;
+                while (*s && l < chars) {
+                    switch ((unsigned int)*s) { // this is a bit of mess, but gets the job done
+                        case 65: ((l == i) ? (std::cout << termcolor::underline << termcolor::green << "a" << termcolor::reset) : (std::cout << termcolor::green << "a") ); break;
+                        case 67: ((l == i) ? (std::cout << termcolor::underline << termcolor::blue << "c" << termcolor::reset) : (std::cout << termcolor::blue << "c") ); break;
+                        case 71: ((l == i) ? (std::cout << termcolor::underline << termcolor::yellow << "g" << termcolor::reset) : (std::cout << termcolor::yellow << "g") ); break;
+                        case 78: ((l == i) ? (std::cout << termcolor::underline << termcolor::bright_grey << "n" << termcolor::reset) : (std::cout << termcolor::bright_grey << "n") ); break;
+                        case 84: ((l == i) ? (std::cout << termcolor::underline << termcolor::red << "t" << termcolor::reset) : (std::cout << termcolor::red << "t") ); break;
+                        case 97: ((l == i) ? (std::cout << termcolor::underline << termcolor::green << "A" << termcolor::reset) : (std::cout << termcolor::green << "A") ); break;
+                        case 99: ((l == i) ? (std::cout << termcolor::underline << termcolor::blue << "C" << termcolor::reset) : (std::cout << termcolor::blue << "C") ); break;
+                        case 103: ((l == i) ? (std::cout << termcolor::underline << termcolor::yellow << "G" << termcolor::reset) : (std::cout << termcolor::yellow << "G") ); break;
+                        case 110: ((l == i) ? (std::cout << termcolor::underline << termcolor::bright_grey << "N" << termcolor::reset) : (std::cout << termcolor::bright_grey << "N") ); break;
+                        case 116: ((l == i) ? (std::cout << termcolor::underline << termcolor::red << "T" << termcolor::reset) : (std::cout << termcolor::red << "T") ); break;
+                        default: std::cout << "?"; break;
+                    }
+                    ++s;
+                    l += 1;
+                }
+                std::cout << termcolor::reset << std::flush;
+                return;
+            }
+        }
+    }
+
     void GwPlot::mousePos(GLFWwindow* wind, double xPos, double yPos) {
         if (lastX == -1) {
             lastX = xPos;
@@ -1080,7 +1179,7 @@ namespace Manager {
                     yPos *= (float) fb_height / (float) windowH;
                 }
                 regionSelection = getCollectionIdx((float)xPos, (float)yPos);
-                if (regionSelection == -1) {
+                if (regionSelection < 0) {
                     return;
                 }
 
@@ -1135,10 +1234,14 @@ namespace Manager {
                     xPos *= (float) fb_width / (float) windowW;
                     yPos *= (float) fb_height / (float) windowH;
                 }
-                regionSelection = getCollectionIdx((float)xPos, (float)yPos);
-                if (regionSelection == -1) {
+                int rs = getCollectionIdx((float)xPos, (float)yPos);
+                if (rs < 0) {
+                    if (rs == -2) {
+                        updateRefGenomeSeq((float)xPos, collections);
+                    }
                     return;
                 }
+                regionSelection = rs;
                 Segs::ReadCollection &cl = collections[regionSelection];
                 updateCursorGenomePos(cl, (float)xPos);
             } else {
@@ -1161,16 +1264,11 @@ namespace Manager {
                 }
                 if (blockStart + i < (int)multiRegions.size()) {
                     Utils::Label &lbl = multiLabels[blockStart + i];
-                    std::cout << "\r                                                                               ";
+                    clearLine();
                     std::cout << termcolor::bold << "\rPosition  " << termcolor::reset << lbl.chrom << ":" << lbl.pos << termcolor::bold <<
                               "    ID  "  << termcolor::reset << lbl.variantId << termcolor::bold <<
                               "    Type  "  << termcolor::reset << lbl.vartype;
                     std::cout << std::flush;
-
-//                    std::cout << termcolor::bold << "\rVariant   " << termcolor::reset << lbl.variantId  << termcolor::bold <<
-//                        "    Position  "  << termcolor::reset << lbl.chrom << ":" << lbl.pos << termcolor::bold <<
-//                        "    Type  "  << termcolor::reset << lbl.vartype;
-//                    std::cout << std::flush;
                 }
             }
 

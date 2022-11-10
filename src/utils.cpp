@@ -329,4 +329,19 @@ namespace Utils {
             idx += 1;
         }
     }
+
+    int get_terminal_width() {
+        // https://stackoverflow.com/questions/23369503/get-size-of-terminal-window-rows-columns
+#if defined(_WIN32)
+        CONSOLE_SCREEN_BUFFER_INFO csbi;
+        GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+        int width = (int)(csbi.srWindow.Right-csbi.srWindow.Left+1);
+
+#elif defined(__linux__)
+        struct winsize w;
+        ioctl(fileno(stdout), TIOCGWINSZ, &w);
+        int width = (int)(w.ws_col);
+#endif
+        return width;
+    }
 }
