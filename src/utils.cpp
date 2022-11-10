@@ -12,6 +12,8 @@
 #include <sstream>
 #include <string>
 
+#include <curses.h>
+
 #include "../include/unordered_dense.h"
 #include "utils.h"
 
@@ -330,6 +332,7 @@ namespace Utils {
         }
     }
 
+
     int get_terminal_width() {
         // https://stackoverflow.com/questions/23369503/get-size-of-terminal-window-rows-columns
 #if defined(_WIN32)
@@ -341,6 +344,8 @@ namespace Utils {
         struct winsize w;
         ioctl(fileno(stdout), TIOCGWINSZ, &w);
         int width = (int)(w.ws_col);
+#else
+        int width = 80;
 #endif
         return width;
     }

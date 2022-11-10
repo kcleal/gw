@@ -553,7 +553,7 @@ namespace Manager {
                 Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
             }
             Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op, refSpace);
-            Drawing::drawRef(opts, collections, regions, canvas, fonts, refSpace, (float)regions.size());
+            Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size());
             Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
             Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
 
@@ -639,7 +639,7 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op, refSpace);
-        Drawing::drawRef(opts, collections, regions, canvas, fonts, refSpace, (float)regions.size());
+        Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size());
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
     }
@@ -653,7 +653,7 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op, refSpace);
-        Drawing::drawRef(opts, collections, regions, canvas, fonts, refSpace, (float)regions.size());
+        Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size());
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
     }

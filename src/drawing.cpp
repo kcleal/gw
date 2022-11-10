@@ -840,8 +840,8 @@ namespace Drawing {
         }
     }
 
-    void drawRef(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
-                  std::vector<Utils::Region> regions,
+    void drawRef(const Themes::IniOptions &opts,
+                  std::vector<Utils::Region> regions, int fb_width,
                   SkCanvas *canvas, const Themes::Fonts &fonts, float h, float nRegions) {
         if (regions.empty()) {
             return;
@@ -851,11 +851,11 @@ namespace Drawing {
         SkPaint faceColor;
         const Themes::BaseTheme &theme = opts.theme;
         double offset = 0;
-        double xPixels = (double)opts.dimensions.x / (double)regions.size();
+        double xPixels = (double)fb_width / (double)regions.size();
 
         float textW = fonts.overlayWidth;
         float minLetterSize;
-        minLetterSize = (textW > 0) ? ((float)opts.dimensions.x / (float)regions.size()) / textW : 0;
+        minLetterSize = (textW > 0) ? ((float)fb_width / (float)regions.size()) / textW : 0;
         int index = 0;
         for (auto &rgn: regions) {
             int size = rgn.end - rgn.start;
