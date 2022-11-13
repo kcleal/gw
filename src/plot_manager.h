@@ -26,6 +26,7 @@
 #include "drawing.h"
 #include "glfw_keys.h"
 #include "hts_funcs.h"
+#include "parser.h"
 #include "../include/robin_hood.h"
 #include "utils.h"
 #include "segments.h"
@@ -90,6 +91,8 @@ namespace Manager {
         std::vector<Utils::Label> multiLabels;  // used for labelling tiles
 
         std::vector<Segs::ReadCollection> collections;
+
+        std::vector<Parse::Parser> filters;
 
         HGW::VCFfile vcf;  // These two are input files for generating tiled images
         HGW::GwTrack variantTrack;

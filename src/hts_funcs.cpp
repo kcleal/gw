@@ -28,8 +28,27 @@ namespace HGW {
         return a;
     }
 
+    void applyFilters(std::vector<Parse::Parser> &filters, std::vector<Segs::Align>& readQueue, const sam_hdr_t* hdr) {
+        auto end = readQueue.end();
+        auto rm_iter = readQueue.begin();
+        const auto pred = [&](const Segs::Align &align){
+            if (rm_iter == end) { return false; }
+            bool drop = false;
+            for (auto &f: filters) {
+                bool passed = f.eval(align, hdr);
+                if (!passed) {
+                    drop = true;
+                    break;
+                }
+            }
+            return drop;
+        };
+        readQueue.erase(std::remove_if(readQueue.begin(), readQueue.end(), pred), readQueue.end());
+    }
+
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
-                                 hts_idx_t *index, Themes::IniOptions &opts, Utils::Region *region, bool coverage) {
+                                 hts_idx_t *index, Themes::IniOptions &opts, Utils::Region *region, bool coverage,
+                                 std::vector<Parse::Parser> &filters) {
         bam1_t *src;
         hts_itr_t *iter_q;
 
@@ -53,6 +72,11 @@ namespace HGW {
             bam_destroy1(src);
             readQueue.pop_back();
         }
+
+        if (!filters.empty()) {
+            applyFilters(filters, readQueue, hdr_ptr);
+        }
+
         Segs::init_parallel(readQueue, opts.threads);
         if (coverage) {
             int l_arr = (int)col.covArr.size() - 1;
@@ -103,7 +127,8 @@ namespace HGW {
     }
 
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
-                                 hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, Segs::linked_t &linked, int *samMaxY) {
+                                 hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, Segs::linked_t &linked, int *samMaxY,
+                                std::vector<Parse::Parser> &filters) {
 
         bam1_t *src;
         hts_itr_t *iter_q;
@@ -235,6 +260,11 @@ namespace HGW {
         }
 
         if (!newReads.empty()) {
+
+            if (!filters.empty()) {
+                applyFilters(filters, newReads, hdr_ptr);
+            }
+
             Segs::init_parallel(newReads, opts.threads);
             if (col.vScroll == 0) {
                 int maxY = Segs::findY(col.bamIdx, col, newReads, opts.link_op, opts, region, linked, left);

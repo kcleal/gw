@@ -14,6 +14,7 @@
 #include "htslib/sam.h"
 #include "htslib/tbx.h"
 
+#include "parser.h"
 #include "../include/robin_hood.h"
 #include "segments.h"
 #include "themes.h"
@@ -45,12 +46,14 @@ namespace HGW {
     };
 
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
-                                 hts_idx_t *index, Themes::IniOptions &opts, Utils::Region *region, bool coverage);
+                                 hts_idx_t *index, Themes::IniOptions &opts, Utils::Region *region, bool coverage,
+                                 std::vector<Parse::Parser> &filters);
 
     void trimToRegion(Segs::ReadCollection &col, bool coverage);
 
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
-                                hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, Segs::linked_t &linked, int *samMaxY);
+                                hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, Segs::linked_t &linked, int *samMaxY,
+                                std::vector<Parse::Parser> &filters);
 
     enum FType {
         BED_IDX,

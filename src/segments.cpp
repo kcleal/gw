@@ -41,8 +41,7 @@ namespace Segs {
     void get_mismatched_bases(std::vector<MMbase> &result,
                               char *md_tag, uint32_t r_pos,
                               uint32_t ct_l, uint32_t *cigar_p) {
-
-        uint32_t opp, l, c_idx, s_idx, c_s_idx;
+        uint32_t opp, c_idx, s_idx, c_s_idx;  // l,
         size_t md_l = strlen(md_tag);
         std::deque<QueueItem> ins_q;
         MdBlock md_block;
@@ -68,12 +67,12 @@ namespace Segs {
             if (c_idx < ct_l) {  // consume cigar until deletion reached, collect positions of insertions
                 while (c_idx < ct_l) {
                     opp = cigar_p[c_idx] & BAM_CIGAR_MASK;
-                    l = cigar_p[c_idx] >> BAM_CIGAR_SHIFT;
+//                    l = cigar_p[c_idx] >> BAM_CIGAR_SHIFT;
                     if (opp == 0 || opp == 8) {  // match
-                        c_s_idx += l;
+                        c_s_idx += cigar_p[c_idx] >> BAM_CIGAR_SHIFT;
                     } else if (opp == 1) {  // insertion
-                        ins_q.push_back({c_s_idx, l});
-                        c_s_idx += l;
+                        ins_q.push_back({c_s_idx, cigar_p[c_idx] >> BAM_CIGAR_SHIFT});
+                        c_s_idx += cigar_p[c_idx] >> BAM_CIGAR_SHIFT;
                     } else {  // opp == 2 or opp == 4 or opp == 5
                         break;
                     }
@@ -113,6 +112,8 @@ namespace Segs {
     }
 
     void align_init(Align *self) {
+
+//        auto start = std::chrono::high_resolution_clock::now();
         uint8_t *v;
         char *value;
 
@@ -143,41 +144,77 @@ namespace Segs {
         for (k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
-            if (op == 4) {
-                if (k == 0) {
-                    self->cov_start -= l;
-                    self->left_soft_clip = l;
 
-                } else {
-                    self->cov_end += l;
-                    self->right_soft_clip = l;
-                }
-            } else if (op == 1) {
-                self->any_ins.push_back({pos, l});
-            } else if (k == 0 && op == 5) {
-                self->left_hard_clip = l;
-            }
-
-            if (op == BAM_CMATCH || op == BAM_CEQUAL || op == BAM_CDIFF) {
-                if (last_op == 1) {
-                    if (!self->block_ends.empty() ) {
-                        self->block_ends.back() = pos + l;
+            switch (op) {
+                case BAM_CINS:
+                    self->any_ins.push_back({pos, l});
+                    break;
+                case BAM_CDEL: case BAM_CREF_SKIP:
+                    pos += l;
+                    break;
+                case BAM_CSOFT_CLIP:
+                    if (k == 0) {
+                        self->cov_start -= (int)l;
+                        self->left_soft_clip = (int)l;
+                    } else {
+                        self->cov_end += l;
+                        self->right_soft_clip = (int)l;
                     }
-//                    self->block_ends.back() = pos + l;
-                } else {
-                    self->block_starts.push_back(pos);
-                    self->block_ends.push_back(pos + l);
-                }
-//                self->block_starts.push_back(pos);
-//                self->block_ends.push_back(pos + l);
-                pos += l;
-            } else if (op == BAM_CDEL || op == BAM_CREF_SKIP) {
-                pos += l;
+                    break;
+                case BAM_CHARD_CLIP:
+                    if (k == 0)
+                        self->left_hard_clip = (int)l;
+                    break;
+                case BAM_CPAD: case BAM_CBACK:
+                    break;  // do something for these?
+                default:  // Match case --> MATCH, EQUAL, DIFF
+                    if (last_op == 1) {
+                        if (!self->block_ends.empty() ) {
+                            self->block_ends.back() = pos + l;
+                        }
+                    } else {
+                        self->block_starts.push_back(pos);
+                        self->block_ends.push_back(pos + l);
+                    }
+                    pos += l;
+                    break;
             }
+
+//            if (op == BAM_CSOFT_CLIP) {
+//                if (k == 0) {
+//                    self->cov_start -= l;
+//                    self->left_soft_clip = l;
+//
+//                } else {
+//                    self->cov_end += l;
+//                    self->right_soft_clip = l;
+//                }
+//            } else if (op == BAM_CINS) {
+//                self->any_ins.push_back({pos, l});
+//            } else if (op == BAM_CHARD_CLIP && k == 0) {
+//                self->left_hard_clip = l;
+//            }
+//
+//            else if (op == BAM_CMATCH || op == BAM_CEQUAL || op == BAM_CDIFF) {
+//                if (last_op == 1) {
+//                    if (!self->block_ends.empty() ) {
+//                        self->block_ends.back() = pos + l;
+//                    }
+//                } else {
+//                    self->block_starts.push_back(pos);
+//                    self->block_ends.push_back(pos + l);
+//                }
+//                pos += l;
+//            } else if (op == BAM_CDEL || op == BAM_CREF_SKIP) {
+//                pos += l;
+//            }
+
             last_op = op;
         }
 
-        if (src->core.flag & 16) {  // reverse strand
+        uint32_t flag = src->core.flag;
+
+        if (flag & 16) {  // reverse strand
             self->cov_start -= 1;   // pad between alignments
         } else {
             self->cov_end += 1;
@@ -201,42 +238,68 @@ namespace Segs {
         self->polygon_height = 0.8;
 
         int ptrn = NORMAL;
-        uint32_t flag = src->core.flag;
+        constexpr uint32_t PP_RR_MR = 50;  // proper-pair, read-reverse, mate-reverse flags
         if (flag & 1 && !(flag & 12)) {  // proper-pair, not (unmapped, mate-unmapped)
             if (src->core.tid == src->core.mtid) {
+
+                uint32_t info = flag & PP_RR_MR;
+
                 if (self->pos <= src->core.mpos) {
-                    if (~flag & 16) {
-                        if (flag & 32) {
-                            if (~flag & 2) {
-                                ptrn = DEL;
-                            }
-                        } else {
-                            ptrn = INV_F;
-                        }
-                    } else {
-                        if (flag & 32) {
-                            ptrn = INV_R;
-                        } else {
-                            ptrn = DUP;
-                        }
+                    if (info == 0) {
+                        ptrn = INV_F;
+                    } else if (info == 16) {
+                        ptrn = DUP;
+                    } else if (info == 32) {
+                        ptrn = DEL;
+                    } else if (info == 48) {
+                        ptrn = INV_R;
                     }
                 } else {
-                    if (flag & 16) {
-                        if (~flag & 32) {
-                            if (~flag & 2) {
-                                ptrn = DEL;
-                            }
-                        } else {
-                            ptrn = INV_F;
-                        }
-                    } else {
-                        if (~flag & 32) {
-                            ptrn = INV_R;
-                        } else {
-                            ptrn = DUP;
-                        }
+                    if (info == 16) {
+                        ptrn = DEL;
+                    } else if (info == 48) {
+                        ptrn = INV_F;
+                    } else if (info == 0) {
+                        ptrn = INV_R;
+                    } else if (info == 32) {
+                        ptrn = DUP;
                     }
+
                 }
+
+//                if (self->pos <= src->core.mpos) {
+//                    if (~flag & 16) {
+//                        if (flag & 32) {
+//                            if (~flag & 2) {
+//                                ptrn = DEL;
+//                            }
+//                        } else {
+//                            ptrn = INV_F;
+//                        }
+//                    } else {
+//                        if (flag & 32) {
+//                            ptrn = INV_R;
+//                        } else {
+//                            ptrn = DUP;
+//                        }
+//                    }
+//                } else {
+//                    if (flag & 16) {
+//                        if (~flag & 32) {
+//                            if (~flag & 2) {
+//                                ptrn = DEL;
+//                            }
+//                        } else {
+//                            ptrn = INV_F;
+//                        }
+//                    } else {
+//                        if (~flag & 32) {
+//                            ptrn = INV_R;
+//                        } else {
+//                            ptrn = DUP;
+//                        }
+//                    }
+//                }
             } else {
                 ptrn = TRA;
             }
@@ -260,13 +323,13 @@ namespace Segs {
                 }
             }
         }
-//        else {
-//            get_mismatched_bases_no_MD(self->mismatches, region, self->pos, cigar_l, cigar_p, ptr_seq);
-//        }
-
-
 
         self->initialized = true;
+
+//        auto stop = std::chrono::high_resolution_clock::now();
+//        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+//
+//        std::cout << duration.count() << std::endl;
     }
 
     void init_parallel(std::vector<Align> &aligns, int n) { //const char *refSeq, int begin, int rlen) {

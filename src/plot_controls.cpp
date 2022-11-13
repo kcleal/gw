@@ -24,6 +24,7 @@
 #include "drawing.h"
 
 #include "hts_funcs.h"
+#include "parser.h"
 #include "plot_manager.h"
 #include "segments.h"
 #include "../include/termcolor.h"
@@ -102,15 +103,22 @@ namespace Manager {
                         inputText.append(" ");
                     } else if (key == GLFW_KEY_SEMICOLON && mods == GLFW_MOD_SHIFT) {
                         inputText.append(":");
+                    } else if (key == GLFW_KEY_1 && mods == GLFW_MOD_SHIFT) {  // this will probaaly not work for every keyboard
+                        inputText.append("!");
+                    } else if (key == GLFW_KEY_7 && mods == GLFW_MOD_SHIFT) {
+                        inputText.append("&");
+                    } else if (key == GLFW_KEY_COMMA && mods == GLFW_MOD_SHIFT) {
+                        inputText.append("<");
+                    } else if (key == GLFW_KEY_PERIOD && mods == GLFW_MOD_SHIFT) {
+                        inputText.append(">");
                     } else {
                         if (mods == GLFW_MOD_SHIFT) { // uppercase
-//                            char let = toupper(*letter);
-//                            std::string str = toupper(*letter);
-//                            inputText.append(str);
+                            std::string str = letter;
+                            std::transform(str.begin(), str.end(),str.begin(), ::toupper);
+                            inputText.append(str);
                         } else {
                             inputText.append(letter);
                         }
-
                     }
                     std::cout << "\r" << inputText << std::flush;
                 }
@@ -410,8 +418,10 @@ namespace Manager {
         std::cout << termcolor::italic << "\n* Enter a command by selecting the GW window (not the terminal) and type ':[COMMAND]' *\n" << termcolor::reset;
         std::cout << termcolor::underline << "\nCommand          Modifier        Description                                            \n" << termcolor::reset;
         std::cout << termcolor::green << "add              region(s)       " << termcolor::reset << "Add one or more regions e.g. ':add chr1:1-20000'\n";
+        std::cout << termcolor::green << "count            expression?     " << termcolor::reset << "Count reads. See filter for example expressions'\n";
         std::cout << termcolor::green << "cov              [of/off]        " << termcolor::reset << "Turn coverage on/off e.g. ':cov off'\n";
-        std::cout << termcolor::green << "find, f          qname?          " << termcolor::reset << "To find other alignments from selected read use ':find'. Or\n                                 use ':find [QNAME]' to find target read'\n";
+        std::cout << termcolor::green << "filter           expression      " << termcolor::reset << "Examples ':filter mapq > 0', ':filter ~flag & secondary'\n                                 ':filter mapq >= 30 or seq-len > 100'\n";
+        std::cout << termcolor::green << "find, f          qname?          " << termcolor::reset << "To find other alignments from selected read use ':find'\n                                 Or use ':find [QNAME]' to find target read'\n";
         std::cout << termcolor::green << "goto             loci index?     " << termcolor::reset << "e.g. ':goto chr1:1-20000'. Use index if multiple \n                                 regions are open e.g. ':goto 'chr1 20000' 1'\n";
         std::cout << termcolor::green << "link             [none/sv/all]   " << termcolor::reset << "Switch read-linking ':link all'\n";
         std::cout << termcolor::green << "log2-cov         [of/off]        " << termcolor::reset << "Scale coverage by log2 e.g. ':log2-cov on'\n";
@@ -450,13 +460,37 @@ namespace Manager {
             help(opts);
             valid = true;
         } else if (inputText == ":refresh" || inputText == ":r") {
-            redraw = true; processed = false; valid = true; imageCache.clear();
+            redraw = true; processed = false; valid = true; imageCache.clear(); filters.clear();
         } else if (inputText == ":link" || inputText == ":link all") {
             opts.link_op = 2; valid = true;
         } else if (inputText == ":link sv") {
             opts.link_op = 1; valid = true;
         } else if (inputText == ":link none") {
-            opts.link_op = 0; valid = true;
+            opts.link_op = 0;
+            valid = true;
+        } else if (Utils::startsWith(inputText, ":count")) {
+            std::string str = inputText;
+            str.erase(0, 7);
+            Parse::countExpression(collections, str, headers, bam_paths);
+            inputText = "";
+            return true;
+
+        } else if (Utils::startsWith(inputText, ":filter ")) {
+            std::string str = inputText;
+            str.erase(0, 8);
+            filters.clear();
+            for (auto &s: Utils::split(str, ';')) {
+                Parse::Parser p = Parse::Parser();
+                int rr = p.set_filter(s);
+                if (rr > 0) {
+                    filters.push_back(p);
+                } else {
+                    inputText = "";
+                    return false;
+                }
+            }
+            valid = true;
+
         } else if (inputText == ":sam") {
             valid = true;
             if (!selectedAlign.empty()) {
@@ -465,7 +499,7 @@ namespace Manager {
             redraw = false;
             processed = true;
 
-        } else if (Utils::startsWith(inputText, ":f") || Utils::startsWith(inputText, ":find")) {
+        } else if (Utils::startsWith(inputText, ":f ") || Utils::startsWith(inputText, ":find")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             if (!target_qname.empty() && split.size() == 1) {
             } else if (split.size() == 2) {
@@ -682,7 +716,7 @@ namespace Manager {
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = N; //regions[regionSelection];
-                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, false, linked, &samMaxY);
+                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, false, linked, &samMaxY, filters);
                             }
                         }
                         redraw = true;
@@ -709,7 +743,7 @@ namespace Manager {
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = regions[regionSelection];
-                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, true, linked, &samMaxY);
+                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, true, linked, &samMaxY, filters);
                             }
                         }
                         redraw = true;
@@ -735,8 +769,8 @@ namespace Manager {
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = regions[regionSelection];
-                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, false, true, linked, &samMaxY);
-                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, false, false, linked, &samMaxY);
+                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, false, true, linked, &samMaxY, filters);
+                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, false, false, linked, &samMaxY, filters);
                                 if (opts.coverage) {  // re process coverage for all reads
                                     cl.covArr.resize(cl.region.end - cl.region.start + 1);
                                     std::fill(cl.covArr.begin(), cl.covArr.end(), 0);
@@ -1016,7 +1050,7 @@ namespace Manager {
                         for (auto &col : collections) {
                             if (col.regionIdx == regionSelection) {
                                 col.region = regions[regionSelection];
-                                HGW::appendReadsAndCoverage(col,  bams[col.bamIdx], headers[col.bamIdx], indexes[col.bamIdx], opts, opts.coverage, lt_last, linked, &samMaxY);
+                                HGW::appendReadsAndCoverage(col,  bams[col.bamIdx], headers[col.bamIdx], indexes[col.bamIdx], opts, opts.coverage, lt_last, linked, &samMaxY, filters);
                             }
                         }
                         redraw = true;
@@ -1216,7 +1250,7 @@ namespace Manager {
                         for (auto &col : collections) {
                             if (col.regionIdx == regionSelection) {
                                 col.region = regions[regionSelection];
-                                HGW::appendReadsAndCoverage(col,  bams[col.bamIdx], headers[col.bamIdx], indexes[col.bamIdx], opts, opts.coverage, !lt_last, linked, &samMaxY);
+                                HGW::appendReadsAndCoverage(col,  bams[col.bamIdx], headers[col.bamIdx], indexes[col.bamIdx], opts, opts.coverage, !lt_last, linked, &samMaxY, filters);
                             }
                         }
                         redraw = true;

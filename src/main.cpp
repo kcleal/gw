@@ -13,6 +13,7 @@
 #include "glob.h"
 
 #include "hts_funcs.h"
+#include "parser.h"
 #include "plot_manager.h"
 #include "themes.h"
 #include "utils.h"
@@ -47,7 +48,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> links = { "none", "sv", "all" };
     static const std::vector<std::string> backend = { "raster", "gpu" };
 
-    argparse::ArgumentParser program("gw", "0.1.9");
+    argparse::ArgumentParser program("gw", "0.2.0");
     program.add_argument("genome")
             .required()
             .help("Reference genome in .fasta format with .fai index file");
@@ -141,6 +142,9 @@ int main(int argc, char *argv[]) {
                 if (std::find(links.begin(), links.end(), value) != links.end()) { return value;}
                 return std::string{ "None" };
             }).help("Draw linking lines between these alignments");
+    program.add_argument("--filter")
+            .default_value(std::string{""}).append()
+            .help("Filter to apply to all reads");
 
     // check input for errors and merge input options with IniOptions
     try {
@@ -268,6 +272,18 @@ int main(int argc, char *argv[]) {
      * / Gw start
      */
     Manager::GwPlot plotter = Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
+
+    if (program.is_used("--filter")) {
+        for (auto &s: Utils::split(program.get("--filter"), ';')) {
+            Parse::Parser p = Parse::Parser();
+            int rr = p.set_filter(s);
+            if (rr > 0) {
+                plotter.filters.push_back(p);
+            } else {
+                exit(-1);
+            }
+        }
+    }
 
     if (!iopts.no_show) {  // plot something to screen
 
