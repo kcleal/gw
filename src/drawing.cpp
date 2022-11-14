@@ -852,7 +852,6 @@ namespace Drawing {
         const Themes::BaseTheme &theme = opts.theme;
         double offset = 0;
         double xPixels = (double)fb_width / (double)regions.size();
-
         float textW = fonts.overlayWidth;
         float minLetterSize;
         minLetterSize = (textW > 0) ? ((float)fb_width / (float)regions.size()) / textW : 0;
@@ -917,7 +916,7 @@ namespace Drawing {
                     ++ref;
                 }
             }
-            offset += xPixels;
+//            offset += xPixels;
             index += 1;
         }
     }
@@ -1064,7 +1063,6 @@ namespace Drawing {
         SkRect rect;
         SkPath path;
 
-//        opts.theme.lcJoins.setAntiAlias(true);
         opts.theme.lcLightJoins.setAntiAlias(true);
         for (auto &rgn : regions) {
             float xScaling = (stepX - gap2) / (rgn.end - rgn.start);
@@ -1075,19 +1073,39 @@ namespace Drawing {
                     if (trk.done) {
                         break;
                     }
-//                    float e = (trk.stop < rgn.end) ? trk.stop - rgn.start : rgn.end;
                     float x, w, textW;
-                    if (trk.start < rgn.start && trk.stop >= rgn.end) {
+                    if (trk.start < rgn.start && trk.stop >= rgn.end) { // track spans whole region
                         rect.setXYWH(padX, y + padY - h, stepX - gap2, h);
                         canvas->drawRoundRect(rect, 5, 5, opts.theme.fcTrack);
                         canvas->drawRoundRect(rect, 5, 5, opts.theme.lcLightJoins);
-                    } else if (trk.start < rgn.start) {
+                        w = (trk.stop - rgn.start) * xScaling;
+                        if (w > t) {
+                            textW = fonts.overlayWidth * (trk.rid.size() + 1);
+                            if (rect.left() + textW < padX + stepX - gap2 - gap2) {
+                                rect.setXYWH(padX + gap, y + (h/2) + padY, textW, h);
+                                canvas->drawRect(rect, opts.theme.bgPaint);
+                                sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(trk.rid.c_str(), fonts.overlay);
+                                canvas->drawTextBlob(blob, rect.left(), rect.bottom(), opts.theme.tcDel);
+                            }
+                        }
+
+                    } else if (trk.start < rgn.start && trk.stop >= rgn.start) {  // overhands left side
                         w = (trk.stop - rgn.start) * xScaling;
                         rect.setXYWH(padX, y + padY - h, w, h);
                         canvas->drawRoundRect(rect, 5, 5, opts.theme.fcTrack);
                         canvas->drawRoundRect(rect, 5, 5, opts.theme.lcLightJoins);
 
-                    } else if (trk.stop > rgn.end) {
+                        if (w > t) {
+                            textW = fonts.overlayWidth * (trk.rid.size() + 1);
+                            if (rect.left() + textW < padX + stepX - gap2 - gap2) {
+                                rect.setXYWH(padX + gap, y + (h/2) + padY, textW, h);
+                                canvas->drawRect(rect, opts.theme.bgPaint);
+                                sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(trk.rid.c_str(), fonts.overlay);
+                                canvas->drawTextBlob(blob, rect.left(), rect.bottom(), opts.theme.tcDel);
+                            }
+                        }
+
+                    } else if (trk.start >= rgn.start && trk.stop > rgn.end) { // overhangs rhs
                         x = (trk.start - rgn.start) * xScaling;
                         w = (rgn.end - trk.start) * xScaling;
                         rect.setXYWH(x + padX, y + padY - h, w, h);
@@ -1106,7 +1124,7 @@ namespace Drawing {
                         path.lineTo(x + padX, y + (h/2) + padY);
                         canvas->drawPath(path, opts.theme.lcJoins);
 
-                    } else { // all within view
+                    } else if (trk.start >= rgn.start && trk.stop <= rgn.end) { // all within view
                         x = (trk.start - rgn.start) * xScaling;
                         w = (trk.stop - trk.start) * xScaling;
                         rect.setXYWH(x + padX, y + padY - h, w, h);

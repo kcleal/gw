@@ -35,6 +35,18 @@ namespace Manager {
 
     constexpr char basemap[] = {'.', 'A', 'C', '.', 'G', '.', '.', '.', 'T', '.', '.', '.', '.', '.', 'N', 'N', 'N'};
 
+    void editInputText(std::string &inputText, const char *letter, int &charIndex) {
+        if (charIndex != inputText.size()) {
+            inputText.insert(charIndex, letter);
+            charIndex += 1;
+            std::cout << "\r" << inputText.substr(0, charIndex) << "_" << inputText.substr(charIndex, inputText.size()) << std::flush;
+        } else {
+            inputText.append(letter);
+            charIndex = inputText.size();
+            std::cout << "\r" << inputText << std::flush;
+        }
+    }
+
     // keeps track of input commands
     bool GwPlot::registerKey(GLFWwindow* wind, int key, int scancode, int action, int mods) {
         if (action == GLFW_RELEASE) {
@@ -49,6 +61,7 @@ namespace Manager {
         } else if (shiftPress && GLFW_KEY_SEMICOLON && !captureText) {
             captureText = true;
             inputText.append(":");
+            charIndex = inputText.size();
             std::cout <<  "\n" << inputText << std::flush;
         } else {
             shiftPress = false;
@@ -61,18 +74,31 @@ namespace Manager {
                 std::cout << "\n";
                 return false;
             }
+
             if (!commandHistory.empty()) {
                 if (key == GLFW_KEY_UP && commandIndex > 0) {
                     commandIndex -= 1;
                     inputText = commandHistory[commandIndex];
+                    charIndex = inputText.size();
                     std::cout << "\r" << inputText << std::flush;
                     return true;
                 } else if (key == GLFW_KEY_DOWN && commandIndex < (int)commandHistory.size() - 1) {
                     commandIndex += 1;
                     inputText = commandHistory[commandIndex];
+                    charIndex = inputText.size();
                     std::cout << "\r" << inputText << std::flush;
                     return true;
                 }
+            }
+
+            if (key == GLFW_KEY_LEFT) {
+                charIndex = (charIndex - 1 >= 0) ? charIndex - 1 : charIndex;
+                std::cout << "\r" << inputText.substr(0, charIndex) << "_" << inputText.substr(charIndex, inputText.size()) << std::flush;
+                return true;
+            } else if (key == GLFW_KEY_RIGHT) {
+                charIndex = (charIndex < inputText.size()) ? charIndex + 1 : charIndex;
+                std::cout << "\r" << inputText.substr(0, charIndex) << "_" << inputText.substr(charIndex, inputText.size()) << std::flush;
+                return true;
             }
 
             if (key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_LEFT_SUPER) {
@@ -84,6 +110,7 @@ namespace Manager {
                 std::string string = glfwGetClipboardString(window);
                 if (!string.empty()) {
                     inputText.append(string);
+                    charIndex = inputText.size();
                     std::cout << "\r" << inputText << std::flush;
                 }
             } else {  // character entry
@@ -91,7 +118,8 @@ namespace Manager {
                     return true;
                 } else if (key == GLFW_KEY_BACKSPACE) {
                     if (inputText.size() > 1) {
-                        inputText.pop_back();
+                        inputText.erase(charIndex - 1, 1);
+                        charIndex -= 1;
                         std::string emptyS(100, ' ');
                         std::cout << "\r" << emptyS << std::flush;
                         std::cout << "\r" << inputText << std::flush;
@@ -99,28 +127,27 @@ namespace Manager {
                 }
                 const char *letter = glfwGetKeyName(key, scancode);
                 if (letter || key == GLFW_KEY_SPACE) {
-                    if (key == GLFW_KEY_SPACE) {
-                        inputText.append(" ");
+                    if (key == GLFW_KEY_SPACE) {  // deal with special keys first
+                        editInputText(inputText, " ", charIndex);
                     } else if (key == GLFW_KEY_SEMICOLON && mods == GLFW_MOD_SHIFT) {
-                        inputText.append(":");
+                        editInputText(inputText, ":", charIndex);
                     } else if (key == GLFW_KEY_1 && mods == GLFW_MOD_SHIFT) {  // this will probaaly not work for every keyboard
-                        inputText.append("!");
+                        editInputText(inputText, "!", charIndex);
                     } else if (key == GLFW_KEY_7 && mods == GLFW_MOD_SHIFT) {
-                        inputText.append("&");
+                        editInputText(inputText, "&", charIndex);
                     } else if (key == GLFW_KEY_COMMA && mods == GLFW_MOD_SHIFT) {
-                        inputText.append("<");
+                        editInputText(inputText, "<", charIndex);
                     } else if (key == GLFW_KEY_PERIOD && mods == GLFW_MOD_SHIFT) {
-                        inputText.append(">");
+                        editInputText(inputText, ">", charIndex);
                     } else {
                         if (mods == GLFW_MOD_SHIFT) { // uppercase
                             std::string str = letter;
                             std::transform(str.begin(), str.end(),str.begin(), ::toupper);
-                            inputText.append(str);
-                        } else {
-                            inputText.append(letter);
+                            editInputText(inputText, letter, charIndex);
+                        } else {  // normal text here
+                            editInputText(inputText, letter, charIndex);
                         }
                     }
-                    std::cout << "\r" << inputText << std::flush;
                 }
             }
             return true;
@@ -472,6 +499,8 @@ namespace Manager {
             std::string str = inputText;
             str.erase(0, 7);
             Parse::countExpression(collections, str, headers, bam_paths);
+            commandHistory.push_back(inputText);
+            commandIndex = commandHistory.size();
             inputText = "";
             return true;
 
@@ -498,6 +527,10 @@ namespace Manager {
             }
             redraw = false;
             processed = true;
+            commandHistory.push_back(inputText);
+            commandIndex = commandHistory.size();
+            inputText = "";
+            return true;
 
         } else if (Utils::startsWith(inputText, ":f ") || Utils::startsWith(inputText, ":find")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
@@ -510,6 +543,8 @@ namespace Manager {
             }
             redraw = true;
             processed = true;
+            commandHistory.push_back(inputText);
+            commandIndex = commandHistory.size();
             highlightQname();
             inputText = "";
             return true;
@@ -604,6 +639,7 @@ namespace Manager {
         }
         if (valid) {
             commandHistory.push_back(inputText);
+            commandIndex = commandHistory.size();
             redraw = true;
             processed = false;
         } else {
@@ -691,8 +727,7 @@ namespace Manager {
             glfwSetWindowShouldClose(wind, GLFW_TRUE);
         }
         if (mode == Show::SINGLE) {
-
-            if (bams.empty() || regions.empty() || regionSelection < 0) {
+            if (regions.empty() || regionSelection < 0) {  // bams.empty() ||
                 return;
             }
 
@@ -716,7 +751,11 @@ namespace Manager {
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = N; //regions[regionSelection];
-                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, false, linked, &samMaxY, filters);
+                                if (!bams.empty()) {
+                                    HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
+                                                                indexes[cl.bamIdx], opts, opts.coverage, false, linked,
+                                                                &samMaxY, filters);
+                                }
                             }
                         }
                         redraw = true;
@@ -743,7 +782,11 @@ namespace Manager {
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = regions[regionSelection];
-                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, opts.coverage, true, linked, &samMaxY, filters);
+                                if (!bams.empty()) {
+                                    HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
+                                                                indexes[cl.bamIdx], opts, opts.coverage, true, linked,
+                                                                &samMaxY, filters);
+                                }
                             }
                         }
                         redraw = true;
@@ -769,14 +812,18 @@ namespace Manager {
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = regions[regionSelection];
-                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, false, true, linked, &samMaxY, filters);
-                                HGW::appendReadsAndCoverage(cl,  bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts, false, false, linked, &samMaxY, filters);
-                                if (opts.coverage) {  // re process coverage for all reads
-                                    cl.covArr.resize(cl.region.end - cl.region.start + 1);
-                                    std::fill(cl.covArr.begin(), cl.covArr.end(), 0);
-                                    int l_arr = (int)cl.covArr.size() - 1;
-                                    for (auto &i : cl.readQueue) {
-                                        Segs::addToCovArray(cl.covArr, i, cl.region.start, cl.region.end, l_arr);
+                                if (!bams.empty()) {
+                                    HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                                                opts, false, true, linked, &samMaxY, filters);
+                                    HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                                                opts, false, false, linked, &samMaxY, filters);
+                                    if (opts.coverage) {  // re process coverage for all reads
+                                        cl.covArr.resize(cl.region.end - cl.region.start + 1);
+                                        std::fill(cl.covArr.begin(), cl.covArr.end(), 0);
+                                        int l_arr = (int) cl.covArr.size() - 1;
+                                        for (auto &i: cl.readQueue) {
+                                            Segs::addToCovArray(cl.covArr, i, cl.region.start, cl.region.end, l_arr);
+                                        }
                                     }
                                 }
                             }
@@ -805,7 +852,9 @@ namespace Manager {
                             for (auto &cl : collections) {
                                 if (cl.regionIdx == regionSelection) {
                                     cl.region = regions[regionSelection];
-                                    HGW::trimToRegion(cl, opts.coverage);
+                                    if (!bams.empty()) {
+                                        HGW::trimToRegion(cl, opts.coverage);
+                                    }
                                 }
                             }
                             redraw = true;
@@ -915,16 +964,26 @@ namespace Manager {
         if (y <= refSpace) {
             return -2;
         }
-        int idx = 0;
-        for (auto &cl: collections) {
-            float min_x = cl.xOffset;
-            float max_x = cl.xScaling * ((float)(cl.region.end - cl.region.start)) + min_x;
-            float min_y = cl.yOffset;
-            float max_y = min_y + trackY;
-            if (x > min_x && x < max_x && y > min_y && y < max_y) {
-                return idx;
+        if (bams.size() <= 1) {
+            for (auto &cl: collections) {
+                float min_x = cl.xOffset;
+                float max_x = cl.xScaling * ((float) (cl.region.end - cl.region.start)) + min_x;
+                float min_y = refSpace;
+                float max_y = fb_height - refSpace;
+                if (x > min_x && x < max_x && y > min_y && y < max_y) {
+                    return cl.regionIdx;
+                }
             }
-            idx += 1;
+        } else {
+            for (auto &cl: collections) {
+                float min_x = cl.xOffset;
+                float max_x = cl.xScaling * ((float) (cl.region.end - cl.region.start)) + min_x;
+                float min_y = cl.yOffset;
+                float max_y = min_y + trackY;
+                if (x > min_x && x < max_x && y > min_y && y < max_y) {
+                    return cl.regionIdx;
+                }
+            }
         }
         return -1;
     }
@@ -982,9 +1041,9 @@ namespace Manager {
         xDrag = x - xOri;
 
         if (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_LEFT) {
-            if (collections.empty()) {
-                return;
-            }
+//            if (collections.empty()) {
+//                return;
+//            }
 
             int idx = getCollectionIdx(xW, yW);
 
@@ -1203,9 +1262,9 @@ namespace Manager {
         if (state == GLFW_PRESS) {
             xDrag = xPos - xOri;
             if (mode == Manager::SINGLE) {
-                if (collections.empty()) {
-                    return;
-                }
+//                if (collections.empty()) {
+//                    return;
+//                }
                 int windowW, windowH;  // convert screen coords to frame buffer coords
                 glfwGetWindowSize(wind, &windowW, &windowH);
                 if (fb_width > windowW) {
@@ -1250,7 +1309,11 @@ namespace Manager {
                         for (auto &col : collections) {
                             if (col.regionIdx == regionSelection) {
                                 col.region = regions[regionSelection];
-                                HGW::appendReadsAndCoverage(col,  bams[col.bamIdx], headers[col.bamIdx], indexes[col.bamIdx], opts, opts.coverage, !lt_last, linked, &samMaxY, filters);
+                                if (!bams.empty()) {
+                                    HGW::appendReadsAndCoverage(col, bams[col.bamIdx], headers[col.bamIdx],
+                                                                indexes[col.bamIdx], opts, opts.coverage, !lt_last,
+                                                                linked, &samMaxY, filters);
+                                }
                             }
                         }
                         redraw = true;
@@ -1259,9 +1322,9 @@ namespace Manager {
             }
         } else {
             if (mode == Manager::SINGLE) {
-                if (collections.empty()) {
-                    return;
-                }
+//                if (collections.empty()) {
+//                    return;
+//                }
                 int windowW, windowH;  // convert screen coords to frame buffer coords
                 glfwGetWindowSize(wind, &windowW, &windowH);
                 if (fb_width > windowW) {

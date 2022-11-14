@@ -200,9 +200,9 @@ namespace Parse {
     }
 
     bool seq_contains(const uint8_t *seq, uint32_t len, const std::string &fstr) {
-        int slen = fstr.size();
+        auto slen = (int)fstr.size();
         int j;
-        for (int i=0; i< len ; i++){
+        for (int i=0; i< (int)len ; i++){
             for (j=0 ; j < slen; j++) {
                 if (fstr[j] != seq_nt16_str[bam_seqi(seq, i + j)]) {
                     break;
@@ -219,7 +219,7 @@ namespace Parse {
         if (len != fstr.size()) {
             return false;
         }
-        for (int i=0; i< len ; i++){
+        for (int i=0; i< (int)len ; i++){
             if ((char)fstr[i] != (char)seq_nt16_str[bam_seqi(seq, i)]) {
                 return false;
             }

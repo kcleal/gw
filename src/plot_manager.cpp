@@ -473,8 +473,17 @@ namespace Manager {
                     idx += 1;
                 }
             }
-//        } else {
-//            Segs::dropOutOfScope(regions, collections, bams.size());
+
+            if (bams.empty()) {
+                collections.resize(regions.size());
+                for (int j=0; j<(int)regions.size(); ++j) {
+                    collections[idx].bamIdx = -1;
+                    collections[idx].regionIdx = j;
+                    collections[idx].region = regions[j];
+                    idx += 1;
+                }
+            }
+
         }
     }
 
@@ -539,7 +548,6 @@ namespace Manager {
             cl.xOffset = (regionWidth * (float)cl.regionIdx) + gap;
             cl.yOffset = (float)cl.bamIdx * bamHeight + covY + refSpace;
             cl.yPixels = trackY + covY; // + tabixY;
-
         }
     }
 

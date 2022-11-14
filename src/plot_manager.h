@@ -180,7 +180,7 @@ namespace Manager {
 
         bool captureText, shiftPress, ctrlPress, processText;
         std::vector< std::string > commandHistory;
-        int commandIndex;
+        int commandIndex, charIndex;
 
         float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace;
 
