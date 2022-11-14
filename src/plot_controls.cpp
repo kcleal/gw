@@ -606,7 +606,6 @@ namespace Manager {
             }
             if (split.size() > 1 && split.size() < 4) {
                 int index = (split.size() == 3) ? std::stoi(split.back()) : 0;
-                std::cout << "  " << index << " " << regions.size() << std::endl;
                 if (regions.empty()) {
                     regions.push_back(Utils::parseRegion(split[1]));
                     valid = true;
