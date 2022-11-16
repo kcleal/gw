@@ -1,7 +1,7 @@
 //
 // Created by Kez Cleal on 11/11/2022.
 //
-
+#include <algorithm>
 #include <iostream>
 #include <utility>
 #include <string>
@@ -26,9 +26,12 @@ namespace Parse {
         opMap["abs-tlen"] = TLEN;
         opMap["rnext"] = RNEXT;
         opMap["pos"] = POS;
+        opMap["ref-end"] = REF_END;
         opMap["pnext"] = PNEXT;
         opMap["seq"] = SEQ;
         opMap["seq-len"] = SEQ_LEN;
+
+        opMap["tag"] = TAG;
 
         opMap["eq"] = EQ;
         opMap["ne"] = NE;
@@ -66,6 +69,7 @@ namespace Parse {
         permit[TLEN] = "eq ne gt lt ge le == != > < >= <=";
         permit[ABS_TLEN] = "eq ne gt lt ge le == != > < >= <=";
         permit[POS] = "eq ne gt lt ge le == != > < >= <=";
+        permit[REF_END] = "eq ne gt lt ge le == != > < >= <=";
         permit[PNEXT] = "eq ne gt lt ge le == != > < >= <=";
         permit[RNEXT] = "eq ne == !=";
         permit[SEQ] = "contains eq ne == != omit";
@@ -73,17 +77,111 @@ namespace Parse {
 
     }
 
-    int Parser::split_into_or(std::string &s, std::vector<Eval> &evaluations) {
-        std::string delim;
-        if (s.find("or") != std::string::npos && s.find("and") != std::string::npos) {
-            std::cerr << "Only 'or' block or 'and' block aloud, not a mixture\n";
+    int parse_indexing(std::string &s, int nBams, int nRegions, std::vector< std::vector<int> > &v) {
+        // check for indexing. Makes a lookup table which describes which panels a filter should be applied to
+        std::string::iterator iStart = s.end();
+        std::string::iterator iEnd = s.end();
+        bool open = false;
+        bool close = false;
+        while (iStart != s.begin()) {
+            --iStart;
+            if (*iStart == ' ') {
+                continue;
+            } else if (!open && *iStart == ']') {
+                open = true;
+                iEnd = iStart;
+            } else if (open && *iStart == '[') {
+                close = true;
+                ++iStart;
+                break;
+            } else if (!open) {
+                break;
+            }
+        }
+        if (!open) {
+            return 0;
+        }
+        if (!open != !close) {  // xor
+            std::cerr << "Error: expression not understood: " << s << std::endl;
             return -1;
-        } else if (s.find("and") != std::string::npos) {
+        }
+        auto indexStr = std::string(iStart, iEnd);
+        --iStart;
+        s.erase(iStart, s.end());
+        if (indexStr == ":") {
+            return 1;
+        }
+        if (nBams == 0 || nRegions == 0) {
+            std::cerr << "Error: No bam/region to filter. Trying to apply a filter to nBams==" << nBams << " and nRegions==" << nRegions << std::endl;
+            return -1;
+        }
+        std::string lhs, rhs;
+        indexStr.erase(std::remove(indexStr.begin(), indexStr.end(), ' '), indexStr.end());
+        std::string::iterator itr = indexStr.begin();
+        iStart = indexStr.begin();
+        while (itr != indexStr.end()) {
+            if (*itr == ',') {
+                lhs = std::string(iStart, itr);
+                iStart = itr; ++iStart;
+                ++itr;
+                continue;
+            }
+            ++itr;
+        }
+        rhs = std::string(iStart, itr);
+        if (nBams > 1 && lhs.empty()) {
+            std::cerr << "Error: if multiple bams are present you need to specify the [row,column] e.g. [:, 0] or [0,1] etc\n";
+            return -1;
+        }
+        bool allRows = lhs == ":";
+        bool allColumns = rhs == ":";
+        int iRow, iCol;
+        try {
+            iRow = (lhs.empty()) ? 0 : (allRows) ? -1 : std::stoi(lhs);
+            iCol = (allColumns) ? 0 : std::stoi(rhs);
+        } catch (...) {
+            std::cerr << "Error: string to integer failed for left-hand side=" << lhs << ", or right-hand side=" << rhs << std::endl;
+            return -1;
+        }
+
+        if (std::abs(iRow) >= nBams) {
+            std::cerr << "Error: row index is > nBams\n";
+            return -1;
+        }
+        if (std::abs(iCol) >= nRegions) {
+            std::cerr << "Error: column index is > nRegions\n";
+            return -1;
+        }
+        iRow = (iRow < 0) ? nBams + iRow : iRow;  // support negative indexing
+        iCol = (iCol < 0) ? nRegions + iCol : iCol;
+        v.resize(nBams, std::vector<int>(nRegions));
+        for (int r=0; r < nBams; ++r) {
+            for (int c=0; c < nRegions; ++c) {
+                if (allRows && c==iCol) {
+                    v[r][c] = 1;
+                } else if (allColumns && r==iRow) {
+                    v[r][c] = 1;
+                } else if (c==iCol && r==iRow) {
+                    v[r][c] = 1;
+                }
+            }
+        }
+        return 1;
+    }
+
+    int Parser::split_into_or(std::string &s, std::vector<Eval> &evaluations, int nBams, int nRegions) {
+        std::string delim;
+        if (s.find("and") != std::string::npos) {
             delim = "and";
             orBlock = false;
         } else {
             delim = "or";
             orBlock = true;
+        }
+
+        int res = parse_indexing(s, nBams, nRegions, targetIndexes);
+        if (res < 0) {
+            return res;
         }
 
         auto start = 0U;
@@ -189,13 +287,13 @@ namespace Parse {
         return 1;
     }
 
-    int Parser::set_filter(std::string &s) {
+    int Parser::set_filter(std::string &s, int nBams, int nRegions) {
         filter_str = s;
         if ( (s.find("or") != std::string::npos) && (s.find("and") != std::string::npos) ) {
             std::cerr << "Filter block must be either composed of 'or' expressions, or 'and' expressions, not both\n";
             return -1;
         }
-        int res1 = split_into_or(s, evaluations_block);
+        int res1 = split_into_or(s, evaluations_block, nBams, nRegions);
         return res1;
     }
 
@@ -244,9 +342,14 @@ namespace Parse {
 
     }
 
-    bool Parser::eval(const Segs::Align &aln, const sam_hdr_t* hdr) {
+    bool Parser::eval(const Segs::Align &aln, const sam_hdr_t* hdr, int bamIdx, int regionIdx) {
 
         bool block_result = true;
+
+        if (!targetIndexes.empty() && targetIndexes[bamIdx][regionIdx] == 0) {
+            return true;
+        }
+
         if (!evaluations_block.empty()) {
             for (auto &e : evaluations_block) {
                 int int_val = 0;
@@ -278,6 +381,8 @@ namespace Parse {
                     case POS:
                         int_val = aln.delegate->core.pos;
                         break;
+                    case REF_END:
+                        int_val = bam_endpos(aln.delegate);
                     case PNEXT:
                         int_val = aln.delegate->core.mpos;
                         break;
@@ -331,12 +436,12 @@ namespace Parse {
 
 
     void countExpression(std::vector<Segs::ReadCollection> &collections, std::string &str, std::vector<sam_hdr_t*> hdrs,
-                         std::vector<std::string> &bam_paths) {
+                         std::vector<std::string> &bam_paths, int nBams, int nRegions) {
 
         std::vector<Parser> filters;
         for (auto &s: Utils::split(str, ';')) {
             Parse::Parser p = Parse::Parser();
-            int rr = p.set_filter(s);
+            int rr = p.set_filter(s, nBams, nRegions);
             if (rr > 0) {
                 filters.push_back(p);
             }
@@ -364,7 +469,7 @@ namespace Parse {
                 bool drop = false;
                 sam_hdr_t* hdr = hdrs[col.bamIdx];
                 for (auto &f : filters) {
-                    if (!f.eval(align, hdr)) {
+                    if (!f.eval(align, hdr, col.bamIdx, col.regionIdx)) {
                         drop = true;
                         break;
                     }

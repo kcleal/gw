@@ -276,7 +276,7 @@ int main(int argc, char *argv[]) {
     if (program.is_used("--filter")) {
         for (auto &s: Utils::split(program.get("--filter"), ';')) {
             Parse::Parser p = Parse::Parser();
-            int rr = p.set_filter(s);
+            int rr = p.set_filter(s, plotter.bams.size(), plotter.regions.size());
             if (rr > 0) {
                 plotter.filters.push_back(p);
             } else {

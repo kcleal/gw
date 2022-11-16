@@ -36,6 +36,7 @@ namespace Parse {
         NFLAG,
         RNAME,
         POS,
+        REF_END,
         MAPQ,
         CIGAR,
         RNEXT,
@@ -44,6 +45,8 @@ namespace Parse {
         ABS_TLEN,
         SEQ,
         SEQ_LEN,
+
+        TAG,
 
         EQ,
         NE,
@@ -77,18 +80,19 @@ namespace Parse {
         robin_hood::unordered_map< std::string, Property> opMap;
         robin_hood::unordered_map< Property, std::string> permit;
         std::vector<Eval> evaluations_block;
+        std::vector< std::vector<int> > targetIndexes;
 
-        int set_filter(std::string &f);
-        bool eval(const Segs::Align &aln, const sam_hdr_t* hdr);
+        int set_filter(std::string &f, int nBams, int nRegions);
+        bool eval(const Segs::Align &aln, const sam_hdr_t* hdr, int bamIdx, int regionIdx);
 
     private:
         int prep_evaluations(std::vector<Eval> &results, std::vector<std::string> &tokens);
-        int split_into_or(std::string &f, std::vector<Eval> &results);
+        int split_into_or(std::string &f, std::vector<Eval> &results, int nBams, int nRegions);
 
     };
 
     void countExpression(std::vector<Segs::ReadCollection> &collections, std::string &str, std::vector<sam_hdr_t*> hdrs,
-                         std::vector<std::string> &bam_paths);
+                         std::vector<std::string> &bam_paths, int nBams, int nRegions);
 
 }
 

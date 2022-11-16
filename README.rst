@@ -170,7 +170,7 @@ To remove all filters use the ``:refresh`` command.
 
 A full list of properties you can use is shown here::
 
-    maps, flag, ~flag, name, tlen, abs-tlen, rnext, pos, pnext, seq, seq-len
+    maps, flag, ~flag, name, tlen, abs-tlen, rnext, pos, ref-end, pnext, seq, seq-len
 
 These can be combined with operators::
 
@@ -178,7 +178,7 @@ These can be combined with operators::
 
 Flag properties can be accessed using keywords, for more info see here https://broadinstitute.github.io/picard/explain-flags.html::
 
-    paired, proper-pair, unmapped, munmap, reverse, reverse, read1, read2, secondary, dup, supplementary
+    paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary, dup, supplementary
 
 Once reads have been filtered, you can try the ``:count`` command which will give you an output similar to ``samtools flagstats``. The ``:count`` command can also be used with an expression e.g.::
 

@@ -28,14 +28,15 @@ namespace HGW {
         return a;
     }
 
-    void applyFilters(std::vector<Parse::Parser> &filters, std::vector<Segs::Align>& readQueue, const sam_hdr_t* hdr) {
+    void applyFilters(std::vector<Parse::Parser> &filters, std::vector<Segs::Align>& readQueue, const sam_hdr_t* hdr,
+                      int bamIdx, int regionIdx) {
         auto end = readQueue.end();
         auto rm_iter = readQueue.begin();
         const auto pred = [&](const Segs::Align &align){
             if (rm_iter == end) { return false; }
             bool drop = false;
             for (auto &f: filters) {
-                bool passed = f.eval(align, hdr);
+                bool passed = f.eval(align, hdr, bamIdx, regionIdx);
                 if (!passed) {
                     drop = true;
                     break;
@@ -74,7 +75,7 @@ namespace HGW {
         }
 
         if (!filters.empty()) {
-            applyFilters(filters, readQueue, hdr_ptr);
+            applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
         }
 
         Segs::init_parallel(readQueue, opts.threads);
@@ -262,7 +263,7 @@ namespace HGW {
         if (!newReads.empty()) {
 
             if (!filters.empty()) {
-                applyFilters(filters, newReads, hdr_ptr);
+                applyFilters(filters, newReads, hdr_ptr, col.bamIdx, col.regionIdx);
             }
 
             Segs::init_parallel(newReads, opts.threads);

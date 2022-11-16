@@ -498,7 +498,7 @@ namespace Manager {
         } else if (Utils::startsWith(inputText, ":count")) {
             std::string str = inputText;
             str.erase(0, 7);
-            Parse::countExpression(collections, str, headers, bam_paths);
+            Parse::countExpression(collections, str, headers, bam_paths, bams.size(), regions.size());
             commandHistory.push_back(inputText);
             commandIndex = commandHistory.size();
             inputText = "";
@@ -510,7 +510,7 @@ namespace Manager {
             filters.clear();
             for (auto &s: Utils::split(str, ';')) {
                 Parse::Parser p = Parse::Parser();
-                int rr = p.set_filter(s);
+                int rr = p.set_filter(s, bams.size(), regions.size());
                 if (rr > 0) {
                     filters.push_back(p);
                 } else {
@@ -559,9 +559,7 @@ namespace Manager {
             int ind = std::stoi(split.back());
             inputText = "";
             valid = true;
-            if (ind > regionSelection) {
-                regionSelection = 0;
-            }
+            regionSelection = 0;
             if (!regions.empty() && ind < (int)regions.size()) {
                 if (regions.size() == 1 && ind == 0) {
                     regions.clear();
@@ -571,6 +569,20 @@ namespace Manager {
             } else {
                 std::cerr << termcolor::red << "Error:" << termcolor::reset << " region index is out of range. Use 0-based indexing\n";
                 return true;
+            }
+            collections.erase(std::remove_if(collections.begin(), collections.end(), [&ind](const auto col) {
+                        return col.regionIdx == ind;
+                    }), collections.end());
+
+            bool clear_filters = false; // removing a region can invalidate indexes so remove them
+            for (auto &f : filters) {
+                if (!f.targetIndexes.empty()) {
+                    clear_filters = true;
+                    break;
+                }
+            }
+            if (clear_filters) {
+                filters.clear();
             }
         } else if (Utils::startsWith(inputText, ":cov")) {
             std::vector<std::string> split = Utils::split(inputText, delim);

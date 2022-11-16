@@ -1005,7 +1005,6 @@ namespace Drawing {
         p.setARGB(255, v, v, v);
 
         if ((wl + pad) > (rect.width() / 2)) {
-            float r = fonts.fontMaxSize / 2;
             bg.setXYWH(x + pad, rect.bottom() - fonts.fontMaxSize - pad - pad - pad - pad,  fonts.fontMaxSize, fonts.fontMaxSize);
             canvas->drawRoundRect(bg,  fonts.fontMaxSize, fonts.fontMaxSize, p);
             canvas->drawRoundRect(bg,  fonts.fontMaxSize, fonts.fontMaxSize, opts.theme.lcLabel);
