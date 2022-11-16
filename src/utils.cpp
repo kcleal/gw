@@ -262,6 +262,7 @@ namespace Utils {
         l.savedDate = savedDate;
         l.i = 0;
         l.clicked = clicked;
+        l.mouseOver = false;
         l.labels.push_back(parsed);
         for (auto &v : inputLabels) {
             if (v != parsed) {

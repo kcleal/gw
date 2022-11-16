@@ -1360,6 +1360,12 @@ namespace Manager {
                 }
                 if (blockStart + i < (int)multiRegions.size()) {
                     Utils::Label &lbl = multiLabels[blockStart + i];
+                    lbl.mouseOver = true;
+                    if (i != mouseOverTileIndex) {
+                        redraw = true;
+                        mouseOverTileIndex = i;
+                    }
+
                     clearLine();
                     std::cout << termcolor::bold << "\rPosition  " << termcolor::reset << lbl.chrom << ":" << lbl.pos << termcolor::bold <<
                               "    ID  "  << termcolor::reset << lbl.variantId << termcolor::bold <<

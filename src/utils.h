@@ -72,12 +72,13 @@ namespace Utils {
 
     class Label {
     public:
-        Label() {};
+        Label() = default;
         ~Label() = default;
         std::string chrom, variantId, savedDate, vartype;
         std::vector<std::string> labels;
         int i, pos;
         bool clicked;
+        bool mouseOver;
 
         void next();
         std::string& current();

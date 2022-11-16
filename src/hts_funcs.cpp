@@ -483,8 +483,8 @@ namespace HGW {
                 }
                 break;
         }
-        if (!seenLabels.contains(label)) {
-            seenLabels.insert(label);
+        if (!seenLabels->contains(label)) {
+            seenLabels->insert(label);
         }
     }
 

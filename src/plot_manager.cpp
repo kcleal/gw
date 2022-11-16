@@ -204,7 +204,8 @@ namespace Manager {
             Utils::endsWith(path, ".vcf.gz") ||
             Utils::endsWith(path, ".bcf")) {
             variantTrack.done = true;
-            vcf.seenLabels = seenLabels;
+            mouseOverTileIndex = -1;
+            vcf.seenLabels = &seenLabels;
             vcf.cacheStdin = cacheStdin;
             vcf.label_to_parse = opts.parse_label.c_str();
             vcf.open(path);  // todo some error checking needed?
@@ -623,12 +624,30 @@ namespace Manager {
         int i = bStart;
         canvas->drawPaint(opts.theme.bgPaint);
 
+        std::vector<std::string> srtLabels;
+        for (auto &itm: seenLabels) {
+            srtLabels.push_back(itm);
+        }
+        std::sort(srtLabels.begin(), srtLabels.end());
+        auto pivot = std::find_if(srtLabels.begin(),  // put PASS at front if available, forces labels to have some order
+                                  srtLabels.end(),
+                                  [](const std::string& s) -> bool {
+                                      return s == "PASS";
+                                  });
+        if (pivot != srtLabels.end()) {
+            std::rotate(srtLabels.begin(), pivot, pivot + 1);
+        }
+
         for (auto &b : bboxes) {
             SkRect rect;
             if (imageCache.contains(i)) {
                 rect.setXYWH(b.xStart, b.yStart, b.width, b.height);
                 canvas->drawImageRect(imageCache[i], rect, sampOpts);
-                Drawing::drawLabel(opts, canvas, rect, multiLabels[i], fonts, seenLabels);
+                if (i - bStart != mouseOverTileIndex) {
+                    multiLabels[i].mouseOver = false;
+                }
+
+                Drawing::drawLabel(opts, canvas, rect, multiLabels[i], fonts, seenLabels, srtLabels);
             }
             ++i;
         }

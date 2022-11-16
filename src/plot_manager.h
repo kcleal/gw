@@ -181,6 +181,7 @@ namespace Manager {
         bool captureText, shiftPress, ctrlPress, processText;
         std::vector< std::string > commandHistory;
         int commandIndex, charIndex;
+        int mouseOverTileIndex;
 
         float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace;
 

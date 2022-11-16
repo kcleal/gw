@@ -32,7 +32,7 @@ namespace HGW {
         bcf1_t *v;
         std::string path;
         std::string chrom, chrom2, rid, vartype, label, tag;
-        robin_hood::unordered_set<std::string> seenLabels;
+        robin_hood::unordered_set<std::string> *seenLabels;
         int parse;
         int info_field_type;
         const char *label_to_parse;
@@ -65,7 +65,7 @@ namespace HGW {
 
     class GwTrack {
     public:
-        GwTrack() {};
+        GwTrack() = default;
         ~GwTrack(); // = default;
 
         std::string path;

@@ -962,11 +962,7 @@ namespace Drawing {
     }
 
     void drawLabel(const Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts,
-                   robin_hood::unordered_set<std::string> &seenLabels) {
-
-//        if (seenLabels.empty()) {
-//            return;
-//        }
+                   robin_hood::unordered_set<std::string> &seenLabels, std::vector<std::string> &srtLabels) {
 
         float pad = 2;
         std::string cur = label.current();
@@ -976,26 +972,13 @@ namespace Drawing {
         sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(cur.c_str(), fonts.overlay);
         float wl = fonts.overlayWidth * (cur.size() + 1);
 
-        std::vector<std::string> srt;
-        for (auto &itm: seenLabels) {
-            srt.push_back(itm);
-        }
-        std::sort(srt.begin(), srt.end());
-        auto pivot = std::find_if(srt.begin(),  // put PASS at front if available, forces label to be black/white for igv/dark theme
-                                  srt.end(),
-                                  [](const std::string& s) -> bool {
-                                      return s == "PASS";
-                                  });
-        if (pivot != srt.end()) {
-            std::rotate(srt.begin(), pivot, pivot + 1);
-        }
 
-        auto it = std::find(srt.begin(), srt.end(), cur);
+        auto it = std::find(srtLabels.begin(), srtLabels.end(), cur);
         int idx;
-        if (it != srt.end()) {
-            idx = it - srt.begin();
+        if (it != srtLabels.end()) {
+            idx = it - srtLabels.begin();
         } else {
-            idx = label.i + srt.size();
+            idx = label.i + srtLabels.size();
         }
 
         float step, start;
@@ -1012,8 +995,6 @@ namespace Drawing {
         SkRect bg;
         float x = rect.left() + pad;
 
-        bg.setXYWH(x + pad, rect.bottom() - fonts.fontMaxSize - pad - pad - pad - pad,  wl + pad, fonts.fontMaxSize + pad + pad);
-
         SkPaint p;
         int v;
         if (opts.theme.name == "igv") {
@@ -1022,21 +1003,32 @@ namespace Drawing {
             v = (int)(value * 255);
         }
         p.setARGB(255, v, v, v);
-        canvas->drawRoundRect(bg,  5, 5, p);
-        canvas->drawRoundRect(bg,  5, 5, opts.theme.lcLabel);
-        if (opts.theme.name == "igv") {
-            if (v == 0) {
-                canvas->drawTextBlob(blob, x + pad + pad, bg.bottom() - pad, opts.theme.bgPaint);
-            } else {
-                canvas->drawTextBlob(blob, x + pad + pad, bg.bottom() - pad, opts.theme.tcDel);
-            }
+
+        if ((wl + pad) > (rect.width() / 2)) {
+            float r = fonts.fontMaxSize / 2;
+            bg.setXYWH(x + pad, rect.bottom() - fonts.fontMaxSize - pad - pad - pad - pad,  fonts.fontMaxSize, fonts.fontMaxSize);
+            canvas->drawRoundRect(bg,  fonts.fontMaxSize, fonts.fontMaxSize, p);
+            canvas->drawRoundRect(bg,  fonts.fontMaxSize, fonts.fontMaxSize, opts.theme.lcLabel);
         } else {
-            if (v == 255) {
-                canvas->drawTextBlob(blob, x + pad + pad, bg.bottom() - pad, opts.theme.bgPaint);
+            bg.setXYWH(x + pad, rect.bottom() - fonts.fontMaxSize - pad - pad - pad - pad,  wl + pad, fonts.fontMaxSize + pad + pad);
+            canvas->drawRoundRect(bg,  5, 5, p);
+            canvas->drawRoundRect(bg,  5, 5, opts.theme.lcLabel);
+
+            if (opts.theme.name == "igv") {
+                if (v == 0) {
+                    canvas->drawTextBlob(blob, x + pad + pad, bg.bottom() - pad - pad, opts.theme.bgPaint);
+                } else {
+                    canvas->drawTextBlob(blob, x + pad + pad, bg.bottom() - pad - pad, opts.theme.tcDel);
+                }
             } else {
-                canvas->drawTextBlob(blob, x + pad + pad, bg.bottom() - pad, opts.theme.tcDel);
+                if (v == 255) {
+                    canvas->drawTextBlob(blob, x + pad + pad, bg.bottom() - pad - pad, opts.theme.bgPaint);
+                } else {
+                    canvas->drawTextBlob(blob, x + pad + pad, bg.bottom() - pad - pad, opts.theme.tcDel);
+                }
             }
         }
+
         if (label.i > 0) {
             canvas->drawRect(rect, opts.theme.lcJoins);
         }
