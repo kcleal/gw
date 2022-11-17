@@ -158,7 +158,7 @@ To help you focus on reads of interest, GW can filter reads using simple filter 
     :filter mapq > 30 and ~flag & duplicate  #  also removes duplicate reads
     :filter mapq > 10 or seq-len > 100; ~flag & duplicate  # > 1 statements
 
-This expressions will apply filtering to all image panes (regions and bams). If you want to be more selective, you can
+These expressions will apply filtering to all image panes (regions and bams). If you want to be more selective, you can
 use array indexing notation to filter on certain rows (bam files) or columns (regions). For example::
 
     :filter mapq > 0 [:, 0]   # All rows, column 0 (all bams, first region only)
