@@ -497,9 +497,6 @@ namespace Manager {
     }
 
     void GwPlot::setScaling() {  // sets z_scaling, y_scaling trackY and regionWidth
-//        if (samMaxY == 0 || !calcScaling) {
-//            return;
-//        }
         float xscale, yscale;
         if (drawToBackWindow) {
             glfwGetWindowContentScale(backWindow, &xscale, &yscale);
@@ -512,7 +509,6 @@ namespace Manager {
         auto fbw = (float) fb_width;
         if (bams.empty()) {
             covY = 0; totalCovY = 0; totalTabixY = 0; tabixY = 0;
-//            return;
         }
         auto nbams = (float)bams.size();
         if (opts.coverage && nbams > 0) {
@@ -521,7 +517,7 @@ namespace Manager {
         } else {
             totalCovY = 0; covY = 0;
         }
-        float gap = 6; //fbw * 0.002;
+        float gap = 6 * xscale;
         float gap2 = gap*2;
 
         if (tracks.empty()) {

@@ -15,7 +15,12 @@
 #include "segments.h"
 
 
+
+
 namespace Parse {
+
+    constexpr std::string_view numeric_like = "eq ne gt lt ge le == != > < >= <=";
+    constexpr std::string_view string_like = "eq ne contains == != omit";
 
     Parser::Parser() {
         opMap["mapq"] = MAPQ;
@@ -23,7 +28,7 @@ namespace Parse {
         opMap["~flag"] = NFLAG;
         opMap["qname"] = QNAME;
         opMap["tlen"] = TLEN;
-        opMap["abs-tlen"] = TLEN;
+        opMap["abs-tlen"] = ABS_TLEN;
         opMap["rnext"] = RNEXT;
         opMap["pos"] = POS;
         opMap["ref-end"] = REF_END;
@@ -31,7 +36,24 @@ namespace Parse {
         opMap["seq"] = SEQ;
         opMap["seq-len"] = SEQ_LEN;
 
-        opMap["tag"] = TAG;
+        opMap["RG"] = RG;
+        opMap["BC"] = BC;
+        opMap["LB"] = LB;
+        opMap["MD"] = MD;
+        opMap["MI"] = MI;
+        opMap["PU"] = PU;
+        opMap["SA"] = SA;
+        opMap["MC"] = MC;
+
+        opMap["NM"] = NM;
+        opMap["CM"] = CM;
+        opMap["FI"] = FI;
+        opMap["HO"] = HO;
+        opMap["MQ"] = MQ;
+        opMap["SM"] = SM;
+        opMap["TC"] = TC;
+        opMap["UQ"] = UQ;
+        opMap["AS"] = AS;
 
         opMap["eq"] = EQ;
         opMap["ne"] = NE;
@@ -62,19 +84,37 @@ namespace Parse {
         opMap["dup"] = DUP;
         opMap["supplementary"] = SUPPLEMENTARY;
 
-        permit[MAPQ] = "eq ne gt lt ge le == != > < >= <=";
+        permit[MAPQ] = numeric_like;
         permit[FLAG] = "&";
         permit[NFLAG] = "&";
-        permit[QNAME] = "eq ne contains == != omit";
-        permit[TLEN] = "eq ne gt lt ge le == != > < >= <=";
-        permit[ABS_TLEN] = "eq ne gt lt ge le == != > < >= <=";
-        permit[POS] = "eq ne gt lt ge le == != > < >= <=";
-        permit[REF_END] = "eq ne gt lt ge le == != > < >= <=";
-        permit[PNEXT] = "eq ne gt lt ge le == != > < >= <=";
-        permit[RNEXT] = "eq ne == !=";
-        permit[SEQ] = "contains eq ne == != omit";
-        permit[SEQ_LEN] = "eq ne gt lt ge le == != > < >= <=";
+        permit[QNAME] = string_like;
+        permit[TLEN] = numeric_like;
+        permit[ABS_TLEN] = numeric_like;
+        permit[POS] = numeric_like;
+        permit[REF_END] = numeric_like;
+        permit[PNEXT] = numeric_like;
+        permit[RNEXT] = string_like;
+        permit[SEQ] = string_like;
+        permit[SEQ_LEN] = numeric_like;
 
+        // tags
+        permit[RG] = string_like;
+        permit[BC] = string_like;
+        permit[LB] = string_like;
+        permit[MD] = string_like;
+        permit[MI] = string_like;
+        permit[PU] = string_like;
+        permit[SA] = string_like;
+        permit[MC] = string_like;
+        permit[NM] = numeric_like;
+        permit[CM] = numeric_like;
+        permit[FI] = numeric_like;
+        permit[HO] = numeric_like;
+        permit[MQ] = numeric_like;
+        permit[SM] = numeric_like;
+        permit[TC] = numeric_like;
+        permit[UQ] = numeric_like;
+        permit[AS] = numeric_like;
     }
 
     int parse_indexing(std::string &s, int nBams, int nRegions, std::vector< std::vector<int> > &v) {
@@ -252,8 +292,7 @@ namespace Parse {
         }
 
         Eval e;
-
-        if (lhs == MAPQ || lhs == SEQ_LEN) {
+        if (lhs >= 3000 && lhs < 4000) {
             e.property = lhs;
             e.op = mid;
             try {
@@ -262,26 +301,43 @@ namespace Parse {
                 std::cerr << "Right-hand side operation not an integer: " << output[2] << std::endl;
                 return -1;
             }
-        } else if (lhs == FLAG || lhs == NFLAG) {
-            e.property = lhs;
-            e.op = mid;
-            try {
-                e.ival = std::stoi(output.back());
-            } catch (...) {
-                if (opMap.contains(output.back())) {
-                    e.ival = opMap[output.back()];
-                } else {
-                    std::cerr << "Right-hand side operation not understood: " << output[2] << std::endl;
-                    return -1;
-                }
-            }
-        } else if (lhs == SEQ || lhs == QNAME || lhs == RNEXT) {
+        } else if (lhs >= 4000) {
             e.property = lhs;
             e.op = mid;
             e.sval = output.back();
         } else {
             std::cerr << "Left-hand side operation not available: " << output[0] << std::endl; return -1;
         }
+
+//        if (lhs == MAPQ || lhs == SEQ_LEN || lhs == TLEN || lhs == ABS_TLEN) {
+//            e.property = lhs;
+//            e.op = mid;
+//            try {
+//                e.ival = std::stoi(output.back());
+//            } catch (...) {
+//                std::cerr << "Right-hand side operation not an integer: " << output[2] << std::endl;
+//                return -1;
+//            }
+//        } else if (lhs == FLAG || lhs == NFLAG) {
+//            e.property = lhs;
+//            e.op = mid;
+//            try {
+//                e.ival = std::stoi(output.back());
+//            } catch (...) {
+//                if (opMap.contains(output.back())) {
+//                    e.ival = opMap[output.back()];
+//                } else {
+//                    std::cerr << "Right-hand side operation not understood: " << output[2] << std::endl;
+//                    return -1;
+//                }
+//            }
+//        } else if (lhs == SEQ || lhs == QNAME || lhs == RNEXT) {
+//            e.property = lhs;
+//            e.op = mid;
+//            e.sval = output.back();
+//        } else {
+//            std::cerr << "Left-hand side operation not available: " << output[0] << std::endl; return -1;
+//        }
 
         evaluations.push_back(e);
         return 1;
@@ -338,8 +394,22 @@ namespace Parse {
         }
     }
 
-    void process_sval(bool &this_result, Eval &e, const char *sval, int slen) {
+    void getStrTag(const char* tag, std::string &str_val, const Segs::Align &aln) {
+        const uint8_t *tag_ptr;
+        tag_ptr = bam_aux_get(aln.delegate, tag);
+        if (tag_ptr == nullptr) {
+            return;
+        }
+        str_val = std::string(bam_aux2Z(tag_ptr));
+    }
 
+    void getIntTag(const char* tag, int &int_val, const Segs::Align &aln) {
+        const uint8_t *tag_ptr;
+        tag_ptr = bam_aux_get(aln.delegate, tag);
+        if (tag_ptr == nullptr) {
+            return;
+        }
+        int_val = bam_aux2i(tag_ptr);
     }
 
     bool Parser::eval(const Segs::Align &aln, const sam_hdr_t* hdr, int bamIdx, int regionIdx) {
@@ -355,7 +425,7 @@ namespace Parse {
                 int int_val = 0;
                 std::string str_val;
                 bool this_result = false;
-                const char *rname;
+                const char *char_ptr;
                 switch (e.property) {
                     case MAPQ:
                         int_val = aln.delegate->core.qual;
@@ -387,8 +457,59 @@ namespace Parse {
                         int_val = aln.delegate->core.mpos;
                         break;
                     case RNEXT:
-                        rname = sam_hdr_tid2name(hdr, aln.delegate->core.mtid);
-                        str_val = rname;
+                        char_ptr = sam_hdr_tid2name(hdr, aln.delegate->core.mtid);
+                        str_val = char_ptr;
+                        break;
+                    case RG:
+                        getStrTag("RG", str_val, aln);
+                        break;
+                    case BC:
+                        getStrTag("BC", str_val, aln);
+                        break;
+                    case LB:
+                        getStrTag("LB", str_val, aln);
+                        break;
+                    case MD:
+                        getStrTag("MD", str_val, aln);
+                        break;
+                    case MI:
+                        getStrTag("MI", str_val, aln);
+                        break;
+                    case PU:
+                        getStrTag("PU", str_val, aln);
+                        break;
+                    case SA:
+                        getStrTag("SA", str_val, aln);
+                        break;
+                    case MC:
+                        getStrTag("MC", str_val, aln);
+                        break;
+                    case NM:
+                        getIntTag("NM", int_val, aln);
+                        break;
+                    case CM:
+                        getIntTag("CM", int_val, aln);
+                        break;
+                    case FI:
+                        getIntTag("FI", int_val, aln);
+                        break;
+                    case HO:
+                        getIntTag("HO", int_val, aln);
+                        break;
+                    case MQ:
+                        getIntTag("MQ", int_val, aln);
+                        break;
+                    case SM:
+                        getIntTag("SM", int_val, aln);
+                        break;
+                    case TC:
+                        getIntTag("TC", int_val, aln);
+                        break;
+                    case UQ:
+                        getIntTag("UQ", int_val, aln);
+                        break;
+                    case AS:
+                        getIntTag("AS", int_val, aln);
                         break;
                     default:
                         break;

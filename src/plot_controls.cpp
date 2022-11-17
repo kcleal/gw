@@ -143,7 +143,7 @@ namespace Manager {
                         if (mods == GLFW_MOD_SHIFT) { // uppercase
                             std::string str = letter;
                             std::transform(str.begin(), str.end(),str.begin(), ::toupper);
-                            editInputText(inputText, letter, charIndex);
+                            editInputText(inputText, str.c_str(), charIndex);
                         } else {  // normal text here
                             editInputText(inputText, letter, charIndex);
                         }
@@ -432,13 +432,13 @@ namespace Manager {
         std::cout << termcolor::bold << "flag     " << termcolor::reset << r->delegate->core.flag << std::endl;
         std::cout << termcolor::bold << "mapq     " << termcolor::reset << (int)r->delegate->core.qual << std::endl;
         std::cout << termcolor::bold << "cigar    " << termcolor::reset; printCigar(r); std::cout << std::endl;
-        std::cout << termcolor::bold << "seq      " << termcolor::reset; printSeq(r); std::cout << std::endl;
+        std::cout << termcolor::bold << "seq      " << termcolor::reset; printSeq(r); std::cout << std::endl << std::endl;
 
         read2sam(r, hdr, sam);
     }
 
     void printSelectedSam(std::string &sam) {
-        std::cout << std::endl << sam << std::endl;
+        std::cout << std::endl << sam << std::endl << std::endl;
     }
 
     void help(Themes::IniOptions &opts) {
@@ -620,6 +620,7 @@ namespace Manager {
                 int index = (split.size() == 3) ? std::stoi(split.back()) : 0;
                 if (regions.empty()) {
                     regions.push_back(Utils::parseRegion(split[1]));
+                    fetchRefSeq(regions.back());
                     valid = true;
                 } else {
                     if (index < (int)regions.size()) {
@@ -640,6 +641,7 @@ namespace Manager {
             if (split.size() > 1) {
                 for (int i=1; i < (int)split.size(); ++i) {
                     regions.push_back(Utils::parseRegion(split[1]));
+                    fetchRefSeq(regions.back());
                 }
                 valid = true;
             } else {
@@ -710,12 +712,10 @@ namespace Manager {
         clearLine();
         std::cout << termcolor::bold << "\rShowing   " << termcolor::reset ;
         int i = 0;
-        for (auto &r : regions) {
-            std::cout << termcolor::cyan << r.chrom << ":" << r.start << "-" << r.end << termcolor::white << "  (" << getSize(r.end - r.start) << ")";
-            if (i != (int)regions.size() - 1) {
-                std::cout << "    ";
-            }
-            i += 1;
+        auto r = regions[regionSelection];
+        std::cout << termcolor::cyan << r.chrom << ":" << r.start << "-" << r.end << termcolor::white << "  (" << getSize(r.end - r.start) << ")";
+        if (i != (int)regions.size() - 1) {
+            std::cout << "    ";
         }
         std::cout << termcolor::reset << std::flush;
     }
@@ -975,15 +975,24 @@ namespace Manager {
         if (y <= refSpace) {
             return -2;
         }
-        if (bams.size() <= 1) {
+        if (regions.empty()) {
+            return -1;
+        }
+        int i = 0;
+        if (bams.empty()) {
+            i = (int)(x / ((float)fb_width / (float)regions.size()));
+            i = (i > regions.size()) ? (int)regions.size() : i;
+            return i;
+        } else if (bams.size() <= 1) {
             for (auto &cl: collections) {
                 float min_x = cl.xOffset;
                 float max_x = cl.xScaling * ((float) (cl.region.end - cl.region.start)) + min_x;
                 float min_y = refSpace;
                 float max_y = fb_height - refSpace;
                 if (x > min_x && x < max_x && y > min_y && y < max_y) {
-                    return cl.regionIdx;
+                    return i;
                 }
+                i += 1;
             }
         } else {
             for (auto &cl: collections) {
@@ -991,9 +1000,9 @@ namespace Manager {
                 float max_x = cl.xScaling * ((float) (cl.region.end - cl.region.start)) + min_x;
                 float min_y = cl.yOffset;
                 float max_y = min_y + trackY;
-                if (x > min_x && x < max_x && y > min_y && y < max_y) {
-                    return cl.regionIdx;
-                }
+                if (x > min_x && x < max_x && y > min_y && y < max_y)
+                    return i;
+                i += 1;
             }
         }
         return -1;
@@ -1031,6 +1040,9 @@ namespace Manager {
 
     void GwPlot::mouseButton(GLFWwindow* wind, int button, int action, int mods) {
         double x, y;
+        if (regions.empty()) {
+            return;
+        }
         glfwGetCursorPos(window, &x, &y);
 
         int windowW, windowH;  // convert screen coords to frame buffer coords
@@ -1052,26 +1064,21 @@ namespace Manager {
         xDrag = x - xOri;
 
         if (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_LEFT) {
-//            if (collections.empty()) {
-//                return;
-//            }
-
             int idx = getCollectionIdx(xW, yW);
-
             if (idx == -2 && action == GLFW_RELEASE) {
                 printRefSeq(xW, collections);
             }
             if (idx < 0) {
                 return;
             }
-            regionSelection = idx;
+
             Segs::ReadCollection &cl = collections[idx];
             regionSelection = cl.regionIdx;
             if (action == GLFW_PRESS) {
                 clicked = cl.region;
                 clickedIdx = idx;
             }
-            if (std::abs(xDrag) < 2 && action == GLFW_RELEASE) {
+            if (std::abs(xDrag) < 2 && action == GLFW_RELEASE && !bams.empty()) {
                 int pos = (int) (((xW - (float) cl.xOffset) / cl.xScaling) +
                                  (float) cl.region.start);
                 int level = (int) ((yW - (float) cl.yOffset) /
@@ -1094,22 +1101,33 @@ namespace Manager {
                     --bnd;
                 }
                 xDrag = -1000000;
+                clickedIdx = -1;
 
             } else if (action == GLFW_RELEASE) {
                 auto w = (float) (((float)cl.region.end - (float)cl.region.start) * (float) regions.size());
                 if (w >= 50000) {
                     int travel = (int) (w * (xDrag / windowW));
+
+                    Utils::Region N;
+
                     if (cl.region.start - travel < 0) {
                         travel = cl.region.start;
+                        N.chrom = cl.region.chrom;
+                        N.start = 0;
+                        N.end = clicked.end - travel;
+                    } else {
+                        N.chrom = cl.region.chrom;
+                        N.start = clicked.start - travel;
+                        N.end = clicked.end - travel;
                     }
+
+                    regionSelection = cl.regionIdx;
                     delete regions[regionSelection].refSeq;
-                    Utils::Region N;
-                    N.chrom = cl.region.chrom;
-                    N.start = cl.region.start - travel;
-                    N.end = cl.region.end - travel;
+
                     N.markerPos = regions[regionSelection].markerPos;
                     N.markerPosEnd = regions[regionSelection].markerPosEnd;
                     fetchRefSeq(N);
+
                     bool lt_last = N.start < cl.region.start;
                     regions[regionSelection] = N;
                     if (opts.link_op != 0) {
@@ -1126,7 +1144,7 @@ namespace Manager {
                         redraw = true;
                     }
                 }
-//                printRegionInfo();
+                clickedIdx = -1;
             }
             xOri = x;
 
@@ -1264,6 +1282,9 @@ namespace Manager {
     }
 
     void GwPlot::mousePos(GLFWwindow* wind, double xPos, double yPos) {
+        if (regions.empty()) {
+            return;
+        }
         if (lastX == -1) {
             lastX = xPos;
         }
@@ -1273,39 +1294,46 @@ namespace Manager {
         if (state == GLFW_PRESS) {
             xDrag = xPos - xOri;
             if (mode == Manager::SINGLE) {
-//                if (collections.empty()) {
-//                    return;
-//                }
+
                 int windowW, windowH;  // convert screen coords to frame buffer coords
                 glfwGetWindowSize(wind, &windowW, &windowH);
                 if (fb_width > windowW) {
                     xPos *= (float) fb_width / (float) windowW;
                     yPos *= (float) fb_height / (float) windowH;
                 }
-                regionSelection = getCollectionIdx((float)xPos, (float)yPos);
-                if (regionSelection < 0) {
+                int idx = getCollectionIdx((float)xPos, (float)yPos);
+                if (idx < 0) {
+                    return;
+                }
+                Segs::ReadCollection &cl = collections[idx];
+                regionSelection = cl.regionIdx;
+                if (clickedIdx == -1 || idx != clickedIdx) {
                     return;
                 }
 
-                Segs::ReadCollection &cl = collections[regionSelection];
-
-                if (cl.region.end - cl.region.start < 50000 && clickedIdx == regionSelection) {
+                if (cl.region.end - cl.region.start < 50000) {
 
                     printRegionInfo();
 
                     auto w = (float) (((float)cl.region.end - (float)cl.region.start) * (float) regions.size());
                     int travel = (int) (w * (xDrag / windowW));
-                    if (cl.region.start - travel < 0) {
-                        travel = cl.region.start;
-                    }
-                    regionSelection = cl.regionIdx;
-
-                    delete regions[regionSelection].refSeq;
 
                     Utils::Region N;
-                    N.chrom = cl.region.chrom;
-                    N.start = clicked.start - travel;
-                    N.end = clicked.end - travel;
+
+                    if (cl.region.start - travel < 0) {
+                        travel = cl.region.start;
+                        N.chrom = cl.region.chrom;
+                        N.start = 0;
+                        N.end = clicked.end - travel;
+                    } else {
+                        N.chrom = cl.region.chrom;
+                        N.start = clicked.start - travel;
+                        N.end = clicked.end - travel;
+                    }
+
+                    regionSelection = cl.regionIdx;
+                    delete regions[regionSelection].refSeq;
+
                     N.markerPos = regions[regionSelection].markerPos;
                     N.markerPosEnd = regions[regionSelection].markerPosEnd;
                     fetchRefSeq(N);
@@ -1333,15 +1361,14 @@ namespace Manager {
             }
         } else {
             if (mode == Manager::SINGLE) {
-//                if (collections.empty()) {
-//                    return;
-//                }
+
                 int windowW, windowH;  // convert screen coords to frame buffer coords
                 glfwGetWindowSize(wind, &windowW, &windowH);
                 if (fb_width > windowW) {
                     xPos *= (float) fb_width / (float) windowW;
                     yPos *= (float) fb_height / (float) windowH;
                 }
+
                 int rs = getCollectionIdx((float)xPos, (float)yPos);
                 if (rs < 0) {
                     if (rs == -2) {
@@ -1349,8 +1376,9 @@ namespace Manager {
                     }
                     return;
                 }
-                regionSelection = rs;
-                Segs::ReadCollection &cl = collections[regionSelection];
+                Segs::ReadCollection &cl = collections[rs];
+                regionSelection = cl.regionIdx;
+
                 updateCursorGenomePos(cl, (float)xPos);
             } else {
                 int windowW, windowH;  // convert screen coords to frame buffer coords
@@ -1377,7 +1405,6 @@ namespace Manager {
                         redraw = true;
                         mouseOverTileIndex = i;
                     }
-
                     clearLine();
                     std::cout << termcolor::bold << "\rPosition  " << termcolor::reset << lbl.chrom << ":" << lbl.pos << termcolor::bold <<
                               "    ID  "  << termcolor::reset << lbl.variantId << termcolor::bold <<
@@ -1385,7 +1412,6 @@ namespace Manager {
                     std::cout << std::flush;
                 }
             }
-
         }
     }
 
