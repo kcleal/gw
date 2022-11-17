@@ -150,33 +150,33 @@ Filtering and counting
 To help you focus on reads of interest, GW can filter reads using simple filter expressions provided via the ``:filter`` command (or ``--filter`` option). The syntax for a filter expression follows ``"{property} {operation} {value}"`` (the white-spaces are also needed). For example, here are some useful expressions::
 
     :filter mapq >= 20             # only reads with mapping quality >= 20 will be shown
-
     :filter flag & 2048            # only supplementary alignments are shown
-
     :filter flag & supplementary   # same as above
-
     :filter ~flag & supplementary  # supplementary reads will be removed
-
     :filter seq contains TTAGGG    # Only reads with TTAGGG kmer will be shown
-
     :filter seq omit AAAAAA        # Reads with this kmer will be removed
-
     :filter mapq > 30 and ~flag & duplicate  #  also removes duplicate reads
-
     :filter mapq > 10 or seq-len > 100; ~flag & duplicate  # > 1 statements
 
+This expressions will apply filtering to all image panes (regions and bams). If you want to be more selective, you can
+use array indexing notation to filter on certain rows (bam files) or columns (regions). For example::
+
+    :filter mapq > 0 [:, 0]   # All rows, column 0 (all bams, first region only)
+    :filter mapq > 0 [0, :]   # Row 0, all columns (the first bam only, all regions)
+    :filter mapq > 0 [1, -1]  # Row 1, last column
 
 To remove all filters use the ``:refresh`` command.
 
-A full list of properties you can use is shown here::
+A full list of properties you can use is shown here (see the `sam specification <https://en.wikipedia.org/wiki/SAM_(file_format)>`_ for more details on the meaning of tags)::
 
-    maps, flag, ~flag, name, tlen, abs-tlen, rnext, pos, ref-end, pnext, seq, seq-len
+    maps, flag, ~flag, name, tlen, abs-tlen, rnext, pos, ref-end, pnext, seq, seq-len,
+    RG, BC, LB, MD, MI, PU, SA, MC, NM, CM, FI, HO, MQ, SM, TC, UQ, AS
 
 These can be combined with operators::
 
     &, ==, !=, >, <, >=, <=, eq, ne, gt, lt, ge, le, contains, omit
 
-Flag properties can be accessed using keywords, for more info see here https://broadinstitute.github.io/picard/explain-flags.html::
+Flag properties can be accessed using keywords, for more info see `here <https://broadinstitute.github.io/picard/explain-flags.html>`_::
 
     paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary, dup, supplementary
 
