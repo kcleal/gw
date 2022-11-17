@@ -167,7 +167,7 @@ use array indexing notation to filter on certain rows (bam files) or columns (re
 
 To remove all filters use the ``:refresh`` command.
 
-Here is the list of properties you can (see the `sam specification <https://en.wikipedia.org/wiki/SAM_(file_format)>`_ for more details on the meaning of tags)::
+Here is the list of properties you can use (see the `sam specification <https://en.wikipedia.org/wiki/SAM_(file_format)>`_ for more details on the meaning of tags)::
 
     maps, flag, ~flag, name, tlen, abs-tlen, rnext, pos, ref-end, pnext, seq, seq-len,
     RG, BC, LB, MD, MI, PU, SA, MC, NM, CM, FI, HO, MQ, SM, TC, UQ, AS
