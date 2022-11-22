@@ -89,6 +89,7 @@ namespace Utils {
     Label makeLabel(std::string &chrom, int pos, std::string &parsed, std::vector<std::string> &inputLabels, std::string &variantId, std::string &vartype,
                     std::string savedDate, bool clicked);
 
+    void labelToFile(std::ofstream &f, Utils::Label &l, std::string &dateStr);
 
     void saveLabels(std::vector<Utils::Label> &multiLabels, std::string path);
 

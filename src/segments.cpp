@@ -2,6 +2,7 @@
 #include <chrono>
 #include <algorithm>
 #include <vector>
+#include <fstream>
 
 //#include "plot_manager.h"
 #include "segments.h"
@@ -10,7 +11,7 @@
 
 namespace Segs {
 
-    void get_md_block(char *md_tag, int md_idx, int md_l, MdBlock *res) {
+    void get_md_block(const char *md_tag, int md_idx, size_t md_l, MdBlock *res) {
         int nmatches = 0;
         int del_length = 0;
         bool is_mm = false;
@@ -39,9 +40,9 @@ namespace Segs {
     }
 
     void get_mismatched_bases(std::vector<MMbase> &result,
-                              char *md_tag, uint32_t r_pos,
+                              const char *md_tag, uint32_t r_pos,
                               uint32_t ct_l, uint32_t *cigar_p) {
-        uint32_t opp, c_idx, s_idx, c_s_idx;  // l,
+        uint32_t opp, c_idx, s_idx, c_s_idx;
         size_t md_l = strlen(md_tag);
         std::deque<QueueItem> ins_q;
         MdBlock md_block;
@@ -49,7 +50,6 @@ namespace Segs {
         if (md_block.md_idx == md_l) {
             return;
         }
-
         c_idx = 0;  // the cigar index
         s_idx = 0;  // sequence index of mismatches
         c_s_idx = 0;  // the index of the current cigar (c_idx) on the input sequence

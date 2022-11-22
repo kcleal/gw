@@ -238,20 +238,6 @@ namespace Utils {
         return bboxes;
     }
 
-//    Label::Label(std::string &parsed, std::vector<std::string> &inputLabels, std::string &variantId, std::string &vartype) {
-//        this->variantId = variantId;
-//        this->vartype = vartype;
-//        savedDate = "";
-//        i = 0;
-//        clicked = false;
-//        labels.push_back(parsed);
-//        for (auto &v : inputLabels) {
-//            if (v != parsed) {
-//                labels.push_back(v);
-//            }
-//        }
-//    }
-
     Label makeLabel(std::string &chrom, int pos, std::string &parsed, std::vector<std::string> &inputLabels, std::string &variantId, std::string &vartype,
                     std::string savedDate, bool clicked) {
         Label l;
@@ -292,6 +278,10 @@ namespace Utils {
         oss << std::put_time(&tm, "%d-%m-%Y_%H-%M-%S");
         auto str = oss.str();
         return str;
+    }
+
+    void labelToFile(std::ofstream &f, Utils::Label &l, std::string &dateStr) {
+        f << l.chrom << "\t" << l.pos << "\t" << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" << ((l.i > 0) ? dateStr : l.savedDate) << std::endl;
     }
 
     void saveLabels(std::vector<Utils::Label> &multiLabels, std::string path) {

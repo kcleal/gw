@@ -484,7 +484,7 @@ namespace HGW {
                 }
                 break;
         }
-        if (!seenLabels->contains(label)) {
+        if (seenLabels != nullptr && !seenLabels->contains(label)) {
             seenLabels->insert(label);
         }
     }

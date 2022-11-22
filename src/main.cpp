@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> links = { "none", "sv", "all" };
     static const std::vector<std::string> backend = { "raster", "gpu" };
 
-    argparse::ArgumentParser program("gw", "0.2.1");
+    argparse::ArgumentParser program("gw", "0.2.2");
     program.add_argument("genome")
             .required()
             .help("Reference genome in .fasta format with .fai index file");
@@ -178,11 +178,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-//    std::vector<std::filesystem::path> image_glob;
-//    if (program.is_used("-i")) {
-//        image_glob = glob::glob(program.get<std::string>("-i"));
-//    }
-
     std::string outdir;
     if (program.is_used("-o")) {
         outdir = program.get<std::string>("-o");
@@ -285,6 +280,14 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    if (program.is_used("--images") && program.is_used("--variants")) {
+        std::cerr << "Error: only --images or --variants possible, not both" << std::endl;
+        exit(-1);
+    } else if (program.is_used("--images") && program.is_used("--no-show")) {
+        std::cerr << "Error: only --images or --no-show possible, not both" << std::endl;
+        exit(-1);
+    }
+
     if (!iopts.no_show) {  // plot something to screen
 
         std::cout << "\n"
@@ -331,15 +334,17 @@ int main(int argc, char *argv[]) {
 
             auto v = program.get<std::string>("--variants");
             std::vector<std::string> labels = Utils::split(iopts.labels, ',');
+            plotter.setLabelChoices(labels);
+
             bool cacheStdin = v == "-" && program.is_used("--out-vcf");
+
             if (program.is_used("--in-labels")) {
                 Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels, plotter.seenLabels);
             }
-
             if (program.is_used("--out-labels")) {
                 plotter.setOutLabelFile(program.get<std::string>("--out-labels"));
             }
-            plotter.setLabelChoices(labels);
+
             plotter.setVariantFile(v, iopts.start_index, cacheStdin);
             plotter.mode = Manager::Show::TILED;
 
@@ -352,10 +357,33 @@ int main(int argc, char *argv[]) {
             if (program.is_used("--out-vcf")) {
                 HGW::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
             }
+        } else if (program.is_used("--images")) {
+            auto img = program.get<std::string>("-i");
+            if (img == ".") {
+                img += "/";
+            }
+            plotter.image_glob = glob::glob(img);
+
+            std::vector<std::string> labels = Utils::split(iopts.labels, ',');
+            plotter.setLabelChoices(labels);
+
+            if (program.is_used("--in-labels")) {
+                Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels, plotter.seenLabels);
+            }
+            if (program.is_used("--out-labels")) {
+                plotter.setOutLabelFile(program.get<std::string>("--out-labels"));
+            }
+
+            plotter.mode = Manager::Show::TILED;
+
+            int res = plotter.startUI(sContext, sSurface);
+            if (res < 0) {
+                std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
+                std::terminate();
+            }
         }
 
     } else {  // save plot to file, use GPU if single image and GPU available, or use raster backend otherwise
-
 
         if (!program.is_used("--variants") && !program.is_used("--images") && !regions.empty()) {
 
@@ -368,16 +396,6 @@ int main(int argc, char *argv[]) {
 
             int fb_height, fb_width;
             glfwGetFramebufferSize(plotter.backWindow, &fb_width, &fb_height);
-
-
-//            sk_sp<GrDirectContext> context = GrDirectContext::MakeGL(nullptr);
-//            SkImageInfo info = SkImageInfo::MakeN32Premul(fb_width, fb_height);
-//            sk_sp<SkSurface> gpuSurface(SkSurface::MakeRenderTarget(context.get(), SkBudgeted::kNo, info));
-//            if (!gpuSurface) {
-//                std::cerr << "ERROR: gpuSurface could not be initialized (nullptr)\n";
-//                std::terminate();
-//            }
-//            SkCanvas *canvas = gpuSurface->getCanvas();
 
             sContext = GrDirectContext::MakeGL(nullptr).release();
             GrGLFramebufferInfo framebufferInfo;
@@ -415,14 +433,12 @@ int main(int argc, char *argv[]) {
             (void)out.write(png->data(), png->size());
 
         } else if (program.is_used("--variants") && !program.is_used("--out-vcf")) {
-
             if (outdir.empty()) {
                 std::cerr << "Error: please provide an output directory using --outdir\n";
                 std::terminate();
             }
 
             auto v = program.get<std::string>("--variants");
-
 
             if (Utils::endsWith(v, "vcf") || Utils::endsWith(v, "vcf.gz") || Utils::endsWith(v, "bcf")) {
 
@@ -431,9 +447,29 @@ int main(int argc, char *argv[]) {
                 auto vcf = HGW::VCFfile();
                 vcf.cacheStdin = false;
                 vcf.label_to_parse = iopts.parse_label.c_str();
+
+                fs::path dir(outdir);
+
+                bool writeLabel;
+                std::ofstream fLabels;
+
+                if (!iopts.parse_label.empty()) {
+                    writeLabel = true;
+                    fs::path file ("gw.parsed_labels.tsv");
+                    fs::path full_path = dir / file;
+                    std::string outname = full_path.string();
+                    fLabels.open(full_path);
+                    fLabels << "#chrom\tpos\tvariant_ID\tlabel\tvar_type\tlabelled_date\n";
+                } else {
+                    writeLabel = false;
+                }
+
+
                 vcf.open(v);
 
                 std::vector<Manager::VariantJob> jobs;
+                std::vector<std::string> empty_labels;
+                std::string dateStr = "";
                 while (!vcf.done) {
                     vcf.next();
                     Manager::VariantJob job;
@@ -442,14 +478,18 @@ int main(int argc, char *argv[]) {
                     job.start = vcf.start;
                     job.stop = vcf.stop;
                     jobs.push_back(job);
-//                    if (jobs.size() >= 500)
-//                        break;
-                } // shuffling might help distribute high cov regions between jobs
+
+                    if (writeLabel) {
+                        Utils::Label l = Utils::makeLabel(vcf.chrom, vcf.start, vcf.label, empty_labels, vcf.rid, vcf.vartype, "", 0);
+                        Utils::labelToFile(fLabels, l, dateStr);
+                    }
+                }
+                // shuffling might help distribute high cov regions between jobs
                 std::shuffle(std::begin(jobs), std::end(jobs), std::random_device());
 
                 BS::thread_pool pool(iopts.threads);
                 iopts.threads = 1;
-                fs::path dir(outdir);
+
 
                 pool.parallelize_loop(0, jobs.size(),
                                       [&](const int a, const int b) {
@@ -473,6 +513,7 @@ int main(int argc, char *argv[]) {
                                       })
                         .wait();
 
+                fLabels.close();
             }
 
         } else if (program.is_used("--variants") && program.is_used("--out-vcf") && program.is_used("--in-labels")) {
@@ -486,8 +527,8 @@ int main(int argc, char *argv[]) {
             plotter.setLabelChoices(labels);
             plotter.mode = Manager::Show::TILED;
 
-            HGW::VCFfile & vcf = plotter.vcf;
-            std::vector<std::string> empty_labels{};
+            HGW::VCFfile &vcf = plotter.vcf;
+            std::vector<std::string> empty_labels;
             while (true) {
                 vcf.next();
                 if (vcf.done) {break; }

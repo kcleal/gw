@@ -52,9 +52,9 @@ namespace Segs {
         bool is_mm;
     };
 
-    void get_md_block(char *md_tag, int md_idx, int md_l, MdBlock *res);
+    void get_md_block(const char *md_tag, int md_idx, int md_l, MdBlock *res);
 
-    void get_mismatched_bases(std::vector<MMbase> &result, char *md_tag, uint32_t r_pos, uint32_t ct_l, uint32_t *cigar_p);
+    void get_mismatched_bases(std::vector<MMbase> &result, const char *md_tag, uint32_t r_pos, uint32_t ct_l, uint32_t *cigar_p);
 
     struct Align {
         bam1_t *delegate;

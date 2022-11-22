@@ -900,7 +900,8 @@ namespace Manager {
             int bLen = opts.number.x * opts.number.y;
             if (action == GLFW_PRESS || action == GLFW_REPEAT) {
                 if (key == opts.scroll_right) {
-                    if (blockStart + bLen <= (int)multiRegions.size()) {
+                    size_t targetSize = (image_glob.empty()) ? multiRegions.size() : image_glob.size();
+                    if (blockStart + bLen <= (int)targetSize) {
                         blockStart += bLen;
                         redraw = true;
                         clearLine();
@@ -955,6 +956,10 @@ namespace Manager {
                 indexes.push_back(idx);
                 linked.resize(bams.size());
             } else if (Utils::endsWith(pth, ".vcf.gz") || Utils::endsWith(pth, ".vcf") || Utils::endsWith(pth, ".bcf")) {
+                if (!image_glob.empty()) {
+                    std::cerr << "Error: --images are already open, can not open variant file\n";
+                    return;
+                }
                 good = true;
                 std::cout << "Loading: " << pth << std::endl;
                 setVariantFile(pth, opts.start_index, false);

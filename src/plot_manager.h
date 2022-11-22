@@ -17,6 +17,7 @@
 #include "htslib/tbx.h"
 
 #include <chrono>
+#include <filesystem>
 #include <GLFW/glfw3.h>
 #include <string>
 #include <utility>
@@ -89,6 +90,8 @@ namespace Manager {
 
         std::vector<std::string> labelChoices;
         std::vector<Utils::Label> multiLabels;  // used for labelling tiles
+
+        std::vector<std::filesystem::path> image_glob;
 
         std::vector<Segs::ReadCollection> collections;
 
@@ -203,6 +206,8 @@ namespace Manager {
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext);
 
         void tileDrawingThread(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
+
+        void tileLoadingThread();
 
         void drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 

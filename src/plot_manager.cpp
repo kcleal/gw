@@ -1,5 +1,7 @@
 
+#include <chrono>
 #include <cstdlib>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -32,6 +34,8 @@
 using namespace std::literals;
 
 namespace Manager {
+
+    std::mutex g_mutex;
 
     void HiddenWindow::init(int width, int height) {
         if (!glfwInit()) {
@@ -580,42 +584,81 @@ namespace Manager {
                 sk_sp<SkImage> img(sSurface->makeImageSnapshot());
                 imageCache[i] = img;
                 sContext->flush();
-//                glfwPostEmptyEvent();
-//                mtx.unlock();
             }
         }
+    }
+
+    void GwPlot::tileLoadingThread() {
+        int bStart = blockStart;
+        int bLen = (int)opts.number.x * (int)opts.number.y;
+        int endIdx = bStart + bLen;
+        BS::thread_pool pool(opts.threads);
+        int n_images = (int)image_glob.size();
+        pool.parallelize_loop(bStart, endIdx,
+                              [&](const int a, const int b) {
+                                  for (int i=a; i<b; ++i) {
+                                      g_mutex.lock();
+                                      bool c = imageCache.contains(i);
+                                      g_mutex.unlock();
+                                      if (!c && i < n_images) {
+                                          sk_sp<SkData> data(nullptr);
+                                          g_mutex.lock();
+                                          const char *fname = image_glob[i].c_str();
+                                          g_mutex.unlock();
+                                          data = SkData::MakeFromFileName(fname);
+                                          if (!data)
+                                              throw std::runtime_error("Error: file not found");
+                                          sk_sp<SkImage> image = SkImage::MakeFromEncoded(data);
+                                          if (!image)
+                                              throw std::runtime_error("Failed to decode an image");
+                                          // if image is not explicitly decoded, it will be lazily decoded during drawing
+                                          sk_sp<SkImage> image_decoded = image->makeRasterImage( SkImage::kAllow_CachingHint);
+                                          g_mutex.lock();
+                                          imageCache[i] = image_decoded;
+                                          g_mutex.unlock();
+                                      }
+                                  }
+                              }).wait();
     }
 
     void GwPlot::drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
         int bStart = blockStart;
         int bLen = opts.number.x * opts.number.y;
-
-        if (!vcf.done && bStart + bLen > (int)multiRegions.size()) {
-            for (int i=0; i < bLen; ++ i) {
-                vcf.next();
-                if (vcf.done) {
-                    break;
+        if (image_glob.empty()) {
+            // load some vcf regions and labels for drawing
+            if (!vcf.done && bStart + bLen > (int)multiRegions.size()) {
+                for (int i=0; i < bLen; ++ i) {
+                    vcf.next();
+                    if (vcf.done) {
+                        break;
+                    }
+                    appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype);
                 }
-                appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype);
-            }
-        } else if (!variantTrack.done) {
-            std::string empty_label = "";
-            for (int i=0; i < bLen; ++ i) {
-                variantTrack.next();
-                if (variantTrack.done) {
-                    break;
+            // load some bed or other variant track for drawing
+            } else if (!variantTrack.done) {
+                std::string empty_label = "";
+                for (int i=0; i < bLen; ++ i) {
+                    variantTrack.next();
+                    if (variantTrack.done) {
+                        break;
+                    }
+                    appendVariantSite(variantTrack.chrom, variantTrack.start, variantTrack.chrom, variantTrack.stop, variantTrack.rid, empty_label, variantTrack.vartype);
                 }
-                appendVariantSite(variantTrack.chrom, variantTrack.start, variantTrack.chrom, variantTrack.stop, variantTrack.rid, empty_label, variantTrack.vartype);
             }
+        } else {
+            // add empty labels for images (labels from --in-labels are loaded earlier)
         }
+
         setGlfwFrameBufferSize();
         setScaling();
         bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height);
         SkSamplingOptions sampOpts = SkSamplingOptions();
 
-        std::vector<sk_sp<SkImage>> blockImages;
-
-        tileDrawingThread(canvas, sContext, sSurface);
+        if (image_glob.empty()) {
+            tileDrawingThread(canvas, sContext, sSurface);
+        } else {
+            tileLoadingThread();
+        }
 
         int i = bStart;
         canvas->drawPaint(opts.theme.bgPaint);
@@ -633,21 +676,22 @@ namespace Manager {
         if (pivot != srtLabels.end()) {
             std::rotate(srtLabels.begin(), pivot, pivot + 1);
         }
-
         for (auto &b : bboxes) {
             SkRect rect;
             if (imageCache.contains(i)) {
                 rect.setXYWH(b.xStart, b.yStart, b.width, b.height);
                 canvas->drawImageRect(imageCache[i], rect, sampOpts);
                 if (i - bStart != mouseOverTileIndex) {
-                    multiLabels[i].mouseOver = false;
+                    if (!multiLabels.empty()) {
+                        multiLabels[i].mouseOver = false;
+                    }
                 }
-
-                Drawing::drawLabel(opts, canvas, rect, multiLabels[i], fonts, seenLabels, srtLabels);
+                if (!multiLabels.empty()) {
+                    Drawing::drawLabel(opts, canvas, rect, multiLabels[i], fonts, seenLabels, srtLabels);
+                }
             }
             ++i;
         }
-
         sContext->flush();
         glfwSwapBuffers(window);
         redraw = false;
