@@ -1,9 +1,7 @@
 GW
 ==
 
-
-[embed]https://github.com/kcleal/gw/include/banner.pdf[/embed]
-
+<embed src="https://github.com/kcleal/gw/include/banner.pdf" type="application/pdf">
 
 GW is a fast browser for genomic sequencing data (.bam/.cram format), used directly from the terminal. GW also
 allows you to view and annotate variants from vcf/bcf files. Check out the examples and below!
