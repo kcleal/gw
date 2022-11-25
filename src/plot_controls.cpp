@@ -1045,9 +1045,9 @@ namespace Manager {
 
     void GwPlot::mouseButton(GLFWwindow* wind, int button, int action, int mods) {
         double x, y;
-        if (regions.empty()) {
-            return;
-        }
+//        if (regions.empty()) {
+//            return;
+//        }
         glfwGetCursorPos(window, &x, &y);
 
         int windowW, windowH;  // convert screen coords to frame buffer coords
@@ -1069,6 +1069,9 @@ namespace Manager {
         xDrag = x - xOri;
 
         if (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_LEFT) {
+            if (regions.empty()) {
+                return;
+            }
             int idx = getCollectionIdx(xW, yW);
             if (idx == -2 && action == GLFW_RELEASE) {
                 printRefSeq(xW, collections);
@@ -1154,13 +1157,15 @@ namespace Manager {
             xOri = x;
 
         } else if (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
-             if (!multiRegions.empty() || !imageCache.empty()) {
+            if (regions.empty()) {
+                return;
+            }
+            if (!multiRegions.empty() || !imageCache.empty()) {
                 mode = Manager::TILED;
                 xDrag = -1000000;
                 redraw = true;
                 processed = false;
-                //std::cout << termcolor::green << "\nIndex     " << termcolor::reset << blockStart << std::endl;
-             }
+            }
         } else if (mode == Manager::TILED) {
             if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
                 int i = 0;
@@ -1177,11 +1182,15 @@ namespace Manager {
                 if (!bams.empty()) {
                     if (i < (int)multiRegions.size() && !bams.empty()) {
                         if (blockStart + i < (int)multiRegions.size()) {
-                            mode = Manager::SINGLE;
-                            regions = multiRegions[blockStart + i];
-                            redraw = true;
-                            processed = false;
-                            fetchRefSeqs();
+                            if (multiRegions[blockStart + i][0].chrom.empty()) {
+                                return; // check for "" no chrom set
+                            } else {
+                                mode = Manager::SINGLE;
+                                regions = multiRegions[blockStart + i];
+                                redraw = true;
+                                processed = false;
+                                fetchRefSeqs();
+                            }
                         }
                     }
                 }
@@ -1287,9 +1296,7 @@ namespace Manager {
     }
 
     void GwPlot::mousePos(GLFWwindow* wind, double xPos, double yPos) {
-        if (regions.empty()) {
-            return;
-        }
+
         if (lastX == -1) {
             lastX = xPos;
         }
@@ -1299,6 +1306,10 @@ namespace Manager {
         if (state == GLFW_PRESS) {
             xDrag = xPos - xOri;
             if (mode == Manager::SINGLE) {
+
+                if (regions.empty()) {
+                    return;
+                }
 
                 int windowW, windowH;  // convert screen coords to frame buffer coords
                 glfwGetWindowSize(wind, &windowW, &windowH);
@@ -1366,7 +1377,9 @@ namespace Manager {
             }
         } else {
             if (mode == Manager::SINGLE) {
-
+                if (regions.empty()) {
+                    return;
+                }
                 int windowW, windowH;  // convert screen coords to frame buffer coords
                 glfwGetWindowSize(wind, &windowW, &windowH);
                 if (fb_width > windowW) {

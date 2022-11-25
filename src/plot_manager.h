@@ -230,6 +230,8 @@ namespace Manager {
     struct VariantJob {
         std::string chrom;
         std::string chrom2;
+        std::string rid;
+        std::string varType;
         long start;
         long stop;
     };

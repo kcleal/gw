@@ -617,7 +617,7 @@ namespace Manager {
                                           sk_sp<SkImage> image = SkImage::MakeFromEncoded(data);
                                           if (!image)
                                               throw std::runtime_error("Failed to decode an image");
-                                          // if image is not explicitly decoded, it will be lazily decoded during drawing
+                                          // if image is not explicitly decoded, it might be lazily decoded during drawing
                                           sk_sp<SkImage> image_decoded = image->makeRasterImage( SkImage::kAllow_CachingHint);
                                           g_mutex.lock();
                                           imageCache[i] = image_decoded;
@@ -653,6 +653,10 @@ namespace Manager {
             }
         } else {
             // add empty labels for images (labels from --in-labels are loaded earlier)
+//            for (int i=bStart; i < bStart + bLen; i++) {
+//                const char *fname = image_glob[i].c_str();
+//                std::cout << fname << std::endl;
+//            }
         }
 
         setGlfwFrameBufferSize();

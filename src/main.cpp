@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> links = { "none", "sv", "all" };
     static const std::vector<std::string> backend = { "raster", "gpu" };
 
-    argparse::ArgumentParser program("gw", "0.2.3");
+    argparse::ArgumentParser program("gw", "0.3.0");
     program.add_argument("genome")
             .required()
             .help("Reference genome in .fasta format with .fai index file");
@@ -360,6 +360,7 @@ int main(int argc, char *argv[]) {
                 HGW::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
             }
         } else if (program.is_used("--images")) {
+
             auto img = program.get<std::string>("-i");
             if (img == ".") {
                 img += "/";
@@ -371,6 +372,22 @@ int main(int argc, char *argv[]) {
 
             if (program.is_used("--in-labels")) {
                 Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels, plotter.seenLabels);
+                std::string emptylabel;
+                int index = 0;
+                for (auto &item : plotter.image_glob) {
+                    std::string p = item.filename();
+                    if (Utils::endsWith(p, ".png")) {
+                        std::vector<std::string> m = Utils::split(p.erase(p.size() - 4), '~');
+                        try {
+                            plotter.appendVariantSite(m[1], std::stoi(m[2]), m[3], std::stoi(m[4]), m[5], emptylabel, m[0]);
+                        } catch (...) {
+                            // append an empty variant, use the index at the id
+                            std::string stri = std::to_string(index);
+                            plotter.appendVariantSite(emptylabel, 0, emptylabel, 0, stri, emptylabel, emptylabel);
+                        }
+                        index += 1;
+                    }
+                }
             }
             if (program.is_used("--out-labels")) {
                 plotter.setOutLabelFile(program.get<std::string>("--out-labels"));
@@ -499,6 +516,8 @@ int main(int argc, char *argv[]) {
                     job.chrom2 = vcf.chrom2;
                     job.start = vcf.start;
                     job.stop = vcf.stop;
+                    job.varType = vcf.vartype;
+                    job.rid = vcf.rid;
                     jobs.push_back(job);
 
                     if (writeLabel) {
@@ -507,28 +526,25 @@ int main(int argc, char *argv[]) {
                     }
                 }
                 // shuffling might help distribute high cov regions between jobs
-                std::shuffle(std::begin(jobs), std::end(jobs), std::random_device());
+                // std::shuffle(std::begin(jobs), std::end(jobs), std::random_device());
 
                 BS::thread_pool pool(iopts.threads);
                 iopts.threads = 1;
 
-
                 pool.parallelize_loop(0, jobs.size(),
                                       [&](const int a, const int b) {
-
                                           Manager::GwPlot plt = Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
                                           plt.fb_width = iopts.dimensions.x;
                                           plt.fb_height = iopts.dimensions.y;
                                           sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
                                           SkCanvas *canvas = rasterSurface->getCanvas();
-
                                           for (int i = a; i < b; ++i) {
                                               Manager::VariantJob job = jobs[i];
                                               plt.setVariantSite(job.chrom, job.start, job.chrom2, job.stop);
                                               plt.runDraw(canvas);
                                               sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
-                                              fs::path file (std::to_string(i) + ".png");
-                                              fs::path full_path = dir / file;
+                                              fs::path fname = job.varType + "~" + job.chrom + "~" + std::to_string(job.start) + "~" + job.chrom2 + "~" + std::to_string(job.stop) + "~" + job.rid + ".png";
+                                              fs::path full_path = outdir / fname;
                                               Manager::imageToPng(img, full_path);
                                           }
                                       })

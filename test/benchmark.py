@@ -38,6 +38,14 @@ exit""".format(genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, e
     return t, resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1e6
 
 
+def plot_jbrowse2(chrom, start, end, args):
+    com = "/usr/bin/time --format '%e' {jb2export} --fasta {genome} --bam {bam} force:true --loc {chrom}:{start}-{end} --out images/jb2_image.svg" \
+        .format(jb2export=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
+    p = Popen(com, shell=True, stdout=PIPE, stderr=PIPE)
+    out, err = p.communicate()
+    return t, resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1e6
+
+
 def plot_samplot(chrom, start, end, args):
     com = "/usr/bin/time --format '%e' {samplot} plot -r {genome} -b {bam} -c {chrom} -s {start} -e {end} -o images/samplot_image.png" \
         .format(samplot=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
@@ -76,7 +84,7 @@ if __name__ == "__main__":
     parser.add_argument('ref_genome')
     parser.add_argument('bam')
     parser.add_argument('tool_path')
-    parser.add_argument('tool_name', choices=['gw', 'igv', 'samplot', 'wally'])
+    parser.add_argument('tool_name', choices=['gw', 'igv', 'samplot', 'wally', 'jbrowse2'])
     args = parser.parse_args()
 
     if not os.path.exists('images'):
@@ -93,7 +101,7 @@ if __name__ == "__main__":
                 fai[l[0]] = length
 
     results = []
-    progs = {'gw': plot_gw, 'igv': plot_igv, 'samplot': plot_samplot, 'wally': plot_wally}
+    progs = {'gw': plot_gw, 'igv': plot_igv, 'samplot': plot_samplot, 'wally': plot_wally, 'jbrowse2': plot_jbrowse2}
     name = args.tool_name
     prog = progs[name]
 

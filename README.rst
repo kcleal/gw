@@ -45,10 +45,12 @@ A GW window can also be started with only the reference genome as a positional a
 
 You can then drag-and-drop alignment files and vcf files into the window, and use commands to navigate to regions etc.
 
-GW can also be used to generate images in .png format of target genomic regions.
+GW can also be used to generate images in .png/.pdf format of target genomic regions.
 To use this function apply the ``--no-show`` option along with an output folder ``--outdir``::
 
     gw hg38.fa -b your.bam -r chr1:1-20000 --outdir . --no-show
+
+    gw hg38.fa -b your.bam -r chr1:1-20000 --outdir . --no-show --fmt pdf
 
 Variant data
 -----------------
