@@ -51,7 +51,7 @@ ifeq ($(OS),Windows_NT)
 else
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Linux)
-        CXXFLAGS += -D LINUX
+        CXXFLAGS += -D LINUX -D __STDC_FORMAT_MACROS
         LDLIBS += -lGL -lfreetype -lfontconfig -luuid
         SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip
     endif
