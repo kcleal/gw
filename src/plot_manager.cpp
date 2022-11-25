@@ -23,6 +23,8 @@
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkSamplingOptions.h"
 #include "include/core/SkSurface.h"
+#include "include/core/SkDocument.h"
+#include "include/docs/SkPDFDocument.h"
 
 #include "drawing.h"
 #include "plot_manager.h"
@@ -507,6 +509,10 @@ namespace Manager {
         } else {
             glfwGetWindowContentScale(window, &xscale, &yscale);
         }
+        if (xscale == 0) {
+            xscale = 1;  // set for pdf which has no glfw window backing
+            yscale = 1;
+        }
 
         refSpace = fb_height * 0.02;
         auto fbh = (float) fb_height; // - refSpace;
@@ -725,13 +731,14 @@ namespace Manager {
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
     }
 
-    void imageToPng(sk_sp<SkImage> &img, std::string &path) {
+    void imageToPng(sk_sp<SkImage> &img, fs::path &path) {
         if (!img) { return; }
         sk_sp<SkData> png(img->encodeToData());
         if (!png) { return; }
         SkFILEWStream out(path.c_str());
         (void)out.write(png->data(), png->size());
     }
+
 
     sk_sp<SkImage> GwPlot::makeImage() {
         setScaling();

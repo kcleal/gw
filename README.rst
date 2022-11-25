@@ -1,8 +1,8 @@
 GW
 ==
 
-.. image:: include/banner.png
-    :align: center
+
+[embed]https://github.com/kcleal/gw/include/banner.pdf[/embed]
 
 
 GW is a fast browser for genomic sequencing data (.bam/.cram format), used directly from the terminal. GW also

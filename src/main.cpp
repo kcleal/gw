@@ -31,6 +31,8 @@
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkSurface.h"
+#include "include/core/SkDocument.h"
+#include "include/docs/SkPDFDocument.h"
 
 
 // skia context has to be managed from global space to work
@@ -48,7 +50,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> links = { "none", "sv", "all" };
     static const std::vector<std::string> backend = { "raster", "gpu" };
 
-    argparse::ArgumentParser program("gw", "0.2.2");
+    argparse::ArgumentParser program("gw", "0.2.3");
     program.add_argument("genome")
             .required()
             .help("Reference genome in .fasta format with .fai index file");
@@ -86,12 +88,12 @@ int main(int argc, char *argv[]) {
                 std::cerr << "Error: --theme not in {igv, dark}" << std::endl;
                 abort();
             }).help("Image theme igv|dark");
-//    program.add_argument("--fmt")
-//            .default_value(iopts.fmt)
-//            .action([](const std::string& value) {
-//                if (std::find(img_fmt.begin(), img_fmt.end(), value) != img_fmt.end()) { return value;}
-//                return std::string{ "png" };
-//            }).help("Output file format");
+    program.add_argument("--fmt")
+            .default_value(iopts.fmt)
+            .action([](const std::string& value) {
+                if (std::find(img_fmt.begin(), img_fmt.end(), value) != img_fmt.end()) { return value;}
+                return std::string{ "png" };
+            }).help("Output file format");
     program.add_argument("--track")
             .default_value(std::string{""}).append()
             .help("Track to display at bottom of window BED/VCF. Repeat for multiple files stacked vertically");
@@ -387,50 +389,67 @@ int main(int argc, char *argv[]) {
 
         if (!program.is_used("--variants") && !program.is_used("--images") && !regions.empty()) {
 
+            plotter.opts.theme.setAlphas();
+
             if (outdir.empty()) {
                 std::cerr << "Error: please provide an output directory using --outdir\n";
                 std::terminate();
             }
 
-            plotter.initBack(iopts.dimensions.x, iopts.dimensions.y);
+            if (program.is_used("--fmt") && program.get<std::string>("--fmt") == "pdf") {
+                fs::path fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".pdf";
+                fs::path out_path = outdir / fname;
+                SkFILEWStream out(out_path.c_str());
+                SkDynamicMemoryWStream buffer;
 
-            int fb_height, fb_width;
-            glfwGetFramebufferSize(plotter.backWindow, &fb_width, &fb_height);
+                auto pdfDocument = SkPDF::MakeDocument(&buffer);
+                SkCanvas* pageCanvas = pdfDocument->beginPage(iopts.dimensions.x,iopts.dimensions.y);
+                plotter.fb_width = iopts.dimensions.x;
+                plotter.fb_height = iopts.dimensions.y;
+                plotter.runDraw(pageCanvas);
 
-            sContext = GrDirectContext::MakeGL(nullptr).release();
-            GrGLFramebufferInfo framebufferInfo;
-            framebufferInfo.fFBOID = 0;
-            framebufferInfo.fFormat = GL_RGBA8;  // GL_SRGB8_ALPHA8; //
-            GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
-            if (!backendRenderTarget.isValid()) {
-                std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
-                glfwTerminate();
-                std::terminate();
+                pdfDocument->close();
+                buffer.writeToStream(&out);
+
+            } else {
+
+                plotter.initBack(iopts.dimensions.x, iopts.dimensions.y);
+
+                int fb_height, fb_width;
+                glfwGetFramebufferSize(plotter.backWindow, &fb_width, &fb_height);
+
+                sContext = GrDirectContext::MakeGL(nullptr).release();
+                GrGLFramebufferInfo framebufferInfo;
+                framebufferInfo.fFBOID = 0;
+                framebufferInfo.fFormat = GL_RGBA8;  // GL_SRGB8_ALPHA8; //
+                GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
+                if (!backendRenderTarget.isValid()) {
+                    std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
+                    glfwTerminate();
+                    std::terminate();
+                }
+                sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
+                                                                  backendRenderTarget,
+                                                                  kBottomLeft_GrSurfaceOrigin,
+                                                                  kRGBA_8888_SkColorType,
+                                                                  nullptr,
+                                                                  nullptr).release();
+                if (!sSurface) {
+                    std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
+                    sContext->releaseResourcesAndAbandonContext();
+                    std::terminate();
+                }
+                SkCanvas *canvas = sSurface->getCanvas();
+
+                plotter.drawSurfaceGpu(canvas);
+
+                sk_sp<SkImage> img(sSurface->makeImageSnapshot());
+                fs::path fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".png";
+
+                fs::path out_path = outdir / fname;
+                Manager::imageToPng(img, out_path);
+
             }
-            sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
-                                                              backendRenderTarget,
-                                                              kBottomLeft_GrSurfaceOrigin,
-                                                              kRGBA_8888_SkColorType,
-                                                              nullptr,
-                                                              nullptr).release();
-            if (!sSurface) {
-                std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
-                sContext->releaseResourcesAndAbandonContext();
-                std::terminate();
-            }
-            SkCanvas *canvas = sSurface->getCanvas();
-
-            plotter.opts.theme.setAlphas();
-            plotter.drawSurfaceGpu(canvas);
-
-            sk_sp<SkImage> img(sSurface->makeImageSnapshot());
-            if (!img) { std::cout << "!img" << std::endl; return 1; }
-            sk_sp<SkData> png(img->encodeToData());
-            if (!png) { std::cout << "!png" << std::endl; return 1; }
-            fs::path fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".png";
-            fs::path out_path = outdir / fname;
-            SkFILEWStream out(out_path.c_str());
-            (void)out.write(png->data(), png->size());
 
         } else if (program.is_used("--variants") && !program.is_used("--out-vcf")) {
             if (outdir.empty()) {
@@ -442,6 +461,10 @@ int main(int argc, char *argv[]) {
 
             if (Utils::endsWith(v, "vcf") || Utils::endsWith(v, "vcf.gz") || Utils::endsWith(v, "bcf")) {
 
+                if (program.is_used("--fmt") && program.get<std::string>("--fmt") == "pdf") {
+                    std::cerr << "Error: only --fmt png is supported with -v. Please raise on issue on github if you would like to see this supported\n";
+                    return -1;
+                }
                 iopts.theme.setAlphas();
 
                 auto vcf = HGW::VCFfile();
@@ -463,7 +486,6 @@ int main(int argc, char *argv[]) {
                 } else {
                     writeLabel = false;
                 }
-
 
                 vcf.open(v);
 
@@ -507,8 +529,7 @@ int main(int argc, char *argv[]) {
                                               sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
                                               fs::path file (std::to_string(i) + ".png");
                                               fs::path full_path = dir / file;
-                                              std::string outname = full_path.string();
-                                              Manager::imageToPng(img, outname);
+                                              Manager::imageToPng(img, full_path);
                                           }
                                       })
                         .wait();
