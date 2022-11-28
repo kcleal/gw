@@ -11,7 +11,7 @@
 
 namespace Segs {
 
-    void get_md_block(const char *md_tag, int md_idx, size_t md_l, MdBlock *res) {
+    void get_md_block(const char *md_tag, int md_idx, int md_l, MdBlock *res) {
         int nmatches = 0;
         int del_length = 0;
         bool is_mm = false;
@@ -43,7 +43,7 @@ namespace Segs {
                               const char *md_tag, uint32_t r_pos,
                               uint32_t ct_l, uint32_t *cigar_p) {
         uint32_t opp, c_idx, s_idx, c_s_idx;
-        size_t md_l = strlen(md_tag);
+        auto md_l = (int)strlen(md_tag);
         std::deque<QueueItem> ins_q;
         MdBlock md_block;
         get_md_block(md_tag, 0, md_l, &md_block);

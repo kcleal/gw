@@ -36,7 +36,7 @@ namespace Manager {
     constexpr char basemap[] = {'.', 'A', 'C', '.', 'G', '.', '.', '.', 'T', '.', '.', '.', '.', '.', 'N', 'N', 'N'};
 
     void editInputText(std::string &inputText, const char *letter, int &charIndex) {
-        if (charIndex != inputText.size()) {
+        if (charIndex != (int)inputText.size()) {
             inputText.insert(charIndex, letter);
             charIndex += 1;
             std::cout << "\r" << inputText.substr(0, charIndex) << "_" << inputText.substr(charIndex, inputText.size()) << std::flush;
@@ -96,7 +96,7 @@ namespace Manager {
                 std::cout << "\r" << inputText.substr(0, charIndex) << "_" << inputText.substr(charIndex, inputText.size()) << std::flush;
                 return true;
             } else if (key == GLFW_KEY_RIGHT) {
-                charIndex = (charIndex < inputText.size()) ? charIndex + 1 : charIndex;
+                charIndex = (charIndex < (int)inputText.size()) ? charIndex + 1 : charIndex;
                 std::cout << "\r" << inputText.substr(0, charIndex) << "_" << inputText.substr(charIndex, inputText.size()) << std::flush;
                 return true;
             }
@@ -986,7 +986,7 @@ namespace Manager {
         int i = 0;
         if (bams.empty()) {
             i = (int)(x / ((float)fb_width / (float)regions.size()));
-            i = (i > regions.size()) ? (int)regions.size() : i;
+            i = (i > (int)regions.size()) ? (int)regions.size() : i;
             return i;
         } else if (bams.size() <= 1) {
             for (auto &cl: collections) {

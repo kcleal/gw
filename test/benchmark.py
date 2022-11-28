@@ -14,7 +14,6 @@ def plot_gw(chrom, start, end, args):
     p = Popen(com, shell=True, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
     t = float(err.decode('ascii').split('\n')[0].strip())
-    print(t)
     return t, resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1e6
 
 
@@ -39,10 +38,11 @@ exit""".format(genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, e
 
 
 def plot_jbrowse2(chrom, start, end, args):
-    com = "/usr/bin/time --format '%e' {jb2export} --fasta {genome} --bam {bam} force:true --loc {chrom}:{start}-{end} --out images/jb2_image.svg" \
+    com = "export NODE_OPTIONS=--max_old_space_size=320000; /usr/bin/time --format '%e' {jb2export} --fasta {genome} --bam {bam} force:true --loc {chrom}:{start}-{end} --out images/jb2_image.svg" \
         .format(jb2export=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     p = Popen(com, shell=True, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
+    t = float(err.decode('ascii').split('\n')[0].strip())
     return t, resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1e6
 
 
