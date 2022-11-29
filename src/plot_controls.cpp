@@ -35,6 +35,12 @@ namespace Manager {
 
     constexpr char basemap[] = {'.', 'A', 'C', '.', 'G', '.', '.', '.', 'T', '.', '.', '.', '.', '.', 'N', 'N', 'N'};
 
+    void clearLine() {
+        std::string s(Utils::get_terminal_width() - 1, ' ');
+        std::cout << "\r" << s << std::flush;
+        return;
+    }
+
     void editInputText(std::string &inputText, const char *letter, int &charIndex) {
         if (charIndex != (int)inputText.size()) {
             inputText.insert(charIndex, letter);
@@ -80,12 +86,14 @@ namespace Manager {
                     commandIndex -= 1;
                     inputText = commandHistory[commandIndex];
                     charIndex = inputText.size();
+                    clearLine();
                     std::cout << "\r" << inputText << std::flush;
                     return true;
                 } else if (key == GLFW_KEY_DOWN && commandIndex < (int)commandHistory.size() - 1) {
                     commandIndex += 1;
                     inputText = commandHistory[commandIndex];
                     charIndex = inputText.size();
+                    clearLine();
                     std::cout << "\r" << inputText << std::flush;
                     return true;
                 }
@@ -449,15 +457,18 @@ namespace Manager {
         std::cout << termcolor::green << "cov              [of/off]        " << termcolor::reset << "Turn coverage on/off e.g. ':cov off'\n";
         std::cout << termcolor::green << "filter           expression      " << termcolor::reset << "Examples ':filter mapq > 0', ':filter ~flag & secondary'\n                                 ':filter mapq >= 30 or seq-len > 100'\n";
         std::cout << termcolor::green << "find, f          qname?          " << termcolor::reset << "To find other alignments from selected read use ':find'\n                                 Or use ':find [QNAME]' to find target read'\n";
+        //std::cout << termcolor::green << "genome, g        name?           " << termcolor::reset << "Load genome listed in .gw.ini file. Use ':g' for list\n";
         std::cout << termcolor::green << "goto             loci index?     " << termcolor::reset << "e.g. ':goto chr1:1-20000'. Use index if multiple \n                                 regions are open e.g. ':goto 'chr1 20000' 1'\n";
         std::cout << termcolor::green << "link             [none/sv/all]   " << termcolor::reset << "Switch read-linking ':link all'\n";
         std::cout << termcolor::green << "log2-cov         [of/off]        " << termcolor::reset << "Scale coverage by log2 e.g. ':log2-cov on'\n";
+        std::cout << termcolor::green << "mate             add?            " << termcolor::reset << "Use ':mate' to navigate to mate-pair or ':mate add'    \n                                 to add a new region with mate location'\n";
         std::cout << termcolor::green << "quit, q          -               " << termcolor::reset << "Quit GW\n";
         std::cout << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
-        std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. ':rm 1'\n";
+        std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. ':rm 1'. To remove a bam \n                                 use the bam index ':rm bam0'\n";
         std::cout << termcolor::green << "sam                              " << termcolor::reset << "Print selected read in sam format'\n";
         std::cout << termcolor::green << "theme            [igv/dark]      " << termcolor::reset << "Switch color theme e.g. ':theme dark'\n";
         std::cout << termcolor::green << "ylim             number          " << termcolor::reset << "The maximum y-limit for the image e.g. ':ylim 100'\n";
+
         std::cout << termcolor::underline << "\nHot keys                   \n" << termcolor::reset;
         std::cout << "scroll left       " << termcolor::bright_yellow; printKeyFromValue(opts.scroll_left); std::cout << "\n" << termcolor::reset;
         std::cout << "scroll right      " << termcolor::bright_yellow; printKeyFromValue(opts.scroll_right); std::cout << "\n" << termcolor::reset;
@@ -477,6 +488,9 @@ namespace Manager {
         bool valid = false;
         constexpr char delim = ' ';
         constexpr char delim_q = '\'';
+
+        commandHistory.push_back(inputText);
+        commandIndex = commandHistory.size();
 
         if (inputText == ":q" || inputText == ":quit") {
             throw CloseException();
@@ -499,8 +513,6 @@ namespace Manager {
             std::string str = inputText;
             str.erase(0, 7);
             Parse::countExpression(collections, str, headers, bam_paths, bams.size(), regions.size());
-            commandHistory.push_back(inputText);
-            commandIndex = commandHistory.size();
             inputText = "";
             return true;
 
@@ -527,8 +539,6 @@ namespace Manager {
             }
             redraw = false;
             processed = true;
-            commandHistory.push_back(inputText);
-            commandIndex = commandHistory.size();
             inputText = "";
             return true;
 
@@ -543,8 +553,6 @@ namespace Manager {
             }
             redraw = true;
             processed = true;
-            commandHistory.push_back(inputText);
-            commandIndex = commandHistory.size();
             highlightQname();
             inputText = "";
             return true;
@@ -556,23 +564,46 @@ namespace Manager {
             valid = true;
         } else if (Utils::startsWith(inputText, ":remove") || Utils::startsWith(inputText, ":rm")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
-            int ind = std::stoi(split.back());
-            inputText = "";
-            valid = true;
-            regionSelection = 0;
-            if (!regions.empty() && ind < (int)regions.size()) {
-                if (regions.size() == 1 && ind == 0) {
-                    regions.clear();
-                } else {
-                    regions.erase(regions.begin() + ind);
+            int ind = 0;
+            if (Utils::startsWith(split.back(), "bam")) {
+                split.back().erase(0, 3);
+                try {
+                    ind = std::stoi(split.back());
+                } catch (...) {
+                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " bam index not understood\n";
+                    return true;
                 }
+                inputText = "";
+                valid = true;
+                collections.erase(std::remove_if(collections.begin(), collections.end(), [&ind](const auto col) {
+                    return col.bamIdx == ind;
+                }), collections.end());
+                bams.erase(bams.begin() + ind);
+                indexes.erase(indexes.begin() + ind);
             } else {
-                std::cerr << termcolor::red << "Error:" << termcolor::reset << " region index is out of range. Use 0-based indexing\n";
-                return true;
+                try {
+                    ind = std::stoi(split.back());
+                } catch (...) {
+                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " region index not understood\n";
+                    return true;
+                }
+                inputText = "";
+                valid = true;
+                regionSelection = 0;
+                if (!regions.empty() && ind < (int)regions.size()) {
+                    if (regions.size() == 1 && ind == 0) {
+                        regions.clear();
+                    } else {
+                        regions.erase(regions.begin() + ind);
+                    }
+                } else {
+                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " region index is out of range. Use 0-based indexing\n";
+                    return true;
+                }
+                collections.erase(std::remove_if(collections.begin(), collections.end(), [&ind](const auto col) {
+                    return col.regionIdx == ind;
+                }), collections.end());
             }
-            collections.erase(std::remove_if(collections.begin(), collections.end(), [&ind](const auto col) {
-                        return col.regionIdx == ind;
-                    }), collections.end());
 
             bool clear_filters = false; // removing a region can invalidate indexes so remove them
             for (auto &f : filters) {
@@ -651,8 +682,6 @@ namespace Manager {
             }
         }
         if (valid) {
-            commandHistory.push_back(inputText);
-            commandIndex = commandHistory.size();
             redraw = true;
             processed = false;
         } else {
@@ -697,12 +726,6 @@ namespace Manager {
         }
         return a + b;
 
-    }
-
-    void clearLine() {
-        std::string s(Utils::get_terminal_width() - 1, ' ');
-        std::cout << "\r" << s << std::flush;
-        return;
     }
 
     void GwPlot::printRegionInfo() {

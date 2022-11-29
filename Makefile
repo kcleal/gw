@@ -1,6 +1,6 @@
 TARGET = gw
 
-CXXFLAGS += -g -Wall -std=c++17  -fno-common -dynamic -fwrapv -O3 -DNDEBUG
+CXXFLAGS += -Wall -std=c++17  -fno-common -dynamic -fwrapv -O3 -DNDEBUG  # -g
 
 CPPFLAGS += -I./include -I./src -I. -I./gw -I/usr/local/include
 
@@ -8,6 +8,11 @@ LDLIBS += -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts -lfontconfig -lp
 
 LDFLAGS += -L./lib/skia/out/Release-x64 -L/usr/local/lib
 
+# try and add conda environment
+ifneq ($(CONDA_PREFIX),"")
+	CPPFLAGS += -I$(CONDA_PREFIX)/include
+	LDFLAGS += -L$(CONDA_PREFIX)/lib
+endif
 
 # Options to use target htslib or skia
 HTSLIB ?= ""
@@ -84,7 +89,7 @@ prep:
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -g $(CPPFLAGS) -c $< -o $@
 
-.PRECIOUS: $(TARGET) $(OBJECTS)
+#.PRECIOUS: $(TARGET) $(OBJECTS)
 
 
 $(TARGET): $(OBJECTS)

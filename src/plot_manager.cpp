@@ -505,13 +505,9 @@ namespace Manager {
     void GwPlot::setScaling() {  // sets z_scaling, y_scaling trackY and regionWidth
         float xscale, yscale;
         if (drawToBackWindow) {
-            glfwGetWindowContentScale(backWindow, &xscale, &yscale);
+            xscale = 1; yscale = 1;
         } else {
             glfwGetWindowContentScale(window, &xscale, &yscale);
-        }
-        if (xscale == 0) {
-            xscale = 1;  // set for pdf which has no glfw window backing
-            yscale = 1;
         }
 
         refSpace = fb_height * 0.02;

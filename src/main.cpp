@@ -50,9 +50,9 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> links = { "none", "sv", "all" };
     static const std::vector<std::string> backend = { "raster", "gpu" };
 
-    argparse::ArgumentParser program("gw", "0.3.0");
+    argparse::ArgumentParser program("gw", "0.3.1");
     program.add_argument("genome")
-            .required()
+            .default_value(std::string{""}).append()//.required()
             .help("Reference genome in .fasta format with .fai index file");
     program.add_argument("-b", "--bam")
             .default_value(std::string{""}).append()
@@ -161,13 +161,17 @@ int main(int argc, char *argv[]) {
     auto genome = program.get<std::string>("genome");
     if (iopts.references.find(genome) != iopts.references.end()){
         genome = iopts.references[genome];
-    } else if (!Utils::is_file_exist(genome)) {
+    } else if (!genome.empty() && !Utils::is_file_exist(genome)) {
         std::cerr << "Error: Genome not found" << std::endl;
-        abort();
+        std::exit(1);
     }
 
     std::vector<std::string> bam_paths;
     if (program.is_used("-b")) {
+        if (!program.is_used("genome")) {
+            std::cerr << "Error: please provide a reference genome if loading a bam file\n";
+            std::exit(1);
+        }
         bam_paths = program.get<std::vector<std::string>>("-b");
     }
 
@@ -534,8 +538,11 @@ int main(int argc, char *argv[]) {
                 pool.parallelize_loop(0, jobs.size(),
                                       [&](const int a, const int b) {
                                           Manager::GwPlot plt = Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
+
                                           plt.fb_width = iopts.dimensions.x;
                                           plt.fb_height = iopts.dimensions.y;
+                                          plt.initBack(iopts.dimensions.x, iopts.dimensions.y);
+
                                           sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
                                           SkCanvas *canvas = rasterSurface->getCanvas();
                                           for (int i = a; i < b; ++i) {
