@@ -455,10 +455,15 @@ namespace Manager {
         }
         std::vector<std::string> s = Utils::split(selectedAlign, '\t');
         if (!s[6].empty() && s[6] != "*") {
-            int p = std::stoi(s[7]);
+            int p;
+            try {
+                p = std::stoi(s[7]);
+            } catch (...) {
+                return;
+            }
             int b = (p - 500 > 0) ? p - 500 : 0;
             int e = p + 500;
-            mate = (s[6] == "=") ? (s[2] + ":" + std::to_string(b) + "-" + std::to_string(e)) : (s[6] + ":" + ":" + std::to_string(b) + "-" + std::to_string(e));
+            mate = (s[6] == "=") ? (s[2] + ":" + std::to_string(b) + "-" + std::to_string(e)) : (s[6] + ":" + std::to_string(b) + "-" + std::to_string(e));
             target_qname = s[0];
         }
     }
