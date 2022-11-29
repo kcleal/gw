@@ -302,6 +302,7 @@ namespace Themes {
             path = Utils::getExecutableDir() + "/.gw.ini";
         }
         if (path.empty()) {
+            theme = Themes::IgvTheme();
             return;
         }
 

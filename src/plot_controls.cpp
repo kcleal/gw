@@ -174,7 +174,7 @@ namespace Manager {
         }
     }
 
-    void GwPlot::highlightQname() {
+    void GwPlot::highlightQname() { // todo make this more efficient
         for (auto &cl : collections) {
             for (auto &a: cl.readQueue) {
                 if (bam_get_qname(a.delegate) == target_qname) {
@@ -449,6 +449,20 @@ namespace Manager {
         std::cout << std::endl << sam << std::endl << std::endl;
     }
 
+    void parseMateLocation(std::string &selectedAlign, std::string &mate, std::string &target_qname) {
+        if (selectedAlign.empty()) {
+            return;
+        }
+        std::vector<std::string> s = Utils::split(selectedAlign, '\t');
+        if (!s[6].empty() && s[6] != "*") {
+            int p = std::stoi(s[7]);
+            int b = (p - 500 > 0) ? p - 500 : 0;
+            int e = p + 500;
+            mate = (s[6] == "=") ? (s[2] + ":" + std::to_string(b) + "-" + std::to_string(e)) : (s[6] + ":" + ":" + std::to_string(b) + "-" + std::to_string(e));
+            target_qname = s[0];
+        }
+    }
+
     void help(Themes::IniOptions &opts) {
         std::cout << termcolor::italic << "\n* Enter a command by selecting the GW window (not the terminal) and type ':[COMMAND]' *\n" << termcolor::reset;
         std::cout << termcolor::underline << "\nCommand          Modifier        Description                                            \n" << termcolor::reset;
@@ -461,7 +475,7 @@ namespace Manager {
         std::cout << termcolor::green << "goto             loci index?     " << termcolor::reset << "e.g. ':goto chr1:1-20000'. Use index if multiple \n                                 regions are open e.g. ':goto 'chr1 20000' 1'\n";
         std::cout << termcolor::green << "link             [none/sv/all]   " << termcolor::reset << "Switch read-linking ':link all'\n";
         std::cout << termcolor::green << "log2-cov         [of/off]        " << termcolor::reset << "Scale coverage by log2 e.g. ':log2-cov on'\n";
-        std::cout << termcolor::green << "mate             add?            " << termcolor::reset << "Use ':mate' to navigate to mate-pair or ':mate add'    \n                                 to add a new region with mate location'\n";
+        std::cout << termcolor::green << "mate                             " << termcolor::reset << "Use ':mate' to navigate to mate-pair\n";
         std::cout << termcolor::green << "quit, q          -               " << termcolor::reset << "Quit GW\n";
         std::cout << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
         std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. ':rm 1'. To remove a bam \n                                 use the bam index ':rm bam0'\n";
@@ -549,6 +563,7 @@ namespace Manager {
                 target_qname = split.back();
             } else {
                 std::cerr << termcolor::red << "Error:" << termcolor::reset << " please provide one qname\n";
+                inputText = "";
                 return true;
             }
             redraw = true;
@@ -571,6 +586,7 @@ namespace Manager {
                     ind = std::stoi(split.back());
                 } catch (...) {
                     std::cerr << termcolor::red << "Error:" << termcolor::reset << " bam index not understood\n";
+                    inputText = "";
                     return true;
                 }
                 inputText = "";
@@ -585,6 +601,7 @@ namespace Manager {
                     ind = std::stoi(split.back());
                 } catch (...) {
                     std::cerr << termcolor::red << "Error:" << termcolor::reset << " region index not understood\n";
+                    inputText = "";
                     return true;
                 }
                 inputText = "";
@@ -633,6 +650,39 @@ namespace Manager {
             } else {
                 valid = false;
             }
+        } else if (Utils::startsWith(inputText, ":mate")) {
+
+            std::string mate;
+            parseMateLocation(selectedAlign, mate, target_qname);
+            if (mate.empty()) {
+                std::cerr << "Error: could not parse mate location\n";
+                inputText = "";
+                return true;
+            }
+            if (inputText == ":mate") {
+                if (regionSelection >= 0 && regionSelection < (int) regions.size()) {
+                    regions[regionSelection] = Utils::parseRegion(mate);
+                    processed = false;
+//                    collections.clear();
+                    for (auto &cl: collections) {
+                        if (cl.regionIdx == regionSelection) {
+                            cl.region = regions[regionSelection];
+                            cl.readQueue.clear();
+                            cl.covArr.clear();
+                            cl.levelsStart.clear();
+                            cl.levelsEnd.clear();
+                        }
+                    }
+                    processBam();
+                    processed = true;
+                    highlightQname();
+                    redraw = true;
+                    processed = true;
+                    inputText = "";
+                    return true;
+                }
+            }
+
         } else if (Utils::startsWith(inputText, ":theme")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             if (split.back() == "dark") {

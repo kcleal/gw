@@ -472,7 +472,6 @@ namespace Manager {
                         collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
                     }
                     HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index,opts, reg, opts.coverage, filters);
-
                     int maxY = Segs::findY(idx, collections[idx], collections[idx].readQueue, opts.link_op, opts, reg, linked, false);
                     if (maxY > samMaxY) {
                         samMaxY = maxY;
@@ -490,7 +489,6 @@ namespace Manager {
                     idx += 1;
                 }
             }
-
         }
     }
 
