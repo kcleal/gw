@@ -209,10 +209,10 @@ GW can be used on remote servers by using ``ssh -X`` when logging on to the serv
 When GW is run, the window will show up on your local screen. However performance will generally be slow and laggy.
 Instead, we recommend using the screen sharing tool `Xpra <https://xpra.org/>`_.
 
-Xpra will need to be installed on your local machine and your remote machine (xpra is available through conda on linux).
+Xpra will need to be installed on your local and remote machines (xpra is available through conda on linux).
 One the server side, start GW on port 100 using::
 
-    xpra start :100 --start="./gw/gw ref.fa -b your.bam -r chr1:50000-60000" --sharing=yes --daemon=no
+    xpra start :100 --start="gw ref.fa -b your.bam -r chr1:50000-60000" --sharing=yes --daemon=no
 
 You (or potentially multiple users) can view the GW window on your local machine using::
 
