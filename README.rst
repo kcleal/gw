@@ -16,6 +16,8 @@ GW is available on conda::
 
 GW is built using clang++/g++ and make and requires glfw3 and htslib to be available. To build from source use::
 
+    conda install glfw htslib
+    export CONDA_PREFIX=/pathTo/miniconda  # this may already be set
     git clone https://github.com/kcleal/gw.git && cd gw
     make prep && make
 
@@ -23,7 +25,7 @@ User Guide
 ==========
 
 Sequencing data
---------------------
+---------------
 To view a genomic region e.g. chr1:1-20000, supply an indexed reference genome and an alignment file (using -b option)::
 
     gw hg38.fa -b your.bam -r chr1:1-20000
@@ -53,7 +55,7 @@ To use this function apply the ``--no-show`` option along with an output folder 
     gw hg38.fa -b your.bam -r chr1:1-20000 --outdir . --no-show --fmt pdf
 
 Variant data
------------------
+-------------
 A variant file in .vcf/.bcf format can be opened in a GW window by either dragging-and-dropping or via the -v option::
 
     gw hg38.fa -b your.bam -v variants.vcf
@@ -145,10 +147,25 @@ are kept in the info column under ``GW_DATE``, ``GW_PREV``::
 Note, the ``--in-labels`` option is not required here, but could be used if labelling over multiple sessions, for example. Also,
 a GW window will still pop-up here, but this could be supressed using the ``--no-show option``.
 
+Viewing png images
+-------------------
+Images saved in .png format can be opened in a similar way to variant data, using the ``-i`` or ``--images`` option. Files are
+input using a glob pattern. For example all .png images in a folder called 'images' can be opened with::
+
+    gw -i "images/*.png"
+
+If you previously used GW to generate images from a vcf file (see example in Variant data section), any parsed-labels will be saved in the ``--outdir`` directory.
+For example if ``--outdir images`` was used when generating images, you can now view these images and labels using::
+
+  gw -i "images/*.png" --in-labels images/gw.parsed_labels.tsv
+
+To open one or more bam files alongside your images you will need to supply a reference genome. Right-clicking using the mouse will then switch between images and bam files::
+
+  gw hg38.fa -b your.bam -i "images/*.png"
 
 Filtering and counting
 ----------------------
-To help you focus on reads of interest, GW can filter reads using simple filter expressions provided via the ``:filter`` command (or ``--filter`` option). The syntax for a filter expression follows ``"{property} {operation} {value}"`` (the white-spaces are also needed). For example, here are some useful expressions::
+To focus on reads of interest, GW can filter reads using simple filter expressions provided via the ``:filter`` command (or ``--filter`` option). The syntax for a filter expression follows ``"{property} {operation} {value}"`` (the white-spaces are also needed). For example, here are some useful expressions::
 
     :filter mapq >= 20             # only reads with mapping quality >= 20 will be shown
     :filter flag & 2048            # only supplementary alignments are shown
@@ -188,8 +205,20 @@ Once reads have been filtered, you can try the ``:count`` command which will giv
 Remote
 ------
 
-GW can be used on remote servers. Simply use `ssh -X remote` when logging on to the server.
-When GW is run, the window will show up on your local screen.
+GW can be used on remote servers by using ``ssh -X`` when logging on to the server.
+When GW is run, the window will show up on your local screen. However performance will generally be slow and laggy.
+Instead, we recommend using the screen sharing tool `Xpra <https://xpra.org/>`_.
+
+Xpra will need to be installed on your local machine and your remote machine (xpra is available through conda on linux).
+One the server side, start GW on port 100 using::
+
+    xpra start :100 --start="./gw/gw ref.fa -b your.bam -r chr1:50000-60000" --sharing=yes --daemon=no
+
+You (or potentially multiple users) can view the GW window on your local machine using::
+
+    xpra attach ssh:ubuntu@18.234.114.252:102
+
+If you need to supply more options to the ssh command use the ``--ssh`` option e.g. ``xpra attach ssh:ubuntu@18.234.114.252:102 --ssh "ssh -o IdentitiesOnly=yes -i .ssh/dysgu.pem"``
 
 Config file
 -----------
