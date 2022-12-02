@@ -218,7 +218,7 @@ You (or potentially multiple users) can view the GW window on your local machine
 
     xpra attach ssh:ubuntu@18.234.114.252:102
 
-If you need to supply more options to the ssh command use the ``--ssh`` option e.g. ``xpra attach ssh:ubuntu@18.234.114.252:102 --ssh "ssh -o IdentitiesOnly=yes -i .ssh/dysgu.pem"``
+If you need to supply more options to the ssh command use e.g. ``xpra attach ssh:ubuntu@18.234.114.252:102 --ssh "ssh -o IdentitiesOnly=yes -i .ssh/dysgu.pem"``
 
 Config file
 -----------
