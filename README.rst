@@ -216,9 +216,9 @@ One the server side, start GW on port 100 using::
 
 You (or potentially multiple users) can view the GW window on your local machine using::
 
-    xpra attach ssh:ubuntu@18.234.114.252:102
+    xpra attach ssh:ubuntu@18.234.114.252:100
 
-If you need to supply more options to the ssh command use e.g. ``xpra attach ssh:ubuntu@18.234.114.252:102 --ssh "ssh -o IdentitiesOnly=yes -i .ssh/dysgu.pem"``
+The ``:100`` indicates the port. If you need to supply more options to the ssh command use e.g. ``xpra attach ssh:ubuntu@18.234.114.252:102 --ssh "ssh -o IdentitiesOnly=yes -i .ssh/dysgu.pem"``
 
 Config file
 -----------
