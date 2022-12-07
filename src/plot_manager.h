@@ -47,7 +47,6 @@ namespace Manager {
     class CloseException : public std::exception {};
 
     typedef ankerl::unordered_dense::map< std::string, std::vector<int>> map_t;
-//    typedef robin_hood::unordered_flat_map< const char *, std::vector<int>> map_t;
     typedef std::vector< map_t > linked_t;
 
     enum Show {
@@ -73,6 +72,7 @@ namespace Manager {
         ~GwPlot();
 
         int fb_width, fb_height;
+        int samMaxY;
         bool drawToBackWindow;
 
         std::string reference;
@@ -144,7 +144,7 @@ namespace Manager {
 
         void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string & rid, std::string &label, std::string &vartype);
 
-        int startUI(GrDirectContext* sContext, SkSurface *sSurface);
+        int startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay);
 
         void keyPress(GLFWwindow* window, int key, int scancode, int action, int mods);
 
@@ -190,11 +190,7 @@ namespace Manager {
 
         double xDrag, xOri, lastX;
 
-        int samMaxY;
-
         float yScaling;
-
-        linked_t linked;
 
         int blockStart, blockLen, regionSelection;
 

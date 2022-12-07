@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <iostream>
 #include <iterator>
+#include <cmath>
 #include <cstring>
 #include <ctime>
 #include <sstream>
@@ -323,6 +324,61 @@ namespace Utils {
         }
     }
 
+    std::string removeZeros(float value) {  // https://stackoverflow.com/questions/57882748/remove-trailing-zero-in-c
+        std::stringstream ss;
+        ss << std::fixed << std::setprecision(2) << value;
+        std::string str = ss.str();
+        if(str.find('.') != std::string::npos) {
+            str = str.substr(0, str.find_last_not_of('0')+1);
+            if(str.find('.') == str.size()-1) {
+                str = str.substr(0, str.size()-1);
+            }
+        }
+        return str;
+    }
+
+    std::string getSize(long num) {
+        int chars_needed = std::ceil(std::log10(num));
+        double d;
+        std::string a;
+        std::string b = " bp";
+        if (chars_needed > 3) {
+            if (chars_needed > 6) {
+                d = (double)num / 1e6;
+                d = std::ceil(d * 10) / 10;
+                a = removeZeros((float)d);
+                b = " mb";
+            } else {
+                d = (double)num / 1e3;
+                d = std::ceil(d * 10) / 10;
+                a = removeZeros((float)d);
+                b = " kb";
+            }
+        } else {
+            a = std::to_string(num);
+        }
+        return a + b;
+
+    }
+
+    void parseMateLocation(std::string &selectedAlign, std::string &mate, std::string &target_qname) {
+        if (selectedAlign.empty()) {
+            return;
+        }
+        std::vector<std::string> s = Utils::split(selectedAlign, '\t');
+        if (!s[6].empty() && s[6] != "*") {
+            int p;
+            try {
+                p = std::stoi(s[7]);
+            } catch (...) {
+                return;
+            }
+            int b = (p - 500 > 0) ? p - 500 : 0;
+            int e = p + 500;
+            mate = (s[6] == "=") ? (s[2] + ":" + std::to_string(b) + "-" + std::to_string(e)) : (s[6] + ":" + std::to_string(b) + "-" + std::to_string(e));
+            target_qname = s[0];
+        }
+    }
 
     int get_terminal_width() {
         // https://stackoverflow.com/questions/23369503/get-size-of-terminal-window-rows-columns

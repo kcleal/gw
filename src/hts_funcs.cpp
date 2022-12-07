@@ -11,7 +11,6 @@
 #include "htslib/sam.h"
 #include "htslib/tbx.h"
 #include "htslib/vcf.h"
-#include "htslib/synced_bcf_reader.h"
 
 #include "../include/BS_thread_pool.h"
 
@@ -25,6 +24,7 @@ namespace HGW {
     Segs::Align make_align(bam1_t* src) {
         Segs::Align a;
         a.delegate = src;
+        a.initialized = false;
         return a;
     }
 
@@ -94,7 +94,7 @@ namespace HGW {
         while (!readQueue.empty()) {
             Segs::Align &item = readQueue.back();
             if (item.cov_start > region->end + 1000) {
-                if (item.y != -1) {
+                if (item.y >= 0 && !col.levelsEnd.empty()) {
                     col.levelsEnd[item.y] = item.cov_start - 1;
                 }
                 readQueue.pop_back();
@@ -105,7 +105,7 @@ namespace HGW {
         int idx = 0;
         for (auto &item : readQueue) {  // drop out of scope reads
             if (item.cov_end < region->start - 1000) {
-                if (item.y != -1) {
+                if (item.y >= 0 && !col.levelsStart.empty()) {
                     col.levelsStart[item.y] = item.cov_end + 1;
                 }
                 bam_destroy1(item.delegate);
@@ -128,13 +128,13 @@ namespace HGW {
     }
 
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
-                                 hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, Segs::linked_t &linked, int *samMaxY,
+                                 hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *samMaxY,
                                 std::vector<Parse::Parser> &filters) {
-
         bam1_t *src;
         hts_itr_t *iter_q;
         std::vector<Segs::Align>& readQueue = col.readQueue;
         Utils::Region *region = &col.region;
+
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         int lastPos;
         if (!readQueue.empty()) {
@@ -175,17 +175,11 @@ namespace HGW {
                 std::fill(col.levelsEnd.begin(), col.levelsEnd.end(), 0);
                 end_r = region->end;
             } else {
-//                end_r = region->end; //readQueue.front().reference_end; //pos;
                 end_r = readQueue.front().reference_end;
                 if (end_r < region->start) {
                     return; // reads are already in the queue
                 }
             }
-
-//            std::cout << std::endl;
-//            for (auto &itm : col.levelsEnd) {
-//                std::cout << itm << ", ";
-//            }; std::cout << std::endl;
 
             // not sure why this is needed. Without the left pad, some alignments are not collected for small regions??
             long begin = (region->start - 1000) > 0 ? region->start - 1000 : 0;
@@ -267,11 +261,15 @@ namespace HGW {
             }
 
             Segs::init_parallel(newReads, opts.threads);
-            if (col.vScroll == 0) {
-                int maxY = Segs::findY(col.bamIdx, col, newReads, opts.link_op, opts, region, linked, left);
+
+            bool findYall = false;
+            if (col.vScroll == 0 && opts.link_op == 0) {  // only new reads need findY, otherwise, reset all below
+                int maxY = Segs::findY(col, newReads, opts.link_op, opts, region,  left);
                 if (maxY > *samMaxY) {
                     *samMaxY = maxY;
                 }
+            } else {
+                findYall = true;
             }
 
             if (!left) {
@@ -280,13 +278,26 @@ namespace HGW {
                 std::move(readQueue.begin(), readQueue.end(), std::back_inserter(newReads));
                 col.readQueue = newReads;
             }
-
-            if (col.vScroll > 0) {
+            if (findYall) {
                 col.levelsStart.clear();
                 col.levelsEnd.clear();
-                int maxY = Segs::findY(col.bamIdx, col, col.readQueue, opts.link_op, opts, region, linked, left);
+                int maxY = Segs::findY(col, col.readQueue, opts.link_op, opts, region, left);
                 if (maxY > *samMaxY) {
                     *samMaxY = maxY;
+                }
+            }
+            if (opts.link_op > 0) {
+                // move of data will invalidate some pointers, so reset
+                col.linked.clear();
+                int linkType = opts.link_op;
+                for (auto &v : col.readQueue) {
+                    if (linkType == 1) {
+                        if (v.has_SA || ~v.delegate->core.flag & 2) {
+                            col.linked[bam_get_qname(v.delegate)].push_back(&v);
+                        }
+                    } else {
+                        col.linked[bam_get_qname(v.delegate)].push_back(&v);
+                    }
                 }
             }
 

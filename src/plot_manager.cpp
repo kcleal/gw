@@ -83,7 +83,6 @@ namespace Manager {
             tracks[i].open(tp, true);
             i += 1;
         }
-        linked.resize(bams.size());
         samMaxY = 0;
         yScaling = 0;
         captureText = shiftPress = ctrlPress = processText = false;
@@ -130,7 +129,7 @@ namespace Manager {
             std::terminate();
         }
 
-        glfwWindowHint(GLFW_STENCIL_BITS, 8);
+//         glfwWindowHint(GLFW_STENCIL_BITS, 8);
 
         window = glfwCreateWindow(width, height, "GW", NULL, NULL);
 
@@ -343,7 +342,7 @@ namespace Manager {
         }
     }
 
-    int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface) {
+    int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay) {
 
         std::cout << "Type ':help' or ':h' for more info\n";
 
@@ -367,6 +366,9 @@ namespace Manager {
                 break;
             }
             glfwWaitEvents();
+            if (delay > 0) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+            }
             if (redraw) {
                 if (mode == Show::SINGLE) {
                     drawScreen(sSurface->getCanvas(), sContext);
@@ -441,10 +443,6 @@ namespace Manager {
 
     void GwPlot::processBam() {  // collect reads, calc coverage and find y positions on plot
         if (!processed) {
-            if (opts.link_op != 0) {
-                linked.clear();
-                linked.resize(bams.size() * regions.size());
-            }
             int idx = 0;
             if (collections.size() != bams.size() * regions.size()) {
                 collections.clear();
@@ -455,6 +453,7 @@ namespace Manager {
                     cl.covArr.clear();
                     cl.levelsStart.clear();
                     cl.levelsEnd.clear();
+                    cl.linked.clear();
                 }
             }
 
@@ -472,7 +471,7 @@ namespace Manager {
                         collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
                     }
                     HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index,opts, reg, opts.coverage, filters);
-                    int maxY = Segs::findY(idx, collections[idx], collections[idx].readQueue, opts.link_op, opts, reg, linked, false);
+                    int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts, reg, false);
                     if (maxY > samMaxY) {
                         samMaxY = maxY;
                     }
@@ -561,7 +560,7 @@ namespace Manager {
             if (opts.coverage) {
                 Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
             }
-            Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op, refSpace);
+            Drawing::drawBams(opts, collections, canvas, yScaling, fonts, opts.link_op, refSpace);
             Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size());
             Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
             Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
@@ -709,7 +708,7 @@ namespace Manager {
         if (opts.coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
-        Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op, refSpace);
+        Drawing::drawBams(opts, collections, canvas, yScaling, fonts, opts.link_op, refSpace);
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size());
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
@@ -723,7 +722,7 @@ namespace Manager {
         if (opts.coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
-        Drawing::drawBams(opts, collections, canvas, yScaling, fonts, linked, opts.link_op, refSpace);
+        Drawing::drawBams(opts, collections, canvas, yScaling, fonts, opts.link_op, refSpace);
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size());
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);

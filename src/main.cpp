@@ -22,6 +22,9 @@
 
 #ifdef __APPLE__
     #include <OpenGL/gl.h>
+#elif defined(__linux__)
+    #include <GL/gl.h>
+    #include <GL/glx.h>
 #endif
 #include "GLFW/glfw3.h"
 #define SK_GL
@@ -33,6 +36,8 @@
 #include "include/core/SkSurface.h"
 #include "include/core/SkDocument.h"
 #include "include/docs/SkPDFDocument.h"
+
+
 
 
 // skia context has to be managed from global space to work
@@ -147,6 +152,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("--filter")
             .default_value(std::string{""}).append()
             .help("Filter to apply to all reads");
+    program.add_argument("--delay")
+            .default_value(0).append().scan<'i', int>()
+            .help("Delay in milliseconds before each update, useful for remote connections");
 
     // check input for errors and merge input options with IniOptions
     try {
@@ -306,32 +314,72 @@ int main(int argc, char *argv[]) {
         int fb_height, fb_width;
         glfwGetFramebufferSize(plotter.window, &fb_width, &fb_height);
 
+        sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
 
-        sContext = GrDirectContext::MakeGL(nullptr).release();
+        if (!interface || !interface->validate()) {
+            GLint param;
+            std::cerr << "Error: skia GrGLInterface was not valid" << std::endl;
+            if (!interface) {
+                std::cerr << "    GrGLMakeNativeInterface() returned nullptr" << std::endl;
+                std::cerr << "    GrGLInterface probably missing some GL functions" << std::endl;
+            } else {
+                std::cerr << "    fStandard was " << interface->fStandard << std::endl;
+            }
+            std::cerr << "    Details of the glfw framebuffer were as follow:\n";
+            glGetIntegerv(GL_RED_BITS, &param); std::cerr << "    GL_RED_BITS " << param << std::endl;
+            glGetIntegerv(GL_GREEN_BITS, &param); std::cerr << "    GL_GREEN_BITS " << param << std::endl;
+            glGetIntegerv(GL_BLUE_BITS, &param); std::cerr << "    GL_BLUE_BITS " << param << std::endl;
+            glGetIntegerv(GL_ALPHA_BITS, &param); std::cerr << "    GL_ALPHA_BITS " << param << std::endl;
+            glGetIntegerv(GL_DEPTH_BITS, &param); std::cerr << "    GL_DEPTH_BITS " << param << std::endl;
+            glGetIntegerv(GL_STENCIL_BITS, &param); std::cerr << "    GL_STENCIL_BITS " << param << std::endl;
+            std::cerr << "GL error code: " << glGetError() << std::endl;
+            std::terminate();
+        }
+
+        sContext = GrDirectContext::MakeGL(interface).release();
+        if (!sContext) {
+            std::cerr << "Error: could not create skia context using MakeGL\n";
+            std::terminate();
+        }
 
         GrGLFramebufferInfo framebufferInfo;
         framebufferInfo.fFBOID = 0;
-        framebufferInfo.fFormat = GL_RGBA8;  // GL_SRGB8_ALPHA8; //
-        GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
-        if (!backendRenderTarget.isValid()) {
-            std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
-            glfwTerminate();
-            std::terminate();
+
+        constexpr int fbFormats[2] = {GL_RGBA8, GL_RGB8};  // GL_SRGB8_ALPHA8
+        constexpr SkColorType colorTypes[2] = {kRGBA_8888_SkColorType, kRGB_888x_SkColorType};
+        int valid = false;
+        for (int i=0; i < 2; ++i) {
+            framebufferInfo.fFormat = fbFormats[i];  // GL_SRGB8_ALPHA8; //
+            GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
+            if (!backendRenderTarget.isValid()) {
+                std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
+                glfwTerminate();
+                std::terminate();
+            }
+            sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
+                                                              backendRenderTarget,
+                                                              kBottomLeft_GrSurfaceOrigin,
+                                                              colorTypes[i], //kRGBA_8888_SkColorType,
+                                                              nullptr,
+                                                              nullptr).release();
+            if (!sSurface) {
+                std::stringstream sstream;
+                sstream << std::hex << fbFormats[i];
+                std::string result = sstream.str();
+                std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format was 0x" << result << std::endl;
+                continue;
+            }
+            valid = true;
+            break;
         }
-        sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
-                                                          backendRenderTarget,
-                                                          kBottomLeft_GrSurfaceOrigin,
-                                                          kRGBA_8888_SkColorType,
-                                                          nullptr,
-                                                          nullptr).release();
-        if (!sSurface) {
-            std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
-            sContext->releaseResourcesAndAbandonContext();
+        if (!valid) {
+            std::cerr << "ERROR: could not create a valid frame buffer\n";
             std::terminate();
         }
 
+
         if (!program.is_used("--variants") && !program.is_used("--images")) {
-            int res = plotter.startUI(sContext, sSurface);  // plot regions
+            int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));  // plot regions
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
                 std::terminate();
@@ -354,7 +402,7 @@ int main(int argc, char *argv[]) {
             plotter.setVariantFile(v, iopts.start_index, cacheStdin);
             plotter.mode = Manager::Show::TILED;
 
-            int res = plotter.startUI(sContext, sSurface);
+            int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
                 std::terminate();
@@ -399,7 +447,7 @@ int main(int argc, char *argv[]) {
 
             plotter.mode = Manager::Show::TILED;
 
-            int res = plotter.startUI(sContext, sSurface);
+            int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
                 std::terminate();

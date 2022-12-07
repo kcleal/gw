@@ -39,9 +39,7 @@
 #include "hts_funcs.h"
 #include "drawing.h"
 
-//#include "utils.h"
-//#include "segments.h"
-//#include "themes.h"
+
 
 
 namespace Drawing {
@@ -408,7 +406,7 @@ namespace Drawing {
     }
 
     void drawBams(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
-                  SkCanvas *canvas, float yScaling, const Themes::Fonts &fonts, const Segs::linked_t &linked, int linkOp, float refSpace) {
+                  SkCanvas *canvas, float yScaling, const Themes::Fonts &fonts, int linkOp, float refSpace) {
 
         SkPaint faceColor;
         SkPaint edgeColor;
@@ -787,27 +785,27 @@ namespace Drawing {
         }
 
         // draw connecting lines between linked alignments
+
         if (linkOp > 0) {
-            for (int idx=0; idx < (int)linked.size(); ++idx) {
-                Segs::map_t lm = linked[idx];
-                if (!linked.empty()) {
+            for (auto const &rc: collections) {
+
+                if (!rc.linked.empty()) {
+                    const Segs::map_t &lm = rc.linked;
                     SkPaint paint;
                     for (auto const& keyVal : lm) {
-                        const std::vector<int> &ind = keyVal.second;
+                        const std::vector<Segs::Align *> &ind = keyVal.second;
                         int size = (int)ind.size();
                         if (size > 1) {
-                            const Segs::ReadCollection & rc = collections[idx];
                             float max_x = rc.xOffset + (((float)rc.region.end - (float)rc.region.start) * rc.xScaling);
-
                             for (int jdx=0; jdx < size - 1; ++jdx) {
-                                const Segs::Align &segA = rc.readQueue[ind[jdx]];
-                                const Segs::Align &segB = rc.readQueue[ind[jdx + 1]];
-                                if (segA.y == -1 || segB.y == -1 || (segA.delegate->core.tid != segB.delegate->core.tid)) {
-                                    continue;
-                                }
-                                long cstart = std::min(segA.block_ends.front(), segB.block_ends.front());
-                                long cend = std::max(segA.block_starts.back(), segB.block_starts.back());
 
+                                const Segs::Align *segA = ind[jdx];
+                                const Segs::Align *segB = ind[jdx + 1];
+
+                                if (segA->y == -1 || segB->y == -1 || segA->block_ends.empty() || segB->block_ends.empty() || (segA->delegate->core.tid != segB->delegate->core.tid)) { continue; }
+
+                                long cstart = std::min(segA->block_ends.front(), segB->block_ends.front());
+                                long cend = std::max(segA->block_starts.back(), segB->block_starts.back());
                                 double x_a = ((double)cstart - (double)rc.region.start) * rc.xScaling;
                                 double x_b = ((double)cend - (double)rc.region.start) * rc.xScaling;
 
@@ -817,9 +815,9 @@ namespace Drawing {
                                 x_b += rc.xOffset;
                                 x_a = (x_a > max_x) ? max_x : x_a;
                                 x_b = (x_b > max_x) ? max_x : x_b;
-                                float y = ((float)segA.y * yScaling) + ((polygonHeight / 2) * yScaling) + rc.yOffset;
+                                float y = ((float)segA->y * yScaling) + ((polygonHeight / 2) * yScaling) + rc.yOffset;
 
-                                switch (segA.orient_pattern) {
+                                switch (segA->orient_pattern) {
                                     case Segs::DEL: paint = theme.fcDel; break;
                                     case Segs::DUP: paint = theme.fcDup; break;
                                     case Segs::INV_F: paint = theme.fcInvF; break;

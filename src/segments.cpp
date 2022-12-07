@@ -4,7 +4,6 @@
 #include <vector>
 #include <fstream>
 
-//#include "plot_manager.h"
 #include "segments.h"
 #include "utils.h"
 
@@ -180,35 +179,6 @@ namespace Segs {
                     break;
             }
 
-//            if (op == BAM_CSOFT_CLIP) {
-//                if (k == 0) {
-//                    self->cov_start -= l;
-//                    self->left_soft_clip = l;
-//
-//                } else {
-//                    self->cov_end += l;
-//                    self->right_soft_clip = l;
-//                }
-//            } else if (op == BAM_CINS) {
-//                self->any_ins.push_back({pos, l});
-//            } else if (op == BAM_CHARD_CLIP && k == 0) {
-//                self->left_hard_clip = l;
-//            }
-//
-//            else if (op == BAM_CMATCH || op == BAM_CEQUAL || op == BAM_CDIFF) {
-//                if (last_op == 1) {
-//                    if (!self->block_ends.empty() ) {
-//                        self->block_ends.back() = pos + l;
-//                    }
-//                } else {
-//                    self->block_starts.push_back(pos);
-//                    self->block_ends.push_back(pos + l);
-//                }
-//                pos += l;
-//            } else if (op == BAM_CDEL || op == BAM_CREF_SKIP) {
-//                pos += l;
-//            }
-
             last_op = op;
         }
 
@@ -264,42 +234,8 @@ namespace Segs {
                     } else if (info == 32) {
                         ptrn = DUP;
                     }
-
                 }
 
-//                if (self->pos <= src->core.mpos) {
-//                    if (~flag & 16) {
-//                        if (flag & 32) {
-//                            if (~flag & 2) {
-//                                ptrn = DEL;
-//                            }
-//                        } else {
-//                            ptrn = INV_F;
-//                        }
-//                    } else {
-//                        if (flag & 32) {
-//                            ptrn = INV_R;
-//                        } else {
-//                            ptrn = DUP;
-//                        }
-//                    }
-//                } else {
-//                    if (flag & 16) {
-//                        if (~flag & 32) {
-//                            if (~flag & 2) {
-//                                ptrn = DEL;
-//                            }
-//                        } else {
-//                            ptrn = INV_F;
-//                        }
-//                    } else {
-//                        if (~flag & 32) {
-//                            ptrn = INV_R;
-//                        } else {
-//                            ptrn = DUP;
-//                        }
-//                    }
-//                }
             } else {
                 ptrn = TRA;
             }
@@ -352,6 +288,18 @@ namespace Segs {
         vScroll = 0;
     }
 
+    void resetCovStartEnd(ReadCollection &cl) {
+        for (auto &a: cl.readQueue) {
+            a.cov_start = (a.left_soft_clip == 0) ? (int)a.pos : (int)a.pos - a.left_soft_clip;
+            a.cov_end = (a.right_soft_clip == 0) ? (int)a.reference_end : (int)a.reference_end + a.right_soft_clip;
+            if (a.delegate->core.flag & 16) {
+                a.cov_start -= 1;
+            } else {
+                a.cov_end += 1;
+            }
+        }
+    }
+
     void addToCovArray(std::vector<int> &arr, Align &align, uint32_t begin, uint32_t end, uint32_t l_arr) {
         size_t n_blocks = align.block_starts.size();
         for (size_t idx=0; idx < n_blocks; ++idx) {
@@ -366,49 +314,57 @@ namespace Segs {
         }
     }
 
-    int findY(int bamIdx, ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, Utils::Region *region, linked_t &linked, bool joinLeft) {
+    int findY(ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, Utils::Region *region, bool joinLeft) {
 
         if (rQ.empty()) {
             return 0;
         }
         int vScroll = rc.vScroll;
-        Align *q_ptr = &rQ.front();
+        Align *q_ptr;
         const char *qname = nullptr;
-        Segs::map_t & lm = linked[bamIdx];
+        Segs::map_t &lm = rc.linked;  // pointers to alignments with same qname
+        ankerl::unordered_dense::map< std::string, int > linkedSeen;  // Mapping of qname to y value
 
         int i;
         // first find reads that should be linked together using qname
         if (linkType > 0) {
+            lm.clear();
+            q_ptr = &rc.readQueue.front();
             // find the start and end coverage locations of aligns with same name
-            for (i=0; i < (int)rQ.size(); ++i) {
+            for (i=0; i < (int)rc.readQueue.size(); ++i) {
                 qname = bam_get_qname(q_ptr->delegate);
                 if (linkType == 1) {
                     uint32_t flag = q_ptr->delegate->core.flag;
                     if (q_ptr->has_SA || ~flag & 2) {
-                        lm[qname].push_back(i);
+                        lm[qname].push_back(q_ptr);
                     }
                 } else {
-                    lm[qname].push_back(i);
+                    lm[qname].push_back(q_ptr);
                 }
                 ++q_ptr;
             }
 
+            if (opts.link_op > 0) {
+                for (auto &v: rc.readQueue) {  // y value will be reset
+                    v.y = -1;
+                }
+            }
+
             // set all aligns with same name to have the same start and end coverage locations
             for (auto const& keyVal : lm) {
-                const std::vector<int> &ind = keyVal.second;
+                const std::vector<Align *> &ind = keyVal.second;
                 int size = (int)ind.size();
                 if (size > 1) {
-                    uint32_t cs = rQ[ind.front()].cov_start;
-                    uint32_t ce = rQ[ind.back()].cov_end;
-                      for (auto const j : ind) {
-                          rQ[j].cov_start = cs;
-                          rQ[j].cov_end = ce;
+                    uint32_t cs = ind.front()->cov_start;
+                    uint32_t ce = ind.back()->cov_end;
+                    for (auto const j : ind) {
+                        j->cov_start = cs;
+                        j->cov_end = ce;
                     }
                 }
             }
         }
 
-        ankerl::unordered_dense::map< std::string, int > linkedSeen;  // Mapping of qname to y value
         std::vector<int> &ls = rc.levelsStart;
         std::vector<int> &le = rc.levelsEnd;
 
@@ -437,13 +393,23 @@ namespace Segs {
             si += move;
             if (linkType > 0) {
                 qname = bam_get_qname(q_ptr->delegate);
-                if (linkedSeen.contains(qname)) {
+                if (linkedSeen.find(qname) != linkedSeen.end()) {
+
                     q_ptr->y = linkedSeen[qname];
+//                    if (!joinLeft) {
+//                        if (q_ptr->cov_start > le[q_ptr->y]) {
+//                            le[q_ptr->y] = q_ptr->cov_end;
+//                            if (q_ptr->cov_start < ls[q_ptr->y]) {
+//                                ls[q_ptr->y] = q_ptr->cov_start;
+//                            }
+//                        }
+//                    } else {
+//                    }
+
                     q_ptr += move;
                     continue;
                 }
             }
-
             if (!joinLeft) {
                 for (i=0; i < memLen; ++i) {
                     if (q_ptr->cov_start > le[i]) {
@@ -454,14 +420,14 @@ namespace Segs {
                         if (i >= vScroll) {
                             q_ptr->y = i - vScroll;
                         }
-                        if (linkType > 0 && lm.contains(qname)) {
+                        if (linkType > 0 && lm.find(qname) != lm.end()) {
                             linkedSeen[qname] = q_ptr->y;
                         }
                         break;
                     }
                 }
-                if (i == memLen && linkType > 0 && lm.contains(qname)) {
-                    linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
+                if (i == memLen && linkType > 0 && lm.find(qname) != lm.end()) {
+                     linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
                 }
                 q_ptr += move;
 
@@ -475,20 +441,20 @@ namespace Segs {
                         if (i >= vScroll) {
                             q_ptr->y = i - vScroll;
                         }
-                        if (linkType > 0 && lm.contains(qname)) {
+                        if (linkType > 0 && lm.find(qname) != lm.end()) {
                             linkedSeen[qname] = q_ptr->y;
                         }
                         break;
                     }
                 }
-                if (i == memLen && linkType > 0 && lm.contains(qname)) {
+                if (i == memLen && linkType > 0 && lm.find(qname) != lm.end()) {
                     linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
                 }
+
 //                std::string qnamestr = bam_get_qname(q_ptr->delegate);
-////                std::cout << "\n idx 39 is " << ls[39] << std::endl;
 //
-//                if (qnamestr == "HISEQ1:11:H8GV6ADXX:1:1105:8878:96886" && q_ptr->delegate->core.flag == 163 ) {
-//                    std::cout << "\nn reads " << rQ.size() << std::endl;
+//                if (qnamestr == "D00360:19:H8VDAADXX:2:2203:6435:13924" && q_ptr->delegate->core.flag == 147 ) {
+//                    std::cout << "\n n reads " << rQ.size() << std::endl;
 //                    std::cout << "\n idx " << q_ptr->y <<  " " << bam_get_qname(q_ptr->delegate) << " at pos " << q_ptr->pos << std::endl;
 //                    int ii = 0;
 //                    std::cout << "\n" << q_ptr->y << std::endl;
@@ -496,11 +462,11 @@ namespace Segs {
 //                        std::cout << ii << ": "  << itm <<  ", ";
 //                        ii += 1;
 //                    }
-//                    std::cout << std::endl;
 //                }
 
                 q_ptr += move;
             }
+
         }
 
         int samMaxY;
@@ -526,4 +492,5 @@ namespace Segs {
         }
         return samMaxY;
     }
+
 }

@@ -96,6 +96,10 @@ namespace Utils {
     void openLabels(std::string path, ankerl::unordered_dense::map< std::string, Utils::Label> &label_dict,
                     std::vector<std::string> &inputLabels, robin_hood::unordered_set<std::string> &seenLabels);
 
+    std::string getSize(long num);
+
+    void parseMateLocation(std::string &selectedAlign, std::string &mate, std::string &target_qname);
+
     int get_terminal_width();
 
 }

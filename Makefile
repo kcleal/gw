@@ -1,6 +1,6 @@
 TARGET = gw
 
-CXXFLAGS += -Wall -std=c++17  -fno-common -dynamic -fwrapv -O3 -DNDEBUG  # -g
+CXXFLAGS += -Wall -std=c++17  -fno-common -dynamic -fwrapv -O1 # -DNDEBUG # -g
 
 CPPFLAGS += -I./include -I./src -I. -I./gw -I/usr/local/include
 
@@ -62,7 +62,7 @@ else
     endif
     ifeq ($(UNAME_S),Darwin)
     	IS_DARWIN = 1
-        CXXFLAGS += -D OSX -stdlib=libc++ -arch x86_64 -fvisibility=hidden -mmacosx-version-min=10.15
+        CXXFLAGS += -D OSX -stdlib=libc++ -arch x86_64 -fvisibility=hidden -mmacosx-version-min=10.15 -Wno-deprecated-declarations
         SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-x64.zip
     endif
     ifeq ($(UNAME_S),arm64)

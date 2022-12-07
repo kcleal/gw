@@ -7,6 +7,9 @@
 #include <iostream>
 #include <vector>
 
+#include <deque>
+#include <unordered_map>
+
 #include "../include/BS_thread_pool.h"
 #include "../include/robin_hood.h"
 #include "../include/unordered_dense.h"
@@ -18,10 +21,6 @@
 
 
 namespace Segs {
-
-    typedef ankerl::unordered_dense::map< std::string, std::vector<int>> map_t;
-//    typedef robin_hood::unordered_map< const char *, std::vector<int> > map_t;
-    typedef std::vector< map_t > linked_t;
 
     enum Pattern {
         NORMAL,
@@ -71,6 +70,12 @@ namespace Segs {
         std::vector<MMbase> mismatches;
     };
 
+    //    typedef std::unordered_map< std::string, std::deque<int>> map_t;
+//    typedef ankerl::unordered_dense::map< std::string, std::deque<int>> map_t;
+//    typedef robin_hood::unordered_map< const char *, std::vector<int> > map_t;
+    typedef ankerl::unordered_dense::map< std::string, std::vector< Align* >> map_t;
+//    typedef std::vector< map_t > linked_t;
+
     class ReadCollection {
     public:
        ReadCollection();
@@ -80,15 +85,17 @@ namespace Segs {
         std::vector<int> covArr;
         std::vector<int> levelsStart, levelsEnd;
         std::vector<Align> readQueue;
+        map_t linked;
         float xScaling, xOffset, yOffset, yPixels;
         bool processed;
     };
 
-    void init_parallel(std::vector<Align> &aligns, int n); //const char *refSeq, int begin, int rlen);
+    void init_parallel(std::vector<Align> &aligns, int n);
+
+    void resetCovStartEnd(ReadCollection &cl);
 
     void addToCovArray(std::vector<int> &arr, Align &align, uint32_t begin, uint32_t end, uint32_t l_arr);
 
-    int findY(int bamIdx, ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, Utils::Region *region, linked_t &linked, bool joinLeft);
+    int findY(ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, Utils::Region *region, bool joinLeft);
 
-    void dropOutOfScope(std::vector< Utils::Region > &regions, std::vector< Segs::ReadCollection >& rcs, size_t nBams);
 }
