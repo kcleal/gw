@@ -207,7 +207,7 @@ namespace Manager {
 
         void drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
-        bool registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
+        void registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
 
         bool commandProcessed();
 

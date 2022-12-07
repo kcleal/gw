@@ -35,13 +35,13 @@
 namespace Manager {
 
     // keeps track of input commands
-    bool GwPlot::registerKey(GLFWwindow* wind, int key, int scancode, int action, int mods) {
+    void GwPlot::registerKey(GLFWwindow* wind, int key, int scancode, int action, int mods) {
         if (action == GLFW_RELEASE) {
             if ((key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) && !captureText) {
                 shiftPress = false;
             }
             ctrlPress = false;
-            return false;
+            return;
         }
         if (key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) {
             shiftPress = true;
@@ -59,7 +59,7 @@ namespace Manager {
                 processText = true;
                 shiftPress = false;
                 std::cout << "\n";
-                return false;
+                return;
             }
 
             if (!commandHistory.empty()) {
@@ -69,25 +69,25 @@ namespace Manager {
                     charIndex = inputText.size();
                     Term::clearLine();
                     std::cout << "\r" << inputText << std::flush;
-                    return true;
+                    return;
                 } else if (key == GLFW_KEY_DOWN && commandIndex < (int)commandHistory.size() - 1) {
                     commandIndex += 1;
                     inputText = commandHistory[commandIndex];
                     charIndex = inputText.size();
                     Term::clearLine();
                     std::cout << "\r" << inputText << std::flush;
-                    return true;
+                    return;
                 }
             }
 
             if (key == GLFW_KEY_LEFT) {
                 charIndex = (charIndex - 1 >= 0) ? charIndex - 1 : charIndex;
                 std::cout << "\r" << inputText.substr(0, charIndex) << "_" << inputText.substr(charIndex, inputText.size()) << std::flush;
-                return true;
+                return;
             } else if (key == GLFW_KEY_RIGHT) {
                 charIndex = (charIndex < (int)inputText.size()) ? charIndex + 1 : charIndex;
                 std::cout << "\r" << inputText.substr(0, charIndex) << "_" << inputText.substr(charIndex, inputText.size()) << std::flush;
-                return true;
+                return;
             }
 
             if (key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_LEFT_SUPER) {
@@ -104,7 +104,7 @@ namespace Manager {
                 }
             } else {  // character entry
                 if (key == GLFW_KEY_SEMICOLON && inputText.size() == 1) {
-                    return true;
+                    return;
                 } else if (key == GLFW_KEY_BACKSPACE) {
                     if (inputText.size() > 1) {
                         inputText.erase(charIndex - 1, 1);
@@ -139,9 +139,9 @@ namespace Manager {
                     }
                 }
             }
-            return true;
+            return;
         }
-        return true;
+        return;
     }
 
     void GwPlot::highlightQname() { // todo make this more efficient
@@ -352,6 +352,7 @@ namespace Manager {
                     return true;
                 } else if (inputText == ":mate add") {
                     regions.push_back(Utils::parseRegion(mate));
+                    fetchRefSeq(regions.back());
                     processed = false;
                     processBam();
                     processed = true;
@@ -442,7 +443,7 @@ namespace Manager {
         }
 
         // decide if the input key is part of a command or a redraw request
-        bool res = registerKey(window, key, scancode, action, mods);
+        registerKey(window, key, scancode, action, mods);
         if (captureText) {
             return;
         }

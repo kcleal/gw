@@ -1,8 +1,8 @@
 TARGET = gw
 
-CXXFLAGS += -Wall -std=c++17  -fno-common -dynamic -fwrapv -O1 # -DNDEBUG # -g
+CXXFLAGS += -Wall -std=c++17  -fno-common -dynamic -fwrapv -O3 -DNDEBUG # -g
 
-CPPFLAGS += -I./include -I./src -I. -I./gw -I/usr/local/include
+CPPFLAGS += -I./include -I./src -I. -I/usr/local/include
 
 LDLIBS += -lskia -lm -ldl -licu -ljpeg -lpng -lsvg -lzlib -lhts -lfontconfig -lpthread -lglfw
 

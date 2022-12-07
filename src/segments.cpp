@@ -44,9 +44,9 @@ namespace Segs {
         uint32_t opp, c_idx, s_idx, c_s_idx;
         auto md_l = (int)strlen(md_tag);
         std::deque<QueueItem> ins_q;
-        MdBlock md_block;
+        MdBlock md_block{};
         get_md_block(md_tag, 0, md_l, &md_block);
-        if (md_block.md_idx == md_l) {
+        if (md_block.md_idx == (uint32_t)md_l) {
             return;
         }
         c_idx = 0;  // the cigar index
@@ -82,7 +82,7 @@ namespace Segs {
 
             while (true) {   // consume md tag until deletion reached
                 if (!md_block.is_mm) {  // deletion or end or md tag
-                    if (md_block.md_idx == md_l) {
+                    if (md_block.md_idx == (uint32_t)md_l) {
                         return;
                     }
                     s_idx = c_s_idx;
