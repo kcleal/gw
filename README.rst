@@ -205,12 +205,11 @@ Once reads have been filtered, you can try the ``:count`` command which will giv
 Remote
 ------
 
-GW can be used on remote servers by using ``ssh -X`` when logging on to the server.
-When GW is run, the window will show up on your local screen. However performance will generally be slow and laggy.
-Instead, we recommend using the screen sharing tool `Xpra <https://xpra.org/>`_.
+GW can be used on remote servers by using ``ssh -X`` when logging on to the server, a GW window will show up on your local screen. However performance will generally be slow and laggy. We recommend adding an update delay (in miliseconds) using ``gw --delay 100 ...`` which can help prevent bandwidth/latency issues.
 
-Xpra will need to be installed on your local and remote machines (xpra is available through conda on linux).
-One the server side, start GW on port 100 using::
+Alternatively, the screen sharing tool `Xpra <https://xpra.org/>`_ can offer much better performance for rendering over a remote connecion.
+
+Xpra will need to be installed on local and remote machines. One way to use Xpra is to start GW on port 100 (on remote machine) using::
 
     xpra start :100 --start="gw ref.fa -b your.bam -r chr1:50000-60000" --sharing=yes --daemon=no
 
