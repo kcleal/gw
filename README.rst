@@ -10,9 +10,13 @@ allows you to view and annotate variants from vcf/bcf files. Check out the examp
 
 Installing GW
 --------------
-GW is available on conda::
+GW is available on conda for linux/mac systems::
 
     conda install -c bioconda gw
+
+Or GW can be used from a docker container (instructions found `here <https://hub.docker.com/repository/docker/kcleal/gw/>`_)::
+
+  docker pull kcleal/gw
 
 GW is built using clang++/g++ and make and requires glfw3 and htslib to be available. To build from source use::
 
@@ -218,6 +222,7 @@ You (or potentially multiple users) can view the GW window on your local machine
     xpra attach ssh:ubuntu@18.234.114.252:100
 
 The ``:100`` indicates the port. If you need to supply more options to the ssh command use e.g. ``xpra attach ssh:ubuntu@18.234.114.252:102 --ssh "ssh -o IdentitiesOnly=yes -i .ssh/dysgu.pem"``
+
 
 Config file
 -----------
