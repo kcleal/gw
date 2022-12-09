@@ -14,7 +14,7 @@ GW is available on conda for linux/mac systems::
 
     conda install -c bioconda gw
 
-Or GW can be used from a docker container (instructions found `here <https://hub.docker.com/repository/docker/kcleal/gw/>`_)::
+Using a docker container (instructions found `here <https://hub.docker.com/repository/docker/kcleal/gw/>`_)::
 
   docker pull kcleal/gw
 
