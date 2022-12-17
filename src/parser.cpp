@@ -54,6 +54,8 @@ namespace Parse {
         opMap["TC"] = TC;
         opMap["UQ"] = UQ;
         opMap["AS"] = AS;
+        opMap["BX"] = BX;
+        opMap["RX"] = RX;
 
         opMap["eq"] = EQ;
         opMap["ne"] = NE;
@@ -106,6 +108,8 @@ namespace Parse {
         permit[PU] = string_like;
         permit[SA] = string_like;
         permit[MC] = string_like;
+        permit[BX] = string_like;
+        permit[RX] = string_like;
         permit[NM] = numeric_like;
         permit[CM] = numeric_like;
         permit[FI] = numeric_like;
@@ -472,9 +476,6 @@ namespace Parse {
                     case MD:
                         getStrTag("MD", str_val, aln);
                         break;
-                    case MI:
-                        getStrTag("MI", str_val, aln);
-                        break;
                     case PU:
                         getStrTag("PU", str_val, aln);
                         break;
@@ -483,6 +484,15 @@ namespace Parse {
                         break;
                     case MC:
                         getStrTag("MC", str_val, aln);
+                        break;
+                    case BX:
+                        getStrTag("BX", str_val, aln);
+                        break;
+                    case RX:
+                        getStrTag("RX", str_val, aln);
+                        break;
+                    case MI:
+                        getStrTag("MI", str_val, aln);
                         break;
                     case NM:
                         getIntTag("NM", int_val, aln);

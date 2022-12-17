@@ -49,7 +49,7 @@ namespace Parse {
         CIGAR = 4002,
         RNEXT = 4003,
         SEQ = 4004,
-        RG = 4005, BC = 4006, LB = 4007, MD = 4008, MI = 4009, PU = 4010, SA = 4011, MC = 4012,
+        RG = 4005, BC = 4006, LB = 4007, MD = 4008, PU = 4010, SA = 4011, MC = 4012, BX = 4013, MI = 4014, RX = 4015,
 
         EQ = -1,
         NE = -2,

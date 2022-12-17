@@ -43,12 +43,13 @@ namespace Segs {
                               uint32_t ct_l, uint32_t *cigar_p) {
         uint32_t opp, c_idx, s_idx, c_s_idx;
         auto md_l = (int)strlen(md_tag);
-        std::deque<QueueItem> ins_q;
+        std::vector<QueueItem> ins_q;
         MdBlock md_block{};
         get_md_block(md_tag, 0, md_l, &md_block);
         if (md_block.md_idx == (uint32_t)md_l) {
             return;
         }
+
         c_idx = 0;  // the cigar index
         s_idx = 0;  // sequence index of mismatches
         c_s_idx = 0;  // the index of the current cigar (c_idx) on the input sequence
@@ -62,11 +63,12 @@ namespace Segs {
             c_idx += 1;
         }
 
+        int ins_q_idx = 0;
+
         while (true) {
             if (c_idx < ct_l) {  // consume cigar until deletion reached, collect positions of insertions
                 while (c_idx < ct_l) {
                     opp = cigar_p[c_idx] & BAM_CIGAR_MASK;
-//                    l = cigar_p[c_idx] >> BAM_CIGAR_SHIFT;
                     if (opp == 0 || opp == 8) {  // match
                         c_s_idx += cigar_p[c_idx] >> BAM_CIGAR_SHIFT;
                     } else if (opp == 1) {  // insertion
@@ -87,18 +89,17 @@ namespace Segs {
                     }
                     s_idx = c_s_idx;
                     r_pos += md_block.matches + md_block.del_length;
-                    while (!ins_q.empty() &&
+                    while (ins_q_idx < ins_q.size() &&
                            s_idx + md_block.matches >= ins_q[0].c_s_idx) {  // catch up with insertions
-                        ins_q.pop_front();
+                        ins_q_idx += 1;
                     }
                     get_md_block(md_tag, md_block.md_idx, md_l, &md_block);
                     break;
                 }
 
-                // check if insertion occurs before mismatch
-                while (!ins_q.empty() && s_idx + md_block.matches >= ins_q[0].c_s_idx) {
+                while (ins_q_idx < ins_q.size() && s_idx + md_block.matches >= ins_q[0].c_s_idx) {
                     s_idx += ins_q[0].l;
-                    ins_q.pop_front();
+                    ins_q_idx += 1;
                 }
                 s_idx += md_block.matches;
                 r_pos += md_block.matches;
@@ -112,7 +113,6 @@ namespace Segs {
 
     void align_init(Align *self) {
 
-//        auto start = std::chrono::high_resolution_clock::now();
         uint8_t *v;
         char *value;
 
