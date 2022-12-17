@@ -10,9 +10,13 @@ allows you to view and annotate variants from vcf/bcf files. Check out the examp
 
 Installing GW
 --------------
-GW is available on conda::
+GW is available on conda for linux/mac systems::
 
     conda install -c bioconda gw
+
+Using a docker container (instructions found `here <https://hub.docker.com/repository/docker/kcleal/gw/>`_)::
+
+  docker pull kcleal/gw
 
 GW is built using clang++/g++ and make and requires glfw3 and htslib to be available. To build from source use::
 
@@ -205,12 +209,11 @@ Once reads have been filtered, you can try the ``:count`` command which will giv
 Remote
 ------
 
-GW can be used on remote servers by using ``ssh -X`` when logging on to the server.
-When GW is run, the window will show up on your local screen. However performance will generally be slow and laggy.
-Instead, we recommend using the screen sharing tool `Xpra <https://xpra.org/>`_.
+GW can be used on remote servers by using ``ssh -X`` when logging on to the server, a GW window will show up on your local screen. However performance will generally be slow and laggy. We recommend adding an update delay (in miliseconds) using ``gw --delay 100 ...`` which can help prevent bandwidth/latency issues.
 
-Xpra will need to be installed on your local and remote machines (xpra is available through conda on linux).
-One the server side, start GW on port 100 using::
+Alternatively, the screen sharing tool `Xpra <https://xpra.org/>`_ can offer much better performance for rendering over a remote connecion.
+
+Xpra will need to be installed on local and remote machines. One way to use Xpra is to start GW on port 100 (on remote machine) using::
 
     xpra start :100 --start="gw ref.fa -b your.bam -r chr1:50000-60000" --sharing=yes --daemon=no
 
@@ -219,6 +222,7 @@ You (or potentially multiple users) can view the GW window on your local machine
     xpra attach ssh:ubuntu@18.234.114.252:100
 
 The ``:100`` indicates the port. If you need to supply more options to the ssh command use e.g. ``xpra attach ssh:ubuntu@18.234.114.252:102 --ssh "ssh -o IdentitiesOnly=yes -i .ssh/dysgu.pem"``
+
 
 Config file
 -----------
