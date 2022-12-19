@@ -1,6 +1,7 @@
 
 #include <chrono>
 #include <cstdlib>
+#include <deque>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -63,6 +64,7 @@ namespace Manager {
         this->opts = opt;
         redraw = true;
         processed = false;
+        drawLine = false;
         calcScaling = true;
         drawToBackWindow = false;
         fonts = Themes::Fonts();
@@ -359,6 +361,13 @@ namespace Manager {
         bool wasResized = false;
         std::chrono::high_resolution_clock::time_point autoSaveTimer = std::chrono::high_resolution_clock::now();
 
+//        sk_sp<SkImage> current = new SkImage();
+
+//        sk_sp<SkData> imageData; // = SkData::MakeEmpty();
+
+
+        SkCanvas *canvas = sSurface->getCanvas();
+
         while (true) {
             if (glfwWindowShouldClose(wind)) {
                 break;
@@ -371,11 +380,14 @@ namespace Manager {
             }
             if (redraw) {
                 if (mode == Show::SINGLE) {
-                    drawScreen(sSurface->getCanvas(), sContext);
+                    drawScreen(canvas, sContext, sSurface);
                 } else {
-                    drawTiles(sSurface->getCanvas(), sContext, sSurface);
+                    drawTiles(canvas, sContext, sSurface);
                 }
             }
+
+            drawMouseLine(canvas, sContext, sSurface);
+
             if (resizeTriggered && std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - resizeTimer) > 100ms) {
                 imageCache.clear();
                 redraw = true;
@@ -551,7 +563,7 @@ namespace Manager {
         }
     }
 
-    void GwPlot::drawScreen(SkCanvas* canvas, GrDirectContext* sContext) {
+    void GwPlot::drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
         canvas->drawPaint(opts.theme.bgPaint);
         if (!regions.empty()) {
             processBam();
@@ -565,10 +577,36 @@ namespace Manager {
             Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
             Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
 
+            if (drawLine) {
+                sk_sp<SkImage> img(sSurface->makeImageSnapshot());
+                imageCacheQueue.push_back(sSurface->makeImageSnapshot());
+            }
         }
         sContext->flush();
         glfwSwapBuffers(window);
         redraw = false;
+    }
+
+    void GwPlot::drawMouseLine(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
+        if (!drawLine || imageCacheQueue.empty()) {
+            return;
+        }
+        while (imageCacheQueue.size() > 1) {
+            imageCacheQueue.pop_front();
+        }
+        canvas->drawPaint(opts.theme.bgPaint);
+        canvas->drawImage(imageCacheQueue.back(), 0, 0);
+
+        double xposm, yposm;
+        glfwGetCursorPos(window, &xposm, &yposm);
+        float xscale, yscale;
+        glfwGetWindowContentScale(window, &xscale, &yscale);
+        SkPath path;
+        path.moveTo(xposm * xscale, 0);
+        path.lineTo(xposm * xscale, fb_height);
+        canvas->drawPath(path, opts.theme.lcJoins);
+        sContext->flush();
+        glfwSwapBuffers(window);
     }
 
     void GwPlot::tileDrawingThread(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {

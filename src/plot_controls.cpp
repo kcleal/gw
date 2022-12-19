@@ -194,6 +194,12 @@ namespace Manager {
             processed = true;
             inputText = "";
             return true;
+        } else if (inputText == ":line") {
+            drawLine = (drawLine) ? false : true;
+            redraw = true;
+            processed = true;
+            inputText = "";
+            return true;
         } else if (Utils::startsWith(inputText, ":count")) {
             std::string str = inputText;
             str.erase(0, 7);
@@ -303,26 +309,19 @@ namespace Manager {
             if (clear_filters) {
                 filters.clear();
             }
-        } else if (Utils::startsWith(inputText, ":cov")) {
-            std::vector<std::string> split = Utils::split(inputText, delim);
-            if (split.back() == "on") {
-                opts.coverage = true; valid = true;
-            } else if (split.back() == "off") {
-                opts.coverage = false; valid = true;
-            } else {
-                valid = false;
-            }
-        } else if (Utils::startsWith(inputText, ":log2-cov")) {
-            std::vector<std::string> split = Utils::split(inputText, delim);
-            if (split.back() == "on") {
-                opts.log2_cov = true; valid = true;
-            } else if (split.back() == "off") {
-                opts.log2_cov = false; valid = true;
-            } else {
-                valid = false;
-            }
+        } else if (inputText == ":cov") {
+            opts.coverage = (opts.coverage) ? false : true;
+            redraw = true;
+            processed = true;
+            inputText = "";
+            return true;
+        } else if (inputText == ":log2-cov") {
+            opts.log2_cov = (opts.log2_cov) ? false : true;
+            redraw = true;
+            processed = true;
+            inputText = "";
+            return true;
         } else if (Utils::startsWith(inputText, ":mate")) {
-
             std::string mate;
             Utils::parseMateLocation(selectedAlign, mate, target_qname);
             if (mate.empty()) {

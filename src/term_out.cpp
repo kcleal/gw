@@ -35,13 +35,14 @@ namespace Term {
         std::cout << termcolor::underline << "\nCommand          Modifier        Description                                            \n" << termcolor::reset;
         std::cout << termcolor::green << "add              region(s)       " << termcolor::reset << "Add one or more regions e.g. ':add chr1:1-20000'\n";
         std::cout << termcolor::green << "count            expression?     " << termcolor::reset << "Count reads. See filter for example expressions'\n";
-        std::cout << termcolor::green << "cov              [of/off]        " << termcolor::reset << "Turn coverage on/off e.g. ':cov off'\n";
+        std::cout << termcolor::green << "cov                              " << termcolor::reset << "Toggle coverage\n";
         std::cout << termcolor::green << "filter           expression      " << termcolor::reset << "Examples ':filter mapq > 0', ':filter ~flag & secondary'\n                                 ':filter mapq >= 30 or seq-len > 100'\n";
         std::cout << termcolor::green << "find, f          qname?          " << termcolor::reset << "To find other alignments from selected read use ':find'\n                                 Or use ':find [QNAME]' to find target read'\n";
         //std::cout << termcolor::green << "genome, g        name?           " << termcolor::reset << "Load genome listed in .gw.ini file. Use ':g' for list\n";
         std::cout << termcolor::green << "goto             loci index?     " << termcolor::reset << "e.g. ':goto chr1:1-20000'. Use index if multiple \n                                 regions are open e.g. ':goto 'chr1 20000' 1'\n";
+        std::cout << termcolor::green << "line                             " << termcolor::reset << "Toggle mouse position vertical line\n";
         std::cout << termcolor::green << "link             [none/sv/all]   " << termcolor::reset << "Switch read-linking ':link all'\n";
-        std::cout << termcolor::green << "log2-cov         [of/off]        " << termcolor::reset << "Scale coverage by log2 e.g. ':log2-cov on'\n";
+        std::cout << termcolor::green << "log2-cov                         " << termcolor::reset << "Toggle scale coverage by log2\n";
         std::cout << termcolor::green << "mate             add?            " << termcolor::reset << "Use ':mate' to navigate to mate-pair, or ':mate add' \n                                 to add a new region with mate \n";
         std::cout << termcolor::green << "quit, q          -               " << termcolor::reset << "Quit GW\n";
         std::cout << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";

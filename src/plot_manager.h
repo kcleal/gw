@@ -102,6 +102,7 @@ namespace Manager {
 
         ankerl::unordered_dense::map< int, sk_sp<SkImage>> imageCache;
         ankerl::unordered_dense::map< std::string, Utils::Label> inputLabels;
+        std::deque<sk_sp<SkImage>> imageCacheQueue;
 
         robin_hood::unordered_set<std::string> seenLabels;
 
@@ -171,9 +172,8 @@ namespace Manager {
 
         bool redraw;
         bool processed;
-
+        bool drawLine;
         bool calcScaling;
-
         bool resizeTriggered;
         std::chrono::high_resolution_clock::time_point resizeTimer;
 
@@ -199,13 +199,15 @@ namespace Manager {
 
         std::vector<Utils::BoundingBox> bboxes;
 
-        void drawScreen(SkCanvas* canvas, GrDirectContext* sContext);
+        void drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
         void tileDrawingThread(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
         void tileLoadingThread();
 
         void drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
+
+        void drawMouseLine(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
         void registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
 
