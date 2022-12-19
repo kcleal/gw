@@ -66,23 +66,22 @@ namespace Segs {
         int ins_q_idx = 0;
 
         while (true) {
-            if (c_idx < ct_l) {  // consume cigar until deletion reached, collect positions of insertions
-                while (c_idx < ct_l) {
-                    opp = cigar_p[c_idx] & BAM_CIGAR_MASK;
-                    if (opp == 0 || opp == 8) {  // match
-                        c_s_idx += cigar_p[c_idx] >> BAM_CIGAR_SHIFT;
-                    } else if (opp == 1) {  // insertion
-                        ins_q.push_back({c_s_idx, cigar_p[c_idx] >> BAM_CIGAR_SHIFT});
-                        c_s_idx += cigar_p[c_idx] >> BAM_CIGAR_SHIFT;
-                    } else {  // opp == 2 or opp == 4 or opp == 5
-                        break;
-                    }
-                    ++c_idx;
+            // consume cigar until deletion reached, collect positions of insertions
+            while (c_idx < ct_l) {
+                opp = cigar_p[c_idx] & BAM_CIGAR_MASK;
+                if (opp == 0 || opp == 8) {  // match
+                    c_s_idx += cigar_p[c_idx] >> BAM_CIGAR_SHIFT;
+                } else if (opp == 1) {  // insertion
+                    ins_q.push_back({c_s_idx, cigar_p[c_idx] >> BAM_CIGAR_SHIFT});
+                    c_s_idx += cigar_p[c_idx] >> BAM_CIGAR_SHIFT;
+                } else {  // opp == 2 or opp == 4 or opp == 5
+                    break;  // now process insertions
                 }
-                c_idx += 1;
+                ++c_idx;
             }
+            c_idx += 1;
 
-            while (true) {   // consume md tag until deletion reached
+            while (true) {   // consume mismatches from md tag until deletion reached
                 if (!md_block.is_mm) {  // deletion or end or md tag
                     if (md_block.md_idx == (uint32_t)md_l) {
                         return;
@@ -90,13 +89,13 @@ namespace Segs {
                     s_idx = c_s_idx;
                     r_pos += md_block.matches + md_block.del_length;
                     while (ins_q_idx < ins_q.size() &&
-                           s_idx + md_block.matches >= ins_q[0].c_s_idx) {  // catch up with insertions
+                           s_idx + md_block.matches >= ins_q[0].c_s_idx) {  // catch up insertions
                         ins_q_idx += 1;
                     }
                     get_md_block(md_tag, md_block.md_idx, md_l, &md_block);
                     break;
                 }
-
+                // process mismatch
                 while (ins_q_idx < ins_q.size() && s_idx + md_block.matches >= ins_q[0].c_s_idx) {
                     s_idx += ins_q[0].l;
                     ins_q_idx += 1;
