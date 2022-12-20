@@ -16,6 +16,7 @@
 /src/text_input.o
 /src/glfw_keys.o
 /src/plot_controls.o
+/src/*.cpp.*.*
 /lib/skia/third_party/
 /lib/skia/include/
 /lib/skia/modules/

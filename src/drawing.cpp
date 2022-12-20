@@ -521,9 +521,7 @@ namespace Drawing {
             float xOffset = cl.xOffset;
             float yOffset = cl.yOffset;
             float regionPixels = regionLen * xScaling;
-//            float pointSlop = ((regionLen / 100) * 0.25) * xScaling;
             float pointSlop = (tan(0.42) * (yScaling/2));  // radians
-
             float textDrop = (yScaling - fonts.fontHeight) / 2;
 
             bool plotSoftClipAsBlock = regionLen > opts.soft_clip_threshold;
@@ -557,7 +555,7 @@ namespace Drawing {
                     edged = false;
                 }
 
-                double width, s, e, yh, textW;
+                double width, s, e, textW;
                 int lastEnd = 1215752191;
                 bool line_only;
                 for (size_t idx = 0; idx < nBlocks; ++idx) {

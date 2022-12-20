@@ -18,9 +18,10 @@
 #include "../include/unordered_dense.h"
 #include "utils.h"
 
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(_WIN64)
     #include <windows.h>
-    #include <Shlwapi.h>
+    //#include <Shlwapi.h>
+    #include <pathcch.h>
     #include <io.h>
 
     #define access _access_s
@@ -48,7 +49,7 @@
 
 namespace Utils {
 
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(_WIN64)
     std::string getExecutablePath() {
         char rawPathName[MAX_PATH];
         GetModuleFileNameA(NULL, rawPathName, MAX_PATH);
@@ -59,8 +60,16 @@ namespace Utils {
         std::string executablePath = getExecutablePath();
         char* exePath = new char[executablePath.length()];
         strcpy(exePath, executablePath.c_str());
-        PathRemoveFileSpecA(exePath);
-        std::string directory = std::string(exePath);
+        //PathRemoveFileSpecA(exePath);
+
+	const size_t cSize = strlen(exePath)+1;
+	wchar_t wc[cSize];
+        mbstowcs(wc, exePath, cSize);
+	PathCchRemoveFileSpec(wc, cSize);
+
+        char *str_exe = nullptr;
+	wcstombs(str_exe, wc, cSize);
+        std::string directory = std::string(str_exe);
         delete[] exePath;
         return directory;
     }
@@ -382,7 +391,7 @@ namespace Utils {
 
     int get_terminal_width() {
         // https://stackoverflow.com/questions/23369503/get-size-of-terminal-window-rows-columns
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(_WIN64)
         CONSOLE_SCREEN_BUFFER_INFO csbi;
         GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
         int width = (int)(csbi.srWindow.Right-csbi.srWindow.Left+1);

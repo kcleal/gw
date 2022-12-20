@@ -259,6 +259,7 @@ namespace Segs {
         self->right_soft_clip = 0;
 
         uint32_t last_op = 0;
+
         for (k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
@@ -279,9 +280,7 @@ namespace Segs {
                         self->right_soft_clip = (int)l;
                     }
                     break;
-                case BAM_CHARD_CLIP:
-                    break;
-                case BAM_CPAD: case BAM_CBACK:
+                case BAM_CHARD_CLIP: case BAM_CPAD: case BAM_CBACK:
                     break;  // do something for these?
                 default:  // Match case --> MATCH, EQUAL, DIFF
                     if (last_op == 1) {
@@ -295,7 +294,6 @@ namespace Segs {
                     pos += l;
                     break;
             }
-
             last_op = op;
         }
 

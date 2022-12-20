@@ -167,16 +167,38 @@ int main(int argc, char *argv[]) {
     }
 
     auto genome = program.get<std::string>("genome");
-    if (iopts.references.find(genome) != iopts.references.end()){
+
+    if (iopts.references.find(genome) != iopts.references.end()) {
         genome = iopts.references[genome];
+    } else if (genome.empty() && !program.is_used("--images") && !iopts.ini_path.empty()) {
+        // prompt for genome
+        std::cout << "Select reference genome number from list " << iopts.ini_path << ":" << std::endl;
+        int i = 0;
+        std::vector<std::string> vals;
+        for (auto &rg: iopts.references) {
+            std::cout << "    " << i << ": " << rg.first << "     " << rg.second << std::endl;
+            vals.push_back(rg.second);
+            i += 1;
+        }
+        int user_i;
+        std::cin >> user_i;
+        std::cout << std::endl;
+        assert (user_i >= 0 && user_i < vals.size());
+        genome = vals[user_i];
+        assert (Utils::is_file_exist(genome));
+
     } else if (!genome.empty() && !Utils::is_file_exist(genome)) {
         std::cerr << "Error: Genome not found" << std::endl;
         std::exit(1);
     }
+//    } else if (!genome.empty() && !Utils::is_file_exist(genome)) {
+//        std::cerr << "Error: Genome not found" << std::endl;
+//        std::exit(1);
+//    }
 
     std::vector<std::string> bam_paths;
     if (program.is_used("-b")) {
-        if (!program.is_used("genome")) {
+        if (!program.is_used("genome") && genome.empty()) {
             std::cerr << "Error: please provide a reference genome if loading a bam file\n";
             std::exit(1);
         }
@@ -317,8 +339,9 @@ int main(int argc, char *argv[]) {
         sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
 
         if (!interface || !interface->validate()) {
+		std::cerr << "Error: skia GrGLInterface was not valid" << std::endl;
+#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
             GLint param;
-            std::cerr << "Error: skia GrGLInterface was not valid" << std::endl;
             if (!interface) {
                 std::cerr << "    GrGLMakeNativeInterface() returned nullptr" << std::endl;
                 std::cerr << "    GrGLInterface probably missing some GL functions" << std::endl;
@@ -333,6 +356,7 @@ int main(int argc, char *argv[]) {
             glGetIntegerv(GL_DEPTH_BITS, &param); std::cerr << "    GL_DEPTH_BITS " << param << std::endl;
             glGetIntegerv(GL_STENCIL_BITS, &param); std::cerr << "    GL_STENCIL_BITS " << param << std::endl;
             std::cerr << "GL error code: " << glGetError() << std::endl;
+#endif
             std::terminate();
         }
 
@@ -427,8 +451,14 @@ int main(int argc, char *argv[]) {
                 std::string emptylabel;
                 int index = 0;
                 for (auto &item : plotter.image_glob) {
-                    std::string p = item.filename();
-                    if (Utils::endsWith(p, ".png")) {
+#if defined(_WIN32) || defined(_WIN64)
+			const wchar_t* pc = item.filename().c_str();
+			std::wstring ws(pc);
+			std::string p(ws.begin(), ws.end());
+#else
+		    std::string p = item.filename();
+#endif
+		    if (Utils::endsWith(p, ".png")) {
                         std::vector<std::string> m = Utils::split(p.erase(p.size() - 4), '~');
                         try {
                             plotter.appendVariantSite(m[1], std::stoi(m[2]), m[3], std::stoi(m[4]), m[5], emptylabel, m[0]);

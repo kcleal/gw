@@ -80,6 +80,8 @@ namespace Segs {
         bool processed;
     };
 
+    void align_init(Align *self);
+
     void init_parallel(std::vector<Align> &aligns, int n);
 
     void resetCovStartEnd(ReadCollection &cl);

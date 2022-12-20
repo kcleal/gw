@@ -305,6 +305,7 @@ namespace Themes {
             theme = Themes::IgvTheme();
             return;
         }
+        ini_path = path;
 
         robin_hood::unordered_map<std::string, int> key_table;
         Keys::getKeyTable(key_table);

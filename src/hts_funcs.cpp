@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <chrono>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "htslib/hts.h"
@@ -61,12 +62,15 @@ namespace HGW {
             std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
             std::terminate();
         }
+
         while (sam_itr_next(b, iter_q, readQueue.back().delegate) >= 0) {
             src = readQueue.back().delegate;
             if (src->core.flag & 4 || src->core.n_cigar == 0) {
                 continue;
             }
+//            Segs::align_init(&readQueue.back());
             readQueue.push_back(make_align(bam_init1()));
+
         }
         src = readQueue.back().delegate;
         if (src->core.flag & 4 || src->core.n_cigar == 0) {
@@ -87,6 +91,7 @@ namespace HGW {
         }
         col.processed = true;
     }
+
 
     void trimToRegion(Segs::ReadCollection &col, bool coverage) {
         std::vector<Segs::Align>& readQueue = col.readQueue;

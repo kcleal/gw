@@ -633,8 +633,16 @@ namespace Manager {
                                       if (!c && i < n_images) {
                                           sk_sp<SkData> data(nullptr);
                                           g_mutex.lock();
-                                          const char *fname = image_glob[i].c_str();
-                                          g_mutex.unlock();
+
+#if defined(_WIN32)
+					  const wchar_t* outp = image_glob[i].c_str();
+					  std::wstring pw(outp);
+					  std::string outp_str(pw.begin(), pw.end());
+					  const char *fname = outp_str.c_str();
+#else
+					  const char *fname = image_glob[i].c_str();
+#endif
+					  g_mutex.unlock();
                                           data = SkData::MakeFromFileName(fname);
                                           if (!data)
                                               throw std::runtime_error("Error: file not found");
@@ -763,7 +771,14 @@ namespace Manager {
         if (!img) { return; }
         sk_sp<SkData> png(img->encodeToData());
         if (!png) { return; }
+#if defined(_WIN32)
+	const wchar_t* outp = path.c_str();
+	std::wstring pw(outp);
+	std::string outp_str(pw.begin(), pw.end());
+	SkFILEWStream out(outp_str.c_str());
+#else
         SkFILEWStream out(path.c_str());
+#endif
         (void)out.write(png->data(), png->size());
     }
 
