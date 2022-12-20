@@ -361,13 +361,6 @@ namespace Manager {
         bool wasResized = false;
         std::chrono::high_resolution_clock::time_point autoSaveTimer = std::chrono::high_resolution_clock::now();
 
-//        sk_sp<SkImage> current = new SkImage();
-
-//        sk_sp<SkData> imageData; // = SkData::MakeEmpty();
-
-
-        SkCanvas *canvas = sSurface->getCanvas();
-
         while (true) {
             if (glfwWindowShouldClose(wind)) {
                 break;
@@ -380,13 +373,13 @@ namespace Manager {
             }
             if (redraw) {
                 if (mode == Show::SINGLE) {
-                    drawScreen(canvas, sContext, sSurface);
+                    drawScreen(sSurface->getCanvas(), sContext, sSurface);
                 } else {
-                    drawTiles(canvas, sContext, sSurface);
+                    drawTiles(sSurface->getCanvas(), sContext, sSurface);
                 }
             }
 
-            drawMouseLine(canvas, sContext, sSurface);
+            drawMouseLine(sSurface->getCanvas(), sContext, sSurface);
 
             if (resizeTriggered && std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - resizeTimer) > 100ms) {
                 imageCache.clear();

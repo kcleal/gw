@@ -143,30 +143,30 @@ namespace Term {
                 for (int n = 0; n < (int)l; ++n) {
                     uint8_t base = bam_seqi(ptr_seq, i);
                     bool mm = false;
-                    for (auto &item: r->mismatches) {
-                        if (i == (int)item.idx) {
-                            std::cout << termcolor::underline;
-                            switch (basemap[base]) {
-                                case 65 :
-                                    std::cout << termcolor::green << "A" << termcolor::reset;
-                                    break;
-                                case 67 :
-                                    std::cout << termcolor::blue << "C" << termcolor::reset;
-                                    break;
-                                case 71 :
-                                    std::cout << termcolor::yellow << "G" << termcolor::reset;
-                                    break;
-                                case 78 :
-                                    std::cout << termcolor::grey << "N" << termcolor::reset;
-                                    break;
-                                case 84 :
-                                    std::cout << termcolor::red << "T" << termcolor::reset;
-                                    break;
-                            }
-                            mm = true;
-                            break;
-                        }
-                    }
+//                    for (auto &item: r->mismatches) {
+//                        if (i == (int)item.idx) {
+//                            std::cout << termcolor::underline;
+//                            switch (basemap[base]) {
+//                                case 65 :
+//                                    std::cout << termcolor::green << "A" << termcolor::reset;
+//                                    break;
+//                                case 67 :
+//                                    std::cout << termcolor::blue << "C" << termcolor::reset;
+//                                    break;
+//                                case 71 :
+//                                    std::cout << termcolor::yellow << "G" << termcolor::reset;
+//                                    break;
+//                                case 78 :
+//                                    std::cout << termcolor::grey << "N" << termcolor::reset;
+//                                    break;
+//                                case 84 :
+//                                    std::cout << termcolor::red << "T" << termcolor::reset;
+//                                    break;
+//                            }
+//                            mm = true;
+//                            break;
+//                        }
+//                    }
                     if (!mm) {
                         switch (basemap[base]) {
                             case 65 :

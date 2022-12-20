@@ -10,110 +10,234 @@
 
 namespace Segs {
 
-    void get_md_block(const char *md_tag, int md_idx, int md_l, MdBlock *res) {
-        int nmatches = 0;
-        int del_length = 0;
-        bool is_mm = false;
-        while (md_idx < md_l) {
-            if (48 <= md_tag[md_idx] && md_tag[md_idx] <= 57) {  // c is numerical
-                nmatches = nmatches * 10 + md_tag[md_idx] - 48;
-                md_idx += 1;
-            } else {
-                if (md_tag[md_idx] == 94) {  // del_sign is 94 from ord('^')
-                    md_idx += 1;
-                    while (65 <= md_tag[md_idx] && md_tag[md_idx] <= 90) {
-                        md_idx += 1;
-                        del_length += 1;
-                    }
-                } else {  // save mismatch
-                    is_mm = true;
-                    md_idx += 1;
-                }
-                break;
-            }
-        }
-        res->matches = nmatches;
-        res->md_idx = md_idx;
-        res->is_mm = is_mm;
-        res->del_length = del_length;
-    }
+//    void get_md_block(const char *md_tag, int md_idx, int md_l, MdBlock *res) {
+//        int nmatches = 0;
+//        int del_length = 0;
+//        bool is_mm = false;
+//        while (md_idx < md_l) {
+//            if (48 <= md_tag[md_idx] && md_tag[md_idx] <= 57) {  // c is numerical
+//                nmatches = nmatches * 10 + md_tag[md_idx] - 48;
+//                md_idx += 1;
+//            } else {
+//                if (md_tag[md_idx] == 94) {  // del_sign is 94 from ord('^')
+//                    md_idx += 1;
+//                    while (65 <= md_tag[md_idx] && md_tag[md_idx] <= 90) {
+//                        md_idx += 1;
+//                        del_length += 1;
+//                    }
+//                } else {  // save mismatch
+//                    is_mm = true;
+//                    md_idx += 1;
+//                }
+//                break;
+//            }
+//        }
+//        res->matches = nmatches;
+//        res->md_idx = md_idx;
+//        res->is_mm = is_mm;
+//        res->del_length = del_length;
+//    }
 
-    void get_mismatched_bases(std::vector<MMbase> &result,
-                              const char *md_tag, uint32_t r_pos,
-                              uint32_t ct_l, uint32_t *cigar_p) {
-        uint32_t opp, c_idx, s_idx, c_s_idx;
-        auto md_l = (int)strlen(md_tag);
-        std::vector<QueueItem> ins_q;
-        MdBlock md_block{};
-        get_md_block(md_tag, 0, md_l, &md_block);
-        if (md_block.md_idx == (uint32_t)md_l) {
-            return;
-        }
-
-        c_idx = 0;  // the cigar index
-        s_idx = 0;  // sequence index of mismatches
-        c_s_idx = 0;  // the index of the current cigar (c_idx) on the input sequence
-
-        opp = cigar_p[0] & BAM_CIGAR_MASK;
-        if (opp == 4) {
-            c_idx += 1;
-            s_idx += cigar_p[0] >> BAM_CIGAR_SHIFT;
-            c_s_idx = s_idx;
-        } else if (opp == 5) {
-            c_idx += 1;
-        }
-
-        int ins_q_idx = 0;
-
-        while (true) {
-            // consume cigar until deletion reached, collect positions of insertions
-            while (c_idx < ct_l) {
-                opp = cigar_p[c_idx] & BAM_CIGAR_MASK;
-                if (opp == 0 || opp == 8) {  // match
-                    c_s_idx += cigar_p[c_idx] >> BAM_CIGAR_SHIFT;
-                } else if (opp == 1) {  // insertion
-                    ins_q.push_back({c_s_idx, cigar_p[c_idx] >> BAM_CIGAR_SHIFT});
-                    c_s_idx += cigar_p[c_idx] >> BAM_CIGAR_SHIFT;
-                } else {  // opp == 2 or opp == 4 or opp == 5
-                    break;  // now process insertions
-                }
-                ++c_idx;
-            }
-            c_idx += 1;
-
-            while (true) {   // consume mismatches from md tag until deletion reached
-                if (!md_block.is_mm) {  // deletion or end or md tag
-                    if (md_block.md_idx == (uint32_t)md_l) {
-                        return;
-                    }
-                    s_idx = c_s_idx;
-                    r_pos += md_block.matches + md_block.del_length;
-                    while (ins_q_idx < ins_q.size() &&
-                           s_idx + md_block.matches >= ins_q[0].c_s_idx) {  // catch up insertions
-                        ins_q_idx += 1;
-                    }
-                    get_md_block(md_tag, md_block.md_idx, md_l, &md_block);
-                    break;
-                }
-                // process mismatch
-                while (ins_q_idx < ins_q.size() && s_idx + md_block.matches >= ins_q[0].c_s_idx) {
-                    s_idx += ins_q[0].l;
-                    ins_q_idx += 1;
-                }
-                s_idx += md_block.matches;
-                r_pos += md_block.matches;
-                result.push_back({s_idx, r_pos});
-                s_idx += 1;
-                r_pos += 1;
-                get_md_block(md_tag, md_block.md_idx, md_l, &md_block);
-            }
-        }
-    }
+//    void get_md_block(const char *md_tag, int md_idx, MdBlock *res, bool *done) {
+//        int nmatches = 0;
+//        int del_length = 0;
+//        bool is_mm = false;
+//        while (true) {
+//            if (md_tag[md_idx] == '\0') {
+//                *done = true;
+//                return;
+//            }
+//            if (48 <= md_tag[md_idx] && md_tag[md_idx] <= 57) {  // c is numerical
+//                nmatches = nmatches * 10 + md_tag[md_idx] - 48;
+//                md_idx += 1;
+//            } else {
+//                if (md_tag[md_idx] == 94) {  // del_sign is 94 from ord('^')
+//                    md_idx += 1;
+//                    while (65 <= md_tag[md_idx] && md_tag[md_idx] <= 90) {
+//                        md_idx += 1;
+//                        del_length += 1;
+//                    }
+//                } else {  // save mismatch
+//                    is_mm = true;
+//                    md_idx += 1;
+//                }
+//                break;
+//            }
+//        }
+//        res->matches = nmatches;
+//        res->md_idx = md_idx;
+//        res->is_mm = is_mm;
+//        res->del_length = del_length;
+//    }
+//
+//    void get_mismatched_bases(std::vector<MMbase> &result,
+//                              const char *md_tag, uint32_t r_pos,
+//                              const uint32_t ct_l, uint32_t *cigar_p) {
+//        uint32_t opp, c_idx, s_idx, c_s_idx;
+//
+//        bool done = false;
+//        std::vector<QueueItem> ins_q;
+//        MdBlock md_block{};
+//        get_md_block(md_tag, 0, &md_block, &done);
+//
+//        if (done) {
+//            return;
+//        }
+//
+//        c_idx = 0;  // the cigar index
+//        s_idx = 0;  // sequence index of mismatches
+//        c_s_idx = 0;  // the index of the current cigar (c_idx) on the input sequence
+//
+//        opp = cigar_p[0] & BAM_CIGAR_MASK;
+//        if (opp == 4) {
+//            c_idx += 1;
+//            s_idx += cigar_p[0] >> BAM_CIGAR_SHIFT;
+//            c_s_idx = s_idx;
+//        } else if (opp == 5) {
+//            c_idx += 1;
+//        }
+//
+//        int ins_q_idx = 0;
+//
+//        while (true) {
+//            // consume cigar until deletion reached, collect positions of insertions
+//            while (c_idx < ct_l) {
+//                opp = cigar_p[c_idx] & BAM_CIGAR_MASK;
+//                if (opp == 0 || opp == 8) {  // match
+//                    c_s_idx += cigar_p[c_idx] >> BAM_CIGAR_SHIFT;
+//                } else if (opp == 1) {  // insertion
+//                    ins_q.push_back({c_s_idx, cigar_p[c_idx] >> BAM_CIGAR_SHIFT});
+//                    c_s_idx += cigar_p[c_idx] >> BAM_CIGAR_SHIFT;
+//                } else {  // opp == 2 or opp == 4 or opp == 5
+//                    break;  // now process insertions
+//                }
+//                ++c_idx;
+//            }
+//            c_idx += 1;
+//
+//            while (true) {   // consume mismatches from md tag until deletion reached
+//                if (!md_block.is_mm) {  // deletion or end or md tag
+//                    s_idx = c_s_idx;
+//                    r_pos += md_block.matches + md_block.del_length;
+//                    while (ins_q_idx < ins_q.size() &&
+//                           s_idx + md_block.matches >= ins_q[ins_q_idx].c_s_idx) {  // catch up insertions
+//                        ins_q_idx += 1;
+//                    }
+//                    get_md_block(md_tag, md_block.md_idx, &md_block, &done);
+//                    if (done) {
+//                        return;
+//                    }
+//                    break;
+//                }
+//                // process mismatch
+//                while (ins_q_idx < ins_q.size() && s_idx + md_block.matches >= ins_q[ins_q_idx].c_s_idx) {
+//                    s_idx += ins_q[ins_q_idx].l;
+//                    ins_q_idx += 1;
+//                }
+//                s_idx += md_block.matches;
+//                r_pos += md_block.matches;
+//                result.push_back({s_idx, r_pos});
+//                s_idx += 1;
+//                r_pos += 1;
+//                get_md_block(md_tag, md_block.md_idx, &md_block, &done);
+//                if (done) {
+//                    return;
+//                }
+//            }
+//        }
+//    }
+//
+//    QueueItem ins_q_stA[1000];
+//
+//    void get_mismatched_bases_stA(std::vector<MMbase> &result,
+//                              const char *md_tag, uint32_t r_pos,
+//                              uint32_t ct_l, uint32_t *cigar_p) {
+//        uint32_t opp, c_idx, s_idx, c_s_idx;
+//
+//        //std::vector<QueueItem> ins_q;
+//        bool done = false;
+//
+//        MdBlock md_block{};
+//        get_md_block(md_tag, 0, &md_block, &done);
+//        if (done) {
+//            return;
+//        }
+////        if (md_block.md_idx == (uint32_t)md_l) {
+////            return;
+////        }
+//
+//        c_idx = 0;  // the cigar index
+//        s_idx = 0;  // sequence index of mismatches
+//        c_s_idx = 0;  // the index of the current cigar (c_idx) on the input sequence
+//
+//        opp = cigar_p[0] & BAM_CIGAR_MASK;
+//        if (opp == 4) {
+//            c_idx += 1;
+//            s_idx += cigar_p[0] >> BAM_CIGAR_SHIFT;
+//            c_s_idx = s_idx;
+//        } else if (opp == 5) {
+//            c_idx += 1;
+//        }
+//
+//        int ins_q_idx = 0;
+//        int ins_q_len = 0;
+//
+//        while (true) {
+//            // consume cigar until deletion reached, collect positions of insertions
+//            while (c_idx < ct_l) {
+//                opp = cigar_p[c_idx] & BAM_CIGAR_MASK;
+//                if (opp == 0 || opp == 8) {  // match
+//                    c_s_idx += cigar_p[c_idx] >> BAM_CIGAR_SHIFT;
+//                } else if (opp == 1) {  // insertion
+//                    //ins_q.push_back({c_s_idx, cigar_p[c_idx] >> BAM_CIGAR_SHIFT});
+//                    ins_q_stA[ins_q_len].c_s_idx = c_s_idx;
+//                    ins_q_stA[ins_q_len].l = cigar_p[c_idx] >> BAM_CIGAR_SHIFT;
+//                    ins_q_len += 1;
+//                    c_s_idx += cigar_p[c_idx] >> BAM_CIGAR_SHIFT;
+//                } else {  // opp == 2 or opp == 4 or opp == 5
+//                    break;  // now process insertions
+//                }
+//                ++c_idx;
+//            }
+//            c_idx += 1;
+//
+//            while (true) {   // consume mismatches from md tag until deletion reached
+//                if (!md_block.is_mm) {  // deletion or end or md tag
+////                    if (md_block.md_idx == (uint32_t)md_l) {
+////                        return;
+////                    }
+//                    s_idx = c_s_idx;
+//                    r_pos += md_block.matches + md_block.del_length;
+//                    while (ins_q_idx < ins_q_len &&
+//                           s_idx + md_block.matches >= ins_q_stA[ins_q_idx].c_s_idx) {  // catch up insertions
+//                        ins_q_idx += 1;
+//                    }
+//                    get_md_block(md_tag, md_block.md_idx, &md_block, &done);
+//                    if (done) {
+//                        return;
+//                    }
+//                    break;
+//                }
+//                // process mismatch
+//                while (ins_q_idx < ins_q_len && s_idx + md_block.matches >= ins_q_stA[ins_q_idx].c_s_idx) {
+//                    s_idx += ins_q_stA[ins_q_idx].l;
+//                    ins_q_idx += 1;
+//                }
+//                s_idx += md_block.matches;
+//                r_pos += md_block.matches;
+//                result.push_back({s_idx, r_pos});
+//                s_idx += 1;
+//                r_pos += 1;
+//                get_md_block(md_tag, md_block.md_idx, &md_block, &done);
+//                if (done) {
+//                    return;
+//                }
+//            }
+//        }
+//    }
 
     void align_init(Align *self) {
-
-        uint8_t *v;
-        char *value;
+//        auto start = std::chrono::high_resolution_clock::now();
 
         bam1_t *src = self->delegate;
 
@@ -125,9 +249,6 @@ namespace Segs {
         uint32_t pos, l, cigar_l, op, k;
         uint32_t *cigar_p;
 
-        uint8_t *ptr_seq = bam_get_seq(src);
-        auto *ptr_qual = bam_get_qual(src);
-
         cigar_l = src->core.n_cigar;
         self->cigar_l = cigar_l;
 
@@ -135,7 +256,6 @@ namespace Segs {
         cigar_p = bam_get_cigar(src);
 
         self->left_soft_clip = 0;
-        self->left_hard_clip = 0;
         self->right_soft_clip = 0;
 
         uint32_t last_op = 0;
@@ -160,8 +280,6 @@ namespace Segs {
                     }
                     break;
                 case BAM_CHARD_CLIP:
-                    if (k == 0)
-                        self->left_hard_clip = (int)l;
                     break;
                 case BAM_CPAD: case BAM_CBACK:
                     break;  // do something for these?
@@ -189,14 +307,6 @@ namespace Segs {
             self->cov_end += 1;
         }
 
-        v = bam_aux_get(self->delegate, "MD");
-        if (v == nullptr) {
-            self->has_MD = false;
-        } else {
-            value = (char *) bam_aux2Z(v);
-            self->MD = value;
-            self->has_MD = true;
-        }
         if (bam_aux_get(self->delegate, "SA") != nullptr) {
             self->has_SA = true;
         } else {
@@ -204,7 +314,6 @@ namespace Segs {
         }
 
         self->y = -1;
-        self->polygon_height = 0.8;
 
         int ptrn = NORMAL;
         constexpr uint32_t PP_RR_MR = 50;  // proper-pair, read-reverse, mate-reverse flags
@@ -248,23 +357,39 @@ namespace Segs {
         } else {
             self->edge_type = 1;  // "NORMAL"
         }
-        if (self->has_MD) {
-            get_mismatched_bases(self->mismatches, self->MD, self->pos, cigar_l, cigar_p);
-            if (!self->mismatches.empty()) {
-                // note not all mismatches are drawn, so it doesn't make sense to save the color here. defer that to drawing
-                for (auto &mm : self->mismatches) {
-                    mm.base = bam_seqi(ptr_seq, mm.idx);
-                    mm.qual = ptr_qual[mm.idx];
-                }
-            }
-        }
+
+//        uint8_t *v;
+//        char *value;
+//        uint8_t *ptr_seq = bam_get_seq(src);
+//        auto *ptr_qual = bam_get_qual(src);
+//        self->has_MD = false;
+//        v = bam_aux_get(self->delegate, "MD");
+//        if (v == nullptr) {
+//            self->has_MD = false;
+//        } else {
+//            value = (char *) bam_aux2Z(v);
+//            self->MD = value;
+//            self->has_MD = true;
+//        }
+//        if (self->has_MD) {
+//            get_mismatched_bases(self->mismatches, self->MD, self->pos, cigar_l, cigar_p);
+////            get_mismatched_bases_stA(self->mismatches, self->MD, self->pos, cigar_l, cigar_p);
+//            if (!self->mismatches.empty()) {
+//                // note not all mismatches are drawn, so it doesn't make sense to save the color here. defer that to drawing
+//                for (auto &mm : self->mismatches) {
+//                    mm.base = bam_seqi(ptr_seq, mm.idx);
+//                    mm.qual = ptr_qual[mm.idx];
+//                }
+//            }
+//        }
 
         self->initialized = true;
 
 //        auto stop = std::chrono::high_resolution_clock::now();
 //        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-//
-//        std::cout << duration.count() << std::endl;
+//        std::ofstream outfile;
+//        outfile.open("test.txt", std::ios_base::app); // append instead of overwrite
+//        outfile << duration.count() << std::endl;
     }
 
     void init_parallel(std::vector<Align> &aligns, int n) { //const char *refSeq, int begin, int rlen) {
