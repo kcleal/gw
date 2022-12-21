@@ -38,7 +38,7 @@ exit""".format(genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, e
 
 
 def plot_jbrowse2(chrom, start, end, args):
-    com = "export NODE_OPTIONS=--max_old_space_size=320000; /usr/bin/time --format '%e' {jb2export} --fasta {genome} --bam {bam} force:true --loc {chrom}:{start}-{end} --out images/jb2_image.svg" \
+    com = "export NODE_OPTIONS=--max_old_space_size=320000; /usr/bin/time --format '%e' {jb2export} --fasta {genome} --bam {bam} force:true --loc {chrom}:{start}-{end} --out images/jb2_image.svg --width 1024" \
         .format(jb2export=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     p = Popen(com, shell=True, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
@@ -47,7 +47,7 @@ def plot_jbrowse2(chrom, start, end, args):
 
 
 def plot_samplot(chrom, start, end, args):
-    com = "/usr/bin/time --format '%e' {samplot} plot -r {genome} -b {bam} -c {chrom} -s {start} -e {end} -o images/samplot_image.png" \
+    com = "/usr/bin/time --format '%e' {samplot} plot -r {genome} -b {bam} -c {chrom} -s {start} -e {end} -o images/samplot_image.png -W 5 -H 5" \
         .format(samplot=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     p = Popen(com, shell=True, stderr=PIPE)
     out, err = p.communicate()
@@ -57,12 +57,12 @@ def plot_samplot(chrom, start, end, args):
 
 
 def plot_wally(chrom, start, end, args):
-    com = "/usr/bin/time --format '%e' {wally} region -g {genome} -r {chrom}:{start}-{end} {bam}" \
+    com = "/usr/bin/time --format '%e' {wally} region -g {genome} -r {chrom}:{start}-{end} -x 1024 -y 1024 {bam}" \
         .format(wally=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     p = Popen(com, shell=True, stderr=PIPE)
     out, err = p.communicate()
     t = float(err.decode('ascii').split('\n')[0].strip())
-    run('rm *.png', shell=True)
+    # run('rm *.png', shell=True)
     return t, resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1e6
 
 
@@ -91,7 +91,7 @@ if __name__ == "__main__":
         os.mkdir('images')
 
     region_sizes = [2, 2000, 20_000, 200_000, 2_000_000]
-    max_size = max(region_sizes) * 2
+    max_size = 20_000_000
     fai = {}
     with open(args.ref_genome + ".fai", "r") as fin:
         for line in fin:
@@ -112,7 +112,7 @@ if __name__ == "__main__":
         print('Size: ', size)
         half_size = int(size * 0.5)
         random.shuffle(chroms)
-        for c in range(min(10, len(fai))):
+        for c in range(10):
             chrom = chroms[c]
             pos = random.randint(half_size, fai[chrom] - half_size)
             start = pos - half_size
@@ -121,8 +121,17 @@ if __name__ == "__main__":
             avg_time, maxRSS = prog(chrom, start, end, args)
             st_t, reads = samtools_count(chrom, start, end, args)
             results.append({'name': name, 'time (s)': avg_time, 'region size (bp)': end - start, 'MaxRSS': maxRSS,
-                            'samtools_count_t3 (s)': st_t, 'reads': reads})
+                            'samtools_count_t3 (s)': st_t, 'reads': reads, 'chrM': False})
+
+    print("Running chrM benchmark")
+    for n in range(5):
+        print(n)
+        avg_time, maxRSS = prog("chrM", 1, 20000, args)
+        st_t, reads = samtools_count("chrM", 1, 20000, args)
+        results.append({'name': name, 'time (s)': avg_time, 'region size (bp)': -1, 'MaxRSS': maxRSS,
+                        'samtools_count_t3 (s)': st_t, 'reads': reads, 'chrM': True})
+
 
     df = pd.DataFrame.from_records(results)
-    df = df[['name', 'reads', 'region size (bp)', 'samtools_count_t3 (s)', 'time (s)', 'MaxRSS']]
+    df = df[['name', 'reads', 'region size (bp)', 'samtools_count_t3 (s)', 'time (s)', 'MaxRSS', 'chrM']]
     df.to_csv(f'{name}.benchmark.csv', index=False)
