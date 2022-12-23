@@ -9,6 +9,8 @@
 #include <utility>
 #include <vector>
 
+#include "htslib/sam.h"
+
 #define SK_GL
 #include "include/gpu/GrBackendSurface.h"
 #include "include/gpu/GrDirectContext.h"
@@ -46,5 +48,8 @@ namespace Drawing {
     void drawTracks(Themes::IniOptions &opts, float fb_width, float fb_height,
                     SkCanvas *canvas, float totalTabixY, float tabixY, std::vector<HGW::GwTrack> &tracks,
                     const std::vector<Utils::Region> &regions, const Themes::Fonts &fonts);
+
+    void drawChromLocation(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections, SkCanvas* canvas,
+                  std::vector<sam_hdr_t* > &headers, size_t nRegions, float fb_width, float fb_height);
 
 }

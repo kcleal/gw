@@ -6,7 +6,13 @@
 #include <array>
 #include <GLFW/glfw3.h>
 #include <iostream>
-#include <pwd.h>
+
+#if defined(_WIN32)
+
+#else
+    #include <pwd.h>
+#endif
+
 #include <string>
 #include <vector>
 #include <unistd.h>

@@ -748,6 +748,40 @@ namespace Manager {
         return -1;
     }
 
+    void GwPlot::updateSlider(float xW) {
+        float colWidth = (float)fb_width / (float)regions.size();
+        float gap =(float)fb_width * (float)0.002;
+        float gap2 = 2*gap;
+        float drawWidth = colWidth - gap2;
+        float vv = 0;
+        float gs = gap;
+        int i = 0;
+        for (auto &rgn : regions) {
+            if (xW > vv && xW < colWidth * (i+1)) {
+                float relX = xW - (drawWidth * i) - gs;
+                float relP = relX / drawWidth;
+                auto length = (float)faidx_seq_len(fai, rgn.chrom.c_str());
+                auto new_s = (int)(length * relP);
+                int regionL = rgn.end - rgn.start;
+                rgn.start = new_s;
+                rgn.end = new_s + regionL;
+                if (rgn.end > length) {
+                    rgn.end = length;
+                    rgn.start = (rgn.end - regionL > 0) ? rgn.end - regionL : 0;
+                } else if (rgn.start < 0) {
+                    rgn.start = 0;
+                    rgn.end = regionL;
+                }
+                processed = false;
+                redraw = true;
+                fetchRefSeq(rgn);
+            } else if (vv > xW) { break; }
+            vv += colWidth;
+            gs += gap2;
+            i += 1;
+        }
+    }
+
     void GwPlot::mouseButton(GLFWwindow* wind, int button, int action, int mods) {
         double x, y;
 
@@ -775,6 +809,12 @@ namespace Manager {
             if (regions.empty()) {
                 return;
             }
+
+            if (yW >= (fb_height * 0.99)) {
+                updateSlider(xW);
+                return;
+            }
+
             int idx = getCollectionIdx(xW, yW);
             if (idx == -2 && action == GLFW_RELEASE) {
                 Term::printRefSeq(xW, collections);
@@ -958,6 +998,7 @@ namespace Manager {
         int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
         bool lt_last = xPos < lastX;
         lastX = xPos;
+
         if (state == GLFW_PRESS) {
             xDrag = xPos - xOri;
             if (mode == Manager::SINGLE) {
@@ -972,6 +1013,12 @@ namespace Manager {
                     xPos *= (float) fb_width / (float) windowW;
                     yPos *= (float) fb_height / (float) windowH;
                 }
+
+                if (yPos >= (fb_height * 0.99)) {
+                    updateSlider((float)xPos);
+                    return;
+                }
+
                 int idx = getCollectionIdx((float)xPos, (float)yPos);
                 if (idx < 0) {
                     return;
@@ -1011,22 +1058,17 @@ namespace Manager {
 
                     regions[regionSelection] = N;
 
-//                    if (opts.link_op != 0) {
-//                        processed = false;
-//                        redraw = true;
-//                    } else {
-                        processed = true;
-                        for (auto &col : collections) {
-                            if (col.regionIdx == regionSelection) {
-                                col.region = regions[regionSelection];
-                                if (!bams.empty()) {
-                                    HGW::appendReadsAndCoverage(col, bams[col.bamIdx], headers[col.bamIdx],
-                                                                indexes[col.bamIdx], opts, opts.coverage, !lt_last,
-                                                                 &samMaxY, filters);
-                                }
+                    processed = true;
+                    for (auto &col : collections) {
+                        if (col.regionIdx == regionSelection) {
+                            col.region = regions[regionSelection];
+                            if (!bams.empty()) {
+                                HGW::appendReadsAndCoverage(col, bams[col.bamIdx], headers[col.bamIdx],
+                                                            indexes[col.bamIdx], opts, opts.coverage, !lt_last,
+                                                             &samMaxY, filters);
                             }
-//                        }
-                        redraw = true;
+                        }
+                    redraw = true;
                     }
                 }
             }

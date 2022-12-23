@@ -219,6 +219,8 @@ namespace Manager {
 
         void updateCursorGenomePos(Segs::ReadCollection &cl, float xPos);
 
+        void updateSlider(float xPos);
+
     };
 
     void imageToPng(sk_sp<SkImage> &img, fs::path &outdir);

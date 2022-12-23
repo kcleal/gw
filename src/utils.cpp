@@ -58,19 +58,7 @@ namespace Utils {
 
     std::string getExecutableDir() {
         std::string executablePath = getExecutablePath();
-        char* exePath = new char[executablePath.length()];
-        strcpy(exePath, executablePath.c_str());
-        //PathRemoveFileSpecA(exePath);
-
-	const size_t cSize = strlen(exePath)+1;
-	wchar_t wc[cSize];
-        mbstowcs(wc, exePath, cSize);
-	PathCchRemoveFileSpec(wc, cSize);
-
-        char *str_exe = nullptr;
-	wcstombs(str_exe, wc, cSize);
-        std::string directory = std::string(str_exe);
-        delete[] exePath;
+        std::string directory = std::filesystem::path(executablePath).parent_path().u8string();
         return directory;
     }
 #endif
@@ -99,7 +87,6 @@ namespace Utils {
         char rawPathName[PATH_MAX];
         char realPathName[PATH_MAX];
         uint32_t rawPathSize = (uint32_t) sizeof(rawPathName);
-
         if (!_NSGetExecutablePath(rawPathName, &rawPathSize)) {
             realpath(rawPathName, realPathName);
         }

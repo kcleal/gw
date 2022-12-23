@@ -291,8 +291,17 @@ namespace Themes {
 
     void IniOptions::readIni() {
 
+# if defined(_WIN32)
+        const char *homedrive_c = std::getenv("HOMEDRIVE");
+	const char *homepath_c = std::getenv("HOMEPATH");
+        std::string homedrive(homedrive_c ? homedrive_c : "");
+	std::string homepath(homepath_c ? homepath_c : "");
+	std::string home = homedrive + homepath;
+#else
+
         struct passwd *pw = getpwuid(getuid());
         std::string home(pw->pw_dir);
+#endif
         std::string path;
         if (Utils::is_file_exist(home + "/.gw.ini")) {
             path = home + "/.gw.ini";

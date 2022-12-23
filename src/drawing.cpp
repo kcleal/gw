@@ -1038,7 +1038,7 @@ namespace Drawing {
         if (tracks.empty() || regions.empty()) {
             return;
         }
-        float gap = fb_width*0.002;
+        float gap = fb_width*(float)0.002;
         float gap2 = 2*gap;
         float padX = gap;
         float padY = 0;
@@ -1139,5 +1139,40 @@ namespace Drawing {
             padX += stepX;
         }
         opts.theme.lcLightJoins.setAntiAlias(false);
+    }
+
+    void drawChromLocation(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections, SkCanvas* canvas,
+                           std::vector<sam_hdr_t* > &headers, size_t nRegions, float fb_width, float fb_height) {
+        SkPaint paint;
+        paint.setColor(SK_ColorRED);
+        paint.setStrokeWidth(4);
+        paint.setStyle(SkPaint::kStroke_Style);
+        SkRect rect{};
+        float yh = (float)fb_height * 0.01;
+        float rowHeight = (float)fb_height / (float)headers.size();
+        float colWidth = (float)fb_width / (float)nRegions;
+        float gap =(float)fb_width * (float)0.002;
+        float gap2 = 2*gap;
+        float drawWidth = colWidth - gap2;
+        for (auto &cl: collections) {
+            if (cl.bamIdx + 1 != headers.size()) {
+                continue;
+            }
+            float xScaling = cl.xScaling;
+            float xOffset = cl.xOffset;
+            int tid = bam_name2id(headers[cl.bamIdx], cl.region.chrom.c_str());
+            auto length = (float)sam_hdr_tid2len(headers[cl.bamIdx], tid);
+            float s = (float)cl.region.start / length;
+            float e = (float)cl.region.end / length;
+            float w = (e - s) * drawWidth;
+            if (w < 3 ) {
+                w = 3;
+            }
+            rect.setXYWH((cl.regionIdx * colWidth) + gap + (s * drawWidth),
+                         ((cl.bamIdx + 1) * rowHeight) - yh,
+                         w,
+                         yh * 0.8);
+            canvas->drawRect(rect, paint);
+        }
     }
 }

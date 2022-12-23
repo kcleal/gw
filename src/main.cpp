@@ -5,7 +5,6 @@
 #include <filesystem>
 #include <htslib/faidx.h>
 #include <iostream>
-#include <random>
 #include <string>
 
 #include "argparse.h"
@@ -17,8 +16,6 @@
 #include "plot_manager.h"
 #include "themes.h"
 #include "utils.h"
-
-
 
 #ifdef __APPLE__
     #include <OpenGL/gl.h>
@@ -32,12 +29,9 @@
 #include "include/gpu/GrDirectContext.h"
 #include "include/gpu/gl/GrGLInterface.h"
 #include "include/core/SkCanvas.h"
-#include "include/core/SkColorSpace.h"
 #include "include/core/SkSurface.h"
 #include "include/core/SkDocument.h"
 #include "include/docs/SkPDFDocument.h"
-
-
 
 
 // skia context has to be managed from global space to work
@@ -55,7 +49,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> links = { "none", "sv", "all" };
     static const std::vector<std::string> backend = { "raster", "gpu" };
 
-    argparse::ArgumentParser program("gw", "0.3.2");
+    argparse::ArgumentParser program("gw", "0.4.0");
     program.add_argument("genome")
             .default_value(std::string{""}).append()//.required()
             .help("Reference genome in .fasta format with .fai index file");
@@ -340,7 +334,7 @@ int main(int argc, char *argv[]) {
 
         if (!interface || !interface->validate()) {
 		std::cerr << "Error: skia GrGLInterface was not valid" << std::endl;
-#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
+//#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
             GLint param;
             if (!interface) {
                 std::cerr << "    GrGLMakeNativeInterface() returned nullptr" << std::endl;
@@ -356,7 +350,7 @@ int main(int argc, char *argv[]) {
             glGetIntegerv(GL_DEPTH_BITS, &param); std::cerr << "    GL_DEPTH_BITS " << param << std::endl;
             glGetIntegerv(GL_STENCIL_BITS, &param); std::cerr << "    GL_STENCIL_BITS " << param << std::endl;
             std::cerr << "GL error code: " << glGetError() << std::endl;
-#endif
+//#endif
             std::terminate();
         }
 
@@ -498,7 +492,15 @@ int main(int argc, char *argv[]) {
             if (program.is_used("--fmt") && program.get<std::string>("--fmt") == "pdf") {
                 fs::path fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".pdf";
                 fs::path out_path = outdir / fname;
+
+#if defined(_WIN32) || defined(_WIN64)
+		const wchar_t* outp = out_path.c_str();
+		std::wstring pw(outp);
+		std::string outp_str(pw.begin(), pw.end());
+		SkFILEWStream out(outp_str.c_str());
+#else
                 SkFILEWStream out(out_path.c_str());
+#endif
                 SkDynamicMemoryWStream buffer;
 
                 auto pdfDocument = SkPDF::MakeDocument(&buffer);

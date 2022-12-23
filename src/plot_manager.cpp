@@ -574,6 +574,8 @@ namespace Manager {
                 sk_sp<SkImage> img(sSurface->makeImageSnapshot());
                 imageCacheQueue.push_back(sSurface->makeImageSnapshot());
             }
+
+            Drawing::drawChromLocation(opts, collections, canvas, headers, regions.size(), fb_width, fb_height);
         }
         sContext->flush();
         glfwSwapBuffers(window);
