@@ -305,17 +305,18 @@ int main(int argc, char *argv[]) {
             if (rr > 0) {
                 plotter.filters.push_back(p);
             } else {
-                exit(-1);
+                std::cerr << "Error: --filter option not understood" << std::endl;
+                std::exit(-1);
             }
         }
     }
 
     if (program.is_used("--images") && program.is_used("--variants")) {
         std::cerr << "Error: only --images or --variants possible, not both" << std::endl;
-        exit(-1);
+        std::exit(-1);
     } else if (program.is_used("--images") && program.is_used("--no-show")) {
         std::cerr << "Error: only --images or --no-show possible, not both" << std::endl;
-        exit(-1);
+        std::exit(-1);
     }
 
     if (!iopts.no_show) {  // plot something to screen
@@ -486,7 +487,7 @@ int main(int argc, char *argv[]) {
 
             if (outdir.empty()) {
                 std::cerr << "Error: please provide an output directory using --outdir\n";
-                std::terminate();
+                std::exit(-1);
             }
 
             if (program.is_used("--fmt") && program.get<std::string>("--fmt") == "pdf") {
@@ -555,7 +556,7 @@ int main(int argc, char *argv[]) {
         } else if (program.is_used("--variants") && !program.is_used("--out-vcf")) {
             if (outdir.empty()) {
                 std::cerr << "Error: please provide an output directory using --outdir\n";
-                std::terminate();
+                std::exit(-1);
             }
 
             auto v = program.get<std::string>("--variants");

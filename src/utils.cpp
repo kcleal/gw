@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstring>
 #include <ctime>
+#include <stdexcept>
 #include <sstream>
 #include <string>
 
@@ -174,14 +175,13 @@ namespace Utils {
             Utils::strToRegion(&reg, s, '_');
         } else if (s.find(" ") != std::string::npos) {
             Utils::strToRegion(&reg, s, ' ');
+        } else {
+            reg.chrom = s;
+            reg.start = 1;
+            reg.end = 20000;
         }
-        if (reg.chrom.length() == 0 || reg.start == -1 || reg.end == -1) {
-            std::cerr << "Error: unable to parse region";
-            std::abort();
-        }
-        if (reg.start > reg.end) {
-            std::cerr << "Error: region end < region start";
-            std::abort();
+        if (reg.chrom.length() == 0 || reg.start > reg.end) {
+            throw std::runtime_error("Error: unable to parse region");
         }
         if (reg.start == reg.end) {
             reg.end += 1;

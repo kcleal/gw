@@ -367,7 +367,7 @@ namespace Drawing {
                         continue;
                     }
 
-                    if (r_idx > rlen) {
+                    if (r_idx >= rlen) {
                         break;
                     }
                     char ref_base;
@@ -702,9 +702,12 @@ namespace Drawing {
                 int32_t l_qseq = a.delegate->core.l_qseq;
 
                 if (regionLen <= opts.snp_threshold) {
-                    float mms = xScaling * mmScaling;
-                    width = (regionLen < 500000) ? ((1. > mms) ? 1. : mms) : xScaling;
-                    drawMismatchesNoMD(canvas, rect, theme, cl.region, a, width, xScaling, xOffset, mmPosOffset, yScaledOffset, pH, l_qseq);
+//                    uint8_t *NMdta = bam_aux_get(a.delegate, "NM");
+//                    if (NMdta == nullptr || bam_aux2i(NMdta) > 0) {
+                        float mms = xScaling * mmScaling;
+                        width = (regionLen < 500000) ? ((1. > mms) ? 1. : mms) : xScaling;
+                        drawMismatchesNoMD(canvas, rect, theme, cl.region, a, width, xScaling, xOffset, mmPosOffset, yScaledOffset, pH, l_qseq);
+//                    }
                 }
 
                 // add soft-clips
@@ -1145,21 +1148,23 @@ namespace Drawing {
                            std::vector<sam_hdr_t* > &headers, size_t nRegions, float fb_width, float fb_height) {
         SkPaint paint;
         paint.setColor(SK_ColorRED);
-        paint.setStrokeWidth(4);
+        paint.setStrokeWidth(3);
         paint.setStyle(SkPaint::kStroke_Style);
         SkRect rect{};
+        SkPath path{};
         float yh = (float)fb_height * 0.01;
         float rowHeight = (float)fb_height / (float)headers.size();
         float colWidth = (float)fb_width / (float)nRegions;
-        float gap =(float)fb_width * (float)0.002;
+        float gap = 50; //(float)fb_width * (float)0.002;
         float gap2 = 2*gap;
         float drawWidth = colWidth - gap2;
+        if (drawWidth < 0) {
+            return;
+        }
         for (auto &cl: collections) {
             if (cl.bamIdx + 1 != headers.size()) {
                 continue;
             }
-            float xScaling = cl.xScaling;
-            float xOffset = cl.xOffset;
             int tid = bam_name2id(headers[cl.bamIdx], cl.region.chrom.c_str());
             auto length = (float)sam_hdr_tid2len(headers[cl.bamIdx], tid);
             float s = (float)cl.region.start / length;
@@ -1168,10 +1173,16 @@ namespace Drawing {
             if (w < 3 ) {
                 w = 3;
             }
-            rect.setXYWH((cl.regionIdx * colWidth) + gap + (s * drawWidth),
-                         ((cl.bamIdx + 1) * rowHeight) - yh,
+            float yp = ((cl.bamIdx + 1) * rowHeight) - yh;
+            float xp = (cl.regionIdx * drawWidth) + gap;
+            rect.setXYWH(xp + (s * drawWidth),
+                         yp - 4,
                          w,
-                         yh * 0.8);
+                         yh);
+            path.reset();
+            path.moveTo(xp, ((cl.bamIdx + 1) * rowHeight) - (yh * 0.5) - 4);
+            path.lineTo(xp + drawWidth, ((cl.bamIdx + 1) * rowHeight) - (yh * 0.5) - 4);
+            canvas->drawPath(path, opts.theme.lcLabel);
             canvas->drawRect(rect, paint);
         }
     }

@@ -750,15 +750,19 @@ namespace Manager {
 
     void GwPlot::updateSlider(float xW) {
         float colWidth = (float)fb_width / (float)regions.size();
-        float gap =(float)fb_width * (float)0.002;
+        float gap = 50; //(float)fb_width * (float)0.002;
         float gap2 = 2*gap;
         float drawWidth = colWidth - gap2;
+        if (drawWidth < 0) {
+            return;
+        }
         float vv = 0;
-        float gs = gap;
         int i = 0;
         for (auto &rgn : regions) {
             if (xW > vv && xW < colWidth * (i+1)) {
-                float relX = xW - (drawWidth * i) - gs;
+                float relX = xW - (drawWidth * i) - gap;
+                relX = (relX < 0) ? 0 : relX;
+                relX = (relX > drawWidth) ? drawWidth : relX;
                 float relP = relX / drawWidth;
                 auto length = (float)faidx_seq_len(fai, rgn.chrom.c_str());
                 auto new_s = (int)(length * relP);
@@ -777,7 +781,6 @@ namespace Manager {
                 fetchRefSeq(rgn);
             } else if (vv > xW) { break; }
             vv += colWidth;
-            gs += gap2;
             i += 1;
         }
     }
@@ -842,7 +845,7 @@ namespace Manager {
                     if (bnd->y == level && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
                         bnd->edge_type = 4;
                         target_qname = bam_get_qname(bnd->delegate);
-                        Term::printRead(bnd, headers[cl.bamIdx], selectedAlign);
+                        Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region.refSeq, cl.region.start, cl.region.end);
                         redraw = true;
                         processed = true;
                         break;
@@ -871,6 +874,9 @@ namespace Manager {
                         N.chrom = cl.region.chrom;
                         N.start = clicked.start - travel;
                         N.end = clicked.end - travel;
+                    }
+                    if (N.start < 0 || N.end < 0) {
+                        return;
                     }
 
                     regionSelection = cl.regionIdx;
@@ -1047,6 +1053,9 @@ namespace Manager {
                         N.chrom = cl.region.chrom;
                         N.start = clicked.start - travel;
                         N.end = clicked.end - travel;
+                    }
+                    if (N.start < 0 || N.end < 0) {
+                        return;
                     }
 
                     regionSelection = cl.regionIdx;

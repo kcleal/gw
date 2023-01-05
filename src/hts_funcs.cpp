@@ -234,8 +234,10 @@ namespace HGW {
             if (readQueue.empty()) {
                 std::fill(col.levelsStart.begin(), col.levelsStart.end(), 1215752191);
                 std::fill(col.levelsEnd.begin(), col.levelsEnd.end(), 0);
+                iter_q = sam_itr_queryi(index, tid, region->start, region->end);
+            } else {
+                iter_q = sam_itr_queryi(index, tid, lastPos, region->end);
             }
-            iter_q = sam_itr_queryi(index, tid, lastPos, region->end);
             if (iter_q == nullptr) {
                 std::cerr << "\nError: Null iterator when trying to fetch from HTS file in appendReadsAndCoverage (!left) " << region->chrom << " " << lastPos << " " << region->end << std::endl;
                 std::terminate();

@@ -111,9 +111,8 @@ namespace Term {
         }
     }
 
-    void printSeq(std::vector<Segs::Align>::iterator r, int max=5000) {
+    void printSeq(std::vector<Segs::Align>::iterator r, const char *refSeq, int refStart, int refEnd, int max=1000) {
         auto l_seq = (int)r->delegate->core.l_qseq;
-
         if (l_seq == 0) {
             std::cout << "*";
             return;
@@ -124,7 +123,7 @@ namespace Term {
         cigar_p = bam_get_cigar(r->delegate);
         uint8_t *ptr_seq = bam_get_seq(r->delegate);
         int i = 0;
-
+        int p = r->pos;
         for (k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
@@ -138,36 +137,34 @@ namespace Term {
                 for (int n=0; n < (int)l; ++n) {
                     std::cout << "-";
                 }
-
+                p += l;
             } else if (op == BAM_CMATCH) {
                 for (int n = 0; n < (int)l; ++n) {
                     uint8_t base = bam_seqi(ptr_seq, i);
                     bool mm = false;
-//                    for (auto &item: r->mismatches) {
-//                        if (i == (int)item.idx) {
-//                            std::cout << termcolor::underline;
-//                            switch (basemap[base]) {
-//                                case 65 :
-//                                    std::cout << termcolor::green << "A" << termcolor::reset;
-//                                    break;
-//                                case 67 :
-//                                    std::cout << termcolor::blue << "C" << termcolor::reset;
-//                                    break;
-//                                case 71 :
-//                                    std::cout << termcolor::yellow << "G" << termcolor::reset;
-//                                    break;
-//                                case 78 :
-//                                    std::cout << termcolor::grey << "N" << termcolor::reset;
-//                                    break;
-//                                case 84 :
-//                                    std::cout << termcolor::red << "T" << termcolor::reset;
-//                                    break;
-//                            }
-//                            mm = true;
-//                            break;
-//                        }
-//                    }
-                    if (!mm) {
+                    if (p >= refStart && p < refEnd && refSeq != nullptr && std::toupper(refSeq[p - refStart]) != basemap[base]) {
+                        mm = true;
+                    }
+                    if (mm) {
+                        std::cout << termcolor::underline;
+                        switch (basemap[base]) {
+                                case 65 :
+                                    std::cout << termcolor::green << "A" << termcolor::reset;
+                                    break;
+                                case 67 :
+                                    std::cout << termcolor::blue << "C" << termcolor::reset;
+                                    break;
+                                case 71 :
+                                    std::cout << termcolor::yellow << "G" << termcolor::reset;
+                                    break;
+                                case 78 :
+                                    std::cout << termcolor::grey << "N" << termcolor::reset;
+                                    break;
+                                case 84 :
+                                    std::cout << termcolor::red << "T" << termcolor::reset;
+                                    break;
+                            }
+                    } else {
                         switch (basemap[base]) {
                             case 65 :
                                 std::cout << "A";
@@ -187,6 +184,7 @@ namespace Term {
                         }
                     }
                     i += 1;
+                    p += 1;
                 }
 
             } else if (op == BAM_CEQUAL) {
@@ -211,6 +209,7 @@ namespace Term {
                     }
                     i += 1;
                 }
+                p += l;
 
             } else if (op == BAM_CDIFF) {
                 for (int n = 0; n < (int)l; ++n) {
@@ -234,9 +233,10 @@ namespace Term {
                     }
                     i += 1;
                 }
+                p += l;
 
             } else {
-                for (int n=0; n < (int)l; ++n) {
+                for (int n=0; n < (int)l; ++n) {  // soft-clips
                     uint8_t base = bam_seqi(ptr_seq, i);
                     switch (basemap[base]) {
                         case 65 : std::cout << termcolor::green << "A" << termcolor::reset; break;
@@ -328,7 +328,7 @@ namespace Term {
         ks_free(&str);
     }
 
-    void printRead(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam) {
+    void printRead(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, const char *refSeq, int refStart, int refEnd) {
         const char *rname = sam_hdr_tid2name(hdr, r->delegate->core.tid);
         const char *rnext = sam_hdr_tid2name(hdr, r->delegate->core.mtid);
         std::cout << std::endl << std::endl;
@@ -340,7 +340,7 @@ namespace Term {
         std::cout << termcolor::bold << "flag     " << termcolor::reset << r->delegate->core.flag << std::endl;
         std::cout << termcolor::bold << "mapq     " << termcolor::reset << (int)r->delegate->core.qual << std::endl;
         std::cout << termcolor::bold << "cigar    " << termcolor::reset; printCigar(r); std::cout << std::endl;
-        std::cout << termcolor::bold << "seq      " << termcolor::reset; printSeq(r); std::cout << std::endl << std::endl;
+        std::cout << termcolor::bold << "seq      " << termcolor::reset; printSeq(r, refSeq, refStart, refEnd); std::cout << std::endl << std::endl;
 
         read2sam(r, hdr, sam);
     }
