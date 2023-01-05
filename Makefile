@@ -1,6 +1,6 @@
 TARGET = gw
 
-CXXFLAGS += -Wall -std=c++17 -fno-common -dynamic -fwrapv -O3 -DNDEBUG -pipe # -g
+CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -O3 -DNDEBUG -pipe # -g
 
 CPPFLAGS += -I./include -I./src -I.
 
@@ -24,14 +24,13 @@ else
 endif
 
 # try and add conda environment
-ifneq ($(CONDA_PREFIX),"")
+ifdef CONDA_PREFIX
     CPPFLAGS += -I$(CONDA_PREFIX)/include
     LDFLAGS += -L$(CONDA_PREFIX)/lib
 endif
 
 # Options to use target htslib or skia
-HTSLIB ?= ""
-ifneq ($(HTSLIB),"")
+ifdef HTSLIB
     CPPFLAGS += -I$(HTSLIB)
     LDFLAGS += -L$(HTSLIB)
 endif
