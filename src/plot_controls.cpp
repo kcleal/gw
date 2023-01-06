@@ -49,7 +49,7 @@ namespace Manager {
             captureText = true;
             inputText.append(":");
             charIndex = inputText.size();
-            std::cout <<  "\n" << inputText << std::flush;
+//            std::cout <<  "\n" << inputText << std::flush;
         } else {
             shiftPress = false;
         }
@@ -444,6 +444,7 @@ namespace Manager {
         // decide if the input key is part of a command or a redraw request
         registerKey(window, key, scancode, action, mods);
         if (captureText) {
+            glfwPostEmptyEvent();
             return;
         }
         try {

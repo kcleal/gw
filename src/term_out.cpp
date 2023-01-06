@@ -76,11 +76,11 @@ namespace Term {
         if (charIndex != (int)inputText.size()) {
             inputText.insert(charIndex, letter);
             charIndex += 1;
-            std::cout << "\r" << inputText.substr(0, charIndex) << "_" << inputText.substr(charIndex, inputText.size()) << std::flush;
+//            std::cout << "\r" << inputText.substr(0, charIndex) << "_" << inputText.substr(charIndex, inputText.size()) << std::flush;
         } else {
             inputText.append(letter);
             charIndex = inputText.size();
-            std::cout << "\r" << inputText << std::flush;
+//            std::cout << "\r" << inputText << std::flush;
         }
     }
 

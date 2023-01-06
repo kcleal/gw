@@ -33,6 +33,9 @@
     #include <limits.h>
     #include <mach-o/dyld.h>
     #include <unistd.h>
+    #include <termios.h>
+    #include <sys/ioctl.h>
+//    #include <poll.h>
 #endif
 
 #ifdef __linux__
@@ -388,7 +391,9 @@ namespace Utils {
         ioctl(fileno(stdout), TIOCGWINSZ, &w);
         int width = (int)(w.ws_col);
 #else
-        int width = 80;
+        struct winsize termDim;
+        ioctl(0, TIOCGWINSZ, &termDim); // Grab terminal dimensions
+        int width = termDim.ws_col;
 #endif
         return width;
     }

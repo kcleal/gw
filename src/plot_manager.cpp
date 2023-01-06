@@ -11,7 +11,6 @@
 #endif
 
 #include "htslib/faidx.h"
-#include "htslib/hfile.h"
 #include "htslib/hts.h"
 #include "htslib/sam.h"
 
@@ -21,11 +20,9 @@
 #include "include/gpu/GrDirectContext.h"
 #include "include/gpu/gl/GrGLInterface.h"
 #include "include/core/SkCanvas.h"
-#include "include/core/SkColorSpace.h"
 #include "include/core/SkSamplingOptions.h"
 #include "include/core/SkSurface.h"
 #include "include/core/SkDocument.h"
-#include "include/docs/SkPDFDocument.h"
 
 #include "drawing.h"
 #include "plot_manager.h"
@@ -62,10 +59,11 @@ namespace Manager {
         this->bam_paths = bampaths;
         this->regions = regions;
         this->opts = opt;
+        frameId = 0;
         redraw = true;
         processed = false;
         drawLine = false;
-        calcScaling = true;
+        captureText = false;
         drawToBackWindow = false;
         fonts = Themes::Fonts();
         fai = fai_load(reference.c_str());
@@ -379,7 +377,7 @@ namespace Manager {
                 }
             }
 
-            drawMouseLine(sSurface->getCanvas(), sContext, sSurface);
+            drawOverlay(sSurface->getCanvas(), sContext, sSurface);
 
             if (resizeTriggered && std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - resizeTimer) > 100ms) {
                 imageCache.clear();
@@ -557,8 +555,10 @@ namespace Manager {
     }
 
     void GwPlot::drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
+
         canvas->drawPaint(opts.theme.bgPaint);
         if (!regions.empty()) {
+            frameId += 1;
             processBam();
             setGlfwFrameBufferSize();
             setScaling();
@@ -569,40 +569,54 @@ namespace Manager {
             Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size());
             Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
             Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
-
-            if (drawLine) {
-                sk_sp<SkImage> img(sSurface->makeImageSnapshot());
-                imageCacheQueue.push_back(sSurface->makeImageSnapshot());
-            }
-
             Drawing::drawChromLocation(opts, collections, canvas, headers, regions.size(), fb_width, fb_height);
+            imageCacheQueue.emplace_back(std::make_pair(frameId, sSurface->makeImageSnapshot()));
         }
         sContext->flush();
         glfwSwapBuffers(window);
         redraw = false;
     }
 
-    void GwPlot::drawMouseLine(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
-        if (!drawLine || imageCacheQueue.empty()) {
+    void GwPlot::drawOverlay(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
+        if (imageCacheQueue.empty()) {
             return;
         }
-        while (imageCacheQueue.size() > 1) {
+        while (imageCacheQueue.front().first != frameId) {
             imageCacheQueue.pop_front();
         }
-        canvas->drawPaint(opts.theme.bgPaint);
-        canvas->drawImage(imageCacheQueue.back(), 0, 0);
-
-        double xposm, yposm;
-        glfwGetCursorPos(window, &xposm, &yposm);
-        float xscale, yscale;
-        glfwGetWindowContentScale(window, &xscale, &yscale);
-        SkPath path;
-        path.moveTo(xposm * xscale, 0);
-        path.lineTo(xposm * xscale, fb_height);
-        canvas->drawPath(path, opts.theme.lcJoins);
+        canvas->drawImage(imageCacheQueue.back().second, 0, 0);
+        if (drawLine) {
+            double xposm, yposm;
+            glfwGetCursorPos(window, &xposm, &yposm);
+            float xscale, yscale;
+            glfwGetWindowContentScale(window, &xscale, &yscale);
+            SkPath path;
+            path.moveTo(xposm * xscale, 0);
+            path.lineTo(xposm * xscale, fb_height);
+            canvas->drawPath(path, opts.theme.lcJoins);
+        }
+        if (captureText) {
+            SkRect rect{};
+            int h = fonts.fontHeight * 1.3;
+            float x = 50;
+            float w = fb_width - 100;
+            if (x < w) {
+                SkPaint box{};
+                box.setColor(SK_ColorGRAY);
+                box.setStrokeWidth(3);
+                box.setStyle(SkPaint::kStroke_Style);
+                rect.setXYWH(x, fb_height - h*2, w, h*1);
+                canvas->drawRoundRect(rect, 5, 5, opts.theme.bgPaint);
+                canvas->drawRoundRect(rect, 5, 5, box);
+                std::string sText = inputText.substr(0, charIndex) + "|" + inputText.substr(charIndex, inputText.size());
+                sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(sText.c_str(), fonts.overlay);
+                canvas->drawTextBlob(blob, x + 10, fb_height - h*1.25, opts.theme.tcDel);
+            }
+        }
         sContext->flush();
         glfwSwapBuffers(window);
     }
+
 
     void GwPlot::tileDrawingThread(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
         int bStart = blockStart;
