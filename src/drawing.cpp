@@ -1146,23 +1146,26 @@ namespace Drawing {
 
     void drawChromLocation(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections, SkCanvas* canvas,
                            std::vector<sam_hdr_t* > &headers, size_t nRegions, float fb_width, float fb_height) {
-        SkPaint paint;
+        SkPaint paint, line;
         paint.setColor(SK_ColorRED);
         paint.setStrokeWidth(3);
         paint.setStyle(SkPaint::kStroke_Style);
+        line.setColor((opts.theme_str == "dark") ? SK_ColorWHITE : SK_ColorBLACK);
+        line.setStrokeWidth(1);
+        line.setStyle(SkPaint::kStroke_Style);
         SkRect rect{};
         SkPath path{};
-        float yh = (float)fb_height * 0.01;
+        auto yh = (float)(fb_height * 0.01);
         float rowHeight = (float)fb_height / (float)headers.size();
         float colWidth = (float)fb_width / (float)nRegions;
-        float gap = 50; //(float)fb_width * (float)0.002;
+        float gap = 50;
         float gap2 = 2*gap;
         float drawWidth = colWidth - gap2;
         if (drawWidth < 0) {
             return;
         }
         for (auto &cl: collections) {
-            if (cl.bamIdx + 1 != headers.size()) {
+            if (cl.bamIdx + 1 != (int)headers.size()) {
                 continue;
             }
             int tid = bam_name2id(headers[cl.bamIdx], cl.region.chrom.c_str());
@@ -1182,7 +1185,7 @@ namespace Drawing {
             path.reset();
             path.moveTo(xp, ((cl.bamIdx + 1) * rowHeight) - (yh * 0.5) - 4);
             path.lineTo(xp + drawWidth, ((cl.bamIdx + 1) * rowHeight) - (yh * 0.5) - 4);
-            canvas->drawPath(path, opts.theme.lcLabel);
+            canvas->drawPath(path, line);
             canvas->drawRect(rect, paint);
         }
     }

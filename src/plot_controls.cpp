@@ -251,9 +251,16 @@ namespace Manager {
 
         } else if (Utils::startsWith(inputText, ":ylim")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
-            opts.ylim = std::stoi(split.back());
-            samMaxY = opts.ylim;
-            valid = true;
+            try {
+                opts.ylim = std::stoi(split.back());
+                samMaxY = opts.ylim;
+                valid = true;
+            } catch (...) {
+                std::cerr << termcolor::red << "Error:" << termcolor::reset << " ylim invalid value\n";
+                inputText = "";
+                return true;
+            }
+
         } else if (Utils::startsWith(inputText, ":remove") || Utils::startsWith(inputText, ":rm")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             int ind = 0;
@@ -365,10 +372,15 @@ namespace Manager {
 
         } else if (Utils::startsWith(inputText, ":theme")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
+            if (split.size() != 2) {
+                std::cerr << termcolor::red << "Error:" << termcolor::reset << " theme must be either 'igv' or 'dark'\n";
+                inputText = "";
+                return true;
+            }
             if (split.back() == "dark") {
-                opts.theme = Themes::DarkTheme();  opts.theme.setAlphas(); valid = true; imageCache.clear();
+                opts.theme = Themes::DarkTheme();  opts.theme.setAlphas(); valid = true; imageCache.clear(); opts.theme_str = "dark";
             } else if (split.back() == "igv") {
-                opts.theme = Themes::IgvTheme(); opts.theme.setAlphas(); valid = true; imageCache.clear();
+                opts.theme = Themes::IgvTheme(); opts.theme.setAlphas(); valid = true; imageCache.clear(); opts.theme_str = "igv";
             } else {
                 valid = false;
             }
@@ -401,8 +413,14 @@ namespace Manager {
             }
             if (split.size() > 1) {
                 for (int i=1; i < (int)split.size(); ++i) {
-                    regions.push_back(Utils::parseRegion(split[1]));
-                    fetchRefSeq(regions.back());
+                    try {
+                        regions.push_back(Utils::parseRegion(split[1]));
+                        fetchRefSeq(regions.back());
+                    } catch (...) {
+                        std::cerr << termcolor::red << "Error parsing :add" << termcolor::reset;
+                        inputText = "";
+                        return true;
+                    }
                 }
                 valid = true;
             } else {
@@ -814,7 +832,7 @@ namespace Manager {
                 return;
             }
 
-            if (yW >= (fb_height * 0.99)) {
+            if (yW >= (fb_height * 0.98)) {
                 updateSlider(xW);
                 return;
             }

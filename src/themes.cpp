@@ -405,7 +405,10 @@ namespace Themes {
         SkPaint paint1;
         const SkPaint* pnt = &paint1;
         SkScalar height;
-        int font_size = 30;
+        int font_size = 16;
+        fonty.setSize(font_size);
+        fonty.getBounds(glyphs, 1, bounds, pnt);
+        fontHeight_14 = bounds[0].height();
         bool was_set = false;
         while (font_size > 10 * yScale) {
             fonty.setSize(font_size);
@@ -430,13 +433,13 @@ namespace Themes {
 
         } else {
             fontSize = (float)font_size;
-            if (font_size > 14 * yScale) {
-                overlay.setSize(font_size);
-                overlay.getBounds(glyphs, 1, bounds, pnt);
-            } else {
-                overlay.setSize(14 * yScale);
-                overlay.getBounds(glyphs, 1, bounds, pnt);
-            }
+//            if (font_size > 14 * yScale) {
+//                overlay.setSize(font_size);
+//                overlay.getBounds(glyphs, 1, bounds, pnt);
+//            } else {
+            overlay.setSize(14 * yScale);
+            overlay.getBounds(glyphs, 1, bounds, pnt);
+//            }
 
             fontMaxSize = bounds[0].height();
             overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);

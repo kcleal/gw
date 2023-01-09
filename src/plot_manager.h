@@ -72,6 +72,7 @@ namespace Manager {
         ~GwPlot();
 
         int fb_width, fb_height;
+        float monitorScale;
         int samMaxY;
         bool drawToBackWindow;
 

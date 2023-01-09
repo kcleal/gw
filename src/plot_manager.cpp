@@ -65,6 +65,7 @@ namespace Manager {
         drawLine = false;
         captureText = false;
         drawToBackWindow = false;
+        monitorScale = 1;
         fonts = Themes::Fonts();
         fai = fai_load(reference.c_str());
         for (auto &fn: bampaths) {
@@ -496,61 +497,59 @@ namespace Manager {
 
     void GwPlot::setGlfwFrameBufferSize() {
         if (!drawToBackWindow) {
+            monitorScale = 1;
             glfwGetFramebufferSize(window, &fb_width, &fb_height);
         } else {
+            float xscale = 1;
+            float yscale = 1;
+            glfwGetWindowContentScale(window, &xscale, &yscale);
+            monitorScale = xscale;  // we assume xscale and yscale are the same
             glfwGetFramebufferSize(backWindow, &fb_width, &fb_height);
         }
     }
 
     void GwPlot::setScaling() {  // sets z_scaling, y_scaling trackY and regionWidth
-        float xscale, yscale;
-        if (drawToBackWindow) {
-            xscale = 1; yscale = 1;
-        } else {
-            glfwGetWindowContentScale(window, &xscale, &yscale);
-        }
-
-        refSpace = fb_height * 0.02;
-        auto fbh = (float) fb_height; // - refSpace;
+        refSpace = (float)(fb_height * 0.02);
+        auto fbh = (float) fb_height;
         auto fbw = (float) fb_width;
         if (bams.empty()) {
             covY = 0; totalCovY = 0; totalTabixY = 0; tabixY = 0;
         }
         auto nbams = (float)bams.size();
         if (opts.coverage && nbams > 0) {
-            totalCovY = fbh * 0.1;
+            totalCovY = fbh * (float)0.1;
             covY = totalCovY / nbams;
         } else {
             totalCovY = 0; covY = 0;
         }
-        float gap = 6 * xscale;
+        float gap = 10 * monitorScale;
         float gap2 = gap*2;
 
         if (tracks.empty()) {
             totalTabixY = 0; tabixY = 0;
         } else {
-            totalTabixY = fbh * (0.05 * tracks.size());
-            if (totalTabixY > 0.15 * fbh) {
-                totalTabixY = 0.15 * fbh;
+            totalTabixY = fbh * ((float)0.05 * (float)tracks.size());
+            if (totalTabixY > (float)0.15 * fbh) {
+                totalTabixY = (float)0.15 * fbh;
             }
-            tabixY = totalTabixY / tracks.size();
+            tabixY = totalTabixY / (float)tracks.size();
         }
-        if (nbams) {
+        if (nbams > 0) {
             trackY = (fbh - totalCovY - totalTabixY - gap2 - refSpace) / nbams;
             yScaling = ((fbh - totalCovY - totalTabixY - gap2 - refSpace) / (float)samMaxY) / nbams;
         } else {
             trackY = 0;
             yScaling = 0;
         }
-        fonts.setFontSize(yScaling, yscale);
+        fonts.setFontSize(yScaling, monitorScale);
         regionWidth = fbw / (float)regions.size();
-        bamHeight = covY + trackY; // + tabixY;
+        bamHeight = covY + trackY;
 
         for (auto &cl: collections) {
-            cl.xScaling = (regionWidth - gap2) / ((double)(cl.region.end - cl.region.start));
+            cl.xScaling = (float)((regionWidth - gap2) / ((double)(cl.region.end - cl.region.start)));
             cl.xOffset = (regionWidth * (float)cl.regionIdx) + gap;
             cl.yOffset = (float)cl.bamIdx * bamHeight + covY + refSpace;
-            cl.yPixels = trackY + covY; // + tabixY;
+            cl.yPixels = trackY + covY;
         }
     }
 
@@ -588,29 +587,34 @@ namespace Manager {
         if (drawLine) {
             double xposm, yposm;
             glfwGetCursorPos(window, &xposm, &yposm);
-            float xscale, yscale;
-            glfwGetWindowContentScale(window, &xscale, &yscale);
             SkPath path;
-            path.moveTo(xposm * xscale, 0);
-            path.lineTo(xposm * xscale, fb_height);
+            path.moveTo(xposm * monitorScale, 0);
+            path.lineTo(xposm * monitorScale, fb_height);
             canvas->drawPath(path, opts.theme.lcJoins);
         }
         if (captureText) {
             SkRect rect{};
-            int h = fonts.fontHeight * 1.3;
+            SkFont fonty;
+            fonty.setSize(14);
+            fonty.setTypeface(fonts.face);
+            float height_f = fonts.fontHeight_14 * 1.5;
             float x = 50;
             float w = fb_width - 100;
             if (x < w) {
+                float y = fb_height - (fb_height * 0.025);
+                float y2 = fb_height - (height_f * 2);
+                float yy = (y2 < y) ? y2 : y;
                 SkPaint box{};
                 box.setColor(SK_ColorGRAY);
-                box.setStrokeWidth(3);
+                box.setStrokeWidth(1);
+                box.setAntiAlias(true);
                 box.setStyle(SkPaint::kStroke_Style);
-                rect.setXYWH(x, fb_height - h*2, w, h*1);
+                rect.setXYWH(x, yy, w, height_f);
                 canvas->drawRoundRect(rect, 5, 5, opts.theme.bgPaint);
                 canvas->drawRoundRect(rect, 5, 5, box);
                 std::string sText = inputText.substr(0, charIndex) + "|" + inputText.substr(charIndex, inputText.size());
-                sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(sText.c_str(), fonts.overlay);
-                canvas->drawTextBlob(blob, x + 10, fb_height - h*1.25, opts.theme.tcDel);
+                sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(sText.c_str(), fonty);
+                canvas->drawTextBlob(blob, x + 12, yy + fonts.fontHeight_14, opts.theme.tcDel);
             }
         }
         sContext->flush();
