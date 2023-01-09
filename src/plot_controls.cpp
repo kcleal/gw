@@ -473,7 +473,7 @@ namespace Manager {
             glfwSetWindowShouldClose(wind, GLFW_TRUE);
         }
         if (mode == Show::SINGLE) {
-            if (regions.empty() || regionSelection < 0) {  // bams.empty() ||
+            if (regions.empty() || regionSelection < 0) {
                 return;
             }
 
@@ -769,7 +769,7 @@ namespace Manager {
 
     void GwPlot::updateSlider(float xW) {
         float colWidth = (float)fb_width / (float)regions.size();
-        float gap = 50; //(float)fb_width * (float)0.002;
+        float gap = 50;
         float gap2 = 2*gap;
         float drawWidth = colWidth - gap2;
         if (drawWidth < 0) {
@@ -779,7 +779,7 @@ namespace Manager {
         int i = 0;
         for (auto &rgn : regions) {
             if (xW > vv && xW < colWidth * (i+1)) {
-                float relX = xW - (drawWidth * i) - gap;
+                float relX = xW - (colWidth * i) - gap;
                 relX = (relX < 0) ? 0 : relX;
                 relX = (relX > drawWidth) ? drawWidth : relX;
                 float relP = relX / drawWidth;
@@ -934,6 +934,7 @@ namespace Manager {
                 xDrag = -1000000;
                 redraw = true;
                 processed = false;
+                imageCacheQueue.clear();
             }
         } else if (mode == Manager::TILED) {
             if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
@@ -1039,7 +1040,7 @@ namespace Manager {
                     yPos *= (float) fb_height / (float) windowH;
                 }
 
-                if (yPos >= (fb_height * 0.99)) {
+                if (yPos >= (fb_height * 0.98)) {
                     updateSlider((float)xPos);
                     return;
                 }

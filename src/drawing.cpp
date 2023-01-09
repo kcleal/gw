@@ -1177,7 +1177,7 @@ namespace Drawing {
                 w = 3;
             }
             float yp = ((cl.bamIdx + 1) * rowHeight) - yh;
-            float xp = (cl.regionIdx * drawWidth) + gap;
+            float xp = (cl.regionIdx * colWidth) + gap;
             rect.setXYWH(xp + (s * drawWidth),
                          yp - 4,
                          w,
