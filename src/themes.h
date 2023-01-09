@@ -137,7 +137,7 @@ namespace Themes {
         Fonts();
         ~Fonts() = default;
 
-        float fontSize, fontHeight, fontMaxSize, overlayWidth, fontHeight_14;
+        float fontSize, fontHeight, fontMaxSize, overlayWidth, overlayHeight;
         SkRect rect;
         SkPath path;
         sk_sp<SkTypeface> face;

@@ -391,7 +391,7 @@ namespace Themes {
         path = SkPath();
         char fn[20] = "arial";
         face = SkTypeface::MakeFromName(fn, SkFontStyle::Normal());
-        SkScalar ts = 14;
+        SkScalar ts = 16;
         fonty.setSize(ts);
         fonty.setTypeface(face);
         overlay.setSize(ts);
@@ -405,12 +405,12 @@ namespace Themes {
         SkPaint paint1;
         const SkPaint* pnt = &paint1;
         SkScalar height;
-        int font_size = 16;
-        fonty.setSize(font_size);
+        int font_size = 12 * yScale;
+        fonty.setSize(font_size * yScale);
         fonty.getBounds(glyphs, 1, bounds, pnt);
-        fontHeight_14 = bounds[0].height();
+        fontMaxSize = bounds[0].height();
         bool was_set = false;
-        while (font_size > 10 * yScale) {
+        while (font_size > 8 * yScale) {
             fonty.setSize(font_size);
             fonty.getBounds(glyphs, 1, bounds, pnt);
             height = bounds[0].height();
@@ -421,27 +421,25 @@ namespace Themes {
             --font_size;
         }
         if (!was_set) {
-            fontSize = 0;
-            fontHeight = 0;
+//            fontMaxSize = bounds[0].height();
+            overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
+            fontSize = 14 * yScale;
+            fontHeight = fontMaxSize;
             for (auto &i : textWidths) {
                 i = 0;
             }
             overlay.setSize(14 * yScale);
             overlay.getBounds(glyphs, 1, bounds, pnt);
-            fontMaxSize = bounds[0].height();
-            overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
-
         } else {
             fontSize = (float)font_size;
 //            if (font_size > 14 * yScale) {
-//                overlay.setSize(font_size);
+//                overlay.setSize(font_size * yScale);
 //                overlay.getBounds(glyphs, 1, bounds, pnt);
 //            } else {
             overlay.setSize(14 * yScale);
             overlay.getBounds(glyphs, 1, bounds, pnt);
 //            }
-
-            fontMaxSize = bounds[0].height();
+            overlayHeight = bounds[0].height();
             overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
             fontHeight = height;
             SkScalar w = fonty.measureText("9", 1, SkTextEncoding::kUTF8);

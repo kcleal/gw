@@ -37,7 +37,7 @@ namespace Drawing {
                   float yScaling, const Themes::Fonts &fonts, int linkOp, float refSpace);
 
     void drawRef(const Themes::IniOptions &opts, std::vector<Utils::Region> regions, int fb_width,
-                 SkCanvas *canvas, const Themes::Fonts &fonts, float refSpace, float nRegions);
+                 SkCanvas *canvas, const Themes::Fonts &fonts, float refSpace, float nRegions, float gap);
 
     void drawBorders(const Themes::IniOptions &opts, float fb_width, float fb_height,
                      SkCanvas *canvas, size_t nregions, size_t nbams, float totalTabixY, float tabixY, size_t tracks_size);
@@ -50,6 +50,6 @@ namespace Drawing {
                     const std::vector<Utils::Region> &regions, const Themes::Fonts &fonts);
 
     void drawChromLocation(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections, SkCanvas* canvas,
-                  std::vector<sam_hdr_t* > &headers, size_t nRegions, float fb_width, float fb_height);
+                  std::vector<sam_hdr_t* > &headers, size_t nRegions, float fb_width, float fb_height, float monitorScale);
 
 }

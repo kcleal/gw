@@ -72,7 +72,7 @@ namespace Manager {
         ~GwPlot();
 
         int fb_width, fb_height;
-        float monitorScale;
+        float monitorScale, gap;
         int samMaxY;
         bool drawToBackWindow;
 
@@ -202,13 +202,13 @@ namespace Manager {
 
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
+        void drawOverlay(SkCanvas* canvas, GrDirectContext* sContext);
+
         void tileDrawingThread(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
         void tileLoadingThread();
 
         void drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
-
-        void drawOverlay(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
         void registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
 

@@ -378,7 +378,7 @@ namespace Manager {
                 }
             }
 
-            drawOverlay(sSurface->getCanvas(), sContext, sSurface);
+            drawOverlay(sSurface->getCanvas(), sContext);
 
             if (resizeTriggered && std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - resizeTimer) > 100ms) {
                 imageCache.clear();
@@ -497,15 +497,16 @@ namespace Manager {
 
     void GwPlot::setGlfwFrameBufferSize() {
         if (!drawToBackWindow) {
-            monitorScale = 1;
-            glfwGetFramebufferSize(window, &fb_width, &fb_height);
-        } else {
             float xscale = 1;
             float yscale = 1;
             glfwGetWindowContentScale(window, &xscale, &yscale);
             monitorScale = xscale;  // we assume xscale and yscale are the same
+            glfwGetFramebufferSize(window, &fb_width, &fb_height);
+        } else {
+            monitorScale = 1;
             glfwGetFramebufferSize(backWindow, &fb_width, &fb_height);
         }
+        gap = 10 * monitorScale;
     }
 
     void GwPlot::setScaling() {  // sets z_scaling, y_scaling trackY and regionWidth
@@ -522,7 +523,7 @@ namespace Manager {
         } else {
             totalCovY = 0; covY = 0;
         }
-        float gap = 10 * monitorScale;
+//        float gap = 10 * monitorScale;
         float gap2 = gap*2;
 
         if (tracks.empty()) {
@@ -554,7 +555,6 @@ namespace Manager {
     }
 
     void GwPlot::drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
-
         canvas->drawPaint(opts.theme.bgPaint);
         if (!regions.empty()) {
             frameId += 1;
@@ -565,10 +565,10 @@ namespace Manager {
                 Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
             }
             Drawing::drawBams(opts, collections, canvas, yScaling, fonts, opts.link_op, refSpace);
-            Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size());
+            Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
             Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
             Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
-            Drawing::drawChromLocation(opts, collections, canvas, headers, regions.size(), fb_width, fb_height);
+            Drawing::drawChromLocation(opts, collections, canvas, headers, regions.size(), fb_width, fb_height, monitorScale);
             imageCacheQueue.emplace_back(std::make_pair(frameId, sSurface->makeImageSnapshot()));
         }
         sContext->flush();
@@ -576,7 +576,7 @@ namespace Manager {
         redraw = false;
     }
 
-    void GwPlot::drawOverlay(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
+    void GwPlot::drawOverlay(SkCanvas* canvas, GrDirectContext* sContext) {
         if (imageCacheQueue.empty()) {
             return;
         }
@@ -594,27 +594,24 @@ namespace Manager {
         }
         if (captureText) {
             SkRect rect{};
-            SkFont fonty;
-            fonty.setSize(14);
-            fonty.setTypeface(fonts.face);
-            float height_f = fonts.fontHeight_14 * 1.5;
+            float height_f = fonts.overlayHeight * 1.5;
             float x = 50;
             float w = fb_width - 100;
             if (x < w) {
                 float y = fb_height - (fb_height * 0.025);
-                float y2 = fb_height - (height_f * 2);
+                float y2 = fb_height - (height_f * 2.25);
                 float yy = (y2 < y) ? y2 : y;
                 SkPaint box{};
                 box.setColor(SK_ColorGRAY);
-                box.setStrokeWidth(1);
+                box.setStrokeWidth(monitorScale);
                 box.setAntiAlias(true);
                 box.setStyle(SkPaint::kStroke_Style);
                 rect.setXYWH(x, yy, w, height_f);
                 canvas->drawRoundRect(rect, 5, 5, opts.theme.bgPaint);
                 canvas->drawRoundRect(rect, 5, 5, box);
                 std::string sText = inputText.substr(0, charIndex) + "|" + inputText.substr(charIndex, inputText.size());
-                sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(sText.c_str(), fonty);
-                canvas->drawTextBlob(blob, x + 12, yy + fonts.fontHeight_14, opts.theme.tcDel);
+                sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(sText.c_str(), fonts.overlay);
+                canvas->drawTextBlob(blob, x + 12, yy + fonts.overlayHeight, opts.theme.tcDel);
             }
         }
         sContext->flush();
@@ -768,7 +765,7 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, opts.link_op, refSpace);
-        Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size());
+        Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
     }
@@ -782,7 +779,7 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, opts.link_op, refSpace);
-        Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size());
+        Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
     }

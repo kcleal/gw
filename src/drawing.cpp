@@ -843,24 +843,26 @@ namespace Drawing {
 
     void drawRef(const Themes::IniOptions &opts,
                   std::vector<Utils::Region> regions, int fb_width,
-                  SkCanvas *canvas, const Themes::Fonts &fonts, float h, float nRegions) {
+                  SkCanvas *canvas, const Themes::Fonts &fonts, float h, float nRegions, float gap) {
         if (regions.empty()) {
             return;
         }
-        float gap = 6;
         SkRect rect;
         SkPaint faceColor;
         const Themes::BaseTheme &theme = opts.theme;
-        double offset = 0;
-        double xPixels = (double)fb_width / (double)regions.size();
+        double regionW = (double)fb_width / (double)regions.size();
+        double xPixels = regionW - gap - gap;
         float textW = fonts.overlayWidth;
         float minLetterSize;
         minLetterSize = (textW > 0) ? ((float)fb_width / (float)regions.size()) / textW : 0;
         int index = 0;
         for (auto &rgn: regions) {
             int size = rgn.end - rgn.start;
-            double xScaling = (xPixels - 12) / size;
+            double xScaling = xPixels / size;
             const char *ref = rgn.refSeq;
+            if (ref == nullptr) {
+                continue;
+            }
             double mmPosOffset, mmScaling;
             if (size < 250) {
                 mmPosOffset = 0.05;
@@ -869,14 +871,11 @@ namespace Drawing {
                 mmPosOffset = 0;
                 mmScaling = 1;
             }
-            if (ref == nullptr) {
-                continue;
-            }
-            double i = (index * xPixels) + gap;
-
-            if (textW > 0 && (float)size < minLetterSize && fonts.fontMaxSize <= h) {
-                double v = (xScaling - textW) / 2;
-                float yp = h * 0.66;
+            double i = regionW * index;
+            i += gap;
+            if (textW > 0 && (float)size < minLetterSize && fonts.fontHeight < h) {
+                double v = (xScaling - textW) * 0.5;
+                float yp = h;
                 while (*ref) {
                     switch ((unsigned int)*ref) {
                         case 65: faceColor = theme.fcA; break;
@@ -890,9 +889,6 @@ namespace Drawing {
                         case 110: faceColor = theme.fcN; break;
                         case 116: faceColor = theme.fcT; break;
                     }
-                    if (i + v > xPixels) {
-                        break;
-                    }
                     canvas->drawTextBlob(SkTextBlob::MakeFromText(ref, 1, fonts.overlay, SkTextEncoding::kUTF8),
                                          i + v, yp, faceColor);
                     i += xScaling;
@@ -900,7 +896,7 @@ namespace Drawing {
                 }
             } else if (size < 20000) {
                 while (*ref) {
-                    rect.setXYWH(i, offset + mmPosOffset, mmScaling * xScaling, h);
+                    rect.setXYWH(i, mmPosOffset, mmScaling * xScaling, h);
                     switch ((unsigned int)*ref) {
                         case 65: canvas->drawRect(rect, theme.fcA); break;
                         case 67: canvas->drawRect(rect, theme.fcC); break;
@@ -917,7 +913,6 @@ namespace Drawing {
                     ++ref;
                 }
             }
-//            offset += xPixels;
             index += 1;
         }
     }
@@ -1145,17 +1140,17 @@ namespace Drawing {
     }
 
     void drawChromLocation(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections, SkCanvas* canvas,
-                           std::vector<sam_hdr_t* > &headers, size_t nRegions, float fb_width, float fb_height) {
+                           std::vector<sam_hdr_t* > &headers, size_t nRegions, float fb_width, float fb_height, float monitorScale) {
         SkPaint paint, line;
         paint.setColor(SK_ColorRED);
         paint.setStrokeWidth(3);
         paint.setStyle(SkPaint::kStroke_Style);
         line.setColor((opts.theme_str == "dark") ? SK_ColorWHITE : SK_ColorBLACK);
-        line.setStrokeWidth(1);
+        line.setStrokeWidth(monitorScale);
         line.setStyle(SkPaint::kStroke_Style);
         SkRect rect{};
         SkPath path{};
-        auto yh = (float)(fb_height * 0.01);
+        auto yh = (float)(fb_height * 0.015);
         float rowHeight = (float)fb_height / (float)headers.size();
         float colWidth = (float)fb_width / (float)nRegions;
         float gap = 50;
