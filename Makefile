@@ -84,7 +84,6 @@ else ifeq ($(PLATFORM),"Arm64")
 else ifeq ($(PLATFORM),"Windows")
     CXXFLAGS += -D WIN32
     CPPFLAGS += $(shell pkgconf -cflags skia)
-    LDFLAGS += -L/ucrt64/lib -L/home/nopel/gw_build/ucrt64/lib
     LDLIBS += $(shell pkgconf -libs skia)
     LDLIBS += -lharfbuzz-subset -lglfw3
 endif
