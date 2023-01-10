@@ -202,22 +202,12 @@ namespace Themes {
         ecSelected.setARGB(255, 0, 0, 0);
         ecSelected.setStyle(SkPaint::kStroke_Style);
         ecSelected.setStrokeWidth(2);
-
-//        SkPaint p;
-//        p.setARGB(255, 214, 234, 248);
-//        fcLabel.push_back(p);
-//        p.setARGB(255, 242, 215, 213);
-//        fcLabel.push_back(p);
-//        p.setARGB(255, 213, 245, 227);
-//        fcLabel.push_back(p);
-//        p.setARGB(255, 252, 243, 207);
-//        fcLabel.push_back(p);
     }
 
     DarkTheme::DarkTheme() {
         name = "dark";
         fcCoverage.setARGB(255, 90, 90, 100);
-        fcTrack.setARGB(125, 14, 74, 135);
+        fcTrack.setARGB(180, 40, 110, 180);
         bgPaint.setARGB(255, 10, 10, 20);
         fcNormal.setARGB(255, 90, 90, 95);
         fcDel.setARGB(255, 185, 25, 25);
@@ -285,8 +275,6 @@ namespace Themes {
         print_screen = GLFW_KEY_PRINT_SCREEN;
         delete_labels = GLFW_KEY_DELETE;
         enter_interactive_mode = GLFW_KEY_ENTER;
-
-
     }
 
     void IniOptions::readIni() {

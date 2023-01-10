@@ -86,6 +86,7 @@ namespace Manager {
         }
         samMaxY = 0;
         yScaling = 0;
+        covY = 0; totalCovY = 0; totalTabixY = 0; tabixY = 0;
         captureText = shiftPress = ctrlPress = processText = false;
         xDrag = xOri = -1000000;
         lastX = -1;
@@ -510,7 +511,7 @@ namespace Manager {
     }
 
     void GwPlot::setScaling() {  // sets z_scaling, y_scaling trackY and regionWidth
-        refSpace = (float)(fb_height * 0.02);
+        refSpace = (float)(fb_height * 0.02); // slider space is the same
         auto fbh = (float) fb_height;
         auto fbw = (float) fb_width;
         if (bams.empty()) {
@@ -523,7 +524,6 @@ namespace Manager {
         } else {
             totalCovY = 0; covY = 0;
         }
-//        float gap = 10 * monitorScale;
         float gap2 = gap*2;
 
         if (tracks.empty()) {
@@ -536,7 +536,7 @@ namespace Manager {
             tabixY = totalTabixY / (float)tracks.size();
         }
         if (nbams > 0) {
-            trackY = (fbh - totalCovY - totalTabixY - gap2 - refSpace) / nbams;
+            trackY = (fbh - totalCovY - totalTabixY - gap2 - refSpace - refSpace) / nbams;
             yScaling = ((fbh - totalCovY - totalTabixY - gap2 - refSpace) / (float)samMaxY) / nbams;
         } else {
             trackY = 0;
@@ -558,16 +558,18 @@ namespace Manager {
         canvas->drawPaint(opts.theme.bgPaint);
         frameId += 1;
         setGlfwFrameBufferSize();
-        setScaling();
-        if (!regions.empty()) {
+        if (regions.empty()) {
+            setScaling();
+        } else {
             processBam();
+            setScaling();
             if (opts.coverage) {
                 Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
             }
             Drawing::drawBams(opts, collections, canvas, yScaling, fonts, opts.link_op, refSpace);
             Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
-            Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
-            Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
+            Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size(), gap);
+            Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
             Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
         }
         imageCacheQueue.emplace_back(std::make_pair(frameId, sSurface->makeImageSnapshot()));
@@ -766,8 +768,8 @@ namespace Manager {
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, opts.link_op, refSpace);
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
-        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size(), gap);
+        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
     }
 
     void GwPlot::runDraw(SkCanvas *canvas) {
@@ -780,8 +782,8 @@ namespace Manager {
         }
         Drawing::drawBams(opts, collections, canvas, yScaling, fonts, opts.link_op, refSpace);
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
-        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size(), gap);
+        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
     }
 
     void imageToPng(sk_sp<SkImage> &img, fs::path &path) {

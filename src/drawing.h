@@ -40,14 +40,14 @@ namespace Drawing {
                  SkCanvas *canvas, const Themes::Fonts &fonts, float refSpace, float nRegions, float gap);
 
     void drawBorders(const Themes::IniOptions &opts, float fb_width, float fb_height,
-                     SkCanvas *canvas, size_t nregions, size_t nbams, float totalTabixY, float tabixY, size_t tracks_size);
+                     SkCanvas *canvas, size_t nregions, size_t nbams, float totalTabixY, float tabixY, size_t tracks_size, float gap);
 
     void drawLabel(const Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts,
                    robin_hood::unordered_set<std::string> &seenLabels, std::vector<std::string> &sortedLabels);
 
     void drawTracks(Themes::IniOptions &opts, float fb_width, float fb_height,
                     SkCanvas *canvas, float totalTabixY, float tabixY, std::vector<HGW::GwTrack> &tracks,
-                    const std::vector<Utils::Region> &regions, const Themes::Fonts &fonts);
+                    const std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, float gap);
 
     void drawChromLocation(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections, SkCanvas* canvas,
                            const faidx_t* fai, std::vector<sam_hdr_t* > &headers, size_t nRegions, float fb_width, float fb_height, float monitorScale);
