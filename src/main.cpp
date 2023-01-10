@@ -320,11 +320,19 @@ int main(int argc, char *argv[]) {
     }
 
     if (!iopts.no_show) {  // plot something to screen
-
+#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
+        std::cout << "\n"
+                     "  __________      __ \n"
+ " /  _____/  \\    /  \\\n"
+ "/   \\  __\\   \\/\\/   /\n"
+ "\\    \\_\\  \\        / \n"
+ " \\______  /\\__/\\  /  \n"
+ "        \\/      \\/  " std::endl;
+#else
         std::cout << "\n"
                      "█▀▀ █ █ █\n"
                      "█▄█ ▀▄▀▄▀" << std::endl;
-
+#endif
         // initialize display screen
         plotter.init(iopts.dimensions.x, iopts.dimensions.y);
 

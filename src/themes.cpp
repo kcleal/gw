@@ -421,32 +421,24 @@ namespace Themes {
             --font_size;
         }
         if (!was_set) {
-//            fontMaxSize = bounds[0].height();
-            overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
             fontSize = 14 * yScale;
             fontHeight = fontMaxSize;
             for (auto &i : textWidths) {
                 i = 0;
             }
-            overlay.setSize(14 * yScale);
-            overlay.getBounds(glyphs, 1, bounds, pnt);
         } else {
             fontSize = (float)font_size;
-//            if (font_size > 14 * yScale) {
-//                overlay.setSize(font_size * yScale);
-//                overlay.getBounds(glyphs, 1, bounds, pnt);
-//            } else {
-            overlay.setSize(14 * yScale);
-            overlay.getBounds(glyphs, 1, bounds, pnt);
-//            }
-            overlayHeight = bounds[0].height();
-            overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
             fontHeight = height;
             SkScalar w = fonty.measureText("9", 1, SkTextEncoding::kUTF8);
             for (int i = 0; i < 10; ++i) {
                 textWidths[i] = (float)w * (i + 1);
             }
         }
+        overlay.setSize(14 * yScale);
+        overlay.getBounds(glyphs, 1, bounds, pnt);
+        overlayHeight = bounds[0].height();
+        overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
+
     }
 
 }

@@ -1140,7 +1140,7 @@ namespace Drawing {
     }
 
     void drawChromLocation(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections, SkCanvas* canvas,
-                           std::vector<sam_hdr_t* > &headers, size_t nRegions, float fb_width, float fb_height, float monitorScale) {
+                           const faidx_t* fai, std::vector<sam_hdr_t* > &headers, size_t nRegions, float fb_width, float fb_height, float monitorScale) {
         SkPaint paint, line;
         paint.setColor(SK_ColorRED);
         paint.setStrokeWidth(3);
@@ -1163,8 +1163,7 @@ namespace Drawing {
             if (cl.bamIdx + 1 != (int)headers.size()) {
                 continue;
             }
-            int tid = bam_name2id(headers[cl.bamIdx], cl.region.chrom.c_str());
-            auto length = (float)sam_hdr_tid2len(headers[cl.bamIdx], tid);
+            auto length = (float) faidx_seq_len(fai, cl.region.chrom.c_str());
             float s = (float)cl.region.start / length;
             float e = (float)cl.region.end / length;
             float w = (e - s) * drawWidth;

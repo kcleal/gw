@@ -556,11 +556,11 @@ namespace Manager {
 
     void GwPlot::drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
         canvas->drawPaint(opts.theme.bgPaint);
+        frameId += 1;
+        setGlfwFrameBufferSize();
+        setScaling();
         if (!regions.empty()) {
-            frameId += 1;
             processBam();
-            setGlfwFrameBufferSize();
-            setScaling();
             if (opts.coverage) {
                 Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
             }
@@ -568,22 +568,21 @@ namespace Manager {
             Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
             Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size());
             Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts);
-            Drawing::drawChromLocation(opts, collections, canvas, headers, regions.size(), fb_width, fb_height, monitorScale);
-            imageCacheQueue.emplace_back(std::make_pair(frameId, sSurface->makeImageSnapshot()));
+            Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
         }
+        imageCacheQueue.emplace_back(std::make_pair(frameId, sSurface->makeImageSnapshot()));
         sContext->flush();
         glfwSwapBuffers(window);
         redraw = false;
     }
 
     void GwPlot::drawOverlay(SkCanvas* canvas, GrDirectContext* sContext) {
-        if (imageCacheQueue.empty()) {
-            return;
+        if (!imageCacheQueue.empty()) {
+            while (imageCacheQueue.front().first != frameId) {
+                imageCacheQueue.pop_front();
+            }
+            canvas->drawImage(imageCacheQueue.back().second, 0, 0);
         }
-        while (imageCacheQueue.front().first != frameId) {
-            imageCacheQueue.pop_front();
-        }
-        canvas->drawImage(imageCacheQueue.back().second, 0, 0);
         if (drawLine) {
             double xposm, yposm;
             glfwGetCursorPos(window, &xposm, &yposm);
@@ -593,6 +592,7 @@ namespace Manager {
             canvas->drawPath(path, opts.theme.lcJoins);
         }
         if (captureText) {
+            fonts.setFontSize(yScaling, monitorScale);
             SkRect rect{};
             float height_f = fonts.overlayHeight * 1.5;
             float x = 50;
