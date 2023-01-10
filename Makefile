@@ -83,7 +83,7 @@ else ifeq ($(PLATFORM),"Arm64")
 
 else ifeq ($(PLATFORM),"Windows")
     CXXFLAGS += -D WIN32
-    CPPFLAGS += $(shell pkgconf -cflags skia)
+    CPPFLAGS += $(shell pkgconf -cflags skia) $(shell ncursesw6-config --cflags)
     LDLIBS += $(shell pkgconf -libs skia)
     LDLIBS += -lharfbuzz-subset -lglfw3
 endif
