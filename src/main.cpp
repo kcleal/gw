@@ -327,7 +327,7 @@ int main(int argc, char *argv[]) {
  "/   \\  __\\   \\/\\/   /\n"
  "\\    \\_\\  \\        / \n"
  " \\______  /\\__/\\  /  \n"
- "        \\/      \\/  " std::endl;
+ "        \\/      \\/  " << std::endl;
 #else
         std::cout << "\n"
                      "█▀▀ █ █ █\n"
