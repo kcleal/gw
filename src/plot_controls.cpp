@@ -49,7 +49,6 @@ namespace Manager {
             captureText = true;
             inputText.append(":");
             charIndex = inputText.size();
-//            std::cout <<  "\n" << inputText << std::flush;
         } else {
             shiftPress = false;
         }

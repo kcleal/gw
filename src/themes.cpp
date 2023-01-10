@@ -1,6 +1,7 @@
 //
 // Created by kez on 01/08/22.
 //
+#include <filesystem>
 #include "themes.h"
 #include "glfw_keys.h"
 
@@ -291,16 +292,23 @@ namespace Themes {
         std::string home(pw->pw_dir);
 #endif
         std::string path;
-        if (Utils::is_file_exist(home + "/.gw.ini")) {
-            path = home + "/.gw.ini";
-        } else if (Utils::is_file_exist(home + "/.config/.gw.ini")) {
-            path = home + "/.config/.gw.ini";
-        } else if (Utils::is_file_exist(Utils::getExecutableDir() + "/.gw.ini")) {
-            path = Utils::getExecutableDir() + "/.gw.ini";
-        }
-        if (path.empty()) {
-            theme = Themes::IgvTheme();
-            return;
+        std::filesystem::path homedir(home);
+        std::filesystem::path gwini(".gw.ini");
+        if (std::filesystem::exists(homedir / gwini)) {
+            path = homedir / gwini;
+        } else {
+            std::filesystem::path home_config(".config");
+            if (std::filesystem::exists(homedir / home_config / gwini)) {
+                path = homedir / home_config / gwini;
+            } else {
+                std::filesystem::path exe_path (Utils::getExecutableDir());
+                if (std::filesystem::exists(homedir / exe_path / gwini)) {
+                    path = homedir / exe_path / gwini;
+                } else {
+                    theme = Themes::IgvTheme();
+                    return;
+                }
+            }
         }
         ini_path = path;
 
@@ -426,7 +434,5 @@ namespace Themes {
         overlay.getBounds(glyphs, 1, bounds, pnt);
         overlayHeight = bounds[0].height();
         overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
-
     }
-
 }

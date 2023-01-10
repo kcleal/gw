@@ -4,6 +4,7 @@
 #include <deque>
 #include <mutex>
 #include <string>
+#include <stdio.h>
 #include <vector>
 
 #ifdef __APPLE__
@@ -346,7 +347,7 @@ namespace Manager {
 
     int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay) {
 
-        std::cout << "Type ':help' or ':h' for more info\n";
+        std::cerr << "Type ':help' or ':h' for more info\n";
 
         setGlfwFrameBufferSize();
         fetchRefSeqs();
@@ -356,7 +357,7 @@ namespace Manager {
             printRegionInfo();
         } else {
             bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
-            std::cout << termcolor::green << "Index     " << termcolor::reset << blockStart << std::endl;
+            std::cerr << termcolor::green << "Index     " << termcolor::reset << blockStart << std::endl;
         }
         bool wasResized = false;
         std::chrono::high_resolution_clock::time_point autoSaveTimer = std::chrono::high_resolution_clock::now();
@@ -426,7 +427,7 @@ namespace Manager {
         saveLabels();
         if (wasResized) {
             // no idea why, but unless exit is here then we get an abort error if we return to main. Something to do with lifetime of backendRenderTarget
-            std::cout << "\nGw finished\n";
+            std::cerr << "\nGw finished\n";
             exit(EXIT_SUCCESS);
         }
 
@@ -801,6 +802,13 @@ namespace Manager {
         (void)out.write(png->data(), png->size());
     }
 
+    void imagePngToStdOut(sk_sp<SkImage> &img) {
+        if (!img) { return; }
+        sk_sp<SkData> png(img->encodeToData());
+        if (!png) { return; }
+        FILE* fout = stdout;
+        fwrite(png->data(), 1, png->size(), fout);
+    }
 
     sk_sp<SkImage> GwPlot::makeImage() {
         setScaling();

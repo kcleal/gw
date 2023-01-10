@@ -166,7 +166,7 @@ int main(int argc, char *argv[]) {
         genome = iopts.references[genome];
     } else if (genome.empty() && !program.is_used("--images") && !iopts.ini_path.empty()) {
         // prompt for genome
-        std::cout << "Select reference genome number from list " << iopts.ini_path << ":" << std::endl;
+        std::cerr << "Reference genomes listed in " << iopts.ini_path << ":" << std::endl;
         int i = 0;
         std::vector<std::string> vals;
         for (auto &rg: iopts.references) {
@@ -174,21 +174,26 @@ int main(int argc, char *argv[]) {
             vals.push_back(rg.second);
             i += 1;
         }
+        if (i == 0) {
+            std::cerr << "No genomes listed, finishing\n";
+            std::exit(0);
+        }
         int user_i;
         std::cin >> user_i;
         std::cout << std::endl;
         assert (user_i >= 0 && user_i < vals.size());
-        genome = vals[user_i];
+        try {
+            genome = vals[user_i];
+        } catch (...) {
+            std::cerr << "Something went wrong\n";
+            std::terminate();
+        }
         assert (Utils::is_file_exist(genome));
 
     } else if (!genome.empty() && !Utils::is_file_exist(genome)) {
         std::cerr << "Error: Genome not found" << std::endl;
         std::exit(1);
     }
-//    } else if (!genome.empty() && !Utils::is_file_exist(genome)) {
-//        std::cerr << "Error: Genome not found" << std::endl;
-//        std::exit(1);
-//    }
 
     std::vector<std::string> bam_paths;
     if (program.is_used("-b")) {
@@ -493,12 +498,13 @@ int main(int argc, char *argv[]) {
 
             plotter.opts.theme.setAlphas();
 
-            if (outdir.empty()) {
-                std::cerr << "Error: please provide an output directory using --outdir\n";
-                std::exit(-1);
-            }
-
             if (program.is_used("--fmt") && program.get<std::string>("--fmt") == "pdf") {
+
+                if (outdir.empty()) {
+                    std::cerr << "Error: please provide an output directory using --outdir\n";
+                    std::exit(-1);
+                }
+
                 fs::path fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".pdf";
                 fs::path out_path = outdir / fname;
 
@@ -550,15 +556,16 @@ int main(int argc, char *argv[]) {
                     std::terminate();
                 }
                 SkCanvas *canvas = sSurface->getCanvas();
-
                 plotter.drawSurfaceGpu(canvas);
-
                 sk_sp<SkImage> img(sSurface->makeImageSnapshot());
-                fs::path fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".png";
 
-                fs::path out_path = outdir / fname;
-                Manager::imageToPng(img, out_path);
-
+                if (outdir.empty()) {
+                    Manager::imagePngToStdOut(img);
+                } else {
+                    fs::path fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".png";
+                    fs::path out_path = outdir / fname;
+                    Manager::imageToPng(img, out_path);
+                }
             }
 
         } else if (program.is_used("--variants") && !program.is_used("--out-vcf")) {

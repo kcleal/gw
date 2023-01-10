@@ -226,6 +226,8 @@ namespace Manager {
 
     void imageToPng(sk_sp<SkImage> &img, fs::path &outdir);
 
+    void imagePngToStdOut(sk_sp<SkImage> &img);
+
     void imageToPdf(sk_sp<SkImage> &img, fs::path &outdir);
 
     struct VariantJob {
