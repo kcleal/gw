@@ -281,9 +281,9 @@ namespace Themes {
     void IniOptions::readIni() {
 
 # if defined(_WIN32)
-        const char *homedrive_c = std::getenv("HOMEDRIVE");
+    const char *homedrive_c = std::getenv("HOMEDRIVE");
 	const char *homepath_c = std::getenv("HOMEPATH");
-        std::string homedrive(homedrive_c ? homedrive_c : "");
+    std::string homedrive(homedrive_c ? homedrive_c : "");
 	std::string homepath(homepath_c ? homepath_c : "");
 	std::string home = homedrive + homepath;
 #else
@@ -291,7 +291,7 @@ namespace Themes {
         struct passwd *pw = getpwuid(getuid());
         std::string home(pw->pw_dir);
 #endif
-        std::string path;
+        std::filesystem::path path;
         std::filesystem::path homedir(home);
         std::filesystem::path gwini(".gw.ini");
         if (std::filesystem::exists(homedir / gwini)) {
@@ -310,7 +310,7 @@ namespace Themes {
                 }
             }
         }
-        ini_path = path;
+        ini_path = path.string();
 
         robin_hood::unordered_map<std::string, int> key_table;
         Keys::getKeyTable(key_table);
