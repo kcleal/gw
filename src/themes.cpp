@@ -315,7 +315,7 @@ namespace Themes {
         robin_hood::unordered_map<std::string, int> key_table;
         Keys::getKeyTable(key_table);
 
-        mINI::INIFile file(path);
+        mINI::INIFile file(ini_path);
         mINI::INIStructure myIni;
         file.read(myIni);
 
