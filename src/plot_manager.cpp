@@ -530,7 +530,7 @@ namespace Manager {
         }
         if (nbams > 0) {
             trackY = (fbh - totalCovY - totalTabixY - gap2 - refSpace - refSpace) / nbams;
-            yScaling = ((fbh - totalCovY - totalTabixY - gap2 - refSpace) / (float)samMaxY) / nbams;
+            yScaling = ((fbh - totalCovY - totalTabixY - gap2 - refSpace - refSpace) / (float)samMaxY) / nbams;
         } else {
             trackY = 0;
             yScaling = 0;

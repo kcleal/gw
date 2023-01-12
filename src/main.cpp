@@ -166,11 +166,11 @@ int main(int argc, char *argv[]) {
         genome = iopts.references[genome];
     } else if (genome.empty() && !program.is_used("--images") && !iopts.ini_path.empty()) {
         // prompt for genome
-        std::cerr << "Reference genomes listed in " << iopts.ini_path << ":" << std::endl;
+        std::cerr << "\n Reference genomes listed in " << iopts.ini_path << std::endl << std::endl;
         int i = 0;
         std::vector<std::string> vals;
         for (auto &rg: iopts.references) {
-            std::cout << "    " << i << ": " << rg.first << "     " << rg.second << std::endl;
+            std::cerr << "   " << i << ": " << rg.first << "     " << rg.second << std::endl;
             vals.push_back(rg.second);
             i += 1;
         }
@@ -178,9 +178,10 @@ int main(int argc, char *argv[]) {
             std::cerr << "No genomes listed, finishing\n";
             std::exit(0);
         }
+        std::cerr << "\n Enter number: " << std::flush;
         int user_i;
         std::cin >> user_i;
-        std::cout << std::endl;
+        std::cerr << std::endl;
         assert (user_i >= 0 && user_i < vals.size());
         try {
             genome = vals[user_i];

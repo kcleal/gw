@@ -154,7 +154,7 @@ namespace Drawing {
             ap += std::sprintf(indelChars, "%s", "avg. ");
             std::sprintf(ap, "%.1f", mean);
 
-            if (((covY * 0.5) + yOffsetAll + 10 - fonts.fontMaxSize) - ((covY * 0.3) + yOffsetAll + 10) > 0) { // dont overlap text
+            if (((covY * 0.5) + yOffsetAll + 10 - fonts.overlayHeight) - ((covY * 0.3) + yOffsetAll + 10) > 0) { // dont overlap text
                 blob = SkTextBlob::MakeFromString(indelChars, fonts.overlay);
                 canvas->drawTextBlob(blob, xOffset + 25, (covY * 0.5) + yOffsetAll + 10, theme.tcDel);
             }
