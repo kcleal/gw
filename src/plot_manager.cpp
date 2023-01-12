@@ -98,21 +98,13 @@ namespace Manager {
     }
 
     GwPlot::~GwPlot() {
-        if (window) {
+        if (window != nullptr) {
             glfwDestroyWindow(window);
         }
-        if (backWindow) {
+        if (backWindow != nullptr) {
             glfwDestroyWindow(backWindow);
         }
         glfwTerminate();
-//        if (clicked.refSeq != nullptr) {
-//            delete clicked.refSeq;
-//        }
-//        for (auto &rgn : regions) {
-//            if (rgn.refSeq != nullptr) {
-//                delete rgn.refSeq;
-//            }
-//        }
         for (auto &bm : bams) {
             hts_close(bm);
         }
