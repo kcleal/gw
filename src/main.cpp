@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <htslib/faidx.h>
 #include <iostream>
+#include <mutex>
 #include <string>
 
 #include "argparse.h"
@@ -38,6 +39,8 @@
 GrDirectContext *sContext = nullptr;
 SkSurface *sSurface = nullptr;
 
+std::mutex mtx;
+
 
 int main(int argc, char *argv[]) {
 
@@ -49,7 +52,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> links = { "none", "sv", "all" };
     static const std::vector<std::string> backend = { "raster", "gpu" };
 
-    argparse::ArgumentParser program("gw", "0.4.0");
+    argparse::ArgumentParser program("gw", "0.4.2");
     program.add_argument("genome")
             .default_value(std::string{""}).append()//.required()
             .help("Reference genome in .fasta format with .fai index file");
@@ -607,11 +610,20 @@ int main(int argc, char *argv[]) {
 
                 vcf.open(v);
 
+                std::vector<Manager::GwPlot *> managers;
+                for (int i = 0; i < iopts.threads; ++i) {
+                    Manager::GwPlot *m = new Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
+                    managers.push_back(m);
+                }
+
                 std::vector<Manager::VariantJob> jobs;
                 std::vector<std::string> empty_labels;
                 std::string dateStr = "";
-                while (!vcf.done) {
+                while (true) {
                     vcf.next();
+                    if (vcf.done) {
+                        break;
+                    }
                     Manager::VariantJob job;
                     job.chrom = vcf.chrom;
                     job.chrom2 = vcf.chrom2;
@@ -620,7 +632,6 @@ int main(int argc, char *argv[]) {
                     job.varType = vcf.vartype;
                     job.rid = vcf.rid;
                     jobs.push_back(job);
-
                     if (writeLabel) {
                         Utils::Label l = Utils::makeLabel(vcf.chrom, vcf.start, vcf.label, empty_labels, vcf.rid, vcf.vartype, "", 0);
                         Utils::labelToFile(fLabels, l, dateStr);
@@ -628,33 +639,35 @@ int main(int argc, char *argv[]) {
                 }
                 // shuffling might help distribute high cov regions between jobs
                 // std::shuffle(std::begin(jobs), std::end(jobs), std::random_device());
-
-                BS::thread_pool pool(iopts.threads);
-                iopts.threads = 1;
-
+                int ts = std::min(iopts.threads, (int)jobs.size());
+                BS::thread_pool pool(ts);
+                int block = 0;
                 pool.parallelize_loop(0, jobs.size(),
                                       [&](const int a, const int b) {
-                                          Manager::GwPlot plt = Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
-
-                                          plt.fb_width = iopts.dimensions.x;
-                                          plt.fb_height = iopts.dimensions.y;
-                                          plt.initBack(iopts.dimensions.x, iopts.dimensions.y);
-
-                                          sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
-                                          SkCanvas *canvas = rasterSurface->getCanvas();
-                                          for (int i = a; i < b; ++i) {
-                                              Manager::VariantJob job = jobs[i];
-                                              plt.setVariantSite(job.chrom, job.start, job.chrom2, job.stop);
-                                              plt.runDraw(canvas);
-                                              sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
-                                              fs::path fname = job.varType + "~" + job.chrom + "~" + std::to_string(job.start) + "~" + job.chrom2 + "~" + std::to_string(job.stop) + "~" + job.rid + ".png";
-                                              fs::path full_path = outdir / fname;
-                                              Manager::imageToPng(img, full_path);
+                                            mtx.lock();
+                                            int this_block = block;
+                                            block += 1;
+                                            mtx.unlock();
+                                            Manager::GwPlot *plt = managers[this_block];
+                                            sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
+                                            SkCanvas *canvas = rasterSurface->getCanvas();
+                                            for (int i = a; i < b; ++i) {
+                                                Manager::VariantJob job = jobs[i];
+                                                plt->setVariantSite(job.chrom, job.start, job.chrom2, job.stop);
+                                                plt->runDraw(canvas);
+                                                sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
+                                                fs::path fname = job.varType + "~" + job.chrom + "~" + std::to_string(job.start) + "~" + job.chrom2 + "~" + std::to_string(job.stop) + "~" + job.rid + ".png";
+                                                fs::path full_path = outdir / fname;
+                                                Manager::imageToPng(img, full_path);
                                           }
                                       })
                         .wait();
 
                 fLabels.close();
+
+                for (auto &itm : managers) {
+                    delete(itm);
+                }
             }
 
         } else if (program.is_used("--variants") && program.is_used("--out-vcf") && program.is_used("--in-labels")) {

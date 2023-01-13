@@ -175,7 +175,7 @@ namespace Manager {
             std::cerr<<"ERROR: could not initialize GLFW3"<<std::endl;
             std::terminate();
         }
-        glfwWindowHint(GLFW_STENCIL_BITS, 8);
+//        glfwWindowHint(GLFW_STENCIL_BITS, 8);
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
         backWindow = glfwCreateWindow(width, height, "GW", NULL, NULL);
         if (!backWindow) {
@@ -746,6 +746,7 @@ namespace Manager {
             }
             ++i;
         }
+        imageCacheQueue.emplace_back(std::make_pair(frameId, sSurface->makeImageSnapshot()));
         sContext->flush();
         glfwSwapBuffers(window);
         redraw = false;

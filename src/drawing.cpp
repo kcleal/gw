@@ -958,7 +958,6 @@ namespace Drawing {
         sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(cur.c_str(), fonts.overlay);
         float wl = fonts.overlayWidth * (cur.size() + 1);
 
-
         auto it = std::find(srtLabels.begin(), srtLabels.end(), cur);
         int idx;
         if (it != srtLabels.end()) {
@@ -991,11 +990,11 @@ namespace Drawing {
         p.setARGB(255, v, v, v);
 
         if ((wl + pad) > (rect.width() / 2)) {
-            bg.setXYWH(x + pad, rect.bottom() - fonts.fontMaxSize - pad - pad - pad - pad,  fonts.fontMaxSize, fonts.fontMaxSize);
-            canvas->drawRoundRect(bg,  fonts.fontMaxSize, fonts.fontMaxSize, p);
-            canvas->drawRoundRect(bg,  fonts.fontMaxSize, fonts.fontMaxSize, opts.theme.lcLabel);
+            bg.setXYWH(x + pad, rect.bottom() - fonts.overlayHeight - pad - pad - pad - pad,  fonts.overlayHeight, fonts.overlayHeight);
+            canvas->drawRoundRect(bg,  fonts.overlayHeight, fonts.overlayHeight, p);
+            canvas->drawRoundRect(bg,  fonts.overlayHeight, fonts.overlayHeight, opts.theme.lcLabel);
         } else {
-            bg.setXYWH(x + pad, rect.bottom() - fonts.fontMaxSize - pad - pad - pad - pad,  wl + pad, fonts.fontMaxSize + pad + pad);
+            bg.setXYWH(x + pad, rect.bottom() - fonts.overlayHeight - pad - pad - pad - pad,  wl + pad, fonts.overlayHeight + pad + pad);
             canvas->drawRoundRect(bg,  5, 5, p);
             canvas->drawRoundRect(bg,  5, 5, opts.theme.lcLabel);
 
