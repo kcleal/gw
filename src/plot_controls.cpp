@@ -1,28 +1,16 @@
 //
 // Created by Kez Cleal on 23/08/2022.
 //
-#include <htslib/sam.h>
-
 #include <cmath>
 #include <iomanip>
 #include <iterator>
 #include <cstdlib>
-
 #include <string>
-#include <thread>
 #include <vector>
-
-//#ifdef __APPLE__
-//#include <OpenGL/gl.h>
-//#endif
-
+#include <htslib/sam.h>
 #include "htslib/hts.h"
-
 #include <GLFW/glfw3.h>
 #define SK_GL
-
-#include "drawing.h"
-
 #include "hts_funcs.h"
 #include "parser.h"
 #include "plot_manager.h"
@@ -172,6 +160,10 @@ namespace Manager {
         } else if (inputText == ":help" || inputText == ":h") {
             Term::help(opts);
             valid = true;
+        } else if (Utils::startsWith(inputText, ":man ")) {
+            inputText.erase(0, 5);
+            Term::manuals(inputText);
+            valid = true;
         } else if (inputText == ":refresh" || inputText == ":r") {
             valid = true; imageCache.clear(); filters.clear();
             for (auto &cl: collections) {cl.vScroll = 0; }
@@ -205,6 +197,17 @@ namespace Manager {
             Parse::countExpression(collections, str, headers, bam_paths, bams.size(), regions.size());
             inputText = "";
             return true;
+        } else if (Utils::startsWith(inputText, ":config")) {
+# if defined(_WIN32) || defined(_WIN64)
+            std::string com = "notepad.exe " + opts.ini_path;
+#elif defined(__APPLE__)
+            std::string com = "open -a TextEdit " + opts.ini_path;
+#else  // linux
+            std::string com = "vi " + opts.ini_path;
+#endif
+            FILE *fp = popen(com.c_str(), "r");
+            pclose(fp);
+            valid = true;
 
         } else if (Utils::startsWith(inputText, ":filter ")) {
             std::string str = inputText;
@@ -397,6 +400,7 @@ namespace Manager {
                 } else {
                     if (index < (int)regions.size()) {
                         regions[index] = Utils::parseRegion(split[1]);
+                        fetchRefSeq(regions[index]);
                         valid = true;
                     } else {
                         std::cerr << termcolor::red << "Error:" << termcolor::reset << " region index is out of range. Use 0-based indexing\n";
@@ -426,6 +430,20 @@ namespace Manager {
                 std::cerr << termcolor::red << "Error:" << termcolor::reset << " expected a Region e.g. chr1:1-20000\n";
                 inputText = "";
                 return true;
+            }
+        } else {
+            try {
+                inputText.erase(0, 1);
+                if (regions.empty()) {
+                    regions.push_back(Utils::parseRegion(inputText));
+                    fetchRefSeq(regions.back());
+                } else {
+                    regions[0] = Utils::parseRegion(inputText);
+                    fetchRefSeq(regions[0]);
+                }
+                valid = true;
+            } catch (...) {
+                valid = false;
             }
         }
         if (valid) {

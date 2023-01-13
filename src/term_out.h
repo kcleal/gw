@@ -8,6 +8,8 @@ namespace Term {
 
     void help(Themes::IniOptions &opts);
 
+    void manuals(std::string &s);
+
     void clearLine();
 
     void editInputText(std::string &inputText, const char *letter, int &charIndex);

@@ -280,7 +280,7 @@ namespace Themes {
 
     void IniOptions::readIni() {
 
-# if defined(_WIN32)
+# if defined(_WIN32) || defined(_WIN64)
     const char *homedrive_c = std::getenv("HOMEDRIVE");
 	const char *homepath_c = std::getenv("HOMEPATH");
     std::string homedrive(homedrive_c ? homedrive_c : "");

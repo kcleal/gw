@@ -2,23 +2,16 @@
 // Created by Kez Cleal on 07/12/2022.
 //
 #include <htslib/sam.h>
-
 #include <cmath>
 #include <iomanip>
 #include <iterator>
 #include <cstdlib>
-
 #include <string>
 #include <thread>
 #include <unordered_map>
 #include <vector>
-
-
 #include "htslib/hts.h"
-
-
 #include "drawing.h"
-
 #include "hts_funcs.h"
 #include "parser.h"
 #include "plot_manager.h"
@@ -33,7 +26,9 @@ namespace Term {
     void help(Themes::IniOptions &opts) {
         std::cout << termcolor::italic << "\n* Enter a command by selecting the GW window (not the terminal) and type ':[COMMAND]' *\n" << termcolor::reset;
         std::cout << termcolor::underline << "\nCommand          Modifier        Description                                            \n" << termcolor::reset;
+        std::cout << termcolor::green << "[locus]                          " << termcolor::reset << "e.g. 'chr1' or ':chr1:1-20000'\n";
         std::cout << termcolor::green << "add              region(s)       " << termcolor::reset << "Add one or more regions e.g. ':add chr1:1-20000'\n";
+        std::cout << termcolor::green << "config                           " << termcolor::reset << "Opens .gw.ini config in a text editor\n";
         std::cout << termcolor::green << "count            expression?     " << termcolor::reset << "Count reads. See filter for example expressions'\n";
         std::cout << termcolor::green << "cov                              " << termcolor::reset << "Toggle coverage\n";
         std::cout << termcolor::green << "filter           expression      " << termcolor::reset << "Examples ':filter mapq > 0', ':filter ~flag & secondary'\n                                 ':filter mapq >= 30 or seq-len > 100'\n";
@@ -63,6 +58,65 @@ namespace Term {
         std::cout << "\n";
     }
 
+    void manuals(std::string &s) {
+        std::cout << "\nManual for command '" << s << "'\n";
+        std::cout << "--------------------"; for (auto &_ : s) std::cout << "-"; std::cout << "-\n\n";
+        if (s == "[locus]" || s == "locus") {
+            std::cout << "    Navigate to a genomic locus.\n        You can use chromosome names or chromosome coordinates.\n    Examples:\n        'chr1:1-20000', 'chr1', 'chr1:10000'\n\n";
+        } else if (s == "add") {
+            std::cout << "    Add a genomic locus.\n        This will add a new locus to the right-hand-side of your view.\n    Examples:\n        'add chr1:1-20000', 'add chr2'\n\n";
+        } else if (s == "config") {
+            std::cout << "    Open the GW config file.\n        The config file will be opened in a text editor, for Mac TextEdit will be used, linux will be vi, and windows will be notepad.\n\n";
+        } else if (s == "count") {
+            std::cout << "    Count the visible reads in each view.\n        A summary output will be displayed for each view on the screen.\n        Optionally a filter expression may be added to the command. See the man page for 'filter' for mote details\n    Examples:\n        'count', 'count flag & 2', 'count flag & proper-pair' \n\n";
+        } else if (s == "cov") {
+            std::cout << "    Toggle coverage track.\n        This will turn on/off coverage tracks.\n\n";
+        } else if (s == "filter") {
+            std::cout << "    Filter visible reads.\n"
+                         "        Reads can be filtered using an expression '{property} {operation} {value}' (the white-spaces are also needed).\n"
+                         "        For example, here are some useful expressions:\n"
+                         "            :filter mapq >= 20\n"
+                         "            :filter flag & 2048\n"
+                         "            :filter seq contains TTAGGG\n\n"
+                         "        Here are a list of '{property}' values you can use:\n"
+                         "             maps, flag, ~flag, name, tlen, abs-tlen, rnext, pos, ref-end, pnext, seq, seq-len,\n"
+                         "             RG, BC, BX, RX, LB, MD, MI, PU, SA, MC, NM, CM, FI, HO, MQ, SM, TC, UQ, AS\n\n"
+                         "        These can be combined with '{operator}' values:\n"
+                         "             &, ==, !=, >, <, >=, <=, eq, ne, gt, lt, ge, le, contains, omit\n\n"
+                         "        Bitwise flags can also be applied with named values:\n"
+                         "             paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary, dup, supplementary\n\n"
+                         "        Expressions can be chained together providing all expressions are 'AND' or 'OR' blocks:\n"
+                         "             :filter mapq >= 20 and mapq < 30\n"
+                         "             :filter mapq >= 20 or flag & supplementary\n\n"
+                         "        Finally, you can apply filters to specific panels using array indexing notation:\n"
+                         "              :filter mapq > 0 [:, 0]   # All rows, column 0 (all bams, first region only)\n"
+                         "              :filter mapq > 0 [0, :]   # Row 0, all columns (the first bam only, all regions)\n"
+                         "              :filter mapq > 0 [1, -1]  # Row 1, last column\n\n";
+        } else if (s == "find") {
+            std::cout << "    Find a read with name.\n        All alignments with the same name will be highlighted with a black border\n    Examples:\n        'find D00360:18:H8VC6ADXX:1:1107:5538:24033'\n\n";
+        } else if (s == "goto") {
+            std::cout << "    Navigate to a locus.\n        This moves the left-most view. Or, you can use indexing to specify a region\n    Examples:\n        'goto chr1'   # this will move the left-most view\n        'goto chr1:20000 1'   # this will move the view at column index 1\n\n";
+        } else if (s == "line") {
+            std::cout << "    Toggle line.\n        A vertical line will turn on/off.\n\n";
+        } else if (s == "link") {
+            std::cout << "    Link alignments.\n        This will change how alignments are linked, options are 'none', 'sv', 'all'.\n    Examples:\n        'link sv', 'link all'\n\n";
+        } else if (s == "log2-cov") {
+            std::cout << "    Toggle log2-coverage.\n        The coverage track will be scaled by log2.\n\n";
+        } else if (s == "mate") {
+            std::cout << "    Goto mate alignment.\n        Either moves the left-most view to the mate locus, or adds a new view of the mate locus.\n    Examples:\n        'mate', 'mate add'\n\n";
+        } else if (s == "refresh") {
+            std::cout << "    Refresh the drawing.\n        All filters will be removed any everything will be redrawn.\n\n";
+        } else if (s == "remove") {
+            std::cout << "    Remove a region or bam.\n        Remove a region or bam by index. To remove a bam add a 'bam' prefix.\n    Examples:\n        'rm 0', 'rm bam1'\n\n";
+        } else if (s == "sam") {
+            std::cout << "    Print the sam format of the read.\n        First select a read using the mouse then type ':sam'.\n\n";
+        } else if (s == "theme") {
+            std::cout << "    Switch the theme.\n        Currently 'igv' or 'dark' themes are supported.\n\n";
+        } else if (s == "ylim") {
+            std::cout << "    Set the y limit.\n        The y limit is the maximum depth shown on the drawing e.g. 'ylim 100'.\n\n";
+        }
+    }
+
     constexpr char basemap[] = {'.', 'A', 'C', '.', 'G', '.', '.', '.', 'T', '.', '.', '.', '.', '.', 'N', 'N', 'N'};
 
 
@@ -76,11 +130,9 @@ namespace Term {
         if (charIndex != (int)inputText.size()) {
             inputText.insert(charIndex, letter);
             charIndex += 1;
-//            std::cout << "\r" << inputText.substr(0, charIndex) << "_" << inputText.substr(charIndex, inputText.size()) << std::flush;
         } else {
             inputText.append(letter);
             charIndex = inputText.size();
-//            std::cout << "\r" << inputText << std::flush;
         }
     }
 
