@@ -1,0 +1,33 @@
+name: gw
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  mingw:
+    strategy:
+      fail-fast: false
+      matrix:
+        sys: [clang64, ucrt64]
+    name: ${{ matrix.sys }}
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.sys }}
+          update: true
+          install: make
+          pacboy: toolchain:p glfw:p skia:p htslib:p freeglut:p glew:p ncurses:p fontconfig:p dlfcn:p libpng:p
+      - name: build
+        run: |
+          make
+      - name: upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: mingw-${{ matrix.sys }}
+          path: ${{ github.workspace }}/*.exe
