@@ -357,8 +357,8 @@ namespace Manager {
         while (true) {
             if (glfwWindowShouldClose(wind)) {
                 break;
-            } else if (glfwGetKey(wind, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-                break;
+//            } else if (glfwGetKey(wind, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+//                break;
             }
             glfwWaitEvents();
             if (delay > 0) {

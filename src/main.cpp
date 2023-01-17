@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> links = { "none", "sv", "all" };
     static const std::vector<std::string> backend = { "raster", "gpu" };
 
-    argparse::ArgumentParser program("gw", "0.4.2");
+    argparse::ArgumentParser program("gw", "0.4.3");
     program.add_argument("genome")
             .default_value(std::string{""}).append()//.required()
             .help("Reference genome in .fasta format with .fai index file");
@@ -229,8 +229,9 @@ int main(int argc, char *argv[]) {
         iopts.no_show = program.get<bool>("-n");
     }
 
-    if (program.is_used("--theme") && program.get<std::string>("--theme") == "dark") {
-        iopts.theme = Themes::DarkTheme();
+    if (program.is_used("--theme") && program.get<std::string>("--theme") == "igv") {
+        iopts.theme = Themes::IgvTheme();
+        iopts.theme_str = "igv";
     } else {  // defaults to igv theme
     }
 

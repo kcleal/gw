@@ -14,11 +14,9 @@ else
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Linux)
         PLATFORM = "Linux"
-    endif
-    ifeq ($(UNAME_S),Darwin)
+    else ifeq ($(UNAME_S),Darwin)
         PLATFORM = "Darwin"
-    endif
-    ifeq ($(UNAME_S),arm64)
+    else ifeq ($(UNAME_S),arm64)
         PLATFORM = "Arm64"
     endif
 endif
@@ -40,8 +38,14 @@ ifneq ($(PLATFORM), "Windows")
     ifneq ($(SKIA),"")
         CPPFLAGS += -I$(SKIA)
         LDFLAGS += -L $(wildcard $(SKIA)/out/Rel*)
-    else
+    else ifeq ($(PLATFORM),"Darwin")
         CPPFLAGS += -I./lib/skia
+        LDFLAGS += -L./lib/skia/out/Release-macos-x64
+    else ifeq ($(PLATFORM),"Arm64")
+        CPPFLAGS += -I./lib/skia
+        LDFLAGS += -L./lib/skia/out/Release-macos-arm64
+    else
+    	CPPFLAGS += -I./lib/skia
         LDFLAGS += -L./lib/skia/out/Release-x64
     endif
 endif
@@ -51,10 +55,10 @@ ifeq ($(PLATFORM),"Linux")
     SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip
 endif
 ifeq ($(PLATFORM),"Darwin")
-    SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-x64.zip
+    SKIA_LINK = https://github.com/JetBrains/skia-pack/releases/download/m105-adda216f-4/Skia-m105-adda216f-4-macos-Release-x64.zip
 endif
 ifeq ($(PLATFORM),"Arm64")
-    SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-arm64.zip
+    SKIA_LINK = https://github.com/JetBrains/skia-pack/releases/download/m105-adda216f-4/Skia-m105-adda216f-4-macos-Release-arm64.zip
 endif
 
 # set platform flags and libs

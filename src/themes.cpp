@@ -236,7 +236,7 @@ namespace Themes {
 
     IniOptions::IniOptions() {
 
-        theme_str = "igv";
+        theme_str = "dark";
         dimensions_str = "2048x1042";
         dimensions = {2048, 1024};
         fmt = "png";
