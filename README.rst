@@ -4,8 +4,8 @@ GW
 .. image:: include/banner.png
     :align: center
 
-GW is a fast browser for genomic sequencing data (.bam/.cram format), used directly from the terminal. GW also
-allows you to view and annotate variants from vcf/bcf files. Check out the examples and below!
+GW is a fast browser for genomic sequencing data (.bam/.cram format) used directly from the terminal. GW also
+allows you to view and annotate variants from vcf/bcf files.
 
 
 Installing GW
