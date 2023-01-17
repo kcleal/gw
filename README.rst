@@ -13,8 +13,12 @@ Installing GW
 GW is available on conda for linux/mac systems::
 
     conda install -c bioconda gw
+    
+For mac you can also install using homebrew::
+ 
+    brew install kcleal/homebrew-gw/gw
 
-Using a docker container (instructions found `here <https://hub.docker.com/repository/docker/kcleal/gw/>`_)::
+Or use via a docker container (instructions found `here <https://hub.docker.com/repository/docker/kcleal/gw/>`_)::
 
   docker pull kcleal/gw
 
@@ -32,14 +36,16 @@ Sequencing data
 ---------------
 To view a genomic region e.g. chr1:1-20000, supply an indexed reference genome and an alignment file (using -b option)::
 
-    gw hg38.fa -b your.bam -r chr1:1-20000
+    gw hg38 -b your.bam -r chr1:1-20000
 
 .. image:: include/igv.png
     :align: center
 
-This will open a GW window that can be used interactively with the mouse and keyboard. Note multiple -b and -r options can be used.
+The `hg38` argument will load a remote reference genome, replace this with the path to a local file for best performance.
+A GW window will open and can be used interactively with the mouse and keyboard. Note multiple -b and -r options can be used.
 
-Various commands are also available via the GW window. Simply click on the GW window and type ":help" which will display a list of commands in your terminal.
+Various commands are also available via the GW window. Simply click on the GW window and type `:help` which will display a list of commands in your terminal.
+For example typeing `:chr1` will navigate to the start of chromosome 1. For more information about each command type `:man [command]`.
 
 .. image:: include/help.png
     :align: center
@@ -228,7 +234,7 @@ Config file
 -----------
 
 GW ships with a .gw.ini config file. You can manually set various options within the file so you dont have to keep
-typing them in every time.
+typing them in every time. The GW command `:config` will open your config file in a text editor for easy access.
 
 Some useful options to set in your .gw.ini file are a list of reference genomes so these can be selected without using a full path.
 Also things like the theme, image dimensions and hot-keys can be set.
