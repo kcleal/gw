@@ -237,8 +237,8 @@ namespace Themes {
     IniOptions::IniOptions() {
 
         theme_str = "dark";
-        dimensions_str = "2048x1042";
-        dimensions = {2048, 1024};
+        dimensions_str = "1366x768";
+        dimensions = {1366, 768};
         fmt = "png";
         link = "None";
         link_op = 0;

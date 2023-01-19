@@ -98,10 +98,10 @@ namespace Manager {
     }
 
     GwPlot::~GwPlot() {
-        if (window != nullptr) {
+        if (window != nullptr && !drawToBackWindow) {
             glfwDestroyWindow(window);
         }
-        if (backWindow != nullptr) {
+        if (backWindow != nullptr && drawToBackWindow) {
             glfwDestroyWindow(backWindow);
         }
         glfwTerminate();
