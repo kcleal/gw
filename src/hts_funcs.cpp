@@ -70,7 +70,7 @@ namespace HGW {
             }
 
             readQueue.push_back(make_align(bam_init1()));
-//  low mem mode:
+//            low mem mode:
 //            size_t new_len = (src->core.n_cigar << 2 ) + src->core.l_qname + ((src->core.l_qseq + 1) >> 1);
 //            src->data = (uint8_t*)realloc(src->data, new_len);
 //            src->l_data = (unsigned long)new_len;
