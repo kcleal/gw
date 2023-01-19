@@ -801,6 +801,7 @@ namespace Manager {
         if (!png) { return; }
         FILE* fout = stdout;
         fwrite(png->data(), 1, png->size(), fout);
+        fclose(fout);
     }
 
     sk_sp<SkImage> GwPlot::makeImage() {

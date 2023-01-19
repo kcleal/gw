@@ -4,7 +4,7 @@ CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -O3 -DNDEBUG -pipe # -g
 
 CPPFLAGS += -I./include -I./src -I.
 
-LDLIBS += -lskia -lm -ldl -ljpeg -lpng -lsvg -lhts -lfontconfig -lpthread
+LDLIBS += -lskia -lm -ljpeg -lpng -lsvg -lhts -lfontconfig -lpthread
 
 # set system
 PLATFORM=
@@ -71,19 +71,19 @@ ifeq ($(PLATFORM),"Linux")
     CPPFLAGS += -I/usr/local/include
     CXXFLAGS += -D LINUX -D __STDC_FORMAT_MACROS
     LDFLAGS += -L/usr/local/lib
-    LDLIBS += -lGL -lfreetype -lfontconfig -luuid -lglfw -lzlib -licu
+    LDLIBS += -lGL -lfreetype -lfontconfig -luuid -lglfw -lzlib -licu -ldl
 
 else ifeq ($(PLATFORM),"Darwin")
     CPPFLAGS += -I/usr/local/include
     CXXFLAGS += -D OSX -stdlib=libc++ -arch x86_64 -fvisibility=hidden -mmacosx-version-min=10.15 -Wno-deprecated-declarations
     LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=10.15 -L/usr/local/lib
-    LDLIBS += -lglfw -lzlib -licu
+    LDLIBS += -lglfw -lzlib -licu -ldl
 
 else ifeq ($(PLATFORM),"Arm64")
     CPPFLAGS += -I/usr/local/include
     CXXFLAGS += -D OSX -stdlib=libc++ -arch arm64 -fvisibility=hidden -mmacosx-version-min=10.15 -Wno-deprecated-declarations
     LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=10.15 -L/usr/local/lib
-    LDLIBS += -lglfw -lzlib -licu
+    LDLIBS += -lglfw -lzlib -licu -ldl
 
 else ifeq ($(PLATFORM),"Windows")
     CXXFLAGS += -D WIN32
