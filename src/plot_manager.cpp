@@ -800,6 +800,16 @@ namespace Manager {
         sk_sp<SkData> png(img->encodeToData());
         if (!png) { return; }
         FILE* fout = stdout;
+#if defined(_WIN32) || defined(_WIN64)
+        HANDLE h = (HANDLE) _get_osfhandle(_fileno(fout));
+	DWORD t = GetFileType(h);
+	if (t == FILE_TYPE_CHAR) {
+        } // fine
+	if (t != FILE_TYPE_PIPE) {
+	    std::cerr << "Error: attempting to write to a bad PIPE. This is unsupported on Windows" <<  std::endl;
+            std::terminate();
+        }
+#endif	    
         fwrite(png->data(), 1, png->size(), fout);
         fclose(fout);
     }
