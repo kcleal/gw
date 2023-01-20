@@ -10,15 +10,17 @@ allows you to view and annotate variants from vcf/bcf files.
 
 Installing GW
 --------------
-GW is available on conda for linux/mac systems::
+GW is available on conda for linux/mac x86_64 systems::
 
     conda install -c bioconda gw
     
-For mac you can also install using homebrew::
+For mac x86_64 you can also install using homebrew::
  
     brew install kcleal/homebrew-gw/gw
 
-Or use via a docker container (instructions found `here <https://hub.docker.com/repository/docker/kcleal/gw/>`_)::
+Mac-arm64 and Windows will hopefully be supported.
+
+Alternatively, a docker container is available with instructions found `here <https://hub.docker.com/repository/docker/kcleal/gw/>`_::
 
   docker pull kcleal/gw
 
