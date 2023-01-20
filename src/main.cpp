@@ -71,6 +71,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("-o", "--outdir")
             .append()
             .help("Output folder to save images");
+    program.add_argument("-f", "--file")
+            .append()
+            .help("Output single image to file");
     program.add_argument("-n", "--no-show")
             .default_value(false).implicit_value(true)
             .help("Don't display images to screen");
@@ -501,17 +504,28 @@ int main(int argc, char *argv[]) {
 
         if (!program.is_used("--variants") && !program.is_used("--images") && !regions.empty()) {
 
+            if (program.is_used("--file") && program.is_used("--outdir")) {
+                std::cerr << "Error: provide --file or --outdir, not both\n";
+                return -1;
+            }
+
             plotter.opts.theme.setAlphas();
 
             if (program.is_used("--fmt") && program.get<std::string>("--fmt") == "pdf") {
+                fs::path fname;
+                fs::path out_path;
 
-                if (outdir.empty()) {
-                    std::cerr << "Error: please provide an output directory using --outdir\n";
-                    std::exit(-1);
+                if (program.is_used("--file")) {
+                    fname = program.get<std::string>("--file");
+                    out_path = fname;
+                } else {
+                    if (outdir.empty()) {
+                        std::cerr << "Error: please provide an output directory using --outdir\n";
+                        std::exit(-1);
+                    }
+                    fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".pdf";
+                    out_path = outdir / fname;
                 }
-
-                fs::path fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".pdf";
-                fs::path out_path = outdir / fname;
 
 #if defined(_WIN32) || defined(_WIN64)
 		const wchar_t* outp = out_path.c_str();
@@ -565,7 +579,13 @@ int main(int argc, char *argv[]) {
                 sk_sp<SkImage> img(sSurface->makeImageSnapshot());
 
                 if (outdir.empty()) {
-                    Manager::imagePngToStdOut(img);
+                    std::string fpath;
+                    if (program.is_used("--file")) {
+                        fpath = program.get<std::string>("--file");
+                        Manager::imagePngToFile(img, fpath);
+                    } else {
+                        Manager::imagePngToStdOut(img);
+                    }
                 } else {
                     fs::path fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".png";
                     fs::path out_path = outdir / fname;

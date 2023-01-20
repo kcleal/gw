@@ -814,6 +814,15 @@ namespace Manager {
         fclose(fout);
     }
 
+    void imagePngToFile(sk_sp<SkImage> &img, std::string path) {
+        if (!img) { return; }
+        sk_sp<SkData> png(img->encodeToData());
+        if (!png) { return; }
+        FILE* fout = fopen(path.c_str(), "w");
+        fwrite(png->data(), 1, png->size(), fout);
+        fclose(fout);
+    }
+
     sk_sp<SkImage> GwPlot::makeImage() {
         setScaling();
         sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(fb_width, fb_height);
