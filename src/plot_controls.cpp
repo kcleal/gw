@@ -55,25 +55,25 @@ namespace Manager {
                     inputText = commandHistory[commandIndex];
                     charIndex = inputText.size();
                     Term::clearLine();
-                    std::cout << "\r" << inputText << std::flush;
+//                    std::cout << "\r" << inputText << std::flush;
                     return;
                 } else if (key == GLFW_KEY_DOWN && commandIndex < (int)commandHistory.size() - 1) {
                     commandIndex += 1;
                     inputText = commandHistory[commandIndex];
                     charIndex = inputText.size();
                     Term::clearLine();
-                    std::cout << "\r" << inputText << std::flush;
+//                    std::cout << "\r" << inputText << std::flush;
                     return;
                 }
             }
 
             if (key == GLFW_KEY_LEFT) {
                 charIndex = (charIndex - 1 >= 0) ? charIndex - 1 : charIndex;
-                std::cout << "\r" << inputText.substr(0, charIndex) << "_" << inputText.substr(charIndex, inputText.size()) << std::flush;
+//                std::cout << "\r" << inputText.substr(0, charIndex) << "_" << inputText.substr(charIndex, inputText.size()) << std::flush;
                 return;
             } else if (key == GLFW_KEY_RIGHT) {
                 charIndex = (charIndex < (int)inputText.size()) ? charIndex + 1 : charIndex;
-                std::cout << "\r" << inputText.substr(0, charIndex) << "_" << inputText.substr(charIndex, inputText.size()) << std::flush;
+//                std::cout << "\r" << inputText.substr(0, charIndex) << "_" << inputText.substr(charIndex, inputText.size()) << std::flush;
                 return;
             }
 
@@ -87,7 +87,7 @@ namespace Manager {
                 if (!string.empty()) {
                     inputText.append(string);
                     charIndex = inputText.size();
-                    std::cout << "\r" << inputText << std::flush;
+//                    std::cout << "\r" << inputText << std::flush;
                 }
             } else {  // character entry
                 if (key == GLFW_KEY_SEMICOLON && inputText.size() == 1) {
@@ -96,9 +96,13 @@ namespace Manager {
                     if (inputText.size() > 1) {
                         inputText.erase(charIndex - 1, 1);
                         charIndex -= 1;
-                        std::string emptyS(100, ' ');
-                        std::cout << "\r" << emptyS << std::flush;
-                        std::cout << "\r" << inputText << std::flush;
+//                        std::string emptyS(100, ' ');
+//                        std::cout << "\r" << emptyS << std::flush;
+//                        std::cout << "\r" << inputText << std::flush;
+                    }
+                } else if (key == GLFW_KEY_DELETE) {
+                    if (inputText.size() > 1 && charIndex < inputText.size()) {
+                        inputText.erase(charIndex, 1);
                     }
                 }
                 const char *letter = glfwGetKeyName(key, scancode);

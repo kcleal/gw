@@ -25,6 +25,7 @@ namespace Term {
 
     void help(Themes::IniOptions &opts) {
         std::cout << termcolor::italic << "\n* Enter a command by selecting the GW window (not the terminal) and type ':[COMMAND]' *\n" << termcolor::reset;
+        std::cout << termcolor::italic << "\n* For a detailed manual type ':man [COMMAND]' *\n" << termcolor::reset;
         std::cout << termcolor::underline << "\nCommand          Modifier        Description                                            \n" << termcolor::reset;
         std::cout << termcolor::green << "[locus]                          " << termcolor::reset << "e.g. 'chr1' or ':chr1:1-20000'\n";
         std::cout << termcolor::green << "add              region(s)       " << termcolor::reset << "Add one or more regions e.g. ':add chr1:1-20000'\n";
