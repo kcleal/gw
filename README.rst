@@ -12,7 +12,7 @@ Installing GW
 --------------
 GW is available on conda for linux/mac x86_64 systems::
 
-    conda install -c bioconda gw
+    conda install -c conda-forge -c bioconda gw
     
 For mac x86_64 you can also install using homebrew::
  
