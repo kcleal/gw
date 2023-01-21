@@ -17,8 +17,12 @@ GW is available on conda for linux/mac x86_64 systems::
 For mac x86_64 you can also install using homebrew::
  
     brew install kcleal/homebrew-gw/gw
+    
+For windows you will need to download `msys2 <https://www.msys2.org/>`_, then open a ucrt64 terminal and install using::
 
-Mac-arm64 and Windows will hopefully be supported.
+    pacman -Sy mingw-w64-ucrt-x86_64-gw
+
+Mac-arm64 will hopefully be supported soon.
 
 Alternatively, a docker container is available with instructions found `here <https://hub.docker.com/repository/docker/kcleal/gw/>`_::
 
