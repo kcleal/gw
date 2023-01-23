@@ -355,8 +355,7 @@ int main(int argc, char *argv[]) {
         sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
 
         if (!interface || !interface->validate()) {
-		std::cerr << "Error: skia GrGLInterface was not valid" << std::endl;
-//#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
+		    std::cerr << "Error: skia GrGLInterface was not valid" << std::endl;
             GLint param;
             if (!interface) {
                 std::cerr << "    GrGLMakeNativeInterface() returned nullptr" << std::endl;
@@ -372,7 +371,6 @@ int main(int argc, char *argv[]) {
             glGetIntegerv(GL_DEPTH_BITS, &param); std::cerr << "    GL_DEPTH_BITS " << param << std::endl;
             glGetIntegerv(GL_STENCIL_BITS, &param); std::cerr << "    GL_STENCIL_BITS " << param << std::endl;
             std::cerr << "GL error code: " << glGetError() << std::endl;
-//#endif
             std::terminate();
         }
 
@@ -508,7 +506,7 @@ int main(int argc, char *argv[]) {
                 std::cerr << "Error: provide --file or --outdir, not both\n";
                 return -1;
             }
-
+            plotter.fetchRefSeqs();
             plotter.opts.theme.setAlphas();
 
             if (program.is_used("--fmt") && program.get<std::string>("--fmt") == "pdf") {

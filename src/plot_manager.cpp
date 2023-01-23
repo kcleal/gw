@@ -4,7 +4,7 @@
 #include <deque>
 #include <mutex>
 #include <string>
-#include <stdio.h>
+#include <cstdio>
 #include <vector>
 
 #ifdef __APPLE__
@@ -386,6 +386,10 @@ namespace Manager {
                 opts.dimensions.x = fb_width;
                 opts.dimensions.y = fb_height;
                 resizeTriggered = false;
+
+                sContext->abandonContext();
+                sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
+                sContext = GrDirectContext::MakeGL(interface).release();
 
                 GrGLFramebufferInfo framebufferInfo;
                 framebufferInfo.fFBOID = 0;

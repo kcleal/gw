@@ -10,15 +10,15 @@ allows you to view and annotate variants from vcf/bcf files.
 
 Installing GW
 --------------
-GW is available on conda for linux/mac x86_64 systems::
+GW is available on conda for linux x86_64 systems::
 
     conda install -c conda-forge -c bioconda gw
     
-For mac x86_64 you can also install using homebrew::
+For mac x86_64 install using homebrew::
  
     brew install kcleal/homebrew-gw/gw
     
-For windows you will need to download `msys2 <https://www.msys2.org/>`_, then open a ucrt64 terminal and install using::
+For windows, install via msys2 or WSL. For msys2, download `msys2 <https://www.msys2.org/>`_, then open a ucrt64 terminal and install using::
 
     pacman -Sy mingw-w64-ucrt-x86_64-gw
 
