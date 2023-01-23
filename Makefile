@@ -15,9 +15,11 @@ else
     ifeq ($(UNAME_S),Linux)
         PLATFORM = "Linux"
     else ifeq ($(UNAME_S),Darwin)
-        PLATFORM = "Darwin"
-    else ifeq ($(UNAME_S),arm64)
-        PLATFORM = "Arm64"
+        ifeq ($(shell uname -m), arm64)
+	    PLATFORM = "Arm64"
+	else
+	    PLATFORM = "Darwin
+	endif
     endif
 endif
 
