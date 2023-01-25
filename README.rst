@@ -73,7 +73,7 @@ Command line::
     gw hg38 -b your.bam -v var.vcf --labels Yes,No --out-labels labels.tsv
 
 
-GW commands - access command box with `:`::
+GW commands - access command box with ``:`` ::
 
     :help              # help menu
     :config            # open config file for editing
