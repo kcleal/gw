@@ -280,6 +280,10 @@ namespace Manager {
                     return true;
                 }
                 inputText = "";
+                if (ind >= bams.size()) {
+                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " bam index is out of range. Use 0-based indexing\n";
+                    return true;
+                }
                 valid = true;
                 collections.erase(std::remove_if(collections.begin(), collections.end(), [&ind](const auto col) {
                     return col.bamIdx == ind;

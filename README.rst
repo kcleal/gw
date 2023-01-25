@@ -8,35 +8,90 @@ GW is a fast browser for genomic sequencing data (.bam/.cram format) used direct
 allows you to view and annotate variants from vcf/bcf files.
 
 
-Installing GW
---------------
-GW is available on conda for linux x86_64 systems::
+⚙️ Install
+----------
+Linux x86_64 systems::
 
     conda install -c conda-forge -c bioconda gw
     
-For mac x86_64 install using homebrew::
+Mac x86_64::
  
     brew install kcleal/homebrew-gw/gw
     
-For windows, install via msys2 or WSL. For msys2, download `msys2 <https://www.msys2.org/>`_, then open a ucrt64 terminal and install using::
+For windows, install via msys2 or WSL. For msys2, download `msys2 <https://www.msys2.org/>`_, then open a ucrt64 terminal and install::
 
     pacman -Sy mingw-w64-ucrt-x86_64-gw
 
 Mac-arm64 will hopefully be supported soon.
 
-Alternatively, a docker container is available with instructions found `here <https://hub.docker.com/repository/docker/kcleal/gw/>`_::
+A docker container is available with instructions found `here <https://hub.docker.com/repository/docker/kcleal/gw/>`_::
 
   docker pull kcleal/gw
 
-GW is built using clang++/g++ and make and requires glfw3 and htslib to be available. To build from source use::
+Building requires glfw3 and htslib libraries::
 
     conda install glfw htslib
     export CONDA_PREFIX=/pathTo/miniconda  # this may already be set
     git clone https://github.com/kcleal/gw.git && cd gw
     make prep && make
 
-User Guide
-==========
+🚀 Quick Start
+==============
+Command line::
+
+    # Start gw (drag and drop bams into window)
+    gw hg38
+
+    # View start of chr1
+    gw hg38 -b your.bam -r chr1
+
+    # Two regions, side-by-side
+    gw hg38 -b your.bam -r chr1:1-20000 -r chr2:50000-60000
+
+    # Multiple bams
+    gw hg38 -b your.bam -b your2.bam -r chr1
+
+    # Add a track BED/VCF/BCF/LABEL
+    gw hg38 -b your.bam -r chr1 --track a.bed
+
+    # png image to stdout
+    gw hg38 -b your.bam -r chr1:1-20000 -n > out.png
+
+    # Save pdf
+    gw hg38 -b your.bam -r chr1:1-20000 -n --fmt pdf -f out.pdf
+
+    # View VCF/BCF
+    gw hg38 -b your.bam -v var.vcf
+
+    # View VCF/BCF from stdin
+    gw hg38 -b your.bam -v -
+
+    # View some png images
+    gw -i "images/*.png"
+
+    # Save some annotations
+    gw hg38 -b your.bam -v var.vcf --labels Yes,No --out-labels labels.tsv
+
+
+GW commands - access command box with `:`::
+
+    :help              # help menu
+    :config            # open config file for editing
+    :chr1:1-20000      # Navigate to region
+    :add chr2:1-50000  # Append new region
+    :rm 1              # Region at column index 1 removed
+    :rm bam1           # Bam file at row index 1 removed
+    :mate              # Move view to mate of read
+    :mate add          # mate added in new view
+    :line              # Toggle vertical line
+    :ylim 100          # View depth increased to 100
+    :find QNAME        # Highlight all reads with qname==QNAME
+    :filter mapq >= 10 # Filer reads for mapq >= 10
+    :count             # Counts of all reads for each view point
+    :man COMMAND       # manual for command
+
+📖 User Guide
+=============
 
 Sequencing data
 ---------------
@@ -44,7 +99,7 @@ To view a genomic region e.g. chr1:1-20000, supply an indexed reference genome a
 
     gw hg38 -b your.bam -r chr1:1-20000
 
-.. image:: include/igv.png
+.. image:: include/chr1.png
     :align: center
 
 The `hg38` argument will load a remote reference genome, replace this with the path to a local file for best performance.
