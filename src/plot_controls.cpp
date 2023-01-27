@@ -445,7 +445,7 @@ namespace Manager {
 				inputText = "";
 				return true;
 			}
-			else if (blockStart+mouseOverTileIndex > multiLabels.size()) {
+			else if (blockStart+mouseOverTileIndex >= multiLabels.size()) {
 				std::cerr << "Error: index outside of range.";
 				inputText = "";
 				return true;
