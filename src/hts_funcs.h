@@ -27,6 +27,7 @@ namespace HGW {
         VCFfile () = default;
         ~VCFfile();
         htsFile *fp;
+		htsFile *fp2;
         bcf_hdr_t *hdr;
         std::vector<bcf1_t*> lines;
         bcf1_t *v;
@@ -42,6 +43,8 @@ namespace HGW {
 
         void open(std::string f);
         void next();
+
+        void printTargetRecord(std::string &id_str, std::string &chrom, int pos);
 
     };
 

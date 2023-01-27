@@ -45,6 +45,7 @@ namespace Term {
         std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. ':rm 1'. To remove a bam \n                                 use the bam index ':rm bam0'\n";
         std::cout << termcolor::green << "sam                              " << termcolor::reset << "Print selected read in sam format'\n";
         std::cout << termcolor::green << "theme            [igv/dark]      " << termcolor::reset << "Switch color theme e.g. ':theme dark'\n";
+        std::cout << termcolor::green << "vcf                              " << termcolor::reset << "Print vcf line for variant mouse is currently over\n";
         std::cout << termcolor::green << "ylim             number          " << termcolor::reset << "The maximum y-limit for the image e.g. ':ylim 100'\n";
 
         std::cout << termcolor::underline << "\nHot keys                   \n" << termcolor::reset;
@@ -113,6 +114,8 @@ namespace Term {
             std::cout << "    Print the sam format of the read.\n        First select a read using the mouse then type ':sam'.\n\n";
         } else if (s == "theme") {
             std::cout << "    Switch the theme.\n        Currently 'igv' or 'dark' themes are supported.\n\n";
+        } else if (s == "vcf") {
+            std::cout << "    Print the vcf line.\n        Prints vcf line for variant under mouse ':vcf'.\n\n";
         } else if (s == "ylim") {
             std::cout << "    Set the y limit.\n        The y limit is the maximum depth shown on the drawing e.g. 'ylim 100'.\n\n";
         }
@@ -491,5 +494,4 @@ namespace Term {
             }
         }
     }
-
 }

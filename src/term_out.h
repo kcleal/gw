@@ -22,5 +22,7 @@ namespace Term {
 
     void printRefSeq(float x, std::vector<Segs::ReadCollection> &collections);
 
+	  void printTargetRecord(std::string &id_string, std::string &chrom, int pos);
+
     void updateRefGenomeSeq(float xW, std::vector<Segs::ReadCollection> &collections);
 }

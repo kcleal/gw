@@ -439,6 +439,12 @@ namespace Manager {
                 inputText = "";
                 return true;
             }
+        } else if (Utils::startsWith(inputText, ":vcf")) {
+			Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
+			Term::clearLine();
+			vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+			inputText = "";
+			return true;	
         } else {
             try {
                 inputText.erase(0, 1);
