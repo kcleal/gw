@@ -31,6 +31,11 @@ namespace Manager {
             ctrlPress = false;
             return;
         }
+	    if (key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_LEFT_SUPER) {
+		    if (action == GLFW_PRESS) {
+			    ctrlPress = true;
+		    }
+	    }
         if (key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) {
             shiftPress = true;
         } else if (shiftPress && GLFW_KEY_SEMICOLON && !captureText) {
@@ -73,11 +78,6 @@ namespace Manager {
                 return;
             }
 
-            if (key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_LEFT_SUPER) {
-                if (action == GLFW_PRESS) {
-                    ctrlPress = true;
-                }
-            }
             if (ctrlPress && key == GLFW_KEY_V) {
                 std::string string = glfwGetClipboardString(window);
                 if (!string.empty()) {
@@ -499,6 +499,7 @@ namespace Manager {
 
     void GwPlot::keyPress(GLFWwindow* wind, int key, int scancode, int action, int mods) {
         if (action == GLFW_RELEASE) {
+			ctrlPress = false;
             return;
         }
 
@@ -1122,6 +1123,10 @@ namespace Manager {
                 if (clickedIdx == -1 || idx != clickedIdx) {
                     return;
                 }
+
+				if (ctrlPress) {
+					// zoom in
+				}
 
                 if (cl.region.end - cl.region.start < 50000) {
 
