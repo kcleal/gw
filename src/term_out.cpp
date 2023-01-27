@@ -1,19 +1,14 @@
 //
 // Created by Kez Cleal on 07/12/2022.
 //
+#include <filesystem>
 #include <htslib/sam.h>
-#include <cmath>
-#include <iomanip>
-#include <iterator>
-#include <cstdlib>
 #include <string>
 #include <thread>
-#include <unordered_map>
 #include <vector>
 #include "htslib/hts.h"
 #include "drawing.h"
 #include "hts_funcs.h"
-#include "parser.h"
 #include "plot_manager.h"
 #include "segments.h"
 #include "../include/termcolor.h"
@@ -122,9 +117,8 @@ namespace Term {
 
 
     void clearLine() {
-        std::string s(Utils::get_terminal_width() - 1, ' ');
+        std::string s(Utils::get_terminal_width(), ' ');
         std::cout << "\r" << s << std::flush;
-        return;
     }
 
     void editInputText(std::string &inputText, const char *letter, int &charIndex) {
@@ -442,6 +436,33 @@ namespace Term {
             }
         }
     }
+
+	void printTrack(float x, HGW::GwTrack &track, const Utils::Region *rgn, bool mouseOver) {
+		track.fetch(rgn);
+		int target = (int)((float)(rgn->end - rgn->start) * x) + rgn->start;
+		std::filesystem::path p = track.path;
+		bool printed = false;
+		while (true) {
+			track.next();
+			if (track.done) {
+				break;
+			}
+			if (track.start <= target && track.stop > target) {
+				std::cout << "\r" << termcolor::bold << p.filename().string() << termcolor::reset << "    " << \
+                    termcolor::cyan << track.chrom << ":" << track.start << "-" << track.stop << termcolor::reset << \
+                    "    " << track.rid;
+				printed = true;
+				if (!mouseOver) {
+					std::cout << std::endl;
+				} else {
+					break;
+				}
+			}
+		}
+		if (mouseOver && printed) {
+			std::cout << std::flush;
+		}
+	}
 
     void updateRefGenomeSeq(float xW, std::vector<Segs::ReadCollection> &collections) {
         for (auto &cl: collections) {

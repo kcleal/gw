@@ -562,7 +562,7 @@ namespace HGW {
                 }
                 std::vector<std::string> parts = Utils::split(tp, delim);
                 if (parts.size() < 3) {
-                    std::cerr << "Error: parsing file, not enough columns in line split by tab " << parts.size() << std::endl;
+                    std::cerr << "Error: parsing file, not enough columns in line split by tab " << parts.size() << " " << tp << std::endl;
                 }
                 Utils::TrackBlock b;
                 b.line = tp;

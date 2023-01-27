@@ -55,25 +55,21 @@ namespace Manager {
                     inputText = commandHistory[commandIndex];
                     charIndex = inputText.size();
                     Term::clearLine();
-//                    std::cout << "\r" << inputText << std::flush;
                     return;
                 } else if (key == GLFW_KEY_DOWN && commandIndex < (int)commandHistory.size() - 1) {
                     commandIndex += 1;
                     inputText = commandHistory[commandIndex];
                     charIndex = inputText.size();
                     Term::clearLine();
-//                    std::cout << "\r" << inputText << std::flush;
                     return;
                 }
             }
 
             if (key == GLFW_KEY_LEFT) {
                 charIndex = (charIndex - 1 >= 0) ? charIndex - 1 : charIndex;
-//                std::cout << "\r" << inputText.substr(0, charIndex) << "_" << inputText.substr(charIndex, inputText.size()) << std::flush;
                 return;
             } else if (key == GLFW_KEY_RIGHT) {
                 charIndex = (charIndex < (int)inputText.size()) ? charIndex + 1 : charIndex;
-//                std::cout << "\r" << inputText.substr(0, charIndex) << "_" << inputText.substr(charIndex, inputText.size()) << std::flush;
                 return;
             }
 
@@ -87,7 +83,6 @@ namespace Manager {
                 if (!string.empty()) {
                     inputText.append(string);
                     charIndex = inputText.size();
-//                    std::cout << "\r" << inputText << std::flush;
                 }
                 ctrlPress = false;
             } else {  // character entry
@@ -97,9 +92,6 @@ namespace Manager {
                     if (inputText.size() > 1) {
                         inputText.erase(charIndex - 1, 1);
                         charIndex -= 1;
-//                        std::string emptyS(100, ' ');
-//                        std::cout << "\r" << emptyS << std::flush;
-//                        std::cout << "\r" << inputText << std::flush;
                     }
                 } else if (key == GLFW_KEY_DELETE) {
                     if (inputText.size() > 1 && charIndex < (int)inputText.size()) {
@@ -112,7 +104,7 @@ namespace Manager {
                         Term::editInputText(inputText, " ", charIndex);
                     } else if (key == GLFW_KEY_SEMICOLON && mods == GLFW_MOD_SHIFT) {
                         Term::editInputText(inputText, ":", charIndex);
-                    } else if (key == GLFW_KEY_1 && mods == GLFW_MOD_SHIFT) {  // this will probaaly not work for every keyboard
+                    } else if (key == GLFW_KEY_1 && mods == GLFW_MOD_SHIFT) {  // this will probably not work for every keyboard
                         Term::editInputText(inputText, "!", charIndex);
                     } else if (key == GLFW_KEY_7 && mods == GLFW_MOD_SHIFT) {
                         Term::editInputText(inputText, "&", charIndex);
@@ -767,8 +759,18 @@ namespace Manager {
 
     int GwPlot::getCollectionIdx(float x, float y) {
         if (y <= refSpace) {
-            return -2;
-        }
+            return -2;  // reference
+        } else if (!tracks.empty() && y >= refSpace + totalCovY + (trackY*(float)headers.size()) && y < (float)fb_height - refSpace) {
+			int index = -3;
+			float trackSpace = (float)fb_height - totalCovY - refSpace - refSpace - (trackY*(float)headers.size());
+			trackSpace = trackSpace / (float)tracks.size();
+			float cIdx = (y - (refSpace + totalCovY + (trackY*(float)headers.size()))) / trackSpace;
+			index -= int(cIdx);
+			if ((index * -1) - 3 > (int)tracks.size()) {
+				index = -1;
+			}
+			return index;  // track
+		}
         if (regions.empty()) {
             return -1;
         }
@@ -782,7 +784,7 @@ namespace Manager {
                 float min_x = cl.xOffset;
                 float max_x = cl.xScaling * ((float) (cl.region.end - cl.region.start)) + min_x;
                 float min_y = refSpace;
-                float max_y = fb_height - refSpace;
+                float max_y = fb_height - refSpace - totalTabixY;
                 if (x > min_x && x < max_x && y > min_y && y < max_y) {
                     return i;
                 }
@@ -875,7 +877,22 @@ namespace Manager {
             int idx = getCollectionIdx(xW, yW);
             if (idx == -2 && action == GLFW_RELEASE) {
                 Term::printRefSeq(xW, collections);
-            }
+            } else if (idx <= -3 && action == GLFW_RELEASE) {
+	            float rS = ((float)fb_width / (float)regions.size());
+	            int tIdx = (int)((xW) / rS);
+	            if (tIdx < (int)regions.size()) {
+		            float relX = xW - gap;
+		            if (tIdx > 0) {
+			            relX -= (float)tIdx * rS;
+		            }
+		            relX /= (rS - gap - gap);
+		            if (relX < 0 || relX > 1) {
+			            return;
+		            }
+		            Term::clearLine();
+					Term::printTrack(relX, tracks[(idx * -1) -3], &regions[tIdx], false);
+				}
+			}
             if (idx < 0) {
                 return;
             }
@@ -1149,7 +1166,23 @@ namespace Manager {
                 }
 
                 int rs = getCollectionIdx((float)xPos, (float)yPos);
-                if (rs < 0) {
+	            if (rs <= -3) {  // print track info
+		            float rgS = ((float)fb_width / (float)regions.size());
+		            int tIdx = (int)((xPos) / rgS);
+		            if (tIdx < (int)regions.size()) {
+			            float relX = xPos - gap;
+			            if (tIdx > 0) {
+				            relX -= (float)tIdx * rgS;
+			            }
+			            relX /= (rgS - gap - gap);
+						if (relX < 0 || relX > 1) {
+							return;
+						}
+			            Term::clearLine();
+			            Term::printTrack(relX, tracks[(rs * -1) -3], &regions[tIdx], true);
+		            }
+	            }
+                if (rs < 0) { // print reference info
                     if (rs == -2) {
                         Term::updateRefGenomeSeq((float)xPos, collections);
                     }

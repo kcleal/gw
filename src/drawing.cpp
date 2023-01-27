@@ -1057,7 +1057,7 @@ namespace Drawing {
                             if (rect.left() + textW < padX + stepX - gap2 - gap2) {
                                 rect.setXYWH(padX + gap, y + (h/2) + padY, textW, h);
                                 canvas->drawRect(rect, opts.theme.bgPaint);
-                                if (h > fonts.overlayHeight) {
+                                if (2*h > fonts.overlayHeight) {
                                     sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(trk.rid.c_str(), fonts.overlay);
                                     canvas->drawTextBlob(blob, rect.left(), rect.bottom(), opts.theme.tcDel);
                                 }
@@ -1073,7 +1073,7 @@ namespace Drawing {
                             if (rect.left() + textW < padX + stepX - gap2 - gap2) {
                                 rect.setXYWH(padX + gap, y + (h/2) + padY, textW, h);
                                 canvas->drawRect(rect, opts.theme.bgPaint);
-                                if (h > fonts.overlayHeight) {
+                                if (2*h > fonts.overlayHeight) {
                                     sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(trk.rid.c_str(), fonts.overlay);
                                     canvas->drawTextBlob(blob, rect.left(), rect.bottom(), opts.theme.tcDel);
                                 }
@@ -1090,7 +1090,7 @@ namespace Drawing {
                             if (rect.left() + textW < padX + stepX - gap2 - gap2) {
                                 rect.setXYWH(x + padX, y + (h/2) + padY, textW, h);
                                 canvas->drawRect(rect, opts.theme.bgPaint);
-                                if (h > fonts.overlayHeight) {
+                                if (2*h > fonts.overlayHeight) {
                                     sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(trk.rid.c_str(), fonts.overlay);
                                     canvas->drawTextBlob(blob, rect.left(), rect.bottom(), opts.theme.tcDel);
                                 }
@@ -1110,7 +1110,7 @@ namespace Drawing {
                             if (rect.left() + textW < padX + stepX - gap2 - gap2) {
                                 rect.setXYWH(x + padX, y + (h/2) + padY, textW, h);
                                 canvas->drawRect(rect, opts.theme.bgPaint);
-                                if (h > fonts.overlayHeight) {
+                                if (2*h > fonts.overlayHeight) {
                                     sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(trk.rid.c_str(), fonts.overlay);
                                     canvas->drawTextBlob(blob, rect.left(), rect.bottom(), opts.theme.tcDel);
                                 }

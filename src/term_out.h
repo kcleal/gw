@@ -4,6 +4,19 @@
 
 #pragma once
 
+#include <htslib/sam.h>
+#include <string>
+#include <thread>
+#include <vector>
+#include "htslib/hts.h"
+#include "drawing.h"
+#include "hts_funcs.h"
+#include "plot_manager.h"
+#include "segments.h"
+#include "../include/termcolor.h"
+#include "term_out.h"
+#include "themes.h"
+
 namespace Term {
 
     void help(Themes::IniOptions &opts);
@@ -21,6 +34,8 @@ namespace Term {
     void printKeyFromValue(int v);
 
     void printRefSeq(float x, std::vector<Segs::ReadCollection> &collections);
+
+	void printTrack(float x, HGW::GwTrack &track, const Utils::Region *rgn, bool mouseOver);
 
     void updateRefGenomeSeq(float xW, std::vector<Segs::ReadCollection> &collections);
 }
