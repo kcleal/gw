@@ -27,7 +27,6 @@ namespace HGW {
         VCFfile () = default;
         ~VCFfile();
         htsFile *fp;
-		htsFile *fp2;
         bcf_hdr_t *hdr;
         std::vector<bcf1_t*> lines;
         bcf1_t *v;
