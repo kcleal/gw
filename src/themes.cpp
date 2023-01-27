@@ -188,9 +188,9 @@ namespace Themes {
         fcInvR.setARGB(255, 46, 139, 7);
         fcTra.setARGB(255, 255, 105, 180);
         fcSoftClip.setARGB(255, 0, 128, 128);
-        fcA.setARGB(255, 0, 255, 127);
-        fcT.setARGB(255, 255, 0, 0);
-        fcC.setARGB(255, 0, 0, 255);
+        fcA.setARGB(255, 0, 215, 127);
+        fcT.setARGB(255, 215, 0, 0);
+        fcC.setARGB(255, 20, 20, 205);
         fcG.setARGB(255, 205, 133, 63);
         fcN.setARGB(255, 128, 128, 128);
         lcJoins.setARGB(255, 20, 20, 20);
@@ -217,10 +217,10 @@ namespace Themes {
         fcInvR.setARGB(255, 49, 167, 0);
         fcTra.setARGB(255, 225, 185, 185);
         fcSoftClip.setARGB(255, 0, 128, 128);
-        fcA.setARGB(255, 106, 216, 79);
-        fcT.setARGB(255, 231, 49, 14);
-        fcC.setARGB(255, 77, 155, 255);
-        fcG.setARGB(255, 236, 132, 19);
+        fcA.setARGB(255, 106, 186, 79);
+        fcT.setARGB(255, 201, 49, 24);
+        fcC.setARGB(255, 77, 125, 245);
+        fcG.setARGB(255, 226, 132, 19);
         fcN.setARGB(255, 128, 128, 128);
         lcJoins.setARGB(255, 142, 142, 142);
         lcLightJoins.setARGB(255, 82, 82, 82);
@@ -276,6 +276,14 @@ namespace Themes {
         print_screen = GLFW_KEY_PRINT_SCREEN;
         delete_labels = GLFW_KEY_DELETE;
         enter_interactive_mode = GLFW_KEY_ENTER;
+
+# if defined(_WIN32) || defined(_WIN64)
+        editor = "notepad.exe";
+#elif defined(__APPLE__)
+        editor = "open -a TextEdit";
+#else  // linux
+        editor = "vi";
+#endif
     }
 
     void IniOptions::readIni() {
@@ -378,6 +386,9 @@ namespace Themes {
         }
         for (auto const& it2 : myIni["tracks"]) {
             tracks[it2.first].push_back(it2.second);
+        }
+        if (myIni.has("text_editor") && !myIni["text_editor"]["editor"].empty()) {
+            editor = myIni["text_editor"]["editor"];
         }
     }
 

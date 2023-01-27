@@ -89,6 +89,7 @@ namespace Manager {
                     charIndex = inputText.size();
 //                    std::cout << "\r" << inputText << std::flush;
                 }
+                ctrlPress = false;
             } else {  // character entry
                 if (key == GLFW_KEY_SEMICOLON && inputText.size() == 1) {
                     return;
@@ -101,7 +102,7 @@ namespace Manager {
 //                        std::cout << "\r" << inputText << std::flush;
                     }
                 } else if (key == GLFW_KEY_DELETE) {
-                    if (inputText.size() > 1 && charIndex < inputText.size()) {
+                    if (inputText.size() > 1 && charIndex < (int)inputText.size()) {
                         inputText.erase(charIndex, 1);
                     }
                 }
@@ -202,17 +203,11 @@ namespace Manager {
             inputText = "";
             return true;
         } else if (Utils::startsWith(inputText, ":config")) {
-# if defined(_WIN32) || defined(_WIN64)
-            std::string com = "notepad.exe " + opts.ini_path;
-#elif defined(__APPLE__)
-            std::string com = "open -a TextEdit " + opts.ini_path;
-#else  // linux
-            std::string com = "vi " + opts.ini_path;
-#endif
-            FILE *fp = popen(com.c_str(), "r");
+            std::string com = opts.editor + " " + opts.ini_path;
+            FILE *fp = popen(com.c_str(), "w");
             pclose(fp);
             valid = true;
-
+            opts.readIni();
         } else if (Utils::startsWith(inputText, ":filter ")) {
             std::string str = inputText;
             str.erase(0, 8);
@@ -280,7 +275,7 @@ namespace Manager {
                     return true;
                 }
                 inputText = "";
-                if (ind >= bams.size()) {
+                if (ind >= (int)bams.size()) {
                     std::cerr << termcolor::red << "Error:" << termcolor::reset << " bam index is out of range. Use 0-based indexing\n";
                     return true;
                 }
@@ -400,14 +395,29 @@ namespace Manager {
                 split = Utils::split(inputText, delim);
             }
             if (split.size() > 1 && split.size() < 4) {
-                int index = (split.size() == 3) ? std::stoi(split.back()) : 0;
+                int index;
+                try {
+                    index = (split.size() == 3) ? std::stoi(split.back()) : 0;
+                } catch (...) {
+                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " index not understood\n";
+                    inputText = "";
+                    return true;
+                }
+                Utils::Region rgn;
+                try {
+                    rgn = Utils::parseRegion(split[1]);
+                } catch (...) {
+                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " region not understood\n";
+                    inputText = "";
+                    return true;
+                }
                 if (regions.empty()) {
-                    regions.push_back(Utils::parseRegion(split[1]));
+                    regions.push_back(rgn);
                     fetchRefSeq(regions.back());
                     valid = true;
                 } else {
                     if (index < (int)regions.size()) {
-                        regions[index] = Utils::parseRegion(split[1]);
+                        regions[index] = rgn;
                         fetchRefSeq(regions[index]);
                         valid = true;
                     } else {
