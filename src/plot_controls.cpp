@@ -445,6 +445,11 @@ namespace Manager {
 				inputText = "";
 				return true;
 			}
+			else if (blockStart+mouseOverTileIndex > multiLabels.size()) {
+				std::cerr << "Error: index outside of range.";
+				inputText = "";
+				return true;
+			}
 			Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
 			Term::clearLine();
 			vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);

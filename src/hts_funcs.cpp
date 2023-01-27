@@ -563,11 +563,10 @@ namespace HGW {
 			test_vcf = vcf_open(path.c_str(), "r");
 			test_header = bcf_hdr_read(test_vcf);
 			bcf1_t *tv = bcf_init1();
-			int varid = atoi(id_str.c_str());
 			while (bcf_read(test_vcf, test_header, tv) == 0) {
 				bcf_unpack(tv, BCF_UN_STR);
-				int tmpid = atoi(tv->d.id);
-				if (tmpid == varid) {
+				std::string tmpid = tv->d.id;
+				if (id_str.compare(tmpid) == 0) {
 					vcf_format(test_header, tv, &kstr);
 					std::string s(Utils::get_terminal_width(), ' ');
 					std::cout << "\r" << s << std::flush;
@@ -577,11 +576,10 @@ namespace HGW {
 			}
 		}
 		else if (kind == 3) { // untested
-			int varid = atoi(id_str.c_str());
 			for (auto it : lines) {
 				bcf_unpack(it, BCF_UN_STR);
-				int tmpid = atoi(it->d.id);
-				if (tmpid == varid) {
+				std::string tmpid = it->d.id;
+				if (id_str.compare(tmpid) == 0) {
 					vcf_format(hdr, it, &kstr);
 					std::string s(Utils::get_terminal_width(), ' ');
 					std::cout << "\r" << s << std::flush;
