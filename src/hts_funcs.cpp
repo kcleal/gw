@@ -511,6 +511,87 @@ namespace HGW {
         }
     }
 
+    void VCFfile::printTargetRecord(std::string &id_str, std::string &chrom, int pos) {
+        htsFile *fp2 = fp;
+        kstring_t kstr = {0,0,0};
+        
+        int kind;   
+        if (Utils::endsWith(path, ".bcffff")) { // iterator not working yet
+            kind = 1;
+        }
+        else if (Utils::endsWith(path, ".vcf.gz") || Utils::endsWith(path, ".vcf") || Utils::endsWith(path, ".bcf")) {
+            kind = 2;
+        }
+        else if (cacheStdin == 1) {
+            kind = 3;
+        }
+        else {
+            std::cerr << "Unsure of file type, cannot parse.";
+            fp = fp2;
+            return;
+        }
+        if (kind == 1) { // not currently working
+            htsFile *test_vcf;
+            bcf_hdr_t *test_header;
+            test_vcf = bcf_open(path.c_str(), "r");
+            test_header = bcf_hdr_read(test_vcf);
+
+            int tid = bcf_hdr_name2id(test_header, chrom.c_str());
+            std::string index_path = path + ".csi";
+            hts_idx_t *idx_v = bcf_index_load(path.c_str());
+            hts_itr_t *iter_q = bcf_itr_queryi(idx_v, tid, pos-10, pos+10);
+            bcf1_t *tv = bcf_init1();
+            while (1) { 
+                bcf_unpack(tv, BCF_UN_STR);
+                int res = bcf_itr_next(test_vcf, iter_q, tv); // currently returns -1
+                if (res < 0) {
+                    if (res < -1) {
+                        std::cerr << "Error: iterating bcf file returned " << res << std::endl;
+                    }
+                    fp = fp2;
+                    return;
+                }
+                
+            }
+            bcf_unpack(tv, BCF_UN_STR);
+            vcf_format1(test_header, tv, &kstr);
+            std::cout << kstr.s << std::endl;
+        }
+        else if (kind == 2) {
+            htsFile *test_vcf;
+            bcf_hdr_t *test_header;
+            test_vcf = vcf_open(path.c_str(), "r");
+            test_header = bcf_hdr_read(test_vcf);
+            bcf1_t *tv = bcf_init1();
+            while (bcf_read(test_vcf, test_header, tv) == 0) {
+                bcf_unpack(tv, BCF_UN_STR);
+                std::string tmpid = tv->d.id;
+                if (id_str.compare(tmpid) == 0) {
+                    vcf_format(test_header, tv, &kstr);
+                    std::string s(Utils::get_terminal_width(), ' ');
+                    std::cout << "\r" << s << std::flush;
+                    std::cout << kstr.s << std::endl;
+                    break;
+                }
+            }
+        }
+        else if (kind == 3) { // untested
+            for (auto it : lines) {
+                bcf_unpack(it, BCF_UN_STR);
+                std::string tmpid = it->d.id;
+                if (id_str.compare(tmpid) == 0) {
+                    vcf_format(hdr, it, &kstr);
+                    std::string s(Utils::get_terminal_width(), ' ');
+                    std::cout << "\r" << s << std::flush;
+                    std::cout << kstr.s << std::endl;
+
+                }
+            }
+        }
+        fp = fp2;
+        return;
+    }
+
     GwTrack::~GwTrack() {
         // these cause segfaults?
 //        if (fp != nullptr) {

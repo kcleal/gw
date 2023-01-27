@@ -441,6 +441,22 @@ namespace Manager {
                 inputText = "";
                 return true;
             }
+        } else if (Utils::startsWith(inputText, ":vcf")) {
+            if (multiLabels.empty()) {
+                std::cerr << "Error: no vcf file provided.\n";
+                inputText = "";
+                return true;
+            }
+            else if (blockStart+mouseOverTileIndex >= multiLabels.size()) {
+                std::cerr << "Error: index outside of range.";
+                inputText = "";
+                return true;
+            }
+            Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
+            Term::clearLine();
+            vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+            inputText = "";
+            return true;    
         } else {
             try {
                 inputText.erase(0, 1);
