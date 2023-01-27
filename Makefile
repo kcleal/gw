@@ -45,7 +45,7 @@ ifneq ($(PLATFORM), "Windows")
         LDFLAGS += -L./lib/skia/out/Release-x64
     else ifeq ($(PLATFORM),"Arm64")
         CPPFLAGS += -I./lib/skia
-        LDFLAGS += -L./lib/skia/out/Release-x64
+        LDFLAGS += -L./lib/skia/out/Release-arm64
     else
     	CPPFLAGS += -I./lib/skia
         LDFLAGS += -L./lib/skia/out/Release-x64
