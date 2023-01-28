@@ -43,15 +43,16 @@ namespace Term {
         std::cout << termcolor::green << "vcf                              " << termcolor::reset << "Print vcf line for variant mouse is currently over\n";
         std::cout << termcolor::green << "ylim             number          " << termcolor::reset << "The maximum y-limit for the image e.g. ':ylim 100'\n";
 
-        std::cout << termcolor::underline << "\nHot keys                   \n" << termcolor::reset;
-        std::cout << "scroll left       " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_left); std::cout << "\n" << termcolor::reset;
-        std::cout << "scroll right      " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_right); std::cout << "\n" << termcolor::reset;
-        std::cout << "scroll down       " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_down); std::cout << "\n" << termcolor::reset;
-        std::cout << "scroll up         " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_up); std::cout << "\n" << termcolor::reset;
-        std::cout << "zoom in           " << termcolor::bright_yellow; Term::printKeyFromValue(opts.zoom_in); std::cout << "\n" << termcolor::reset;
-        std::cout << "zoom out          " << termcolor::bright_yellow; Term::printKeyFromValue(opts.zoom_out); std::cout << "\n" << termcolor::reset;
-        std::cout << "next region view  " << termcolor::bright_yellow; Term::printKeyFromValue(opts.next_region_view); std::cout << "\n" << termcolor::reset;
-        std::cout << "cycle link mode   " << termcolor::bright_yellow; Term::printKeyFromValue(opts.cycle_link_mode); std::cout << "\n" << termcolor::reset;
+        std::cout << termcolor::underline << "\nHot keys                      \n" << termcolor::reset;
+        std::cout << "scroll left          " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_left); std::cout << "\n" << termcolor::reset;
+        std::cout << "scroll right         " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_right); std::cout << "\n" << termcolor::reset;
+        std::cout << "scroll down          " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_down); std::cout << "\n" << termcolor::reset;
+        std::cout << "scroll up            " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_up); std::cout << "\n" << termcolor::reset;
+        std::cout << "zoom in              " << termcolor::bright_yellow; Term::printKeyFromValue(opts.zoom_in); std::cout << "\n" << termcolor::reset;
+        std::cout << "zoom out             " << termcolor::bright_yellow; Term::printKeyFromValue(opts.zoom_out); std::cout << "\n" << termcolor::reset;
+        std::cout << "next region view     " << termcolor::bright_yellow; Term::printKeyFromValue(opts.next_region_view); std::cout << "\n" << termcolor::reset;
+        std::cout << "cycle link mode      " << termcolor::bright_yellow; Term::printKeyFromValue(opts.cycle_link_mode); std::cout << "\n" << termcolor::reset;
+        std::cout << "repeat last command  " << termcolor::bright_yellow; std::cout << "ENTER" << "\n" << termcolor::reset;
         std::cout << "\n";
     }
 
@@ -451,9 +452,10 @@ namespace Term {
 				break;
 			}
 			if (track.start <= target && track.stop > target) {
+                clearLine();
 				std::cout << "\r" << termcolor::bold << p.filename().string() << termcolor::reset << "    " << \
                     termcolor::cyan << track.chrom << ":" << track.start << "-" << track.stop << termcolor::reset << \
-                    "    " << track.rid;
+                    "    " << track.rid << std::flush;
 				printed = true;
 				if (!mouseOver) {
 					std::cout << std::endl;
@@ -461,9 +463,6 @@ namespace Term {
 					break;
 				}
 			}
-		}
-		if (mouseOver && printed) {
-			std::cout << std::flush;
 		}
 	}
 

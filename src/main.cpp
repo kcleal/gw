@@ -428,7 +428,7 @@ int main(int argc, char *argv[]) {
             std::vector<std::string> labels = Utils::split(iopts.labels, ',');
             plotter.setLabelChoices(labels);
 
-            bool cacheStdin = v == "-" && program.is_used("--out-vcf");
+            bool cacheStdin = (v == "-" || program.is_used("--out-vcf"));
 
             if (program.is_used("--in-labels")) {
                 Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels, plotter.seenLabels);

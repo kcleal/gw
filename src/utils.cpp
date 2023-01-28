@@ -357,7 +357,6 @@ namespace Utils {
             a = std::to_string(num);
         }
         return a + b;
-
     }
 
     void parseMateLocation(std::string &selectedAlign, std::string &mate, std::string &target_qname) {
@@ -395,6 +394,7 @@ namespace Utils {
         ioctl(0, TIOCGWINSZ, &termDim); // Grab terminal dimensions
         int width = termDim.ws_col;
 #endif
-        return width;
+        width = (width > 1000) ? 80 : width;
+        return (width > 1000) ? 80 : width;  // when reading from stdin width ends up being >1000? not sure about this fix
     }
 }

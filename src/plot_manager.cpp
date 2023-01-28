@@ -199,7 +199,6 @@ namespace Manager {
     }
 
     void GwPlot::setVariantFile(std::string &path, int startIndex, bool cacheStdin) {
-
         if (cacheStdin || Utils::endsWith(path, ".vcf") ||
             Utils::endsWith(path, ".vcf.gz") ||
             Utils::endsWith(path, ".bcf")) {

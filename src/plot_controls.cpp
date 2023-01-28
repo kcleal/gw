@@ -45,6 +45,9 @@ namespace Manager {
         } else {
             shiftPress = false;
         }
+        if (!captureText && (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) && !commandHistory.empty()) {
+            inputText = commandHistory.back();
+        }
         if (captureText) {
             if (key == GLFW_KEY_ENTER) {
                 captureText = false;
@@ -906,7 +909,7 @@ namespace Manager {
 		            if (relX < 0 || relX > 1) {
 			            return;
 		            }
-		            Term::clearLine();
+//		            Term::clearLine();
 					Term::printTrack(relX, tracks[(idx * -1) -3], &regions[tIdx], false);
 				}
 			}
@@ -1086,7 +1089,6 @@ namespace Manager {
     }
 
     void GwPlot::mousePos(GLFWwindow* wind, double xPos, double yPos) {
-
         if (lastX == -1) {
             lastX = xPos;
         }
@@ -1097,23 +1099,19 @@ namespace Manager {
         if (state == GLFW_PRESS) {
             xDrag = xPos - xOri;
             if (mode == Manager::SINGLE) {
-
                 if (regions.empty()) {
                     return;
                 }
-
                 int windowW, windowH;  // convert screen coords to frame buffer coords
                 glfwGetWindowSize(wind, &windowW, &windowH);
                 if (fb_width > windowW) {
                     xPos *= (float) fb_width / (float) windowW;
                     yPos *= (float) fb_height / (float) windowH;
                 }
-
                 if (yPos >= (fb_height * 0.98)) {
                     updateSlider((float)xPos);
                     return;
                 }
-
                 int idx = getCollectionIdx((float)xPos, (float)yPos);
                 if (idx < 0) {
                     return;
@@ -1123,21 +1121,15 @@ namespace Manager {
                 if (clickedIdx == -1 || idx != clickedIdx) {
                     return;
                 }
-
 				if (ctrlPress) {
 					// zoom in
 
 				}
-
                 if (cl.region.end - cl.region.start < 50000) {
-
                     printRegionInfo();
-
                     auto w = (float) (((float)cl.region.end - (float)cl.region.start) * (float) regions.size());
                     int travel = (int) (w * (xDrag / windowW));
-
                     Utils::Region N;
-
                     if (cl.region.start - travel < 0) {
                         travel = cl.region.start;
                         N.chrom = cl.region.chrom;
@@ -1154,13 +1146,10 @@ namespace Manager {
 
                     regionSelection = cl.regionIdx;
                     delete regions[regionSelection].refSeq;
-
                     N.markerPos = regions[regionSelection].markerPos;
                     N.markerPosEnd = regions[regionSelection].markerPosEnd;
                     fetchRefSeq(N);
-
                     regions[regionSelection] = N;
-
                     processed = true;
                     for (auto &col : collections) {
                         if (col.regionIdx == regionSelection) {
@@ -1200,7 +1189,6 @@ namespace Manager {
 						if (relX < 0 || relX > 1) {
 							return;
 						}
-			            Term::clearLine();
 			            Term::printTrack(relX, tracks[(rs * -1) -3], &regions[tIdx], true);
 		            }
 	            }

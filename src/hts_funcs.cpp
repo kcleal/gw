@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <chrono>
 #include <string>
-#include <thread>
 #include <vector>
 
 #include "htslib/hts.h"
@@ -14,7 +13,6 @@
 #include "htslib/vcf.h"
 
 #include "../include/BS_thread_pool.h"
-
 #include "segments.h"
 #include "themes.h"
 #include "hts_funcs.h"
@@ -339,13 +337,22 @@ namespace HGW {
     void VCFfile::open(std::string f) {
         done = false;
         path = f;
+        if (Utils::endsWith(path, ".vcf")) {
+            kind = VCF_NOI;
+        } else if (cacheStdin) {
+            kind = STDIN;
+        } else if (Utils::endsWith(path, ".bcf")) {
+            kind = BCF_IDX;
+        } else {
+            kind = VCF_IDX;
+        }
+
         fp = bcf_open(f.c_str(), "r");
         hdr = bcf_hdr_read(fp);
         v = bcf_init1();
 
         std::string l2p(label_to_parse);
         v->max_unpack = BCF_UN_INFO;
-
         if (l2p.empty()) {
             parse = -1;
         } else if (l2p.rfind("info.", 0) == 0) {
@@ -380,7 +387,6 @@ namespace HGW {
 
     void VCFfile::next() {
         int res = bcf_read(fp, hdr, v);
-
         if (cacheStdin) {
             lines.push_back(bcf_dup(v));
         }
@@ -402,7 +408,7 @@ namespace HGW {
         char *strmem = nullptr;
         int *intmem = nullptr;
         int mem = 0;
-        int imem = 0; //sizeof(int);
+        int imem = 0;
         bcf_info_t *info_field;
 
         switch (variant_type) {
@@ -514,82 +520,62 @@ namespace HGW {
     void VCFfile::printTargetRecord(std::string &id_str, std::string &chrom, int pos) {
         htsFile *fp2 = fp;
         kstring_t kstr = {0,0,0};
-        
-        int kind;   
-        if (Utils::endsWith(path, ".bcffff")) { // iterator not working yet
-            kind = 1;
-        }
-        else if (Utils::endsWith(path, ".vcf.gz") || Utils::endsWith(path, ".vcf") || Utils::endsWith(path, ".bcf")) {
-            kind = 2;
-        }
-        else if (cacheStdin == 1) {
-            kind = 3;
-        }
-        else {
-            std::cerr << "Unsure of file type, cannot parse.";
-            fp = fp2;
-            return;
-        }
-        if (kind == 1) { // not currently working
-            htsFile *test_vcf;
-            bcf_hdr_t *test_header;
-            test_vcf = bcf_open(path.c_str(), "r");
-            test_header = bcf_hdr_read(test_vcf);
-
-            int tid = bcf_hdr_name2id(test_header, chrom.c_str());
-            std::string index_path = path + ".csi";
+        std::string tmp_id;
+        if (kind == BCF_IDX) {
+            htsFile *test_vcf = bcf_open(path.c_str(), "r");
             hts_idx_t *idx_v = bcf_index_load(path.c_str());
-            hts_itr_t *iter_q = bcf_itr_queryi(idx_v, tid, pos-10, pos+10);
+            bcf_hdr_t *test_header = bcf_hdr_read(test_vcf);
+            hts_itr_t *iter_q = bcf_itr_queryi(idx_v, bcf_hdr_name2id(test_header, chrom.c_str()), pos-10, pos+10);
             bcf1_t *tv = bcf_init1();
-            while (1) { 
-                bcf_unpack(tv, BCF_UN_STR);
+            while (true) {
                 int res = bcf_itr_next(test_vcf, iter_q, tv); // currently returns -1
                 if (res < 0) {
                     if (res < -1) {
                         std::cerr << "Error: iterating bcf file returned " << res << std::endl;
                     }
-                    fp = fp2;
-                    return;
+                    break;
                 }
-                
+                bcf_unpack(tv, BCF_UN_STR);
+                tmp_id = tv->d.id;
+                if (tmp_id == id_str) {
+                    vcf_format1(test_header, tv, &kstr);
+                    std::cout << std::endl << kstr.s << std::endl;
+                    break;
+                }
             }
-            bcf_unpack(tv, BCF_UN_STR);
-            vcf_format1(test_header, tv, &kstr);
-            std::cout << kstr.s << std::endl;
         }
-        else if (kind == 2) {
+        else if (kind == VCF_NOI || kind == VCF_IDX) {
             htsFile *test_vcf;
             bcf_hdr_t *test_header;
             test_vcf = vcf_open(path.c_str(), "r");
             test_header = bcf_hdr_read(test_vcf);
             bcf1_t *tv = bcf_init1();
+            // VCF_IDX could possibly use tbx index load?
+            // tbx_t *idx_t = tbx_index_load(path.c_str());
             while (bcf_read(test_vcf, test_header, tv) == 0) {
                 bcf_unpack(tv, BCF_UN_STR);
-                std::string tmpid = tv->d.id;
-                if (id_str.compare(tmpid) == 0) {
+                tmp_id = tv->d.id;
+                if (tmp_id == id_str) {
                     vcf_format(test_header, tv, &kstr);
-                    std::string s(Utils::get_terminal_width(), ' ');
-                    std::cout << "\r" << s << std::flush;
-                    std::cout << kstr.s << std::endl;
+                    std::cout << std::endl << kstr.s << std::endl;
                     break;
                 }
             }
         }
-        else if (kind == 3) { // untested
+        else if (kind == STDIN || cacheStdin) {
             for (auto it : lines) {
                 bcf_unpack(it, BCF_UN_STR);
-                std::string tmpid = it->d.id;
-                if (id_str.compare(tmpid) == 0) {
+                tmp_id = it->d.id;
+                if (tmp_id == id_str) {
                     vcf_format(hdr, it, &kstr);
-                    std::string s(Utils::get_terminal_width(), ' ');
-                    std::cout << "\r" << s << std::flush;
-                    std::cout << kstr.s << std::endl;
-
+                    std::cout << std::endl << kstr.s << std::endl;
+                    break;
+                } else if (pos < it->pos) {
+                    break;
                 }
             }
         }
         fp = fp2;
-        return;
     }
 
     GwTrack::~GwTrack() {
@@ -697,11 +683,14 @@ namespace HGW {
             hdr = bcf_hdr_read(fp);
             idx_v = bcf_index_load(p.c_str());
             v = bcf_init1();
+        } else {
+            std::cerr << "Error: file stype not supported for " << path << std::endl;
+            std::terminate();
         }
     }
 
     void GwTrack::fetch(const Utils::Region *rgn) {
-        if (kind > 2) {  // non-indexed
+        if (kind > BCF_IDX) {  // non-indexed
             if (rgn == nullptr) {
                 iter_blk = allBlocks_flat.begin();
                 vals_end = allBlocks_flat.end();
@@ -799,7 +788,7 @@ namespace HGW {
             }
             vartype = "NA";
 
-        } else if (kind > 2) {
+        } else if (kind > BCF_IDX) {  // non indexed
             if (iter_blk != vals_end) {
                 if (iter_blk->start < region_end) {
                     chrom = iter_blk->chrom;
@@ -856,8 +845,8 @@ namespace HGW {
         const char *l0 = "##INFO=<ID=GW_DATE,Number=1,Type=String,Description=\"Date of GW label\">";
         const char *l1 = "##INFO=<ID=GW_PREV,Number=1,Type=String,Description=\"Previous GW label\">";
 
-        res = bcf_hdr_append(new_hdr, l0);
-        res = bcf_hdr_append(new_hdr, l1);
+        bcf_hdr_append(new_hdr, l0);
+        bcf_hdr_append(new_hdr, l1);
 
         htsFile *fp_out = bcf_open(path.c_str(), "w");
         res = bcf_hdr_write(fp_out, new_hdr);

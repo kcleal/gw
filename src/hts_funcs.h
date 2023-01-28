@@ -22,6 +22,16 @@
 
 namespace HGW {
 
+     enum FType {
+        BED_IDX,
+        VCF_IDX,
+        BCF_IDX,
+        VCF_NOI,  // NOI for no index
+        BED_NOI,
+        GW_LABEL,
+        STDIN,
+    };
+
     class VCFfile {
     public:
         VCFfile () = default;
@@ -29,8 +39,10 @@ namespace HGW {
         htsFile *fp;
 		htsFile *fp2;
         bcf_hdr_t *hdr;
+        tbx_t *idx_t;
         std::vector<bcf1_t*> lines;
         bcf1_t *v;
+        FType kind;
         std::string path;
         std::string chrom, chrom2, rid, vartype, label, tag;
         robin_hood::unordered_set<std::string> *seenLabels;
@@ -58,14 +70,6 @@ namespace HGW {
                                 hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *samMaxY,
                                 std::vector<Parse::Parser> &filters);
 
-    enum FType {
-        BED_IDX,
-        VCF_IDX,
-        BCF_IDX,
-        BED_NOI,
-        GW_LABEL
-    };
-
     class GwTrack {
     public:
         GwTrack() = default;
@@ -75,7 +79,7 @@ namespace HGW {
         std::string chrom, chrom2, rid, vartype;
         int start, stop;
         int fileIndex;
-        FType kind;  // 0 bed no idx, 1 bed with idx, 2 vcf-like with idx, 3 gw label file
+        FType kind;
 
         htsFile *fp;
         tbx_t *idx_t;
