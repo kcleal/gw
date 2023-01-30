@@ -1,5 +1,6 @@
 //
 // Created by Kez Cleal on 07/12/2022.
+// Collection of terminal printing functions
 //
 #include <filesystem>
 #include <htslib/sam.h>
@@ -40,7 +41,7 @@ namespace Term {
         std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. ':rm 1'. To remove a bam \n                                 use the bam index ':rm bam0'\n";
         std::cout << termcolor::green << "sam                              " << termcolor::reset << "Print selected read in sam format'\n";
         std::cout << termcolor::green << "theme            [igv/dark]      " << termcolor::reset << "Switch color theme e.g. ':theme dark'\n";
-        std::cout << termcolor::green << "vcf                              " << termcolor::reset << "Print vcf line for variant mouse is currently over\n";
+        std::cout << termcolor::green << "var, v                           " << termcolor::reset << "Print line for variant under cursor\n";
         std::cout << termcolor::green << "ylim             number          " << termcolor::reset << "The maximum y-limit for the image e.g. ':ylim 100'\n";
 
         std::cout << termcolor::underline << "\nHot keys                      \n" << termcolor::reset;
@@ -110,8 +111,8 @@ namespace Term {
             std::cout << "    Print the sam format of the read.\n        First select a read using the mouse then type ':sam'.\n\n";
         } else if (s == "theme") {
             std::cout << "    Switch the theme.\n        Currently 'igv' or 'dark' themes are supported.\n\n";
-        } else if (s == "vcf") {
-            std::cout << "    Print the vcf line.\n        Prints vcf line for variant under mouse ':vcf'.\n\n";
+        } else if (s == "var") {
+            std::cout << "    Print line from --variants file.\n        Prints a line from the input file of the variant under mouse.\n\n";
         } else if (s == "ylim") {
             std::cout << "    Set the y limit.\n        The y limit is the maximum depth shown on the drawing e.g. 'ylim 100'.\n\n";
         }
@@ -441,7 +442,7 @@ namespace Term {
         }
     }
 
-	void printTrack(float x, HGW::GwTrack &track, const Utils::Region *rgn, bool mouseOver) {
+	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver) {
 		track.fetch(rgn);
 		int target = (int)((float)(rgn->end - rgn->start) * x) + rgn->start;
 		std::filesystem::path p = track.path;
@@ -454,11 +455,18 @@ namespace Term {
 			if (track.start <= target && track.stop > target) {
                 clearLine();
 				std::cout << "\r" << termcolor::bold << p.filename().string() << termcolor::reset << "    " << \
-                    termcolor::cyan << track.chrom << ":" << track.start << "-" << track.stop << termcolor::reset << \
-                    "    " << track.rid << std::flush;
+                    termcolor::cyan << track.chrom << ":" << track.start << "-" << track.stop << termcolor::reset;
+                if (!track.rid.empty()) {
+                    std::cout << termcolor::bold << "    ID  " << termcolor::reset << track.rid;
+                }
+                if (!track.vartype.empty()) {
+                    std::cout << termcolor::bold << "    Type  " << termcolor::reset << track.vartype;
+                }
+                std::cout << std::flush;
 				printed = true;
 				if (!mouseOver) {
 					std::cout << std::endl;
+                    track.printTargetRecord(track.rid, rgn->chrom, target);
 				} else {
 					break;
 				}

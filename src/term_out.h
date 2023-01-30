@@ -35,7 +35,7 @@ namespace Term {
 
     void printRefSeq(float x, std::vector<Segs::ReadCollection> &collections);
 
-	void printTrack(float x, HGW::GwTrack &track, const Utils::Region *rgn, bool mouseOver);
+	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver);
 
     void updateRefGenomeSeq(float xW, std::vector<Segs::ReadCollection> &collections);
 }

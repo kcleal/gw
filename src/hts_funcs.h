@@ -32,13 +32,22 @@ namespace HGW {
         STDIN,
     };
 
+    void print_BCF_IDX(hts_idx_t *idx_v, bcf_hdr_t *hdr, std::string &chrom, int pos, htsFile *fp, std::string &id_str);
+
+    void print_VCF_NOI(std::string &path, std::string &id_str);
+
+    void print_VCF_IDX(std::string &path, std::string &id_str, std::string &chrom, int pos);
+
+    /*
+    * VCF or BCF file reader only. Cache's lines from stdin or non-indexed file. Can parse labels from file
+    */
     class VCFfile {
     public:
         VCFfile () = default;
         ~VCFfile();
         htsFile *fp;
-		htsFile *fp2;
         bcf_hdr_t *hdr;
+        hts_idx_t *idx_v;
         tbx_t *idx_t;
         std::vector<bcf1_t*> lines;
         bcf1_t *v;
@@ -55,7 +64,6 @@ namespace HGW {
 
         void open(std::string f);
         void next();
-
         void printTargetRecord(std::string &id_str, std::string &chrom, int pos);
 
     };
@@ -70,10 +78,14 @@ namespace HGW {
                                 hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *samMaxY,
                                 std::vector<Parse::Parser> &filters);
 
+    /*
+    * VCF/BCF/BED/LABEL file reader. No line cacheing or label parsing.
+    * BED files with no tab index will be cached, as will LABEL files.
+    */
     class GwTrack {
     public:
         GwTrack() = default;
-        ~GwTrack(); // = default;
+        ~GwTrack();
 
         std::string path;
         std::string chrom, chrom2, rid, vartype;
@@ -104,6 +116,9 @@ namespace HGW {
         void open(std::string &p, bool add_to_dict);
         void fetch(const Utils::Region *rgn);
         void next();
+        void parseVcfRecord(Utils::TrackBlock &b);
+        void parseVcfRecord();
+        void printTargetRecord(std::string &id_str, std::string &chrm, int pos);
     };
 
     void saveVcf(VCFfile &input_vcf, std::string path, std::vector<Utils::Label> multiLabels);

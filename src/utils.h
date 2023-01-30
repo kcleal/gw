@@ -33,7 +33,7 @@ namespace Utils {
     bool is_file_exist(std::string FileName);
 
     struct TrackBlock {
-        std::string chrom, name, line;
+        std::string chrom, name, line, vartype;
         int start, end;
         int strand;  // 0 is none, 1 forward, 2 reverse
         std::vector<int> s;  // block starts and block ends for bed12

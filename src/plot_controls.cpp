@@ -444,9 +444,9 @@ namespace Manager {
                 inputText = "";
                 return true;
             }
-        } else if (Utils::startsWith(inputText, ":vcf")) {
+        } else if (inputText == ":v" || Utils::startsWith(inputText, ":var")) {
             if (multiLabels.empty()) {
-                std::cerr << "Error: no vcf file provided.\n";
+                std::cerr << "Error: no variant file provided.\n";
                 inputText = "";
                 return true;
             }

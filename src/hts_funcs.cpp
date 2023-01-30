@@ -343,8 +343,10 @@ namespace HGW {
             kind = STDIN;
         } else if (Utils::endsWith(path, ".bcf")) {
             kind = BCF_IDX;
+            idx_v = bcf_index_load(path.c_str());
         } else {
             kind = VCF_IDX;
+            idx_t = tbx_index_load(path.c_str());
         }
 
         fp = bcf_open(f.c_str(), "r");
@@ -518,51 +520,18 @@ namespace HGW {
     }
 
     void VCFfile::printTargetRecord(std::string &id_str, std::string &chrom, int pos) {
-        htsFile *fp2 = fp;
-        kstring_t kstr = {0,0,0};
-        std::string tmp_id;
         if (kind == BCF_IDX) {
-            htsFile *test_vcf = bcf_open(path.c_str(), "r");
-            hts_idx_t *idx_v = bcf_index_load(path.c_str());
-            bcf_hdr_t *test_header = bcf_hdr_read(test_vcf);
-            hts_itr_t *iter_q = bcf_itr_queryi(idx_v, bcf_hdr_name2id(test_header, chrom.c_str()), pos-10, pos+10);
-            bcf1_t *tv = bcf_init1();
-            while (true) {
-                int res = bcf_itr_next(test_vcf, iter_q, tv); // currently returns -1
-                if (res < 0) {
-                    if (res < -1) {
-                        std::cerr << "Error: iterating bcf file returned " << res << std::endl;
-                    }
-                    break;
-                }
-                bcf_unpack(tv, BCF_UN_STR);
-                tmp_id = tv->d.id;
-                if (tmp_id == id_str) {
-                    vcf_format1(test_header, tv, &kstr);
-                    std::cout << std::endl << kstr.s << std::endl;
-                    break;
-                }
-            }
+            return print_BCF_IDX(idx_v, hdr, chrom, pos, fp, id_str);
         }
-        else if (kind == VCF_NOI || kind == VCF_IDX) {
-            htsFile *test_vcf;
-            bcf_hdr_t *test_header;
-            test_vcf = vcf_open(path.c_str(), "r");
-            test_header = bcf_hdr_read(test_vcf);
-            bcf1_t *tv = bcf_init1();
-            // VCF_IDX could possibly use tbx index load?
-            // tbx_t *idx_t = tbx_index_load(path.c_str());
-            while (bcf_read(test_vcf, test_header, tv) == 0) {
-                bcf_unpack(tv, BCF_UN_STR);
-                tmp_id = tv->d.id;
-                if (tmp_id == id_str) {
-                    vcf_format(test_header, tv, &kstr);
-                    std::cout << std::endl << kstr.s << std::endl;
-                    break;
-                }
-            }
+        else if (kind == VCF_NOI) {
+            return print_VCF_NOI(path, id_str);
+        }
+        else if (kind == VCF_IDX) {
+            return print_VCF_IDX(path, id_str, chrom, pos);
         }
         else if (kind == STDIN || cacheStdin) {
+            kstring_t kstr = {0,0,0};
+            std::string tmp_id;
             for (auto it : lines) {
                 bcf_unpack(it, BCF_UN_STR);
                 tmp_id = it->d.id;
@@ -575,8 +544,81 @@ namespace HGW {
                 }
             }
         }
+    }
+
+    void print_BCF_IDX(hts_idx_t *idx_v, bcf_hdr_t *hdr, std::string &chrom, int pos, htsFile *fp, std::string &id_str) {
+        htsFile *fp2 = fp;
+        kstring_t kstr = {0,0,0};
+        bcf1_t *tv = bcf_init1();
+        std::string tmp_id;
+        hts_itr_t *iter_q = bcf_itr_queryi(idx_v, bcf_hdr_name2id(hdr, chrom.c_str()), pos-10, pos+10);
+        while (true) {
+            int res = bcf_itr_next(fp, iter_q, tv);
+            if (res < 0) {
+                if (res < -1) {
+                    std::cerr << "Error: iterating bcf file returned " << res << std::endl;
+                }
+                break;
+            }
+            bcf_unpack(tv, BCF_UN_STR);
+            tmp_id = tv->d.id;
+            if (tmp_id == id_str) {
+                vcf_format1(hdr, tv, &kstr);
+                std::cout << std::endl << kstr.s << std::endl;
+                break;
+            }
+        }
         fp = fp2;
     }
+
+    void print_VCF_NOI(std::string &path, std::string &id_str) {
+        kstring_t kstr = {0,0,0};
+        bcf1_t *tv = bcf_init1();
+        std::string tmp_id;
+        htsFile *_fp = bcf_open(path.c_str(), "r");
+        bcf_hdr_t *_hdr = bcf_hdr_read(_fp);
+        while (bcf_read(_fp, _hdr, tv) == 0) {
+            bcf_unpack(tv, BCF_UN_STR);
+            tmp_id = tv->d.id;
+            if (tmp_id == id_str) {
+                vcf_format1(_hdr, tv, &kstr);
+                std::cout << std::endl << kstr.s << std::endl;
+                break;
+            }
+        }
+
+    };
+
+    void print_VCF_IDX(std::string &path, std::string &id_str, std::string &chrom, int pos) {
+        kstring_t kstr = {0,0,0};
+        bcf1_t *tv = bcf_init1();
+        std::string tmp_id;
+        htsFile *_fp = bcf_open(path.c_str(), "r");
+        bcf_hdr_t *_hdr = bcf_hdr_read(_fp);
+        tbx_t *_idx_t = tbx_index_load(path.c_str());
+        hts_itr_t *_iter_q = tbx_itr_queryi(_idx_t, tbx_name2id(_idx_t, chrom.c_str()), pos-10, pos+10);
+        while (true) {
+            int res = tbx_itr_next(_fp, _idx_t, _iter_q, &kstr);
+            if (res < 0) {
+                if (res < -1) {
+                    std::cerr << "Error: iterating vcf file returned " << res << std::endl;
+                }
+                break;
+            }
+            std::string l = kstr.s;
+            res = vcf_parse(&kstr, _hdr, tv);
+            if (res < 0) {
+                std::cerr << "Error: parsing vcf record returned " << res << std::endl;
+            }
+            bcf_unpack(tv, BCF_UN_STR);
+            tmp_id = tv->d.id;
+            if (tmp_id == id_str) {
+                std::cout << std::endl << l << std::endl;
+                break;
+            }
+        }
+    }
+
 
     GwTrack::~GwTrack() {
         // these cause segfaults?
@@ -597,6 +639,64 @@ namespace HGW {
 //        }
     }
 
+
+    void GwTrack::parseVcfRecord(Utils::TrackBlock &b) {
+        kstring_t kstr = {0,0,0};
+        bcf_unpack(v, BCF_UN_INFO);
+        vcf_format(hdr, v, &kstr);
+        b.line = kstr.s;
+        b.chrom = bcf_hdr_id2name(hdr, v->rid);
+        b.start = (int)v->pos;
+        b.end = b.start + v->rlen;
+        b.name = v->d.id;
+        switch (bcf_get_variant_types(v)) {
+            case VCF_SNP: b.vartype = "SNP"; break;
+            case VCF_INDEL: b.vartype = "INDEL"; break;
+            case VCF_OVERLAP: b.vartype = "OVERLAP"; break;
+            case VCF_BND: b.vartype = "BND"; break;
+            case VCF_OTHER: b.vartype = "OTHER"; break;
+            case VCF_MNP: b.vartype = "MNP"; break;
+            default: b.vartype = "REF";
+        }
+        bcf_info_t * info_field = bcf_get_info(hdr, v, "SVTYPE");  // try and find chrom2 in info
+        if (info_field != nullptr) {
+            char *svtmem = nullptr;
+            int mem = 0;
+            int resc = bcf_get_info_string(hdr, v, "SVTYPE", &svtmem,&mem);
+            if (resc < 0) {
+            } else {
+                b.vartype = svtmem;
+            }
+        }
+    }
+
+    void GwTrack::parseVcfRecord() {
+        bcf_unpack(v, BCF_UN_INFO);
+        chrom = bcf_hdr_id2name(hdr, v->rid);
+        start = (int)v->pos;
+        stop = start + v->rlen;
+        rid = v->d.id;
+        switch (bcf_get_variant_types(v)) {
+            case VCF_SNP: vartype = "SNP"; break;
+            case VCF_INDEL: vartype = "INDEL"; break;
+            case VCF_OVERLAP: vartype = "OVERLAP"; break;
+            case VCF_BND: vartype = "BND"; break;
+            case VCF_OTHER: vartype = "OTHER"; break;
+            case VCF_MNP: vartype = "MNP"; break;
+            default: vartype = "REF";
+        }
+        bcf_info_t * info_field = bcf_get_info(hdr, v, "SVTYPE");  // try and find chrom2 in info
+        if (info_field != nullptr) {
+            char *svtmem = nullptr;
+            int mem = 0;
+            int resc = bcf_get_info_string(hdr, v, "SVTYPE", &svtmem,&mem);
+            if (resc < 0) {
+            } else {
+                vartype = svtmem;
+            }
+        }
+    }
+
     void GwTrack::open(std::string &p, bool add_to_dict=true) {
         fileIndex = 0;
         path = p;
@@ -604,15 +704,52 @@ namespace HGW {
             kind = BED_NOI;
         } else if (Utils::endsWith(p, ".bed.gz")) {
             kind = BED_IDX;
-        } else if (Utils::endsWith(p, ".vcf.gz") || Utils::endsWith(p, ".vcf")) {
-            std::cerr << "Error: only indexed .bcf.gz variant files are supported as tracks, not vcf's" << std::endl;
-            std::terminate();
+        } else if (Utils::endsWith(p, ".vcf")) {
+            kind = VCF_NOI;
+        } else if (Utils::endsWith(p, ".vcf.gz")) {
+            kind = VCF_IDX;
         } else if (Utils::endsWith(p, ".bcf")) {
             kind = BCF_IDX;
         } else {
             kind = GW_LABEL;
         }
-        if (kind == BED_NOI || kind == GW_LABEL) {
+
+        bool sorted = true;
+        int lastb = -1;
+
+        if (kind == VCF_NOI) {
+            fp = bcf_open(path.c_str(), "r");
+            hdr = bcf_hdr_read(fp);
+            v = bcf_init1();
+            v->max_unpack = BCF_UN_INFO;
+            while (true) {
+                int res = bcf_read(fp, hdr, v);
+                if (res < -1) {
+                    std::cerr << "Error: reading vcf resulted in error code " << res << std::endl;
+                    std::terminate();
+                } else if (res == -1) {
+                    done = true;
+                    break;
+                }
+                Utils::TrackBlock b;
+                parseVcfRecord(b);
+                if (add_to_dict) {
+                    if (sorted) {
+                        if (allBlocks.find(b.chrom) == allBlocks.end()) {
+                            lastb = -1;
+                        }
+                        allBlocks[b.chrom].push_back(b);
+                        if (b.start < lastb) {
+                            sorted = false;
+                        }
+                        lastb = b.start;
+                    }
+                } else {
+                    allBlocks_flat.push_back(b);
+                }
+            }
+        }
+        else if (kind == BED_NOI || kind == GW_LABEL) {
             std::fstream fpu;
             fpu.open(p, std::ios::in);
             if (!fpu.is_open()) {
@@ -621,8 +758,6 @@ namespace HGW {
             }
             std::string tp;
             const char delim = '\t';
-            int lastb = -1;
-            bool sorted = true;
             while(getline(fpu, tp)) {
                 if (tp[0] == '#') {
                     continue;
@@ -659,20 +794,18 @@ namespace HGW {
                     b.end = b.start + 1;
                 }
                 if (add_to_dict) {
-                    allBlocks[b.chrom].push_back(b);
-                    if (b.start > lastb) {
-                        sorted = false;
+                    if (sorted) {
+                        if (allBlocks.find(b.chrom) == allBlocks.end()) {
+                            lastb = -1;
+                        }
+                        allBlocks[b.chrom].push_back(b);
+                        if (b.start < lastb) {
+                            sorted = false;
+                        }
+                        lastb = b.start;
                     }
-                    lastb = b.start;
                 } else {
                     allBlocks_flat.push_back(b);
-                }
-            }
-            if (!sorted) {
-                std::cout << "Unsorted file: sorting blocks from " << path << std::endl;
-                for (auto &item : allBlocks) {
-                    std::sort(item.second.begin(), item.second.end(),
-                              [](const Utils::TrackBlock &a, const Utils::TrackBlock &b)-> bool { return a.start < b.start || (a.start == b.start && a.end > b.end);});
                 }
             }
         } else if (kind == BED_IDX) {
@@ -683,9 +816,24 @@ namespace HGW {
             hdr = bcf_hdr_read(fp);
             idx_v = bcf_index_load(p.c_str());
             v = bcf_init1();
+            v->max_unpack = BCF_UN_INFO;
+        } else if (kind == VCF_IDX) {
+            fp = bcf_open(path.c_str(), "r");
+            hdr = bcf_hdr_read(fp);
+            idx_t = tbx_index_load(path.c_str());
+            v = bcf_init1();
+            v->max_unpack = BCF_UN_INFO;
         } else {
             std::cerr << "Error: file stype not supported for " << path << std::endl;
             std::terminate();
+        }
+
+        if (!sorted) {
+            std::cout << "Unsorted file: sorting blocks from " << path << std::endl;
+            for (auto &item : allBlocks) {
+                std::sort(item.second.begin(), item.second.end(),
+                          [](const Utils::TrackBlock &a, const Utils::TrackBlock &b)-> bool { return a.start < b.start || (a.start == b.start && a.end > b.end);});
+            }
         }
     }
 
@@ -716,15 +864,21 @@ namespace HGW {
                 }
             }
         } else {
-            if (kind == BED_IDX) {
-                int tid = tbx_name2id(idx_t, rgn->chrom.c_str());
-                iter_q = tbx_itr_queryi(idx_t, tid, rgn->start, rgn->end);
-                if (iter_q == nullptr) {
-                    std::cerr << "\nError: Null iterator when trying to fetch from indexed bed file in fetch " << rgn->chrom
-                              << " " << rgn->start << " " << rgn->end << std::endl;
-                    std::terminate();
+            if (kind == BED_IDX || kind == VCF_IDX) {
+                if (rgn == nullptr) {
+                    iter_q = nullptr;
+                    done = false;
+                } else {
+                    int tid = tbx_name2id(idx_t, rgn->chrom.c_str());
+                    iter_q = tbx_itr_queryi(idx_t, tid, rgn->start, rgn->end);
+                    if (iter_q == nullptr) {
+                        std::cerr << "\nError: Null iterator when trying to fetch from indexed bed file in fetch "
+                                  << rgn->chrom
+                                  << " " << rgn->start << " " << rgn->end << std::endl;
+                        std::terminate();
+                    }
+                    done = false;
                 }
-                done = false;
             } else if (kind == BCF_IDX) {
                 int tid = bcf_hdr_name2id(hdr, rgn->chrom.c_str());
                 iter_q = bcf_itr_queryi(idx_v, tid, rgn->start, rgn->end);
@@ -751,51 +905,60 @@ namespace HGW {
                 done = true;
                 return;
             }
-            bcf_unpack(v, BCF_UN_INFO);
-            start = v->pos;
-            stop = start + v->rlen;
-            chrom = bcf_hdr_id2name(hdr, v->rid);
-            rid = v->d.id;
-            int variant_type = bcf_get_variant_types(v);
-            switch (variant_type) {
-                case VCF_SNP: vartype = "SNP"; break;
-                case VCF_INDEL: vartype = "INDEL"; break;
-                case VCF_OVERLAP: vartype = "OVERLAP"; break;
-                case VCF_BND: vartype = "BND"; break;
-                case VCF_OTHER: vartype = "OTHER"; break;
-                case VCF_MNP: vartype = "MNP"; break;
-                default: vartype = "REF";
-            }
-        } else if (kind == BED_IDX) {
+            parseVcfRecord();
+        } else if (kind == BED_IDX || kind == VCF_IDX) {
             kstring_t str = {0,0,0};
-            res = tbx_itr_next(fp, idx_t, iter_q, &str);
-            if (res < 0) {
-                if (res < -1) {
-                    std::cerr << "Error: iterating bcf file returned " << res << std::endl;
+            if (iter_q != nullptr) {
+                res = tbx_itr_next(fp, idx_t, iter_q, &str);
+                if (res < 0) {
+                    if (res < -1) {
+                        std::cerr << "Error: iterating vcf file returned " << res << std::endl;
+                    }
+                    done = true;
+                    return;
                 }
-                done = true;
-                return;
-            }
-            std::vector<std::string> parts = Utils::split(str.s, '\t');
-            chrom = parts[0];
-            start = std::stoi(parts[1]);
-            stop = std::stoi(parts[2]);
-            if (parts.size() > 2) {
-                rid = parts[3];
             } else {
-                rid = std::to_string(fileIndex);
-                fileIndex += 1;
+                res = hts_getline(fp, '\n', &str);
+                if (res < 0) {
+                    if (res < -1) {
+                        std::cerr << "Error: iterating bed.gz file returned " << res << std::endl;
+                    }
+                    done = true;
+                    return;
+                }
             }
-            vartype = "NA";
 
-        } else if (kind > BCF_IDX) {  // non indexed
+            if (kind == BED_IDX) {
+                std::vector<std::string> parts = Utils::split(str.s, '\t');
+                chrom = parts[0];
+                start = std::stoi(parts[1]);
+                stop = std::stoi(parts[2]);
+                if (parts.size() > 2) {
+                    rid = parts[3];
+                } else {
+                    rid = std::to_string(fileIndex);
+                    fileIndex += 1;
+                }
+                vartype = "";
+            } else {
+                res = vcf_parse(&str, hdr, v);
+                if (res < 0) {
+                    if (res < -1) {
+                        std::cerr << "Error: iterating vcf file returned " << res << std::endl;
+                    }
+                    done = true;
+                    return;
+                }
+                parseVcfRecord();
+            }
+        } else if (kind > BCF_IDX) {  // non indexed but cached
             if (iter_blk != vals_end) {
                 if (iter_blk->start < region_end) {
                     chrom = iter_blk->chrom;
                     start = iter_blk->start;
                     stop = iter_blk->end;
                     rid = iter_blk->name;
-                    vartype = "NA";
+                    vartype = iter_blk->vartype;
                     ++iter_blk;
                 } else {
                     done = true;
@@ -803,6 +966,21 @@ namespace HGW {
             } else {
                 done = true;
             }
+        }
+    }
+
+    void GwTrack::printTargetRecord(std::string &id_str, std::string &chrm, int pos) {
+        if (kind == BCF_IDX) {
+            return print_BCF_IDX(idx_v, hdr, chrm, pos, fp, id_str);
+        }
+        else if (kind == VCF_NOI) {
+            return print_VCF_NOI(path, id_str);
+        }
+        else if (kind == VCF_IDX) {
+            return print_VCF_IDX(path, id_str, chrm, pos);
+        }
+        else if (kind == BED_IDX) {
+//            return print_BED_IDX(path)
         }
     }
 
