@@ -98,6 +98,7 @@ namespace Manager {
 
         std::vector<Parse::Parser> filters;
 
+		bool useVcf;  // indicated which of the below files to use
         HGW::VCFfile vcf;  // These two are input files for generating tiled images
         HGW::GwTrack variantTrack;
 

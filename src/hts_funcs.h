@@ -38,6 +38,8 @@ namespace HGW {
 
     void print_VCF_IDX(std::string &path, std::string &id_str, std::string &chrom, int pos);
 
+	void print_cached(std::vector<Utils::TrackBlock> &vals, std::string &chrom, int pos, bool flat);
+
     /*
     * VCF or BCF file reader only. Cache's lines from stdin or non-indexed file. Can parse labels from file
     */
@@ -101,7 +103,7 @@ namespace HGW {
         bcf1_t *v;
         tbx_t *t;
 
-        hts_itr_t * iter_q;
+        hts_itr_t *iter_q;
 
         int region_end;
         std::vector<Utils::TrackBlock> vals;

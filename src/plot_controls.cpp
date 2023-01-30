@@ -168,19 +168,19 @@ namespace Manager {
             valid = true; imageCache.clear(); filters.clear();
             for (auto &cl: collections) {cl.vScroll = 0; }
         } else if (inputText == ":link" || inputText == ":link all") {
-            opts.link_op = 2; //valid = true;
+            opts.link_op = 2;
             redraw = true;
             processed = true;
             inputText = "";
             return true;
         } else if (inputText == ":link sv") {
-            opts.link_op = 1; //valid = true;
+            opts.link_op = 1;
             redraw = true;
             processed = true;
             inputText = "";
             return true;
         } else if (inputText == ":link none") {
-            opts.link_op = 0; //valid = true;
+            opts.link_op = 0;
             redraw = true;
             processed = true;
             inputText = "";
@@ -332,7 +332,7 @@ namespace Manager {
             std::string mate;
             Utils::parseMateLocation(selectedAlign, mate, target_qname);
             if (mate.empty()) {
-                std::cerr << "Error: could not parse mate location\n";
+	            std::cerr << termcolor::red << "Error:" << termcolor::reset << " could not parse mate location\n";
                 inputText = "";
                 return true;
             }
@@ -446,34 +446,54 @@ namespace Manager {
             }
         } else if (inputText == ":v" || Utils::startsWith(inputText, ":var")) {
             if (multiLabels.empty()) {
-                std::cerr << "Error: no variant file provided.\n";
+	            std::cerr << termcolor::red << "Error:" << termcolor::reset << " no variant file provided.\n";
                 inputText = "";
                 return true;
             }
-            else if (blockStart+mouseOverTileIndex >= multiLabels.size()) {
-                std::cerr << "Error: index outside of range.";
+            else if (blockStart+mouseOverTileIndex >= (int)multiLabels.size()) {
+	            std::cerr << termcolor::red << "Error:" << termcolor::reset << " index outside of range.";
                 inputText = "";
                 return true;
             }
             Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
             Term::clearLine();
-            vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+			if (useVcf) {
+				vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+			} else {
+				variantTrack.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+			}
             inputText = "";
             return true;    
         } else {
-            try {
-                inputText.erase(0, 1);
-                if (regions.empty()) {
-                    regions.push_back(Utils::parseRegion(inputText));
-                    fetchRefSeq(regions.back());
-                } else {
-                    regions[0] = Utils::parseRegion(inputText);
-                    fetchRefSeq(regions[0]);
-                }
-                valid = true;
-            } catch (...) {
-                valid = false;
-            }
+	        inputText.erase(0, 1);
+	        Utils::Region rgn;
+			try {
+				rgn = Utils::parseRegion(inputText);
+				valid = true;
+			} catch (...) {
+				valid = false;
+			}
+	        if (valid) {
+		        int res = sam_hdr_name2tid(headers[0], rgn.chrom.c_str());
+		        if (res < 0) {
+			        std::cerr << termcolor::red << "Error:" << termcolor::reset << " chromosome not found in header " << rgn.chrom << std::endl;
+			        valid = false;
+		        }
+			}
+			if (valid) {
+				try {
+					if (regions.empty()) {
+						regions.push_back(rgn);
+						fetchRefSeq(regions.back());
+					} else {
+						regions[0] = rgn;
+						fetchRefSeq(regions[0]);
+					}
+					valid = true;
+				} catch (...) {
+					valid = false;
+				}
+	        }
         }
         if (valid) {
             redraw = true;
@@ -909,7 +929,6 @@ namespace Manager {
 		            if (relX < 0 || relX > 1) {
 			            return;
 		            }
-//		            Term::clearLine();
 					Term::printTrack(relX, tracks[(idx * -1) -3], &regions[tIdx], false);
 				}
 			}
@@ -926,12 +945,17 @@ namespace Manager {
             if (std::abs(xDrag) < 5 && action == GLFW_RELEASE && !bams.empty()) {
                 int pos = (int) (((xW - (float) cl.xOffset) / cl.xScaling) + (float) cl.region.start);
                 int level = (int) ((yW - (float) cl.yOffset) / (trackY / (float)(cl.levelsStart.size() - cl.vScroll )));
-                if (cl.vScroll < 0) {
+				if (level < 0) {
+					Term::printCoverage(pos, cl);
+					std::cout << std::endl;
+					return;
+				}
+				if (cl.vScroll < 0) {
                     level += cl.vScroll + 1;
                 }
                 std::vector<Segs::Align>::iterator bnd;
                 bnd = std::lower_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
-                                       [&](const Segs::Align &lhs, const int pos) { return (int)lhs.pos < pos; });
+                                       [&](const Segs::Align &lhs, const int pos) { return (int)lhs.pos <= pos; });
                 while (true) {
                     if (bnd->y == level && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
                         bnd->edge_type = 4;
@@ -1126,6 +1150,7 @@ namespace Manager {
 
 				}
                 if (cl.region.end - cl.region.start < 50000) {
+
                     printRegionInfo();
                     auto w = (float) (((float)cl.region.end - (float)cl.region.start) * (float) regions.size());
                     int travel = (int) (w * (xDrag / windowW));
@@ -1200,6 +1225,14 @@ namespace Manager {
                 }
                 Segs::ReadCollection &cl = collections[rs];
                 regionSelection = cl.regionIdx;
+
+	            int pos = (int) (((xPos - (float) cl.xOffset) / cl.xScaling) + (float) cl.region.start);
+	            int level = (int) ((yPos - (float) cl.yOffset) / (trackY / (float)(cl.levelsStart.size() - cl.vScroll )));
+	            if (level < 0 && cl.region.end - cl.region.start < 50000) {
+		            Term::clearLine();
+		            Term::printCoverage(pos, cl);
+		            return;
+	            }
 
                 updateCursorGenomePos(cl, (float)xPos);
             } else {

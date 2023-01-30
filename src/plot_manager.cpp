@@ -203,6 +203,7 @@ namespace Manager {
             Utils::endsWith(path, ".vcf.gz") ||
             Utils::endsWith(path, ".bcf")) {
             variantTrack.done = true;
+			useVcf = true;
             mouseOverTileIndex = -1;
             vcf.seenLabels = &seenLabels;
             vcf.cacheStdin = cacheStdin;
@@ -232,6 +233,7 @@ namespace Manager {
                 }
             }
         } else {  // bed file or labels file, or some other tsv
+			useVcf = false;
             vcf.done = true;
             variantTrack.open(path, false);
             variantTrack.fetch(nullptr);  // initialize iterators
@@ -582,11 +584,16 @@ namespace Manager {
             canvas->drawImage(imageCacheQueue.back().second, 0, 0);
         }
         if (drawLine) {
-            double xposm, yposm;
-            glfwGetCursorPos(window, &xposm, &yposm);
-            SkPath path;
-            path.moveTo(xposm * monitorScale, 0);
-            path.lineTo(xposm * monitorScale, fb_height);
+	        double xposm, yposm;
+	        glfwGetCursorPos(window, &xposm, &yposm);
+	        int windowW, windowH;  // convert screen coords to frame buffer coords
+	        glfwGetWindowSize(window, &windowW, &windowH);
+	        if (fb_width > windowW) {
+		        xposm *= (float) fb_width / (float) windowW;
+	        }
+			SkPath path;
+            path.moveTo(xposm, 0);
+            path.lineTo(xposm, fb_height);
             canvas->drawPath(path, opts.theme.lcJoins);
         }
         if (captureText) {
@@ -679,7 +686,7 @@ namespace Manager {
         int bLen = opts.number.x * opts.number.y;
         if (image_glob.empty()) {
             // load some vcf regions and labels for drawing
-            if (!vcf.done && bStart + bLen > (int)multiRegions.size()) {
+            if (useVcf && !vcf.done && bStart + bLen > (int)multiRegions.size()) {
                 for (int i=0; i < bLen; ++ i) {
                     vcf.next();
                     if (vcf.done) {
@@ -688,7 +695,7 @@ namespace Manager {
                     appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype);
                 }
             // load some bed or other variant track for drawing
-            } else if (!variantTrack.done) {
+            } else if (!useVcf && !variantTrack.done) {
                 std::string empty_label = "";
                 for (int i=0; i < bLen; ++ i) {
                     variantTrack.next();

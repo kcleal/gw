@@ -619,6 +619,61 @@ namespace HGW {
         }
     }
 
+	void print_BED_IDX(std::string &path, std::string &chrom, int pos) {
+		kstring_t kstr = {0,0,0};
+		htsFile *fp = hts_open(path.c_str(), "r");
+		tbx_t * idx_t = tbx_index_load(path.c_str());
+		int tid = tbx_name2id(idx_t, chrom.c_str());
+		hts_itr_t *iter_q = tbx_itr_queryi(idx_t, tid, pos, pos + 1);
+		if (iter_q == nullptr) {
+			std::cerr << "\nError: Null iterator when trying to fetch from indexed bed file in print "
+			          << chrom
+			          << " " << pos << std::endl;
+			std::terminate();
+		}
+		int res = tbx_itr_next(fp, idx_t, iter_q, &kstr);
+		if (res < 0) {
+			if (res < -1) {
+				std::cerr << "Error: iterating vcf file returned " << res << std::endl;
+			}
+			return;
+		}
+		std::cout << kstr.s << std::endl;
+	}
+
+	void print_cached(std::vector<Utils::TrackBlock> &vals, std::string &chrom, int pos, bool flat) {
+		auto vals_end = vals.end();
+		std::vector<Utils::TrackBlock>::iterator iter_blk;
+		if (flat) {
+			iter_blk = vals.begin();
+		} else {
+			iter_blk = std::lower_bound(vals.begin(), vals.end(), pos,
+			                            [](Utils::TrackBlock &a, int x)-> bool { return a.start < x;});
+			if (iter_blk != vals.begin()) {
+				--iter_blk;
+			}
+		}
+		while (true) {
+			if (iter_blk == vals_end) {
+				break;
+			}
+			if (flat && iter_blk->chrom == chrom) {
+				if (iter_blk->start <= pos && iter_blk->end > pos) {
+					std::cout << iter_blk->line << std::endl;
+				} else if (iter_blk->start > pos) {
+					break;
+				}
+			} else {
+				if (iter_blk->start <= pos && iter_blk->end > pos) {
+					std::cout << iter_blk->line << std::endl;
+				} else if (iter_blk->start > pos) {
+					break;
+				}
+			}
+			iter_blk++;
+		}
+	}
+
 
     GwTrack::~GwTrack() {
         // these cause segfaults?
@@ -972,16 +1027,19 @@ namespace HGW {
     void GwTrack::printTargetRecord(std::string &id_str, std::string &chrm, int pos) {
         if (kind == BCF_IDX) {
             return print_BCF_IDX(idx_v, hdr, chrm, pos, fp, id_str);
-        }
-        else if (kind == VCF_NOI) {
+        } else if (kind == VCF_NOI) {
             return print_VCF_NOI(path, id_str);
-        }
-        else if (kind == VCF_IDX) {
+        } else if (kind == VCF_IDX) {
             return print_VCF_IDX(path, id_str, chrm, pos);
-        }
-        else if (kind == BED_IDX) {
-//            return print_BED_IDX(path)
-        }
+        } else if (kind == BED_IDX) {
+            return print_BED_IDX(path, chrm, pos);
+        } else {
+			if (allBlocks.contains(chrm)) {
+				return print_cached(allBlocks[chrm], chrm, pos, false);
+			} else {
+				return print_cached(allBlocks_flat, chrm, pos, true);
+			}
+		}
     }
 
     void saveVcf(VCFfile &input_vcf, std::string path, std::vector<Utils::Label> multiLabels) {
