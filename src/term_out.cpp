@@ -51,9 +51,11 @@ namespace Term {
         std::cout << "scroll up            " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_up); std::cout << "\n" << termcolor::reset;
         std::cout << "zoom in              " << termcolor::bright_yellow; Term::printKeyFromValue(opts.zoom_in); std::cout << "\n" << termcolor::reset;
         std::cout << "zoom out             " << termcolor::bright_yellow; Term::printKeyFromValue(opts.zoom_out); std::cout << "\n" << termcolor::reset;
+        std::cout << "zoom to cursor       " << termcolor::bright_yellow; std::cout << "CTRL + LEFT_MOUSE" << "\n" << termcolor::reset;
         std::cout << "next region view     " << termcolor::bright_yellow; Term::printKeyFromValue(opts.next_region_view); std::cout << "\n" << termcolor::reset;
         std::cout << "cycle link mode      " << termcolor::bright_yellow; Term::printKeyFromValue(opts.cycle_link_mode); std::cout << "\n" << termcolor::reset;
         std::cout << "repeat last command  " << termcolor::bright_yellow; std::cout << "ENTER" << "\n" << termcolor::reset;
+
         std::cout << "\n";
     }
 
@@ -601,6 +603,7 @@ namespace Term {
 				std::cout << termcolor::yellow << "  G" << termcolor::reset << ":" << mG;
 			}
 		}
+        std::cout << termcolor::bold << "    Pos  " << termcolor::reset << pos;
 		std::cout << std::flush;
 	}
 

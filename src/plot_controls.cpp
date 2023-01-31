@@ -45,8 +45,11 @@ namespace Manager {
         } else {
             shiftPress = false;
         }
-        if (!captureText && (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) && !commandHistory.empty()) {
-            inputText = commandHistory.back();
+        if (!captureText && (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER)) {
+            std::cout << std::endl;
+            if (!commandHistory.empty()) {
+                inputText = commandHistory.back();
+            }
         }
         if (captureText) {
             if (key == GLFW_KEY_ENTER) {
@@ -510,7 +513,7 @@ namespace Manager {
             return;
         }
         Term::clearLine();
-        std::cout << termcolor::bold << "\rShowing   " << termcolor::reset ;
+        std::cout << termcolor::bold << "\rPos   " << termcolor::reset ;
         int i = 0;
         auto r = regions[regionSelection];
         std::cout << termcolor::cyan << r.chrom << ":" << r.start << "-" << r.end << termcolor::white << "  (" << Utils::getSize(r.end - r.start) << ")";
@@ -945,14 +948,37 @@ namespace Manager {
             if (std::abs(xDrag) < 5 && action == GLFW_RELEASE && !bams.empty()) {
                 int pos = (int) (((xW - (float) cl.xOffset) / cl.xScaling) + (float) cl.region.start);
                 int level = (int) ((yW - (float) cl.yOffset) / (trackY / (float)(cl.levelsStart.size() - cl.vScroll )));
-				if (level < 0) {
+
+                if (level < 0) {  // print coverage info
+                    Term::clearLine();
 					Term::printCoverage(pos, cl);
 					std::cout << std::endl;
 					return;
 				}
+
+                if (ctrlPress) {  // zoom in to mouse position
+                    int strt = pos - 2500;
+                    strt = (strt < 0) ? 0 : strt;
+                    Utils::Region N;
+                    N.chrom = cl.region.chrom;
+                    N.start = strt;
+                    N.end = strt + 5000;
+                    regionSelection = cl.regionIdx;
+                    delete regions[regionSelection].refSeq;
+                    N.markerPos = regions[regionSelection].markerPos;
+                    N.markerPosEnd = regions[regionSelection].markerPosEnd;
+                    fetchRefSeq(N);
+                    regions[regionSelection] = N;
+                    processed = false;
+                    redraw = true;
+                    return;
+                }
+
 				if (cl.vScroll < 0) {
                     level += cl.vScroll + 1;
                 }
+
+                // highlight read
                 std::vector<Segs::Align>::iterator bnd;
                 bnd = std::lower_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
                                        [&](const Segs::Align &lhs, const int pos) { return (int)lhs.pos <= pos; });
@@ -1145,10 +1171,6 @@ namespace Manager {
                 if (clickedIdx == -1 || idx != clickedIdx) {
                     return;
                 }
-				if (ctrlPress) {
-					// zoom in
-
-				}
                 if (cl.region.end - cl.region.start < 50000) {
 
                     printRegionInfo();
@@ -1261,7 +1283,7 @@ namespace Manager {
                         mouseOverTileIndex = i;
                     }
                     Term::clearLine();
-                    std::cout << termcolor::bold << "\rPosition  " << termcolor::reset << lbl.chrom << ":" << lbl.pos << termcolor::bold <<
+                    std::cout << termcolor::bold << "\rPos  " << termcolor::reset << lbl.chrom << ":" << lbl.pos << termcolor::bold <<
                               "    ID  "  << termcolor::reset << lbl.variantId << termcolor::bold <<
                               "    Type  "  << termcolor::reset << lbl.vartype;
                     std::cout << std::flush;
