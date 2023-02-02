@@ -204,8 +204,12 @@ namespace Manager {
             std::string com = opts.editor + " " + opts.ini_path;
             FILE *fp = popen(com.c_str(), "w");
             pclose(fp);
-            valid = true;
-            opts.readIni();
+//            opts.readIni();
+            std::cout << "Please restart GW to apply any changes\n";
+            redraw = true;
+            processed = true;
+            inputText = "";
+            return true;
         } else if (Utils::startsWith(inputText, ":filter ")) {
             std::string str = inputText;
             str.erase(0, 8);

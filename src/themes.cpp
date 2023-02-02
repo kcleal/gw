@@ -178,10 +178,10 @@ namespace Themes {
 
     IgvTheme::IgvTheme() {
         name = "igv";
-        fcCoverage.setARGB(255, 200, 200, 200);
-        fcTrack.setARGB(155, 2, 60, 180);
+        fcCoverage.setARGB(255, 170, 170, 170);
+        fcTrack.setARGB(180, 0, 30, 255);
         bgPaint.setARGB(255, 255, 255, 255);
-        fcNormal.setARGB(255, 192, 192, 192);
+        fcNormal.setARGB(255, 162, 162, 162);
         fcDel.setARGB(255, 220, 20, 60);
         fcDup.setARGB(255, 30, 144, 255);
         fcInvF.setARGB(255, 46, 139, 0);
@@ -207,10 +207,10 @@ namespace Themes {
 
     DarkTheme::DarkTheme() {
         name = "dark";
-        fcCoverage.setARGB(255, 90, 90, 100);
-        fcTrack.setARGB(180, 40, 110, 180);
+        fcCoverage.setARGB(255, 100, 100, 110);
+        fcTrack.setARGB(180, 10, 140, 255);
         bgPaint.setARGB(255, 10, 10, 20);
-        fcNormal.setARGB(255, 90, 90, 95);
+        fcNormal.setARGB(255, 100, 100, 105);
         fcDel.setARGB(255, 185, 25, 25);
         fcDup.setARGB(255, 24, 100, 198);
         fcInvF.setARGB(255, 49, 167, 118);
@@ -257,6 +257,7 @@ namespace Themes {
         soft_clip_threshold = 20000;
         small_indel_threshold = 100000;
         snp_threshold = 1000000;
+        edge_highlights = 100000;
 
         no_show = false;
         coverage = true;

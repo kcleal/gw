@@ -45,7 +45,7 @@
 namespace Drawing {
 
     char indelChars[50];
-    constexpr float polygonHeight = 0.85;
+    constexpr float polygonHeight = 0.82;
 
     void drawCoverage(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
                       SkCanvas *canvas, const Themes::Fonts &fonts, const float covYh, const float refSpace) {
@@ -526,6 +526,7 @@ namespace Drawing {
 
             bool plotSoftClipAsBlock = regionLen > opts.soft_clip_threshold;
             bool plotPointedPolygons = regionLen < 50000;
+            bool drawEdges = opts.edge_highlights < regionLen;
 
             float pH = yScaling * polygonHeight;
 
@@ -548,7 +549,7 @@ namespace Drawing {
                 }
                 size_t nBlocks = a.block_starts.size();
 
-                if (regionLen < 100000 && a.edge_type != 1) {
+                if (drawEdges && a.edge_type != 1) {
                     edged = true;
                     chooseEdgeColor(a.edge_type, edgeColor, theme);
                 } else {
