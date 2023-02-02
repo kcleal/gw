@@ -60,7 +60,7 @@ ifeq ($(PLATFORM),"Darwin")
     SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-x64.zip
 endif
 ifeq ($(PLATFORM),"Arm64")
-    SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-arm64.zip
+    SKIA_LINK = https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia.zip
 endif
 
 # set platform flags and libs
