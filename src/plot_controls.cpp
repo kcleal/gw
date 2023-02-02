@@ -481,7 +481,7 @@ namespace Manager {
 				valid = false;
 			}
 	        if (valid) {
-		        int res = sam_hdr_name2tid(headers[0], rgn.chrom.c_str());
+		        int res = faidx_has_seq(fai, rgn.chrom.c_str());
 		        if (res < 0) {
 			        std::cerr << termcolor::red << "Error:" << termcolor::reset << " chromosome not found in header " << rgn.chrom << std::endl;
 			        valid = false;
