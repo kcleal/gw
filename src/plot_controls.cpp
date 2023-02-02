@@ -1298,12 +1298,21 @@ namespace Manager {
 
     void GwPlot::scrollGesture(GLFWwindow* wind, double xoffset, double yoffset) {
         if (mode == Manager::SINGLE) {
-            if (yoffset < 0) {
-                keyPress(wind, opts.zoom_out, 0, GLFW_PRESS, 0);
-            } else {
-                keyPress(wind, opts.zoom_in, 0, GLFW_PRESS, 0);
+            if (std::fabs(yoffset) > std::fabs(xoffset) && 0.5 < std::fabs(yoffset)) {
+                if (yoffset < 0) {
+                    keyPress(wind, opts.zoom_out, 0, GLFW_PRESS, 0);
+                } else {
+                    keyPress(wind, opts.zoom_in, 0, GLFW_PRESS, 0);
+                }
+            } else if (std::fabs(xoffset) > std::fabs(yoffset) && 0.5 < std::fabs(xoffset)) {
+                if (xoffset < 0) {
+                    keyPress(wind, opts.scroll_right, 0, GLFW_PRESS, 0);
+                } else {
+                    keyPress(wind, opts.scroll_left, 0, GLFW_PRESS, 0);
+                }
             }
-        } else {
+            
+        } else if (std::fabs(yoffset) > std::fabs(xoffset) && 0.5 < std::fabs(yoffset)) {
             if (yoffset < 0) {
                 keyPress(wind, opts.scroll_right, 0, GLFW_PRESS, 0);
             } else {
