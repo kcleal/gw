@@ -3,49 +3,33 @@
 //
 #include <algorithm>
 #include <cmath>
-#include <cstdio>
 #include <cstdint>
 #include <vector>
 #include <utility>
 #include <stdio.h>
-
 #include <GLFW/glfw3.h>
 
 #define SK_GL
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/gl/GrGLInterface.h"
 #include "include/core/SkCanvas.h"
-#include "include/core/SkColorSpace.h"
-#include "include/core/SkSurface.h"
 #include "include/core/SkData.h"
-#include "include/core/SkStream.h"
-#include "include/core/SkImage.h"
 #include "include/core/SkImageInfo.h"
-#include "include/core/SkSize.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkPath.h"
-#include "include/core/SkPoint.h"
 #include "include/core/SkTypeface.h"
-#include "include/core/SkFont.h"
 #include "include/core/SkTextBlob.h"
 
-#include "htslib/hts.h"
 #include "htslib/sam.h"
-
 #include "../include/BS_thread_pool.h"
 #include "../include/robin_hood.h"
-
 #include "hts_funcs.h"
 #include "drawing.h"
-
 
 
 
 namespace Drawing {
 
     char indelChars[50];
-    constexpr float polygonHeight = 0.82;
+    constexpr float polygonHeight = 0.85;
 
     void drawCoverage(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
                       SkCanvas *canvas, const Themes::Fonts &fonts, const float covYh, const float refSpace) {
@@ -526,7 +510,7 @@ namespace Drawing {
 
             bool plotSoftClipAsBlock = regionLen > opts.soft_clip_threshold;
             bool plotPointedPolygons = regionLen < 50000;
-            bool drawEdges = opts.edge_highlights < regionLen;
+            bool drawEdges = regionLen < opts.edge_highlights;
 
             float pH = yScaling * polygonHeight;
 
@@ -555,7 +539,6 @@ namespace Drawing {
                 } else {
                     edged = false;
                 }
-
                 double width, s, e, textW;
                 int lastEnd = 1215752191;
                 bool line_only;
@@ -703,12 +686,9 @@ namespace Drawing {
                 int32_t l_qseq = a.delegate->core.l_qseq;
 
                 if (regionLen <= opts.snp_threshold) {
-//                    uint8_t *NMdta = bam_aux_get(a.delegate, "NM");
-//                    if (NMdta == nullptr || bam_aux2i(NMdta) > 0) {
-                        float mms = xScaling * mmScaling;
-                        width = (regionLen < 500000) ? ((1. > mms) ? 1. : mms) : xScaling;
-                        drawMismatchesNoMD(canvas, rect, theme, cl.region, a, width, xScaling, xOffset, mmPosOffset, yScaledOffset, pH, l_qseq);
-//                    }
+                    float mms = xScaling * mmScaling;
+                    width = (regionLen < 500000) ? ((1. > mms) ? 1. : mms) : xScaling;
+                    drawMismatchesNoMD(canvas, rect, theme, cl.region, a, width, xScaling, xOffset, mmPosOffset, yScaledOffset, pH, l_qseq);
                 }
 
                 // add soft-clips

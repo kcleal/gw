@@ -813,13 +813,15 @@ namespace HGW {
             }
             std::string tp;
             const char delim = '\t';
+            int count = 0;
             while(getline(fpu, tp)) {
+                count += 1;
                 if (tp[0] == '#') {
                     continue;
                 }
                 std::vector<std::string> parts = Utils::split(tp, delim);
                 if (parts.size() < 3) {
-                    std::cerr << "Error: parsing file, not enough columns in line split by tab " << parts.size() << " " << tp << std::endl;
+                    std::cerr << "Error: parsing file, not enough columns in line split by tab. n columns = " << parts.size() << ", line was: " << tp << ", at file index " << count << std::endl;
                 }
                 Utils::TrackBlock b;
                 b.line = tp;

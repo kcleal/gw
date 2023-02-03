@@ -40,6 +40,7 @@ namespace Term {
         std::cout << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
         std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. ':rm 1'. To remove a bam \n                                 use the bam index ':rm bam0'\n";
         std::cout << termcolor::green << "sam                              " << termcolor::reset << "Print selected read in sam format'\n";
+        std::cout << termcolor::green << "tags                             " << termcolor::reset << "Print selected sam tags\n";
         std::cout << termcolor::green << "theme            [igv/dark]      " << termcolor::reset << "Switch color theme e.g. ':theme dark'\n";
         std::cout << termcolor::green << "var, v                           " << termcolor::reset << "Print line for variant under cursor\n";
         std::cout << termcolor::green << "ylim             number          " << termcolor::reset << "The maximum y-limit for the image e.g. ':ylim 100'\n";
@@ -111,6 +112,8 @@ namespace Term {
             std::cout << "    Remove a region or bam.\n        Remove a region or bam by index. To remove a bam add a 'bam' prefix.\n    Examples:\n        'rm 0', 'rm bam1'\n\n";
         } else if (s == "sam") {
             std::cout << "    Print the sam format of the read.\n        First select a read using the mouse then type ':sam'.\n\n";
+        } else if (s == "tags") {
+            std::cout << "    Print selected sam tags.\n        This will print all the tags of the selected read\n\n";
         } else if (s == "theme") {
             std::cout << "    Switch the theme.\n        Currently 'igv' or 'dark' themes are supported.\n\n";
         } else if (s == "var") {
@@ -165,7 +168,7 @@ namespace Term {
         }
     }
 
-    void printSeq(std::vector<Segs::Align>::iterator r, const char *refSeq, int refStart, int refEnd, int max=1000) {
+    void printSeq(std::vector<Segs::Align>::iterator r, const char *refSeq, int refStart, int refEnd, int max=500) {
         auto l_seq = (int)r->delegate->core.l_qseq;
         if (l_seq == 0) {
             std::cout << "*";
@@ -181,7 +184,7 @@ namespace Term {
         for (k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
-            if (i >= max) {
+            if (i >= max || l >= max) {
                 std::cout << "...";
                 return;
             }

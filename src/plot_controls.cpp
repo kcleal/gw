@@ -5,10 +5,11 @@
 #include <iomanip>
 #include <iterator>
 #include <cstdlib>
+#include <cstdio>
 #include <string>
 #include <vector>
 #include <htslib/sam.h>
-#include "htslib/hts.h"
+#include <htslib/hts.h>
 #include <GLFW/glfw3.h>
 #define SK_GL
 #include "hts_funcs.h"
@@ -226,7 +227,7 @@ namespace Manager {
             }
             valid = true;
 
-        } else if (inputText == ":sam") {
+        } else if (inputText ==":sam") {
             valid = true;
             if (!selectedAlign.empty()) {
                 Term::printSelectedSam(selectedAlign);
@@ -235,7 +236,29 @@ namespace Manager {
             processed = true;
             inputText = "";
             return true;
-
+        } else if (inputText ==":tags"){
+            valid = true;
+            if (!selectedAlign.empty()) {
+                std::vector<std::string> split = Utils::split(selectedAlign, '\t');
+                if (split.size() > 11) {
+                    Term::clearLine();
+                    std::cout << "\r";
+                    int i = 0;
+                    for (auto &s : split) {
+                        if (i > 11) {
+                            std::string t = s.substr(0, s.find(':'));
+                            std::string rest = s.substr(s.find(':'), s.size());
+                            std::cout << termcolor::green << t << termcolor::reset << rest << "\t";
+                        }
+                        i += 1;
+                    }
+                    std::cout << std::endl;
+                }
+            }
+            redraw = false;
+            processed = true;
+            inputText = "";
+            return true;
         } else if (Utils::startsWith(inputText, ":f ") || Utils::startsWith(inputText, ":find")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             if (!target_qname.empty() && split.size() == 1) {
@@ -482,7 +505,7 @@ namespace Manager {
 			}
 	        if (valid) {
 		        int res = faidx_has_seq(fai, rgn.chrom.c_str());
-		        if (res < 0) {
+		        if (res <= 0) {
 			        std::cerr << termcolor::red << "Error:" << termcolor::reset << " chromosome not found in header " << rgn.chrom << std::endl;
 			        valid = false;
 		        }
