@@ -488,39 +488,37 @@ namespace Manager {
             Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
             Term::clearLine();
 			if (useVcf) {
-				string varString = vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
-				if (varString != "ERROR") {
-					std::cout << std::endl << varString << std::endl;
+				vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+				std::string variantStringCopy = vcf.variantString;
+				if (variantStringCopy != "ERROR") {
+					std::cout << std::endl << variantStringCopy << std::endl;
 				}
 			} else {
-				string varString = variantTrack.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
-				if (varString != "ERROR") {
-					std::cout << std::endl << varString << std::endl;
+				variantTrack.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+				std::string variantStringCopy = variantTrack.variantString;
+				if (variantStringCopy != "ERROR") {
+					std::cout << std::endl << variantStringCopy << std::endl;
 				}
 			}
             inputText = "";
             return true;    
-		} else if (inputText == ":vs" || Utils::startsWith(inputText, ":varsave")) {
-            if (multiLabels.empty()) {
-	            std::cerr << termcolor::red << "Error:" << termcolor::reset << " no variant file provided.\n";
-                inputText = "";
-                return true;
-            }
-            else if (blockStart+mouseOverTileIndex >= (int)multiLabels.size()) {
-	            std::cerr << termcolor::red << "Error:" << termcolor::reset << " index outside of range.";
-                inputText = "";
-                return true;
-            }
-            Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
-            Term::clearLine();
-			if (useVcf) {
-				string varString = vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
-			} else {
-				string varString = variantTrack.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+		} else if (inputText == ":s" || Utils::startsWith(inputText, ":snapshot")) { // work in progress
+			std::string fname = "";
+			for (auto it = begin (bam_paths); it != end (bam_paths); ++it) {
+				std::string tmp_path = *it;
+				std::string tmp_base_filename = tmp_path.substr(tmp_path.find_last_of("/\\") + 1);
+				std::string::size_type const tmp_p(tmp_base_filename.find_last_of('.'));
+				std::string tmp_file_without_extension = tmp_base_filename.substr(0, tmp_p);
+				fname += tmp_file_without_extension + "_";
 			}
-            inputText = "";
-            return true;    
-		} else if (inputText == ":s" || Utils::startsWith(inputText, ":screen")) {
+			fname += regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".png";
+			fs::path outdir = opts.outdir;
+			fs::path out_path = outdir / fname;
+			std::cout << out_path;
+//			sk_sp<SkImage> img = imageCacheQueue.back().second();
+			if (!imageCacheQueue.empty()) {
+				Manager::imagePngToFile(imageCacheQueue.back().second, out_path);
+			}
 			return true;
         } else {
 	        inputText.erase(0, 1);
