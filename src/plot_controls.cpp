@@ -488,12 +488,40 @@ namespace Manager {
             Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
             Term::clearLine();
 			if (useVcf) {
-				vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+				string varString = vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+				if (varString != "ERROR") {
+					std::cout << std::endl << varString << std::endl;
+				}
 			} else {
-				variantTrack.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+				string varString = variantTrack.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+				if (varString != "ERROR") {
+					std::cout << std::endl << varString << std::endl;
+				}
 			}
             inputText = "";
             return true;    
+		} else if (inputText == ":vs" || Utils::startsWith(inputText, ":varsave")) {
+            if (multiLabels.empty()) {
+	            std::cerr << termcolor::red << "Error:" << termcolor::reset << " no variant file provided.\n";
+                inputText = "";
+                return true;
+            }
+            else if (blockStart+mouseOverTileIndex >= (int)multiLabels.size()) {
+	            std::cerr << termcolor::red << "Error:" << termcolor::reset << " index outside of range.";
+                inputText = "";
+                return true;
+            }
+            Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
+            Term::clearLine();
+			if (useVcf) {
+				string varString = vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+			} else {
+				string varString = variantTrack.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+			}
+            inputText = "";
+            return true;    
+		} else if (inputText == ":s" || Utils::startsWith(inputText, ":screen")) {
+			return true;
         } else {
 	        inputText.erase(0, 1);
 	        Utils::Region rgn;

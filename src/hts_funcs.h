@@ -19,6 +19,7 @@
 #include "segments.h"
 #include "themes.h"
 
+using std::string;
 
 namespace HGW {
 
@@ -32,13 +33,13 @@ namespace HGW {
         STDIN,
     };
 
-    void print_BCF_IDX(hts_idx_t *idx_v, bcf_hdr_t *hdr, std::string &chrom, int pos, htsFile *fp, std::string &id_str);
+    string print_BCF_IDX(hts_idx_t *idx_v, bcf_hdr_t *hdr, std::string &chrom, int pos, htsFile *fp, std::string &id_str);
 
-    void print_VCF_NOI(std::string &path, std::string &id_str);
+    string print_VCF_NOI(std::string &path, std::string &id_str);
 
-    void print_VCF_IDX(std::string &path, std::string &id_str, std::string &chrom, int pos);
+    string print_VCF_IDX(std::string &path, std::string &id_str, std::string &chrom, int pos);
 
-	void print_cached(std::vector<Utils::TrackBlock> &vals, std::string &chrom, int pos, bool flat);
+	string print_cached(std::vector<Utils::TrackBlock> &vals, std::string &chrom, int pos, bool flat);
 
     /*
     * VCF or BCF file reader only. Cache's lines from stdin or non-indexed file. Can parse labels from file
@@ -66,7 +67,7 @@ namespace HGW {
 
         void open(std::string f);
         void next();
-        void printTargetRecord(std::string &id_str, std::string &chrom, int pos);
+        string printTargetRecord(std::string &id_str, std::string &chrom, int pos);
 
     };
 
@@ -120,7 +121,7 @@ namespace HGW {
         void next();
         void parseVcfRecord(Utils::TrackBlock &b);
         void parseVcfRecord();
-        void printTargetRecord(std::string &id_str, std::string &chrm, int pos);
+        string printTargetRecord(std::string &id_str, std::string &chrm, int pos);
     };
 
     void saveVcf(VCFfile &input_vcf, std::string path, std::vector<Utils::Label> multiLabels);

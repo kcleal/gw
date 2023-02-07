@@ -17,6 +17,7 @@
 #include "themes.h"
 #include "hts_funcs.h"
 
+using std::string;
 
 namespace HGW {
 
@@ -519,7 +520,7 @@ namespace HGW {
         }
     }
 
-    void VCFfile::printTargetRecord(std::string &id_str, std::string &chrom, int pos) {
+	string VCFfile::printTargetRecord(std::string &id_str, std::string &chrom, int pos) {
         if (kind == BCF_IDX) {
             return print_BCF_IDX(idx_v, hdr, chrom, pos, fp, id_str);
         }
@@ -537,8 +538,9 @@ namespace HGW {
                 tmp_id = it->d.id;
                 if (tmp_id == id_str) {
                     vcf_format(hdr, it, &kstr);
-                    std::cout << std::endl << kstr.s << std::endl;
-                    break;
+                    // std::cout << std::endl << kstr.s << std::endl;
+                    return kstr.s;
+					break;
                 } else if (pos < it->pos) {
                     break;
                 }
@@ -546,7 +548,7 @@ namespace HGW {
         }
     }
 
-    void print_BCF_IDX(hts_idx_t *idx_v, bcf_hdr_t *hdr, std::string &chrom, int pos, htsFile *fp, std::string &id_str) {
+    string print_BCF_IDX(hts_idx_t *idx_v, bcf_hdr_t *hdr, std::string &chrom, int pos, htsFile *fp, std::string &id_str) {
         htsFile *fp2 = fp;
         kstring_t kstr = {0,0,0};
         bcf1_t *tv = bcf_init1();
@@ -557,6 +559,7 @@ namespace HGW {
             if (res < 0) {
                 if (res < -1) {
                     std::cerr << "Error: iterating bcf file returned " << res << std::endl;
+					return "ERROR";
                 }
                 break;
             }
@@ -564,14 +567,15 @@ namespace HGW {
             tmp_id = tv->d.id;
             if (tmp_id == id_str) {
                 vcf_format1(hdr, tv, &kstr);
-                std::cout << std::endl << kstr.s << std::endl;
+                // std::cout << std::endl << kstr.s << std::endl;
+				return kstr.s;
                 break;
             }
         }
         fp = fp2;
     }
 
-    void print_VCF_NOI(std::string &path, std::string &id_str) {
+    string print_VCF_NOI(std::string &path, std::string &id_str) {
         kstring_t kstr = {0,0,0};
         bcf1_t *tv = bcf_init1();
         std::string tmp_id;
@@ -582,14 +586,15 @@ namespace HGW {
             tmp_id = tv->d.id;
             if (tmp_id == id_str) {
                 vcf_format1(_hdr, tv, &kstr);
-                std::cout << std::endl << kstr.s << std::endl;
+                // std::cout << std::endl << kstr.s << std::endl;
+				return kstr.s;
                 break;
             }
         }
 
     };
 
-    void print_VCF_IDX(std::string &path, std::string &id_str, std::string &chrom, int pos) {
+    string print_VCF_IDX(std::string &path, std::string &id_str, std::string &chrom, int pos) {
         kstring_t kstr = {0,0,0};
         bcf1_t *tv = bcf_init1();
         std::string tmp_id;
@@ -602,6 +607,7 @@ namespace HGW {
             if (res < 0) {
                 if (res < -1) {
                     std::cerr << "Error: iterating vcf file returned " << res << std::endl;
+					return "ERROR";
                 }
                 break;
             }
@@ -613,13 +619,14 @@ namespace HGW {
             bcf_unpack(tv, BCF_UN_STR);
             tmp_id = tv->d.id;
             if (tmp_id == id_str) {
-                std::cout << std::endl << l << std::endl;
+                //std::cout << std::endl << l << std::endl;
+				return l;
                 break;
             }
         }
     }
 
-	void print_BED_IDX(std::string &path, std::string &chrom, int pos) {
+	string print_BED_IDX(std::string &path, std::string &chrom, int pos) {
 		kstring_t kstr = {0,0,0};
 		htsFile *fp = hts_open(path.c_str(), "r");
 		tbx_t * idx_t = tbx_index_load(path.c_str());
@@ -630,18 +637,20 @@ namespace HGW {
 			          << chrom
 			          << " " << pos << std::endl;
 			std::terminate();
+			return "ERROR";
 		}
 		int res = tbx_itr_next(fp, idx_t, iter_q, &kstr);
 		if (res < 0) {
 			if (res < -1) {
 				std::cerr << "Error: iterating vcf file returned " << res << std::endl;
+				return "ERROR";
 			}
-			return;
 		}
-		std::cout << kstr.s << std::endl;
+		//std::cout << kstr.s << std::endl;
+		return kstr.s;
 	}
 
-	void print_cached(std::vector<Utils::TrackBlock> &vals, std::string &chrom, int pos, bool flat) {
+	string print_cached(std::vector<Utils::TrackBlock> &vals, std::string &chrom, int pos, bool flat) {
 		auto vals_end = vals.end();
 		std::vector<Utils::TrackBlock>::iterator iter_blk;
 		if (flat) {
@@ -659,13 +668,15 @@ namespace HGW {
 			}
 			if (flat && iter_blk->chrom == chrom) {
 				if (iter_blk->start <= pos && iter_blk->end > pos) {
-					std::cout << iter_blk->line << std::endl;
+					// std::cout << iter_blk->line << std::endl;
+					return iter_blk->line;
 				} else if (iter_blk->start > pos) {
 					break;
 				}
 			} else {
 				if (iter_blk->start <= pos && iter_blk->end > pos) {
-					std::cout << iter_blk->line << std::endl;
+					// std::cout << iter_blk->line << std::endl;
+					return iter_blk->line;
 				} else if (iter_blk->start > pos) {
 					break;
 				}
@@ -1026,7 +1037,7 @@ namespace HGW {
         }
     }
 
-    void GwTrack::printTargetRecord(std::string &id_str, std::string &chrm, int pos) {
+    string GwTrack::printTargetRecord(std::string &id_str, std::string &chrm, int pos) {
         if (kind == BCF_IDX) {
             return print_BCF_IDX(idx_v, hdr, chrm, pos, fp, id_str);
         } else if (kind == VCF_NOI) {
