@@ -101,6 +101,9 @@ namespace Utils {
 
     void parseMateLocation(std::string &selectedAlign, std::string &mate, std::string &target_qname);
 
-    int get_terminal_width();
+    int get_terminal_width();	
 
+	void ltrim(std::string &s);
+	void rtrim(std::string &s);
+	void trim(std::string &s);
 }

@@ -664,4 +664,40 @@ namespace Parse {
                 std::cout << "R-inversion-pattern\t" << inv_r << std::endl;
         }
     }
+
+
+	void vcfline_to_map(std::string &line, ankerl::unordered_dense::map<std::string, std::string> &vcfMap) {	
+		/* ankerl::unordered_dense::map<std::string, std::string> vcfMap; */
+		std::vector<std::string> vcfCols = Utils::split(line, '\t');
+		vcfMap["CHROM"] = vcfCols[0];
+		vcfMap["POS"] = vcfCols[1];
+		vcfMap["ID"] = vcfCols[2];
+		vcfMap["REF"] = vcfCols[3];
+		vcfMap["ALT"] = vcfCols[4];
+		vcfMap["QUAL"] = vcfCols[5];
+		vcfMap["FILTER"] = vcfCols[6];
+	
+		std::vector<std::string> infoCol = Utils::split(vcfCols[7], ';');
+		for (auto it = begin (infoCol); it != end (infoCol); ++it) {
+			std::string tmpLine = *it;
+			std::vector<std::string> tmpVar = Utils::split(tmpLine, '=');
+			if (tmpVar.size() == 2) {
+				vcfMap[tmpVar[0]] = tmpVar[1];
+			}
+			else {
+				vcfMap[tmpVar[0]] = "";
+			}
+
+		}
+		std::vector<std::string> formatVars = Utils::split(vcfCols[8], ':');
+		std::vector<std::string> formatVals = Utils::split(vcfCols[9], ':');
+		int lenFormat = formatVars.size();
+		for (int i=0; i<lenFormat-1; ++i) {
+			vcfMap[formatVars[i]] = formatVals[i];
+		}
+		std::string lastFormat = formatVals[lenFormat-1];
+		Utils::trim(lastFormat);
+		vcfMap[formatVars[lenFormat-1]] = lastFormat;
+		return;
+	}
 }

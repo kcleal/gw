@@ -19,6 +19,7 @@
 #include "../include/termcolor.h"
 #include "term_out.h"
 #include "themes.h"
+#include"../include/unordered_dense.h"
 
 
 namespace Manager {
@@ -485,13 +486,31 @@ namespace Manager {
                 inputText = "";
                 return true;
             }
+			std::vector<std::string> split = Utils::split(inputText, delim);
             Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
             Term::clearLine();
 			if (useVcf) {
 				vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
 				std::string variantStringCopy = vcf.variantString;
 				if (variantStringCopy != "ERROR") {
-					std::cout << std::endl << variantStringCopy << std::endl;
+					int requests = split.size();
+					if (requests == 1) {
+						std::cout << std::endl << variantStringCopy << std::endl;
+					}
+					else {
+						std::string requestedVars = "";
+						ankerl::unordered_dense::map<std::string, std::string> parsed;
+						Parse::vcfline_to_map(variantStringCopy, parsed);
+						for (int i = 1; i < requests; ++i) {
+							if (i != requests-1) {
+								requestedVars += split[i]+":\t"+parsed[split[i]]+",\t";
+							}
+							else {
+								requestedVars += split[i]+":\t"+parsed[split[i]];
+							}
+						}
+						std::cout << std::endl << requestedVars << std::endl;
+					}
 				}
 			} else {
 				variantTrack.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
@@ -519,6 +538,57 @@ namespace Manager {
 			if (!imageCacheQueue.empty()) {
 				Manager::imagePngToFile(imageCacheQueue.back().second, out_path);
 			}
+			
+			Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
+            /* Term::clearLine(); */
+			/* //if (useVcf) { */
+			/* vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos); */
+			/* std::string variantStringCopy = vcf.variantString; */
+			/* ankerl::unordered_dense::map<std::string, std::string> parsed; */
+			/* Parse::vcfline_to_map(variantStringCopy, parsed); */
+			/* std::cout << std::endl << parsed["CHROM"] << std::endl << parsed["SU"] << std::endl << parsed["PROB"] << std::endl; */
+			/* std::vector<std::string> vcfCols = Utils::split(variantStringCopy, '\t'); */
+			/* std::cout << std::endl << std::to_string(vcfCols.size()) << std::endl; */
+			/* std::string addXmpMeta = "exiftool -config newExif.xmp -Chrom="+vcfCols[0]+" -Position="+vcfCols[1]+" -varID="+vcfCols[2]+" -REF="+vcfCols[3]+" -Qual="+vcfCols[5]+" -Filter="+vcfCols[6]+" "; */
+			/* std::cout << std::endl << addXmpMeta << std::endl; */
+			/* /1* std::string typeVal = vcfCols[4]; *1/ */
+			/* /1* std::cout << std::endl << typeVal << std::endl; *1/ */
+			/* /1* unsigned opencheveron = filterVal.find('<'); *1/ */
+			/* /1* unsigned closecheveron = filterVal.find('>'); *1/ */
+			/* /1* std::string chev = "<"; *1/ */
+			/* /1* if (typeVal.find(chev) != std::string::npos) { *1/ */
+			/* /1* 	std::string typeVal = typeVal.substr(1,3); *1/ */
+			/* /1* } *1/ */
+			/* /1* std::cout << std::endl << typeVal << std::endl; *1/ */
+			/* /1* addXmpMeta += " -VarType="+typeVal+" -Qual="+vcfCols[5]+" "; *1/ */
+			/* /1* std::cout << std::endl << addXmpMeta << std::endl; *1/ */
+			/* std::vector<std::string> infoCol = Utils::split(vcfCols[7], ';'); */
+			/* for (auto it = begin (infoCol); it != end (infoCol); ++it) { */
+			/* 	std::string tmpLine = *it; */
+			/* 	std::vector<std::string> tmpVar = Utils::split(tmpLine, '='); */
+			/* 	if (tmpVar.size() == 2) { */
+			/* 		std::cout << std::endl << tmpVar[0] << std::endl; */
+			/* 		std::cout << std::endl << tmpVar[1] << std::endl; */
+			/* 		addXmpMeta += "-"+tmpVar[0]+"="+tmpVar[1]+" "; */
+			/* 		std::cout << std::endl << addXmpMeta << std::endl; */
+			/* 	} */
+
+			/* } */
+			/* std::cout << std::endl << addXmpMeta << std::endl; */
+			/* std::vector<std::string> formatVars = Utils::split(vcfCols[8], ':'); */
+			/* std::vector<std::string> formatVals = Utils::split(vcfCols[9], ':'); */
+			/* int lenFormat = formatVars.size(); */
+			/* for (int i=0; i<lenFormat; ++i) { */
+			/* 	addXmpMeta += "-"+formatVars[i]+"="+formatVals[i]+" "; */
+			/* } */
+			/* std::cout << std::endl << addXmpMeta << std::endl; */
+			/* std::string op = out_path; */
+			/* op.erase(std::find(op.begin(), op.end(), '0'), op.end()); */
+			/* /1* std::string opp = op.erase(op.begin(), std::find_if(op.begin(), op.end(), std::not1(isspace))); *1/ */
+			/* std::cout << std::endl << op << std::endl; */
+			/* addXmpMeta += op; */
+			/* std::cout << std::endl << addXmpMeta << std::endl; */
+			/* system(addXmpMeta.c_str()); */
 			return true;
         } else {
 	        inputText.erase(0, 1);

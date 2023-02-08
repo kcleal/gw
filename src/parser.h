@@ -97,6 +97,8 @@ namespace Parse {
     void countExpression(std::vector<Segs::ReadCollection> &collections, std::string &str, std::vector<sam_hdr_t*> hdrs,
                          std::vector<std::string> &bam_paths, int nBams, int nRegions);
 
+
+	void vcfline_to_map(std::string &line, ankerl::unordered_dense::map<std::string, std::string> &vcfMap);
 }
 
 
