@@ -316,11 +316,11 @@ The machine used was an Intel i9-11900K, NVMe WD 2TB, 64 GB memory.
 
 .. list-table::
 
-    * - .. figure:: test/results/benchmark_bar_time.png
+    * - .. figure:: test/results/time.png
 
            Mean time (s)
 
-      - .. figure:: test/results/benchmark_bar_memory.png
+      - .. figure:: test/results/memory.png
 
            Mean memory (Gb)
 
