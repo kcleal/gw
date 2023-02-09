@@ -2,6 +2,7 @@ import pandas as pd
 import seaborn as sns
 import glob
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import sys
 pd.options.mode.chained_assignment = None
 
@@ -81,8 +82,10 @@ for size, grp in df.groupby('region size (bp)'):
     ax.set_ylabel('')
     idx += 1
 
-handles, labels = ax.get_legend_handles_labels()
-fig.legend(handles, labels, loc='lower center', ncol=2)
+b_patch = mpatches.Patch(color='royalblue', label='Total')
+b2_patch = mpatches.Patch(color='lightsteelblue', label='Start')
+plt.legend(loc='lower center', ncol=2, handles=[b_patch, b2_patch], bbox_to_anchor=(0.5, -1.2),
+           prop={'size': 10})
 plt.savefig('benchmark_bar_time.png')
 # plt.show()
 plt.close()
@@ -114,7 +117,6 @@ for size, grp in df.groupby('region size (bp)'):
 
 handles, labels = ax.get_legend_handles_labels()
 fig.legend(handles, labels, loc='lower center', ncol=2)
-
 plt.savefig('benchmark_bar_memory.png')
 # plt.show()
 plt.close()
