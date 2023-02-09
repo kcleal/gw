@@ -314,10 +314,15 @@ The bam file was 40X coverage, paired-end data mapped with bwa mem. All other to
 The machine used was an Intel i9-11900K, NVMe WD 2TB, 64 GB memory.
 
 
-Mean time (s)             |  Mean memory (Gb)
-:-------------------------:|:-------------------------:
-![](https://github.com/kcleal/gw/tree/master/test/results/benchmark_bar_time.png)  |  ![](https://github.com/kcleal/gw/tree/master/test/results/benchmark_bar_memory.png)
+.. list-table::
 
+    * - .. figure:: test/results/benchmark_bar_time.png
+
+           Mean time (s)
+
+      - .. figure:: test/results/benchmark_bar_memory.png
+
+           Mean memory (Gb)
 
 Plotting a 2Mb region in GW took ~0.56s compared to IGV ~28s, although its worth noting IGV needed around 4s for start up. For reference,
 using :code:`samtools view -c -@3` took ~0.09s, which is a measure of how fast a bam file can be read.
