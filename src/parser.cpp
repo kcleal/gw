@@ -665,39 +665,177 @@ namespace Parse {
         }
     }
 
+	void get_value_in_brackets(std::string &requestBracket) {
+		const std::regex bracketRegex("\\[(.*?)\\]");
+		std::smatch bracketMatch;
+		if (std::regex_search(requestBracket, bracketMatch, bracketRegex)) {
+			requestBracket = bracketMatch[1].str();
+		}
+		else {
+			std::cerr << "ERROR: cannot parse sample inside [] from input string.";
+		}
+		return;
+	}
 
-	void vcfline_to_map(std::string &line, ankerl::unordered_dense::map<std::string, std::string> &vcfMap) {	
-		/* ankerl::unordered_dense::map<std::string, std::string> vcfMap; */
-		std::vector<std::string> vcfCols = Utils::split(line, '\t');
-		vcfMap["CHROM"] = vcfCols[0];
-		vcfMap["POS"] = vcfCols[1];
-		vcfMap["ID"] = vcfCols[2];
-		vcfMap["REF"] = vcfCols[3];
-		vcfMap["ALT"] = vcfCols[4];
-		vcfMap["QUAL"] = vcfCols[5];
-		vcfMap["FILTER"] = vcfCols[6];
-	
-		std::vector<std::string> infoCol = Utils::split(vcfCols[7], ';');
+	bool is_number(const std::string& s)
+	{
+		std::string::const_iterator it = s.begin();
+		while (it != s.end() && std::isdigit(*it)) ++it;
+		return !s.empty() && it == s.end();
+	}
+
+	void convert_name_index(std::string &requestBracket, int &i, std::vector<std::string> &sample_names) {
+		get_value_in_brackets(requestBracket);
+		Utils::trim(requestBracket);
+		if (is_number(requestBracket)) {
+			i = atoi(requestBracket.c_str());
+			i += 9;
+		}
+		else {
+			ptrdiff_t index = std::distance(sample_names.begin(), std::find(sample_names.begin(), sample_names.end(), requestBracket));
+			if (index >= sample_names.size()) {
+				std::cerr << "ERROR: Sample not in file.";
+				return;
+			}
+			i = index + 9;
+		}
+		return;
+	}
+
+	void parse_INFO (std::string &result, std::string &infoColString, std::string &request) {
+		if (request == "info") {
+			result = infoColString;
+			return;
+		}
+		request = Utils::split(request, '.')[1];
+		std::vector<std::string> infoCol = Utils::split(infoColString, ';');
 		for (auto it = begin (infoCol); it != end (infoCol); ++it) {
 			std::string tmpLine = *it;
 			std::vector<std::string> tmpVar = Utils::split(tmpLine, '=');
-			if (tmpVar.size() == 2) {
-				vcfMap[tmpVar[0]] = tmpVar[1];
+			if (tmpVar[0] == request) {
+				if (tmpVar.size() == 2) {
+					result = tmpVar[1];
+				}
+				else {
+					result = "";
+				}
 			}
-			else {
-				vcfMap[tmpVar[0]] = "";
-			}
-
 		}
-		std::vector<std::string> formatVars = Utils::split(vcfCols[8], ':');
-		std::vector<std::string> formatVals = Utils::split(vcfCols[9], ':');
-		int lenFormat = formatVars.size();
-		for (int i=0; i<lenFormat-1; ++i) {
-			vcfMap[formatVars[i]] = formatVals[i];
-		}
-		std::string lastFormat = formatVals[lenFormat-1];
-		Utils::trim(lastFormat);
-		vcfMap[formatVars[lenFormat-1]] = lastFormat;
 		return;
 	}
+
+	void parse_FORMAT (std::string &result, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names) {
+		if (request == "format" || request == "genome" || request == "format[0]") {
+			result = vcfCols[9];
+			return;
+		}
+		int ncols = vcfCols.size();
+		std::string requestBracket = request;
+		int i = 0;
+		if (ncols == 10) {
+			i = 9;
+		} else {
+			convert_name_index(requestBracket, i, sample_names);
+			if (i == 0) {
+				return;
+			}
+		}
+		const std::regex dot("\\.");
+		std::smatch dotMatch;
+		if (std::regex_search(request, dot) == false) {
+			result = vcfCols[i];
+			return;
+		}	
+		request = Utils::split(request, '.')[1];
+		std::vector<std::string> formatVars = Utils::split(vcfCols[8], ':');
+		std::vector<std::string> formatVals = Utils::split(vcfCols[i], ':');
+		int nvars = formatVars.size();
+		for (int i = 0; i < nvars; ++i) {
+			if (formatVars[i] == request) {
+				result = formatVals[i];
+			}
+		}
+		return;
+	}
+
+
+	void parse_vcf_split(std::string &result, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names) {	
+		if (request == "chrom") {
+			result = vcfCols[0];
+			return;
+		} else if (request == "pos") {
+			result = vcfCols[1];
+			return;
+		} else if (request == "id") {
+			result = vcfCols[2];
+			return;
+		} else if (request == "ref") {
+			result = vcfCols[3];
+			return;
+		} else if (request == "alt") {
+			result = vcfCols[4];
+			return;
+		} else if (request == "qual") {
+			result = vcfCols[5];
+			return;
+		} else if (request == "filter") {
+			result = vcfCols[6];
+			return;
+		} else if (Utils::startsWith(request, "info")) {
+			parse_INFO(result, vcfCols[7], request);
+			return;
+		} else if (Utils::startsWith(request, "format")) {
+			parse_FORMAT(result, vcfCols, request, sample_names);
+			return;
+		}
+	}
+		/* int idx; */
+		/* if (request == 'chrom') { */
+		/* 	idx = 0; // CHROM; */
+		/* } else if (request == 'pos') { */
+		/* 	idx = 1; // POS; */
+		/* } else if (request == 'id') { */
+		/* 	idx = 2; // ID; */
+		/* } else if (request == 'ref') { */
+		/* 	idx = 3; // REF; */
+		/* } else if (request == 'alt') { */
+		/* 	idx = 4; // ALT; */
+		/* } else if (request == 'qual') { */
+		/* 	idx = 5; // QUAL; */
+		/* } else if (request == 'filter') { */
+		/* 	idx = 6; // FILTER; */
+		/* } else if (request.startswith(info)) { */
+		/* 	idx = 7; // INFO; */
+		/* } else if (request.startswith(format)) { */
+		/* 	idx = 8; // FORMAT; */
+		/* } */
+
+		/* if (idx == CHROM) { */
+		/* 	result = vcfCols[CHROM]; */
+		/* 	return; */
+		/* } else if (idx == POS) { */
+		/* 	result = vcfCols[POS]; */
+		/* 	return; */
+		/* } else if (idx == ID) { */
+		/* 	result = vcfCols[ID]; */
+		/* 	return; */
+		/* } else if (idx == REF) { */
+		/* 	result = vcfCols[REF]; */
+		/* 	return; */
+		/* } else if (idx == ALT) { */
+		/* 	result = vcfCols[ALT]; */
+		/* 	return; */
+		/* } else if (idx == QUAL) { */
+		/* 	result = vcfCols[QUAL]; */
+		/* 	return; */
+		/* } else if (idx == FILTER) { */
+		/* 	result = vcfCols[FILTER]; */
+		/* 	return; */
+		/* } else if (idx == INFO) { */
+		/* 	parse_INFO(result, vcfCols[INFO], request); */ 
+		/* 	return; */
+		/* } else if (idx == FORMAT) { */
+		/* 	parse_FORMAT(result, vcfCols, request); */
+		/* 	return; */
+		/* } */
 }

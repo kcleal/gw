@@ -63,11 +63,14 @@ namespace HGW {
         long start, stop;
         bool done;
         bool cacheStdin;
+		bool samples_loaded;
 		std::string variantString;
+		std::vector<std::string> sample_names;
 
         void open(std::string f);
         void next();
         void printTargetRecord(std::string &id_str, std::string &chrom, int pos);
+		void get_samples(); // std::vector<std::string> &write_vector);
 
     };
 

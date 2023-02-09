@@ -351,6 +351,7 @@ namespace HGW {
 
         fp = bcf_open(f.c_str(), "r");
         hdr = bcf_hdr_read(fp);
+		samples_loaded = false;
         v = bcf_init1();
 
         std::string l2p(label_to_parse);
@@ -546,6 +547,16 @@ namespace HGW {
             }
         }
     }
+
+	void VCFfile::get_samples() { //std::vector<std::string> &write_vector) {
+		if (samples_loaded == false) {
+			char ** tmpArr = hdr->samples;
+			std::vector<std::string> tmp_sample_names(tmpArr, tmpArr + bcf_hdr_nsamples(hdr));
+			sample_names = tmp_sample_names;
+			samples_loaded = true;
+		}
+		// write_vector = sample_names;
+	}
 
     void print_BCF_IDX(hts_idx_t *idx_v, bcf_hdr_t *hdr, std::string &chrom, int pos, htsFile *fp, std::string &id_str, std::string &variantString) {
         htsFile *fp2 = fp;
