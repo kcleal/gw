@@ -52,7 +52,7 @@ df2['relative_render_time'] = [k / gw_render_times[s] for k, s in zip(df2['rende
 df2 = df2[['name', 'region_size', 'samtools', 'total', 'relative_time',
            'start', 'render', 'relative_render_time', 'RSS', 'relative_RSS']]
 print(df2.to_markdown())
-with open('benchmark.md', 'w') as b:
+with open('results/benchmark.md', 'w') as b:
     b.write(df2.to_markdown())
 
 fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(7, 6))
