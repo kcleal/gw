@@ -5,10 +5,10 @@ The script has been tested on Ubuntu and Mac.
 
 Requirements
 ------------
-gw
-IGV
-Jbrowse2
-samplot
+gw v0.5.0
+IGV v2.11.9
+Jbrowse2 v2.3.2
+samplot v1.3
 
 Mac requirements
 ----------------
@@ -16,7 +16,11 @@ gnu-time, install using 'brew install gnu-time'
 
 example usage
 -------------
-python3 benchmark.py $HG19 NA12878.bwa.bam ../gw gw
+python3 --help
+python3 benchmark.py $HG19 NA12878.bam ../gw gw
+python3 ../benchmark.py $HG19 HG002.bam igv.sh igv
+python3 ../benchmark.py $HG19 HG002.bam jb2export jbrowse2
+python3 ../benchmark.py $HG19 HG002.bam samplot samplot
 
 Output
 ------
@@ -31,6 +35,7 @@ import pandas as pd
 import resource
 import os
 import platform
+from collections import defaultdict
 
 
 splitf = lambda err: float(err.decode('ascii').split('\n')[0].strip())
@@ -38,7 +43,7 @@ mem_usage = lambda: resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1e6
 
 
 def plot_gw(conn, chrom, start, end, args):
-    com = timef + " --format '%e' {gw} {genome} -b {bam} -r {chrom}:{start}-{end} --outdir images --no-show"\
+    com = timef + " --format '%e' {gw} {genome} -b {bam} -r {chrom}:{start}-{end} --outdir images --no-show -d 1500x1500"\
         .format(gw=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     p = Popen(com, shell=True, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
@@ -48,6 +53,7 @@ def plot_gw(conn, chrom, start, end, args):
 
 
 def plot_igv(conn, chrom, start, end, args):
+    # remove this to test file creation speed - snapshot images/igv.png
     v = """new
 genome {genome}
 load {bam}
@@ -67,7 +73,7 @@ exit""".format(genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, e
 
 
 def plot_jbrowse2(conn, chrom, start, end, args):
-    com = "export NODE_OPTIONS=--max_old_space_size=320000; " + timef + " --format '%e' {jb2export} --fasta {genome} --bam {bam} force:true --loc {chrom}:{start}-{end} --out images/jb2_image.svg --width 1024" \
+    com = "export NODE_OPTIONS=--max_old_space_size=320000; " + timef + " --format '%e' {jb2export} --fasta {genome} --bam {bam} force:true --loc {chrom}:{start}-{end} --out images/jb2_image.svg" \
         .format(jb2export=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     p = Popen(com, shell=True, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
@@ -92,7 +98,7 @@ def samtools_count(conn, chrom, start, end, args):
     out, err = p.communicate()
     reads = int(out.decode('ascii').strip())
     t = splitf(err)
-    conn.send([t, mem_usage()])
+    conn.send([t, reads])
     conn.close()
 
 
@@ -104,6 +110,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument('ref_genome')
+    parser.add_argument('ref_gaps')
     parser.add_argument('bam')
     parser.add_argument('tool_path')
     parser.add_argument('tool_name', choices=['gw', 'igv', 'samplot', 'jbrowse2'])
@@ -118,6 +125,14 @@ if __name__ == "__main__":
 
     if not os.path.exists('images'):
         os.mkdir('images')
+
+    if args.ref_gaps != "NA":
+        gaps_list = pd.read_csv(args.ref_gaps, sep='\t')[['chrom', 'chromStart', 'chromEnd']].to_records(index=False)
+        gaps = defaultdict(list)
+        for chrom, s, e in gaps_list:
+            gaps[chrom].append(pd.Interval(s, e))
+    else:
+        gaps = {}
 
     region_sizes = [2, 2000, 20_000, 200_000, 2_000_000]
     max_size = 20_000_000
@@ -136,20 +151,46 @@ if __name__ == "__main__":
 
     # Select some random regions
     chroms = list(fai.keys())
-
+    print(chroms)
     for size in region_sizes:
         print('Size: ', size)
         half_size = int(size * 0.5)
         random.shuffle(chroms)
-        for c in range(10):
+        N = 0
+        c = 0
+        while N < 10:
             chrom = chroms[c]
+            good = False
+            for j in range(10):  # 10 tried to find an interval without overlapping a gap
+                pos = random.randint(half_size, fai[chrom] - half_size)
+                start = pos - half_size
+                end = pos + half_size
+                itv = pd.Interval(start, end)
+                if chrom in gaps and any(itv.overlaps(itv2) for itv2 in gaps[chrom]):
+                    continue
+                # sanity check for any reads. also helps trigger os hdd buffering making benchmarking more stable
+                parent_conn, child_conn = Pipe()
+                p = Process(target=samtools_count, args=(child_conn, chrom, start, end, args))
+                p.start()
+                st_t, reads = parent_conn.recv()
+                p.join()
+                if reads > 0:
+                    good = True
+                    break
+            if not good:
+                c += 1
+                continue
+            N += 1
+            c += 1
+            if N >= len(chroms):
+                raise ValueError('Error: ran out of chroms to plot')
+
             pos = random.randint(half_size, fai[chrom] - half_size)
             start = pos - half_size
             end = pos + half_size
             print(chrom, start, end)
 
-            # run samtools once beforehand to prime disk buffering, otherwise the second run of samtools
-            # will always be quicker on a mechanical drive
+            # run samtools again to prime disk buffering
             _, child_conn = Pipe()
             p = Process(target=samtools_count, args=(child_conn, chrom, start, end, args))
             p.start()
@@ -169,9 +210,10 @@ if __name__ == "__main__":
             st_t, reads = parent_conn.recv()
             p.join()
 
-            results.append({'name': name, 'time (s)': avg_time, 'region size (bp)': end - start, 'RSS': maxRSS,
+            results.append({'name': name, 'region': f'{chrom}:{start}-{end}', 'time (s)': avg_time,
+                            'region size (bp)': end - start, 'RSS': maxRSS,
                             'samtools_count_t3 (s)': st_t, 'reads': reads})
 
     df = pd.DataFrame.from_records(results)
-    df = df[['name', 'reads', 'region size (bp)', 'samtools_count_t3 (s)', 'time (s)', 'RSS']]
+    df = df[['name', 'region', 'reads', 'region size (bp)', 'samtools_count_t3 (s)', 'time (s)', 'RSS']]
     df.to_csv(f'{name}.benchmark.csv', index=False)
