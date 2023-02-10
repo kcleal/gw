@@ -363,6 +363,7 @@ namespace Themes {
         soft_clip_threshold = std::stoi(myIni["view_thresholds"]["soft_clip"]);
         small_indel_threshold = std::stoi(myIni["view_thresholds"]["small_indel"]);
         snp_threshold = std::stoi(myIni["view_thresholds"]["snp"]);
+        edge_highlights = std::stoi(myIni["view_thresholds"]["edge_highlights"]);
 
         scroll_right = key_table[myIni["navigation"]["scroll_right"]];
         scroll_left = key_table[myIni["navigation"]["scroll_left"]];
