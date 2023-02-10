@@ -120,6 +120,14 @@ namespace Manager {
                         Term::editInputText(inputText, "<", charIndex);
                     } else if (key == GLFW_KEY_PERIOD && mods == GLFW_MOD_SHIFT) {
                         Term::editInputText(inputText, ">", charIndex);
+					} else if (key == GLFW_KEY_4 && mods == GLFW_MOD_SHIFT) {
+                        Term::editInputText(inputText, "$", charIndex);
+					} else if (key == GLFW_KEY_LEFT_BRACKET && mods == GLFW_MOD_SHIFT) {
+                        Term::editInputText(inputText, "{", charIndex);
+					} else if (key == GLFW_KEY_RIGHT_BRACKET && mods == GLFW_MOD_SHIFT) {
+                        Term::editInputText(inputText, "}", charIndex);
+					} else if (key == GLFW_KEY_MINUS && mods == GLFW_MOD_SHIFT) {
+                        Term::editInputText(inputText, "_", charIndex);
                     } else {
                         if (mods == GLFW_MOD_SHIFT) { // uppercase
                             std::string str = letter;
@@ -525,18 +533,31 @@ namespace Manager {
             inputText = "";
             return true;    
 		} else if (inputText == ":s" || Utils::startsWith(inputText, ":snapshot")) { // work in progress
+			std::vector<std::string> split = Utils::split(inputText, delim);
 			std::string fname = "";
-			for (auto it = begin (bam_paths); it != end (bam_paths); ++it) {
-				std::string tmp_path = *it;
-				std::string tmp_base_filename = tmp_path.substr(tmp_path.find_last_of("/\\") + 1);
-				std::string::size_type const tmp_p(tmp_base_filename.find_last_of('.'));
-				std::string tmp_file_without_extension = tmp_base_filename.substr(0, tmp_p);
-				fname += tmp_file_without_extension + "_";
+			if (split.size() == 1) {
+				Parse::parse_sample_variable(fname, bam_paths);
+				fname += regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".png";
 			}
-			fname += regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".png";
+			else {
+				std::string nameFormat = split[1];
+            	Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
+				if (useVcf) {
+					vcf.get_samples();
+					std::vector<std::string> sample_names_copy = vcf.sample_names;
+					vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+					std::string variantStringCopy = vcf.variantString;
+					std::vector<std::string> vcfCols = Utils::split(variantStringCopy, '\t');
+					Parse::parse_output_name_format(nameFormat, vcfCols, sample_names_copy, bam_paths, lbl.current());
+					fname += nameFormat;
+					Utils::trim(fname);
+				}
+			}
+
 			fs::path outdir = opts.outdir;
 			fs::path out_path = outdir / fname;
-			std::cout << out_path;
+			std::cout << std::endl << "Saved to:\t" << out_path << std::endl;
+			
 			if (!imageCacheQueue.empty()) {
 				Manager::imagePngToFile(imageCacheQueue.back().second, out_path);
 			}

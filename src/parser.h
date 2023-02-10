@@ -114,6 +114,8 @@ namespace Parse {
 	void parse_INFO(std::string &line, std::string &infoCol, std::string &request);
 	void parse_FORMAT(std::string &line, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names);
 	void parse_vcf_split(std::string &line, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names);
+	void parse_output_name_format(std::string &nameFormat, std::vector<std::string> &vcfCols, std::vector<std::string> &sample_names, std::vector<std::string> &bam_paths, std::string &label);
+	void parse_sample_variable(std::string &fname, std::vector<std::string> &bam_paths);
 
 }
 

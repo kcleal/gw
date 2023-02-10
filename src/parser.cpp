@@ -666,13 +666,19 @@ namespace Parse {
     }
 
 	void get_value_in_brackets(std::string &requestBracket) {
-		const std::regex bracketRegex("\\[(.*?)\\]");
-		std::smatch bracketMatch;
-		if (std::regex_search(requestBracket, bracketMatch, bracketRegex)) {
-			requestBracket = bracketMatch[1].str();
+		const std::regex singleBracket("\\[");
+		if (std::regex_search(requestBracket, singleBracket)) {
+			const std::regex bracketRegex("\\[(.*?)\\]");
+			std::smatch bracketMatch;
+			if (std::regex_search(requestBracket, bracketMatch, bracketRegex)) {
+				requestBracket = bracketMatch[1].str();
+			}
+			else {
+				std::cerr << "ERROR: cannot parse sample inside [] from input string.";
+			}
 		}
 		else {
-			std::cerr << "ERROR: cannot parse sample inside [] from input string.";
+			requestBracket = "0";
 		}
 		return;
 	}
@@ -688,7 +694,7 @@ namespace Parse {
 		get_value_in_brackets(requestBracket);
 		Utils::trim(requestBracket);
 		if (is_number(requestBracket)) {
-			i = atoi(requestBracket.c_str());
+			i = std::stoi(requestBracket); //.c_str());
 			i += 9;
 		}
 		else {
@@ -788,6 +794,64 @@ namespace Parse {
 			parse_FORMAT(result, vcfCols, request, sample_names);
 			return;
 		}
+	}
+
+	void create_expression(std::string &rexpr) {
+		rexpr.insert(0, "\\");
+		rexpr.insert(2, "\\");
+		std::regex form("format");
+		if (std::regex_search(rexpr, form)) {
+			int open = rexpr.find("\[");
+			rexpr.insert(open, "\\");
+			int close = rexpr.find("\]");
+			rexpr.insert(close, "\\");
+		}
+		int rexprs = rexpr.size();
+		rexpr.insert(rexprs-1, "\\");
+	}
+
+	void parse_sample_variable(std::string &fname, std::vector<std::string> &bam_paths) {
+		for (auto it = begin (bam_paths); it != end (bam_paths); ++it) {
+			std::string tmp_path = *it;
+			std::string tmp_base_filename = tmp_path.substr(tmp_path.find_last_of("/\\") + 1);
+			std::string::size_type const tmp_p(tmp_base_filename.find_last_of('.'));
+			std::string tmp_file_without_extension = tmp_base_filename.substr(0, tmp_p);
+			if (it != bam_paths.end()-1) {
+				fname += tmp_file_without_extension + "_";
+			} else {
+				fname += tmp_file_without_extension;
+			}
+		}
+	}
+
+	void parse_output_name_format(std::string &nameFormat, std::vector<std::string> &vcfCols, std::vector<std::string> &sample_names, std::vector<std::string> &bam_paths, std::string &label) {
+		std::regex bash("\\$\\{(.*?)\\}");
+		std::smatch matches;
+		std::string test = nameFormat;
+		auto b = std::sregex_iterator(test.begin(), test.end(), bash);
+		auto e = std::sregex_iterator();
+
+		std::string value;
+		std::string rexprString;
+		for (std::sregex_iterator i = b; i != e; ++i) {
+			value = "";
+			matches = *i;
+			if (matches.size() == 2) {
+				std::string tmpVal = matches[1];
+				if (tmpVal != "sample" && tmpVal != "label") {
+					parse_vcf_split(value, vcfCols, tmpVal, sample_names);
+				} else if (tmpVal == "sample") {
+					parse_sample_variable(value, bam_paths);
+				} else if (tmpVal == "label") {
+					value = label;
+				}
+				rexprString = matches[0];
+				create_expression(rexprString);
+				std::regex rexpr(rexprString);
+				nameFormat = std::regex_replace(nameFormat, rexpr, value);
+			}
+		}
+		return;
 	}
 		/* int idx; */
 		/* if (request == 'chrom') { */
