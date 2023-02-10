@@ -798,7 +798,7 @@ namespace Parse {
 
 	void create_expression(std::string &rexpr) {
 		rexpr.insert(0, "\\");
-		rexpr.insert(2, "\\");
+		// rexpr.insert(2, "\\");
 		std::regex form("format");
 		if (std::regex_search(rexpr, form)) {
 			int open = rexpr.find("\[");
@@ -825,7 +825,7 @@ namespace Parse {
 	}
 
 	void parse_output_name_format(std::string &nameFormat, std::vector<std::string> &vcfCols, std::vector<std::string> &sample_names, std::vector<std::string> &bam_paths, std::string &label) {
-		std::regex bash("\\$\\{(.*?)\\}");
+		std::regex bash("\\{(.*?)\\}");
 		std::smatch matches;
 		std::string test = nameFormat;
 		auto b = std::sregex_iterator(test.begin(), test.end(), bash);

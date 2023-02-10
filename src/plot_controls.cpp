@@ -120,8 +120,6 @@ namespace Manager {
                         Term::editInputText(inputText, "<", charIndex);
                     } else if (key == GLFW_KEY_PERIOD && mods == GLFW_MOD_SHIFT) {
                         Term::editInputText(inputText, ">", charIndex);
-					} else if (key == GLFW_KEY_4 && mods == GLFW_MOD_SHIFT) {
-                        Term::editInputText(inputText, "$", charIndex);
 					} else if (key == GLFW_KEY_LEFT_BRACKET && mods == GLFW_MOD_SHIFT) {
                         Term::editInputText(inputText, "{", charIndex);
 					} else if (key == GLFW_KEY_RIGHT_BRACKET && mods == GLFW_MOD_SHIFT) {
