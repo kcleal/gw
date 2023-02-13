@@ -1,9 +1,10 @@
 GW
 ==
 
-[![gw](https://github.com/kcleal/gw/actions/workflows/main.yml/badge.svg)](https://github.com/kcleal/gw/actions/workflows/main.yml)
+|Build badge| |Generic badge|
 
-|Generic badge|
+.. |Build badge| image:: https://github.com/kcleal/gw/actions/workflows/main.yml/badge.svg
+   :target: https://github.com/kcleal/gw/actions/workflows/main.yml
 
 .. |Generic badge| image:: https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg
    :target: http://bioconda.github.io/recipes/gw/README.html
