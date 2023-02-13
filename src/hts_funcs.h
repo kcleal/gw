@@ -75,7 +75,8 @@ namespace HGW {
     };
 
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
-                                 hts_idx_t *index, Themes::IniOptions &opts, Utils::Region *region, bool coverage,
+                                 hts_idx_t *index, int threads, Utils::Region *region,
+                                 bool coverage, bool low_mem,
                                  std::vector<Parse::Parser> &filters);
 
     void trimToRegion(Segs::ReadCollection &col, bool coverage);

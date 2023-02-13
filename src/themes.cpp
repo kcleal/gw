@@ -259,10 +259,13 @@ namespace Themes {
         snp_threshold = 1000000;
         edge_highlights = 100000;
 
+        max_coverage = 10000000;
+        max_tlen = 2000;
+
         no_show = false;
-        coverage = true;
         log2_cov = false;
         tlen_yscale = false;
+        low_mem = false;
 
         scroll_speed = 0.15;
         tab_track_height = 0.05;

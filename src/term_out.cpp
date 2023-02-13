@@ -32,6 +32,7 @@ namespace Term {
         std::cout << termcolor::green << "find, f          qname?          " << termcolor::reset << "To find other alignments from selected read use ':find'\n                                 Or use ':find [QNAME]' to find target read'\n";
         //std::cout << termcolor::green << "genome, g        name?           " << termcolor::reset << "Load genome listed in .gw.ini file. Use ':g' for list\n";
         std::cout << termcolor::green << "goto             loci index?     " << termcolor::reset << "e.g. ':goto chr1:1-20000'. Use index if multiple \n                                 regions are open e.g. ':goto 'chr1 20000' 1'\n";
+        std::cout << termcolor::green << "grid             width x height  " << termcolor::reset << "Set the grid size for --variant images ':grid 8x8' \n";
         std::cout << termcolor::green << "line                             " << termcolor::reset << "Toggle mouse position vertical line\n";
         std::cout << termcolor::green << "link             [none/sv/all]   " << termcolor::reset << "Switch read-linking ':link all'\n";
         std::cout << termcolor::green << "log2-cov                         " << termcolor::reset << "Toggle scale coverage by log2\n";
@@ -44,6 +45,7 @@ namespace Term {
 
         std::cout << termcolor::green << "tags                             " << termcolor::reset << "Print selected sam tags\n";
         std::cout << termcolor::green << "theme            [igv/dark]      " << termcolor::reset << "Switch color theme e.g. ':theme dark'\n";
+        std::cout << termcolor::green << "tlen-y                           " << termcolor::reset << "Toggle --tlen-y option\n";
         std::cout << termcolor::green << "var, v                           " << termcolor::reset << "Print line for variant under cursor\n";
         std::cout << termcolor::green << "ylim             number          " << termcolor::reset << "The maximum y-limit for the image e.g. ':ylim 100'\n";
 
@@ -100,6 +102,8 @@ namespace Term {
             std::cout << "    Find a read with name.\n        All alignments with the same name will be highlighted with a black border\n    Examples:\n        'find D00360:18:H8VC6ADXX:1:1107:5538:24033'\n\n";
         } else if (s == "goto") {
             std::cout << "    Navigate to a locus.\n        This moves the left-most view. Or, you can use indexing to specify a region\n    Examples:\n        'goto chr1'   # this will move the left-most view\n        'goto chr1:20000 1'   # this will move the view at column index 1\n\n";
+        } else if (s == "grid") {
+            std::cout << "    Set the grid size.\n        Set the number of images displayed in a grid when using --variant option\n    Examples:\n        'grid 8x8'   # this will display 64 image tiles\n\n";
         } else if (s == "line") {
             std::cout << "    Toggle line.\n        A vertical line will turn on/off.\n\n";
         } else if (s == "link") {
@@ -120,6 +124,8 @@ namespace Term {
             std::cout << "    Print selected sam tags.\n        This will print all the tags of the selected read\n\n";
         } else if (s == "theme") {
             std::cout << "    Switch the theme.\n        Currently 'igv' or 'dark' themes are supported.\n\n";
+        } else if (s == "tlen-y") {
+            std::cout << "    Toggle --tlen-y option.\n        The --tlen-y option scales reads by template length. Applies to paired-end reads only.\n\n";
         } else if (s == "var") {
             std::cout << "    Print line from --variants file.\n        Prints a line from the input file of the variant under mouse.\n\n";
         } else if (s == "ylim") {
@@ -312,7 +318,7 @@ namespace Term {
         }
     }
 
-    void read2sam(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam) {
+    void read2sam(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, bool low_mem) {
         uint32_t l, cigar_l, op, k;
         uint32_t *cigar_p;
         cigar_l = r->delegate->core.n_cigar;
@@ -360,16 +366,24 @@ namespace Term {
             for (int n = 0; n < r->delegate->core.l_qseq; ++n) {
                 oss << basemap[bam_seqi(ptr_seq, n)];
             }
-            oss << d;
-            uint8_t *ptr_qual = bam_get_qual(r->delegate);
-            for (int n = 0; n < r->delegate->core.l_qseq; ++n) {
-                uint8_t qual = ptr_qual[n];
-                oss << (char)(qual + 33);
+
+            if (!low_mem) {
+                oss << d;
+                uint8_t *ptr_qual = bam_get_qual(r->delegate);
+                for (int n = 0; n < r->delegate->core.l_qseq; ++n) {
+                    uint8_t qual = ptr_qual[n];
+                    oss << (char)(qual + 33);
+                }
+                oss << d;
             }
-            oss << d;
         } else {
             oss << "*" << d << "*" << d;
         }
+        if (low_mem) {
+            sam = oss.str();
+            return;
+        }
+
         uint8_t *s = bam_get_aux(r->delegate);
         uint8_t *end = r->delegate->data + r->delegate->l_data;
         kstring_t str = { 0, 0, nullptr };
@@ -389,7 +403,7 @@ namespace Term {
         ks_free(&str);
     }
 
-    void printRead(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, const char *refSeq, int refStart, int refEnd) {
+    void printRead(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, const char *refSeq, int refStart, int refEnd, bool low_mem) {
         const char *rname = sam_hdr_tid2name(hdr, r->delegate->core.tid);
         const char *rnext = sam_hdr_tid2name(hdr, r->delegate->core.mtid);
         std::cout << std::endl << std::endl;
@@ -403,7 +417,7 @@ namespace Term {
         std::cout << termcolor::bold << "cigar    " << termcolor::reset; printCigar(r); std::cout << std::endl;
         std::cout << termcolor::bold << "seq      " << termcolor::reset; printSeq(r, refSeq, refStart, refEnd); std::cout << std::endl << std::endl;
 
-        read2sam(r, hdr, sam);
+        read2sam(r, hdr, sam, low_mem);
     }
 
     void printSelectedSam(std::string &sam) {
@@ -663,7 +677,7 @@ namespace Term {
                 if (startIdx > cl.region.end - cl.region.start) {
                     return;  // something went wrong
                 }
-                if (cl.region.refSeq == nullptr) {
+                if (cl.region.refSeq == nullptr || startIdx >= strlen(cl.region.refSeq)) {
                     return;
                 }
                 const char * s = &cl.region.refSeq[startIdx];

@@ -196,14 +196,16 @@ namespace Utils {
     Dims parseDimensions(std::string &s) {
         Dims d = {0, 0};
         int start = 0;
-        int end = s.find('x');
+        int end = (int)s.find('x');
+        if (end == (int)s.size()) {
+            throw std::runtime_error("Error: 'x' not in dimensions");
+        }
         d.x = std::stoi(s.substr(start, end - start));
         start = end + 1;
-        end = s.find('x', start);
+        end = (int)s.find('x', start);
         d.y = std::stoi(s.substr(start, end - start));
         if (d.x == 0) {
-            std::cerr << "Error: dimension x was 0" << std::endl;
-            std::abort();
+            throw std::runtime_error("Error: dimension x was 0");
         }
         return d;
     }

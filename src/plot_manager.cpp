@@ -470,10 +470,10 @@ namespace Manager {
                     collections[idx].bamIdx = i;
                     collections[idx].regionIdx = j;
                     collections[idx].region = regions[j];
-                    if (opts.coverage) {
+                    if (opts.max_coverage) {
                         collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
                     }
-                    HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index,opts, reg, opts.coverage, filters);
+                    HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage, opts.low_mem, filters);
                     int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts, reg, false);
                     if (maxY > samMaxY) {
                         samMaxY = maxY;
@@ -516,7 +516,7 @@ namespace Manager {
             covY = 0; totalCovY = 0; totalTabixY = 0; tabixY = 0;
         }
         auto nbams = (float)bams.size();
-        if (opts.coverage && nbams > 0) {
+        if (opts.max_coverage && nbams > 0) {
             totalCovY = fbh * (float)0.1;
             covY = totalCovY / nbams;
         } else {
@@ -536,6 +536,7 @@ namespace Manager {
         if (nbams > 0) {
             trackY = (fbh - totalCovY - totalTabixY - gap2 - refSpace - refSpace) / nbams;
             yScaling = ((fbh - totalCovY - totalTabixY - gap2 - refSpace - refSpace) / (float)samMaxY) / nbams;
+            yScaling = (yScaling > 1) ? (float)(int)yScaling : yScaling;
         } else {
             trackY = 0;
             yScaling = 0;
@@ -561,12 +562,12 @@ namespace Manager {
         } else {
             processBam();
             setScaling();
-            if (opts.coverage) {
+            if (opts.max_coverage) {
                 Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
             }
-            Drawing::drawBams(opts, collections, canvas, yScaling, fonts, opts.link_op, refSpace);
+            Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
             Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
-            Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size(), gap);
+            Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY);
             Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
             Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
         }
@@ -767,12 +768,12 @@ namespace Manager {
         setGlfwFrameBufferSize();
         processBam();
         setScaling();
-        if (opts.coverage) {
+        if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
-        Drawing::drawBams(opts, collections, canvas, yScaling, fonts, opts.link_op, refSpace);
+        Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size(), gap);
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
     }
 
@@ -781,12 +782,12 @@ namespace Manager {
         processBam();
         setScaling();
         canvas->drawPaint(opts.theme.bgPaint);
-        if (opts.coverage) {
+        if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
-        Drawing::drawBams(opts, collections, canvas, yScaling, fonts, opts.link_op, refSpace);
+        Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), totalTabixY, tabixY, tracks.size(), gap);
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
     }
 
