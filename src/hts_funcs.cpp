@@ -47,7 +47,8 @@ namespace HGW {
     }
 
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
-                                 hts_idx_t *index, Themes::IniOptions &opts, Utils::Region *region, bool coverage,
+                                 hts_idx_t *index, int threads, Utils::Region *region,
+                                 bool coverage, bool low_mem,
                                  std::vector<Parse::Parser> &filters) {
         bam1_t *src;
         hts_itr_t *iter_q;
@@ -66,13 +67,12 @@ namespace HGW {
             if (src->core.flag & 4 || src->core.n_cigar == 0) {
                 continue;
             }
-
             readQueue.push_back(make_align(bam_init1()));
-//            low mem mode:
-//            size_t new_len = (src->core.n_cigar << 2 ) + src->core.l_qname + ((src->core.l_qseq + 1) >> 1);
-//            src->data = (uint8_t*)realloc(src->data, new_len);
-//            src->l_data = (unsigned long)new_len;
-
+            if (low_mem) {
+                size_t new_len = (src->core.n_cigar << 2 ) + src->core.l_qname + ((src->core.l_qseq + 1) >> 1);
+                src->data = (uint8_t*)realloc(src->data, new_len);
+                src->l_data = (int)new_len;
+            }
         }
         src = readQueue.back().delegate;
         if (src->core.flag & 4 || src->core.n_cigar == 0) {
@@ -84,7 +84,7 @@ namespace HGW {
             applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
         }
 
-        Segs::init_parallel(readQueue, opts.threads);
+        Segs::init_parallel(readQueue, threads);
         if (coverage) {
             int l_arr = (int)col.covArr.size() - 1;
             for (auto &i : readQueue) {
@@ -141,7 +141,7 @@ namespace HGW {
         hts_itr_t *iter_q;
         std::vector<Segs::Align>& readQueue = col.readQueue;
         Utils::Region *region = &col.region;
-
+        bool tlen_y = opts.tlen_yscale;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         int lastPos;
         if (!readQueue.empty()) {
@@ -163,7 +163,7 @@ namespace HGW {
             while (!readQueue.empty()) {  // remove items from RHS of queue, reduce levelsEnd
                 Segs::Align &item = readQueue.back();
                 if (item.cov_start > region->end) {
-                    if (item.y != -1) {
+                    if (item.y != -1 && !tlen_y) {
                         col.levelsEnd[item.y] = item.cov_start - 1;
                         if (col.levelsStart[item.y] == col.levelsEnd[item.y]) {
                             col.levelsStart[item.y] = 1215752191;
@@ -206,6 +206,11 @@ namespace HGW {
                     break;
                 }
                 newReads.push_back(make_align(bam_init1()));
+                if (opts.low_mem) {
+                    size_t new_len = (src->core.n_cigar << 2 ) + src->core.l_qname + ((src->core.l_qseq + 1) >> 1);
+                    src->data = (uint8_t*)realloc(src->data, new_len);
+                    src->l_data = (int)new_len;
+                }
             }
             src = newReads.back().delegate;
             if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos >= lastPos) {
@@ -217,7 +222,7 @@ namespace HGW {
             int idx = 0;
             for (auto &item : readQueue) {  // drop out of scope reads
                 if (item.cov_end < region->start - 1000) {
-                    if (item.y != -1) {
+                    if (item.y != -1 && !tlen_y) {
                         col.levelsStart[item.y] = item.cov_end + 1;
                         if (col.levelsStart[item.y] == col.levelsEnd[item.y]) {
                             col.levelsStart[item.y] = 1215752191;
@@ -255,6 +260,11 @@ namespace HGW {
                     break;
                 }
                 newReads.push_back(make_align(bam_init1()));
+                if (opts.low_mem) {
+                    size_t new_len = (src->core.n_cigar << 2 ) + src->core.l_qname + ((src->core.l_qseq + 1) >> 1);
+                    src->data = (uint8_t*)realloc(src->data, new_len);
+                    src->l_data = (int)new_len;
+                }
             }
             src = newReads.back().delegate;
             if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos <= lastPos || src->core.pos > region->end) {

@@ -346,8 +346,23 @@ namespace Manager {
             if (clear_filters) {
                 filters.clear();
             }
-        } else if (inputText == ":cov") {
-            opts.coverage = (opts.coverage) ? false : true;
+        } else if (Utils::startsWith(inputText, ":cov")) {
+            std::vector<std::string> split = Utils::split(inputText, delim);
+            if (split.size() > 2) {
+                std::cerr << termcolor::red << "Error:" << termcolor::reset << " cov must be either 'cov' to toggle coverage or 'cov NUMBER' to set max coverage\n";
+                inputText = "";
+                return true;
+            }
+            else if (split.size() == 1) {
+                opts.max_coverage = (opts.max_coverage) ? 0 : 10000000;
+            } else {
+                try {
+                    opts.max_coverage = std::stoi(split.back());
+                } catch (...) {
+                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " 'cov NUMBER' not understood\n";
+                    return true;
+                }
+            }
             redraw = true;
             processed = true;
             inputText = "";
@@ -399,7 +414,6 @@ namespace Manager {
                     return true;
                 }
             }
-
         } else if (Utils::startsWith(inputText, ":theme")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             if (split.size() != 2) {
@@ -414,6 +428,12 @@ namespace Manager {
             } else {
                 valid = false;
             }
+        } else if (inputText == ":tlen-y") {
+            opts.tlen_yscale = !(opts.tlen_yscale);
+            if (!opts.tlen_yscale) {
+                samMaxY = opts.ylim;
+            }
+            valid = true;
         } else if (Utils::startsWith(inputText, ":goto")) {
             std::vector<std::string> split = Utils::split(inputText, delim_q);
             if (split.size() == 1) {
@@ -452,6 +472,10 @@ namespace Manager {
                     }
                 }
             }
+        } else if (Utils::startsWith(inputText, ":grid")) {
+            std::vector<std::string> split = Utils::split(inputText, delim_q);
+            opts.number = Utils::parseDimensions(split[1]);
+
         } else if (Utils::startsWith(inputText, ":add"))  {
             std::vector<std::string> split = Utils::split(inputText, delim_q);
             if (split.size() == 1) {
@@ -596,7 +620,7 @@ namespace Manager {
                                 cl.region = N;
                                 if (!bams.empty()) {
                                     HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
-                                                                indexes[cl.bamIdx], opts, opts.coverage, false,
+                                                                indexes[cl.bamIdx], opts, (bool)opts.max_coverage, false,
                                                                 &samMaxY, filters);
                                 }
                             }
@@ -627,7 +651,7 @@ namespace Manager {
                                 cl.region = regions[regionSelection];
                                 if (!bams.empty()) {
                                     HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
-                                                                indexes[cl.bamIdx], opts, opts.coverage, true,
+                                                                indexes[cl.bamIdx], opts, (bool)opts.max_coverage, true,
                                                                 &samMaxY, filters);
                                 }
                             }
@@ -660,7 +684,7 @@ namespace Manager {
                                                                 opts, false, true,  &samMaxY, filters);
                                     HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                                                 opts, false, false, &samMaxY, filters);
-                                    if (opts.coverage) {  // re process coverage for all reads
+                                    if (opts.max_coverage) {  // re process coverage for all reads
                                         cl.covArr.resize(cl.region.end - cl.region.start + 1);
                                         std::fill(cl.covArr.begin(), cl.covArr.end(), 0);
                                         int l_arr = (int) cl.covArr.size() - 1;
@@ -696,7 +720,7 @@ namespace Manager {
                                 if (cl.regionIdx == regionSelection) {
                                     cl.region = regions[regionSelection];
                                     if (!bams.empty()) {
-                                        HGW::trimToRegion(cl, opts.coverage);
+                                        HGW::trimToRegion(cl, opts.max_coverage);
                                     }
                                 }
                             }
@@ -718,23 +742,26 @@ namespace Manager {
                             cl.levelsEnd.clear();
                             cl.linked.clear();
                             for (auto &itm: cl.readQueue) { itm.y = -1; }
-                            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, &cl.region,  0);
-                            samMaxY = (maxY > samMaxY) ? maxY : samMaxY;
+                            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, &cl.region,  false);
+                            samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
                         }
                     }
-
                     redraw = true;
                     processed = true;
                 } else if (key == opts.scroll_up) {
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
-                            cl.vScroll = (cl.vScroll - 2 <= 0) ? 0 : cl.vScroll - 2;
+                            if (opts.tlen_yscale) {
+                                cl.vScroll -= 2;
+                            } else {
+                                cl.vScroll = (cl.vScroll - 2 <= 0) ? 0 : cl.vScroll - 2;
+                            }
                             cl.levelsStart.clear();
                             cl.levelsEnd.clear();
                             cl.linked.clear();
                             for (auto &itm: cl.readQueue) { itm.y = -1; }
-                            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, &cl.region, 0);
-                            samMaxY = (maxY > samMaxY) ? maxY : samMaxY;
+                            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, &cl.region, false);
+                            samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
                         }
                     }
                     redraw = true;
@@ -776,18 +803,8 @@ namespace Manager {
             std::string lk = (opts.link_op > 0) ? ((opts.link_op == 1) ? "sv" : "all") : "none";
             std::cout << "\nLinking selection " << lk << std::endl;
             imageCache.clear();
-            processed = true;
+            processed = false;
             redraw = true;
-            for (auto &cl : collections) {
-                std::fill(cl.levelsStart.begin(), cl.levelsStart.end(), 1215752191);
-                std::fill(cl.levelsEnd.begin(), cl.levelsEnd.end(), 0);
-                cl.linked.clear();
-
-                Segs::resetCovStartEnd(cl);
-                for (auto &itm: cl.readQueue) { itm.y = -1; }
-                int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, &cl.region,  false);
-                samMaxY = (maxY > samMaxY) ? maxY : samMaxY;
-            }
         }
     }
 
@@ -974,14 +991,6 @@ namespace Manager {
             }
             if (std::abs(xDrag) < 5 && action == GLFW_RELEASE && !bams.empty()) {
                 int pos = (int) (((xW - (float) cl.xOffset) / cl.xScaling) + (float) cl.region.start);
-                int level = (int) ((yW - (float) cl.yOffset) / (trackY / (float)(cl.levelsStart.size() - cl.vScroll )));
-
-                if (level < 0) {  // print coverage info
-                    Term::clearLine();
-					Term::printCoverage(pos, cl);
-					std::cout << std::endl;
-					return;
-				}
 
                 if (ctrlPress) {  // zoom in to mouse position
                     int strt = pos - 2500;
@@ -1000,26 +1009,47 @@ namespace Manager {
                     redraw = true;
                     return;
                 }
-
-				if (cl.vScroll < 0) {
-                    level += cl.vScroll + 1;
+                // highlight read below
+                int level = 0;
+                int slop = 0;
+                if (!opts.tlen_yscale) {
+                    level = (int) ((yW - (float) cl.yOffset) / (trackY / (float)(cl.levelsStart.size() - cl.vScroll )));
+                    if (level < 0) {  // print coverage info
+                        Term::clearLine();
+                        Term::printCoverage(pos, cl);
+                        std::cout << std::endl;
+                        return;
+                    }
+                    if (cl.vScroll < 0) {
+                        level += cl.vScroll + 1;
+                    }
+                } else {
+                    int max_bound = (opts.max_tlen) + (cl.vScroll * 100);
+                    level = (int) ((yW - (float) cl.yOffset) / (trackY / (float)(max_bound)));
+                    slop = (int)((trackY / (float)opts.ylim) * 2);
+                    slop = (slop <= 0) ? 5 : slop;
                 }
-
-                // highlight read
                 std::vector<Segs::Align>::iterator bnd;
                 bnd = std::lower_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
                                        [&](const Segs::Align &lhs, const int pos) { return (int)lhs.pos <= pos; });
-                while (true) {
-                    if (bnd->y == level && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
-                        bnd->edge_type = 4;
-                        target_qname = bam_get_qname(bnd->delegate);
-                        Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region.refSeq, cl.region.start, cl.region.end);
-                        redraw = true;
-                        processed = true;
-                        break;
-                    }
-                    if (bnd == cl.readQueue.begin()) {
-                        break;
+                while (bnd != cl.readQueue.begin()) {
+                    if (!opts.tlen_yscale) {
+                        if (bnd->y == level && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
+                            bnd->edge_type = 4;
+                            target_qname = bam_get_qname(bnd->delegate);
+                            Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region.refSeq, cl.region.start, cl.region.end, opts.low_mem);
+                            redraw = true;
+                            processed = true;
+                            break;
+                        }
+                    } else {
+                        if ((bnd->y >= level - slop && bnd->y < level) && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
+                            bnd->edge_type = 4;
+                            target_qname = bam_get_qname(bnd->delegate);
+                            Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region.refSeq, cl.region.start, cl.region.end, opts.low_mem);
+                            redraw = true;
+                            processed = true;
+                        }
                     }
                     --bnd;
                 }
@@ -1064,7 +1094,7 @@ namespace Manager {
                         for (auto &col : collections) {
                             if (col.regionIdx == regionSelection) {
                                 col.region = regions[regionSelection];
-                                HGW::appendReadsAndCoverage(col,  bams[col.bamIdx], headers[col.bamIdx], indexes[col.bamIdx], opts, opts.coverage, lt_last, &samMaxY, filters);
+                                HGW::appendReadsAndCoverage(col,  bams[col.bamIdx], headers[col.bamIdx], indexes[col.bamIdx], opts, (bool)opts.max_coverage, lt_last, &samMaxY, filters);
                             }
                         }
                         redraw = true;
@@ -1230,7 +1260,7 @@ namespace Manager {
                             col.region = regions[regionSelection];
                             if (!bams.empty()) {
                                 HGW::appendReadsAndCoverage(col, bams[col.bamIdx], headers[col.bamIdx],
-                                                            indexes[col.bamIdx], opts, opts.coverage, !lt_last,
+                                                            indexes[col.bamIdx], opts, (bool)opts.max_coverage, !lt_last,
                                                              &samMaxY, filters);
                             }
                         }
@@ -1321,13 +1351,13 @@ namespace Manager {
 
     void GwPlot::scrollGesture(GLFWwindow* wind, double xoffset, double yoffset) {
         if (mode == Manager::SINGLE) {
-            if (std::fabs(yoffset) > std::fabs(xoffset) && 0.5 < std::fabs(yoffset)) {
+            if (std::fabs(yoffset) > std::fabs(xoffset) && 0.1 < std::fabs(yoffset)) {
                 if (yoffset < 0) {
                     keyPress(wind, opts.zoom_out, 0, GLFW_PRESS, 0);
                 } else {
                     keyPress(wind, opts.zoom_in, 0, GLFW_PRESS, 0);
                 }
-            } else if (std::fabs(xoffset) > std::fabs(yoffset) && 0.5 < std::fabs(xoffset)) {
+            } else if (std::fabs(xoffset) > std::fabs(yoffset) && 0.1 < std::fabs(xoffset)) {
                 if (xoffset < 0) {
                     keyPress(wind, opts.scroll_right, 0, GLFW_PRESS, 0);
                 } else {
@@ -1335,7 +1365,7 @@ namespace Manager {
                 }
             }
             
-        } else if (std::fabs(yoffset) > std::fabs(xoffset) && 0.5 < std::fabs(yoffset)) {
+        } else if (std::fabs(yoffset) > std::fabs(xoffset) && 0.1 < std::fabs(yoffset)) {
             if (yoffset < 0) {
                 keyPress(wind, opts.scroll_right, 0, GLFW_PRESS, 0);
             } else {

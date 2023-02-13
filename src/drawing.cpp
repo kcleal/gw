@@ -90,12 +90,19 @@ namespace Drawing {
                     if (c[i] > 0) { c[i] = std::log2(c[i]); }
                 }
                 cMax = std::log2(cMaxi);
-            } else {
+            } else if (cMaxi < opts.max_coverage) {
                 cMax = cMaxi;
+            } else {
+                cMax = (float)opts.max_coverage;
+                cMaxi = (int)cMax;
             }
             // normalize to space available
             for (auto &i : c) {
-                i = ((1 - (i / cMax)) * covY) * 0.7;
+                if (i > cMax) {
+                    i = 0;
+                } else {
+                    i = ((1 - (i / cMax)) * covY) * 0.7;
+                }
                 i += yOffsetAll + (covY * 0.3);
             }
             int step;
@@ -480,7 +487,7 @@ namespace Drawing {
     }
 
     void drawBams(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
-                  SkCanvas *canvas, float yScaling, const Themes::Fonts &fonts, int linkOp, float refSpace) {
+                  SkCanvas *canvas, float trackY, float yScaling, const Themes::Fonts &fonts, int linkOp, float refSpace) {
 
         SkPaint faceColor;
         SkPaint edgeColor;
@@ -513,6 +520,11 @@ namespace Drawing {
             bool drawEdges = regionLen < opts.edge_highlights;
 
             float pH = yScaling * polygonHeight;
+            if (opts.tlen_yscale) {
+                pH = trackY / (float)opts.ylim;
+            }
+            pH = (float)(int)pH;
+            pH = (pH == 0) ? 1 : pH;
 
             for (auto &a: cl.readQueue) {
 
@@ -899,10 +911,9 @@ namespace Drawing {
     }
 
     void drawBorders(const Themes::IniOptions &opts, float fb_width, float fb_height,
-                 SkCanvas *canvas, size_t nregions, size_t nbams, float totalTabixY, float tabixY, size_t tracks_size, float gap) {
+                 SkCanvas *canvas, size_t nregions, size_t nbams, float trackY, float covY) {
         SkPath path;
         float refSpace = fb_height * 0.02;
-        float gap2 = gap * 2;
         if (nregions > 1) {
             float x = fb_width / nregions;
             float step = x;
@@ -915,7 +926,7 @@ namespace Drawing {
             canvas->drawPath(path, opts.theme.lcLightJoins);
         }
         if (nbams > 1) {
-            float y = (fb_height - totalTabixY - refSpace - gap2) / nbams;
+            float y = trackY + covY;
             float step = y;
             y += refSpace;
             path.reset();

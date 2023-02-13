@@ -110,8 +110,8 @@ namespace Themes {
         std::string theme_str, fmt, parse_label, labels, link, dimensions_str, number_str, ini_path;
         std::string editor;
         int canvas_width, canvas_height;
-        int indel_length, ylim, split_view_size, threads, pad, link_op;
-        bool no_show, coverage, log2_cov, tlen_yscale;
+        int indel_length, ylim, split_view_size, threads, pad, link_op, max_coverage, max_tlen;
+        bool no_show, log2_cov, tlen_yscale, low_mem;
         float scroll_speed, tab_track_height;
         int scroll_right;
         int scroll_left;

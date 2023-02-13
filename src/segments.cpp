@@ -437,10 +437,11 @@ namespace Segs {
     }
 
     int findY(ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, Utils::Region *region, bool joinLeft) {
-
         if (rQ.empty()) {
             return 0;
         }
+        int samMaxY;
+
         int vScroll = rc.vScroll;
         Align *q_ptr;
         const char *qname = nullptr;
@@ -487,6 +488,21 @@ namespace Segs {
             }
         }
 
+        if (opts.tlen_yscale) {
+            int max_bound = (opts.max_tlen) + (vScroll * 100);
+            samMaxY = max_bound;
+            for (auto &aln : rQ) {
+                int tlen = (int)std::abs(aln.delegate->core.isize);
+                if (tlen < max_bound) {
+                    aln.y = tlen;
+                } else {
+                    aln.y = max_bound;
+                    samMaxY = max_bound;
+                }
+            }
+            return samMaxY;
+        }
+
         std::vector<int> &ls = rc.levelsStart;
         std::vector<int> &le = rc.levelsEnd;
 
@@ -516,18 +532,7 @@ namespace Segs {
             if (linkType > 0) {
                 qname = bam_get_qname(q_ptr->delegate);
                 if (linkedSeen.find(qname) != linkedSeen.end()) {
-
                     q_ptr->y = linkedSeen[qname];
-//                    if (!joinLeft) {
-//                        if (q_ptr->cov_start > le[q_ptr->y]) {
-//                            le[q_ptr->y] = q_ptr->cov_end;
-//                            if (q_ptr->cov_start < ls[q_ptr->y]) {
-//                                ls[q_ptr->y] = q_ptr->cov_start;
-//                            }
-//                        }
-//                    } else {
-//                    }
-
                     q_ptr += move;
                     continue;
                 }
@@ -572,46 +577,10 @@ namespace Segs {
                 if (i == memLen && linkType > 0 && lm.find(qname) != lm.end()) {
                     linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
                 }
-
-//                std::string qnamestr = bam_get_qname(q_ptr->delegate);
-//
-//                if (qnamestr == "D00360:19:H8VDAADXX:2:2203:6435:13924" && q_ptr->delegate->core.flag == 147 ) {
-//                    std::cout << "\n n reads " << rQ.size() << std::endl;
-//                    std::cout << "\n idx " << q_ptr->y <<  " " << bam_get_qname(q_ptr->delegate) << " at pos " << q_ptr->pos << std::endl;
-//                    int ii = 0;
-//                    std::cout << "\n" << q_ptr->y << std::endl;
-//                    for (auto &itm : ls) {
-//                        std::cout << ii << ": "  << itm <<  ", ";
-//                        ii += 1;
-//                    }
-//                }
-
                 q_ptr += move;
             }
-
         }
-
-        int samMaxY;
-        if (!opts.tlen_yscale) {
-            samMaxY = memLen - vScroll;
-        } else {
-            int regionSize = region->end - region->start;
-            samMaxY = memLen;
-            q_ptr = &rQ.front();
-            for (i=0; i < (int)rQ.size(); ++i) {
-                int tlen = (int)std::abs(q_ptr->delegate->core.isize);
-                if (tlen < regionSize) {
-                    q_ptr->y = tlen;
-                    if (tlen > samMaxY) {
-                        samMaxY = tlen;
-                    }
-                } else {
-                    q_ptr->y = regionSize;
-                    samMaxY = regionSize;
-                }
-                ++q_ptr;
-            }
-        }
+        samMaxY = memLen - vScroll;
         return samMaxY;
     }
 

@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> links = { "none", "sv", "all" };
     static const std::vector<std::string> backend = { "raster", "gpu" };
 
-    argparse::ArgumentParser program("gw", "0.5.3");
+    argparse::ArgumentParser program("gw", "0.6.0");
     program.add_argument("genome")
             .default_value(std::string{""}).append()//.required()
             .help("Reference genome in .fasta format with .fai index file");
@@ -128,10 +128,13 @@ int main(int argc, char *argv[]) {
             .help("Padding +/- in bp to add to each region from -v or -r");
     program.add_argument("--ylim")
             .default_value(iopts.ylim).append().scan<'i', int>()
-            .help("Maximum y limit (depth of coverage) of image");
-    program.add_argument("--no-cov")
+            .help("Maximum y limit (depth) of reads in image");
+    program.add_argument("--cov")
+            .default_value(iopts.ylim).append().scan<'i', int>()
+            .help("Maximum y limit of coverage track");
+    program.add_argument("--low-mem")
             .default_value(false).implicit_value(true)
-            .help("Scale coverage track to log2");
+            .help("Reduce memory usage by discarding quality values");
     program.add_argument("--log2-cov")
             .default_value(false).implicit_value(true)
             .help("Scale coverage track to log2");
@@ -141,8 +144,11 @@ int main(int argc, char *argv[]) {
     program.add_argument("--indel-length")
             .default_value(iopts.indel_length).append().scan<'i', int>()
             .help("Indels >= this length (bp) will have text labels");
-//    program.add_argument("--tlen-y").default_value(false).implicit_value(true)
-//            .help("Y-axis will be set to template-length (tlen) bp. Relevant for paired-end reads only");
+    program.add_argument("--tlen-y").default_value(false).implicit_value(true)
+            .help("Y-axis will be set to template-length (tlen) bp. Relevant for paired-end reads only");
+    program.add_argument("--max-tlen")
+            .default_value(iopts.indel_length).append().scan<'i', int>()
+            .help("Maximum tlen to display on plot");
     program.add_argument("--link")
             .default_value(iopts.link)
             .action([](const std::string& value) {
@@ -296,11 +302,17 @@ int main(int argc, char *argv[]) {
     if (program.is_used("--log2-cov")) {
         iopts.log2_cov = true;
     }
+    if (program.is_used("--tlen-y")) {
+        iopts.tlen_yscale = true;
+    }
     if (program.is_used("--split-view-size")) {
         iopts.split_view_size = program.get<int>("--split-view-size");
     }
-    if (program.is_used("--no-cov")) {
-        iopts.coverage = false;
+    if (program.is_used("--cov")) {
+        iopts.max_coverage = program.get<int>("--cov");
+    }
+    if (program.is_used("--low-mem")) {
+        iopts.low_mem = true;
     }
     if (program.is_used("--start-index")) {
         iopts.start_index = program.get<int>("--start-index");

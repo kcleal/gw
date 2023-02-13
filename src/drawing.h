@@ -34,13 +34,13 @@ namespace Drawing {
                       SkCanvas *canvas, const Themes::Fonts &fonts, float covY, float refSpace);
 
     void drawBams(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections, SkCanvas* canvas,
-                  float yScaling, const Themes::Fonts &fonts, int linkOp, float refSpace);
+                  float trackY, float yScaling, const Themes::Fonts &fonts, int linkOp, float refSpace);
 
     void drawRef(const Themes::IniOptions &opts, std::vector<Utils::Region> regions, int fb_width,
                  SkCanvas *canvas, const Themes::Fonts &fonts, float refSpace, float nRegions, float gap);
 
     void drawBorders(const Themes::IniOptions &opts, float fb_width, float fb_height,
-                     SkCanvas *canvas, size_t nregions, size_t nbams, float totalTabixY, float tabixY, size_t tracks_size, float gap);
+                     SkCanvas *canvas, size_t nregions, size_t nbams, float trackY, float covY);
 
     void drawLabel(const Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts,
                    robin_hood::unordered_set<std::string> &seenLabels, std::vector<std::string> &sortedLabels);
