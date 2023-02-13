@@ -581,7 +581,7 @@ namespace Manager {
 			std::cout << std::endl << "Saved to:\t" << out_path << std::endl;
 			
 			if (!imageCacheQueue.empty()) {
-				Manager::imagePngToFile(imageCacheQueue.back().second, out_path);
+				Manager::imagePngToFile(imageCacheQueue.back().second, out_path.string());
 			}
 			// Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
 			return true;
