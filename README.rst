@@ -1,6 +1,9 @@
 GW
 ==
 
+.. |Generic badge| image:: https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg
+   :target: http://bioconda.github.io/recipes/gw/README.html
+
 .. image:: include/banner.png
     :align: center
 
