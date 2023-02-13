@@ -1,7 +1,7 @@
 GW
 ==
 
-|Build badge| |Generic badge|
+|Build badge| |Generic badge| |Li badge|
 
 .. |Build badge| image:: https://github.com/kcleal/gw/actions/workflows/main.yml/badge.svg
    :target: https://github.com/kcleal/gw/actions/workflows/main.yml
@@ -9,9 +9,12 @@ GW
 .. |Generic badge| image:: https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg
    :target: http://bioconda.github.io/recipes/gw/README.html
 
+.. |Li badge| image:: https://anaconda.org/bioconda/gw/badges/license.svg
+   :target: https://github.com/kcleal/gw/blob/master/LICENSE.md
 
 .. image:: include/banner.png
     :align: center
+
 
 GW is a fast browser for genomic sequencing data (.bam/.cram format) used directly from the terminal. GW also
 allows you to view and annotate variants from vcf/bcf files.
