@@ -1,6 +1,8 @@
 GW
 ==
 
+[![gw](https://github.com/kcleal/gw/actions/workflows/main.yml/badge.svg)](https://github.com/kcleal/gw/actions/workflows/main.yml)
+
 |Generic badge|
 
 .. |Generic badge| image:: https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg
