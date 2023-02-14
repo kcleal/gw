@@ -460,30 +460,66 @@ namespace Drawing {
         float delEnd = delBegin + (size * xScaling);
         float yh = (Y + polygonHeight * 0.5) * yScaling + yOffset;
 
-        if (regionLen < 500000 && size >= opts.indel_length) { // line and text
-            std::sprintf(indelChars, "%d", isize);
-            size_t sl = strlen(indelChars);
-            float textW = fonts.textWidths[sl - 1];
-            float textBegin = ((lastEnd + size / 2) * xScaling) - (textW / 2);
-            float textEnd = textBegin + textW;
-            if (textBegin < 0) {
-                textBegin = 0;
-                textEnd = textW;
-            } else if (textEnd > regionPixels) {
-                textBegin = regionPixels - textW;
-                textEnd = regionPixels;
-            }
-            text.push_back(SkTextBlob::MakeFromString(indelChars, fonts.fonty));
-            textX.push_back(textBegin + xOffset);
-            textY.push_back((Y + polygonHeight) * yScaling - textDrop + yOffset);
-            if (textBegin > delBegin) {
-                drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, textBegin + xOffset);
-                drawHLine(canvas, path, opts.theme.lcJoins, textEnd + xOffset, yh, delEnd + xOffset);
+        if (size >= opts.indel_length) {
+            if (regionLen < 500000) { // line and text
+                std::sprintf(indelChars, "%d", isize);
+                size_t sl = strlen(indelChars);
+                float textW = fonts.textWidths[sl - 1];
+                float textBegin = ((lastEnd + size / 2) * xScaling) - (textW / 2);
+                float textEnd = textBegin + textW;
+                if (textBegin < 0) {
+                    textBegin = 0;
+                    textEnd = textW;
+                } else if (textEnd > regionPixels) {
+                    textBegin = regionPixels - textW;
+                    textEnd = regionPixels;
+                }
+                text.push_back(SkTextBlob::MakeFromString(indelChars, fonts.fonty));
+                textX.push_back(textBegin + xOffset);
+                textY.push_back((Y + polygonHeight) * yScaling - textDrop + yOffset);
+                if (textBegin > delBegin) {
+                    drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, textBegin + xOffset);
+                    drawHLine(canvas, path, opts.theme.lcJoins, textEnd + xOffset, yh, delEnd + xOffset);
+                }
+            } else { // dot only
+                delEnd = std::min(regionPixels, delEnd);
+                if (delEnd - delBegin < 2) {
+                    canvas->drawPoint(delBegin + xOffset, yh, opts.theme.lcBright);
+                } else {
+                    drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, delEnd + xOffset);
+                }
+//                delEnd = (delEnd - delBegin < 2) ? delBegin + 2 : delEnd;
+//                drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, delEnd + xOffset);
             }
         } else if ((float)size / (float) regionLen > 0.0005) { // (regionLen < 50000 || size > 100) { // line only
             delEnd = std::min(regionPixels, delEnd);
             drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, delEnd + xOffset);
         }
+
+//        if (regionLen < 500000 && size >= opts.indel_length) { // line and text
+//            std::sprintf(indelChars, "%d", isize);
+//            size_t sl = strlen(indelChars);
+//            float textW = fonts.textWidths[sl - 1];
+//            float textBegin = ((lastEnd + size / 2) * xScaling) - (textW / 2);
+//            float textEnd = textBegin + textW;
+//            if (textBegin < 0) {
+//                textBegin = 0;
+//                textEnd = textW;
+//            } else if (textEnd > regionPixels) {
+//                textBegin = regionPixels - textW;
+//                textEnd = regionPixels;
+//            }
+//            text.push_back(SkTextBlob::MakeFromString(indelChars, fonts.fonty));
+//            textX.push_back(textBegin + xOffset);
+//            textY.push_back((Y + polygonHeight) * yScaling - textDrop + yOffset);
+//            if (textBegin > delBegin) {
+//                drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, textBegin + xOffset);
+//                drawHLine(canvas, path, opts.theme.lcJoins, textEnd + xOffset, yh, delEnd + xOffset);
+//            }
+//        } else if ((float)size / (float) regionLen > 0.0005) { // (regionLen < 50000 || size > 100) { // line only
+//            delEnd = std::min(regionPixels, delEnd);
+//            drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, delEnd + xOffset);
+//        }
     }
 
     void drawBams(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,

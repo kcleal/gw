@@ -19,7 +19,6 @@
 #include "../include/termcolor.h"
 #include "term_out.h"
 #include "themes.h"
-#include"../include/unordered_dense.h"
 
 
 namespace Manager {
@@ -505,15 +504,17 @@ namespace Manager {
                 inputText = "";
                 return true;
             }
-        } else if (inputText == ":v" || Utils::startsWith(inputText, ":var")) {
+        } else if (inputText == ":v" || Utils::startsWith(inputText, ":var") || Utils::startsWith(inputText, ":v ")) {
             if (multiLabels.empty()) {
 	            std::cerr << termcolor::red << "Error:" << termcolor::reset << " no variant file provided.\n";
                 inputText = "";
+                processed = true;
+                redraw = false;
                 return true;
-            }
-            else if (blockStart+mouseOverTileIndex >= (int)multiLabels.size()) {
-	            std::cerr << termcolor::red << "Error:" << termcolor::reset << " index outside of range.";
+            } else if (blockStart+mouseOverTileIndex >= (int)multiLabels.size() || mouseOverTileIndex == -1) {
                 inputText = "";
+                processed = true;
+                redraw = false;
                 return true;
             }
 			std::vector<std::string> split = Utils::split(inputText, delim);
@@ -524,67 +525,106 @@ namespace Manager {
 				std::string variantStringCopy = vcf.variantString;
 				vcf.get_samples();
 				std::vector<std::string> sample_names_copy = vcf.sample_names;
-				if (variantStringCopy != "ERROR") {
-					int requests = split.size();
+                if (variantStringCopy.empty()) {
+                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " could not parse vcf/bcf line";
+                } else {
+					int requests = (int)split.size();
 					if (requests == 1) {
-						std::cout << std::endl << variantStringCopy << std::endl;
-					}
-					else {
-						std::string requestedVars = "";
+                        Term::clearLine();
+                        std::cout << "\r" << variantStringCopy << std::endl;
+					} else {
+						std::string requestedVars;
 						std::vector<std::string> vcfCols = Utils::split(variantStringCopy, '\t');
 						for (int i = 1; i < requests; ++i) {
-							std::string result = "";
-							Parse::parse_vcf_split(result, vcfCols, split[i], sample_names_copy);
+							std::string result;
+                            try {
+                                Parse::parse_vcf_split(result, vcfCols, split[i], sample_names_copy);
+                            } catch (...) {
+                                std::cerr << termcolor::red << "Error:" << termcolor::reset
+                                          << " could not parse " << split[i] << std::endl;
+                                break;
+                            }
 							if (i != requests-1) {
-								requestedVars += split[i]+":\t"+result+",\t";
-							}
-							else {
-								requestedVars += split[i]+":\t"+result;
+								requestedVars += split[i]+": "+result+"\t";
+							} else {
+								requestedVars += split[i]+": "+result;
 							}
 						}
-						std::cout << std::endl << requestedVars << std::endl;
+                        if (!requestedVars.empty()) {
+                            Term::clearLine();
+                            std::cout << "\r" << requestedVars << std::endl;
+                        }
 					}
 				}
+                valid = true;
 			} else {
 				variantTrack.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
-				std::string variantStringCopy = variantTrack.variantString;
-				if (variantStringCopy != "ERROR") {
-					std::cout << std::endl << variantStringCopy << std::endl;
-				}
+				if (variantTrack.variantString.empty()) {
+                    Term::clearLine();
+                    std::cout << "\r" << variantTrack.variantString << std::endl;
+				} else {
+                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " could not parse variant line";
+                }
 			}
-            inputText = "";
-            return true;    
-		} else if (inputText == ":s" || Utils::startsWith(inputText, ":snapshot")) { // work in progress
-			std::vector<std::string> split = Utils::split(inputText, delim);
-			std::string fname = "";
-			if (split.size() == 1) {
-				Parse::parse_sample_variable(fname, bam_paths);
-				fname += regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".png";
-			}
-			else {
-				std::string nameFormat = split[1];
-            	Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
-				if (useVcf) {
-					vcf.get_samples();
-					std::vector<std::string> sample_names_copy = vcf.sample_names;
-					vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
-					std::string variantStringCopy = vcf.variantString;
-					std::vector<std::string> vcfCols = Utils::split(variantStringCopy, '\t');
-					Parse::parse_output_name_format(nameFormat, vcfCols, sample_names_copy, bam_paths, lbl.current());
-					fname += nameFormat;
-					Utils::trim(fname);
-				}
-			}
+            valid = true;
 
-			fs::path outdir = opts.outdir;
-			fs::path out_path = outdir / fname;
-			std::cout << std::endl << "Saved to:\t" << out_path << std::endl;
-			
-			if (!imageCacheQueue.empty()) {
-				Manager::imagePngToFile(imageCacheQueue.back().second, out_path.string());
-			}
-			// Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
-			return true;
+		} else if (inputText == ":s" || Utils::startsWith(inputText, ":snapshot") || Utils::startsWith(inputText, ":s ")) {
+			std::vector<std::string> split = Utils::split(inputText, delim);
+            if (split.size() > 2) {
+                valid = false;
+            } else {
+                std::string fname;
+                if (split.size() == 1) {
+                    if (mode == Show::SINGLE || !useVcf) {
+                        fname += regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" +
+                                 std::to_string(regions[0].end) + ".png";
+                    } else {
+                        fname = "index_" + std::to_string(blockStart) + "_" +
+                                std::to_string(opts.number.x * opts.number.y) + ".png";
+                    }
+                } else {
+                    std::string nameFormat = split[1];
+                    if (useVcf && mode == Show::SINGLE) {
+                        if (mouseOverTileIndex == -1 || blockStart + mouseOverTileIndex > (int) multiLabels.size()) {
+                            inputText = "";
+                            redraw = true;
+                            processed = false;
+                            return true;
+                        }
+                        Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
+                        vcf.get_samples();
+                        std::vector<std::string> sample_names_copy = vcf.sample_names;
+                        vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+                        std::string variantStringCopy = vcf.variantString;
+                        std::vector<std::string> vcfCols = Utils::split(variantStringCopy, '\t');
+                        try {
+                            Parse::parse_output_name_format(nameFormat, vcfCols, sample_names_copy, bam_paths,lbl.current());
+                        } catch (...) {
+                            std::cerr << termcolor::red << "Error:" << termcolor::reset
+                                      << " could not parse " << nameFormat << std::endl;
+                            inputText = "";
+                            redraw = true;
+                            processed = false;
+                            return true;
+                        }
+                    }
+                    fname = nameFormat;
+                    Utils::trim(fname);
+                }
+                fs::path outdir = opts.outdir;
+                fs::path fname_path(fname);
+                fs::path out_path = outdir / fname_path;
+                if (!fs::exists(out_path.parent_path()) && !out_path.parent_path().empty()) {
+                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " path not found " << out_path.parent_path() << std::endl;
+                } else {
+                    if (!imageCacheQueue.empty()) {
+                        Manager::imagePngToFile(imageCacheQueue.back().second, out_path.string());
+                        Term::clearLine();
+                        std::cout << "\rSaved to " << out_path << std::endl;
+                    }
+                }
+                valid = true;
+            }
         } else {
 	        inputText.erase(0, 1);
 	        Utils::Region rgn;

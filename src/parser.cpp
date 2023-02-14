@@ -6,15 +6,11 @@
 #include <utility>
 #include <string>
 #include <regex>
-
 #include <htslib/sam.h>
-
 #include "../include/termcolor.h"
 #include "utils.h"
 #include "parser.h"
 #include "segments.h"
-
-
 
 
 namespace Parse {
@@ -672,19 +668,16 @@ namespace Parse {
 			std::smatch bracketMatch;
 			if (std::regex_search(requestBracket, bracketMatch, bracketRegex)) {
 				requestBracket = bracketMatch[1].str();
+			} else {
+				std::cerr << "Cannot parse sample inside [] from input string. \n";
 			}
-			else {
-				std::cerr << "ERROR: cannot parse sample inside [] from input string.";
-			}
-		}
-		else {
+		} else {
 			requestBracket = "0";
 		}
 		return;
 	}
 
-	bool is_number(const std::string& s)
-	{
+	bool is_number(const std::string& s) {
 		std::string::const_iterator it = s.begin();
 		while (it != s.end() && std::isdigit(*it)) ++it;
 		return !s.empty() && it == s.end();
@@ -694,13 +687,17 @@ namespace Parse {
 		get_value_in_brackets(requestBracket);
 		Utils::trim(requestBracket);
 		if (is_number(requestBracket)) {
-			i = std::stoi(requestBracket); //.c_str());
+			i = std::stoi(requestBracket);
 			i += 9;
-		}
-		else {
+		} else {
 			ptrdiff_t index = std::distance(sample_names.begin(), std::find(sample_names.begin(), sample_names.end(), requestBracket));
 			if (index >= sample_names.size()) {
-				std::cerr << "ERROR: Sample not in file.";
+				std::cerr << "Sample not in file: " << requestBracket << std::endl;
+                std::cerr << "Samples listed in file are: ";
+                for (auto &samp : sample_names) {
+                    std::cerr << samp << " ";
+                }
+                std::cerr << std::endl;
 				return;
 			}
 			i = index + 9;
@@ -721,8 +718,7 @@ namespace Parse {
 			if (tmpVar[0] == request) {
 				if (tmpVar.size() == 2) {
 					result = tmpVar[1];
-				}
-				else {
+				} else {
 					result = "";
 				}
 			}
@@ -735,20 +731,15 @@ namespace Parse {
 			result = vcfCols[9];
 			return;
 		}
-		int ncols = vcfCols.size();
 		std::string requestBracket = request;
 		int i = 0;
-		if (ncols == 10) {
-			i = 9;
-		} else {
-			convert_name_index(requestBracket, i, sample_names);
-			if (i == 0) {
-				return;
-			}
-		}
+        convert_name_index(requestBracket, i, sample_names);
+        if (i == 0 || i >= (int)vcfCols.size())
+            throw std::invalid_argument("request was invalid");
+
 		const std::regex dot("\\.");
 		std::smatch dotMatch;
-		if (std::regex_search(request, dot) == false) {
+		if (!std::regex_search(request, dot)) {
 			result = vcfCols[i];
 			return;
 		}	
@@ -756,10 +747,11 @@ namespace Parse {
 		std::vector<std::string> formatVars = Utils::split(vcfCols[8], ':');
 		std::vector<std::string> formatVals = Utils::split(vcfCols[i], ':');
 		int nvars = formatVars.size();
-		for (int i = 0; i < nvars; ++i) {
-			if (formatVars[i] == request) {
-				result = formatVals[i];
-			}
+		for (int j = 0; j < nvars; ++j) {
+			if (formatVars[j] == request) {
+                result = formatVals[j];
+                break;
+            }
 		}
 		return;
 	}
@@ -768,42 +760,35 @@ namespace Parse {
 	void parse_vcf_split(std::string &result, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names) {	
 		if (request == "chrom") {
 			result = vcfCols[0];
-			return;
 		} else if (request == "pos") {
 			result = vcfCols[1];
-			return;
 		} else if (request == "id") {
 			result = vcfCols[2];
-			return;
 		} else if (request == "ref") {
 			result = vcfCols[3];
-			return;
 		} else if (request == "alt") {
 			result = vcfCols[4];
-			return;
 		} else if (request == "qual") {
 			result = vcfCols[5];
-			return;
 		} else if (request == "filter") {
 			result = vcfCols[6];
-			return;
-		} else if (Utils::startsWith(request, "info")) {
+		} else if (request == "info" || Utils::startsWith(request, "info.")) {
 			parse_INFO(result, vcfCols[7], request);
-			return;
-		} else if (Utils::startsWith(request, "format")) {
+		} else if (request == "format" || Utils::startsWith(request, "format.") || Utils::startsWith(request, "format[")) {
 			parse_FORMAT(result, vcfCols, request, sample_names);
-			return;
-		}
+		} else {
+            std::cerr << "Valid fields are chrom, pos, id, ref, alt, qual, filter, info, format\n";
+            throw std::invalid_argument("request was invalid");
+        }
 	}
 
 	void create_expression(std::string &rexpr) {
 		rexpr.insert(0, "\\");
-		// rexpr.insert(2, "\\");
 		std::regex form("format");
 		if (std::regex_search(rexpr, form)) {
-			int open = rexpr.find("\[");
+			int open = rexpr.find("\\[");  // should be \\ ?
 			rexpr.insert(open, "\\");
-			int close = rexpr.find("\]");
+			int close = rexpr.find("\\]");
 			rexpr.insert(close, "\\");
 		}
 		int rexprs = rexpr.size();
@@ -830,7 +815,6 @@ namespace Parse {
 		std::string test = nameFormat;
 		auto b = std::sregex_iterator(test.begin(), test.end(), bash);
 		auto e = std::sregex_iterator();
-
 		std::string value;
 		std::string rexprString;
 		for (std::sregex_iterator i = b; i != e; ++i) {
@@ -845,6 +829,9 @@ namespace Parse {
 				} else if (tmpVal == "label") {
 					value = label;
 				}
+                if (value.empty() || tmpVal == "info" || tmpVal == "format" || tmpVal == "format[0]") {
+                    throw std::invalid_argument("Argument was invalid");
+                }
 				rexprString = matches[0];
 				create_expression(rexprString);
 				std::regex rexpr(rexprString);
@@ -853,53 +840,4 @@ namespace Parse {
 		}
 		return;
 	}
-		/* int idx; */
-		/* if (request == 'chrom') { */
-		/* 	idx = 0; // CHROM; */
-		/* } else if (request == 'pos') { */
-		/* 	idx = 1; // POS; */
-		/* } else if (request == 'id') { */
-		/* 	idx = 2; // ID; */
-		/* } else if (request == 'ref') { */
-		/* 	idx = 3; // REF; */
-		/* } else if (request == 'alt') { */
-		/* 	idx = 4; // ALT; */
-		/* } else if (request == 'qual') { */
-		/* 	idx = 5; // QUAL; */
-		/* } else if (request == 'filter') { */
-		/* 	idx = 6; // FILTER; */
-		/* } else if (request.startswith(info)) { */
-		/* 	idx = 7; // INFO; */
-		/* } else if (request.startswith(format)) { */
-		/* 	idx = 8; // FORMAT; */
-		/* } */
-
-		/* if (idx == CHROM) { */
-		/* 	result = vcfCols[CHROM]; */
-		/* 	return; */
-		/* } else if (idx == POS) { */
-		/* 	result = vcfCols[POS]; */
-		/* 	return; */
-		/* } else if (idx == ID) { */
-		/* 	result = vcfCols[ID]; */
-		/* 	return; */
-		/* } else if (idx == REF) { */
-		/* 	result = vcfCols[REF]; */
-		/* 	return; */
-		/* } else if (idx == ALT) { */
-		/* 	result = vcfCols[ALT]; */
-		/* 	return; */
-		/* } else if (idx == QUAL) { */
-		/* 	result = vcfCols[QUAL]; */
-		/* 	return; */
-		/* } else if (idx == FILTER) { */
-		/* 	result = vcfCols[FILTER]; */
-		/* 	return; */
-		/* } else if (idx == INFO) { */
-		/* 	parse_INFO(result, vcfCols[INFO], request); */ 
-		/* 	return; */
-		/* } else if (idx == FORMAT) { */
-		/* 	parse_FORMAT(result, vcfCols, request); */
-		/* 	return; */
-		/* } */
 }

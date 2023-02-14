@@ -126,6 +126,10 @@ namespace Themes {
             lcLabel.setStrokeWidth(1);
             lcLabel.setAntiAlias(true);
 
+            lcBright.setStyle(SkPaint::kStrokeAndFill_Style);
+            lcBright.setStrokeWidth(3);
+            lcBright.setAntiAlias(true);
+
             insF = fcIns;
             insF.setStyle(SkPaint::kFill_Style);
 
@@ -196,6 +200,7 @@ namespace Themes {
         lcJoins.setARGB(255, 20, 20, 20);
         lcLightJoins.setARGB(255, 120, 120, 120);
         lcLabel.setARGB(255, 0, 0, 0);
+        lcBright.setColor(SK_ColorBLACK);
         tcDel.setARGB(255, 0, 0, 0);
         tcLabels.setARGB(255, 0, 0, 0);
         tcIns.setARGB(255, 255, 255, 255);
@@ -225,6 +230,7 @@ namespace Themes {
         lcJoins.setARGB(255, 142, 142, 142);
         lcLightJoins.setARGB(255, 82, 82, 82);
         lcLabel.setARGB(255, 182, 182, 182);
+        lcBright.setColor(SK_ColorWHITE);
         tcDel.setARGB(255, 227, 227, 227);
         tcLabels.setARGB(255, 0, 0, 0);
         tcIns.setARGB(255, 227, 227, 227);

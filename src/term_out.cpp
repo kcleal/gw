@@ -6,6 +6,7 @@
 #include <htslib/sam.h>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 #include "htslib/hts.h"
 #include "drawing.h"
@@ -41,12 +42,11 @@ namespace Term {
         std::cout << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
         std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. ':rm 1'. To remove a bam \n                                 use the bam index ':rm bam0'\n";
         std::cout << termcolor::green << "sam                              " << termcolor::reset << "Print selected read in sam format'\n";
-		std::cout << termcolor::green << "snapshot, s                           " << termcolor::reset << "Save current window to png\n";
-
+		std::cout << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window to png e.g. ':s', or ':s view.png',\n                                 or vcf columns can be used ':s {pos}_{info.SU}.png'\n";
         std::cout << termcolor::green << "tags                             " << termcolor::reset << "Print selected sam tags\n";
         std::cout << termcolor::green << "theme            [igv/dark]      " << termcolor::reset << "Switch color theme e.g. ':theme dark'\n";
         std::cout << termcolor::green << "tlen-y                           " << termcolor::reset << "Toggle --tlen-y option\n";
-        std::cout << termcolor::green << "var, v                           " << termcolor::reset << "Print line for variant under cursor\n";
+        std::cout << termcolor::green << "var, v           vcf_column?     " << termcolor::reset << "Print variant information e.g. ':var', ':var info',\n                                 or a list of columns ':var pos qual format.SU'\n";
         std::cout << termcolor::green << "ylim             number          " << termcolor::reset << "The maximum y-limit for the image e.g. ':ylim 100'\n";
 
         std::cout << termcolor::underline << "\nHot keys                      \n" << termcolor::reset;
@@ -119,7 +119,19 @@ namespace Term {
         } else if (s == "sam") {
             std::cout << "    Print the sam format of the read.\n        First select a read using the mouse then type ':sam'.\n\n";
 		} else if (s == "snapshot") {
-            std::cout << "    Screenshot shortcut.\n        Saves screenshot of current window under file 'sample_chrom_start_end.png'.\n\n";
+            std::cout << "    Save an image of the screen.\n"
+                         "        Saves current window. If no name is provided, the image name will be 'chrom_start_end.png', \n"
+                         "        or if you are in tile-mode, the image name will be 'index_start_end.png'.\n"
+                         "            :snapshot\n"
+                         "            :snapshot my_image.png\n\n"
+                         "        If you have a vcf/bcf open in 'single' mode (not 'tiled') it is also possible to parse info\n"
+                         "        from the vcf record. Use curley braces to select what fields to use in the filename:\n"
+                         "             :snapshot {pos}_{qual}.png        # parse the position and qual fields\n"
+                         "             :snapshot {info.SU}.png           # parse SU from info field\n"
+                         "             :s {format[samp1].SU}.png         # samp1 sample, SU column from format field\n\n"
+                         "        Valid fields are chrom, pos, id, ref, alt, qual, filter, info, format. Just to note,\n"
+                         "        you can press ENTER to repeat the last command, which can save typing this\n"
+                         "        command over and over.\n\n";
         } else if (s == "tags") {
             std::cout << "    Print selected sam tags.\n        This will print all the tags of the selected read\n\n";
         } else if (s == "theme") {
@@ -127,7 +139,17 @@ namespace Term {
         } else if (s == "tlen-y") {
             std::cout << "    Toggle --tlen-y option.\n        The --tlen-y option scales reads by template length. Applies to paired-end reads only.\n\n";
         } else if (s == "var") {
-            std::cout << "    Print line from --variants file.\n        Prints a line from the input file of the variant under mouse.\n\n";
+            std::cout << "    Print variant information.\n"
+                         "        Using ':var' will print the selected variant.\n"
+                         "        If you are viewing a vcf/bcf then columns can be parsed e.g:\n"
+                         "            :var pos              # position\n"
+                         "            :var info.SU          # SU column from info\n"
+                         "            :v chrom pos info.SU  # list of variables to print\n"
+                         "            :v format.SU          # SU column from format\n"
+                         "            :v format[samp1].SU   # using sample name to select SU\n\n"
+                         "        Valid fields are chrom, pos, id, ref, alt, qual, filter, info, format. Just to note,\n"
+                         "        you can press ENTER to repeat the last command, which can save typing this\n"
+                         "        command over and over.\n\n";
         } else if (s == "ylim") {
             std::cout << "    Set the y limit.\n        The y limit is the maximum depth shown on the drawing e.g. 'ylim 100'.\n\n";
         }

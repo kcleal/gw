@@ -66,6 +66,7 @@ namespace Manager {
         drawLine = false;
         captureText = false;
         drawToBackWindow = false;
+        useVcf = false;
         monitorScale = 1;
         fonts = Themes::Fonts();
         fai = fai_load(reference.c_str());

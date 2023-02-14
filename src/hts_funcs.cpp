@@ -558,14 +558,13 @@ namespace HGW {
         }
     }
 
-	void VCFfile::get_samples() { //std::vector<std::string> &write_vector) {
-		if (samples_loaded == false) {
+	void VCFfile::get_samples() {
+		if (!samples_loaded) {
 			char ** tmpArr = hdr->samples;
 			std::vector<std::string> tmp_sample_names(tmpArr, tmpArr + bcf_hdr_nsamples(hdr));
 			sample_names = tmp_sample_names;
 			samples_loaded = true;
 		}
-		// write_vector = sample_names;
 	}
 
     void print_BCF_IDX(hts_idx_t *idx_v, bcf_hdr_t *hdr, std::string &chrom, int pos, htsFile *fp, std::string &id_str, std::string &variantString) {
@@ -586,7 +585,6 @@ namespace HGW {
             tmp_id = tv->d.id;
             if (tmp_id == id_str) {
                 vcf_format1(hdr, tv, &kstr);
-                // std::cout << std::endl << kstr.s << std::endl;
 				variantString = kstr.s;
                 break;
             }
@@ -605,13 +603,11 @@ namespace HGW {
             tmp_id = tv->d.id;
             if (tmp_id == id_str) {
                 vcf_format1(_hdr, tv, &kstr);
-                // std::cout << std::endl << kstr.s << std::endl;
 				variantString = kstr.s;
                 break;
             }
         }
-
-    };
+    }
 
     void print_VCF_IDX(std::string &path, std::string &id_str, std::string &chrom, int pos, std::string &variantString) {
         kstring_t kstr = {0,0,0};
@@ -637,7 +633,6 @@ namespace HGW {
             bcf_unpack(tv, BCF_UN_STR);
             tmp_id = tv->d.id;
             if (tmp_id == id_str) {
-                //std::cout << std::endl << l << std::endl;
 				variantString = l;
                 break;
             }
@@ -664,7 +659,6 @@ namespace HGW {
 				return;
 			}
 		}
-		//std::cout << kstr.s << std::endl;
 		variantString = kstr.s;
 	}
 
@@ -686,14 +680,12 @@ namespace HGW {
 			}
 			if (flat && iter_blk->chrom == chrom) {
 				if (iter_blk->start <= pos && iter_blk->end > pos) {
-					// std::cout << iter_blk->line << std::endl;
 					variantString = iter_blk->line;
 				} else if (iter_blk->start > pos) {
 					break;
 				}
 			} else {
 				if (iter_blk->start <= pos && iter_blk->end > pos) {
-					// std::cout << iter_blk->line << std::endl;
 					variantString = iter_blk->line;
 				} else if (iter_blk->start > pos) {
 					break;
