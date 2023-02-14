@@ -126,6 +126,8 @@ namespace Manager {
 
         void setGlfwFrameBufferSize();
 
+        void setRasterSize(int width, int height);
+
         void setVariantFile(std::string &path, int startIndex, bool cacheStdin);
 
         void setOutLabelFile(const std::string &path);

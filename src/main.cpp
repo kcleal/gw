@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> links = { "none", "sv", "all" };
     static const std::vector<std::string> backend = { "raster", "gpu" };
 
-    argparse::ArgumentParser program("gw", "0.6.0");
+    argparse::ArgumentParser program("gw", "0.6.1");
     program.add_argument("genome")
             .default_value(std::string{""}).append()//.required()
             .help("Reference genome in .fasta format with .fai index file");
@@ -234,9 +234,6 @@ int main(int argc, char *argv[]) {
             std::filesystem::create_directory(outdir); // create src folder
         }
     }
-	/* else { */
-	/* iopts.outdir = std::filesystem::current_path(); */
-	/* } */
 
     if (program.is_used("-n")) {
         iopts.no_show = program.get<bool>("-n");
@@ -648,6 +645,7 @@ int main(int argc, char *argv[]) {
                 std::vector<Manager::GwPlot *> managers;
                 for (int i = 0; i < iopts.threads; ++i) {
                     Manager::GwPlot *m = new Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
+                    m->setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
                     managers.push_back(m);
                 }
 

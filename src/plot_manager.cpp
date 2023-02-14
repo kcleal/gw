@@ -509,6 +509,13 @@ namespace Manager {
         gap = 10 * monitorScale;
     }
 
+    void GwPlot::setRasterSize(int width, int height) {
+        monitorScale = 1;
+        fb_width = width;
+        fb_height = height;
+        gap = 10;
+    }
+
     void GwPlot::setScaling() {  // sets z_scaling, y_scaling trackY and regionWidth
         refSpace = (float)(fb_height * 0.02); // slider space is the same
         auto fbh = (float) fb_height;
@@ -624,7 +631,6 @@ namespace Manager {
         sContext->flush();
         glfwSwapBuffers(window);
     }
-
 
     void GwPlot::tileDrawingThread(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
         int bStart = blockStart;
@@ -776,6 +782,7 @@ namespace Manager {
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
+        Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
     }
 
     void GwPlot::runDraw(SkCanvas *canvas) {
