@@ -99,6 +99,7 @@ GW commands - access command box with ``:`` ::
     :find QNAME        # Highlight all reads with qname==QNAME
     :filter mapq >= 10 # Filer reads for mapq >= 10
     :count             # Counts of all reads for each view point
+    :snapshot          # Save screenshot to .png
     :man COMMAND       # manual for command
 
 📖 User Guide
