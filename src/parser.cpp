@@ -664,4 +664,242 @@ namespace Parse {
                 std::cout << "R-inversion-pattern\t" << inv_r << std::endl;
         }
     }
+
+	void get_value_in_brackets(std::string &requestBracket) {
+		const std::regex singleBracket("\\[");
+		if (std::regex_search(requestBracket, singleBracket)) {
+			const std::regex bracketRegex("\\[(.*?)\\]");
+			std::smatch bracketMatch;
+			if (std::regex_search(requestBracket, bracketMatch, bracketRegex)) {
+				requestBracket = bracketMatch[1].str();
+			}
+			else {
+				std::cerr << "ERROR: cannot parse sample inside [] from input string.";
+			}
+		}
+		else {
+			requestBracket = "0";
+		}
+		return;
+	}
+
+	bool is_number(const std::string& s)
+	{
+		std::string::const_iterator it = s.begin();
+		while (it != s.end() && std::isdigit(*it)) ++it;
+		return !s.empty() && it == s.end();
+	}
+
+	void convert_name_index(std::string &requestBracket, int &i, std::vector<std::string> &sample_names) {
+		get_value_in_brackets(requestBracket);
+		Utils::trim(requestBracket);
+		if (is_number(requestBracket)) {
+			i = std::stoi(requestBracket); //.c_str());
+			i += 9;
+		}
+		else {
+			ptrdiff_t index = std::distance(sample_names.begin(), std::find(sample_names.begin(), sample_names.end(), requestBracket));
+			if (index >= sample_names.size()) {
+				std::cerr << "ERROR: Sample not in file.";
+				return;
+			}
+			i = index + 9;
+		}
+		return;
+	}
+
+	void parse_INFO (std::string &result, std::string &infoColString, std::string &request) {
+		if (request == "info") {
+			result = infoColString;
+			return;
+		}
+		request = Utils::split(request, '.')[1];
+		std::vector<std::string> infoCol = Utils::split(infoColString, ';');
+		for (auto it = begin (infoCol); it != end (infoCol); ++it) {
+			std::string tmpLine = *it;
+			std::vector<std::string> tmpVar = Utils::split(tmpLine, '=');
+			if (tmpVar[0] == request) {
+				if (tmpVar.size() == 2) {
+					result = tmpVar[1];
+				}
+				else {
+					result = "";
+				}
+			}
+		}
+		return;
+	}
+
+	void parse_FORMAT (std::string &result, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names) {
+		if (request == "format" || request == "genome" || request == "format[0]") {
+			result = vcfCols[9];
+			return;
+		}
+		int ncols = vcfCols.size();
+		std::string requestBracket = request;
+		int i = 0;
+		if (ncols == 10) {
+			i = 9;
+		} else {
+			convert_name_index(requestBracket, i, sample_names);
+			if (i == 0) {
+				return;
+			}
+		}
+		const std::regex dot("\\.");
+		std::smatch dotMatch;
+		if (std::regex_search(request, dot) == false) {
+			result = vcfCols[i];
+			return;
+		}	
+		request = Utils::split(request, '.')[1];
+		std::vector<std::string> formatVars = Utils::split(vcfCols[8], ':');
+		std::vector<std::string> formatVals = Utils::split(vcfCols[i], ':');
+		int nvars = formatVars.size();
+		for (int i = 0; i < nvars; ++i) {
+			if (formatVars[i] == request) {
+				result = formatVals[i];
+			}
+		}
+		return;
+	}
+
+
+	void parse_vcf_split(std::string &result, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names) {	
+		if (request == "chrom") {
+			result = vcfCols[0];
+			return;
+		} else if (request == "pos") {
+			result = vcfCols[1];
+			return;
+		} else if (request == "id") {
+			result = vcfCols[2];
+			return;
+		} else if (request == "ref") {
+			result = vcfCols[3];
+			return;
+		} else if (request == "alt") {
+			result = vcfCols[4];
+			return;
+		} else if (request == "qual") {
+			result = vcfCols[5];
+			return;
+		} else if (request == "filter") {
+			result = vcfCols[6];
+			return;
+		} else if (Utils::startsWith(request, "info")) {
+			parse_INFO(result, vcfCols[7], request);
+			return;
+		} else if (Utils::startsWith(request, "format")) {
+			parse_FORMAT(result, vcfCols, request, sample_names);
+			return;
+		}
+	}
+
+	void create_expression(std::string &rexpr) {
+		rexpr.insert(0, "\\");
+		// rexpr.insert(2, "\\");
+		std::regex form("format");
+		if (std::regex_search(rexpr, form)) {
+			int open = rexpr.find("\[");
+			rexpr.insert(open, "\\");
+			int close = rexpr.find("\]");
+			rexpr.insert(close, "\\");
+		}
+		int rexprs = rexpr.size();
+		rexpr.insert(rexprs-1, "\\");
+	}
+
+	void parse_sample_variable(std::string &fname, std::vector<std::string> &bam_paths) {
+		for (auto it = begin (bam_paths); it != end (bam_paths); ++it) {
+			std::string tmp_path = *it;
+			std::string tmp_base_filename = tmp_path.substr(tmp_path.find_last_of("/\\") + 1);
+			std::string::size_type const tmp_p(tmp_base_filename.find_last_of('.'));
+			std::string tmp_file_without_extension = tmp_base_filename.substr(0, tmp_p);
+			if (it != bam_paths.end()-1) {
+				fname += tmp_file_without_extension + "_";
+			} else {
+				fname += tmp_file_without_extension;
+			}
+		}
+	}
+
+	void parse_output_name_format(std::string &nameFormat, std::vector<std::string> &vcfCols, std::vector<std::string> &sample_names, std::vector<std::string> &bam_paths, std::string &label) {
+		std::regex bash("\\{(.*?)\\}");
+		std::smatch matches;
+		std::string test = nameFormat;
+		auto b = std::sregex_iterator(test.begin(), test.end(), bash);
+		auto e = std::sregex_iterator();
+
+		std::string value;
+		std::string rexprString;
+		for (std::sregex_iterator i = b; i != e; ++i) {
+			value = "";
+			matches = *i;
+			if (matches.size() == 2) {
+				std::string tmpVal = matches[1];
+				if (tmpVal != "sample" && tmpVal != "label") {
+					parse_vcf_split(value, vcfCols, tmpVal, sample_names);
+				} else if (tmpVal == "sample") {
+					parse_sample_variable(value, bam_paths);
+				} else if (tmpVal == "label") {
+					value = label;
+				}
+				rexprString = matches[0];
+				create_expression(rexprString);
+				std::regex rexpr(rexprString);
+				nameFormat = std::regex_replace(nameFormat, rexpr, value);
+			}
+		}
+		return;
+	}
+		/* int idx; */
+		/* if (request == 'chrom') { */
+		/* 	idx = 0; // CHROM; */
+		/* } else if (request == 'pos') { */
+		/* 	idx = 1; // POS; */
+		/* } else if (request == 'id') { */
+		/* 	idx = 2; // ID; */
+		/* } else if (request == 'ref') { */
+		/* 	idx = 3; // REF; */
+		/* } else if (request == 'alt') { */
+		/* 	idx = 4; // ALT; */
+		/* } else if (request == 'qual') { */
+		/* 	idx = 5; // QUAL; */
+		/* } else if (request == 'filter') { */
+		/* 	idx = 6; // FILTER; */
+		/* } else if (request.startswith(info)) { */
+		/* 	idx = 7; // INFO; */
+		/* } else if (request.startswith(format)) { */
+		/* 	idx = 8; // FORMAT; */
+		/* } */
+
+		/* if (idx == CHROM) { */
+		/* 	result = vcfCols[CHROM]; */
+		/* 	return; */
+		/* } else if (idx == POS) { */
+		/* 	result = vcfCols[POS]; */
+		/* 	return; */
+		/* } else if (idx == ID) { */
+		/* 	result = vcfCols[ID]; */
+		/* 	return; */
+		/* } else if (idx == REF) { */
+		/* 	result = vcfCols[REF]; */
+		/* 	return; */
+		/* } else if (idx == ALT) { */
+		/* 	result = vcfCols[ALT]; */
+		/* 	return; */
+		/* } else if (idx == QUAL) { */
+		/* 	result = vcfCols[QUAL]; */
+		/* 	return; */
+		/* } else if (idx == FILTER) { */
+		/* 	result = vcfCols[FILTER]; */
+		/* 	return; */
+		/* } else if (idx == INFO) { */
+		/* 	parse_INFO(result, vcfCols[INFO], request); */ 
+		/* 	return; */
+		/* } else if (idx == FORMAT) { */
+		/* 	parse_FORMAT(result, vcfCols, request); */
+		/* 	return; */
+		/* } */
 }

@@ -41,6 +41,8 @@ namespace Term {
         std::cout << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
         std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. ':rm 1'. To remove a bam \n                                 use the bam index ':rm bam0'\n";
         std::cout << termcolor::green << "sam                              " << termcolor::reset << "Print selected read in sam format'\n";
+		std::cout << termcolor::green << "snapshot, s                           " << termcolor::reset << "Save current window to png\n";
+
         std::cout << termcolor::green << "tags                             " << termcolor::reset << "Print selected sam tags\n";
         std::cout << termcolor::green << "theme            [igv/dark]      " << termcolor::reset << "Switch color theme e.g. ':theme dark'\n";
         std::cout << termcolor::green << "tlen-y                           " << termcolor::reset << "Toggle --tlen-y option\n";
@@ -116,6 +118,8 @@ namespace Term {
             std::cout << "    Remove a region or bam.\n        Remove a region or bam by index. To remove a bam add a 'bam' prefix.\n    Examples:\n        'rm 0', 'rm bam1'\n\n";
         } else if (s == "sam") {
             std::cout << "    Print the sam format of the read.\n        First select a read using the mouse then type ':sam'.\n\n";
+		} else if (s == "snapshot") {
+            std::cout << "    Screenshot shortcut.\n        Saves screenshot of current window under file 'sample_chrom_start_end.png'.\n\n";
         } else if (s == "tags") {
             std::cout << "    Print selected sam tags.\n        This will print all the tags of the selected read\n\n";
         } else if (s == "theme") {

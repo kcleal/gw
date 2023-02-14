@@ -361,6 +361,7 @@ namespace HGW {
 
         fp = bcf_open(f.c_str(), "r");
         hdr = bcf_hdr_read(fp);
+		samples_loaded = false;
         v = bcf_init1();
 
         std::string l2p(label_to_parse);
@@ -529,15 +530,15 @@ namespace HGW {
         }
     }
 
-    void VCFfile::printTargetRecord(std::string &id_str, std::string &chrom, int pos) {
+	void VCFfile::printTargetRecord(std::string &id_str, std::string &chrom, int pos) {
         if (kind == BCF_IDX) {
-            return print_BCF_IDX(idx_v, hdr, chrom, pos, fp, id_str);
+            return print_BCF_IDX(idx_v, hdr, chrom, pos, fp, id_str, variantString);
         }
         else if (kind == VCF_NOI) {
-            return print_VCF_NOI(path, id_str);
+            return print_VCF_NOI(path, id_str, variantString);
         }
         else if (kind == VCF_IDX) {
-            return print_VCF_IDX(path, id_str, chrom, pos);
+            return print_VCF_IDX(path, id_str, chrom, pos, variantString);
         }
         else if (kind == STDIN || cacheStdin) {
             kstring_t kstr = {0,0,0};
@@ -547,8 +548,9 @@ namespace HGW {
                 tmp_id = it->d.id;
                 if (tmp_id == id_str) {
                     vcf_format(hdr, it, &kstr);
-                    std::cout << std::endl << kstr.s << std::endl;
-                    break;
+                    // std::cout << std::endl << kstr.s << std::endl;
+					variantString = kstr.s;
+					break;
                 } else if (pos < it->pos) {
                     break;
                 }
@@ -556,7 +558,17 @@ namespace HGW {
         }
     }
 
-    void print_BCF_IDX(hts_idx_t *idx_v, bcf_hdr_t *hdr, std::string &chrom, int pos, htsFile *fp, std::string &id_str) {
+	void VCFfile::get_samples() { //std::vector<std::string> &write_vector) {
+		if (samples_loaded == false) {
+			char ** tmpArr = hdr->samples;
+			std::vector<std::string> tmp_sample_names(tmpArr, tmpArr + bcf_hdr_nsamples(hdr));
+			sample_names = tmp_sample_names;
+			samples_loaded = true;
+		}
+		// write_vector = sample_names;
+	}
+
+    void print_BCF_IDX(hts_idx_t *idx_v, bcf_hdr_t *hdr, std::string &chrom, int pos, htsFile *fp, std::string &id_str, std::string &variantString) {
         htsFile *fp2 = fp;
         kstring_t kstr = {0,0,0};
         bcf1_t *tv = bcf_init1();
@@ -574,14 +586,15 @@ namespace HGW {
             tmp_id = tv->d.id;
             if (tmp_id == id_str) {
                 vcf_format1(hdr, tv, &kstr);
-                std::cout << std::endl << kstr.s << std::endl;
+                // std::cout << std::endl << kstr.s << std::endl;
+				variantString = kstr.s;
                 break;
             }
         }
         fp = fp2;
     }
 
-    void print_VCF_NOI(std::string &path, std::string &id_str) {
+    void print_VCF_NOI(std::string &path, std::string &id_str, std::string &variantString) {
         kstring_t kstr = {0,0,0};
         bcf1_t *tv = bcf_init1();
         std::string tmp_id;
@@ -592,14 +605,15 @@ namespace HGW {
             tmp_id = tv->d.id;
             if (tmp_id == id_str) {
                 vcf_format1(_hdr, tv, &kstr);
-                std::cout << std::endl << kstr.s << std::endl;
+                // std::cout << std::endl << kstr.s << std::endl;
+				variantString = kstr.s;
                 break;
             }
         }
 
     };
 
-    void print_VCF_IDX(std::string &path, std::string &id_str, std::string &chrom, int pos) {
+    void print_VCF_IDX(std::string &path, std::string &id_str, std::string &chrom, int pos, std::string &variantString) {
         kstring_t kstr = {0,0,0};
         bcf1_t *tv = bcf_init1();
         std::string tmp_id;
@@ -623,13 +637,14 @@ namespace HGW {
             bcf_unpack(tv, BCF_UN_STR);
             tmp_id = tv->d.id;
             if (tmp_id == id_str) {
-                std::cout << std::endl << l << std::endl;
+                //std::cout << std::endl << l << std::endl;
+				variantString = l;
                 break;
             }
         }
     }
 
-	void print_BED_IDX(std::string &path, std::string &chrom, int pos) {
+	void print_BED_IDX(std::string &path, std::string &chrom, int pos, std::string &variantString) {
 		kstring_t kstr = {0,0,0};
 		htsFile *fp = hts_open(path.c_str(), "r");
 		tbx_t * idx_t = tbx_index_load(path.c_str());
@@ -640,18 +655,20 @@ namespace HGW {
 			          << chrom
 			          << " " << pos << std::endl;
 			std::terminate();
+			return;
 		}
 		int res = tbx_itr_next(fp, idx_t, iter_q, &kstr);
 		if (res < 0) {
 			if (res < -1) {
 				std::cerr << "Error: iterating vcf file returned " << res << std::endl;
+				return;
 			}
-			return;
 		}
-		std::cout << kstr.s << std::endl;
+		//std::cout << kstr.s << std::endl;
+		variantString = kstr.s;
 	}
 
-	void print_cached(std::vector<Utils::TrackBlock> &vals, std::string &chrom, int pos, bool flat) {
+	void print_cached(std::vector<Utils::TrackBlock> &vals, std::string &chrom, int pos, bool flat, std::string &variantString) {
 		auto vals_end = vals.end();
 		std::vector<Utils::TrackBlock>::iterator iter_blk;
 		if (flat) {
@@ -669,13 +686,15 @@ namespace HGW {
 			}
 			if (flat && iter_blk->chrom == chrom) {
 				if (iter_blk->start <= pos && iter_blk->end > pos) {
-					std::cout << iter_blk->line << std::endl;
+					// std::cout << iter_blk->line << std::endl;
+					variantString = iter_blk->line;
 				} else if (iter_blk->start > pos) {
 					break;
 				}
 			} else {
 				if (iter_blk->start <= pos && iter_blk->end > pos) {
-					std::cout << iter_blk->line << std::endl;
+					// std::cout << iter_blk->line << std::endl;
+					variantString = iter_blk->line;
 				} else if (iter_blk->start > pos) {
 					break;
 				}
@@ -1038,18 +1057,18 @@ namespace HGW {
 
     void GwTrack::printTargetRecord(std::string &id_str, std::string &chrm, int pos) {
         if (kind == BCF_IDX) {
-            return print_BCF_IDX(idx_v, hdr, chrm, pos, fp, id_str);
+            return print_BCF_IDX(idx_v, hdr, chrm, pos, fp, id_str, variantString);
         } else if (kind == VCF_NOI) {
-            return print_VCF_NOI(path, id_str);
+            return print_VCF_NOI(path, id_str, variantString);
         } else if (kind == VCF_IDX) {
-            return print_VCF_IDX(path, id_str, chrm, pos);
+            return print_VCF_IDX(path, id_str, chrm, pos, variantString);
         } else if (kind == BED_IDX) {
-            return print_BED_IDX(path, chrm, pos);
+            return print_BED_IDX(path, chrm, pos, variantString);
         } else {
 			if (allBlocks.contains(chrm)) {
-				return print_cached(allBlocks[chrm], chrm, pos, false);
+				return print_cached(allBlocks[chrm], chrm, pos, false, variantString);
 			} else {
-				return print_cached(allBlocks_flat, chrm, pos, true);
+				return print_cached(allBlocks_flat, chrm, pos, true, variantString);
 			}
 		}
     }

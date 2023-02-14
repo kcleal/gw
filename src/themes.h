@@ -107,7 +107,7 @@ namespace Themes {
 
         BaseTheme theme;
         Utils::Dims dimensions, number;
-        std::string theme_str, fmt, parse_label, labels, link, dimensions_str, number_str, ini_path;
+        std::string theme_str, fmt, parse_label, labels, link, dimensions_str, number_str, ini_path, outdir;
         std::string editor;
         int canvas_width, canvas_height;
         int indel_length, ylim, split_view_size, threads, pad, link_op, max_coverage, max_tlen;

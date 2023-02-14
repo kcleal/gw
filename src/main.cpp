@@ -229,10 +229,14 @@ int main(int argc, char *argv[]) {
     std::string outdir;
     if (program.is_used("-o")) {
         outdir = program.get<std::string>("-o");
+		iopts.outdir = outdir;
         if (!std::filesystem::is_directory(outdir) || !std::filesystem::exists(outdir)) { // Check if src folder exists
             std::filesystem::create_directory(outdir); // create src folder
         }
     }
+	/* else { */
+	/* iopts.outdir = std::filesystem::current_path(); */
+	/* } */
 
     if (program.is_used("-n")) {
         iopts.no_show = program.get<bool>("-n");

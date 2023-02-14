@@ -19,6 +19,7 @@
 #include "../include/termcolor.h"
 #include "term_out.h"
 #include "themes.h"
+#include"../include/unordered_dense.h"
 
 
 namespace Manager {
@@ -119,6 +120,12 @@ namespace Manager {
                         Term::editInputText(inputText, "<", charIndex);
                     } else if (key == GLFW_KEY_PERIOD && mods == GLFW_MOD_SHIFT) {
                         Term::editInputText(inputText, ">", charIndex);
+					} else if (key == GLFW_KEY_LEFT_BRACKET && mods == GLFW_MOD_SHIFT) {
+                        Term::editInputText(inputText, "{", charIndex);
+					} else if (key == GLFW_KEY_RIGHT_BRACKET && mods == GLFW_MOD_SHIFT) {
+                        Term::editInputText(inputText, "}", charIndex);
+					} else if (key == GLFW_KEY_MINUS && mods == GLFW_MOD_SHIFT) {
+                        Term::editInputText(inputText, "_", charIndex);
                     } else {
                         if (mods == GLFW_MOD_SHIFT) { // uppercase
                             std::string str = letter;
@@ -509,15 +516,75 @@ namespace Manager {
                 inputText = "";
                 return true;
             }
+			std::vector<std::string> split = Utils::split(inputText, delim);
             Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
             Term::clearLine();
 			if (useVcf) {
 				vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+				std::string variantStringCopy = vcf.variantString;
+				vcf.get_samples();
+				std::vector<std::string> sample_names_copy = vcf.sample_names;
+				if (variantStringCopy != "ERROR") {
+					int requests = split.size();
+					if (requests == 1) {
+						std::cout << std::endl << variantStringCopy << std::endl;
+					}
+					else {
+						std::string requestedVars = "";
+						std::vector<std::string> vcfCols = Utils::split(variantStringCopy, '\t');
+						for (int i = 1; i < requests; ++i) {
+							std::string result = "";
+							Parse::parse_vcf_split(result, vcfCols, split[i], sample_names_copy);
+							if (i != requests-1) {
+								requestedVars += split[i]+":\t"+result+",\t";
+							}
+							else {
+								requestedVars += split[i]+":\t"+result;
+							}
+						}
+						std::cout << std::endl << requestedVars << std::endl;
+					}
+				}
 			} else {
 				variantTrack.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+				std::string variantStringCopy = variantTrack.variantString;
+				if (variantStringCopy != "ERROR") {
+					std::cout << std::endl << variantStringCopy << std::endl;
+				}
 			}
             inputText = "";
             return true;    
+		} else if (inputText == ":s" || Utils::startsWith(inputText, ":snapshot")) { // work in progress
+			std::vector<std::string> split = Utils::split(inputText, delim);
+			std::string fname = "";
+			if (split.size() == 1) {
+				Parse::parse_sample_variable(fname, bam_paths);
+				fname += regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".png";
+			}
+			else {
+				std::string nameFormat = split[1];
+            	Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
+				if (useVcf) {
+					vcf.get_samples();
+					std::vector<std::string> sample_names_copy = vcf.sample_names;
+					vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+					std::string variantStringCopy = vcf.variantString;
+					std::vector<std::string> vcfCols = Utils::split(variantStringCopy, '\t');
+					Parse::parse_output_name_format(nameFormat, vcfCols, sample_names_copy, bam_paths, lbl.current());
+					fname += nameFormat;
+					Utils::trim(fname);
+				}
+			}
+
+			fs::path outdir = opts.outdir;
+			fs::path out_path = outdir / fname;
+			std::cout << std::endl << "Saved to:\t" << out_path << std::endl;
+			
+			if (!imageCacheQueue.empty()) {
+				Manager::imagePngToFile(imageCacheQueue.back().second, out_path.string());
+			}
+			// Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
+			return true;
         } else {
 	        inputText.erase(0, 1);
 	        Utils::Region rgn;
