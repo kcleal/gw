@@ -216,7 +216,7 @@ namespace Term {
         for (k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
-            if (i >= max || l >= max) {
+            if (i >= max || (int)l >= max) {
                 std::cout << "...";
                 return;
             }
@@ -488,6 +488,9 @@ namespace Term {
     }
 
 	void printCoverage(int pos, Segs::ReadCollection &cl) {
+        if (cl.readQueue.empty()) {
+            return;
+        }
 		auto bnd = std::lower_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
 		                       [&](const Segs::Align &lhs, const int pos) {
 			return (int)lhs.pos <= pos;
@@ -699,7 +702,7 @@ namespace Term {
                 if (startIdx > cl.region.end - cl.region.start) {
                     return;  // something went wrong
                 }
-                if (cl.region.refSeq == nullptr || startIdx >= strlen(cl.region.refSeq)) {
+                if (cl.region.refSeq == nullptr || startIdx >= (int)strlen(cl.region.refSeq)) {
                     return;
                 }
                 const char * s = &cl.region.refSeq[startIdx];

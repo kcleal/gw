@@ -127,7 +127,7 @@ namespace Themes {
             lcLabel.setAntiAlias(true);
 
             lcBright.setStyle(SkPaint::kStrokeAndFill_Style);
-            lcBright.setStrokeWidth(3);
+            lcBright.setStrokeWidth(1);
             lcBright.setAntiAlias(true);
 
             insF = fcIns;
@@ -320,10 +320,10 @@ namespace Themes {
                 path = homedir / home_config / gwini;
             } else {
                 std::filesystem::path exe_path (Utils::getExecutableDir());
-                if (std::filesystem::exists(homedir / exe_path / gwini)) {
-                    path = homedir / exe_path / gwini;
+                if (std::filesystem::exists(exe_path / gwini)) {
+                    path = exe_path / gwini;
                 } else {
-                    theme = Themes::IgvTheme();
+                    theme = Themes::DarkTheme();
                     return;
                 }
             }

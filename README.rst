@@ -46,6 +46,8 @@ Building requires glfw3 and htslib libraries::
     git clone https://github.com/kcleal/gw.git && cd gw
     make prep && make
 
+Build dependencies for ubuntu are also listed in deps folder.
+
 🚀 Quick Start
 ==============
 Command line::

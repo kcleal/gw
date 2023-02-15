@@ -502,6 +502,9 @@ namespace Manager {
             glfwGetWindowContentScale(window, &xscale, &yscale);
             monitorScale = xscale;  // we assume xscale and yscale are the same
             glfwGetFramebufferSize(window, &fb_width, &fb_height);
+            if (monitorScale > 1) {
+                opts.theme.lcBright.setStrokeWidth(monitorScale);
+            }
         } else {
             monitorScale = 1;
             glfwGetFramebufferSize(backWindow, &fb_width, &fb_height);

@@ -69,19 +69,9 @@ namespace Utils {
 
 #ifdef __linux__
 
-    std::string getExecutablePath() {
-        char rawPathName[PATH_MAX];
-        realpath(PROC_SELF_EXE, rawPathName);
-        return std::string(rawPathName);
-    }
-
     std::string getExecutableDir() {
-        std::string executablePath = getExecutablePath();
-        char *executablePathStr = new char[executablePath.length() + 1];
-        strcpy(executablePathStr, executablePath.c_str());
-        char *executableDir = dirname(executablePathStr);
-        delete[] executablePathStr;
-        return std::string(executableDir);
+        auto pth = std::filesystem::canonical("/proc/self/exe").parent_path().string();
+        return pth;
     }
 
 #endif

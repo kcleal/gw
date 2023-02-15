@@ -1309,7 +1309,6 @@ namespace Manager {
         int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
         bool lt_last = xPos < lastX;
         lastX = xPos;
-
         if (state == GLFW_PRESS) {
             xDrag = xPos - xOri;
             if (mode == Manager::SINGLE) {
@@ -1336,7 +1335,6 @@ namespace Manager {
                     return;
                 }
                 if (cl.region.end - cl.region.start < 50000) {
-
                     printRegionInfo();
                     auto w = (float) (((float)cl.region.end - (float)cl.region.start) * (float) regions.size());
                     int travel = (int) (w * (xDrag / windowW));
@@ -1386,7 +1384,6 @@ namespace Manager {
                     xPos *= (float) fb_width / (float) windowW;
                     yPos *= (float) fb_height / (float) windowH;
                 }
-
                 int rs = getCollectionIdx((float)xPos, (float)yPos);
 	            if (rs <= -3) {  // print track info
 		            float rgS = ((float)fb_width / (float)regions.size());
@@ -1411,7 +1408,6 @@ namespace Manager {
                 }
                 Segs::ReadCollection &cl = collections[rs];
                 regionSelection = cl.regionIdx;
-
 	            int pos = (int) (((xPos - (float) cl.xOffset) / cl.xScaling) + (float) cl.region.start);
 	            int level = (int) ((yPos - (float) cl.yOffset) / (trackY / (float)(cl.levelsStart.size() - cl.vScroll )));
 	            if (level < 0 && cl.region.end - cl.region.start < 50000) {
@@ -1419,7 +1415,6 @@ namespace Manager {
 		            Term::printCoverage(pos, cl);
 		            return;
 	            }
-
                 updateCursorGenomePos(cl, (float)xPos);
             } else {
                 int windowW, windowH;  // convert screen coords to frame buffer coords

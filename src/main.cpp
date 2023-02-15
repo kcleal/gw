@@ -50,9 +50,8 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> img_fmt = { "png", "pdf" };
     static const std::vector<std::string> img_themes = { "igv", "dark" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
-    static const std::vector<std::string> backend = { "raster", "gpu" };
 
-    argparse::ArgumentParser program("gw", "0.6.1");
+    argparse::ArgumentParser program("gw", "0.6.2");
     program.add_argument("genome")
             .default_value(std::string{""}).append()//.required()
             .help("Reference genome in .fasta format with .fai index file");
@@ -161,6 +160,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("--delay")
             .default_value(0).append().scan<'i', int>()
             .help("Delay in milliseconds before each update, useful for remote connections");
+    program.add_argument("--config")
+            .default_value(false).implicit_value(true)
+            .help("Display path of loaded .gw.ini config");
 
     // check input for errors and merge input options with IniOptions
     try {
@@ -170,6 +172,10 @@ int main(int argc, char *argv[]) {
         std::cerr << err.what() << std::endl;
         std::cerr << program;
         std::exit(1);
+    }
+    if (program.get<bool>("config")) {
+        std::cout << iopts.ini_path << std::endl;
+        return 0;
     }
 
     auto genome = program.get<std::string>("genome");
