@@ -652,6 +652,7 @@ int main(int argc, char *argv[]) {
                 for (int i = 0; i < iopts.threads; ++i) {
                     Manager::GwPlot *m = new Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
                     m->setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
+                    m->opts.threads = 1;
                     managers.push_back(m);
                 }
 
