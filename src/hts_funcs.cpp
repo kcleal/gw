@@ -872,16 +872,15 @@ namespace HGW {
                     b.end = b.start + 1;
                 }
                 if (add_to_dict) {
-                    if (sorted) {
-                        if (allBlocks.find(b.chrom) == allBlocks.end()) {
-                            lastb = -1;
-                        }
-                        allBlocks[b.chrom].push_back(b);
-                        if (b.start < lastb) {
-                            sorted = false;
-                        }
-                        lastb = b.start;
+                    if (allBlocks.find(b.chrom) == allBlocks.end()) {
+                        lastb = -1;
                     }
+                    allBlocks[b.chrom].push_back(b);
+
+                    if (b.start < lastb) {
+                        sorted = false;
+                    }
+                    lastb = b.start;
                 } else {
                     allBlocks_flat.push_back(b);
                 }
@@ -930,6 +929,13 @@ namespace HGW {
                                                 [](Utils::TrackBlock &a, int x)-> bool { return a.start < x;});
                     if (iter_blk != vals.begin()) {
                         --iter_blk;
+                        while (iter_blk != vals.begin()) {
+                            if (iter_blk->end > rgn->start) {
+                                --iter_blk;
+                            } else {
+                                break;
+                            }
+                        }
                     }
                     region_end = rgn->end;
                     if (iter_blk == vals_end) {
@@ -1005,9 +1011,9 @@ namespace HGW {
                     return;
                 }
             }
-
             if (kind == BED_IDX) {
-                std::vector<std::string> parts = Utils::split(str.s, '\t');
+                parts.clear();
+                parts = Utils::split(str.s, '\t');
                 chrom = parts[0];
                 start = std::stoi(parts[1]);
                 stop = std::stoi(parts[2]);
@@ -1037,6 +1043,7 @@ namespace HGW {
                     stop = iter_blk->end;
                     rid = iter_blk->name;
                     vartype = iter_blk->vartype;
+                    variantString = iter_blk->line;
                     ++iter_blk;
                 } else {
                     done = true;

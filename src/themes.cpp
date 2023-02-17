@@ -100,6 +100,9 @@ namespace Themes {
             fcTra0 = fcTra;
             fcSoftClip0 = fcSoftClip;
 
+            bgPaint.setStyle(SkPaint::kStrokeAndFill_Style);
+            bgPaint.setStrokeWidth(2);
+
             fcNormal.setAlpha(alpha);
             fcDel.setAlpha(alpha);
             fcDup.setAlpha(alpha);
@@ -115,6 +118,10 @@ namespace Themes {
             fcInvR0.setAlpha(mapq0_alpha);
             fcTra0.setAlpha(mapq0_alpha);
             fcSoftClip0.setAlpha(mapq0_alpha);
+
+            fcTrack.setStyle(SkPaint::kStrokeAndFill_Style);
+            fcTrack.setStrokeWidth(1);
+            fcTrack.setAntiAlias(true);
 
             lcJoins.setStyle(SkPaint::kStroke_Style);
             lcJoins.setStrokeWidth(2);

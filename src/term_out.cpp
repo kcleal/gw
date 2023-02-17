@@ -676,6 +676,9 @@ namespace Term {
 				if (!mouseOver) {
 					std::cout << std::endl;
                     track.printTargetRecord(track.rid, rgn->chrom, target);
+                    if (!track.variantString.empty()) {
+                        std::cout << track.variantString << std::endl;
+                    }
 				} else {
 					break;
 				}

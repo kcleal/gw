@@ -136,6 +136,15 @@ namespace Utils {
         return elems;
     }
 
+    std::vector<std::string> split(const std::string &s, char delim, std::vector<std::string> &elems) {
+        split(s, delim, std::back_inserter(elems));
+        elems.erase(std::remove_if(elems.begin(), elems.end(),  // remove empty strings
+                                   [&](std::string const &cmp) -> bool {
+                                       return cmp == "";
+                                   }), elems.end());
+        return elems;
+    }
+
     void strToRegion(Region *r, std::string &s, const char delim) {
         size_t start = 0;
         size_t end = s.find(delim);

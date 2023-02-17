@@ -27,6 +27,8 @@ namespace Utils {
 
     std::vector<std::string> split(const std::string &s, char delim);
 
+    std::vector<std::string> split(const std::string &s, char delim, std::vector<std::string> &elems);
+
     // https://stackoverflow.com/questions/1528298/get-path-of-executable
     std::string getExecutableDir();
 

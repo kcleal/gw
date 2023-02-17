@@ -111,6 +111,7 @@ namespace HGW {
         hts_itr_t *iter_q;
 
         int region_end;
+        std::vector<std::string> parts;
         std::vector<Utils::TrackBlock> vals;
         std::vector<Utils::TrackBlock>::iterator vals_end;
         std::vector<Utils::TrackBlock>::iterator iter_blk;

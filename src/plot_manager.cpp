@@ -538,15 +538,15 @@ namespace Manager {
         if (tracks.empty()) {
             totalTabixY = 0; tabixY = 0;
         } else {
-            totalTabixY = fbh * ((float)0.05 * (float)tracks.size());
+            totalTabixY = fbh * ((float)0.07 * (float)tracks.size());
             if (totalTabixY > (float)0.15 * fbh) {
                 totalTabixY = (float)0.15 * fbh;
             }
             tabixY = totalTabixY / (float)tracks.size();
         }
         if (nbams > 0) {
-            trackY = (fbh - totalCovY - totalTabixY - gap2 - refSpace - refSpace) / nbams;
-            yScaling = ((fbh - totalCovY - totalTabixY - gap2 - refSpace - refSpace) / (float)samMaxY) / nbams;
+            trackY = (fbh - totalCovY - totalTabixY - gap2 - refSpace ) / nbams;
+            yScaling = ((fbh - totalCovY - totalTabixY - gap2 - refSpace ) / (float)samMaxY) / nbams;
             yScaling = (yScaling > 1) ? (float)(int)yScaling : yScaling;
         } else {
             trackY = 0;

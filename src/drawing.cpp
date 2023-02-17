@@ -488,38 +488,11 @@ namespace Drawing {
                 } else {
                     drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, delEnd + xOffset);
                 }
-//                delEnd = (delEnd - delBegin < 2) ? delBegin + 2 : delEnd;
-//                drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, delEnd + xOffset);
             }
         } else if ((float)size / (float) regionLen > 0.0005) { // (regionLen < 50000 || size > 100) { // line only
             delEnd = std::min(regionPixels, delEnd);
             drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, delEnd + xOffset);
         }
-
-//        if (regionLen < 500000 && size >= opts.indel_length) { // line and text
-//            std::sprintf(indelChars, "%d", isize);
-//            size_t sl = strlen(indelChars);
-//            float textW = fonts.textWidths[sl - 1];
-//            float textBegin = ((lastEnd + size / 2) * xScaling) - (textW / 2);
-//            float textEnd = textBegin + textW;
-//            if (textBegin < 0) {
-//                textBegin = 0;
-//                textEnd = textW;
-//            } else if (textEnd > regionPixels) {
-//                textBegin = regionPixels - textW;
-//                textEnd = regionPixels;
-//            }
-//            text.push_back(SkTextBlob::MakeFromString(indelChars, fonts.fonty));
-//            textX.push_back(textBegin + xOffset);
-//            textY.push_back((Y + polygonHeight) * yScaling - textDrop + yOffset);
-//            if (textBegin > delBegin) {
-//                drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, textBegin + xOffset);
-//                drawHLine(canvas, path, opts.theme.lcJoins, textEnd + xOffset, yh, delEnd + xOffset);
-//            }
-//        } else if ((float)size / (float) regionLen > 0.0005) { // (regionLen < 50000 || size > 100) { // line only
-//            delEnd = std::min(regionPixels, delEnd);
-//            drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, delEnd + xOffset);
-//        }
     }
 
     void drawBams(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
@@ -1046,6 +1019,92 @@ namespace Drawing {
         }
     }
 
+
+    void drawTrackBlock(int start, int stop, std::string &rid, const Utils::Region &rgn, SkRect &rect, SkPath &path, float padX, float padY,
+                        float y, float h, float stepX, float gap, float gap2, float xScaling, float t,
+                        Themes::IniOptions &opts, SkCanvas *canvas, const Themes::Fonts &fonts,
+                        bool add_text, bool add_rect, bool v_line) {
+        float x;
+        float w, textW;
+        if (start < rgn.start && stop >= rgn.end) { // track spans whole region
+            rect.setXYWH(padX, y + padY - h, stepX - gap2, h);
+            if (add_rect) {
+                canvas->drawRect(rect, opts.theme.fcTrack);
+            }
+            w = (float)(stop - rgn.start) * xScaling;
+            if (add_text && w > t) {
+                textW = fonts.overlayWidth * ((float)rid.size() + 1);
+                if (rect.left() + textW < padX + stepX - gap2 - gap2) {
+                    rect.setXYWH(padX, y + (h/2) + padY, textW, h*2);
+                    canvas->drawRect(rect, opts.theme.bgPaint);
+                    if (2*h > fonts.overlayHeight) {
+                        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(rid.c_str(), fonts.overlay);
+                        canvas->drawTextBlob(blob, rect.left(), rect.bottom(), opts.theme.tcDel);
+                    }
+                }
+            }
+        } else if (start < rgn.start && stop >= rgn.start) {  // overhands left side
+            w = (float)(stop - rgn.start) * xScaling;
+            x = 0;
+            rect.setXYWH(padX, y + padY - h, w, h);
+            if (add_rect) {
+                canvas->drawRect(rect, opts.theme.fcTrack);
+            }
+            if (add_text && w > t) {
+                textW = fonts.overlayWidth * ((float)rid.size() + 1);
+                if (rect.left() + textW < padX + stepX - gap2) {
+                    rect.setXYWH(padX, y + (h/2) + padY, textW, h*2);
+                    canvas->drawRect(rect, opts.theme.bgPaint);
+                    if (2*h > fonts.overlayHeight) {
+                        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(rid.c_str(), fonts.overlay);
+                        canvas->drawTextBlob(blob, rect.left(), rect.bottom(), opts.theme.tcDel);
+                    }
+                }
+            }
+        } else if (start < rgn.end && stop > rgn.end) { // overhangs rhs
+            x = (float)(start - rgn.start) * xScaling;
+            w = (float)(rgn.end - start) * xScaling;
+            rect.setXYWH(x + padX, y + padY - h, w, h);
+            if (add_rect) {
+                canvas->drawRect(rect, opts.theme.fcTrack);
+            }
+            if (add_text && w > t) {
+                textW = fonts.overlayWidth * ((float)rid.size() + 1);
+                if (rect.left() + textW < padX + stepX - gap2) {
+                    rect.setXYWH(x + padX, y + (h/2) + padY, textW, h*2);
+                    canvas->drawRect(rect, opts.theme.bgPaint);
+                    if (2*h > fonts.overlayHeight) {
+                        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(rid.c_str(), fonts.overlay);
+                        canvas->drawTextBlob(blob, rect.left(), rect.bottom(), opts.theme.tcDel);
+                    }
+                }
+            }
+        } else if (start >= rgn.start && stop < rgn.end) { // all within view
+            x = (float)(start - rgn.start) * xScaling;
+            w = (float)(stop - start) * xScaling;
+            rect.setXYWH(x + padX, y + padY - h, w, h);
+            if (add_rect) {
+                canvas->drawRect(rect, opts.theme.fcTrack);
+            }
+            if (add_text && w > t) {
+                textW = fonts.overlayWidth * ((float)rid.size() + 1);
+                if (rect.left() + textW < padX + stepX - gap2 - gap2) {
+                    rect.setXYWH(x + padX, y + (h/2) + padY, textW, h*2);
+                    canvas->drawRect(rect, opts.theme.bgPaint);
+                    if (2*h > fonts.overlayHeight) {
+                        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(rid.c_str(), fonts.overlay);
+                        canvas->drawTextBlob(blob, rect.left(), rect.bottom(), opts.theme.tcDel);
+                    }
+                }
+            }
+        }
+        if (v_line && x != 0) {
+            path.moveTo(x + padX, y + padY - h);
+            path.lineTo(x + padX, y + (h/2) + padY);
+            canvas->drawPath(path, opts.theme.lcJoins);
+        }
+    }
+
     void drawTracks(Themes::IniOptions &opts, float fb_width, float fb_height,
                      SkCanvas *canvas, float totalTabixY, float tabixY, std::vector<HGW::GwTrack> &tracks,
                      const std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, float gap) {
@@ -1060,14 +1119,18 @@ namespace Drawing {
         float stepX = fb_width / regions.size();
         float stepY = totalTabixY / tracks.size();
         float y = fb_height - totalTabixY;
-        float h = stepY * 0.2;
-        float t = 0.005 * fb_width;
-        SkRect rect;
-        SkPath path;
+        float h = (float)stepY * 0.2;
+        float h2 = h / 2;
+        float h4 = h2 / 2;
+        float t = (float)0.005 * fb_width;
+        SkRect rect{};
+        SkPath path{};
+        SkPath path2{};
 
         opts.theme.lcLightJoins.setAntiAlias(true);
         for (auto &rgn : regions) {
-            float xScaling = (stepX - gap2) / (rgn.end - rgn.start);
+            bool any_text = (rgn.end - rgn.start) < 500000;
+            float xScaling = (stepX - gap2) / (float)(rgn.end - rgn.start);
             for (auto & trk : tracks) {
                 trk.fetch(&rgn);
                 while (true) {
@@ -1075,78 +1138,130 @@ namespace Drawing {
                     if (trk.done) {
                         break;
                     }
-                    float x, w, textW;
-                    if (trk.start < rgn.start && trk.stop >= rgn.end) { // track spans whole region
-                        rect.setXYWH(padX, y + padY - h, stepX - gap2, h);
-                        canvas->drawRect(rect, opts.theme.fcTrack);
-                        w = (trk.stop - rgn.start) * xScaling;
-                        if (w > t) {
-                            textW = fonts.overlayWidth * (trk.rid.size() + 1);
-                            if (rect.left() + textW < padX + stepX - gap2 - gap2) {
-                                rect.setXYWH(padX + gap, y + (h/2) + padY, textW, h);
-                                canvas->drawRect(rect, opts.theme.bgPaint);
-                                if (2*h > fonts.overlayHeight) {
-                                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(trk.rid.c_str(), fonts.overlay);
-                                    canvas->drawTextBlob(blob, rect.left(), rect.bottom(), opts.theme.tcDel);
-                                }
-                            }
+                    // check for big bed. BED_IDX will already be split, BED_NOI is split here
+                    if (trk.kind == HGW::BED_NOI) {
+                        trk.parts.clear();
+                        Utils::split(trk.variantString, '\t', trk.parts);
+                    }
+                    if (!trk.parts.empty() && trk.parts.size() >= 12) {
+                        std::vector<std::string> lens, starts;
+                        Utils::split(trk.parts[10], ',', lens);
+                        Utils::split(trk.parts[11], ',', starts);
+                        if (any_text) {
+                            drawTrackBlock(trk.start, trk.stop, trk.rid, rgn, rect, path, padX, padY, y, h, stepX, gap, gap2, xScaling, t,
+                                           opts, canvas, fonts, true, false, false);
                         }
+                        int last_end = 0;
+                        if (starts.size() == lens.size()) {
+                            int target = (int)lens.size();
+                            int gene_start = trk.start;
+                            int stranded = (trk.parts[5] == "+") ? 1 : (trk.parts[5] == "-") ? -1 : 0;
+                            int thickStart = std::stoi(trk.parts[6]);
+                            int thickEnd = (std::stoi(trk.parts[7]));
+                            thickEnd = (thickEnd == thickStart) ? trk.stop : thickEnd;
+                            bool add_line = true;  // vertical line at start of interval
+                            for (int i=0; i < target; ++i) {
+                                int s, e;
+                                try {
+                                    s = gene_start + std::stoi(starts[i]);
+                                    e = s + std::stoi(lens[i]);
+                                } catch (...) {
+                                    std::cerr << "Error: problem parsing big bed, pos was: " << trk.parts[0] << " " << trk.parts[1] << std::endl;
+                                    break;
+                                }
+                                if (s > rgn.end && last_end > rgn.end) {
+                                    break;
+                                } else if (e < rgn.start) {
+                                    last_end = e;
+                                    continue;
+                                }
+                                if (s >= thickStart && e <= thickEnd) { // block is all thick
+                                    drawTrackBlock(s, e, trk.rid, rgn, rect, path, padX, padY, y, h, stepX, gap, gap2, xScaling, t,
+                                                   opts, canvas, fonts, false, true, add_line);
+                                } else if (e < thickStart || s > thickEnd) {  // block is all thin
+                                    drawTrackBlock(s, e, trk.rid, rgn, rect, path, padX, padY, y - h4, h2, stepX, gap, gap2, xScaling, t,
+                                                   opts, canvas, fonts, false, true, add_line);
 
-                    } else if (trk.start < rgn.start && trk.stop >= rgn.start) {  // overhands left side
-                        w = (trk.stop - rgn.start) * xScaling;
-                        rect.setXYWH(padX, y + padY - h, w, h);
-                        canvas->drawRect(rect, opts.theme.fcTrack);
-                        if (w > t) {
-                            textW = fonts.overlayWidth * (trk.rid.size() + 1);
-                            if (rect.left() + textW < padX + stepX - gap2 - gap2) {
-                                rect.setXYWH(padX + gap, y + (h/2) + padY, textW, h);
-                                canvas->drawRect(rect, opts.theme.bgPaint);
-                                if (2*h > fonts.overlayHeight) {
-                                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(trk.rid.c_str(), fonts.overlay);
-                                    canvas->drawTextBlob(blob, rect.left(), rect.bottom(), opts.theme.tcDel);
-                                }
-                            }
-                        }
+                                } else {  // left or right is thin
+                                    if (s < thickStart) {  // left small block
+                                        drawTrackBlock(s, thickStart, trk.rid, rgn, rect, path, padX, padY, y - h4, h2, stepX, gap, gap2, xScaling, t,
+                                                       opts, canvas, fonts, false, true, add_line);
+                                        add_line = false;
 
-                    } else if (trk.start >= rgn.start && trk.stop > rgn.end) { // overhangs rhs
-                        x = (trk.start - rgn.start) * xScaling;
-                        w = (rgn.end - trk.start) * xScaling;
-                        rect.setXYWH(x + padX, y + padY - h, w, h);
-                        canvas->drawRect(rect, opts.theme.fcTrack);
-                        if (w > t) {
-                            textW = fonts.overlayWidth * (trk.rid.size() + 1);
-                            if (rect.left() + textW < padX + stepX - gap2 - gap2) {
-                                rect.setXYWH(x + padX, y + (h/2) + padY, textW, h);
-                                canvas->drawRect(rect, opts.theme.bgPaint);
-                                if (2*h > fonts.overlayHeight) {
-                                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(trk.rid.c_str(), fonts.overlay);
-                                    canvas->drawTextBlob(blob, rect.left(), rect.bottom(), opts.theme.tcDel);
-                                }
-                            }
-                        }
-                        path.moveTo(x + padX, y + padY - h);
-                        path.lineTo(x + padX, y + (h/2) + padY);
-                        canvas->drawPath(path, opts.theme.lcJoins);
+                                    }
+                                    if (e > thickEnd) {  // right small block
+                                        drawTrackBlock(thickEnd, e, trk.rid, rgn, rect, path, padX, padY, y - h4, h2, stepX, gap, gap2, xScaling, t,
+                                                       opts, canvas, fonts, false, true, add_line);
+                                        add_line = false;
+                                    }
+                                    drawTrackBlock(std::max(s, thickStart), std::min(e, thickEnd), trk.rid, rgn, rect, path, padX, padY, y, h, stepX, gap, gap2, xScaling, t,
+                                                   opts, canvas, fonts, false, true, add_line);
 
-                    } else if (trk.start >= rgn.start && trk.stop <= rgn.end) { // all within view
-                        x = (trk.start - rgn.start) * xScaling;
-                        w = (trk.stop - trk.start) * xScaling;
-                        rect.setXYWH(x + padX, y + padY - h, w, h);
-                        canvas->drawRect(rect,  opts.theme.fcTrack);
-                        if (w > t) {
-                            textW = fonts.overlayWidth * (trk.rid.size() + 1);
-                            if (rect.left() + textW < padX + stepX - gap2 - gap2) {
-                                rect.setXYWH(x + padX, y + (h/2) + padY, textW, h);
-                                canvas->drawRect(rect, opts.theme.bgPaint);
-                                if (2*h > fonts.overlayHeight) {
-                                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(trk.rid.c_str(), fonts.overlay);
-                                    canvas->drawTextBlob(blob, rect.left(), rect.bottom(), opts.theme.tcDel);
                                 }
+
+                                float x, yy, w;
+                                yy = y + padY - (h/2);
+                                if (i > 0) {  // add arrows
+                                    x = ((float)(std::max(last_end, rgn.start) - rgn.start) * xScaling) + padX;
+                                    w = ((float)(std::min(s, rgn.end) - rgn.start) * xScaling) + padX;
+                                    if (w > 0) {
+                                        path2.reset();
+                                        path2.moveTo(x, yy);
+                                        path2.lineTo(w, yy);
+                                        canvas->drawPath(path2, opts.theme.fcTrack);
+                                        if (stranded != 0 && w - x > 50) {
+                                            while (x + 50 < w) {
+                                                x += 50;
+                                                path2.reset();
+                                                if (stranded == 1) {
+                                                    path2.moveTo(x, yy);
+                                                    path2.lineTo(x-6, yy + 6);
+                                                    path2.moveTo(x, yy);
+                                                    path2.lineTo(x-6, yy - 6);
+                                                } else {
+                                                    path2.moveTo(x, yy);
+                                                    path2.lineTo(x+6, yy + 6);
+                                                    path2.moveTo(x, yy);
+                                                    path2.lineTo(x+6, yy - 6);
+                                                }
+                                                canvas->drawPath(path2, opts.theme.fcTrack);
+                                            }
+                                        }
+                                    }
+
+                                }
+                                if (stranded != 0) {
+                                    x = ((float)(std::max(s, rgn.start) - rgn.start) * xScaling) + padX;
+                                    w = ((float)(std::min(e, rgn.end) - rgn.start) * xScaling) + padX;
+                                    if (w - x > 50) {
+                                        while (x + 50 < w) {
+                                            x += 50;
+                                            path2.reset();
+                                            if (stranded == 1) {
+                                                path2.moveTo(x, yy);
+                                                path2.lineTo(x-4, yy + 4);
+                                                path2.moveTo(x, yy);
+                                                path2.lineTo(x-4, yy - 4);
+                                            } else {
+                                                path2.moveTo(x, yy);
+                                                path2.lineTo(x+4, yy + 4);
+                                                path2.moveTo(x, yy);
+                                                path2.lineTo(x+4, yy - 4);
+                                            }
+                                            canvas->drawPath(path2, opts.theme.bgPaint);
+                                        }
+                                    }
+                                }
+                                add_line = false;
+                                last_end = e;
                             }
+                        } else {
+                            drawTrackBlock(trk.start, trk.stop, trk.rid, rgn, rect, path, padX, padY, y, h, stepX, gap, gap2, xScaling, t,
+                                           opts, canvas, fonts, any_text, true, true);
                         }
-                        path.moveTo(x + padX, y + padY - h);
-                        path.lineTo(x + padX, y + (h/2) + padY);
-                        canvas->drawPath(path, opts.theme.lcJoins);
+                    } else {
+                        drawTrackBlock(trk.start, trk.stop, trk.rid, rgn, rect, path, padX, padY, y, h, stepX, gap, gap2, xScaling, t,
+                                       opts, canvas, fonts, any_text, true, true);
                     }
                 }
                 padY += stepY;
