@@ -339,9 +339,10 @@ The machine used was an Intel i9-11900K, NVMe WD 2TB, 64 GB memory.
 
            Mean memory (Gb)
 
-Plotting a 2Mb region in GW took ~0.56s compared to IGV ~28s, although its worth noting IGV needed around 4s for start up. For reference,
-using :code:`samtools view -c -@3` took ~0.09s, which is a measure of how fast a bam file can be read.
-Mean memory use for a 2Mb region was 0.55 Gb for GW vs IGV 7.67 Mb.
+Plotting a 2Mb region in GW took ~0.55s compared to IGV ~37s, although its worth noting IGV needed around 6s for start up. For reference,
+using :code:`samtools view -c -@3` took ~0.209s, which is a measure of how fast a bam file can be read.
+Mean memory use for a 2Mb region was 0.54 Gb for GW vs IGV 3.35 Mb. Using --low-mem mode (gw-lm in plot), memory usage
+was reduced to 344 Mb.
 
 
 Issues and contributing

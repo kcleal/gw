@@ -11,13 +11,11 @@ tables = glob.glob(folder + '/*.csv')
 dfs = []
 for p in tables:
     d = pd.read_csv(p)
-    if "gw." in p:
-        if "gw.benchmark.t3.csv" not in p:
-            continue
     d['file'] = p
     dfs.append(d)
 df = pd.concat(dfs)
-
+df['RSS'] = df['RSS'] / 1e6
+print(df.columns)
 gw_times = {}
 gw_mem = {}
 samtools = {}
@@ -27,6 +25,7 @@ for idx, grp in df[df['name'] == 'gw'].groupby('region size (bp)'):
 for idx, grp in df.groupby('region size (bp)'):
     samtools[idx] = grp['samtools_count_t3 (s)'].mean()
 
+print(gw_times)
 # use the mean time of 2bp region as start time
 min_load_time = {k: dd['time (s)'].min() for k, dd in df[df['region size (bp)'] == 2].groupby('name')}
 df['total'] = df['time (s)']
@@ -87,7 +86,7 @@ b_patch = mpatches.Patch(color='royalblue', label='Total')
 b2_patch = mpatches.Patch(color='lightsteelblue', label='Start')
 plt.legend(loc='lower center', ncol=2, handles=[b_patch, b2_patch], bbox_to_anchor=(0.5, -1.2),
            prop={'size': 10})
-plt.savefig('benchmark_bar_time.png')
+plt.savefig('time.png')
 # plt.show()
 # plt.close()
 
@@ -117,6 +116,6 @@ for size, grp in df.groupby('region size (bp)'):
     ax.set_ylabel('')
     idx += 1
 
-plt.savefig('benchmark_bar_memory.png')
+plt.savefig('memory.png')
 plt.show()
 plt.close()

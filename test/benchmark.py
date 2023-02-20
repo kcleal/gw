@@ -40,13 +40,14 @@ splitf = lambda err: float(err.decode('ascii').split('\n')[0].split('\t')[0].str
 mem_usage = lambda err: float(err.decode('ascii').split('\n')[0].split('\t')[1].strip()) / 1000  # in megabytes
 
 
-def plot_gw(chrom, start, end, args, timef):
-    com = timef + " {gw} {genome} -b {bam} -r {chrom}:{start}-{end} --outdir images --no-show -d 1500x1500"\
-        .format(gw=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
-    p = Popen(com, shell=True, stdout=PIPE, stderr=PIPE)
-    out, err = p.communicate()
-    t = splitf(err)
-    m = mem_usage(err)
+def plot_gw(chrom, start, end, args, timef, low_mem=False):
+    m = '--low-mem' if low_mem else ''
+    com = timef + " -o gwtime.txt {gw} {genome} {m} -b {bam} -r {chrom}:{start}-{end} --outdir images --no-show -d 1500x1500"\
+        .format(gw=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end, m=m)
+    run(com, shell=True)
+    line = open('gwtime.txt', 'r').readlines()[0].strip().split("\t")
+    t = float(line[0])
+    m = float(line[1])
     return t, m
 
 
@@ -61,10 +62,8 @@ snapshot images/igv.png
 exit""".format(genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     with open("igv_batch.bat", "w") as b:
         b.write(v)
-    run(f"echo {chrom}\t{start}\t{end}\n > regions.bed", shell=True)
     com = timef + " -o igvtime.txt {igv} --batch igv_batch.bat".format(igv=args.tool_path)
-    p = Popen(com, shell=True, stderr=PIPE)
-    p.communicate()
+    run(com, shell=True)
     line = open('igvtime.txt', 'r').readlines()[0].strip().split("\t")
     t = float(line[0])
     m = float(line[1])
@@ -72,20 +71,19 @@ exit""".format(genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, e
 
 
 def plot_jbrowse2(chrom, start, end, args, timef):
-    com = "export NODE_OPTIONS=--max_old_space_size=320000; " + timef + " {jb2export} --fasta {genome} --bam {bam} force:true --loc {chrom}:{start}-{end} --out images/jb2_image.svg" \
+    com = "export NODE_OPTIONS=--max_old_space_size=320000; " + timef + " -o jbrowse2time.txt  {jb2export} --fasta {genome} --bam {bam} force:true --loc {chrom}:{start}-{end} --out images/jb2_image.svg" \
         .format(jb2export=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
-    p = Popen(com, shell=True, stdout=PIPE, stderr=PIPE)
-    out, err = p.communicate()
-    t = splitf(err)
-    m = mem_usage(err)
+    run(com, shell=True)
+    line = open('jbrowse2time.txt', 'r').readlines()[0].strip().split("\t")
+    t = float(line[0])
+    m = float(line[1])
     return t, m
 
 
 def plot_samplot(chrom, start, end, args, timef):
     com = timef + " -o samplottime.txt {samplot} plot -r {genome} -b {bam} -c {chrom} -s {start} -e {end} -o images/samplot_image.png -W 5 -H 5" \
         .format(samplot=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
-    p = Popen(com, shell=True, stderr=PIPE)
-    p.communicate()
+    run(com, shell=True)
     line = open('samplottime.txt', 'r').readlines()[0].strip().split("\t")
     t = float(line[0])
     m = float(line[1])
@@ -93,7 +91,7 @@ def plot_samplot(chrom, start, end, args, timef):
 
 
 def samtools_count(chrom, start, end, args, timef):
-    p = Popen(timef + f' --format "%e\t%M" samtools view -@3 -c {args.bam} {chrom}:{start}-{end}', stdout=PIPE, stderr=PIPE, shell=True)
+    p = Popen(timef + f' samtools view -@3 -c {args.bam} {chrom}:{start}-{end}', stdout=PIPE, stderr=PIPE, shell=True)
     out, err = p.communicate()
     reads = int(out.decode('ascii').strip())
     t = splitf(err)
@@ -132,7 +130,7 @@ if __name__ == "__main__":
     else:
         gaps = {}
 
-    region_sizes = [2, 2000, 20_000, 200_000, 2_000_000]
+    region_sizes = [2, 2000, 20_000, 200_000, 2_000_000][::-1]
     max_size = 20_000_000
     fai = {}
     with open(args.ref_genome + ".fai", "r") as fin:
@@ -156,7 +154,7 @@ if __name__ == "__main__":
         random.shuffle(chroms)
         N = 0
         c = 0
-        while N < 10:
+        while N < 20:
             chrom = chroms[c]
             good = False
             for j in range(10):  # 10 tried to find an interval without overlapping a gap
@@ -185,20 +183,29 @@ if __name__ == "__main__":
 
             # run samtools again to prime disk buffering
             _, _ = samtools_count(chrom, start, end, args, timef)
-
             avg_time, maxRSS = prog(chrom, start, end, args, timef)
-
             st_t, reads = samtools_count(chrom, start, end, args, timef)
 
             results.append({'name': name, 'region': f'{chrom}:{start}-{end}', 'time (s)': avg_time,
                             'region size (bp)': end - start, 'RSS': maxRSS,
                             'samtools_count_t3 (s)': st_t, 'reads': reads})
 
+            if name == 'gw':
+                avg_time, maxRSS = prog(chrom, start, end, args, timef, True)
+                results.append({'name': 'gw-lm', 'region': f'{chrom}:{start}-{end}', 'time (s)': avg_time,
+                                'region size (bp)': end - start, 'RSS': maxRSS,
+                                'samtools_count_t3 (s)': st_t, 'reads': reads})
+
     df = pd.DataFrame.from_records(results)
     df = df[['name', 'region', 'reads', 'region size (bp)', 'samtools_count_t3 (s)', 'time (s)', 'RSS']]
     df.to_csv(f'{name}.benchmark.csv', index=False)
 
-    if args[name] == 'samplot':
+    if name == 'samplot':
         run('rm samplottime.txt', shell=True)
-    elif args[name] == 'igv':
+    elif name == 'igv':
         run('rm igvtime.txt', shell=True)
+        run('rm igv_batch.bat', shell=True)
+    elif name == 'jbrowse2':
+        run('rm jbrowse2time.txt', shell=True)
+    else:
+        run('rm gwtime.txt', shell=True)
