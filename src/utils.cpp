@@ -248,13 +248,24 @@ namespace Utils {
         l.vartype = vartype;
         l.savedDate = savedDate;
         l.i = 0;
+        l.ori_i = 0;
         l.clicked = clicked;
         l.mouseOver = false;
-        l.labels.push_back(parsed);
+        bool add_parsed = true;
+        int i = 0;
         for (auto &v : inputLabels) {
-            if (v != parsed) {
-                l.labels.push_back(v);
+            l.labels.push_back(v);
+            if (v == parsed) {
+                add_parsed = false;
+                l.i = i;
+                l.ori_i = i;
             }
+            i += 1;
+        }
+        if (add_parsed) {
+            l.labels.push_back(parsed);
+            l.i = i;
+            l.ori_i = i;
         }
         return l;
     }

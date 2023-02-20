@@ -1014,7 +1014,7 @@ namespace Drawing {
             }
         }
 
-        if (label.i > 0) {
+        if (label.i != label.ori_i) {
             canvas->drawRect(rect, opts.theme.lcJoins);
         }
     }

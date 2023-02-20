@@ -902,6 +902,14 @@ namespace Manager {
                     opts.number.x = (opts.number.x - 1 > 0) ? opts.number.x - 1 : 1;
                     opts.number.y = (opts.number.y - 1 > 0) ? opts.number.y - 1 : 1;
                     redraw = true;
+                } else if (key >= GLFW_KEY_1 && key <= GLFW_KEY_9 && mouseOverTileIndex >= 0) {
+                    int num_idx = key - (int)GLFW_KEY_1;
+                    Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
+                    if (num_idx < lbl.labels.size()) {
+                        redraw = true;
+                        lbl.clicked = true;
+                        lbl.i = num_idx;
+                    }
                 }
             }
         }

@@ -79,7 +79,7 @@ namespace Utils {
         ~Label() = default;
         std::string chrom, variantId, savedDate, vartype;
         std::vector<std::string> labels;
-        int i, pos;
+        int i, pos, ori_i;
         bool clicked;
         bool mouseOver;
 
