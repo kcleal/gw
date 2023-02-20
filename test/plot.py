@@ -55,9 +55,10 @@ print(df2.to_markdown())
 with open('results/benchmark.md', 'w') as b:
     b.write(df2.to_markdown())
 
+
 fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(7, 6))
 fig.subplots_adjust(bottom=0.15, hspace=0.8)
-sns.set_theme(style="whitegrid")
+
 idx = 0
 for size, grp in df.groupby('region size (bp)'):
     ax = sns.barplot(y='name', x='total', data=grp,
@@ -88,15 +89,16 @@ plt.legend(loc='lower center', ncol=2, handles=[b_patch, b2_patch], bbox_to_anch
            prop={'size': 10})
 plt.savefig('benchmark_bar_time.png')
 # plt.show()
-plt.close()
+# plt.close()
 
 
 fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(7, 6))
 fig.subplots_adjust(bottom=0.15, hspace=0.8)
-sns.set_theme(style="whitegrid")
 idx = 0
 for size, grp in df.groupby('region size (bp)'):
     ax = sns.barplot(y='name', x='RSS', data=grp,
+                     color='rosybrown', ax=axes[idx], errorbar=('ci', 95), linewidth=0, errwidth=1)
+    ax2 = sns.barplot(y='name', x='RSS', data=grp,
                      color='rosybrown', ax=axes[idx], errorbar=('ci', 95), linewidth=0, errwidth=1)
     sns.despine(left=True, bottom=True)
     ax.grid(axis='x')
@@ -115,8 +117,6 @@ for size, grp in df.groupby('region size (bp)'):
     ax.set_ylabel('')
     idx += 1
 
-handles, labels = ax.get_legend_handles_labels()
-fig.legend(handles, labels, loc='lower center', ncol=2)
 plt.savefig('benchmark_bar_memory.png')
-# plt.show()
+plt.show()
 plt.close()

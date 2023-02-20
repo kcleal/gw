@@ -29,30 +29,28 @@ Output is a csv file in the current directory
 """
 import argparse
 from subprocess import run, Popen, PIPE
-from multiprocessing import Process, Pipe
 import random
 import pandas as pd
-import resource
 import os
 import platform
 from collections import defaultdict
 
 
-splitf = lambda err: float(err.decode('ascii').split('\n')[0].strip())
-mem_usage = lambda: resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1e6
+splitf = lambda err: float(err.decode('ascii').split('\n')[0].split('\t')[0].strip())
+mem_usage = lambda err: float(err.decode('ascii').split('\n')[0].split('\t')[1].strip()) / 1000  # in megabytes
 
 
-def plot_gw(conn, chrom, start, end, args):
-    com = timef + " --format '%e' {gw} {genome} -b {bam} -r {chrom}:{start}-{end} --outdir images --no-show -d 1500x1500"\
+def plot_gw(chrom, start, end, args, timef):
+    com = timef + " {gw} {genome} -b {bam} -r {chrom}:{start}-{end} --outdir images --no-show -d 1500x1500"\
         .format(gw=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     p = Popen(com, shell=True, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
     t = splitf(err)
-    conn.send([t, mem_usage()])
-    conn.close()
+    m = mem_usage(err)
+    return t, m
 
 
-def plot_igv(conn, chrom, start, end, args):
+def plot_igv(chrom, start, end, args, timef):
     # remove this to test file creation speed - snapshot images/igv.png
     v = """new
 genome {genome}
@@ -64,42 +62,42 @@ exit""".format(genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, e
     with open("igv_batch.bat", "w") as b:
         b.write(v)
     run(f"echo {chrom}\t{start}\t{end}\n > regions.bed", shell=True)
-    com = timef + " -o igvtime.txt --format '%e' {igv} --batch igv_batch.bat".format(igv=args.tool_path)
+    com = timef + " -o igvtime.txt {igv} --batch igv_batch.bat".format(igv=args.tool_path)
     p = Popen(com, shell=True, stderr=PIPE)
-    out, err = p.communicate()
-    t = float(open('igvtime.txt', 'r').readlines()[0].strip())
-    conn.send([t, mem_usage()])
-    conn.close()
+    p.communicate()
+    line = open('igvtime.txt', 'r').readlines()[0].strip().split("\t")
+    t = float(line[0])
+    m = float(line[1])
+    return t, m
 
 
-def plot_jbrowse2(conn, chrom, start, end, args):
-    com = "export NODE_OPTIONS=--max_old_space_size=320000; " + timef + " --format '%e' {jb2export} --fasta {genome} --bam {bam} force:true --loc {chrom}:{start}-{end} --out images/jb2_image.svg" \
+def plot_jbrowse2(chrom, start, end, args, timef):
+    com = "export NODE_OPTIONS=--max_old_space_size=320000; " + timef + " {jb2export} --fasta {genome} --bam {bam} force:true --loc {chrom}:{start}-{end} --out images/jb2_image.svg" \
         .format(jb2export=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     p = Popen(com, shell=True, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
     t = splitf(err)
-    conn.send([t, mem_usage()])
-    conn.close()
+    m = mem_usage(err)
+    return t, m
 
 
-def plot_samplot(conn, chrom, start, end, args):
-    com = timef + " --format '%e' {samplot} plot -r {genome} -b {bam} -c {chrom} -s {start} -e {end} -o images/samplot_image.png -W 5 -H 5" \
+def plot_samplot(chrom, start, end, args, timef):
+    com = timef + " -o samplottime.txt {samplot} plot -r {genome} -b {bam} -c {chrom} -s {start} -e {end} -o images/samplot_image.png -W 5 -H 5" \
         .format(samplot=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     p = Popen(com, shell=True, stderr=PIPE)
-    out, err = p.communicate()
-    err = [i for i in err.decode('ascii').split('\n') if 'Warning' not in i][0]
-    t = float(err)
-    conn.send([t, mem_usage()])
-    conn.close()
+    p.communicate()
+    line = open('samplottime.txt', 'r').readlines()[0].strip().split("\t")
+    t = float(line[0])
+    m = float(line[1])
+    return t, m
 
 
-def samtools_count(conn, chrom, start, end, args):
-    p = Popen(timef + f' --format "%e" samtools view -@3 -c {args.bam} {chrom}:{start}-{end}', stdout=PIPE, stderr=PIPE, shell=True)
+def samtools_count(chrom, start, end, args, timef):
+    p = Popen(timef + f' --format "%e\t%M" samtools view -@3 -c {args.bam} {chrom}:{start}-{end}', stdout=PIPE, stderr=PIPE, shell=True)
     out, err = p.communicate()
     reads = int(out.decode('ascii').strip())
     t = splitf(err)
-    conn.send([t, reads])
-    conn.close()
+    return t, reads
 
 
 if __name__ == "__main__":
@@ -119,9 +117,9 @@ if __name__ == "__main__":
     random.seed(1)
 
     if platform.system() == "Linux":
-        timef = "/usr/bin/time "
+        timef = "/usr/bin/time --format '%U\t%M' "
     else:  # Assuming Mac
-        timef = "gtime "
+        timef = "gtime --format '%U\t%M' "
 
     if not os.path.exists('images'):
         os.mkdir('images')
@@ -169,11 +167,7 @@ if __name__ == "__main__":
                 if chrom in gaps and any(itv.overlaps(itv2) for itv2 in gaps[chrom]):
                     continue
                 # sanity check for any reads. also helps trigger os hdd buffering making benchmarking more stable
-                parent_conn, child_conn = Pipe()
-                p = Process(target=samtools_count, args=(child_conn, chrom, start, end, args))
-                p.start()
-                st_t, reads = parent_conn.recv()
-                p.join()
+                st_t, reads = samtools_count(chrom, start, end, args, timef)
                 if reads > 0:
                     good = True
                     break
@@ -184,31 +178,17 @@ if __name__ == "__main__":
             c += 1
             if N >= len(chroms):
                 raise ValueError('Error: ran out of chroms to plot')
-
             pos = random.randint(half_size, fai[chrom] - half_size)
             start = pos - half_size
             end = pos + half_size
             print(chrom, start, end)
 
             # run samtools again to prime disk buffering
-            _, child_conn = Pipe()
-            p = Process(target=samtools_count, args=(child_conn, chrom, start, end, args))
-            p.start()
-            p.join()
+            _, _ = samtools_count(chrom, start, end, args, timef)
 
-            # getrusage finds max mem usage of parent process, so we need to launch the function in a new child process
-            # and collect mem usage, otherwise max mem usage of this parent process will be recorded.
-            parent_conn, child_conn = Pipe()
-            p = Process(target=prog, args=(child_conn, chrom, start, end, args))
-            p.start()
-            avg_time, maxRSS = parent_conn.recv()
-            p.join()
+            avg_time, maxRSS = prog(chrom, start, end, args, timef)
 
-            parent_conn, child_conn = Pipe()
-            p = Process(target=samtools_count, args=(child_conn, chrom, start, end, args))
-            p.start()
-            st_t, reads = parent_conn.recv()
-            p.join()
+            st_t, reads = samtools_count(chrom, start, end, args, timef)
 
             results.append({'name': name, 'region': f'{chrom}:{start}-{end}', 'time (s)': avg_time,
                             'region size (bp)': end - start, 'RSS': maxRSS,
@@ -217,3 +197,8 @@ if __name__ == "__main__":
     df = pd.DataFrame.from_records(results)
     df = df[['name', 'region', 'reads', 'region size (bp)', 'samtools_count_t3 (s)', 'time (s)', 'RSS']]
     df.to_csv(f'{name}.benchmark.csv', index=False)
+
+    if args[name] == 'samplot':
+        run('rm samplottime.txt', shell=True)
+    elif args[name] == 'igv':
+        run('rm igvtime.txt', shell=True)
