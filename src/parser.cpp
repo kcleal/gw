@@ -734,8 +734,9 @@ namespace Parse {
 		std::string requestBracket = request;
 		int i = 0;
         convert_name_index(requestBracket, i, sample_names);
-        if (i == 0 || i >= (int)vcfCols.size())
+        if (i == 0 || i >= (int)vcfCols.size()) {
             throw std::invalid_argument("request was invalid");
+		}
 
 		const std::regex dot("\\.");
 		std::smatch dotMatch;
