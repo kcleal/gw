@@ -401,6 +401,7 @@ namespace HGW {
     void VCFfile::next() {
         int res = bcf_read(fp, hdr, v);
         if (cacheStdin) {
+			v->max_unpack = BCF_UN_ALL;
             lines.push_back(bcf_dup(v));
         }
 
@@ -543,8 +544,8 @@ namespace HGW {
         else if (kind == STDIN || cacheStdin) {
             kstring_t kstr = {0,0,0};
             std::string tmp_id;
-            for (auto it : lines) {
-                bcf_unpack(it, BCF_UN_STR);
+            for (auto &it : lines) {
+                bcf_unpack(it, BCF_UN_ALL);
                 tmp_id = it->d.id;
                 if (tmp_id == id_str) {
                     vcf_format(hdr, it, &kstr);
