@@ -366,6 +366,9 @@ namespace HGW {
 
         std::string l2p(label_to_parse);
         v->max_unpack = BCF_UN_INFO;
+		if (cacheStdin) {
+			v->max_unpack = BCF_UN_ALL;
+		}
         if (l2p.empty()) {
             parse = -1;
         } else if (l2p.rfind("info.", 0) == 0) {
@@ -401,7 +404,6 @@ namespace HGW {
     void VCFfile::next() {
         int res = bcf_read(fp, hdr, v);
         if (cacheStdin) {
-			v->max_unpack = BCF_UN_ALL;
             lines.push_back(bcf_dup(v));
         }
 
