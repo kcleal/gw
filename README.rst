@@ -1,7 +1,7 @@
 GW
 ==
 
-|Build badge| |Generic badge| |Li badge|
+|Build badge| |Generic badge| |Li badge| |Dl badge|
 
 .. |Build badge| image:: https://github.com/kcleal/gw/actions/workflows/main.yml/badge.svg
    :target: https://github.com/kcleal/gw/actions/workflows/main.yml
@@ -11,6 +11,9 @@ GW
 
 .. |Li badge| image:: https://anaconda.org/bioconda/gw/badges/license.svg
    :target: https://github.com/kcleal/gw/blob/master/LICENSE.md
+   
+.. |Dl badge| image:: https://img.shields.io/conda/dn/bioconda/gw.svg
+   :target: http://bioconda.github.io/recipes/gw/README.html
 
 .. image:: include/banner.png
     :align: center
