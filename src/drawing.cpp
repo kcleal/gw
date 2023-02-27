@@ -444,28 +444,29 @@ namespace Drawing {
     }
 
     void drawDeletionLine(const Segs::Align& a, SkCanvas *canvas, SkPath &path, const Themes::IniOptions &opts, const Themes::Fonts &fonts,
-                          int regionBegin, size_t idx, int Y, int regionLen, int s,
+                          int regionBegin, size_t idx, int Y, int regionLen, int starti, int lastEndi,
                           float regionPixels, float xScaling, float yScaling, float xOffset, float yOffset, float textDrop,
                           std::vector<sk_sp <SkTextBlob> > &text, std::vector<float> &textX, std::vector<float> &textY) {
 
-        float lastEnd = (int)a.block_ends[idx - 1] - regionBegin;
-        int isize = s - lastEnd;
+        int isize = starti - lastEndi;
+        int lastEnd = lastEndi - regionBegin;
+        starti -= regionBegin;
 
         lastEnd = (lastEnd < 0) ? 0 : lastEnd;
-        int size = s - lastEnd;
+        int size = starti - lastEnd;
         if (size <= 0) {
             return;
         }
-        float delBegin = lastEnd * xScaling;
-        float delEnd = delBegin + (size * xScaling);
-        float yh = (Y + polygonHeight * 0.5) * yScaling + yOffset;
+        float delBegin = (float)lastEnd * xScaling;
+        float delEnd = delBegin + ((float)size * xScaling);
+        float yh = ((float)Y + (float)polygonHeight * (float)0.5) * yScaling + yOffset;
 
-        if (size >= opts.indel_length) {
+        if (isize >= opts.indel_length) {
             if (regionLen < 500000) { // line and text
                 std::sprintf(indelChars, "%d", isize);
                 size_t sl = strlen(indelChars);
                 float textW = fonts.textWidths[sl - 1];
-                float textBegin = ((lastEnd + size / 2) * xScaling) - (textW / 2);
+                float textBegin = (((float)lastEnd + (float)size / 2) * xScaling) - (textW / 2);
                 float textEnd = textBegin + textW;
                 if (textBegin < 0) {
                     textBegin = 0;
@@ -476,7 +477,7 @@ namespace Drawing {
                 }
                 text.push_back(SkTextBlob::MakeFromString(indelChars, fonts.fonty));
                 textX.push_back(textBegin + xOffset);
-                textY.push_back((Y + polygonHeight) * yScaling - textDrop + yOffset);
+                textY.push_back(((float)Y + polygonHeight) * yScaling - textDrop + yOffset);
                 if (textBegin > delBegin) {
                     drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, textBegin + xOffset);
                     drawHLine(canvas, path, opts.theme.lcJoins, textEnd + xOffset, yh, delEnd + xOffset);
@@ -562,14 +563,15 @@ namespace Drawing {
                 }
                 double width, s, e, textW;
                 int lastEnd = 1215752191;
+                int starti;
                 bool line_only;
                 for (size_t idx = 0; idx < nBlocks; ++idx) {
-                    s = a.block_starts[idx];
+                    starti = (int)a.block_starts[idx];
                     if (idx > 0) {
-                        lastEnd = a.block_ends[idx-1];
+                        lastEnd = (int)a.block_ends[idx-1];
                     }
 
-                    if (s > regionEnd) {
+                    if (starti > regionEnd) {
                         if (lastEnd < regionEnd) {
                             line_only = true;
                         } else {
@@ -579,9 +581,9 @@ namespace Drawing {
                         line_only = false;
                     }
 
-                    e = a.block_ends[idx];
+                    e = (double)a.block_ends[idx];
                     if (e < regionBegin) { continue; }
-                    s -= regionBegin;
+                    s = starti - regionBegin;
                     e -= regionBegin;
                     s = (s < 0) ? 0: s;
                     e = (e > regionLen) ? regionLen : e;
@@ -596,7 +598,7 @@ namespace Drawing {
                     // add lines and text between gaps
                     if (idx > 0) {
                         drawDeletionLine(a, canvas, path, opts, fonts,
-                                regionBegin, idx, Y, regionLen, s,
+                                regionBegin, idx, Y, regionLen, starti, lastEnd,
                                 regionPixels, xScaling, yScaling, xOffset, yOffset, textDrop,
                                 text, textX, textY);
                     }
@@ -1024,7 +1026,7 @@ namespace Drawing {
                         float y, float h, float stepX, float gap, float gap2, float xScaling, float t,
                         Themes::IniOptions &opts, SkCanvas *canvas, const Themes::Fonts &fonts,
                         bool add_text, bool add_rect, bool v_line) {
-        float x;
+        float x = 0;
         float w, textW;
         if (start < rgn.start && stop >= rgn.end) { // track spans whole region
             rect.setXYWH(padX, y + padY - h, stepX - gap2, h);

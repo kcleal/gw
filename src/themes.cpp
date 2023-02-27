@@ -204,7 +204,7 @@ namespace Themes {
         fcC.setARGB(255, 20, 20, 205);
         fcG.setARGB(255, 205, 133, 63);
         fcN.setARGB(255, 128, 128, 128);
-        lcJoins.setARGB(255, 20, 20, 20);
+        lcJoins.setARGB(255, 30, 30, 30);
         lcLightJoins.setARGB(255, 120, 120, 120);
         lcLabel.setARGB(255, 0, 0, 0);
         lcBright.setColor(SK_ColorBLACK);
