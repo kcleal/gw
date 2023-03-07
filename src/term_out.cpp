@@ -36,6 +36,7 @@ namespace Term {
         std::cout << termcolor::green << "grid             width x height  " << termcolor::reset << "Set the grid size for --variant images ':grid 8x8' \n";
         std::cout << termcolor::green << "line                             " << termcolor::reset << "Toggle mouse position vertical line\n";
         std::cout << termcolor::green << "link             [none/sv/all]   " << termcolor::reset << "Switch read-linking ':link all'\n";
+        std::cout << termcolor::green << "low-mem                          " << termcolor::reset << "Toggle low-mem mode\n";
         std::cout << termcolor::green << "log2-cov                         " << termcolor::reset << "Toggle scale coverage by log2\n";
         std::cout << termcolor::green << "mate             add?            " << termcolor::reset << "Use ':mate' to navigate to mate-pair, or ':mate add' \n                                 to add a new region with mate \n";
         std::cout << termcolor::green << "quit, q          -               " << termcolor::reset << "Quit GW\n";
@@ -108,6 +109,8 @@ namespace Term {
             std::cout << "    Toggle line.\n        A vertical line will turn on/off.\n\n";
         } else if (s == "link") {
             std::cout << "    Link alignments.\n        This will change how alignments are linked, options are 'none', 'sv', 'all'.\n    Examples:\n        'link sv', 'link all'\n\n";
+        } else if (s == "low-mem") {
+            std::cout << "    Toggle low-mem mode.\n        This will discard all base-quality information and sam tags from newly loaded alignments.\n\n";
         } else if (s == "log2-cov") {
             std::cout << "    Toggle log2-coverage.\n        The coverage track will be scaled by log2.\n\n";
         } else if (s == "mate") {

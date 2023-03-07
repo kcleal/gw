@@ -379,6 +379,13 @@ namespace Manager {
             processed = true;
             inputText = "";
             return true;
+        } else if (inputText == ":low-mem") {
+            opts.low_mem = (opts.low_mem) ? false : true;
+            redraw = false;
+            processed = true;
+            inputText = "";
+            std::cout << "Low memory mode " << ((opts.low_mem) ? "on" : "off") << std::endl;
+            return true;
         } else if (Utils::startsWith(inputText, ":mate")) {
             std::string mate;
             Utils::parseMateLocation(selectedAlign, mate, target_qname);
@@ -1128,7 +1135,7 @@ namespace Manager {
                 int level = 0;
                 int slop = 0;
                 if (!opts.tlen_yscale) {
-                    level = (int) ((yW - (float) cl.yOffset) / (trackY / (float)(cl.levelsStart.size() - cl.vScroll )));
+                    level = (int) ((yW - (float) cl.yOffset) / ((trackY-(gap/2)) / (float)(cl.levelsStart.size() - cl.vScroll )));
                     if (level < 0) {  // print coverage info
                         Term::clearLine();
                         Term::printCoverage(pos, cl);
