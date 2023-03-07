@@ -163,7 +163,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("--config")
             .default_value(false).implicit_value(true)
             .help("Display path of loaded .gw.ini config");
-
+    program.add_argument("--use-raster")
+            .default_value(false).implicit_value(true)
+            .help("Use raster backend for plotting images (applies to --no-show only)");
     // check input for errors and merge input options with IniOptions
     try {
         program.parse_args(argc, argv);
@@ -517,7 +519,8 @@ int main(int argc, char *argv[]) {
             }
         }
 
-    } else {  // save plot to file, use GPU if single image and GPU available, or use raster backend otherwise
+    // save plot to file, use GPU if single image and GPU available, or use raster backend otherwise
+    } else {
 
         if (!program.is_used("--variants") && !program.is_used("--images") && !regions.empty()) {
 
@@ -537,7 +540,7 @@ int main(int argc, char *argv[]) {
                     out_path = fname;
                 } else {
                     if (outdir.empty()) {
-                        std::cerr << "Error: please provide an output directory using --outdir\n";
+                        std::cerr << "Error: please provide an output directory using --outdir, or direct to --file\n";
                         std::exit(-1);
                     }
                     fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".pdf";
@@ -559,41 +562,51 @@ int main(int argc, char *argv[]) {
                 plotter.fb_width = iopts.dimensions.x;
                 plotter.fb_height = iopts.dimensions.y;
                 plotter.runDraw(pageCanvas);
-
                 pdfDocument->close();
                 buffer.writeToStream(&out);
 
             } else {
 
-                plotter.initBack(iopts.dimensions.x, iopts.dimensions.y);
+                sk_sp<SkImage> img;
 
-                int fb_height, fb_width;
-                glfwGetFramebufferSize(plotter.backWindow, &fb_width, &fb_height);
+                if (!program.is_used("--use-raster")) {
+                    plotter.initBack(iopts.dimensions.x, iopts.dimensions.y);
 
-                sContext = GrDirectContext::MakeGL(nullptr).release();
-                GrGLFramebufferInfo framebufferInfo;
-                framebufferInfo.fFBOID = 0;
-                framebufferInfo.fFormat = GL_RGBA8;  // GL_SRGB8_ALPHA8; //
-                GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
-                if (!backendRenderTarget.isValid()) {
-                    std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
-                    glfwTerminate();
-                    std::terminate();
+                    int fb_height, fb_width;
+                    glfwGetFramebufferSize(plotter.backWindow, &fb_width, &fb_height);
+
+                    sContext = GrDirectContext::MakeGL(nullptr).release();
+                    GrGLFramebufferInfo framebufferInfo;
+                    framebufferInfo.fFBOID = 0;
+                    framebufferInfo.fFormat = GL_RGBA8;  // GL_SRGB8_ALPHA8; //
+                    GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
+                    if (!backendRenderTarget.isValid()) {
+                        std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
+                        glfwTerminate();
+                        std::terminate();
+                    }
+                    sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
+                                                                      backendRenderTarget,
+                                                                      kBottomLeft_GrSurfaceOrigin,
+                                                                      kRGBA_8888_SkColorType,
+                                                                      nullptr,
+                                                                      nullptr).release();
+                    if (!sSurface) {
+                        std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
+                        sContext->releaseResourcesAndAbandonContext();
+                        std::terminate();
+                    }
+                    SkCanvas *canvas = sSurface->getCanvas();
+                    plotter.drawSurfaceGpu(canvas);
+                    img = sSurface->makeImageSnapshot();
+
+                } else {
+                    plotter.setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
+                    sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
+                    SkCanvas *canvas = rasterSurface->getCanvas();
+                    plotter.runDraw(canvas);
+                    img = rasterSurface->makeImageSnapshot();
                 }
-                sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
-                                                                  backendRenderTarget,
-                                                                  kBottomLeft_GrSurfaceOrigin,
-                                                                  kRGBA_8888_SkColorType,
-                                                                  nullptr,
-                                                                  nullptr).release();
-                if (!sSurface) {
-                    std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
-                    sContext->releaseResourcesAndAbandonContext();
-                    std::terminate();
-                }
-                SkCanvas *canvas = sSurface->getCanvas();
-                plotter.drawSurfaceGpu(canvas);
-                sk_sp<SkImage> img(sSurface->makeImageSnapshot());
 
                 if (outdir.empty()) {
                     std::string fpath;
