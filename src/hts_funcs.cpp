@@ -959,21 +959,25 @@ namespace HGW {
                     int tid = tbx_name2id(idx_t, rgn->chrom.c_str());
                     iter_q = tbx_itr_queryi(idx_t, tid, rgn->start, rgn->end);
                     if (iter_q == nullptr) {
-                        std::cerr << "\nError: Null iterator when trying to fetch from indexed bed file in fetch "
-                                  << rgn->chrom
-                                  << " " << rgn->start << " " << rgn->end << std::endl;
-                        std::terminate();
+//                        std::cerr << "\nError: Null iterator when trying to fetch from indexed bed file in fetch "
+//                                  << rgn->chrom
+//                                  << " " << rgn->start << " " << rgn->end << std::endl;
+//                        std::terminate();
+                        done = true;
+                    } else {
+                        done = false;
                     }
-                    done = false;
                 }
             } else if (kind == BCF_IDX) {
                 int tid = bcf_hdr_name2id(hdr, rgn->chrom.c_str());
                 iter_q = bcf_itr_queryi(idx_v, tid, rgn->start, rgn->end);
                 if (iter_q == nullptr) {
-                    std::cerr << "\nError: Null iterator when trying to fetch from vcf file in fetch " << rgn->chrom << " " << rgn->start << " " << rgn->end << std::endl;
-                    std::terminate();
+//                    std::cerr << "\nError: Null iterator when trying to fetch from vcf file in fetch " << rgn->chrom << " " << rgn->start << " " << rgn->end << std::endl;
+//                    std::terminate();
+                    done = true;
+                } else {
+                    done = false;
                 }
-                done = false;
             }
         }
     }

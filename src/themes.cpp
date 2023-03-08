@@ -190,7 +190,7 @@ namespace Themes {
     IgvTheme::IgvTheme() {
         name = "igv";
         fcCoverage.setARGB(255, 175, 175, 175);
-        fcTrack.setARGB(180, 0, 30, 255);
+        fcTrack.setARGB(200, 0, 0, 0);
         bgPaint.setARGB(255, 255, 255, 255);
         fcNormal.setARGB(255, 182, 182, 182);
         fcDel.setARGB(255, 220, 20, 60);
@@ -221,7 +221,7 @@ namespace Themes {
     DarkTheme::DarkTheme() {
         name = "dark";
         fcCoverage.setARGB(255, 95, 95, 105);
-        fcTrack.setARGB(180, 10, 140, 255);
+        fcTrack.setARGB(200, 227, 232, 255);
         bgPaint.setARGB(255, 10, 10, 20);
         fcNormal.setARGB(255, 90, 90, 95);
         fcDel.setARGB(255, 185, 25, 25);
