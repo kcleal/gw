@@ -211,6 +211,7 @@ namespace Themes {
         tcDel.setARGB(255, 0, 0, 0);
         tcLabels.setARGB(255, 0, 0, 0);
         tcIns.setARGB(255, 255, 255, 255);
+        tcBackground.setARGB(255, 255, 255, 255);
         marker_paint.setARGB(255, 0, 0, 0);
         ecSelected.setARGB(255, 0, 0, 0);
         ecSelected.setStyle(SkPaint::kStroke_Style);
@@ -241,6 +242,7 @@ namespace Themes {
         tcDel.setARGB(255, 227, 227, 227);
         tcLabels.setARGB(255, 0, 0, 0);
         tcIns.setARGB(255, 227, 227, 227);
+        tcBackground.setARGB(255, 10, 10, 20);
         marker_paint.setARGB(255, 220, 220, 220);
         ecSelected.setARGB(255, 255, 255, 255);
         ecSelected.setStyle(SkPaint::kStroke_Style);

@@ -75,7 +75,7 @@ namespace Themes {
         SkPaint lcJoins, lcCoverage, lcLightJoins, insF, insS, lcLabel, lcBright;
 
         // text colours
-        SkPaint tcDel, tcIns, tcLabels;
+        SkPaint tcDel, tcIns, tcLabels, tcBackground;
 
         // Markers
         SkPaint marker_paint;

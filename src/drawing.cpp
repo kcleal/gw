@@ -1003,13 +1003,13 @@ namespace Drawing {
 
             if (opts.theme.name == "igv") {
                 if (v == 0) {
-                    canvas->drawTextBlob(blob, x + pad + pad, bg.bottom() - pad - pad, opts.theme.bgPaint);
+                    canvas->drawTextBlob(blob, x + pad + pad, bg.bottom() - pad - pad, opts.theme.tcBackground);
                 } else {
                     canvas->drawTextBlob(blob, x + pad + pad, bg.bottom() - pad - pad, opts.theme.tcDel);
                 }
             } else {
                 if (v == 255) {
-                    canvas->drawTextBlob(blob, x + pad + pad, bg.bottom() - pad - pad, opts.theme.bgPaint);
+                    canvas->drawTextBlob(blob, x + pad + pad, bg.bottom() - pad - pad, opts.theme.tcBackground);
                 } else {
                     canvas->drawTextBlob(blob, x + pad + pad, bg.bottom() - pad - pad, opts.theme.tcDel);
                 }
