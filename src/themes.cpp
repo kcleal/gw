@@ -120,7 +120,7 @@ namespace Themes {
             fcSoftClip0.setAlpha(mapq0_alpha);
 
             fcTrack.setStyle(SkPaint::kStrokeAndFill_Style);
-            fcTrack.setStrokeWidth(1);
+            fcTrack.setStrokeWidth(2);
             fcTrack.setAntiAlias(true);
 
             lcJoins.setStyle(SkPaint::kStroke_Style);

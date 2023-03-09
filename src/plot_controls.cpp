@@ -475,6 +475,8 @@ namespace Manager {
                     valid = true;
                 } else {
                     if (index < (int)regions.size()) {
+                        rgn.markerPos = regions[index].markerPos;
+                        rgn.markerPosEnd = regions[index].markerPosEnd;
                         regions[index] = rgn;
                         fetchRefSeq(regions[index]);
                         valid = true;
@@ -486,9 +488,13 @@ namespace Manager {
                 }
             }
         } else if (Utils::startsWith(inputText, ":grid")) {
-            std::vector<std::string> split = Utils::split(inputText, delim_q);
-            opts.number = Utils::parseDimensions(split[1]);
-
+            try {
+                std::vector<std::string> split = Utils::split(inputText, ' ');
+                opts.number = Utils::parseDimensions(split[1]);
+                valid = true;
+            } catch (...) {
+                valid = false;
+            }
         } else if (Utils::startsWith(inputText, ":add"))  {
             std::vector<std::string> split = Utils::split(inputText, delim_q);
             if (split.size() == 1) {
@@ -654,6 +660,8 @@ namespace Manager {
 						regions.push_back(rgn);
 						fetchRefSeq(regions.back());
 					} else {
+                        rgn.markerPos = regions[0].markerPos;
+                        rgn.markerPosEnd = regions[0].markerPosEnd;
 						regions[0] = rgn;
 						fetchRefSeq(regions[0]);
 					}
@@ -1236,6 +1244,7 @@ namespace Manager {
                 redraw = true;
                 processed = false;
                 imageCacheQueue.clear();
+                std::cout << std::endl;
             }
         } else if (mode == Manager::TILED) {
             if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
@@ -1304,6 +1313,9 @@ namespace Manager {
     }
 
     void GwPlot::updateCursorGenomePos(Segs::ReadCollection &cl, float xPos) {
+        if (regions.empty() || mode == TILED) {
+            return;
+        }
         int pos = (int) (((xPos - (float) cl.xOffset) / cl.xScaling) +
                          (float) cl.region.start);
         auto s = std::to_string(pos);
@@ -1459,7 +1471,8 @@ namespace Manager {
                     Term::clearLine();
                     std::cout << termcolor::bold << "\rPos  " << termcolor::reset << lbl.chrom << ":" << lbl.pos << termcolor::bold <<
                               "    ID  "  << termcolor::reset << lbl.variantId << termcolor::bold <<
-                              "    Type  "  << termcolor::reset << lbl.vartype;
+                              "    Type  "  << termcolor::reset << lbl.vartype << termcolor::bold <<
+                              "    Index  "  << termcolor::reset << mouseOverTileIndex + blockStart;
                     std::cout << std::flush;
                 }
             }

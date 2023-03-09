@@ -146,7 +146,7 @@ int main(int argc, char *argv[]) {
     program.add_argument("--tlen-y").default_value(false).implicit_value(true)
             .help("Y-axis will be set to template-length (tlen) bp. Relevant for paired-end reads only");
     program.add_argument("--max-tlen")
-            .default_value(iopts.indel_length).append().scan<'i', int>()
+            .default_value(iopts.max_tlen).append().scan<'i', int>()
             .help("Maximum tlen to display on plot");
     program.add_argument("--link")
             .default_value(iopts.link)

@@ -295,12 +295,12 @@ namespace Manager {
             regions[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
             regions[0].end = start + opts.pad;
             regions[0].markerPos = start;
-            regions[0].markerPosEnd = (isTrans) ? start : stop;
+            regions[0].markerPosEnd = start;
             regions[1].chrom = chrom2;
             regions[1].start = (1 > stop - opts.pad) ? 1 : stop - opts.pad;
             regions[1].end = stop + opts.pad;
             regions[1].markerPos = stop;
-            regions[1].markerPosEnd = (isTrans) ? stop : start;
+            regions[1].markerPosEnd = stop;
         }
     }
 
@@ -323,13 +323,12 @@ namespace Manager {
             v[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
             v[0].end = start + opts.pad;
             v[0].markerPos = start;
-            v[0].markerPosEnd = (isTrans) ? start : stop;
+            v[0].markerPosEnd = start;
             v[1].chrom = chrom2;
             v[1].start = (1 > stop - opts.pad) ? 1 : stop - opts.pad;
             v[1].end = stop + opts.pad;
             v[1].markerPos = stop;
-            v[1].markerPosEnd = (isTrans) ? stop : start;
-
+            v[1].markerPosEnd = stop;
         }
         multiRegions.push_back(v);
         if (inputLabels.contains(rid)) {

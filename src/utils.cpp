@@ -406,8 +406,8 @@ namespace Utils {
         ioctl(0, TIOCGWINSZ, &termDim); // Grab terminal dimensions
         int width = termDim.ws_col;
 #endif
-        width = (width > 1000) ? 80 : width;
-        return (width > 1000) ? 80 : width;  // when reading from stdin width ends up being >1000? not sure about this fix
+        width = (width > 1000 || width <= 0) ? 80 : width;
+        return width;  // when reading from stdin width ends up being >1000 or 0? not sure about this fix
     }
 
 
