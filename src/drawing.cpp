@@ -533,8 +533,9 @@ namespace Drawing {
             if (opts.tlen_yscale) {
                 pH = trackY / (float)opts.ylim;
             }
-            pH = (float)(int)pH;
-            pH = (pH == 0) ? 1 : pH;
+            if (pH > 10) {  // scale to pixel boundary
+                pH = (float)(int)pH;
+            }
 
             for (auto &a: cl.readQueue) {
 

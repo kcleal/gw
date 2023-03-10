@@ -546,7 +546,8 @@ namespace Manager {
         if (nbams > 0) {
             trackY = (fbh - totalCovY - totalTabixY - gap2 - refSpace ) / nbams;
             yScaling = ((fbh - totalCovY - totalTabixY - gap2 - refSpace ) / (float)samMaxY) / nbams;
-            yScaling = (yScaling > 1) ? (float)(int)yScaling : yScaling;
+            // scale to pixel boundary
+            yScaling = (samMaxY < 80) ? (float)(int)yScaling : yScaling;
         } else {
             trackY = 0;
             yScaling = 0;
