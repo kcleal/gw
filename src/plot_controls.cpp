@@ -1265,11 +1265,12 @@ namespace Manager {
                             if (multiRegions[blockStart + i][0].chrom.empty()) {
                                 return; // check for "" no chrom set
                             } else {
-                                mode = Manager::SINGLE;
                                 regions = multiRegions[blockStart + i];
                                 redraw = true;
                                 processed = false;
                                 fetchRefSeqs();
+                                mode = Manager::SINGLE;
+                                glfwPostEmptyEvent();
                             }
                         }
                     }
