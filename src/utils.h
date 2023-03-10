@@ -57,6 +57,8 @@ namespace Utils {
 
     Region parseRegion(std::string &r);
 
+    bool parseFilenameToMouseClick(std::filesystem::path &path, Region &rgn);
+
     struct Dims {
         int x, y;
     };

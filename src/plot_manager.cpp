@@ -448,10 +448,18 @@ namespace Manager {
         if (!processed) {
             int idx = 0;
             if (collections.size() != bams.size() * regions.size()) {
+                for (auto &cl: collections) {
+                    for (auto &aln: cl.readQueue) {
+                        bam_destroy1(aln.delegate);
+                    }
+                }
                 collections.clear();
                 collections.resize(bams.size() * regions.size());
             } else {
                 for (auto &cl: collections) {
+                    for (auto &aln : cl.readQueue) {
+                        bam_destroy1(aln.delegate);
+                    }
                     cl.readQueue.clear();
                     cl.covArr.clear();
                     cl.levelsStart.clear();
@@ -797,6 +805,21 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
         Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
+        Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY);
+        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
+    }
+
+    void GwPlot::runDrawNoBuffer(SkCanvas *canvas) {
+        fetchRefSeqs();
+
+        processBam();
+        setScaling();
+        canvas->drawPaint(opts.theme.bgPaint);
+        if (opts.max_coverage) {
+            Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
+        }
+//        Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);

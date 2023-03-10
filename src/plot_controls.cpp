@@ -920,7 +920,7 @@ namespace Manager {
                 } else if (key >= GLFW_KEY_1 && key <= GLFW_KEY_9 && mouseOverTileIndex >= 0) {
                     int num_idx = key - (int)GLFW_KEY_1;
                     Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
-                    if (num_idx < lbl.labels.size()) {
+                    if (num_idx < (int)lbl.labels.size()) {
                         redraw = true;
                         lbl.clicked = true;
                         lbl.i = num_idx;
@@ -1060,7 +1060,6 @@ namespace Manager {
 
     void GwPlot::mouseButton(GLFWwindow* wind, int button, int action, int mods) {
         double x, y;
-
         glfwGetCursorPos(window, &x, &y);
 
         int windowW, windowH;  // convert screen coords to frame buffer coords
@@ -1273,6 +1272,24 @@ namespace Manager {
                                 glfwPostEmptyEvent();
                             }
                         }
+                    } else {
+                        // try and parse location from filename
+                        Utils::Region rgn;
+                        bool parsed = Utils::parseFilenameToMouseClick(image_glob[blockStart + i], rgn);
+                        if (parsed && faidx_has_seq(fai, rgn.chrom.c_str()) > 0) {
+                            if (rgn.end - rgn.start > 500000) {
+                                int posX = (int)(((xW - gap) / (float)(fb_width - gap - gap)) * (float)(rgn.end - rgn.start)) + rgn.start;
+                                rgn.start = (posX - 10000 > 0) ? posX - 100000 : 1;
+                                rgn.end = posX + 100000;
+                            }
+                            regions.clear();
+                            regions.push_back(rgn);
+                            redraw = true;
+                            processed = false;
+                            fetchRefSeqs();
+                            mode = Manager::SINGLE;
+                            glfwPostEmptyEvent();
+                        }
                     }
                 }
             } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
@@ -1475,6 +1492,13 @@ namespace Manager {
                               "    Type  "  << termcolor::reset << lbl.vartype << termcolor::bold <<
                               "    Index  "  << termcolor::reset << mouseOverTileIndex + blockStart;
                     std::cout << std::flush;
+                } else if (blockStart + i < (int)image_glob.size()) {
+                    Utils::Region rgn;
+                    if (Utils::parseFilenameToMouseClick(image_glob[blockStart + i], rgn)) {
+                        std::cout << termcolor::bold << "\rPos  " << termcolor::reset << rgn.chrom << ":" << rgn.start << "-" << rgn.end << termcolor::bold <<
+                        "    File  "  << termcolor::reset << image_glob[blockStart + i].filename();
+                        std::cout << std::flush;
+                    }
                 }
             }
         }

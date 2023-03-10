@@ -192,6 +192,33 @@ namespace Utils {
         return reg;
     }
 
+    bool parseFilenameToMouseClick(std::filesystem::path &path, Region &rgn) {
+        std::string fn = path.filename();
+        size_t p = fn.find("GW~");
+        if (p != std::string::npos) {
+            p += 3;
+            std::vector<std::string> parts = split(fn.substr(p, fn.size()), '~');
+            if (parts.size() == 4) {  // no parsing of multi-region currently
+                int start, end;
+                try {
+                    start = std::stoi(parts[1]);
+                } catch (...) {
+                    return false;
+                }
+                try {
+                    end = std::stoi(parts[2]);
+                } catch (...) {
+                    return false;
+                }
+                rgn.chrom = parts[0];
+                rgn.start = start;
+                rgn.end = end;
+                return true;
+            }
+        }
+        return false;
+    }
+
     Dims parseDimensions(std::string &s) {
         Dims d = {0, 0};
         int start = 0;

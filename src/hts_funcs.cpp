@@ -95,6 +95,55 @@ namespace HGW {
     }
 
 
+    void collectAndDraw(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
+                                 hts_idx_t *index, int threads, Utils::Region *region,
+                                 bool coverage, bool low_mem,
+                                 std::vector<Parse::Parser> &filters, SkCanvas *canvas) {
+        bam1_t *src;
+        hts_itr_t *iter_q;
+
+        int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
+        std::vector<Segs::Align>& readQueue = col.readQueue;
+        readQueue.push_back(make_align(bam_init1()));
+        iter_q = sam_itr_queryi(index, tid, region->start, region->end);
+        if (iter_q == nullptr) {
+            std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
+            std::terminate();
+        }
+
+        while (sam_itr_next(b, iter_q, readQueue.back().delegate) >= 0) {
+            src = readQueue.back().delegate;
+            if (src->core.flag & 4 || src->core.n_cigar == 0) {
+                continue;
+            }
+            readQueue.push_back(make_align(bam_init1()));
+            if (low_mem) {
+                size_t new_len = (src->core.n_cigar << 2 ) + src->core.l_qname + ((src->core.l_qseq + 1) >> 1);
+                src->data = (uint8_t*)realloc(src->data, new_len);
+                src->l_data = (int)new_len;
+            }
+        }
+        src = readQueue.back().delegate;
+        if (src->core.flag & 4 || src->core.n_cigar == 0) {
+            bam_destroy1(src);
+            readQueue.pop_back();
+        }
+
+        if (!filters.empty()) {
+            applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
+        }
+
+        Segs::init_parallel(readQueue, threads);
+        if (coverage) {
+            int l_arr = (int)col.covArr.size() - 1;
+            for (auto &i : readQueue) {
+                Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
+            }
+        }
+        col.processed = true;
+    }
+
+
     void trimToRegion(Segs::ReadCollection &col, bool coverage) {
         std::vector<Segs::Align>& readQueue = col.readQueue;
         Utils::Region *region = &col.region;

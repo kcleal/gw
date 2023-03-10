@@ -79,6 +79,11 @@ namespace HGW {
                                  bool coverage, bool low_mem,
                                  std::vector<Parse::Parser> &filters);
 
+    void collectAndDraw(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
+                        hts_idx_t *index, int threads, Utils::Region *region,
+                        bool coverage, bool low_mem,
+                        std::vector<Parse::Parser> &filters, SkCanvas *canvas)
+
     void trimToRegion(Segs::ReadCollection &col, bool coverage);
 
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,

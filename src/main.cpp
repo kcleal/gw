@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> img_themes = { "igv", "dark" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
-    argparse::ArgumentParser program("gw", "0.6.4");
+    argparse::ArgumentParser program("gw", "0.7.0");
     program.add_argument("genome")
             .default_value(std::string{""}).append()//.required()
             .help("Reference genome in .fasta format with .fai index file");
@@ -566,10 +566,10 @@ int main(int argc, char *argv[]) {
                 buffer.writeToStream(&out);
 
             } else {
-
                 sk_sp<SkImage> img;
 
                 if (!program.is_used("--use-raster")) {
+
                     plotter.initBack(iopts.dimensions.x, iopts.dimensions.y);
 
                     int fb_height, fb_width;
@@ -602,6 +602,7 @@ int main(int argc, char *argv[]) {
 
                 } else {
                     plotter.setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
+                    plotter.gap = 0;
                     sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
                     SkCanvas *canvas = rasterSurface->getCanvas();
                     plotter.runDraw(canvas);
@@ -617,7 +618,7 @@ int main(int argc, char *argv[]) {
                         Manager::imagePngToStdOut(img);
                     }
                 } else {
-                    fs::path fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".png";
+                    fs::path fname = "GW~" + regions[0].chrom + "~" + std::to_string(regions[0].start) + "~" + std::to_string(regions[0].end) + "~.png";
                     fs::path out_path = outdir / fname;
                     Manager::imageToPng(img, out_path);
                 }

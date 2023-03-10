@@ -168,6 +168,8 @@ namespace Manager {
 
         void runDraw(SkCanvas *canvas);
 
+        void runDrawNoBuffer(SkCanvas *canvas);
+
         sk_sp<SkImage> makeImage();
 
         void printRegionInfo();
