@@ -193,7 +193,14 @@ namespace Utils {
     }
 
     bool parseFilenameToMouseClick(std::filesystem::path &path, Region &rgn) {
+
+#if defined(_WIN32) || defined(_WIN64)
+        const wchar_t* pc = path.filename().c_str();
+		std::wstring ws(pc);
+        std::string fn(ws.begin(), ws.end());
+#else
         std::string fn = path.filename();
+#endif
         size_t p = fn.find("GW~");
         if (p != std::string::npos) {
             p += 3;
