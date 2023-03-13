@@ -477,7 +477,9 @@ int main(int argc, char *argv[]) {
                 img += "/";
             }
             plotter.image_glob = glob::glob(img);
-
+            if (plotter.image_glob.size() == 1) {
+                plotter.opts.number.x = 1; plotter.opts.number.y = 1;
+            }
             std::vector<std::string> labels = Utils::split(iopts.labels, ',');
             plotter.setLabelChoices(labels);
 

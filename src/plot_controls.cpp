@@ -895,7 +895,7 @@ namespace Manager {
             if (action == GLFW_PRESS || action == GLFW_REPEAT) {
                 if (key == opts.scroll_right) {
                     size_t targetSize = (image_glob.empty()) ? multiRegions.size() : image_glob.size();
-                    if (blockStart + bLen <= (int)targetSize) {
+                    if (blockStart + bLen < (int)targetSize - 1) {
                         blockStart += bLen;
                         redraw = true;
                         Term::clearLine();
@@ -1301,6 +1301,10 @@ namespace Manager {
                         std::cout << "\r                                                                               ";
                         std::cout << termcolor::green << "\rIndex     " << termcolor::reset << blockStart << std::flush;
                     } else {
+                        size_t targetSize = (image_glob.empty()) ? multiRegions.size() : image_glob.size();
+                        if (blockStart + nmb >= (int)targetSize) {
+                            return;
+                        }
                         blockStart += nmb;
                         redraw = true;
                         std::cout << "\r                                                                               ";
