@@ -52,6 +52,7 @@ namespace Manager {
             std::terminate();
         }
         glfwMakeContextCurrent(window);
+
     }
 
     GwPlot::GwPlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opt, std::vector<Utils::Region> &regions,
@@ -169,6 +170,8 @@ namespace Manager {
         }
         glfwMakeContextCurrent(window);
 
+        setGlfwFrameBufferSize();
+
     }
 
     void GwPlot::initBack(int width, int height) {
@@ -186,6 +189,8 @@ namespace Manager {
         }
         glfwMakeContextCurrent(backWindow);
         drawToBackWindow = true;
+
+        setGlfwFrameBufferSize();
     }
 
     void GwPlot::fetchRefSeq(Utils::Region &rgn) {
@@ -358,8 +363,6 @@ namespace Manager {
         while (true) {
             if (glfwWindowShouldClose(wind)) {
                 break;
-//            } else if (glfwGetKey(wind, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-//                break;
             }
             glfwWaitEvents();
             if (delay > 0) {
@@ -596,6 +599,22 @@ namespace Manager {
         redraw = false;
     }
 
+    void GwPlot::drawScreenNoBuffer(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
+        canvas->drawPaint(opts.theme.bgPaint);
+        frameId += 1;
+        setGlfwFrameBufferSize();
+        if (regions.empty()) {
+            setScaling();
+        } else {
+            runDrawNoBuffer(canvas);
+        }
+        imageCacheQueue.emplace_back(std::make_pair(frameId, sSurface->makeImageSnapshot()));
+        sContext->flush();
+        glfwSwapBuffers(window);
+        redraw = false;
+    }
+
+
     void GwPlot::drawOverlay(SkCanvas* canvas, GrDirectContext* sContext) {
         if (!imageCacheQueue.empty()) {
             while (imageCacheQueue.front().first != frameId) {
@@ -781,21 +800,6 @@ namespace Manager {
         redraw = false;
     }
 
-    void GwPlot::drawSurfaceGpu(SkCanvas *canvas) {
-        canvas->drawPaint(opts.theme.bgPaint);
-        setGlfwFrameBufferSize();
-        processBam();
-        setScaling();
-        if (opts.max_coverage) {
-            Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
-        }
-        Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
-        Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY);
-        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
-        Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
-    }
-
     void GwPlot::runDraw(SkCanvas *canvas) {
         fetchRefSeqs();
         processBam();
@@ -811,15 +815,44 @@ namespace Manager {
     }
 
     void GwPlot::runDrawNoBuffer(SkCanvas *canvas) {
+        if (bams.empty()) {
+            return;
+        }
         fetchRefSeqs();
-
-        processBam();
+        // This is a subset of processBam function:
+        samMaxY = opts.ylim;
+        collections.resize(bams.size() * regions.size());
+        int idx = 0;
+        for (int i=0; i<(int)bams.size(); ++i) {
+            for (int j=0; j<(int)regions.size(); ++j) {
+                Utils::Region *reg = &regions[j];
+                collections[idx].bamIdx = i;
+                collections[idx].regionIdx = j;
+                collections[idx].region = regions[j];
+                if (opts.max_coverage) {
+                    collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
+                }
+                idx += 1;
+            }
+        }
         setScaling();
         canvas->drawPaint(opts.theme.bgPaint);
+        idx = 0;
+        for (int i=0; i<(int)bams.size(); ++i) {
+            htsFile* b = bams[i];
+            sam_hdr_t *hdr_ptr = headers[i];
+            hts_idx_t *index = indexes[i];
+            for (int j=0; j<(int)regions.size(); ++j) {
+                Utils::Region *reg = &regions[j];
+                HGW::iterDraw(collections, idx, b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage,
+                                    opts.low_mem, filters, opts, canvas, trackY, yScaling, fonts, refSpace);
+
+                idx += 1;
+            }
+        }
         if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
-//        Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);

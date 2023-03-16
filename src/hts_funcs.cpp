@@ -13,6 +13,7 @@
 #include "htslib/vcf.h"
 
 #include "../include/BS_thread_pool.h"
+#include "drawing.h"
 #include "segments.h"
 #include "themes.h"
 #include "hts_funcs.h"
@@ -95,15 +96,23 @@ namespace HGW {
     }
 
 
-    void collectAndDraw(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
+    void iterDraw(std::vector< Segs::ReadCollection > &cols, int idx, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, int threads, Utils::Region *region,
                                  bool coverage, bool low_mem,
-                                 std::vector<Parse::Parser> &filters, SkCanvas *canvas) {
+                                 std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
+                                 float trackY, float yScaling, Themes::Fonts &fonts, float refSpace) {
+
         bam1_t *src;
         hts_itr_t *iter_q;
-
+        Segs::ReadCollection &col = cols[idx];
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         std::vector<Segs::Align>& readQueue = col.readQueue;
+        if (!readQueue.empty()) {
+            for (auto &item: readQueue) {
+                bam_destroy1(item.delegate);
+            }
+            readQueue.clear();
+        }
         readQueue.push_back(make_align(bam_init1()));
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
@@ -116,31 +125,21 @@ namespace HGW {
             if (src->core.flag & 4 || src->core.n_cigar == 0) {
                 continue;
             }
-            readQueue.push_back(make_align(bam_init1()));
-            if (low_mem) {
-                size_t new_len = (src->core.n_cigar << 2 ) + src->core.l_qname + ((src->core.l_qseq + 1) >> 1);
-                src->data = (uint8_t*)realloc(src->data, new_len);
-                src->l_data = (int)new_len;
+            if (!filters.empty()) {
+                applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
+            }
+            if (!readQueue.empty()) {
+                Segs::align_init(&readQueue.back());
+                if (coverage) {
+                    int l_arr = (int)col.covArr.size() - 1;
+                    Segs::addToCovArray(col.covArr, readQueue.back(), region->start, region->end, l_arr);
+
+                }
+                Segs::findY(col, readQueue, opts.link_op, opts, region, false);
+                Drawing::drawBams(opts, cols, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
+                Segs::align_clear(&readQueue.back());
             }
         }
-        src = readQueue.back().delegate;
-        if (src->core.flag & 4 || src->core.n_cigar == 0) {
-            bam_destroy1(src);
-            readQueue.pop_back();
-        }
-
-        if (!filters.empty()) {
-            applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
-        }
-
-        Segs::init_parallel(readQueue, threads);
-        if (coverage) {
-            int l_arr = (int)col.covArr.size() - 1;
-            for (auto &i : readQueue) {
-                Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
-            }
-        }
-        col.processed = true;
     }
 
 

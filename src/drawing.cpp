@@ -545,9 +545,7 @@ namespace Drawing {
                 }
                 int mapq = a.delegate->core.qual;
                 float yScaledOffset = (Y * yScaling) + yOffset;
-
                 chooseFacecolors(mapq, a, faceColor, theme);
-
                 bool pointLeft, edged;
                 if (plotPointedPolygons) {
                     pointLeft = (a.delegate->core.flag & 16) != 0;
@@ -555,7 +553,6 @@ namespace Drawing {
                     pointLeft = false;
                 }
                 size_t nBlocks = a.block_starts.size();
-
                 if (drawEdges && a.edge_type != 1) {
                     edged = true;
                     chooseEdgeColor(a.edge_type, edgeColor, theme);
@@ -604,7 +601,6 @@ namespace Drawing {
                                 text, textX, textY);
                     }
                 }
-
                 // add soft-clip blocks
                 int start = (int)a.pos - regionBegin;
                 int end = (int)a.reference_end - regionBegin;
@@ -847,7 +843,7 @@ namespace Drawing {
     }
 
     void drawRef(const Themes::IniOptions &opts,
-                  std::vector<Utils::Region> regions, int fb_width,
+                  std::vector<Utils::Region> &regions, int fb_width,
                   SkCanvas *canvas, const Themes::Fonts &fonts, float h, float nRegions, float gap) {
         if (regions.empty()) {
             return;

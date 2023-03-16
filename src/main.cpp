@@ -436,7 +436,7 @@ int main(int argc, char *argv[]) {
             std::terminate();
         }
 
-
+        // start UI here
         if (!program.is_used("--variants") && !program.is_used("--images")) {
             int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));  // plot regions
             if (res < 0) {
@@ -521,19 +521,26 @@ int main(int argc, char *argv[]) {
             }
         }
 
-    // save plot to file, use GPU if single image and GPU available, or use raster backend otherwise
+    // save plot to file, use GPU if single image, or --use-raster backend otherwise. If no regions are
+    // provided, but --outdir is present then the whole genome is plotted using raster backend
     } else {
 
-        if (!program.is_used("--variants") && !program.is_used("--images") && !regions.empty()) {
+        if (!program.is_used("--variants") && !program.is_used("--images")) { // && !regions.empty()) {
 
             if (program.is_used("--file") && program.is_used("--outdir")) {
                 std::cerr << "Error: provide --file or --outdir, not both\n";
-                return -1;
+                std::exit(-1);
             }
-            plotter.fetchRefSeqs();
+
             plotter.opts.theme.setAlphas();
 
             if (program.is_used("--fmt") && program.get<std::string>("--fmt") == "pdf") {
+
+                if (regions.empty()) {
+                    std::cerr << "Error: --fmt pdf is only supported by providing a --region\n";
+                    std::exit(-1);
+                }
+
                 fs::path fname;
                 fs::path out_path;
 
@@ -550,7 +557,7 @@ int main(int argc, char *argv[]) {
                 }
 
 #if defined(_WIN32) || defined(_WIN64)
-		const wchar_t* outp = out_path.c_str();
+                const wchar_t* outp = out_path.c_str();
 		std::wstring pw(outp);
 		std::string outp_str(pw.begin(), pw.end());
 		SkFILEWStream out(outp_str.c_str());
@@ -567,62 +574,129 @@ int main(int argc, char *argv[]) {
                 pdfDocument->close();
                 buffer.writeToStream(&out);
 
+            // Plot a png image, either of target region (GPU/raster) or whole chromosome (raster)
             } else {
                 sk_sp<SkImage> img;
-
-                if (!program.is_used("--use-raster")) {
-
-                    plotter.initBack(iopts.dimensions.x, iopts.dimensions.y);
-
-                    int fb_height, fb_width;
-                    glfwGetFramebufferSize(plotter.backWindow, &fb_width, &fb_height);
-
-                    sContext = GrDirectContext::MakeGL(nullptr).release();
-                    GrGLFramebufferInfo framebufferInfo;
-                    framebufferInfo.fFBOID = 0;
-                    framebufferInfo.fFormat = GL_RGBA8;  // GL_SRGB8_ALPHA8; //
-                    GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
-                    if (!backendRenderTarget.isValid()) {
-                        std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
-                        glfwTerminate();
-                        std::terminate();
-                    }
-                    sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
-                                                                      backendRenderTarget,
-                                                                      kBottomLeft_GrSurfaceOrigin,
-                                                                      kRGBA_8888_SkColorType,
-                                                                      nullptr,
-                                                                      nullptr).release();
-                    if (!sSurface) {
-                        std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
-                        sContext->releaseResourcesAndAbandonContext();
-                        std::terminate();
-                    }
-                    SkCanvas *canvas = sSurface->getCanvas();
-                    plotter.drawSurfaceGpu(canvas);
-                    img = sSurface->makeImageSnapshot();
-
-                } else {
-                    plotter.setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
-                    plotter.gap = 0;
-                    sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
-                    SkCanvas *canvas = rasterSurface->getCanvas();
-                    plotter.runDraw(canvas);
-                    img = rasterSurface->makeImageSnapshot();
-                }
-
-                if (outdir.empty()) {
-                    std::string fpath;
-                    if (program.is_used("--file")) {
-                        fpath = program.get<std::string>("--file");
-                        Manager::imagePngToFile(img, fpath);
+                if (!regions.empty()) {  // plot target regions
+                    if (!program.is_used("--use-raster")) {
+                        plotter.initBack(iopts.dimensions.x, iopts.dimensions.y);
+                        int fb_height, fb_width;
+                        glfwGetFramebufferSize(plotter.backWindow, &fb_width, &fb_height);
+                        sContext = GrDirectContext::MakeGL(nullptr).release();
+                        GrGLFramebufferInfo framebufferInfo;
+                        framebufferInfo.fFBOID = 0;
+                        framebufferInfo.fFormat = GL_RGBA8;
+                        GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
+                        if (!backendRenderTarget.isValid()) {
+                            std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
+                            glfwTerminate();
+                            std::terminate();
+                        }
+                        sSurface = SkSurface::MakeFromBackendRenderTarget(sContext, backendRenderTarget,kBottomLeft_GrSurfaceOrigin,kRGBA_8888_SkColorType,  nullptr, nullptr).release();
+                        if (!sSurface) {
+                            std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
+                            sContext->releaseResourcesAndAbandonContext();
+                            std::terminate();
+                        }
+                        SkCanvas *canvas = sSurface->getCanvas();
+                        if (iopts.link_op == 0) {
+                            plotter.runDrawNoBuffer(canvas);
+                        } else {
+                            plotter.runDraw(canvas);
+                        }
+                        img = sSurface->makeImageSnapshot();
                     } else {
-                        Manager::imagePngToStdOut(img);
+                        plotter.setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
+                        plotter.gap = 0;
+                        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
+                        SkCanvas *canvas = rasterSurface->getCanvas();
+                        if (iopts.link_op == 0) {
+                            plotter.runDrawNoBuffer(canvas);
+                        } else {
+                            plotter.runDraw(canvas);
+                        }
+                        img = rasterSurface->makeImageSnapshot();
                     }
-                } else {
-                    fs::path fname = "GW~" + regions[0].chrom + "~" + std::to_string(regions[0].start) + "~" + std::to_string(regions[0].end) + "~.png";
-                    fs::path out_path = outdir / fname;
-                    Manager::imageToPng(img, out_path);
+                    if (outdir.empty()) {
+                        std::string fpath;
+                        if (program.is_used("--file")) {
+                            fpath = program.get<std::string>("--file");
+                            Manager::imagePngToFile(img, fpath);
+                        } else {
+                            Manager::imagePngToStdOut(img);
+                        }
+                    } else {
+                        fs::path fname = "GW~" + regions[0].chrom + "~" + std::to_string(regions[0].start) + "~" + std::to_string(regions[0].end) + "~.png";
+                        fs::path out_path = outdir / fname;
+                        Manager::imageToPng(img, out_path);
+                    }
+
+                } else {  // chromosome plot
+                    if (program.is_used("--file")) {
+                        std::cerr << "Error: --file option not supported without --region";
+                        return -1;
+                    }
+                    if (iopts.link != "none") {
+                        std::cerr << "Error: Only --link none is supported for chromosome plots";
+                        return -1;
+                    }
+                    std::vector<Manager::GwPlot *> managers;
+                    for (int i = 0; i < iopts.threads; ++i) {
+                        auto *m = new Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
+                        m->opts.theme.setAlphas();
+                        m->setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
+                        m->opts.threads = 1;
+                        managers.push_back(m);
+                    }
+
+                    std::vector< std::vector<Utils::Region> > jobs(iopts.threads);
+                    int part = 0;
+                    for (int i=0; i < faidx_nseq(managers[0]->fai); ++i) {
+                        const char *chrom = faidx_iseq(managers[0]->fai, i);
+                        int seq_len = faidx_seq_len(managers[0]->fai, chrom);
+                        Utils::Region N;
+                        N.chrom = chrom;
+                        N.start = 1;
+                        N.end = seq_len;
+                        jobs[part].push_back(N);
+                        part = (part == jobs.size() - 1) ? 0 : part + 1;
+                    }
+
+                    int ts = std::min(iopts.threads, (int)jobs.size());
+                    BS::thread_pool pool(ts);
+                    int block = 0;
+                    pool.parallelize_loop(0, jobs.size(),
+                                          [&](const int a, const int b) {
+                                              mtx.lock();
+                                              int this_block = block;
+                                              block += 1;
+                                              mtx.unlock();
+                                              Manager::GwPlot *plt = managers[this_block];
+                                              std::vector<Utils::Region> &all_regions = jobs[this_block];
+                                              sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
+                                              SkCanvas *canvas = rasterSurface->getCanvas();
+                                              for (auto &rgn : all_regions) {
+                                                  if (plt->regions.empty()) {
+                                                      plt->regions.push_back(rgn);
+                                                  } else {
+                                                      delete plt->regions[0].refSeq;
+                                                      plt->regions.clear();
+                                                      plt->regions.push_back(rgn);
+                                                      plt->collections[0].region = plt->regions[0];
+                                                  }
+                                                  plt->runDrawNoBuffer(canvas);
+//                                                  plt->runDraw(canvas);
+                                                  sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
+                                                  fs::path fname = "GW~" + plt->regions[0].chrom + "~" + std::to_string(plt->regions[0].start) + "~" + std::to_string(plt->regions[0].end) + "~.png";
+                                                  fs::path out_path = outdir / fname;
+                                                  Manager::imageToPng(img, out_path);
+                                              }
+                                          })
+                            .wait();
+
+                    for (auto &itm : managers) {
+                        delete(itm);
+                    }
                 }
             }
 
@@ -637,7 +711,7 @@ int main(int argc, char *argv[]) {
             if (Utils::endsWith(v, "vcf") || Utils::endsWith(v, "vcf.gz") || Utils::endsWith(v, "bcf")) {
 
                 if (program.is_used("--fmt") && program.get<std::string>("--fmt") == "pdf") {
-                    std::cerr << "Error: only --fmt png is supported with -v. Please raise on issue on github if you would like to see this supported\n";
+                    std::cerr << "Error: only --fmt png is supported with -v\n";
                     return -1;
                 }
                 iopts.theme.setAlphas();
@@ -666,7 +740,8 @@ int main(int argc, char *argv[]) {
 
                 std::vector<Manager::GwPlot *> managers;
                 for (int i = 0; i < iopts.threads; ++i) {
-                    Manager::GwPlot *m = new Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
+                    auto *m = new Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
+                    m->opts.theme.setAlphas();
                     m->setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
                     m->opts.threads = 1;
                     managers.push_back(m);
@@ -674,7 +749,7 @@ int main(int argc, char *argv[]) {
 
                 std::vector<Manager::VariantJob> jobs;
                 std::vector<std::string> empty_labels;
-                std::string dateStr = "";
+                std::string dateStr;
                 while (true) {
                     vcf.next();
                     if (vcf.done) {

@@ -70,7 +70,7 @@ namespace HGW {
         void open(std::string f);
         void next();
         void printTargetRecord(std::string &id_str, std::string &chrom, int pos);
-		void get_samples(); // std::vector<std::string> &write_vector);
+		void get_samples();
 
     };
 
@@ -79,10 +79,11 @@ namespace HGW {
                                  bool coverage, bool low_mem,
                                  std::vector<Parse::Parser> &filters);
 
-    void collectAndDraw(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
+    void iterDraw(std::vector<Segs::ReadCollection> &cols, int idx, htsFile *b, sam_hdr_t *hdr_ptr,
                         hts_idx_t *index, int threads, Utils::Region *region,
                         bool coverage, bool low_mem,
-                        std::vector<Parse::Parser> &filters, SkCanvas *canvas);
+                        std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
+                        float trackY, float yScaling, Themes::Fonts &fonts, float refSpace);
 
     void trimToRegion(Segs::ReadCollection &col, bool coverage);
 

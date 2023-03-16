@@ -732,23 +732,19 @@ namespace Manager {
                     N.markerPosEnd = regions[regionSelection].markerPosEnd;
                     fetchRefSeq(N);
                     regions[regionSelection] = N;
-//                    if (opts.link_op != 0) {
-//                        processed = false;
-//                        redraw = true;
-//                    } else {
-                        processed = true;
-                        for (auto &cl : collections) {
-                            if (cl.regionIdx == regionSelection) {
-                                cl.region = N;
-                                if (!bams.empty()) {
-                                    HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
-                                                                indexes[cl.bamIdx], opts, (bool)opts.max_coverage, false,
-                                                                &samMaxY, filters);
-                                }
+                    for (auto &cl : collections) {
+                        if (cl.regionIdx == regionSelection) {
+                            cl.region = N;
+                            if (!bams.empty()) {
+                                HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
+                                                            indexes[cl.bamIdx], opts, (bool)opts.max_coverage, false,
+                                                            &samMaxY, filters);
+
                             }
                         }
-                        redraw = true;
-//                    }
+                    }
+                    processed = true;
+                    redraw = true;
                     printRegionInfo();
 
                 } else if (key == opts.scroll_left) {
@@ -763,24 +759,20 @@ namespace Manager {
                     N.markerPosEnd = regions[regionSelection].markerPosEnd;
                     fetchRefSeq(N);
                     regions[regionSelection] = N;
-//                    if (opts.link_op != 0) {
-//                        processed = false;
-//                        redraw = true;
-//                    } else {
-                        processed = true;
-                        for (auto &cl : collections) {
-                            if (cl.regionIdx == regionSelection) {
-                                cl.region = regions[regionSelection];
-                                if (!bams.empty()) {
-                                    HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
-                                                                indexes[cl.bamIdx], opts, (bool)opts.max_coverage, true,
-                                                                &samMaxY, filters);
-                                }
+                    for (auto &cl : collections) {
+                        if (cl.regionIdx == regionSelection) {
+                            cl.region = regions[regionSelection];
+                            if (!bams.empty()) {
+                                HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
+                                                            indexes[cl.bamIdx], opts, (bool)opts.max_coverage, true,
+                                                            &samMaxY, filters);
                             }
-//                        }
-                        redraw = true;
+                        }
                     }
+                    processed = true;
+                    redraw = true;
                     printRegionInfo();
+
                 } else if (key == opts.zoom_out) {
                     int shift = (int)((((float)regions[regionSelection].end - (float)regions[regionSelection].start) * opts.scroll_speed)) + 10;
                     int shift_left = (regions[regionSelection].start - shift > 0) ? shift : 0;
@@ -1401,25 +1393,27 @@ namespace Manager {
                     if (N.start < 0 || N.end < 0) {
                         return;
                     }
-
                     regionSelection = cl.regionIdx;
                     delete regions[regionSelection].refSeq;
                     N.markerPos = regions[regionSelection].markerPos;
                     N.markerPosEnd = regions[regionSelection].markerPosEnd;
                     fetchRefSeq(N);
                     regions[regionSelection] = N;
-                    processed = true;
                     for (auto &col : collections) {
                         if (col.regionIdx == regionSelection) {
                             col.region = regions[regionSelection];
                             if (!bams.empty()) {
                                 HGW::appendReadsAndCoverage(col, bams[col.bamIdx], headers[col.bamIdx],
-                                                            indexes[col.bamIdx], opts, (bool)opts.max_coverage, !lt_last,
-                                                             &samMaxY, filters);
+                                                            indexes[col.bamIdx], opts, (bool) opts.max_coverage,
+                                                            !lt_last,
+                                                            &samMaxY, filters);
                             }
                         }
-                    redraw = true;
                     }
+                    processed = true;
+                    redraw = true;
+                    glfwPostEmptyEvent();
+                    return;
                 }
             }
         } else {

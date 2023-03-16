@@ -164,8 +164,6 @@ namespace Manager {
 
         void pathDrop(GLFWwindow* window, int count, const char** paths);
 
-        void drawSurfaceGpu(SkCanvas *canvas);
-
         void runDraw(SkCanvas *canvas);
 
         void runDrawNoBuffer(SkCanvas *canvas);
@@ -206,6 +204,8 @@ namespace Manager {
         std::vector<Utils::BoundingBox> bboxes;
 
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
+
+        void drawScreenNoBuffer(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
         void drawOverlay(SkCanvas* canvas, GrDirectContext* sContext);
 

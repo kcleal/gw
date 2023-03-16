@@ -356,38 +356,16 @@ namespace Segs {
             self->edge_type = 1;  // "NORMAL"
         }
 
-//        uint8_t *v;
-//        char *value;
-//        uint8_t *ptr_seq = bam_get_seq(src);
-//        auto *ptr_qual = bam_get_qual(src);
-//        self->has_MD = false;
-//        v = bam_aux_get(self->delegate, "MD");
-//        if (v == nullptr) {
-//            self->has_MD = false;
-//        } else {
-//            value = (char *) bam_aux2Z(v);
-//            self->MD = value;
-//            self->has_MD = true;
-//        }
-//        if (self->has_MD) {
-//            get_mismatched_bases(self->mismatches, self->MD, self->pos, cigar_l, cigar_p);
-////            get_mismatched_bases_stA(self->mismatches, self->MD, self->pos, cigar_l, cigar_p);
-//            if (!self->mismatches.empty()) {
-//                // note not all mismatches are drawn, so it doesn't make sense to save the color here. defer that to drawing
-//                for (auto &mm : self->mismatches) {
-//                    mm.base = bam_seqi(ptr_seq, mm.idx);
-//                    mm.qual = ptr_qual[mm.idx];
-//                }
-//            }
-//        }
-
         self->initialized = true;
 
 //        auto stop = std::chrono::high_resolution_clock::now();
 //        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-//        std::ofstream outfile;
-//        outfile.open("test.txt", std::ios_base::app); // append instead of overwrite
-//        outfile << duration.count() << std::endl;
+    }
+
+    void align_clear(Align *self) {
+        self->block_starts.clear();
+        self->block_ends.clear();
+        self->any_ins.clear();
     }
 
     void init_parallel(std::vector<Align> &aligns, int n) { //const char *refSeq, int begin, int rlen) {
@@ -408,6 +386,18 @@ namespace Segs {
 
     ReadCollection::ReadCollection() {
         vScroll = 0;
+    }
+
+    void ReadCollection::clear() {
+        std::fill(levelsStart.begin(), levelsStart.end(), 1215752191);
+        std::fill(levelsEnd.begin(), levelsEnd.end(), 0);
+        std::fill(covArr.begin(), covArr.end(), 0);
+        linked.clear();
+        processed = false;
+        for (auto &item: readQueue) {
+            bam_destroy1(item.delegate);
+        }
+        readQueue.clear();
     }
 
     void resetCovStartEnd(ReadCollection &cl) {

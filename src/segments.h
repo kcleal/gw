@@ -78,9 +78,13 @@ namespace Segs {
         map_t linked;
         float xScaling, xOffset, yOffset, yPixels;
         bool processed;
+
+        void clear();
     };
 
     void align_init(Align *self);
+
+    void align_clear(Align *self);
 
     void init_parallel(std::vector<Align> &aligns, int n);
 
