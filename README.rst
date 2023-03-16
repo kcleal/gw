@@ -346,7 +346,7 @@ The machine used was an Intel i9-11900K, NVMe WD 2TB, 64 GB memory. Total elapse
            Mean memory (Gb)
 
 Plotting a 2Mb region in GW took ~0.406s compared to IGV ~22.1s, although its worth noting IGV needed around 7s for start up. For reference,
-using :code:`samtools view -c ` took ~0.241s which is a measure of how fast a bam file can be read.
+using `samtools view -c` took ~0.241s which is a measure of how fast a bam file can be read.
 Mean memory use for a 2Mb region was 0.14 Gb for GW vs IGV 3.25 Gb.
 
 
