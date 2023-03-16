@@ -636,16 +636,19 @@ int main(int argc, char *argv[]) {
                         std::cerr << "Error: --file option not supported without --region";
                         return -1;
                     }
-                    if (iopts.link != "none") {
+                    if (iopts.link_op != 0) {
                         std::cerr << "Error: Only --link none is supported for chromosome plots";
                         return -1;
                     }
+                    std::cerr << "Plotting chromosomes\n";
                     std::vector<Manager::GwPlot *> managers;
                     for (int i = 0; i < iopts.threads; ++i) {
                         auto *m = new Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
                         m->opts.theme.setAlphas();
                         m->setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
                         m->opts.threads = 1;
+                        m->gap = 0;
+                        m->regions.resize(1);
                         managers.push_back(m);
                     }
 
@@ -659,7 +662,7 @@ int main(int argc, char *argv[]) {
                         N.start = 1;
                         N.end = seq_len;
                         jobs[part].push_back(N);
-                        part = (part == jobs.size() - 1) ? 0 : part + 1;
+                        part = (part == (int)jobs.size() - 1) ? 0 : part + 1;
                     }
 
                     int ts = std::min(iopts.threads, (int)jobs.size());
@@ -676,16 +679,12 @@ int main(int argc, char *argv[]) {
                                               sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
                                               SkCanvas *canvas = rasterSurface->getCanvas();
                                               for (auto &rgn : all_regions) {
-                                                  if (plt->regions.empty()) {
-                                                      plt->regions.push_back(rgn);
-                                                  } else {
-                                                      delete plt->regions[0].refSeq;
-                                                      plt->regions.clear();
-                                                      plt->regions.push_back(rgn);
-                                                      plt->collections[0].region = plt->regions[0];
-                                                  }
+                                                  plt->collections.clear();
+                                                  delete plt->regions[0].refSeq;
+                                                  plt->regions[0].chrom = rgn.chrom;
+                                                  plt->regions[0].start = rgn.start;
+                                                  plt->regions[0].end = rgn.end;
                                                   plt->runDrawNoBuffer(canvas);
-//                                                  plt->runDraw(canvas);
                                                   sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
                                                   fs::path fname = "GW~" + plt->regions[0].chrom + "~" + std::to_string(plt->regions[0].start) + "~" + std::to_string(plt->regions[0].end) + "~.png";
                                                   fs::path out_path = outdir / fname;

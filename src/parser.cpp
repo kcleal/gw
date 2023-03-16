@@ -674,7 +674,6 @@ namespace Parse {
 		} else {
 			requestBracket = "0";
 		}
-		return;
 	}
 
 	bool is_number(const std::string& s) {
@@ -691,7 +690,7 @@ namespace Parse {
 			i += 9;
 		} else {
 			ptrdiff_t index = std::distance(sample_names.begin(), std::find(sample_names.begin(), sample_names.end(), requestBracket));
-			if (index >= sample_names.size()) {
+			if ((int)index >= (int)sample_names.size()) {
 				std::cerr << "Sample not in file: " << requestBracket << std::endl;
                 std::cerr << "Samples listed in file are: ";
                 for (auto &samp : sample_names) {
@@ -700,9 +699,8 @@ namespace Parse {
                 std::cerr << std::endl;
 				return;
 			}
-			i = index + 9;
+			i = (int)index + 9;
 		}
-		return;
 	}
 
 	void parse_INFO (std::string &result, std::string &infoColString, std::string &request) {
@@ -723,7 +721,6 @@ namespace Parse {
 				}
 			}
 		}
-		return;
 	}
 
 	void parse_FORMAT (std::string &result, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names) {
@@ -754,7 +751,6 @@ namespace Parse {
                 break;
             }
 		}
-		return;
 	}
 
 
@@ -839,6 +835,5 @@ namespace Parse {
 				nameFormat = std::regex_replace(nameFormat, rexpr, value);
 			}
 		}
-		return;
 	}
 }
