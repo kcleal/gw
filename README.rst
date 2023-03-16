@@ -76,6 +76,9 @@ Command line::
     # Save pdf
     gw hg38 -b your.bam -r chr1:1-20000 -n --fmt pdf -f out.pdf
 
+    # plot every chromosome in parallel
+    gw t2t -t 23 -b your.bam -n --outdir chrom_plots
+
     # View VCF/BCF
     gw hg38 -b your.bam -v var.vcf
 
@@ -326,10 +329,10 @@ Benchmark
 
 Here we're testing the resource usage of GW when generating a single .png image using::
 
-    gw $HG19 -b HG002.bam -r {region} --no-show
+    gw $HG19 -t 1 -b HG002.bam -r {region} --no-show
 
-The bam file was 40X coverage, paired-end data mapped with bwa mem. All other tools were run with default settings (see the `benchmark.py` script in the test folder for details).
-The machine used was an Intel i9-11900K, NVMe WD 2TB, 64 GB memory.
+The bam file was 40X coverage, paired-end data mapped with bwa mem. All other tools were run using a single thread (see the `benchmark.py` script in the test folder for details).
+The machine used was an Intel i9-11900K, NVMe WD 2TB, 64 GB memory. Total elapsed time and memory are measured:
 
 
 .. list-table::
@@ -342,10 +345,9 @@ The machine used was an Intel i9-11900K, NVMe WD 2TB, 64 GB memory.
 
            Mean memory (Gb)
 
-Plotting a 2Mb region in GW took ~0.55s compared to IGV ~37s, although its worth noting IGV needed around 6s for start up. For reference,
-using :code:`samtools view -c -@3` took ~0.209s which is a measure of how fast a bam file can be read.
-Mean memory use for a 2Mb region was 0.54 Gb for GW vs IGV 3.35 Mb. Using --low-mem mode (gw-lm in plot), memory usage
-was reduced to 344 Mb.
+Plotting a 2Mb region in GW took ~0.406s compared to IGV ~22.1s, although its worth noting IGV needed around 7s for start up. For reference,
+using :code:`samtools view -c ` took ~0.241s which is a measure of how fast a bam file can be read.
+Mean memory use for a 2Mb region was 0.14 Gb for GW vs IGV 3.25 Gb.
 
 
 Issues and contributing

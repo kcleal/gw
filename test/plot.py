@@ -23,16 +23,16 @@ for idx, grp in df[df['name'] == 'gw'].groupby('region size (bp)'):
     gw_times[idx] = grp['time (s)'].mean()
     gw_mem[idx] = grp['RSS'].mean()
 for idx, grp in df.groupby('region size (bp)'):
-    samtools[idx] = grp['samtools_count_t3 (s)'].mean()
+    samtools[idx] = grp['samtools_count (s)'].mean()
 
 print(gw_times)
-# use the mean time of 2bp region as start time
+# use the mean time of 2bp region as start_time
 min_load_time = {k: dd['time (s)'].min() for k, dd in df[df['region size (bp)'] == 2].groupby('name')}
 min_memory = {k: dd['RSS'].min() for k, dd in df[df['region size (bp)'] == 2].groupby('name')}
-df['total time'] = df['time (s)']
-df['start time'] = [min_load_time[k] for k in df['name']]
-df['total mem'] = df['RSS']
-df['start mem'] = [min_memory[k] for k in df['name']]
+df['total_time'] = df['time (s)']
+df['start_time'] = [min_load_time[k] for k in df['name']]
+df['total_mem'] = df['RSS']
+df['start_mem'] = [min_memory[k] for k in df['name']]
 df = df[df['region size (bp)'] != 2]
 
 su = []
@@ -40,22 +40,22 @@ for idx, grp in df.groupby(['name', 'region size (bp)']):
     su.append({'name': idx[0],
                'region_size': idx[1],
                'samtools': samtools[idx[1]],
-               'total time': grp['total time'].mean(),
-               'start time': grp['start time'].mean(),
-               'render': grp['total time'].mean() - grp['start time'].mean(),
-               'total mem': grp['total mem'].mean(),
-               'start mem': grp['start mem'].mean(),
-               'relative_time': grp['total time'].mean() / gw_times[idx[1]],
-               "relative_mem": grp['total mem'].mean() / gw_mem[idx[1]]})
+               'total_time': grp['total_time'].mean(),
+               'start_time': grp['start_time'].mean(),
+               'render': grp['total_time'].mean() - grp['start_time'].mean(),
+               'total_mem': grp['total_mem'].mean(),
+               'start_mem': grp['start_mem'].mean(),
+               'relative_time': grp['total_time'].mean() / gw_times[idx[1]],
+               "relative_mem": grp['total_mem'].mean() / gw_mem[idx[1]]})
 
 df2 = pd.DataFrame.from_records(su).round(3)
 gw_render_times = {k: t for k, t in zip(df2[df2['name'] == 'gw']['region_size'],
                                         df2[df2['name'] == 'gw']['render'])}
 df2['relative_render_time'] = [k / gw_render_times[s] for k, s in zip(df2['render'], df2['region_size'])]
-df2 = df2[['name', 'region_size', 'samtools', 'total time', 'relative_time',
-           'start time', 'render', 'relative_render_time', 'total mem', 'start mem', 'relative_mem']]
+df2 = df2[['name', 'region_size', 'samtools', 'total_time', 'relative_time',
+           'start_time', 'render', 'relative_render_time', 'total_mem', 'start_mem', 'relative_mem']]
 print(df2.to_markdown())
-with open('results/benchmark.md', 'w') as b:
+with open('benchmark.md', 'w') as b:
     b.write(df2.to_markdown())
 
 
@@ -64,9 +64,9 @@ fig.subplots_adjust(bottom=0.15, hspace=0.8)
 
 idx = 0
 for size, grp in df.groupby('region size (bp)'):
-    ax = sns.barplot(y='name', x='total time', data=grp,
+    ax = sns.barplot(y='name', x='total_time', data=grp,
                      color='royalblue', ax=axes[idx], errorbar=('ci', 95), linewidth=0, errwidth=1)
-    ax2 = sns.barplot(y='name', x='start time', data=grp,
+    ax2 = sns.barplot(y='name', x='start_time', data=grp,
                       color='lightsteelblue', ax=axes[idx], errorbar=('ci', 95), linewidth=0, errwidth=1)
 
     sns.despine(left=True, bottom=True)
@@ -99,9 +99,9 @@ fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(7, 6))
 fig.subplots_adjust(bottom=0.15, hspace=0.8)
 idx = 0
 for size, grp in df.groupby('region size (bp)'):
-    ax = sns.barplot(y='name', x='total mem', data=grp,
+    ax = sns.barplot(y='name', x='total_mem', data=grp,
                      color='firebrick', ax=axes[idx], errorbar=('ci', 95), linewidth=0, errwidth=1)
-    ax2 = sns.barplot(y='name', x='start mem', data=grp,
+    ax2 = sns.barplot(y='name', x='start_mem', data=grp,
                      color='rosybrown', ax=axes[idx], errorbar=('ci', 95), linewidth=0, errwidth=1)
     sns.despine(left=True, bottom=True)
     ax.grid(axis='x')

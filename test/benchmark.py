@@ -36,13 +36,9 @@ import platform
 from collections import defaultdict
 
 
-splitf = lambda err: float(err.decode('ascii').split('\n')[0].split('\t')[0].strip())
-mem_usage = lambda err: float(err.decode('ascii').split('\n')[0].split('\t')[1].strip()) / 1000  # in megabytes
-
-
 def plot_gw(chrom, start, end, args, timef, low_mem=False):
     m = '--low-mem' if low_mem else ''
-    com = timef + " -o gwtime.txt {gw} {genome} {m} -b {bam} -r {chrom}:{start}-{end} --outdir images --no-show -d 1500x1500"\
+    com = timef + " -o gwtime.txt {gw} {genome} {m} -t 1 -b {bam} -r {chrom}:{start}-{end} --outdir images --no-show -d 1500x1500"\
         .format(gw=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end, m=m)
     run(com, shell=True)
     line = open('gwtime.txt', 'r').readlines()[0].strip().split("\t")
@@ -52,13 +48,14 @@ def plot_gw(chrom, start, end, args, timef, low_mem=False):
 
 
 def plot_igv(chrom, start, end, args, timef):
-    # remove this to test file creation speed - snapshot images/igv.png
+    # To set single thread mode add this to igv.args
+    # -XX:ActiveProcessorCount=1
     v = """new
 genome {genome}
 load {bam}
 snapshotDirectory images
 goto {chrom}:{start}-{end}
-snapshot images/igv.png
+snapshot igv.png
 exit""".format(genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     with open("igv_batch.bat", "w") as b:
         b.write(v)
@@ -91,10 +88,11 @@ def plot_samplot(chrom, start, end, args, timef):
 
 
 def samtools_count(chrom, start, end, args, timef):
-    p = Popen(timef + f' samtools view -@3 -c {args.bam} {chrom}:{start}-{end}', stdout=PIPE, stderr=PIPE, shell=True)
+    p = Popen(timef + f' -o samtoolstime.txt samtools view -c {args.bam} {chrom}:{start}-{end}', stdout=PIPE, stderr=PIPE, shell=True)
     out, err = p.communicate()
     reads = int(out.decode('ascii').strip())
-    t = splitf(err)
+    line = open('samtoolstime.txt', 'r').readlines()[0].strip().split("\t")
+    t = float(line[0])
     return t, reads
 
 
@@ -115,9 +113,9 @@ if __name__ == "__main__":
     random.seed(1)
 
     if platform.system() == "Linux":
-        timef = "/usr/bin/time --format '%U\t%M' "
+        timef = "/usr/bin/time --format '%e\t%M' "
     else:  # Assuming Mac
-        timef = "gtime --format '%U\t%M' "
+        timef = "gtime --format '%e\t%M' "
 
     if not os.path.exists('images'):
         os.mkdir('images')
@@ -154,6 +152,9 @@ if __name__ == "__main__":
         random.shuffle(chroms)
         N = 0
         c = 0
+        start = None
+        end = None
+        reads = 0
         while N < 20:
             chrom = chroms[c]
             good = False
@@ -169,6 +170,7 @@ if __name__ == "__main__":
                 if reads > 0:
                     good = True
                     break
+
             if not good:
                 c += 1
                 continue
@@ -176,10 +178,10 @@ if __name__ == "__main__":
             c += 1
             if N >= len(chroms):
                 raise ValueError('Error: ran out of chroms to plot')
-            pos = random.randint(half_size, fai[chrom] - half_size)
-            start = pos - half_size
-            end = pos + half_size
-            print(chrom, start, end)
+            if start is None:
+                raise ValueError('Error: couldnt find an interval with reads')
+
+            print('Region:', chrom, start, end, 'n_reads:', reads)
 
             # run samtools again to prime disk buffering
             _, _ = samtools_count(chrom, start, end, args, timef)
@@ -188,16 +190,10 @@ if __name__ == "__main__":
 
             results.append({'name': name, 'region': f'{chrom}:{start}-{end}', 'time (s)': avg_time,
                             'region size (bp)': end - start, 'RSS': maxRSS,
-                            'samtools_count_t3 (s)': st_t, 'reads': reads})
-
-            if name == 'gw':
-                avg_time, maxRSS = prog(chrom, start, end, args, timef, True)
-                results.append({'name': 'gw-lm', 'region': f'{chrom}:{start}-{end}', 'time (s)': avg_time,
-                                'region size (bp)': end - start, 'RSS': maxRSS,
-                                'samtools_count_t3 (s)': st_t, 'reads': reads})
+                            'samtools_count (s)': st_t, 'reads': reads})
 
     df = pd.DataFrame.from_records(results)
-    df = df[['name', 'region', 'reads', 'region size (bp)', 'samtools_count_t3 (s)', 'time (s)', 'RSS']]
+    df = df[['name', 'region', 'reads', 'region size (bp)', 'samtools_count (s)', 'time (s)', 'RSS']]
     df.to_csv(f'{name}.benchmark.csv', index=False)
 
     if name == 'samplot':
@@ -209,3 +205,4 @@ if __name__ == "__main__":
         run('rm jbrowse2time.txt', shell=True)
     else:
         run('rm gwtime.txt', shell=True)
+    run('rm samtoolstime.txt', shell=True)
