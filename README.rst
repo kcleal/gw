@@ -77,7 +77,7 @@ Command line::
     gw hg38 -b your.bam -r chr1:1-20000 -n --fmt pdf -f out.pdf
 
     # plot every chromosome in parallel
-    gw t2t -t 23 -b your.bam -n --outdir chrom_plots
+    gw t2t -t 24 -b your.bam -n --outdir chrom_plots
 
     # View VCF/BCF
     gw hg38 -b your.bam -v var.vcf
