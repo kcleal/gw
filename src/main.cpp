@@ -478,7 +478,11 @@ int main(int argc, char *argv[]) {
                 img += "/";
             }
             std::vector<std::filesystem::path> paths = glob::glob(img);
+#if defined(_WIN32) || defined(_WIN64)
+            std::sort(paths.begin(), paths.end());
+#else
             std::sort(paths.begin(), paths.end(), compareNat);
+#endif
             plotter.image_glob = paths;
             if (plotter.image_glob.size() == 1) {
                 plotter.opts.number.x = 1; plotter.opts.number.y = 1;
