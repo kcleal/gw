@@ -10,6 +10,7 @@
 
 #include "argparse.h"
 #include "../include/BS_thread_pool.h"
+#include "../include/strnatcmp.h"
 #include "glob.h"
 
 #include "hts_funcs.h"
@@ -476,7 +477,9 @@ int main(int argc, char *argv[]) {
             if (img == ".") {
                 img += "/";
             }
-            plotter.image_glob = glob::glob(img);
+            std::vector<std::filesystem::path> paths = glob::glob(img);
+            std::sort(paths.begin(), paths.end(), compareNat);
+            plotter.image_glob = paths;
             if (plotter.image_glob.size() == 1) {
                 plotter.opts.number.x = 1; plotter.opts.number.y = 1;
             }
