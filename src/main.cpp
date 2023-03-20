@@ -695,7 +695,11 @@ int main(int argc, char *argv[]) {
                                                   plt->regions[0].chrom = rgn.chrom;
                                                   plt->regions[0].start = rgn.start;
                                                   plt->regions[0].end = rgn.end;
-                                                  plt->runDrawNoBuffer(canvas);
+                                                  if (iopts.link_op == 0) {
+                                                      plotter.runDrawNoBuffer(canvas);
+                                                  } else {
+                                                      plotter.runDraw(canvas);
+                                                  }
                                                   sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
                                                   fs::path fname = "GW~" + plt->regions[0].chrom + "~" + std::to_string(plt->regions[0].start) + "~" + std::to_string(plt->regions[0].end) + "~.png";
                                                   fs::path out_path = outdir / fname;
@@ -795,7 +799,7 @@ int main(int argc, char *argv[]) {
                                             for (int i = a; i < b; ++i) {
                                                 Manager::VariantJob job = jobs[i];
                                                 plt->setVariantSite(job.chrom, job.start, job.chrom2, job.stop);
-                                                if (plt->opts.low_mem) {
+                                                if (plt->opts.low_mem && plt->opts.link_op == 0) {
                                                     plt->runDrawNoBuffer(canvas);
                                                 } else {
                                                     plt->runDraw(canvas);
