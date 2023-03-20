@@ -13,11 +13,12 @@
 #include <stdexcept>
 #include <sstream>
 #include <string>
-
 #include <curses.h>
 
 #include "../include/unordered_dense.h"
 #include "utils.h"
+
+#include "htslib/faidx.h"
 
 #if defined(_WIN32) || defined(_WIN64)
     #include <windows.h>
@@ -192,7 +193,7 @@ namespace Utils {
         return reg;
     }
 
-    bool parseFilenameToMouseClick(std::filesystem::path &path, Region &rgn) {
+    bool parseFilenameToMouseClick(std::filesystem::path &path, std::vector<Region> &regions, faidx_t* fai, int pad=500, int split_size=20000) {
 
 #if defined(_WIN32) || defined(_WIN64)
         const wchar_t* pc = path.filename().c_str();
@@ -201,11 +202,16 @@ namespace Utils {
 #else
         std::string fn = path.filename();
 #endif
-        size_t p = fn.find("GW~");
-        if (p != std::string::npos) {
-            p += 3;
+        size_t l = fn.find_last_of('.');
+        fn = fn.substr(0, l);
+        if (fn.back() != '~') {  // variant image
+            size_t p = fn.find("~");
+            if (p == 0) {
+                return false;
+            }
+            p += 1;
             std::vector<std::string> parts = split(fn.substr(p, fn.size()), '~');
-            if (parts.size() == 4) {  // no parsing of multi-region currently
+            if (parts.size() == 5) {
                 int start, end;
                 try {
                     start = std::stoi(parts[1]);
@@ -213,17 +219,73 @@ namespace Utils {
                     return false;
                 }
                 try {
-                    end = std::stoi(parts[2]);
+                    end = std::stoi(parts[3]);
                 } catch (...) {
                     return false;
                 }
-                rgn.chrom = parts[0];
-                rgn.start = start;
-                rgn.end = end;
-                return true;
+                if (parts[0] != parts[2] || std::abs(end - start) > split_size) {
+                    regions.resize(2);
+                    regions[0].chrom = parts[0];
+                    regions[0].start = (start - pad > 0) ? start - pad : 1;
+                    regions[0].end = start + pad;
+                    regions[0].markerPos = start;
+                    regions[0].markerPosEnd = end;
+                    regions[1].chrom = parts[2];
+                    regions[1].start = (end - pad > 0) ? end - pad : 1;
+                    regions[1].end = end + pad;
+                    regions[1].markerPos = end;
+                    regions[1].markerPosEnd = start;
+                } else {
+                    regions.resize(1);
+                    regions[0].chrom = parts[0];
+                    regions[0].start = (start - pad > 0) ? start - pad : 1;
+                    regions[0].end = end + pad;
+                    regions[0].markerPos = start;
+                    regions[0].markerPosEnd = end;
+                }
+            }
+        } else {
+            size_t p = fn.find("GW~");  // single region image
+            if (p != std::string::npos) {
+                p += 3;
+                std::vector<std::string> parts = split(fn.substr(p, fn.size()), '~');
+                int i = 0;
+                while (i < parts.size()) {
+                    Utils::Region N;
+                    int start, end;
+                    try {
+                        start = std::stoi(parts[1]);
+                    } catch (...) {
+                        return false;
+                    }
+                    try {
+                        end = std::stoi(parts[2]);
+                    } catch (...) {
+                        return false;
+                    }
+                    N.chrom = parts[0];
+                    N.start = start;
+                    N.end = end;
+                    N.markerPos = -1;
+                    N.markerPosEnd = -1;
+                    regions.push_back(N);
+                    i += 3;
+                }
             }
         }
-        return false;
+        if (regions.empty()) {
+            return false;
+        }
+        for (auto &rgn: regions) {
+            if (rgn.chrom.empty()) {
+                return false;
+            }
+            if (faidx_has_seq(fai, rgn.chrom.c_str()) <= 0) {
+                std::cerr << "Error: could not find " << rgn.chrom << " in fasta index\n";
+                return false;
+            }
+        }
+        return true;
     }
 
     Dims parseDimensions(std::string &s) {

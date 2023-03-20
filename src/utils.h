@@ -10,6 +10,8 @@
 #include "../include/unordered_dense.h"
 #include "../include/robin_hood.h"
 
+#include "htslib/faidx.h"
+
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #define VC_EXTRALEAN
@@ -57,7 +59,7 @@ namespace Utils {
 
     Region parseRegion(std::string &r);
 
-    bool parseFilenameToMouseClick(std::filesystem::path &path, Region &rgn);
+    bool parseFilenameToMouseClick(std::filesystem::path &path, std::vector<Region> &regions, faidx_t* fai, int pad, int split_size);
 
     struct Dims {
         int x, y;

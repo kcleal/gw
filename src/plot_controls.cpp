@@ -1266,16 +1266,20 @@ namespace Manager {
                         }
                     } else {
                         // try and parse location from filename
-                        Utils::Region rgn;
-                        bool parsed = Utils::parseFilenameToMouseClick(image_glob[blockStart + i], rgn);
-                        if (parsed && faidx_has_seq(fai, rgn.chrom.c_str()) > 0) {
-                            if (rgn.end - rgn.start > 500000) {
-                                int posX = (int)(((xW - gap) / (float)(fb_width - gap - gap)) * (float)(rgn.end - rgn.start)) + rgn.start;
-                                rgn.start = (posX - 10000 > 0) ? posX - 100000 : 1;
-                                rgn.end = posX + 100000;
+                        std::vector<Utils::Region> rt;
+                        bool parsed = Utils::parseFilenameToMouseClick(image_glob[blockStart + i], rt, fai, opts.pad, opts.split_view_size);
+                        if (parsed) {
+                            if (rt.size() == 1 && rt[0].end - rt[0].start > 500000) {
+                                int posX = (int)(((xW - gap) / (float)(fb_width - gap - gap)) * (float)(rt[0].end - rt[0].start)) + rt[0].start;
+                                rt[0].start = (posX - 10000 > 0) ? posX - 100000 : 1;
+                                rt[0].end = posX + 100000;
+                            }
+                            for (auto &r: regions) {
+                                delete r.refSeq;
                             }
                             regions.clear();
-                            regions.push_back(rgn);
+//                            regions.push_back(rgn);
+                            regions = rt;
                             redraw = true;
                             processed = false;
                             fetchRefSeqs();
@@ -1491,10 +1495,14 @@ namespace Manager {
                               "    Index  "  << termcolor::reset << mouseOverTileIndex + blockStart;
                     std::cout << std::flush;
                 } else if (blockStart + i < (int)image_glob.size()) {
-                    Utils::Region rgn;
-                    if (Utils::parseFilenameToMouseClick(image_glob[blockStart + i], rgn)) {
-                        std::cout << termcolor::bold << "\rPos  " << termcolor::reset << rgn.chrom << ":" << rgn.start << "-" << rgn.end << termcolor::bold <<
-                        "    File  "  << termcolor::reset << image_glob[blockStart + i].filename();
+                    std::vector<Utils::Region> rt;
+                    if (Utils::parseFilenameToMouseClick(image_glob[blockStart + i], rt, fai, opts.pad, opts.split_view_size)) {
+                        Term::clearLine();
+                        std::cout << termcolor::bold << "\rPos  ";
+                        for (auto &r : rt) {
+                            std::cout << termcolor::reset << r.chrom << ":" << r.start << "-" << r.end << termcolor::bold << "    ";
+                        }
+                        std::cout << "File  "  << termcolor::reset << image_glob[blockStart + i].filename();
                         std::cout << std::flush;
                     }
                 }

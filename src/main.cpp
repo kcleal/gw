@@ -532,7 +532,7 @@ int main(int argc, char *argv[]) {
     // provided, but --outdir is present then the whole genome is plotted using raster backend
     } else {
 
-        if (!program.is_used("--variants") && !program.is_used("--images")) { // && !regions.empty()) {
+        if (!program.is_used("--variants") && !program.is_used("--images")) {
 
             if (program.is_used("--file") && program.is_used("--outdir")) {
                 std::cerr << "Error: provide --file or --outdir, not both\n";
@@ -633,7 +633,11 @@ int main(int argc, char *argv[]) {
                             Manager::imagePngToStdOut(img);
                         }
                     } else {
-                        fs::path fname = "GW~" + regions[0].chrom + "~" + std::to_string(regions[0].start) + "~" + std::to_string(regions[0].end) + "~.png";
+                        fs::path fname = "GW~";
+                        for (auto &rgn : regions) {
+                            fname += rgn.chrom + "~" + std::to_string(rgn.start) + "~" + std::to_string(rgn.end) + "~";
+                        }
+                        fname += ".png";
                         fs::path out_path = outdir / fname;
                         Manager::imageToPng(img, out_path);
                     }
@@ -791,7 +795,11 @@ int main(int argc, char *argv[]) {
                                             for (int i = a; i < b; ++i) {
                                                 Manager::VariantJob job = jobs[i];
                                                 plt->setVariantSite(job.chrom, job.start, job.chrom2, job.stop);
-                                                plt->runDraw(canvas);
+                                                if (plt->opts.low_mem) {
+                                                    plt->runDrawNoBuffer(canvas);
+                                                } else {
+                                                    plt->runDraw(canvas);
+                                                }
                                                 sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
                                                 fs::path fname = job.varType + "~" + job.chrom + "~" + std::to_string(job.start) + "~" + job.chrom2 + "~" + std::to_string(job.stop) + "~" + job.rid + ".png";
                                                 fs::path full_path = outdir / fname;
