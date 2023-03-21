@@ -13,12 +13,6 @@ TERMUX_PKG_DEPENDS="mesa"
 TERMUX_PKG_BLACKLISTED_ARCHES="arm, i686"
 
 
-termux_step_pre_configure() {
-	CPPFLAGS+=" -I./htslib -I./lib/skia/include"
-	LDFLAGS+=" -L./htslib"
-	LDLIBS+=" -lEGL -llog"
-}
-
 termux_step_make_install() {
 
 	git clone https://github.com/kcleal/gw
@@ -31,7 +25,7 @@ termux_step_make_install() {
 	sed -i 's/Release-x64/Release-arm64/g' Makefile
 	sed -i 's/linux/android/g' Makefile
 	make prep
-	make
+	CPPFLAGS+=" -I./htslib -I./lib/skia/include" LDFLAGS+=" -L./htslib" LDLIBS+=" -lEGL -llog" make
 	cp gw ~/.local/bin
 
 }
