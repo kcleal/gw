@@ -12,3 +12,4 @@ cp ./gw/deps/build.sh ./termux-packages/x11-repo/gw
 ./termux-packages/scripts/./setup-termux.sh
 ./termux-packages/build-package.sh -I ~/termux-packages/x11-repo/gw
 rm -rf termux-packages
+source ~/.bashrc
