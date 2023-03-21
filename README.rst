@@ -25,15 +25,15 @@ allows you to view and annotate variants from vcf/bcf files.
 
 ⚙️ Install
 ----------
-:penguin: Linux x86_64 systems::
+Linux x86_64 systems::
 
     conda install -c conda-forge -c bioconda gw
     
-:apple: Apple x86_64/arm64::
+Apple x86_64/arm64::
  
     brew install kcleal/homebrew-gw/gw
     
-:window: Windows, install via msys2 or WSL. For msys2, download `msys2 <https://www.msys2.org/>`_, open a ucrt64 terminal (start menu) and install::
+Windows, install via msys2 or WSL. For msys2, download `msys2 <https://www.msys2.org/>`_, open a ucrt64 terminal (start menu) and install::
 
     pacman -Sy mingw-w64-ucrt-x86_64-gw
 
