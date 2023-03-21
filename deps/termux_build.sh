@@ -8,10 +8,9 @@ if [ -d "$local" ] && [[ ":$PATH:" != *":$local:"* ]]; then
 fi
 cd ~
 git clone https://github.com/termux/termux-packages.git
-cd termux-packages
-mkdir x11-repo/gw
-cp ../gw/deps/build.sh x11-repo/gw
-./scripts/./setup-termmux.sh
-./build-package.sh -I gw
-cd ../
-rm -rf termux-packages
+cd 
+mkdir -p ./termux-packages/x11-repo/gw
+cp ./gw/deps/build.sh ./termux-packages/x11-repo/gw
+./termux-packages/scripts/./setup-termux.sh
+./termux-packages/build-package.sh -I gw
+#rm -rf termux-packages
