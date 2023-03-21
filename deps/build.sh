@@ -27,5 +27,5 @@ termux_step_make_install() {
 	make prep
 	CPPFLAGS+=" -I./htslib -I./lib/skia/include" LDFLAGS+=" -L./htslib" LDLIBS+=" -lEGL -llog" make
 	cp gw ~/.local/bin
-
+        cp htslib/libhts.* ${PREFIX}/lib
 }
