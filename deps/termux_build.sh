@@ -14,7 +14,7 @@ cp ./gw/deps/build.sh ./termux-packages/x11-repo/gw
 rm -rf termux-packages
 
 # These are optional but recommended unless similar packages are already installed
-pkg install x11-repo tigervnc xfce aterm
+pkg install x11-repo tigervnc xfce xfce-goodies vim
 
 mkdir -p ~/.vnc
 echo "#!/data/data/com.termux/files/usr/bin/sh" > ~/.vnc/xstartup # to clear file
