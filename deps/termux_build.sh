@@ -1,6 +1,6 @@
 pkg update
 pkg install git wget
-[ ! -d ~/.local/bin ] && mkdir ~/.local/bin
+mkdir -p ~/.local/bin
 [ ! -f ~/.bashrc ] && cp $PREFIX/etc/bash.bashrc ~/.bashrc
 local="~/.local/bin"
 if [ -d "$local" ] && [[ ":$PATH:" != *":$local:"* ]]; then
