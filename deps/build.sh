@@ -17,11 +17,20 @@ termux_step_make_install() {
 
 	git clone https://github.com/kcleal/gw
 	cd gw
+	
+	git clone https://github.com/ebiggers/libdeflate.git
+        cd libdeflate
+        cmake -B build && cmake --build build
+        cd ../
+	
 	git clone https://github.com/samtools/htslib.git
 	cd htslib
+	cp ../libdeflate/build/libdeflate.a .
+	cp ../libdeflate/libdeflate.h .
 	git submodule update --init --recursive
 	autoreconf -i && ./configure && make
 	cd .. 
+	
 	sed -i 's/Release-x64/Release-arm64/g' Makefile
 	sed -i 's/linux/android/g' Makefile
 	make prep
