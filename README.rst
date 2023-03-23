@@ -39,7 +39,7 @@ Windows, install via msys2 or WSL. For msys2, download `msys2 <https://www.msys2
 
 Android, install via termux. Head over to the `wiki <https://github.com/kcleal/gw/wiki/GW-on-Android/>`_ for full instructions!::
 
-    pkd install -y gw
+    pkg install -y gw
 
 A docker container is available with instructions found `here <https://hub.docker.com/repository/docker/kcleal/gw/>`_::
 
