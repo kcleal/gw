@@ -3,8 +3,12 @@ This script benchmarks the time and memory usage of genome browsers when generat
 target region.
 The script has been tested on Ubuntu and Mac.
 
-Requirements
-------------
+Python requirements
+-------------------
+pandas
+
+Benchmark Requirements
+----------------------
 gw v0.5.0
 IGV v2.11.9
 Jbrowse2 v2.3.2
@@ -36,10 +40,9 @@ import platform
 from collections import defaultdict
 
 
-def plot_gw(chrom, start, end, args, timef, low_mem=False):
-    m = '--low-mem' if low_mem else ''
-    com = timef + " -o gwtime.txt {gw} {genome} {m} -t 1 -b {bam} -r {chrom}:{start}-{end} --outdir images --no-show -d 1500x1500"\
-        .format(gw=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end, m=m)
+def plot_gw(chrom, start, end, args, timef, threads, extra_args):
+    com = timef + " -o gwtime.txt {gw} {genome} {extra_args} -t {threads} -b {bam} -r {chrom}:{start}-{end} --file images/gw.png --no-show -d 1500x1500"\
+        .format(gw=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end, extra_args=extra_args, threads=threads)
     run(com, shell=True)
     line = open('gwtime.txt', 'r').readlines()[0].strip().split("\t")
     t = float(line[0])
@@ -47,9 +50,20 @@ def plot_gw(chrom, start, end, args, timef, low_mem=False):
     return t, m
 
 
-def plot_igv(chrom, start, end, args, timef):
+def plot_igv(chrom, start, end, args, timef, threads):
+    # Configure igv max visibility range to 250000000
+    # also remove hg19.json from ~/igv/genomes
     # To set single thread mode add this to igv.args
     # -XX:ActiveProcessorCount=1
+    igv_path = os.path.dirname(args.tool_path)
+    with open(igv_path + "/igv.args", "r") as f:
+        lines = f.readlines()
+    with open(igv_path + "/igv.args", "w") as f:
+        for line in lines:
+            if 'ActiveProcessorCount' in line:
+                f.write(f'-XX:ActiveProcessorCount={threads}')
+                continue
+            f.write(line)
     v = """new
 genome {genome}
 load {bam}
@@ -67,7 +81,7 @@ exit""".format(genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, e
     return t, m
 
 
-def plot_jbrowse2(chrom, start, end, args, timef):
+def plot_jbrowse2(chrom, start, end, args, timef, threads=1):
     com = "export NODE_OPTIONS=--max_old_space_size=320000; " + timef + " -o jbrowse2time.txt  {jb2export} --fasta {genome} --bam {bam} force:true --loc {chrom}:{start}-{end} --out images/jb2_image.svg" \
         .format(jb2export=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     run(com, shell=True)
@@ -77,7 +91,7 @@ def plot_jbrowse2(chrom, start, end, args, timef):
     return t, m
 
 
-def plot_samplot(chrom, start, end, args, timef):
+def plot_samplot(chrom, start, end, args, timef, threads=1):
     com = timef + " -o samplottime.txt {samplot} plot -r {genome} -b {bam} -c {chrom} -s {start} -e {end} -o images/samplot_image.png -W 5 -H 5" \
         .format(samplot=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     run(com, shell=True)
@@ -87,8 +101,8 @@ def plot_samplot(chrom, start, end, args, timef):
     return t, m
 
 
-def samtools_count(chrom, start, end, args, timef):
-    p = Popen(timef + f' -o samtoolstime.txt samtools view -c {args.bam} {chrom}:{start}-{end}', stdout=PIPE, stderr=PIPE, shell=True)
+def samtools_count(chrom, start, end, args, timef, threads):
+    p = Popen(timef + f' -o samtoolstime.txt samtools view -@{threads} -c {args.bam} {chrom}:{start}-{end}', stdout=PIPE, stderr=PIPE, shell=True)
     out, err = p.communicate()
     reads = int(out.decode('ascii').strip())
     line = open('samtoolstime.txt', 'r').readlines()[0].strip().split("\t")
@@ -100,7 +114,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
         prog='GW benchmark',
-        description='Test GW vs other genome visualization tools',
+        description="Test GW vs other genome visualization tools "
+                    "benchmark.py hg19.fasta gaps.bed HG002.cram gw gw 1 ''",
     )
 
     parser.add_argument('ref_genome')
@@ -108,6 +123,8 @@ if __name__ == "__main__":
     parser.add_argument('bam')
     parser.add_argument('tool_path')
     parser.add_argument('tool_name', choices=['gw', 'igv', 'samplot', 'jbrowse2'])
+    parser.add_argument('threads')
+    parser.add_argument('extra_args')
     args = parser.parse_args()
 
     random.seed(1)
@@ -141,6 +158,8 @@ if __name__ == "__main__":
     results = []
     progs = {'gw': plot_gw, 'igv': plot_igv, 'samplot': plot_samplot, 'jbrowse2': plot_jbrowse2}
     name = args.tool_name
+    extra_args = args.extra_args
+    threads = args.threads
     prog = progs[name]
 
     # Select some random regions
@@ -166,7 +185,7 @@ if __name__ == "__main__":
                 if chrom in gaps and any(itv.overlaps(itv2) for itv2 in gaps[chrom]):
                     continue
                 # sanity check for any reads. also helps trigger os hdd buffering making benchmarking more stable
-                st_t, reads = samtools_count(chrom, start, end, args, timef)
+                st_t, reads = samtools_count(chrom, start, end, args, timef, threads)
                 if reads > 0:
                     good = True
                     break
@@ -184,17 +203,20 @@ if __name__ == "__main__":
             print('Region:', chrom, start, end, 'n_reads:', reads)
 
             # run samtools again to prime disk buffering
-            _, _ = samtools_count(chrom, start, end, args, timef)
-            avg_time, maxRSS = prog(chrom, start, end, args, timef)
-            st_t, reads = samtools_count(chrom, start, end, args, timef)
+            _, _ = samtools_count(chrom, start, end, args, timef, threads)
+            if name == "gw":
+                avg_time, maxRSS = prog(chrom, start, end, args, timef, threads, extra_args)
+            else:
+                avg_time, maxRSS = prog(chrom, start, end, args, timef, threads)
+            st_t, reads = samtools_count(chrom, start, end, args, timef, threads)
 
             results.append({'name': name, 'region': f'{chrom}:{start}-{end}', 'time (s)': avg_time,
                             'region size (bp)': end - start, 'RSS': maxRSS,
-                            'samtools_count (s)': st_t, 'reads': reads})
+                            'samtools_count (s)': st_t, 'reads': reads, 'threads': threads})
 
     df = pd.DataFrame.from_records(results)
-    df = df[['name', 'region', 'reads', 'region size (bp)', 'samtools_count (s)', 'time (s)', 'RSS']]
-    df.to_csv(f'{name}.benchmark.csv', index=False)
+    df = df[['name', 'region', 'reads', 'region size (bp)', 'samtools_count (s)', 'time (s)', 'RSS', 'threads']]
+    df.to_csv(f'{name + extra_args.replace(" ", "_")}.{threads}.benchmark.csv', index=False)
 
     if name == 'samplot':
         run('rm samplottime.txt', shell=True)

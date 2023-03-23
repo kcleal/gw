@@ -330,27 +330,7 @@ local install directory.
 Benchmark
 =========
 
-Here we're testing the resource usage of GW when generating a single .png image using::
-
-    gw $HG19 -t 1 -b HG002.bam -r {region} --no-show
-
-The bam file was 40X coverage, paired-end data mapped with bwa mem. All other tools were run using a single thread (see the `benchmark.py` script in the test folder for details).
-The machine used was an Intel i9-11900K, NVMe WD 2TB, 64 GB memory. Total elapsed time and memory are measured:
-
-
-.. list-table::
-
-    * - .. figure:: test/results/time.png
-
-           Mean time (s)
-
-      - .. figure:: test/results/memory.png
-
-           Mean memory (Gb)
-
-Plotting a 2Mb region in GW took ~0.406s compared to IGV ~22.1s, although its worth noting IGV needed around 7s for start up. For reference,
-using `samtools view -c` took ~0.241s which is a measure of how fast a bam file can be read.
-Mean memory use for a 2Mb region was 0.14 Gb for GW vs IGV 3.25 Gb.
+See test directory.
 
 
 Issues and contributing

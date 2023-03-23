@@ -1,3 +1,14 @@
+"""
+Arguments
+---------
+glob_pattern
+tag
+
+Usage
+-----
+
+python3 plot.py '*1.benchmark.csv' threads_1
+"""
 import pandas as pd
 import seaborn as sns
 import glob
@@ -6,8 +17,9 @@ import matplotlib.patches as mpatches
 import sys
 pd.options.mode.chained_assignment = None
 
-folder = sys.argv[1]
-tables = glob.glob(folder + '/*.csv')
+glob_pattern = sys.argv[1]
+tag = sys.argv[2]
+tables = glob.glob(glob_pattern)
 dfs = []
 for p in tables:
     d = pd.read_csv(p)
@@ -55,7 +67,7 @@ df2['relative_render_time'] = [k / gw_render_times[s] for k, s in zip(df2['rende
 df2 = df2[['name', 'region_size', 'samtools', 'total_time', 'relative_time',
            'start_time', 'render', 'relative_render_time', 'total_mem', 'start_mem', 'relative_mem']]
 print(df2.to_markdown())
-with open('benchmark.md', 'w') as b:
+with open(f'benchmark.{tag}.md', 'w') as b:
     b.write(df2.to_markdown())
 
 
@@ -90,7 +102,7 @@ b_patch = mpatches.Patch(color='royalblue', label='Total')
 b2_patch = mpatches.Patch(color='lightsteelblue', label='Start')
 plt.legend(loc='lower center', ncol=2, handles=[b_patch, b2_patch], bbox_to_anchor=(0.5, -1.2),
            prop={'size': 10})
-plt.savefig('time.png')
+plt.savefig(f'time.{tag}.png')
 # plt.show()
 # plt.close()
 
@@ -123,6 +135,6 @@ b_patch = mpatches.Patch(color='firebrick', label='Total')
 b2_patch = mpatches.Patch(color='rosybrown', label='Start')
 plt.legend(loc='lower center', ncol=2, handles=[b_patch, b2_patch], bbox_to_anchor=(0.5, -1.2),
            prop={'size': 10})
-plt.savefig('memory.png')
+plt.savefig(f'memory.{tag}.png')
 plt.show()
 plt.close()
