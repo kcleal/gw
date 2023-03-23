@@ -15,7 +15,7 @@ TERMUX_PKG_BLACKLISTED_ARCHES="arm, i686"
 
 termux_step_make_install() {
 
-	git clone https://github.com/kcleal/gw
+	# git clone https://github.com/kcleal/gw
 	cd gw
 	
 	git clone https://github.com/ebiggers/libdeflate.git
