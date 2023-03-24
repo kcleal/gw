@@ -5,9 +5,9 @@ The script has been tested on Ubuntu and Mac.
 
 Benchmark Requirements
 ----------------------
-gw v0.5.0
-IGV v2.11.9
-Jbrowse2 v2.3.2
+gw v0.7.0
+IGV v2.16.0
+Jbrowse2 v2.4.0
 samplot v1.3
 
 Mac requirements
@@ -17,10 +17,8 @@ gnu-time, install using 'brew install gnu-time'
 example usage
 -------------
 python3 --help
-python3 benchmark.py $HG19 NA12878.bam ../gw gw
-python3 ../benchmark.py $HG19 HG002.bam igv.sh igv
-python3 ../benchmark.py $HG19 HG002.bam jb2export jbrowse2
-python3 ../benchmark.py $HG19 HG002.bam samplot samplot
+python3 benchmark_time.py $HG19 NA12878.bam ../gw gw 1 ''
+
 
 Output
 ------
@@ -119,7 +117,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog='GW benchmark',
         description="Test GW vs other genome visualization tools "
-                    "benchmark.py hg19.fasta gaps.bed HG002.cram gw gw 1 ''",
+                    "benchmark.py hg19.fasta gaps.bed HG002.bam gw gw 1 ''",
     )
 
     parser.add_argument('ref_genome')
@@ -199,9 +197,13 @@ if __name__ == "__main__":
                     if chrom in gaps and any(itv.overlaps(itv2) for itv2 in gaps[chrom]):
                         continue
                 else:
+                    good = True
                     for istart, iend in gaps[chrom]:
                         if overlap(istart, iend, start, end):
-                            continue
+                            good = False
+                            break
+                    if not good:
+                        continue
                 # sanity check for any reads. also helps trigger os hdd buffering making benchmarking more stable
                 st_t, reads = samtools_count(chrom, start, end, args, timef, threads)
                 if reads > 0:
