@@ -45,14 +45,14 @@ def plot_gw(chrom, start, end, args, threads, extra_args):
 
 
 
-def samtools_count(chrom, start, end, args, timef, threads):
+# def samtools_count(chrom, start, end, args, timef, threads):
    # p = Popen(timef + f' -o samtoolstime.txt samtools view -@{threads} -c {args.bam} {chrom}:{start}-{end}', stdout=PIPE, stderr=PIPE, shell=True)
   #  out, err = p.communicate()
  #   reads = int(out.decode('ascii').strip())
   #  line = open('samtoolstime.txt', 'r').readlines()[0].strip().split("\t")
  #   t = float(line[0])
   #  return t, reads
-  return -1, -1
+  # return -1, -1
 
 
 def overlap(start1, end1, start2, end2):
@@ -113,9 +113,8 @@ if __name__ == "__main__":
     extra_args = args.extra_args
     threads = args.threads
     prog = plot_gw
-
     chroms = ['chr1'] * 100
-    print(chroms)
+
     for size in region_sizes:
         print('Size: ', size)
         half_size = int(size * 0.5)
@@ -137,17 +136,23 @@ if __name__ == "__main__":
                     itv = pd.Interval(start, end)
                     if chrom in gaps and any(itv.overlaps(itv2) for itv2 in gaps[chrom]):
                         continue
-                else:
                     good = True
+                    break
+                else:
+                    try_again = False
                     for istart, iend in gaps[chrom]:
                         if overlap(istart, iend, start, end):
-                            good = False
+                            try_again = True
                             break
-                    if not good:
+                    else:
+                        try_again = True
+                    if try_again:
                         continue
-                break
+                    else:
+                        good = True
+                        break
 
-            if not good:
+            if not good: # skip this chromosome
                 c += 1
                 continue
             N += 1
