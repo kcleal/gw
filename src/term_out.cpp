@@ -34,6 +34,7 @@ namespace Term {
         //std::cout << termcolor::green << "genome, g        name?           " << termcolor::reset << "Load genome listed in .gw.ini file. Use ':g' for list\n";
         std::cout << termcolor::green << "goto             loci index?     " << termcolor::reset << "e.g. ':goto chr1:1-20000'. Use index if multiple \n                                 regions are open e.g. ':goto 'chr1 20000' 1'\n";
         std::cout << termcolor::green << "grid             width x height  " << termcolor::reset << "Set the grid size for --variant images ':grid 8x8' \n";
+        std::cout << termcolor::green << "indel-length     int             " << termcolor::reset << "Label indels >= length\n";
         std::cout << termcolor::green << "line                             " << termcolor::reset << "Toggle mouse position vertical line\n";
         std::cout << termcolor::green << "link             [none/sv/all]   " << termcolor::reset << "Switch read-linking ':link all'\n";
         std::cout << termcolor::green << "low-mem                          " << termcolor::reset << "Toggle low-mem mode\n";
@@ -105,6 +106,8 @@ namespace Term {
             std::cout << "    Navigate to a locus.\n        This moves the left-most view. Or, you can use indexing to specify a region\n    Examples:\n        'goto chr1'   # this will move the left-most view\n        'goto chr1:20000 1'   # this will move the view at column index 1\n\n";
         } else if (s == "grid") {
             std::cout << "    Set the grid size.\n        Set the number of images displayed in a grid when using --variant option\n    Examples:\n        'grid 8x8'   # this will display 64 image tiles\n\n";
+        } else if (s == "indel-length") {
+            std::cout << "    Set the minimum indel-length.\n        Indels (gaps in alignments) will be labelled with text if they have length >= 'indel-length'\n    Examples:\n        'indel-length 30'\n\n";
         } else if (s == "line") {
             std::cout << "    Toggle line.\n        A vertical line will turn on/off.\n\n";
         } else if (s == "link") {
