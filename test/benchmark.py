@@ -3,15 +3,11 @@ This script benchmarks the time and memory usage of genome browsers when generat
 target region.
 The script has been tested on Ubuntu and Mac.
 
-Python requirements
--------------------
-pandas
-
 Benchmark Requirements
 ----------------------
-gw v0.5.0
-IGV v2.11.9
-Jbrowse2 v2.3.2
+gw v0.7.0
+IGV v2.16.0
+Jbrowse2 v2.4.0
 samplot v1.3
 
 Mac requirements
@@ -21,10 +17,8 @@ gnu-time, install using 'brew install gnu-time'
 example usage
 -------------
 python3 --help
-python3 benchmark.py $HG19 NA12878.bam ../gw gw
-python3 ../benchmark.py $HG19 HG002.bam igv.sh igv
-python3 ../benchmark.py $HG19 HG002.bam jb2export jbrowse2
-python3 ../benchmark.py $HG19 HG002.bam samplot samplot
+python3 benchmark_time.py $HG19 NA12878.bam ../gw gw 1 ''
+
 
 Output
 ------
@@ -34,7 +28,11 @@ Output is a csv file in the current directory
 import argparse
 from subprocess import run, Popen, PIPE
 import random
-import pandas as pd
+try:
+    import pandas as pd
+    have_pandas = True
+except ImportError:
+    have_pandas = False
 import os
 import platform
 from collections import defaultdict
@@ -110,12 +108,16 @@ def samtools_count(chrom, start, end, args, timef, threads):
     return t, reads
 
 
+def overlap(start1, end1, start2, end2):
+    return end1 >= start2 and end2 >= start1
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
         prog='GW benchmark',
         description="Test GW vs other genome visualization tools "
-                    "benchmark.py hg19.fasta gaps.bed HG002.cram gw gw 1 ''",
+                    "benchmark.py hg19.fasta gaps.bed HG002.bam gw gw 1 ''",
     )
 
     parser.add_argument('ref_genome')
@@ -138,10 +140,19 @@ if __name__ == "__main__":
         os.mkdir('images')
 
     if args.ref_gaps != "NA":
-        gaps_list = pd.read_csv(args.ref_gaps, sep='\t')[['chrom', 'chromStart', 'chromEnd']].to_records(index=False)
-        gaps = defaultdict(list)
-        for chrom, s, e in gaps_list:
-            gaps[chrom].append(pd.Interval(s, e))
+        if have_pandas:
+            gaps_list = pd.read_csv(args.ref_gaps, sep='\t')[['chrom', 'chromStart', 'chromEnd']].to_records(index=False)
+            gaps = defaultdict(list)
+            for chrom, s, e in gaps_list:
+                gaps[chrom].append(pd.Interval(s, e))
+        else:
+            gaps = defaultdict(list)
+            with open(args.ref_gaps, "r") as g:
+                for line in g:
+                    if line[0] == "#":
+                        continue
+                    l = line.strip().split("\t")
+                    gaps[l[1]].append((int(l[2]), int(l[3])))
     else:
         gaps = {}
 
@@ -181,9 +192,18 @@ if __name__ == "__main__":
                 pos = random.randint(half_size, fai[chrom] - half_size)
                 start = pos - half_size
                 end = pos + half_size
-                itv = pd.Interval(start, end)
-                if chrom in gaps and any(itv.overlaps(itv2) for itv2 in gaps[chrom]):
-                    continue
+                if have_pandas:
+                    itv = pd.Interval(start, end)
+                    if chrom in gaps and any(itv.overlaps(itv2) for itv2 in gaps[chrom]):
+                        continue
+                else:
+                    good = True
+                    for istart, iend in gaps[chrom]:
+                        if overlap(istart, iend, start, end):
+                            good = False
+                            break
+                    if not good:
+                        continue
                 # sanity check for any reads. also helps trigger os hdd buffering making benchmarking more stable
                 st_t, reads = samtools_count(chrom, start, end, args, timef, threads)
                 if reads > 0:
@@ -214,9 +234,25 @@ if __name__ == "__main__":
                             'region size (bp)': end - start, 'RSS': maxRSS,
                             'samtools_count (s)': st_t, 'reads': reads, 'threads': threads})
 
-    df = pd.DataFrame.from_records(results)
-    df = df[['name', 'region', 'reads', 'region size (bp)', 'samtools_count (s)', 'time (s)', 'RSS', 'threads']]
-    df.to_csv(f'{name + extra_args.replace(" ", "_")}.{threads}.benchmark.csv', index=False)
+    cols = ['name', 'region', 'reads', 'region size (bp)', 'samtools_count (s)', 'time (s)', 'RSS', 'threads']
+    if have_pandas:
+        df = pd.DataFrame.from_records(results)
+        df = df[cols]
+        df.to_csv(f'{name + extra_args.replace(" ", "_")}.{threads}.benchmark.csv', index=False)
+    else:
+        with open(f'{name + extra_args.replace(" ", "_")}.{threads}.benchmark.csv', 'w') as o:
+            o.write(','.join(cols) + "\n")
+            for r in results:
+                o.write('{n},{r},{rds},{s},{st},{tim},{mem},{th}\n'.format(
+                    n=r['name'],
+                    r=r['region'],
+                    rds=r['reads'],
+                    s=r['region size (bp)'],
+                    st=r['samtools_count (s)'],
+                    tim=r['time (s)'],
+                    mem=r['RSS'],
+                    th=r['threads'],
+                ))
 
     if name == 'samplot':
         run('rm samplottime.txt', shell=True)
