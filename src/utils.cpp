@@ -250,7 +250,7 @@ namespace Utils {
                 p += 3;
                 std::vector<std::string> parts = split(fn.substr(p, fn.size()), '~');
                 int i = 0;
-                while (i < parts.size()) {
+                while (i < (int)parts.size()) {
                     Utils::Region N;
                     int start, end;
                     try {

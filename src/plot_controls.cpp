@@ -292,7 +292,16 @@ namespace Manager {
                 inputText = "";
                 return true;
             }
-
+        } else if (Utils::startsWith(inputText, ":indel-length")) {
+            std::vector<std::string> split = Utils::split(inputText, delim);
+            try {
+                opts.indel_length = std::stoi(split.back());
+                valid = true;
+            } catch (...) {
+                std::cerr << termcolor::red << "Error:" << termcolor::reset << " indel-length invalid value\n";
+                inputText = "";
+                return true;
+            }
         } else if (Utils::startsWith(inputText, ":remove") || Utils::startsWith(inputText, ":rm")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             int ind = 0;
