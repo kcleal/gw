@@ -721,7 +721,7 @@ namespace Manager {
 
     void GwPlot::drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
         int bStart = blockStart;
-        int bLen = opts.number.x * opts.number.y;
+        int bLen = opts.number.x * opts.number.y + 1;
         if (image_glob.empty()) {
             // load some vcf regions and labels for drawing
             if (useVcf && !vcf.done && bStart + bLen > (int)multiRegions.size()) {

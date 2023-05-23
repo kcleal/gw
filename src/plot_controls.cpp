@@ -887,7 +887,7 @@ namespace Manager {
             if (action == GLFW_PRESS || action == GLFW_REPEAT) {
                 if (key == opts.scroll_right) {
                     size_t targetSize = (image_glob.empty()) ? multiRegions.size() : image_glob.size();
-                    if (blockStart + bLen < (int)targetSize - 1) {
+                    if (blockStart + bLen < (int)targetSize) {
                         blockStart += bLen;
                         redraw = true;
                         Term::clearLine();

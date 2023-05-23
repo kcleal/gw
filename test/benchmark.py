@@ -54,6 +54,8 @@ def plot_igv(chrom, start, end, args, timef, threads):
     # To set single thread mode add this to igv.args
     # -XX:ActiveProcessorCount=1
     igv_path = os.path.dirname(args.tool_path)
+    # Mac path could be at
+    # igv_path = "/Applications/IGV_2.16.0.app/Contents/Java"
     with open(igv_path + "/igv.args", "r") as f:
         lines = f.readlines()
     with open(igv_path + "/igv.args", "w") as f:
