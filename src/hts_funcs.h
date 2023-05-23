@@ -28,6 +28,7 @@ namespace HGW {
         BCF_IDX,
         VCF_NOI,  // NOI for no index
         BED_NOI,
+        GFF3,
         GW_LABEL,
         STDIN,
     };
@@ -113,7 +114,6 @@ namespace HGW {
 
         bcf1_t *v;
         tbx_t *t;
-
         hts_itr_t *iter_q;
 
         int region_end;
