@@ -86,6 +86,7 @@ namespace Utils {
         int i, pos, ori_i;
         bool clicked;
         bool mouseOver;
+        bool contains_parsed_label;
 
         void next();
         std::string& current();

@@ -347,6 +347,7 @@ namespace Utils {
         l.ori_i = 0;
         l.clicked = clicked;
         l.mouseOver = false;
+        l.contains_parsed_label = false;
         bool add_parsed = true;
         int i = 0;
         for (auto &v : inputLabels) {
@@ -355,13 +356,15 @@ namespace Utils {
                 add_parsed = false;
                 l.i = i;
                 l.ori_i = i;
+                l.contains_parsed_label = true;
             }
             i += 1;
         }
-        if (add_parsed) {
+        if (!parsed.empty() && add_parsed) {
             l.labels.push_back(parsed);
             l.i = i;
             l.ori_i = i;
+            l.contains_parsed_label = true;
         }
         return l;
     }
@@ -389,7 +392,8 @@ namespace Utils {
     }
 
     void labelToFile(std::ofstream &f, Utils::Label &l, std::string &dateStr) {
-        f << l.chrom << "\t" << l.pos << "\t" << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" << ((l.i > 0) ? dateStr : l.savedDate) << std::endl;
+        f << l.chrom << "\t" << l.pos << "\t" << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" <<
+        (((l.contains_parsed_label && l.i == l.ori_i) || (!l.contains_parsed_label && l.i > 0)) ? l.savedDate : dateStr) << std::endl;
     }
 
     void saveLabels(std::vector<Utils::Label> &multiLabels, std::string path) {
@@ -398,7 +402,8 @@ namespace Utils {
         f.open (path);
         f << "#chrom\tpos\tvariant_ID\tlabel\tvar_type\tlabelled_date\n";
         for (auto &l : multiLabels) {
-            f << l.chrom << "\t" << l.pos << "\t" << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" << ((l.i > 0) ? str : l.savedDate) << std::endl;
+            f << l.chrom << "\t" << l.pos << "\t" << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" <<
+            (((l.contains_parsed_label && l.i == l.ori_i) || (!l.contains_parsed_label && l.i > 0)) ? l.savedDate : str) << std::endl;
         }
         f.close();
     }
