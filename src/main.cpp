@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> img_themes = { "igv", "dark" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
-    argparse::ArgumentParser program("gw", "0.8.0");
+    argparse::ArgumentParser program("gw", "0.8.1");
 
     program.add_argument("genome")
             .default_value(std::string{""}).append()//.required()

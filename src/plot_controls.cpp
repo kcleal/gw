@@ -281,7 +281,7 @@ namespace Manager {
             return true;
         } else if (Utils::startsWith(inputText, "count")) {
             std::string str = inputText;
-            str.erase(0, 7);
+            str.erase(0, 6);
             Parse::countExpression(collections, str, headers, bam_paths, bams.size(), regions.size());
             inputText = "";
             return true;
@@ -302,7 +302,7 @@ namespace Manager {
             return true;
         } else if (Utils::startsWith(inputText, "filter ")) {
             std::string str = inputText;
-            str.erase(0, 8);
+            str.erase(0, 7);
             filters.clear();
             for (auto &s: Utils::split(str, ';')) {
                 Parse::Parser p = Parse::Parser();

@@ -24,35 +24,35 @@ namespace Term {
         std::cout << termcolor::italic << "\n* Enter a command by selecting the GW window (not the terminal) and type '/' or ':' plus [COMMAND]' *\n" << termcolor::reset;
         std::cout << termcolor::italic << "\n* For a detailed manual type ':man [COMMAND]' *\n" << termcolor::reset;
         std::cout << termcolor::underline << "\nCommand          Modifier        Description                                            \n" << termcolor::reset;
-        std::cout << termcolor::green << "[locus]                          " << termcolor::reset << "e.g. 'chr1' or ':chr1:1-20000'\n";
-        std::cout << termcolor::green << "add              region(s)       " << termcolor::reset << "Add one or more regions e.g. ':add chr1:1-20000'\n";
+        std::cout << termcolor::green << "[locus]                          " << termcolor::reset << "e.g. 'chr1' or 'chr1:1-20000'\n";
+        std::cout << termcolor::green << "add              region(s)       " << termcolor::reset << "Add one or more regions e.g. 'add chr1:1-20000'\n";
         std::cout << termcolor::green << "config                           " << termcolor::reset << "Opens .gw.ini config in a text editor\n";
         std::cout << termcolor::green << "count            expression?     " << termcolor::reset << "Count reads. See filter for example expressions'\n";
         std::cout << termcolor::green << "cov                              " << termcolor::reset << "Toggle coverage\n";
         std::cout << termcolor::green << "edges                            " << termcolor::reset << "Toggle edges\n";
-        std::cout << termcolor::green << "filter           expression      " << termcolor::reset << "Examples ':filter mapq > 0', ':filter ~flag & secondary'\n                                 ':filter mapq >= 30 or seq-len > 100'\n";
-        std::cout << termcolor::green << "find, f          qname?          " << termcolor::reset << "To find other alignments from selected read use ':find'\n                                 Or use ':find [QNAME]' to find target read'\n";
-        std::cout << termcolor::green << "goto             loci index?     " << termcolor::reset << "e.g. ':goto chr1:1-20000'. Use index if multiple \n                                 regions are open e.g. ':goto 'chr1 20000' 1'\n";
-        std::cout << termcolor::green << "grid             width x height  " << termcolor::reset << "Set the grid size for --variant images ':grid 8x8' \n";
+        std::cout << termcolor::green << "filter           expression      " << termcolor::reset << "Examples 'filter mapq > 0', 'filter ~flag & secondary'\n                                 'filter mapq >= 30 or seq-len > 100'\n";
+        std::cout << termcolor::green << "find, f          qname?          " << termcolor::reset << "To find other alignments from selected read use 'find'\n                                 Or use 'find [QNAME]' to find target read'\n";
+        std::cout << termcolor::green << "goto             loci index?     " << termcolor::reset << "e.g. 'goto chr1:1-20000'. Use index if multiple \n                                 regions are open e.g. 'goto 'chr1 20000' 1'\n";
+        std::cout << termcolor::green << "grid             width x height  " << termcolor::reset << "Set the grid size for --variant images 'grid 8x8' \n";
         std::cout << termcolor::green << "indel-length     int             " << termcolor::reset << "Label indels >= length\n";
         std::cout << termcolor::green << "insertions, ins                  " << termcolor::reset << "Toggle insertions\n";
         std::cout << termcolor::green << "line                             " << termcolor::reset << "Toggle mouse position vertical line\n";
-        std::cout << termcolor::green << "link             [none/sv/all]   " << termcolor::reset << "Switch read-linking ':link all'\n";
+        std::cout << termcolor::green << "link             [none/sv/all]   " << termcolor::reset << "Switch read-linking 'link all'\n";
         std::cout << termcolor::green << "low-mem                          " << termcolor::reset << "Toggle low-mem mode\n";
         std::cout << termcolor::green << "log2-cov                         " << termcolor::reset << "Toggle scale coverage by log2\n";
-        std::cout << termcolor::green << "mate             add?            " << termcolor::reset << "Use ':mate' to navigate to mate-pair, or ':mate add' \n                                 to add a new region with mate \n";
+        std::cout << termcolor::green << "mate             add?            " << termcolor::reset << "Use 'mate' to navigate to mate-pair, or 'mate add' \n                                 to add a new region with mate \n";
         std::cout << termcolor::green << "mismatches, mm                   " << termcolor::reset << "Toggle mismatches\n";
         std::cout << termcolor::green << "quit, q          -               " << termcolor::reset << "Quit GW\n";
         std::cout << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
-        std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. ':rm 1'. To remove a bam \n                                 use the bam index ':rm bam0'\n";
+        std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. 'rm 1'. To remove a bam \n                                 use the bam index 'rm bam0'\n";
         std::cout << termcolor::green << "sam                              " << termcolor::reset << "Print selected read in sam format'\n";
-		std::cout << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window to png e.g. ':s', or ':s view.png',\n                                 or vcf columns can be used ':s {pos}_{info.SU}.png'\n";
+		std::cout << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window to png e.g. 's', or 's view.png',\n                                 or vcf columns can be used 's {pos}_{info.SU}.png'\n";
         std::cout << termcolor::green << "soft-clips, sc                   " << termcolor::reset << "Toggle soft-clips\n";
         std::cout << termcolor::green << "tags                             " << termcolor::reset << "Print selected sam tags\n";
-        std::cout << termcolor::green << "theme            [igv/dark]      " << termcolor::reset << "Switch color theme e.g. ':theme dark'\n";
+        std::cout << termcolor::green << "theme            [igv/dark]      " << termcolor::reset << "Switch color theme e.g. 'theme dark'\n";
         std::cout << termcolor::green << "tlen-y                           " << termcolor::reset << "Toggle --tlen-y option\n";
-        std::cout << termcolor::green << "var, v           vcf_column?     " << termcolor::reset << "Print variant information e.g. ':var', ':var info',\n                                 or a list of columns ':var pos qual format.SU'\n";
-        std::cout << termcolor::green << "ylim             number          " << termcolor::reset << "The maximum y-limit for the image e.g. ':ylim 100'\n";
+        std::cout << termcolor::green << "var, v           vcf_column?     " << termcolor::reset << "Print variant information e.g. 'var', 'var info',\n                                 or a list of columns 'var pos qual format.SU'\n";
+        std::cout << termcolor::green << "ylim             number          " << termcolor::reset << "The maximum y-limit for the image e.g. 'ylim 100'\n";
 
         std::cout << termcolor::underline << "\nHot keys                      \n" << termcolor::reset;
         std::cout << "scroll left          " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_left); std::cout << "\n" << termcolor::reset;
@@ -89,9 +89,9 @@ namespace Term {
             std::cout << "    Filter visible reads.\n"
                          "        Reads can be filtered using an expression '{property} {operation} {value}' (the white-spaces are also needed).\n"
                          "        For example, here are some useful expressions:\n"
-                         "            :filter mapq >= 20\n"
-                         "            :filter flag & 2048\n"
-                         "            :filter seq contains TTAGGG\n\n"
+                         "            filter mapq >= 20\n"
+                         "            filter flag & 2048\n"
+                         "            filter seq contains TTAGGG\n\n"
                          "        Here are a list of '{property}' values you can use:\n"
                          "             maps, flag, ~flag, name, tlen, abs-tlen, rnext, pos, ref-end, pnext, seq, seq-len,\n"
                          "             RG, BC, BX, RX, LB, MD, MI, PU, SA, MC, NM, CM, FI, HO, MQ, SM, TC, UQ, AS\n\n"
@@ -100,12 +100,12 @@ namespace Term {
                          "        Bitwise flags can also be applied with named values:\n"
                          "             paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary, dup, supplementary\n\n"
                          "        Expressions can be chained together providing all expressions are 'AND' or 'OR' blocks:\n"
-                         "             :filter mapq >= 20 and mapq < 30\n"
-                         "             :filter mapq >= 20 or flag & supplementary\n\n"
+                         "             filter mapq >= 20 and mapq < 30\n"
+                         "             filter mapq >= 20 or flag & supplementary\n\n"
                          "        Finally, you can apply filters to specific panels using array indexing notation:\n"
-                         "              :filter mapq > 0 [:, 0]   # All rows, column 0 (all bams, first region only)\n"
-                         "              :filter mapq > 0 [0, :]   # Row 0, all columns (the first bam only, all regions)\n"
-                         "              :filter mapq > 0 [1, -1]  # Row 1, last column\n\n";
+                         "              filter mapq > 0 [:, 0]   # All rows, column 0 (all bams, first region only)\n"
+                         "              filter mapq > 0 [0, :]   # Row 0, all columns (the first bam only, all regions)\n"
+                         "              filter mapq > 0 [1, -1]  # Row 1, last column\n\n";
         } else if (s == "find" || s == "f") {
             std::cout << "    Find a read with name.\n        All alignments with the same name will be highlighted with a black border\n    Examples:\n        'find D00360:18:H8VC6ADXX:1:1107:5538:24033'\n\n";
         } else if (s == "goto") {
@@ -138,13 +138,13 @@ namespace Term {
             std::cout << "    Save an image of the screen.\n"
                          "        Saves current window. If no name is provided, the image name will be 'chrom_start_end.png', \n"
                          "        or if you are in tile-mode, the image name will be 'index_start_end.png'.\n"
-                         "            :snapshot\n"
-                         "            :snapshot my_image.png\n\n"
+                         "            snapshot\n"
+                         "            snapshot my_image.png\n\n"
                          "        If you have a vcf/bcf open in 'single' mode (not 'tiled') it is also possible to parse info\n"
                          "        from the vcf record. Use curley braces to select what fields to use in the filename:\n"
-                         "             :snapshot {pos}_{qual}.png        # parse the position and qual fields\n"
-                         "             :snapshot {info.SU}.png           # parse SU from info field\n"
-                         "             :s {format[samp1].SU}.png         # samp1 sample, SU column from format field\n\n"
+                         "            snapshot {pos}_{qual}.png        # parse the position and qual fields\n"
+                         "            snapshot {info.SU}.png           # parse SU from info field\n"
+                         "            s {format[samp1].SU}.png         # samp1 sample, SU column from format field\n\n"
                          "        Valid fields are chrom, pos, id, ref, alt, qual, filter, info, format. Just to note,\n"
                          "        you can press ENTER to repeat the last command, which can save typing this\n"
                          "        command over and over.\n\n";
@@ -158,13 +158,13 @@ namespace Term {
             std::cout << "    Toggle --tlen-y option.\n        The --tlen-y option scales reads by template length. Applies to paired-end reads only.\n\n";
         } else if (s == "var" || s == "v") {
             std::cout << "    Print variant information.\n"
-                         "        Using ':var' will print the selected variant.\n"
+                         "        Using 'var' will print the selected variant.\n"
                          "        If you are viewing a vcf/bcf then columns can be parsed e.g:\n"
-                         "            :var pos              # position\n"
-                         "            :var info.SU          # SU column from info\n"
-                         "            :v chrom pos info.SU  # list of variables to print\n"
-                         "            :v format.SU          # SU column from format\n"
-                         "            :v format[samp1].SU   # using sample name to select SU\n\n"
+                         "            var pos              # position\n"
+                         "            var info.SU          # SU column from info\n"
+                         "            v chrom pos info.SU  # list of variables to print\n"
+                         "            v format.SU          # SU column from format\n"
+                         "            v format[samp1].SU   # using sample name to select SU\n\n"
                          "        Valid fields are chrom, pos, id, ref, alt, qual, filter, info, format. Just to note,\n"
                          "        you can press ENTER to repeat the last command, which can save typing this\n"
                          "        command over and over.\n\n";
