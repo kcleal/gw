@@ -105,6 +105,7 @@ namespace Themes {
         IniOptions();
         ~IniOptions() {};
 
+        mINI::INIStructure myIni;
         BaseTheme theme;
         Utils::Dims dimensions, number;
         std::string theme_str, fmt, parse_label, labels, link, dimensions_str, number_str, ini_path, outdir;

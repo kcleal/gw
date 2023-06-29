@@ -605,56 +605,57 @@ namespace Drawing {
                 int start = (int)a.pos - regionBegin;
                 int end = (int)a.reference_end - regionBegin;
                 auto l_seq = (int)a.delegate->core.l_qseq;
-
-                if (a.left_soft_clip > 0) {
-                    width = (plotSoftClipAsBlock || l_seq == 0) ? (float) a.left_soft_clip : 0;
-                    s = start - a.left_soft_clip;
-                    if (s < 0) {
-                        width += s;
-                        s = 0;
-                    }
-                    e = start + width;
-                    if (start > regionLen) {
-                        width = regionLen - start;
-                    }
-                    if (e > 0 && s < regionLen && width > 0) {
-                        if (pointLeft && plotPointedPolygons) {
-                            drawLeftPointedRectangle(canvas, pH, yScaledOffset, s, width, xScaling,
-                                                     regionPixels, xOffset,
-                                                     (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip,
-                                                     path, pointSlop);
-                        } else {
-                            drawRectangle(canvas, pH, yScaledOffset, s, width, xScaling, xOffset,
-                                          (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip, rect);
+                if (opts.soft_clip_threshold != 0) {
+                    if (a.left_soft_clip > 0) {
+                        width = (plotSoftClipAsBlock || l_seq == 0) ? (float) a.left_soft_clip : 0;
+                        s = start - a.left_soft_clip;
+                        if (s < 0) {
+                            width += s;
+                            s = 0;
+                        }
+                        e = start + width;
+                        if (start > regionLen) {
+                            width = regionLen - start;
+                        }
+                        if (e > 0 && s < regionLen && width > 0) {
+                            if (pointLeft && plotPointedPolygons) {
+                                drawLeftPointedRectangle(canvas, pH, yScaledOffset, s, width, xScaling,
+                                                         regionPixels, xOffset,
+                                                         (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip,
+                                                         path, pointSlop);
+                            } else {
+                                drawRectangle(canvas, pH, yScaledOffset, s, width, xScaling, xOffset,
+                                              (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip, rect);
+                            }
                         }
                     }
-                }
-                if (a.right_soft_clip > 0) {
-                    if (plotSoftClipAsBlock || l_seq == 0) {
-                        s = end;
-                        width = (float) a.right_soft_clip;
-                    } else {
-                        s = end + a.right_soft_clip;
-                        width = 0;
-                    }
-                    e = s + width;
-                    if (s < 0) {
-                        width += s;
-                        s = 0;
-                    }
-                    if (e > regionLen) {
-                        width = regionLen - s;
-                        e = regionLen;
-                    }
-                    if (s < regionLen && e > 0) {
-                        if (!pointLeft && plotPointedPolygons) {
-                            drawRightPointedRectangle(canvas, pH, yScaledOffset, s, width, xScaling,
-                                                      regionPixels, xOffset,
-                                                      (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip, path,
-                                                      pointSlop);
+                    if (a.right_soft_clip > 0) {
+                        if (plotSoftClipAsBlock || l_seq == 0) {
+                            s = end;
+                            width = (float) a.right_soft_clip;
                         } else {
-                            drawRectangle(canvas, pH, yScaledOffset, s, width, xScaling,
-                                          xOffset, (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip, rect);
+                            s = end + a.right_soft_clip;
+                            width = 0;
+                        }
+                        e = s + width;
+                        if (s < 0) {
+                            width += s;
+                            s = 0;
+                        }
+                        if (e > regionLen) {
+                            width = regionLen - s;
+                            e = regionLen;
+                        }
+                        if (s < regionLen && e > 0) {
+                            if (!pointLeft && plotPointedPolygons) {
+                                drawRightPointedRectangle(canvas, pH, yScaledOffset, s, width, xScaling,
+                                                          regionPixels, xOffset,
+                                                          (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip, path,
+                                                          pointSlop);
+                            } else {
+                                drawRectangle(canvas, pH, yScaledOffset, s, width, xScaling,
+                                              xOffset, (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip, rect);
+                            }
                         }
                     }
                 }
@@ -678,7 +679,7 @@ namespace Drawing {
                                     drawIns(canvas, Y, p, yScaling, xOffset, yOffset, xScaling, theme.insS,
                                             theme.fcIns, path, rect);
                                 }
-                            } else if (regionLen < 100000) {  // line only
+                            } else if (regionLen < 100000 && regionLen < opts.small_indel_threshold) {  // line only
                                 drawIns(canvas, Y, p, yScaling, xOffset, yOffset, xScaling, theme.insS,
                                         theme.fcIns, path, rect);
                             }

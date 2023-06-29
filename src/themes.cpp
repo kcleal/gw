@@ -343,7 +343,6 @@ namespace Themes {
         Keys::getKeyTable(key_table);
 
         mINI::INIFile file(ini_path);
-        mINI::INIStructure myIni;
         file.read(myIni);
 
         theme_str = myIni["general"]["theme"];

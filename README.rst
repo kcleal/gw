@@ -68,7 +68,7 @@ Command line::
     gw hg38 -b your.bam -r chr1:1-20000 -r chr2:50000-60000
 
     # Multiple bams
-    gw hg38 -b your.bam -b your2.bam -r chr1
+    gw hg38 -b '*.bam' -r chr1
 
     # Add a track BED/VCF/BCF/LABEL
     gw hg38 -b your.bam -r chr1 --track a.bed
@@ -95,23 +95,23 @@ Command line::
     gw hg38 -b your.bam -v var.vcf --labels Yes,No --out-labels labels.tsv
 
 
-GW commands - access command box with ``:`` ::
+GW commands - access command box with ``:`` or ``/`` ::
 
-    :help              # help menu
-    :config            # open config file for editing
-    :chr1:1-20000      # Navigate to region
-    :add chr2:1-50000  # Append new region
-    :rm 1              # Region at column index 1 removed
-    :rm bam1           # Bam file at row index 1 removed
-    :mate              # Move view to mate of read
-    :mate add          # mate added in new view
-    :line              # Toggle vertical line
-    :ylim 100          # View depth increased to 100
-    :find QNAME        # Highlight all reads with qname==QNAME
-    :filter mapq >= 10 # Filer reads for mapq >= 10
-    :count             # Counts of all reads for each view point
-    :snapshot          # Save screenshot to .png
-    :man COMMAND       # manual for command
+    help              # help menu
+    config            # open config file for editing
+    chr1:1-20000      # Navigate to region
+    add chr2:1-50000  # Append new region
+    rm 1              # Region at column index 1 removed
+    rm bam1           # Bam file at row index 1 removed
+    mate              # Move view to mate of read
+    mate add          # mate added in new view
+    line              # Toggle vertical line
+    ylim 100          # View depth increased to 100
+    find QNAME        # Highlight all reads with qname==QNAME
+    filter mapq >= 10 # Filer reads for mapq >= 10
+    count             # Counts of all reads for each view point
+    snapshot          # Save screenshot to .png
+    man COMMAND       # manual for command
 
 📖 User Guide
 =============
@@ -128,8 +128,8 @@ To view a genomic region e.g. chr1:1-20000, supply an indexed reference genome a
 The `hg38` argument will load a remote reference genome, replace this with the path to a local file for best performance.
 A GW window will open and can be used interactively with the mouse and keyboard. Note multiple -b and -r options can be used.
 
-Various commands are also available via the GW window. Simply click on the GW window and type `:help` which will display a list of commands in your terminal.
-For example typeing `:chr1` will navigate to the start of chromosome 1. For more information about each command type `:man [command]`.
+Various commands are also available via the GW window. Simply click on the GW window and type ``help`` which will display a list of commands in your terminal.
+For example typing ``chr1`` will navigate to the start of chromosome 1. For more information about each command type ``man [command]``.
 
 .. image:: include/help.png
     :align: center
@@ -259,25 +259,25 @@ To open one or more bam files alongside your images you will need to supply a re
 
 Filtering and counting
 ----------------------
-To focus on reads of interest, GW can filter reads using simple filter expressions provided via the ``:filter`` command (or ``--filter`` option). The syntax for a filter expression follows ``"{property} {operation} {value}"`` (the white-spaces are also needed). For example, here are some useful expressions::
+To focus on reads of interest, GW can filter reads using simple filter expressions provided via the ``filter`` command (or ``--filter`` option). The syntax for a filter expression follows ``"{property} {operation} {value}"`` (the white-spaces are also needed). For example, here are some useful expressions::
 
-    :filter mapq >= 20             # only reads with mapping quality >= 20 will be shown
-    :filter flag & 2048            # only supplementary alignments are shown
-    :filter flag & supplementary   # same as above
-    :filter ~flag & supplementary  # supplementary reads will be removed
-    :filter seq contains TTAGGG    # Only reads with TTAGGG kmer will be shown
-    :filter seq omit AAAAAA        # Reads with this kmer will be removed
-    :filter mapq > 30 and ~flag & duplicate  #  also removes duplicate reads
-    :filter mapq > 10 or seq-len > 100; ~flag & duplicate  # > 1 statements
+    filter mapq >= 20             # only reads with mapping quality >= 20 will be shown
+    filter flag & 2048            # only supplementary alignments are shown
+    filter flag & supplementary   # same as above
+    filter ~flag & supplementary  # supplementary reads will be removed
+    filter seq contains TTAGGG    # Only reads with TTAGGG kmer will be shown
+    filter seq omit AAAAAA        # Reads with this kmer will be removed
+    filter mapq > 30 and ~flag & duplicate  #  also removes duplicate reads
+    filter mapq > 10 or seq-len > 100; ~flag & duplicate  # > 1 statements
 
 These expressions will apply filtering to all image panes (regions and bams). If you want to be more selective, you can
 use array indexing notation to filter on certain rows (bam files) or columns (regions). For example::
 
-    :filter mapq > 0 [:, 0]   # All rows, column 0 (all bams, first region only)
-    :filter mapq > 0 [0, :]   # Row 0, all columns (the first bam only, all regions)
-    :filter mapq > 0 [1, -1]  # Row 1, last column
+    filter mapq > 0 [:, 0]   # All rows, column 0 (all bams, first region only)
+    filter mapq > 0 [0, :]   # Row 0, all columns (the first bam only, all regions)
+    filter mapq > 0 [1, -1]  # Row 1, last column
 
-To remove all filters use the ``:refresh`` command.
+To remove all filters use the ``refresh`` command.
 
 Here is the list of properties you can use (see the `sam specification <https://en.wikipedia.org/wiki/SAM_(file_format)>`_ for more details on the meaning of tags)::
 
@@ -292,9 +292,9 @@ Flag properties can be accessed using keywords, for more info see `here <https:/
 
     paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary, dup, supplementary
 
-Once reads have been filtered, you can try the ``:count`` command which will give you an output similar to ``samtools flagstats``. The ``:count`` command can also be used with an expression e.g.::
+Once reads have been filtered, you can try the ``count`` command which will give you an output similar to ``samtools flagstats``. The ``count`` command can also be used with an expression e.g.::
 
-    :count mapq > 0
+    count mapq > 0
 
 Remote
 ------
@@ -318,7 +318,7 @@ Config file
 -----------
 
 GW ships with a .gw.ini config file. You can manually set various options within the file so you dont have to keep
-typing them in every time. The GW command `:config` will open your config file in a text editor for easy access.
+typing them in every time. The GW command ``config`` will open your config file in a text editor for easy access.
 
 Some useful options to set in your .gw.ini file are a list of reference genomes so these can be selected without using a full path.
 Also things like the theme, image dimensions and hot-keys can be set.

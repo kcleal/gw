@@ -21,7 +21,7 @@
 namespace Term {
 
     void help(Themes::IniOptions &opts) {
-        std::cout << termcolor::italic << "\n* Enter a command by selecting the GW window (not the terminal) and type ':[COMMAND]' *\n" << termcolor::reset;
+        std::cout << termcolor::italic << "\n* Enter a command by selecting the GW window (not the terminal) and type '/' or ':' plus [COMMAND]' *\n" << termcolor::reset;
         std::cout << termcolor::italic << "\n* For a detailed manual type ':man [COMMAND]' *\n" << termcolor::reset;
         std::cout << termcolor::underline << "\nCommand          Modifier        Description                                            \n" << termcolor::reset;
         std::cout << termcolor::green << "[locus]                          " << termcolor::reset << "e.g. 'chr1' or ':chr1:1-20000'\n";
@@ -29,22 +29,25 @@ namespace Term {
         std::cout << termcolor::green << "config                           " << termcolor::reset << "Opens .gw.ini config in a text editor\n";
         std::cout << termcolor::green << "count            expression?     " << termcolor::reset << "Count reads. See filter for example expressions'\n";
         std::cout << termcolor::green << "cov                              " << termcolor::reset << "Toggle coverage\n";
+        std::cout << termcolor::green << "edges                            " << termcolor::reset << "Toggle edges\n";
         std::cout << termcolor::green << "filter           expression      " << termcolor::reset << "Examples ':filter mapq > 0', ':filter ~flag & secondary'\n                                 ':filter mapq >= 30 or seq-len > 100'\n";
         std::cout << termcolor::green << "find, f          qname?          " << termcolor::reset << "To find other alignments from selected read use ':find'\n                                 Or use ':find [QNAME]' to find target read'\n";
-        //std::cout << termcolor::green << "genome, g        name?           " << termcolor::reset << "Load genome listed in .gw.ini file. Use ':g' for list\n";
         std::cout << termcolor::green << "goto             loci index?     " << termcolor::reset << "e.g. ':goto chr1:1-20000'. Use index if multiple \n                                 regions are open e.g. ':goto 'chr1 20000' 1'\n";
         std::cout << termcolor::green << "grid             width x height  " << termcolor::reset << "Set the grid size for --variant images ':grid 8x8' \n";
         std::cout << termcolor::green << "indel-length     int             " << termcolor::reset << "Label indels >= length\n";
+        std::cout << termcolor::green << "insertions, ins                  " << termcolor::reset << "Toggle insertions\n";
         std::cout << termcolor::green << "line                             " << termcolor::reset << "Toggle mouse position vertical line\n";
         std::cout << termcolor::green << "link             [none/sv/all]   " << termcolor::reset << "Switch read-linking ':link all'\n";
         std::cout << termcolor::green << "low-mem                          " << termcolor::reset << "Toggle low-mem mode\n";
         std::cout << termcolor::green << "log2-cov                         " << termcolor::reset << "Toggle scale coverage by log2\n";
         std::cout << termcolor::green << "mate             add?            " << termcolor::reset << "Use ':mate' to navigate to mate-pair, or ':mate add' \n                                 to add a new region with mate \n";
+        std::cout << termcolor::green << "mismatches, mm                   " << termcolor::reset << "Toggle mismatches\n";
         std::cout << termcolor::green << "quit, q          -               " << termcolor::reset << "Quit GW\n";
         std::cout << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
         std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. ':rm 1'. To remove a bam \n                                 use the bam index ':rm bam0'\n";
         std::cout << termcolor::green << "sam                              " << termcolor::reset << "Print selected read in sam format'\n";
 		std::cout << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window to png e.g. ':s', or ':s view.png',\n                                 or vcf columns can be used ':s {pos}_{info.SU}.png'\n";
+        std::cout << termcolor::green << "soft-clips, sc                   " << termcolor::reset << "Toggle soft-clips\n";
         std::cout << termcolor::green << "tags                             " << termcolor::reset << "Print selected sam tags\n";
         std::cout << termcolor::green << "theme            [igv/dark]      " << termcolor::reset << "Switch color theme e.g. ':theme dark'\n";
         std::cout << termcolor::green << "tlen-y                           " << termcolor::reset << "Toggle --tlen-y option\n";
@@ -62,6 +65,7 @@ namespace Term {
         std::cout << "next region view     " << termcolor::bright_yellow; Term::printKeyFromValue(opts.next_region_view); std::cout << "\n" << termcolor::reset;
         std::cout << "cycle link mode      " << termcolor::bright_yellow; Term::printKeyFromValue(opts.cycle_link_mode); std::cout << "\n" << termcolor::reset;
         std::cout << "repeat last command  " << termcolor::bright_yellow; std::cout << "ENTER" << "\n" << termcolor::reset;
+        std::cout << "resize window        " << termcolor::bright_yellow; std::cout << "SHIFT + ARROW_KEY" << "\n" << termcolor::reset;
 
         std::cout << "\n";
     }
@@ -79,6 +83,8 @@ namespace Term {
             std::cout << "    Count the visible reads in each view.\n        A summary output will be displayed for each view on the screen.\n        Optionally a filter expression may be added to the command. See the man page for 'filter' for mote details\n    Examples:\n        'count', 'count flag & 2', 'count flag & proper-pair' \n\n";
         } else if (s == "cov") {
             std::cout << "    Toggle coverage track.\n        This will turn on/off coverage tracks.\n\n";
+        } else if (s == "edges" || s == "sc") {
+            std::cout << "    Toggle edge highlights.\n        Edge highlights are turned on or off.\n\n";
         } else if (s == "filter") {
             std::cout << "    Filter visible reads.\n"
                          "        Reads can be filtered using an expression '{property} {operation} {value}' (the white-spaces are also needed).\n"
@@ -100,7 +106,7 @@ namespace Term {
                          "              :filter mapq > 0 [:, 0]   # All rows, column 0 (all bams, first region only)\n"
                          "              :filter mapq > 0 [0, :]   # Row 0, all columns (the first bam only, all regions)\n"
                          "              :filter mapq > 0 [1, -1]  # Row 1, last column\n\n";
-        } else if (s == "find") {
+        } else if (s == "find" || s == "f") {
             std::cout << "    Find a read with name.\n        All alignments with the same name will be highlighted with a black border\n    Examples:\n        'find D00360:18:H8VC6ADXX:1:1107:5538:24033'\n\n";
         } else if (s == "goto") {
             std::cout << "    Navigate to a locus.\n        This moves the left-most view. Or, you can use indexing to specify a region\n    Examples:\n        'goto chr1'   # this will move the left-most view\n        'goto chr1:20000 1'   # this will move the view at column index 1\n\n";
@@ -108,9 +114,11 @@ namespace Term {
             std::cout << "    Set the grid size.\n        Set the number of images displayed in a grid when using --variant option\n    Examples:\n        'grid 8x8'   # this will display 64 image tiles\n\n";
         } else if (s == "indel-length") {
             std::cout << "    Set the minimum indel-length.\n        Indels (gaps in alignments) will be labelled with text if they have length >= 'indel-length'\n    Examples:\n        'indel-length 30'\n\n";
+        } else if (s == "insertions" || s == "ins") {
+            std::cout << "    Toggle insertions.\n        Insertions smaller than 'indel-length' are turned on or off.\n\n";
         } else if (s == "line") {
             std::cout << "    Toggle line.\n        A vertical line will turn on/off.\n\n";
-        } else if (s == "link") {
+        } else if (s == "link" || s == "l") {
             std::cout << "    Link alignments.\n        This will change how alignments are linked, options are 'none', 'sv', 'all'.\n    Examples:\n        'link sv', 'link all'\n\n";
         } else if (s == "low-mem") {
             std::cout << "    Toggle low-mem mode.\n        This will discard all base-quality information and sam tags from newly loaded alignments.\n\n";
@@ -118,13 +126,15 @@ namespace Term {
             std::cout << "    Toggle log2-coverage.\n        The coverage track will be scaled by log2.\n\n";
         } else if (s == "mate") {
             std::cout << "    Goto mate alignment.\n        Either moves the left-most view to the mate locus, or adds a new view of the mate locus.\n    Examples:\n        'mate', 'mate add'\n\n";
-        } else if (s == "refresh") {
+        } else if (s == "mismatches" || s == "mm") {
+            std::cout << "    Toggle mismatches.\n        Mismatches with the reference genome are turned on or off.\n\n";
+        } else if (s == "refresh" || s == "r") {
             std::cout << "    Refresh the drawing.\n        All filters will be removed any everything will be redrawn.\n\n";
-        } else if (s == "remove") {
+        } else if (s == "remove" || s == "rm") {
             std::cout << "    Remove a region or bam.\n        Remove a region or bam by index. To remove a bam add a 'bam' prefix.\n    Examples:\n        'rm 0', 'rm bam1'\n\n";
         } else if (s == "sam") {
             std::cout << "    Print the sam format of the read.\n        First select a read using the mouse then type ':sam'.\n\n";
-		} else if (s == "snapshot") {
+		} else if (s == "snapshot" || s == "s") {
             std::cout << "    Save an image of the screen.\n"
                          "        Saves current window. If no name is provided, the image name will be 'chrom_start_end.png', \n"
                          "        or if you are in tile-mode, the image name will be 'index_start_end.png'.\n"
@@ -138,13 +148,15 @@ namespace Term {
                          "        Valid fields are chrom, pos, id, ref, alt, qual, filter, info, format. Just to note,\n"
                          "        you can press ENTER to repeat the last command, which can save typing this\n"
                          "        command over and over.\n\n";
+        } else if (s == "soft-clips" || s == "sc") {
+            std::cout << "    Toggle soft-clips.\n        Soft-clipped bases or hard-clips are turned on or off.\n\n";
         } else if (s == "tags") {
             std::cout << "    Print selected sam tags.\n        This will print all the tags of the selected read\n\n";
         } else if (s == "theme") {
             std::cout << "    Switch the theme.\n        Currently 'igv' or 'dark' themes are supported.\n\n";
         } else if (s == "tlen-y") {
             std::cout << "    Toggle --tlen-y option.\n        The --tlen-y option scales reads by template length. Applies to paired-end reads only.\n\n";
-        } else if (s == "var") {
+        } else if (s == "var" || s == "v") {
             std::cout << "    Print variant information.\n"
                          "        Using ':var' will print the selected variant.\n"
                          "        If you are viewing a vcf/bcf then columns can be parsed e.g:\n"
@@ -184,9 +196,19 @@ namespace Term {
         uint32_t *cigar_p;
         cigar_l = r->delegate->core.n_cigar;
         cigar_p = bam_get_cigar(r->delegate);
+        bool print_dots = true;
         for (k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
+
+            if (cigar_l > 30 && !(k == 0 || k == cigar_l - 1)) {
+                if (print_dots) {
+                    std::cout << " ... ";
+                    print_dots = false;
+
+                }
+                continue;
+            }
             if (op == 0) {
                 std::cout << l << "M";
             } else if (op == 1) {

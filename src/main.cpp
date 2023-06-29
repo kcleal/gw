@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> img_themes = { "igv", "dark" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
-    argparse::ArgumentParser program("gw", "0.7.1");
+    argparse::ArgumentParser program("gw", "0.8.0");
 
     program.add_argument("genome")
             .default_value(std::string{""}).append()//.required()
@@ -133,6 +133,18 @@ int main(int argc, char *argv[]) {
     program.add_argument("--cov")
             .default_value(iopts.ylim).append().scan<'i', int>()
             .help("Maximum y limit of coverage track");
+    program.add_argument("--no-insertions")
+            .default_value(false).implicit_value(true)
+            .help("Insertions below --indel-length are not shown");
+    program.add_argument("--no-edges")
+            .default_value(false).implicit_value(true)
+            .help("Edge colours are not shown");
+    program.add_argument("--no-mismatches")
+            .default_value(false).implicit_value(true)
+            .help("Mismatches are not shown");
+    program.add_argument("--no-soft-clips")
+            .default_value(false).implicit_value(true)
+            .help("Soft-clips are not shown");
     program.add_argument("--low-mem")
             .default_value(false).implicit_value(true)
             .help("Reduce memory usage by discarding quality values");
@@ -214,8 +226,7 @@ int main(int argc, char *argv[]) {
         assert (Utils::is_file_exist(genome));
 
     } else if (!genome.empty() && !Utils::is_file_exist(genome)) {
-        std::cerr << "Error: Genome not found" << std::endl;
-        std::exit(1);
+        std::cerr << "Warning: Genome is not a local file" << std::endl;
     }
 
     std::vector<std::string> bam_paths;
@@ -224,7 +235,22 @@ int main(int argc, char *argv[]) {
             std::cerr << "Error: please provide a reference genome if loading a bam file\n";
             std::exit(1);
         }
-        bam_paths = program.get<std::vector<std::string>>("-b");
+        auto bam_paths_temp = program.get<std::vector<std::string>>("-b");
+        for (auto &item : bam_paths_temp) {
+            if (std::filesystem::exists(item)) {
+                bam_paths.push_back(item);
+            } else {
+                std::vector<std::filesystem::path> glob_paths = glob::glob(item);
+#if defined(_WIN32) || defined(_WIN64)
+                std::sort(glob_paths.begin(), glob_paths.end());
+#else
+                std::sort(glob_paths.begin(), glob_paths.end(), compareNat);
+#endif
+                for (auto &glob_item : glob_paths) {
+                    bam_paths.push_back(glob_item.string());
+                }
+            }
+        }
     }
 
     std::vector<Utils::Region> regions;
@@ -321,6 +347,18 @@ int main(int argc, char *argv[]) {
     }
     if (program.is_used("--cov")) {
         iopts.max_coverage = program.get<int>("--cov");
+    }
+    if (program.is_used("--no-insertions")) {
+        iopts.small_indel_threshold = 0;
+    }
+    if (program.is_used("--no-edges")) {
+        iopts.edge_highlights = 0;
+    }
+    if (program.is_used("--no-mismatches")) {
+        iopts.snp_threshold = 0;
+    }
+    if (program.is_used("--no-soft-clips")) {
+        iopts.soft_clip_threshold = 0;
     }
     if (program.is_used("--low-mem")) {
         iopts.low_mem = true;

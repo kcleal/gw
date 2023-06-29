@@ -837,6 +837,8 @@ namespace HGW {
             kind = VCF_IDX;
         } else if (Utils::endsWith(p, ".bcf")) {
             kind = BCF_IDX;
+        } else if (Utils::endsWith(p, ".gff3")) {
+            kind = GFF3;
         } else {
             kind = GW_LABEL;
         }
@@ -875,8 +877,7 @@ namespace HGW {
                     allBlocks_flat.push_back(b);
                 }
             }
-        }
-        else if (kind == BED_NOI || kind == GW_LABEL) {
+        } else if (kind == BED_NOI || kind == GW_LABEL) {
             std::fstream fpu;
             fpu.open(p, std::ios::in);
             if (!fpu.is_open()) {
@@ -886,14 +887,15 @@ namespace HGW {
             std::string tp;
             const char delim = '\t';
             int count = 0;
-            while(getline(fpu, tp)) {
+            while (getline(fpu, tp)) {
                 count += 1;
                 if (tp[0] == '#') {
                     continue;
                 }
                 std::vector<std::string> parts = Utils::split(tp, delim);
                 if (parts.size() < 3) {
-                    std::cerr << "Error: parsing file, not enough columns in line split by tab. n columns = " << parts.size() << ", line was: " << tp << ", at file index " << count << std::endl;
+                    std::cerr << "Error: parsing file, not enough columns in line split by tab. n columns = "
+                              << parts.size() << ", line was: " << tp << ", at file index " << count << std::endl;
                 }
                 Utils::TrackBlock b;
                 b.line = tp;
@@ -936,32 +938,97 @@ namespace HGW {
                     allBlocks_flat.push_back(b);
                 }
             }
-        } else if (kind == BED_IDX) {
-            fp = hts_open(p.c_str(), "r");
-            idx_t = tbx_index_load(p.c_str());
-        } else if (kind == BCF_IDX) {
-            fp = bcf_open(p.c_str(), "r");
-            hdr = bcf_hdr_read(fp);
-            idx_v = bcf_index_load(p.c_str());
-            v = bcf_init1();
-            v->max_unpack = BCF_UN_INFO;
-        } else if (kind == VCF_IDX) {
-            fp = bcf_open(path.c_str(), "r");
-            hdr = bcf_hdr_read(fp);
-            idx_t = tbx_index_load(path.c_str());
-            v = bcf_init1();
-            v->max_unpack = BCF_UN_INFO;
-        } else {
-            std::cerr << "Error: file stype not supported for " << path << std::endl;
-            std::terminate();
-        }
-
-        if (!sorted) {
-            std::cout << "Unsorted file: sorting blocks from " << path << std::endl;
-            for (auto &item : allBlocks) {
-                std::sort(item.second.begin(), item.second.end(),
-                          [](const Utils::TrackBlock &a, const Utils::TrackBlock &b)-> bool { return a.start < b.start || (a.start == b.start && a.end > b.end);});
-            }
+        } else if (kind == GFF3) {
+//            std::fstream fpu;
+//            fpu.open(p, std::ios::in);
+//            if (!fpu.is_open()) {
+//                std::cerr << "Error: opening track file " << path << std::endl;
+//                std::terminate();
+//            }
+//            std::string tp;
+//            const char delim = '\t';
+//            int count = 0;
+//            std::vector<Utils::TrackBlock> track_blocks;
+//            ankerl::unordered_dense::map< std::string, int> name_to_track_block_idx;
+//
+//            while (getline(fpu, tp)) {
+//                count += 1;
+//                if (tp[0] == '#') {
+//                    continue;
+//                }
+//                std::vector<std::string> parts = Utils::split(tp, delim);
+//                if (parts.size() < 9) {
+//                    std::cerr << "Error: parsing file, not enough columns in line split by tab. n columns = "
+//                              << parts.size() << ", line was: " << tp << ", at file index " << count << std::endl;
+//                }
+//
+//                Utils::TrackBlock b;
+//                b.line = tp;
+//                b.chrom = parts[0];
+//
+//                if (add_to_dict && !allBlocks.contains(b.chrom)) {
+//                    lastb = -1;
+//                }
+//                b.start = std::stoi(parts[3]);
+//                b.strand = 0;
+//                if (kind == BED_NOI) {  // bed
+//                    b.end = std::stoi(parts[2]);
+//                    if (parts.size() > 3) {
+//                        b.name = parts[3];
+//                        if (parts.size() >= 6) {
+//                            if (parts[5] == "+") {
+//                                b.strand = 1;
+//                            } else if (parts[5] == "-") {
+//                                b.strand = 2;
+//                            }
+//                        }
+//                    } else {
+//                        b.name = std::to_string(fileIndex);
+//                        fileIndex += 1;
+//                    }
+//                } else { // assume gw_label file
+//                    b.end = b.start + 1;
+//                }
+//                if (add_to_dict) {
+//                    if (allBlocks.find(b.chrom) == allBlocks.end()) {
+//                        lastb = -1;
+//                    }
+//                    allBlocks[b.chrom].push_back(b);
+//
+//                    if (b.start < lastb) {
+//                        sorted = false;
+//                    }
+//                    lastb = b.start;
+//                } else {
+//                    allBlocks_flat.push_back(b);
+//                }
+//            }
+//        } else if (kind == BED_IDX) {
+//            fp = hts_open(p.c_str(), "r");
+//            idx_t = tbx_index_load(p.c_str());
+//        } else if (kind == BCF_IDX) {
+//            fp = bcf_open(p.c_str(), "r");
+//            hdr = bcf_hdr_read(fp);
+//            idx_v = bcf_index_load(p.c_str());
+//            v = bcf_init1();
+//            v->max_unpack = BCF_UN_INFO;
+//        } else if (kind == VCF_IDX) {
+//            fp = bcf_open(path.c_str(), "r");
+//            hdr = bcf_hdr_read(fp);
+//            idx_t = tbx_index_load(path.c_str());
+//            v = bcf_init1();
+//            v->max_unpack = BCF_UN_INFO;
+//        } else {
+//            std::cerr << "Error: file stype not supported for " << path << std::endl;
+//            std::terminate();
+//        }
+//
+//        if (!sorted) {
+//            std::cout << "Unsorted file: sorting blocks from " << path << std::endl;
+//            for (auto &item : allBlocks) {
+//                std::sort(item.second.begin(), item.second.end(),
+//                          [](const Utils::TrackBlock &a, const Utils::TrackBlock &b)-> bool { return a.start < b.start || (a.start == b.start && a.end > b.end);});
+//            }
         }
     }
 

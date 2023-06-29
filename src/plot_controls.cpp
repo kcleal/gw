@@ -25,31 +25,113 @@ namespace Manager {
 
     // keeps track of input commands
     void GwPlot::registerKey(GLFWwindow* wind, int key, int scancode, int action, int mods) {
-        if (action == GLFW_RELEASE) {
-            if ((key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) && !captureText) {
+
+	    if (key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_LEFT_SUPER) {
+		    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+			    ctrlPress = true;
+		    } else if (action == GLFW_RELEASE) {
+                ctrlPress = false;
+            }
+            return;
+	    } else if (key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) {
+            if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+                shiftPress = true;
+            } else if (action == GLFW_RELEASE) {
                 shiftPress = false;
             }
-            ctrlPress = false;
+            return;
+        } else if (action == GLFW_RELEASE) {
             return;
         }
-	    if (key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_LEFT_SUPER) {
-		    if (action == GLFW_PRESS) {
-			    ctrlPress = true;
-		    }
-	    }
-        if (key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) {
-            shiftPress = true;
-        } else if (shiftPress && GLFW_KEY_SEMICOLON && !captureText) {
+
+        if (key == GLFW_KEY_SLASH && !captureText) {
             captureText = true;
-            inputText.append(":");
-            charIndex = inputText.size();
-        } else {
-            shiftPress = false;
+            inputText = "";
+            charIndex = 0;
+            return;
+        } else if (shiftPress && key == GLFW_KEY_SEMICOLON && !captureText) {
+            captureText = true;
+            inputText = "";
+            charIndex = 0;
+            return;
         }
-        if (!captureText && (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER)) {
-            std::cout << std::endl;
-            if (!commandHistory.empty()) {
-                inputText = commandHistory.back();
+        if (!captureText) {
+            if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
+                std::cout << std::endl;
+                if (!commandHistory.empty()) {
+                    inputText = commandHistory.back();
+                }
+            } else if ((key == GLFW_KEY_RIGHT || key == GLFW_KEY_LEFT || key == GLFW_KEY_UP || key == GLFW_KEY_DOWN) && shiftPress) {
+                GLFWmonitor * monitor = glfwGetPrimaryMonitor();
+                int monitor_xpos, monitor_ypos, monitor_w, monitor_h;
+                int current_x, current_y;
+                int current_w, current_h;
+                glfwGetMonitorWorkarea(monitor, &monitor_xpos, &monitor_ypos, &monitor_w, &monitor_h);
+                glfwGetWindowPos(wind, &current_x, &current_y);
+                glfwGetWindowSize(wind, &current_w, &current_h);
+                int new_x, new_y;
+                int new_width, new_height;
+                int step_x = monitor_w / 8;
+                int step_y = monitor_h / 8;
+
+                glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+                glClear(GL_COLOR_BUFFER_BIT);
+                glfwSwapBuffers(window);
+                redraw = true;
+
+                if (key == GLFW_KEY_RIGHT) {
+                    if (current_x <= 0 && current_w < monitor_w ) {
+                        new_x = 0;
+                        new_width = std::min(current_w + step_x, monitor_w);
+                    } else {
+                        new_x = current_x + step_x;
+                        new_width = monitor_w - new_x;
+                    }
+                    if (new_width < step_x) {
+                        return;
+                    }
+                    glfwSetWindowPos(wind, new_x, current_y);
+                    glfwSetWindowSize(wind, new_width, current_h);
+                } else if (key == GLFW_KEY_LEFT) {
+                    if (current_x <= 0 && current_w <= monitor_w ) {
+                        new_x = 0;
+                        new_width = current_w - step_x;
+                    } else {
+                        new_x = std::max(0, current_x - step_x);
+                        new_width = std::min(monitor_w, current_w + new_x);
+                    }
+                    if (new_width < step_x) {
+                        return;
+                    }
+                    glfwSetWindowPos(wind, new_x, current_y);
+                    glfwSetWindowSize(wind, new_width, current_h);
+                } else if (key == GLFW_KEY_UP) {
+                    if (current_y <= step_y && current_h <= monitor_h ) {
+                        new_y = 0;
+                        new_height = current_h - step_y;
+                    } else {
+                        new_y = std::max(0, current_y - step_y);
+                        new_height = std::min(monitor_h, current_h + step_y);
+                    }
+                    if (new_height < step_y) {
+                        return;
+                    }
+                    glfwSetWindowPos(wind, current_x, new_y);
+                    glfwSetWindowSize(wind, current_w, new_height);
+                } else if (key == GLFW_KEY_DOWN) {
+                    if (current_y <= step_y && current_h <= monitor_h - step_y) {
+                        new_y = 0;
+                        new_height = std::min(current_h + step_y, monitor_h);
+                    } else {
+                        new_y = std::min(monitor_h - step_y, current_y + step_y);
+                        new_height = std::min(monitor_h - new_y, current_h + step_y);
+                    }
+                    if (new_height < step_y) {
+                        return;
+                    }
+                    glfwSetWindowPos(wind, current_x, new_y);
+                    glfwSetWindowSize(wind, current_w, new_height);
+                }
             }
         }
         if (captureText) {
@@ -92,16 +174,14 @@ namespace Manager {
                     charIndex = inputText.size();
                 }
                 ctrlPress = false;
-            } else {  // character entry
-                if (key == GLFW_KEY_SEMICOLON && inputText.size() == 1) {
-                    return;
-                } else if (key == GLFW_KEY_BACKSPACE) {
-                    if (inputText.size() > 1) {
+            } else {
+                if (key == GLFW_KEY_BACKSPACE) {
+                    if (!inputText.empty()) {
                         inputText.erase(charIndex - 1, 1);
                         charIndex -= 1;
                     }
                 } else if (key == GLFW_KEY_DELETE) {
-                    if (inputText.size() > 1 && charIndex < (int)inputText.size()) {
+                    if (!inputText.empty() && charIndex < (int)inputText.size()) {
                         inputText.erase(charIndex, 1);
                     }
                 }
@@ -136,9 +216,7 @@ namespace Manager {
                     }
                 }
             }
-            return;
         }
-        return;
     }
 
     void GwPlot::highlightQname() { // todo make this more efficient
@@ -162,62 +240,67 @@ namespace Manager {
         commandHistory.push_back(inputText);
         commandIndex = commandHistory.size();
 
-        if (inputText == ":q" || inputText == ":quit") {
+        if (inputText == "q" || inputText == "quit") {
             throw CloseException();
-        } else if (inputText == ":") {
+        } else if (inputText == ":" || inputText == "/") {
             inputText = "";
             return true;
-        } else if (inputText == ":help" || inputText == ":h") {
+        } else if (inputText == "help" || inputText == "h") {
             Term::help(opts);
             valid = true;
-        } else if (Utils::startsWith(inputText, ":man ")) {
-            inputText.erase(0, 5);
+        } else if (Utils::startsWith(inputText, "man ")) {
+            inputText.erase(0, 4);
             Term::manuals(inputText);
             valid = true;
-        } else if (inputText == ":refresh" || inputText == ":r") {
+        } else if (inputText == "refresh" || inputText == "r") {
             valid = true; imageCache.clear(); filters.clear();
             for (auto &cl: collections) {cl.vScroll = 0; }
-        } else if (inputText == ":link" || inputText == ":link all") {
+        } else if (inputText == "link" || inputText == "link all") {
             opts.link_op = 2;
             redraw = true;
             processed = true;
             inputText = "";
             return true;
-        } else if (inputText == ":link sv") {
+        } else if (inputText == "link sv") {
             opts.link_op = 1;
             redraw = true;
             processed = true;
             inputText = "";
             return true;
-        } else if (inputText == ":link none") {
+        } else if (inputText == "link none") {
             opts.link_op = 0;
             redraw = true;
             processed = true;
             inputText = "";
             return true;
-        } else if (inputText == ":line") {
+        } else if (inputText == "line") {
             drawLine = (drawLine) ? false : true;
             redraw = true;
             processed = true;
             inputText = "";
             return true;
-        } else if (Utils::startsWith(inputText, ":count")) {
+        } else if (Utils::startsWith(inputText, "count")) {
             std::string str = inputText;
             str.erase(0, 7);
             Parse::countExpression(collections, str, headers, bam_paths, bams.size(), regions.size());
             inputText = "";
             return true;
-        } else if (Utils::startsWith(inputText, ":config")) {
+        } else if (Utils::startsWith(inputText, "config")) {
+            std::cout << "Config ini path: " << opts.ini_path << std::endl;
             std::string com = opts.editor + " " + opts.ini_path;
-            FILE *fp = popen(com.c_str(), "w");
-            pclose(fp);
+            if (!opts.editor.empty()) {
+                FILE *fp = popen(com.c_str(), "w");
+                pclose(fp);
 //            opts.readIni();
-            std::cout << "Please restart GW to apply any changes\n";
+                std::cout << "Please restart GW to apply any changes\n";
+            } else {
+                std::cout << "No text editor set in .gw.ini, please open config ini manually\n";
+            }
             redraw = true;
             processed = true;
             inputText = "";
             return true;
-        } else if (Utils::startsWith(inputText, ":filter ")) {
+        } else if (Utils::startsWith(inputText, "filter ")) {
             std::string str = inputText;
             str.erase(0, 8);
             filters.clear();
@@ -233,7 +316,7 @@ namespace Manager {
             }
             valid = true;
 
-        } else if (inputText ==":sam") {
+        } else if (inputText =="sam") {
             valid = true;
             if (!selectedAlign.empty()) {
                 Term::printSelectedSam(selectedAlign);
@@ -242,7 +325,7 @@ namespace Manager {
             processed = true;
             inputText = "";
             return true;
-        } else if (inputText ==":tags"){
+        } else if (inputText =="tags"){
             valid = true;
             if (!selectedAlign.empty()) {
                 std::vector<std::string> split = Utils::split(selectedAlign, '\t');
@@ -265,7 +348,7 @@ namespace Manager {
             processed = true;
             inputText = "";
             return true;
-        } else if (Utils::startsWith(inputText, ":f ") || Utils::startsWith(inputText, ":find")) {
+        } else if (Utils::startsWith(inputText, "f ") || Utils::startsWith(inputText, "find ")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             if (!target_qname.empty() && split.size() == 1) {
             } else if (split.size() == 2) {
@@ -281,7 +364,7 @@ namespace Manager {
             inputText = "";
             return true;
 
-        } else if (Utils::startsWith(inputText, ":ylim")) {
+        } else if (Utils::startsWith(inputText, "ylim")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             try {
                 opts.ylim = std::stoi(split.back());
@@ -292,7 +375,7 @@ namespace Manager {
                 inputText = "";
                 return true;
             }
-        } else if (Utils::startsWith(inputText, ":indel-length")) {
+        } else if (Utils::startsWith(inputText, "indel-length")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             try {
                 opts.indel_length = std::stoi(split.back());
@@ -302,7 +385,19 @@ namespace Manager {
                 inputText = "";
                 return true;
             }
-        } else if (Utils::startsWith(inputText, ":remove") || Utils::startsWith(inputText, ":rm")) {
+        } else if (inputText =="insertions" || inputText == "ins") {
+            valid = true;
+            opts.small_indel_threshold = (opts.small_indel_threshold == 0) ? std::stoi(opts.myIni["view_thresholds"]["small_indel"]) : 0;
+        } else if (inputText =="mismatches" || inputText == "mm") {
+            valid = true;
+            opts.snp_threshold = (opts.snp_threshold == 0) ? std::stoi(opts.myIni["view_thresholds"]["snp"]) : 0;
+        } else if (inputText =="edges") {
+            valid = true;
+            opts.edge_highlights = (opts.edge_highlights == 0) ? std::stoi(opts.myIni["view_thresholds"]["edge_highlights"]) : 0;
+        } else if (inputText =="soft-clips" || inputText == "sc") {
+            valid = true;
+            opts.soft_clip_threshold = (opts.soft_clip_threshold == 0) ? std::stoi(opts.myIni["view_thresholds"]["soft_clip"]) : 0;
+        } else if (Utils::startsWith(inputText, "remove ") || Utils::startsWith(inputText, "rm ")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             int ind = 0;
             if (Utils::startsWith(split.back(), "bam")) {
@@ -361,7 +456,7 @@ namespace Manager {
             if (clear_filters) {
                 filters.clear();
             }
-        } else if (Utils::startsWith(inputText, ":cov")) {
+        } else if (Utils::startsWith(inputText, "cov")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             if (split.size() > 2) {
                 std::cerr << termcolor::red << "Error:" << termcolor::reset << " cov must be either 'cov' to toggle coverage or 'cov NUMBER' to set max coverage\n";
@@ -382,20 +477,20 @@ namespace Manager {
             processed = true;
             inputText = "";
             return true;
-        } else if (inputText == ":log2-cov") {
+        } else if (inputText == "log2-cov") {
             opts.log2_cov = (opts.log2_cov) ? false : true;
             redraw = true;
             processed = true;
             inputText = "";
             return true;
-        } else if (inputText == ":low-mem") {
+        } else if (inputText == "low-mem") {
             opts.low_mem = (opts.low_mem) ? false : true;
             redraw = false;
             processed = true;
             inputText = "";
             std::cout << "Low memory mode " << ((opts.low_mem) ? "on" : "off") << std::endl;
             return true;
-        } else if (Utils::startsWith(inputText, ":mate")) {
+        } else if (Utils::startsWith(inputText, "mate")) {
             std::string mate;
             Utils::parseMateLocation(selectedAlign, mate, target_qname);
             if (mate.empty()) {
@@ -404,7 +499,7 @@ namespace Manager {
                 return true;
             }
             if (regionSelection >= 0 && regionSelection < (int) regions.size()) {
-                if (inputText == ":mate") {
+                if (inputText == "mate") {
                     regions[regionSelection] = Utils::parseRegion(mate);
                     processed = false;
                     for (auto &cl: collections) {
@@ -423,7 +518,7 @@ namespace Manager {
                     processed = true;
                     inputText = "";
                     return true;
-                } else if (inputText == ":mate add") {
+                } else if (inputText == "mate add") {
                     regions.push_back(Utils::parseRegion(mate));
                     fetchRefSeq(regions.back());
                     processed = false;
@@ -436,7 +531,7 @@ namespace Manager {
                     return true;
                 }
             }
-        } else if (Utils::startsWith(inputText, ":theme")) {
+        } else if (Utils::startsWith(inputText, "theme")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             if (split.size() != 2) {
                 std::cerr << termcolor::red << "Error:" << termcolor::reset << " theme must be either 'igv' or 'dark'\n";
@@ -450,13 +545,13 @@ namespace Manager {
             } else {
                 valid = false;
             }
-        } else if (inputText == ":tlen-y") {
+        } else if (inputText == "tlen-y") {
             opts.tlen_yscale = !(opts.tlen_yscale);
             if (!opts.tlen_yscale) {
                 samMaxY = opts.ylim;
             }
             valid = true;
-        } else if (Utils::startsWith(inputText, ":goto")) {
+        } else if (Utils::startsWith(inputText, "goto")) {
             std::vector<std::string> split = Utils::split(inputText, delim_q);
             if (split.size() == 1) {
                 split = Utils::split(inputText, delim);
@@ -496,7 +591,7 @@ namespace Manager {
                     }
                 }
             }
-        } else if (Utils::startsWith(inputText, ":grid")) {
+        } else if (Utils::startsWith(inputText, "grid")) {
             try {
                 std::vector<std::string> split = Utils::split(inputText, ' ');
                 opts.number = Utils::parseDimensions(split[1]);
@@ -504,7 +599,7 @@ namespace Manager {
             } catch (...) {
                 valid = false;
             }
-        } else if (Utils::startsWith(inputText, ":add"))  {
+        } else if (Utils::startsWith(inputText, "add"))  {
             std::vector<std::string> split = Utils::split(inputText, delim_q);
             if (split.size() == 1) {
                 split = Utils::split(inputText, delim);
@@ -526,7 +621,7 @@ namespace Manager {
                 inputText = "";
                 return true;
             }
-        } else if (inputText == ":v" || Utils::startsWith(inputText, ":var") || Utils::startsWith(inputText, ":v ")) {
+        } else if (inputText == "v" || Utils::startsWith(inputText, "var") || Utils::startsWith(inputText, "v ")) {
             if (multiLabels.empty()) {
 	            std::cerr << termcolor::red << "Error:" << termcolor::reset << " no variant file provided.\n";
                 inputText = "";
@@ -590,7 +685,7 @@ namespace Manager {
 			}
             valid = true;
 
-		} else if (inputText == ":s" || Utils::startsWith(inputText, ":snapshot") || Utils::startsWith(inputText, ":s ")) {
+		} else if (inputText == "s" || Utils::startsWith(inputText, "snapshot") || Utils::startsWith(inputText, "s ")) {
 			std::vector<std::string> split = Utils::split(inputText, delim);
             if (split.size() > 2) {
                 valid = false;
@@ -648,7 +743,6 @@ namespace Manager {
                 valid = true;
             }
         } else {
-	        inputText.erase(0, 1);
 	        Utils::Region rgn;
 			try {
 				rgn = Utils::parseRegion(inputText);
@@ -702,14 +796,16 @@ namespace Manager {
         if (i != (int)regions.size() - 1) {
             std::cout << "    ";
         }
+
         std::cout << termcolor::reset << std::flush;
     }
 
     void GwPlot::keyPress(GLFWwindow* wind, int key, int scancode, int action, int mods) {
-        if (action == GLFW_RELEASE) {
-			ctrlPress = false;
-            return;
-        }
+//        if (action == GLFW_RELEASE) {
+//            shiftPress = false;
+//			ctrlPress = false;
+//            return;
+//        }
 
         // decide if the input key is part of a command or a redraw request
         registerKey(window, key, scancode, action, mods);
@@ -1353,7 +1449,8 @@ namespace Manager {
             n -= 3;
         }
         printRegionInfo();
-        std::cout << "    " << s << std::flush;
+        std::string base_filename = bam_paths[cl.bamIdx].substr(bam_paths[cl.bamIdx].find_last_of("/\\") + 1);
+        std::cout << "    " << s << "    " << base_filename << std::flush;
     }
 
     void GwPlot::mousePos(GLFWwindow* wind, double xPos, double yPos) {
