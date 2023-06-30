@@ -69,6 +69,7 @@ Command line::
 
     # Multiple bams
     gw hg38 -b '*.bam' -r chr1
+    gw hg38 -b b1.bam -b b2.bam -r chr1
 
     # Add a track BED/VCF/BCF/LABEL
     gw hg38 -b your.bam -r chr1 --track a.bed
@@ -95,7 +96,7 @@ Command line::
     gw hg38 -b your.bam -v var.vcf --labels Yes,No --out-labels labels.tsv
 
 
-GW commands - access command box with ``:`` or ``/`` ::
+GW commands - access command box with ``:`` or ``/``. Example commands::
 
     help              # help menu
     config            # open config file for editing
@@ -141,12 +142,8 @@ A GW window can also be started with only the reference genome as a positional a
 
 You can then drag-and-drop alignment files and vcf files into the window, and use commands to navigate to regions etc.
 
-GW can also be used to generate images in .png/.pdf format of target genomic regions.
-To use this function apply the ``--no-show`` option along with an output folder ``--outdir``::
+The window size and position can be changed using keyboard keys ``SHIFT`` + ``ARROW_KEY`` 's.
 
-    gw hg38.fa -b your.bam -r chr1:1-20000 --outdir . --no-show
-
-    gw hg38.fa -b your.bam -r chr1:1-20000 --outdir . --no-show --fmt pdf
 
 Variant data
 -------------
@@ -241,8 +238,18 @@ are kept in the info column under ``GW_DATE``, ``GW_PREV``::
 Note, the ``--in-labels`` option is not required here, but could be used if labelling over multiple sessions, for example. Also,
 a GW window will still pop-up here, but this could be supressed using the ``--no-show option``.
 
-Viewing png images
--------------------
+Static images
+-------------
+Generate images in .png/.pdf format of target genomic regions::
+
+    gw hg38 -b your.bam -r chr1:1-20000 -n > out.png
+    gw hg38 -b your.bam -r chr1:1-20000 -n --fmt pdf -f out.pdf
+
+GW can also save the genomic location of a region in the file name, allowing you to open static images alongside bam files. To use this function, first save an image in .png format using GW::
+
+    gw hg38.fa -b your.bam -r chr1:1-20000 --outdir . -n
+
+
 Images saved in .png format can be opened in a similar way to variant data, using the ``-i`` or ``--images`` option. Files are
 input using a glob pattern. For example all .png images in a folder called 'images' can be opened with::
 
