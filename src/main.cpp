@@ -7,18 +7,15 @@
 #include <iostream>
 #include <mutex>
 #include <string>
-
 #include "argparse.h"
 #include "../include/BS_thread_pool.h"
 #include "../include/strnatcmp.h"
 #include "glob.h"
-
 #include "hts_funcs.h"
 #include "parser.h"
 #include "plot_manager.h"
 #include "themes.h"
 #include "utils.h"
-
 #ifdef __APPLE__
     #include <OpenGL/gl.h>
 #elif defined(__linux__)
@@ -35,19 +32,15 @@
 #include "include/core/SkDocument.h"
 #include "include/docs/SkPDFDocument.h"
 
-
 // skia context has to be managed from global space to work
 GrDirectContext *sContext = nullptr;
 SkSurface *sSurface = nullptr;
-
 std::mutex mtx;
 
 
 int main(int argc, char *argv[]) {
-
     Themes::IniOptions iopts;
     iopts.readIni();
-
     static const std::vector<std::string> img_fmt = { "png", "pdf" };
     static const std::vector<std::string> img_themes = { "igv", "dark" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
