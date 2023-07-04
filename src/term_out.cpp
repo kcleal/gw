@@ -63,6 +63,7 @@ namespace Term {
         std::cout << "zoom out             " << termcolor::bright_yellow; Term::printKeyFromValue(opts.zoom_out); std::cout << "\n" << termcolor::reset;
         std::cout << "zoom to cursor       " << termcolor::bright_yellow; std::cout << "CTRL + LEFT_MOUSE" << "\n" << termcolor::reset;
         std::cout << "next region view     " << termcolor::bright_yellow; Term::printKeyFromValue(opts.next_region_view); std::cout << "\n" << termcolor::reset;
+        std::cout << "previous region view " << termcolor::bright_yellow; Term::printKeyFromValue(opts.previous_region_view); std::cout << "\n" << termcolor::reset;
         std::cout << "cycle link mode      " << termcolor::bright_yellow; Term::printKeyFromValue(opts.cycle_link_mode); std::cout << "\n" << termcolor::reset;
         std::cout << "repeat last command  " << termcolor::bright_yellow; std::cout << "ENTER" << "\n" << termcolor::reset;
         std::cout << "resize window        " << termcolor::bright_yellow; std::cout << "SHIFT + ARROW_KEY" << "\n" << termcolor::reset;

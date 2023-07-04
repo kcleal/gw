@@ -119,6 +119,7 @@ namespace Themes {
         int scroll_down;
         int scroll_up;
         int next_region_view;
+        int previous_region_view;
         int zoom_out;
         int zoom_in;
         int cycle_link_mode;

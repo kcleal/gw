@@ -801,12 +801,6 @@ namespace Manager {
     }
 
     void GwPlot::keyPress(GLFWwindow* wind, int key, int scancode, int action, int mods) {
-//        if (action == GLFW_RELEASE) {
-//            shiftPress = false;
-//			ctrlPress = false;
-//            return;
-//        }
-
         // decide if the input key is part of a command or a redraw request
         registerKey(window, key, scancode, action, mods);
         if (captureText) {
@@ -948,11 +942,23 @@ namespace Manager {
                         printRegionInfo();
                     }
                 } else if (key == opts.next_region_view) {
+                    if (regions.size() <= 1) { return; }
                     regionSelection += 1;
                     if (regionSelection >= (int)regions.size()) {
                         regionSelection = 0;
                     }
                     std::cout << "\nRegion    " << regionSelection << std::endl;
+                    regionSelectionTriggered = true;
+                    regionTimer = std::chrono::high_resolution_clock::now();
+                } else if (key == opts.previous_region_view) {
+                    if (regions.size() <= 1) { return; }
+                    regionSelection -= 1;
+                    if (regionSelection < 0) {
+                        regionSelection = (int)regions.size() - 1;
+                    }
+                    std::cout << "\nRegion    " << regionSelection << std::endl;
+                    regionSelectionTriggered = true;
+                    regionTimer = std::chrono::high_resolution_clock::now();
                 } else if (key == opts.scroll_down) {
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {  // should be possible to vScroll without needing findY for all reads, but complicated to implement

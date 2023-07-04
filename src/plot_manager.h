@@ -179,7 +179,8 @@ namespace Manager {
         bool processed;
         bool drawLine;
         bool resizeTriggered;
-        std::chrono::high_resolution_clock::time_point resizeTimer;
+        bool regionSelectionTriggered;
+        std::chrono::high_resolution_clock::time_point resizeTimer, regionTimer;
 
         std::string inputText;
         std::string target_qname;

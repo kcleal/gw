@@ -288,7 +288,8 @@ namespace Themes {
         scroll_left = GLFW_KEY_LEFT;
         scroll_down = GLFW_KEY_PAGE_DOWN;
         scroll_up = GLFW_KEY_PAGE_UP;
-        next_region_view = GLFW_KEY_SLASH;
+        next_region_view = GLFW_KEY_RIGHT_BRACKET;
+        previous_region_view = GLFW_KEY_LEFT_BRACKET;
         zoom_out = GLFW_KEY_DOWN;
         zoom_in = GLFW_KEY_UP;
         cycle_link_mode = GLFW_KEY_L;

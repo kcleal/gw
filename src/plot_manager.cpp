@@ -64,6 +64,8 @@ namespace Manager {
         frameId = 0;
         redraw = true;
         processed = false;
+        resizeTriggered = false;
+        regionSelectionTriggered = false;
         drawLine = false;
         captureText = false;
         drawToBackWindow = false;
@@ -359,6 +361,7 @@ namespace Manager {
         }
         bool wasResized = false;
         std::chrono::high_resolution_clock::time_point autoSaveTimer = std::chrono::high_resolution_clock::now();
+        std::chrono::high_resolution_clock::time_point regionTimer = std::chrono::high_resolution_clock::now();
 
         while (true) {
             if (glfwWindowShouldClose(wind)) {
@@ -622,6 +625,22 @@ namespace Manager {
             }
             canvas->drawImage(imageCacheQueue.back().second, 0, 0);
         }
+        if (regionSelectionTriggered && regions.size() > 1) {
+            SkRect rect{};
+            float step = fb_width / regions.size();
+            if (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - regionTimer) > 500ms) {
+                regionSelectionTriggered = false;
+            }
+            float height = (float)fb_height - gap - gap;
+            float y = gap;
+            SkPaint box{};
+            box.setColor(SK_ColorGRAY);
+            box.setStrokeWidth(monitorScale);
+            box.setAntiAlias(true);
+            box.setStyle(SkPaint::kStroke_Style);
+            rect.setXYWH((float)regionSelection * step + gap, y + gap, step - gap - gap, height);
+            canvas->drawRoundRect(rect, 5, 5, box);
+        }
         if (drawLine) {
 	        double xposm, yposm;
 	        glfwGetCursorPos(window, &xposm, &yposm);
@@ -846,7 +865,6 @@ namespace Manager {
                 Utils::Region *reg = &regions[j];
                 HGW::iterDraw(collections, idx, b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage,
                                     opts.low_mem, filters, opts, canvas, trackY, yScaling, fonts, refSpace);
-
                 idx += 1;
             }
         }
