@@ -356,13 +356,13 @@ namespace Manager {
         if (mode == Show::SINGLE) {
             printRegionInfo();
         } else {
+            blockStart = 0;
+            mouseOverTileIndex = 0;
             bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
             std::cerr << termcolor::green << "Index     " << termcolor::reset << blockStart << std::endl;
         }
         bool wasResized = false;
         std::chrono::high_resolution_clock::time_point autoSaveTimer = std::chrono::high_resolution_clock::now();
-        std::chrono::high_resolution_clock::time_point regionTimer = std::chrono::high_resolution_clock::now();
-
         while (true) {
             if (glfwWindowShouldClose(wind)) {
                 break;

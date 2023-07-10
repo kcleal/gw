@@ -55,6 +55,34 @@ namespace Manager {
             charIndex = 0;
             return;
         }
+        if (key == GLFW_KEY_TAB) {
+            if (mode == Manager::SINGLE && !regions.empty() && (!multiRegions.empty() || !imageCache.empty()) ) {
+                mode = Manager::TILED;
+                redraw = true;
+                processed = false;
+                imageCacheQueue.clear();
+                mouseOverTileIndex = 0;
+                return;
+            }
+            if (mode == Manager::TILED && !regions.empty()) {
+                mode = Manager::SINGLE;
+                redraw = true;
+                processed = false;
+                imageCacheQueue.clear();
+                if (blockStart < (int)multiRegions.size()) {
+                    if (multiRegions[blockStart][0].chrom.empty()) {
+                        return; // check for "" no chrom set
+                    } else {
+                        regions = multiRegions[blockStart];
+                        redraw = true;
+                        processed = false;
+                        fetchRefSeqs();
+                        glfwPostEmptyEvent();
+                    }
+                }
+                return;
+            }
+        }
         if (!captureText) {
             if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
                 std::cout << std::endl;
@@ -142,7 +170,6 @@ namespace Manager {
                 std::cout << "\n";
                 return;
             }
-
             if (!commandHistory.empty()) {
                 if (key == GLFW_KEY_UP && commandIndex > 0) {
                     commandIndex -= 1;
@@ -713,6 +740,9 @@ namespace Manager {
                         std::vector<std::string> sample_names_copy = vcf.sample_names;
                         vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
                         std::string variantStringCopy = vcf.variantString;
+                        if (!variantStringCopy.empty() && variantStringCopy[variantStringCopy.length()-1] == '\n') {
+                            variantStringCopy.erase(variantStringCopy.length()-1);
+                        }
                         std::vector<std::string> vcfCols = Utils::split(variantStringCopy, '\t');
                         try {
                             Parse::parse_output_name_format(nameFormat, vcfCols, sample_names_copy, bam_paths,lbl.current());
