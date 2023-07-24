@@ -108,7 +108,6 @@ namespace Manager {
                 redraw = true;
 
                 if (key == GLFW_KEY_RIGHT) {
-                    key = GLFW_KEY_UNKNOWN; // key press is now ignored
                     if (current_x <= 0 && current_w < monitor_w ) {
                         new_x = 0;
                         new_width = std::min(current_w + step_x, monitor_w);
@@ -117,12 +116,11 @@ namespace Manager {
                         new_width = monitor_w - new_x;
                     }
                     if (new_width < step_x) {
-                        return key;
+                        return GLFW_KEY_UNKNOWN; // key press is now ignored
                     }
                     glfwSetWindowPos(wind, new_x, current_y);
                     glfwSetWindowSize(wind, new_width, current_h);
                 } else if (key == GLFW_KEY_LEFT) {
-                    key = GLFW_KEY_UNKNOWN;
                     if (current_x <= 0 && current_w <= monitor_w ) {
                         new_x = 0;
                         new_width = current_w - step_x;
@@ -131,12 +129,11 @@ namespace Manager {
                         new_width = std::min(monitor_w, current_w + new_x);
                     }
                     if (new_width < step_x) {
-                        return key;
+                        return GLFW_KEY_UNKNOWN;
                     }
                     glfwSetWindowPos(wind, new_x, current_y);
                     glfwSetWindowSize(wind, new_width, current_h);
                 } else if (key == GLFW_KEY_UP) {
-                    key = GLFW_KEY_UNKNOWN;
                     if (current_y <= step_y && current_h <= monitor_h ) {
                         new_y = 0;
                         new_height = current_h - step_y;
@@ -145,12 +142,11 @@ namespace Manager {
                         new_height = std::min(monitor_h, current_h + step_y);
                     }
                     if (new_height < step_y) {
-                        return key;
+                        return GLFW_KEY_UNKNOWN;
                     }
                     glfwSetWindowPos(wind, current_x, new_y);
                     glfwSetWindowSize(wind, current_w, new_height);
                 } else if (key == GLFW_KEY_DOWN) {
-                    key = GLFW_KEY_UNKNOWN;
                     if (current_y <= step_y && current_h <= monitor_h - step_y) {
                         new_y = 0;
                         new_height = std::min(current_h + step_y, monitor_h);
@@ -159,12 +155,12 @@ namespace Manager {
                         new_height = std::min(monitor_h - new_y, current_h + step_y);
                     }
                     if (new_height < step_y) {
-                        return key;
+                        return GLFW_KEY_UNKNOWN;
                     }
                     glfwSetWindowPos(wind, current_x, new_y);
                     glfwSetWindowSize(wind, current_w, new_height);
                 }
-                return key;
+                return GLFW_KEY_UNKNOWN;
             }
         }
         if (captureText) {
