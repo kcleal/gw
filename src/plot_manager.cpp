@@ -386,8 +386,8 @@ namespace Manager {
                 redraw = true;
                 processed = false;
                 wasResized = true;
-
-                glfwGetFramebufferSize(window, &fb_width, &fb_height);
+                setGlfwFrameBufferSize();
+                setScaling();
                 bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
 
                 opts.dimensions.x = fb_width;

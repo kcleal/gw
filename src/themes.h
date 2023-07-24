@@ -123,6 +123,7 @@ namespace Themes {
         int zoom_out;
         int zoom_in;
         int cycle_link_mode;
+        int find_alignments;
         int print_screen;
         int delete_labels;
         int enter_interactive_mode;

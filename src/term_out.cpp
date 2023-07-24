@@ -65,9 +65,11 @@ namespace Term {
         std::cout << "next region view     " << termcolor::bright_yellow; Term::printKeyFromValue(opts.next_region_view); std::cout << "\n" << termcolor::reset;
         std::cout << "previous region view " << termcolor::bright_yellow; Term::printKeyFromValue(opts.previous_region_view); std::cout << "\n" << termcolor::reset;
         std::cout << "cycle link mode      " << termcolor::bright_yellow; Term::printKeyFromValue(opts.cycle_link_mode); std::cout << "\n" << termcolor::reset;
+        std::cout << "find all alignments  " << termcolor::bright_yellow; Term::printKeyFromValue(opts.find_alignments); std::cout << "\n" << termcolor::reset;
         std::cout << "repeat last command  " << termcolor::bright_yellow; std::cout << "ENTER" << "\n" << termcolor::reset;
         std::cout << "resize window        " << termcolor::bright_yellow; std::cout << "SHIFT + ARROW_KEY" << "\n" << termcolor::reset;
         std::cout << "switch viewing mode  " << termcolor::bright_yellow; std::cout << "TAB" << "\n" << termcolor::reset;
+
 
         std::cout << "\n";
     }

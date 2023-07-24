@@ -24,7 +24,7 @@
 namespace Manager {
 
     // keeps track of input commands
-    void GwPlot::registerKey(GLFWwindow* wind, int key, int scancode, int action, int mods) {
+    int GwPlot::registerKey(GLFWwindow* wind, int key, int scancode, int action, int mods) {
 
 	    if (key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_LEFT_SUPER) {
 		    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
@@ -32,28 +32,28 @@ namespace Manager {
 		    } else if (action == GLFW_RELEASE) {
                 ctrlPress = false;
             }
-            return;
+            return key;
 	    } else if (key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) {
             if (action == GLFW_PRESS || action == GLFW_REPEAT) {
                 shiftPress = true;
             } else if (action == GLFW_RELEASE) {
                 shiftPress = false;
             }
-            return;
+            return key;
         } else if (action == GLFW_RELEASE) {
-            return;
+            return key;
         }
 
         if (key == GLFW_KEY_SLASH && !captureText) {
             captureText = true;
             inputText = "";
             charIndex = 0;
-            return;
+            return key;
         } else if (shiftPress && key == GLFW_KEY_SEMICOLON && !captureText) {
             captureText = true;
             inputText = "";
             charIndex = 0;
-            return;
+            return key;
         }
         if (key == GLFW_KEY_TAB) {
             if (mode == Manager::SINGLE && !regions.empty() && (!multiRegions.empty() || !imageCache.empty()) ) {
@@ -62,7 +62,7 @@ namespace Manager {
                 processed = false;
                 imageCacheQueue.clear();
                 mouseOverTileIndex = 0;
-                return;
+                return key;
             }
             if (mode == Manager::TILED && !regions.empty()) {
                 mode = Manager::SINGLE;
@@ -71,7 +71,7 @@ namespace Manager {
                 imageCacheQueue.clear();
                 if (blockStart < (int)multiRegions.size()) {
                     if (multiRegions[blockStart][0].chrom.empty()) {
-                        return; // check for "" no chrom set
+                        return key; // check for "" no chrom set
                     } else {
                         regions = multiRegions[blockStart];
                         redraw = true;
@@ -80,7 +80,7 @@ namespace Manager {
                         glfwPostEmptyEvent();
                     }
                 }
-                return;
+                return key;
             }
         }
         if (!captureText) {
@@ -108,6 +108,7 @@ namespace Manager {
                 redraw = true;
 
                 if (key == GLFW_KEY_RIGHT) {
+                    key = GLFW_KEY_UNKNOWN; // key press is now ignored
                     if (current_x <= 0 && current_w < monitor_w ) {
                         new_x = 0;
                         new_width = std::min(current_w + step_x, monitor_w);
@@ -116,11 +117,12 @@ namespace Manager {
                         new_width = monitor_w - new_x;
                     }
                     if (new_width < step_x) {
-                        return;
+                        return key;
                     }
                     glfwSetWindowPos(wind, new_x, current_y);
                     glfwSetWindowSize(wind, new_width, current_h);
                 } else if (key == GLFW_KEY_LEFT) {
+                    key = GLFW_KEY_UNKNOWN;
                     if (current_x <= 0 && current_w <= monitor_w ) {
                         new_x = 0;
                         new_width = current_w - step_x;
@@ -129,11 +131,12 @@ namespace Manager {
                         new_width = std::min(monitor_w, current_w + new_x);
                     }
                     if (new_width < step_x) {
-                        return;
+                        return key;
                     }
                     glfwSetWindowPos(wind, new_x, current_y);
                     glfwSetWindowSize(wind, new_width, current_h);
                 } else if (key == GLFW_KEY_UP) {
+                    key = GLFW_KEY_UNKNOWN;
                     if (current_y <= step_y && current_h <= monitor_h ) {
                         new_y = 0;
                         new_height = current_h - step_y;
@@ -142,11 +145,12 @@ namespace Manager {
                         new_height = std::min(monitor_h, current_h + step_y);
                     }
                     if (new_height < step_y) {
-                        return;
+                        return key;
                     }
                     glfwSetWindowPos(wind, current_x, new_y);
                     glfwSetWindowSize(wind, current_w, new_height);
                 } else if (key == GLFW_KEY_DOWN) {
+                    key = GLFW_KEY_UNKNOWN;
                     if (current_y <= step_y && current_h <= monitor_h - step_y) {
                         new_y = 0;
                         new_height = std::min(current_h + step_y, monitor_h);
@@ -155,11 +159,12 @@ namespace Manager {
                         new_height = std::min(monitor_h - new_y, current_h + step_y);
                     }
                     if (new_height < step_y) {
-                        return;
+                        return key;
                     }
                     glfwSetWindowPos(wind, current_x, new_y);
                     glfwSetWindowSize(wind, current_w, new_height);
                 }
+                return key;
             }
         }
         if (captureText) {
@@ -168,7 +173,7 @@ namespace Manager {
                 processText = true;
                 shiftPress = false;
                 std::cout << "\n";
-                return;
+                return key;
             }
             if (!commandHistory.empty()) {
                 if (key == GLFW_KEY_UP && commandIndex > 0) {
@@ -176,22 +181,22 @@ namespace Manager {
                     inputText = commandHistory[commandIndex];
                     charIndex = inputText.size();
                     Term::clearLine();
-                    return;
+                    return key;
                 } else if (key == GLFW_KEY_DOWN && commandIndex < (int)commandHistory.size() - 1) {
                     commandIndex += 1;
                     inputText = commandHistory[commandIndex];
                     charIndex = inputText.size();
                     Term::clearLine();
-                    return;
+                    return key;
                 }
             }
 
             if (key == GLFW_KEY_LEFT) {
                 charIndex = (charIndex - 1 >= 0) ? charIndex - 1 : charIndex;
-                return;
+                return key;
             } else if (key == GLFW_KEY_RIGHT) {
                 charIndex = (charIndex < (int)inputText.size()) ? charIndex + 1 : charIndex;
-                return;
+                return key;
             }
 
             if (ctrlPress && key == GLFW_KEY_V) {
@@ -244,6 +249,7 @@ namespace Manager {
                 }
             }
         }
+        return key;
     }
 
     void GwPlot::highlightQname() { // todo make this more efficient
@@ -832,7 +838,10 @@ namespace Manager {
 
     void GwPlot::keyPress(GLFWwindow* wind, int key, int scancode, int action, int mods) {
         // decide if the input key is part of a command or a redraw request
-        registerKey(window, key, scancode, action, mods);
+        key = registerKey(window, key, scancode, action, mods);
+        if (key == GLFW_KEY_UNKNOWN) {
+            return;
+        }
         if (captureText) {
             glfwPostEmptyEvent();
             return;
@@ -1021,6 +1030,10 @@ namespace Manager {
                     }
                     redraw = true;
                     processed = true;
+                } else if (key == opts.find_alignments && !selectedAlign.empty()) {
+                    std::string qname = Utils::split(selectedAlign, '\t')[0];
+                    inputText = "find " + qname;
+                    commandProcessed();
                 }
             }
         } else {  // show::TILED

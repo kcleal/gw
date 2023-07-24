@@ -296,6 +296,7 @@ namespace Themes {
         print_screen = GLFW_KEY_PRINT_SCREEN;
         delete_labels = GLFW_KEY_DELETE;
         enter_interactive_mode = GLFW_KEY_ENTER;
+        find_alignments=GLFW_KEY_F;
 
 # if defined(_WIN32) || defined(_WIN64)
         editor = "notepad.exe";
@@ -392,6 +393,9 @@ namespace Themes {
 
         cycle_link_mode = key_table[myIni["interaction"]["cycle_link_mode"]];
         print_screen = key_table[myIni["interaction"]["print_screen"]];
+        if (myIni["interaction"].has("find_alignments")) {
+            find_alignments = key_table[myIni["interaction"]["find_alignments"]];
+        }
 
         number_str = myIni["labelling"]["number"];
         number = Utils::parseDimensions(number_str);
