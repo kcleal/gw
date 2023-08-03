@@ -23,6 +23,10 @@
 
 namespace Manager {
 
+    constexpr int NO_REGIONS = -1;
+    constexpr int REFERENCE_TRACK = -2;
+    constexpr int TRACK = -3;
+
     // keeps track of input commands
     int GwPlot::registerKey(GLFWwindow* wind, int key, int scancode, int action, int mods) {
 
@@ -1118,7 +1122,7 @@ namespace Manager {
 
     int GwPlot::getCollectionIdx(float x, float y) {
         if (y <= refSpace) {
-            return -2;  // reference
+            return REFERENCE_TRACK; //-2;  // reference
         } else if (!tracks.empty() && y >= refSpace + totalCovY + (trackY*(float)headers.size()) && y < (float)fb_height - refSpace) {
 			int index = -3;
 			float trackSpace = (float)fb_height - totalCovY - refSpace - refSpace - (trackY*(float)headers.size());
@@ -1131,12 +1135,12 @@ namespace Manager {
 			return index;  // track
 		}
         if (regions.empty()) {
-            return -1;
+            return NO_REGIONS; //-1;
         }
         int i = 0;
         if (bams.empty()) {
             i = (int)(x / ((float)fb_width / (float)regions.size()));
-            i = (i > (int)regions.size()) ? (int)regions.size() : i;
+            i = (i >= (int)regions.size()) ? (int)regions.size() - 1 : i;
             return i;
         } else if (bams.size() <= 1) {
             for (auto &cl: collections) {
@@ -1160,7 +1164,7 @@ namespace Manager {
                 i += 1;
             }
         }
-        return -1;
+        return NO_REGIONS; //-1;
     }
 
     void GwPlot::updateSlider(float xW) {
@@ -1233,9 +1237,9 @@ namespace Manager {
             }
 
             int idx = getCollectionIdx(xW, yW);
-            if (idx == -2 && action == GLFW_RELEASE) {
+            if (idx == REFERENCE_TRACK && action == GLFW_RELEASE) {
                 Term::printRefSeq(xW, collections);
-            } else if (idx <= -3 && action == GLFW_RELEASE) {
+            } else if (idx <= TRACK && action == GLFW_RELEASE) {
 	            float rS = ((float)fb_width / (float)regions.size());
 	            int tIdx = (int)((xW) / rS);
 	            if (tIdx < (int)regions.size()) {
@@ -1362,13 +1366,18 @@ namespace Manager {
                         redraw = true;
                     } else {
                         processed = true;
+                        redraw = true;
+                        if (bams.empty()) {
+                            return;
+                        }
                         for (auto &col : collections) {
                             if (col.regionIdx == regionSelection) {
                                 col.region = regions[regionSelection];
-                                HGW::appendReadsAndCoverage(col,  bams[col.bamIdx], headers[col.bamIdx], indexes[col.bamIdx], opts, (bool)opts.max_coverage, lt_last, &samMaxY, filters);
+                                HGW::appendReadsAndCoverage(col, bams[col.bamIdx], headers[col.bamIdx],
+                                                            indexes[col.bamIdx], opts, (bool) opts.max_coverage,
+                                                            lt_last, &samMaxY, filters);
                             }
                         }
-                        redraw = true;
                     }
                 }
                 clickedIdx = -1;
@@ -1494,8 +1503,11 @@ namespace Manager {
             n -= 3;
         }
         printRegionInfo();
+        if (bams.empty()) {
+            std::cout << "    " << s << std::flush;
+            return;
+        }
         std::string base_filename = bam_paths[cl.bamIdx].substr(bam_paths[cl.bamIdx].find_last_of("/\\") + 1);
-        std::cout << "    " << s << "    " << base_filename << std::flush;
     }
 
     void GwPlot::mousePos(GLFWwindow* wind, double xPos, double yPos) {
@@ -1583,7 +1595,7 @@ namespace Manager {
                     yPos *= (float) fb_height / (float) windowH;
                 }
                 int rs = getCollectionIdx((float)xPos, (float)yPos);
-	            if (rs <= -3) {  // print track info
+	            if (rs <= TRACK) {  // print track info
 		            float rgS = ((float)fb_width / (float)regions.size());
 		            int tIdx = (int)((xPos) / rgS);
 		            if (tIdx < (int)regions.size()) {
@@ -1599,7 +1611,7 @@ namespace Manager {
 		            }
 	            }
                 if (rs < 0) { // print reference info
-                    if (rs == -2) {
+                    if (rs == REFERENCE_TRACK) {
                         Term::updateRefGenomeSeq((float)xPos, collections);
                     }
                     return;
@@ -1676,7 +1688,6 @@ namespace Manager {
                     keyPress(wind, opts.scroll_left, 0, GLFW_PRESS, 0);
                 }
             }
-            
         } else if (std::fabs(yoffset) > std::fabs(xoffset) && 0.1 < std::fabs(yoffset)) {
             if (yoffset < 0) {
                 keyPress(wind, opts.scroll_right, 0, GLFW_PRESS, 0);
