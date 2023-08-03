@@ -39,6 +39,7 @@ std::mutex mtx;
 
 
 int main(int argc, char *argv[]) {
+
     Themes::IniOptions iopts;
     iopts.readIni();
     static const std::vector<std::string> img_fmt = { "png", "pdf" };
