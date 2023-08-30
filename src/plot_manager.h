@@ -27,6 +27,7 @@
 #include "drawing.h"
 #include "glfw_keys.h"
 #include "hts_funcs.h"
+#include "menu.h"
 #include "parser.h"
 #include "../include/robin_hood.h"
 #include "utils.h"
@@ -51,7 +52,8 @@ namespace Manager {
 
     enum Show {
         SINGLE,
-        TILED
+        TILED,
+        SETTINGS
     };
 
     class HiddenWindow {
@@ -63,7 +65,7 @@ namespace Manager {
     };
 
     /*
-     * Deals with managing genomic data
+     * Deals with managing all data and plotting
      */
     class GwPlot {
     public:
@@ -117,6 +119,7 @@ namespace Manager {
         GLFWwindow* backWindow;
 
         Show mode;
+        Show last_mode;
 
         std::string selectedAlign;
 
@@ -208,13 +211,15 @@ namespace Manager {
 
         void drawScreenNoBuffer(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
-        void drawOverlay(SkCanvas* canvas, GrDirectContext* sContext);
+        void drawOverlay(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
         void tileDrawingThread(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
         void tileLoadingThread();
 
         void drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
+
+//        void drawMenu(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
         int registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
 

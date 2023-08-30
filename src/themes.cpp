@@ -2,6 +2,7 @@
 // Created by kez on 01/08/22.
 //
 #include <filesystem>
+#include "menu.h"
 #include "themes.h"
 #include "glfw_keys.h"
 
@@ -250,7 +251,8 @@ namespace Themes {
     }
 
     IniOptions::IniOptions() {
-
+        menu_level = "";
+        menu_table = MAIN;
         theme_str = "dark";
         dimensions_str = "1366x768";
         dimensions = {1366, 768};
@@ -277,6 +279,7 @@ namespace Themes {
         max_coverage = 10000000;
         max_tlen = 2000;
 
+        editing_underway = false;
         no_show = false;
         log2_cov = false;
         tlen_yscale = false;
@@ -297,55 +300,12 @@ namespace Themes {
         delete_labels = GLFW_KEY_DELETE;
         enter_interactive_mode = GLFW_KEY_ENTER;
         find_alignments=GLFW_KEY_F;
-
-# if defined(_WIN32) || defined(_WIN64)
-        editor = "notepad.exe";
-#elif defined(__APPLE__)
-        editor = "open -a TextEdit";
-#else  // linux
-        editor = "vi";
-#endif
     }
 
-    void IniOptions::readIni() {
-
-# if defined(_WIN32) || defined(_WIN64)
-    const char *homedrive_c = std::getenv("HOMEDRIVE");
-	const char *homepath_c = std::getenv("HOMEPATH");
-    std::string homedrive(homedrive_c ? homedrive_c : "");
-	std::string homepath(homepath_c ? homepath_c : "");
-	std::string home = homedrive + homepath;
-#else
-
-        struct passwd *pw = getpwuid(getuid());
-        std::string home(pw->pw_dir);
-#endif
-        std::filesystem::path path;
-        std::filesystem::path homedir(home);
-        std::filesystem::path gwini(".gw.ini");
-        if (std::filesystem::exists(homedir / gwini)) {
-            path = homedir / gwini;
-        } else {
-            std::filesystem::path home_config(".config");
-            if (std::filesystem::exists(homedir / home_config / gwini)) {
-                path = homedir / home_config / gwini;
-            } else {
-                std::filesystem::path exe_path (Utils::getExecutableDir());
-                if (std::filesystem::exists(exe_path / gwini)) {
-                    path = exe_path / gwini;
-                } else {
-                    theme = Themes::DarkTheme();
-                    return;
-                }
-            }
-        }
-        ini_path = path.string();
+    void IniOptions::getOptionsFromIni() {
 
         robin_hood::unordered_map<std::string, int> key_table;
         Keys::getKeyTable(key_table);
-
-        mINI::INIFile file(ini_path);
-        file.read(myIni);
 
         theme_str = myIni["general"]["theme"];
         if (theme_str == "dark") {
@@ -411,9 +371,47 @@ namespace Themes {
         for (auto const& it2 : myIni["tracks"]) {
             tracks[it2.first].push_back(it2.second);
         }
-        if (myIni.has("text_editor") && !myIni["text_editor"]["editor"].empty()) {
-            editor = myIni["text_editor"]["editor"];
+    }
+
+    void IniOptions::readIni() {
+
+# if defined(_WIN32) || defined(_WIN64)
+    const char *homedrive_c = std::getenv("HOMEDRIVE");
+	const char *homepath_c = std::getenv("HOMEPATH");
+    std::string homedrive(homedrive_c ? homedrive_c : "");
+	std::string homepath(homepath_c ? homepath_c : "");
+	std::string home = homedrive + homepath;
+#else
+
+        struct passwd *pw = getpwuid(getuid());
+        std::string home(pw->pw_dir);
+#endif
+        std::filesystem::path path;
+        std::filesystem::path homedir(home);
+        std::filesystem::path gwini(".gw.ini");
+        if (std::filesystem::exists(homedir / gwini)) {
+            path = homedir / gwini;
+        } else {
+            std::filesystem::path home_config(".config");
+            if (std::filesystem::exists(homedir / home_config / gwini)) {
+                path = homedir / home_config / gwini;
+            } else {
+                std::filesystem::path exe_path (Utils::getExecutableDir());
+                if (std::filesystem::exists(exe_path / gwini)) {
+                    path = exe_path / gwini;
+                } else {
+                    theme = Themes::DarkTheme();
+                    return;
+                }
+            }
         }
+        ini_path = path.string();
+
+        mINI::INIFile file(ini_path);
+        file.read(myIni);
+
+        getOptionsFromIni();
+
     }
 
 

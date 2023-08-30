@@ -38,6 +38,23 @@ SkSurface *sSurface = nullptr;
 std::mutex mtx;
 
 
+void print_banner() {
+#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
+    std::cout << "\n"
+                     "  __________      __ \n"
+ " /  _____/  \\    /  \\\n"
+ "/   \\  __\\   \\/\\/   /\n"
+ "\\    \\_\\  \\        / \n"
+ " \\______  /\\__/\\  /  \n"
+ "        \\/      \\/  " << std::endl;
+#else
+    std::cout << "\n"
+                 "█▀▀ █ █ █\n"
+                 "█▄█ ▀▄▀▄▀" << std::endl;
+#endif
+}
+
+
 int main(int argc, char *argv[]) {
 
     Themes::IniOptions iopts;
@@ -189,11 +206,16 @@ int main(int argc, char *argv[]) {
     }
 
     auto genome = program.get<std::string>("genome");
+    bool show_banner = true;
 
     if (iopts.references.find(genome) != iopts.references.end()) {
+        iopts.genome_tag = genome;
         genome = iopts.references[genome];
     } else if (genome.empty() && !program.is_used("--images") && !iopts.ini_path.empty()) {
         // prompt for genome
+        print_banner();
+        show_banner = false;
+
         std::cerr << "\n Reference genomes listed in " << iopts.ini_path << std::endl << std::endl;
         int i = 0;
         std::vector<std::string> vals;
@@ -218,6 +240,7 @@ int main(int argc, char *argv[]) {
             std::terminate();
         }
         assert (Utils::is_file_exist(genome));
+        iopts.genome_tag = genome;
 
     } else if (!genome.empty() && !Utils::is_file_exist(genome)) {
         std::cerr << "Warning: Genome is not a local file" << std::endl;
@@ -388,19 +411,10 @@ int main(int argc, char *argv[]) {
     }
 
     if (!iopts.no_show) {  // plot something to screen
-#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
-        std::cout << "\n"
-                     "  __________      __ \n"
- " /  _____/  \\    /  \\\n"
- "/   \\  __\\   \\/\\/   /\n"
- "\\    \\_\\  \\        / \n"
- " \\______  /\\__/\\  /  \n"
- "        \\/      \\/  " << std::endl;
-#else
-        std::cout << "\n"
-                     "█▀▀ █ █ █\n"
-                     "█▄█ ▀▄▀▄▀" << std::endl;
-#endif
+
+        if (show_banner) {
+            print_banner();
+        }
         // initialize display screen
         plotter.init(iopts.dimensions.x, iopts.dimensions.y);
 

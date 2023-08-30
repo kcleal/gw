@@ -532,7 +532,6 @@ namespace HGW {
         int mem2 = 0;
         int32_t *ires = nullptr;
         float *fres = nullptr;
-//        std::string parsedVal;
         switch (parse) {
             case -1:
                 label = ""; break;
@@ -545,7 +544,6 @@ namespace HGW {
                     label = "PASS";
                 } else {
                     label = hdr->id[BCF_DT_ID][*v->d.flt].key;  // does this work for multiple filters?
-//                    std::cout << "Filter key and value " << *v->d.flt << " " << hdr->id[BCF_DT_ID][*v->d.flt].key << std::endl;
                 }
                 break;
             case 7:
@@ -801,7 +799,7 @@ namespace HGW {
         bcf_unpack(v, BCF_UN_INFO);
         chrom = bcf_hdr_id2name(hdr, v->rid);
         start = (int)v->pos;
-        stop = start + v->rlen;
+        stop = (int)start + v->rlen;
         rid = v->d.id;
         switch (bcf_get_variant_types(v)) {
             case VCF_SNP: vartype = "SNP"; break;
@@ -1003,32 +1001,32 @@ namespace HGW {
 //                    allBlocks_flat.push_back(b);
 //                }
 //            }
-//        } else if (kind == BED_IDX) {
-//            fp = hts_open(p.c_str(), "r");
-//            idx_t = tbx_index_load(p.c_str());
-//        } else if (kind == BCF_IDX) {
-//            fp = bcf_open(p.c_str(), "r");
-//            hdr = bcf_hdr_read(fp);
-//            idx_v = bcf_index_load(p.c_str());
-//            v = bcf_init1();
-//            v->max_unpack = BCF_UN_INFO;
-//        } else if (kind == VCF_IDX) {
-//            fp = bcf_open(path.c_str(), "r");
-//            hdr = bcf_hdr_read(fp);
-//            idx_t = tbx_index_load(path.c_str());
-//            v = bcf_init1();
-//            v->max_unpack = BCF_UN_INFO;
-//        } else {
-//            std::cerr << "Error: file stype not supported for " << path << std::endl;
-//            std::terminate();
-//        }
-//
-//        if (!sorted) {
-//            std::cout << "Unsorted file: sorting blocks from " << path << std::endl;
-//            for (auto &item : allBlocks) {
-//                std::sort(item.second.begin(), item.second.end(),
-//                          [](const Utils::TrackBlock &a, const Utils::TrackBlock &b)-> bool { return a.start < b.start || (a.start == b.start && a.end > b.end);});
-//            }
+        } else if (kind == BED_IDX) {
+            fp = hts_open(p.c_str(), "r");
+            idx_t = tbx_index_load(p.c_str());
+        } else if (kind == BCF_IDX) {
+            fp = bcf_open(p.c_str(), "r");
+            hdr = bcf_hdr_read(fp);
+            idx_v = bcf_index_load(p.c_str());
+            v = bcf_init1();
+            v->max_unpack = BCF_UN_INFO;
+        } else if (kind == VCF_IDX) {
+            fp = bcf_open(path.c_str(), "r");
+            hdr = bcf_hdr_read(fp);
+            idx_t = tbx_index_load(path.c_str());
+            v = bcf_init1();
+            v->max_unpack = BCF_UN_INFO;
+        } else {
+            std::cerr << "Error: file stype not supported for " << path << std::endl;
+            std::terminate();
+        }
+
+        if (!sorted) {
+            std::cout << "Unsorted file: sorting blocks from " << path << std::endl;
+            for (auto &item : allBlocks) {
+                std::sort(item.second.begin(), item.second.end(),
+                          [](const Utils::TrackBlock &a, const Utils::TrackBlock &b)-> bool { return a.start < b.start || (a.start == b.start && a.end > b.end);});
+            }
         }
     }
 
@@ -1113,7 +1111,7 @@ namespace HGW {
             }
             parseVcfRecord();
         } else if (kind == BED_IDX || kind == VCF_IDX) {
-            kstring_t str = {0,0,0};
+            kstring_t str = {0,0, nullptr};
             if (iter_q != nullptr) {
                 res = tbx_itr_next(fp, idx_t, iter_q, &str);
                 if (res < 0) {
@@ -1176,6 +1174,77 @@ namespace HGW {
         }
     }
 
+    bool GwTrack::findFeature(std::string &feature, Utils::Region &region) {
+        if (kind == BED_IDX) {
+            htsFile *fp_temp = hts_open(path.c_str(), "r");
+            kstring_t str = {0,0, nullptr};
+            int fileIndex_tmp = 0;
+            while (hts_getline(fp_temp, '\n', &str) >= 0) {
+                parts.clear();
+                parts = Utils::split(str.s, '\t');
+                if (parts.size() > 2) {
+                    rid = parts[3];
+                } else {
+                    rid = std::to_string(fileIndex_tmp);
+                    fileIndex_tmp += 1;
+                }
+                if (rid == feature) {
+                    region.chrom = parts[0];
+                    region.start = std::stoi(parts[1]);
+                    region.end = std::stoi(parts[2]);
+                    region.markerPos = region.start;
+                    region.markerPosEnd = region.end;
+                    return true;
+                }
+            }
+        } else if (kind == BCF_IDX || kind == VCF_IDX) {
+            htsFile *fp2 = bcf_open(path.c_str(), "r");
+            bcf_hdr_t *hdr2 = bcf_hdr_read(fp2);
+            bcf1_t *v2 = bcf_init1();
+            v2->max_unpack = BCF_UN_INFO;
+            while (bcf_read(fp2, hdr2, v2) >= 0) {
+                std::string id_temp;
+                bcf_unpack(v2, BCF_UN_INFO);
+                id_temp = v2->d.id;
+                if (id_temp == feature) {
+                    region.chrom = bcf_hdr_id2name(hdr2, v2->rid);
+                    region.start = (int)v2->pos;
+                    region.end = region.start + v2->rlen;
+                    region.markerPos = region.start;
+                    region.markerPosEnd = region.end;
+                    return true;
+                }
+            }
+        } else if (kind > BCF_IDX) {
+            if (!allBlocks_flat.empty()) {
+                for (auto &b : allBlocks_flat) {
+                    if (b.name == feature) {
+                        region.chrom = b.chrom;
+                        region.start = b.start;
+                        region.end = b.end;
+                        region.markerPos = b.start;
+                        region.markerPosEnd = b.end;
+                        return true;
+                    }
+                }
+            } else {
+                for (auto &chrom_blocks : allBlocks) {
+                    for (auto &b : chrom_blocks.second) {
+                        if (b.name == feature) {
+                            region.chrom = b.chrom;
+                            region.start = b.start;
+                            region.end = b.end;
+                            region.markerPos = b.start;
+                            region.markerPosEnd = b.end;
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     void GwTrack::printTargetRecord(std::string &id_str, std::string &chrm, int pos) {
         if (kind == BCF_IDX) {
             return print_BCF_IDX(idx_v, hdr, chrm, pos, fp, id_str, variantString);
@@ -1192,6 +1261,17 @@ namespace HGW {
 				return print_cached(allBlocks_flat, chrm, pos, true, variantString);
 			}
 		}
+    }
+
+    bool searchTracks(std::vector<GwTrack> &tracks, std::string &feature, Utils::Region &region) {
+        for (auto &track : tracks) {
+            if (track.findFeature(feature, region)) {
+                region.start = std::max(0, region.start - 100);
+                region.end = region.end + 100;
+                return true;
+            }
+        }
+        return false;
     }
 
     void saveVcf(VCFfile &input_vcf, std::string path, std::vector<Utils::Label> multiLabels) {

@@ -82,7 +82,7 @@ namespace Segs {
         void clear();
     };
 
-    void align_init(Align *self);
+    void align_init(Align *self) noexcept;
 
     void align_clear(Align *self);
 
@@ -90,7 +90,7 @@ namespace Segs {
 
     void resetCovStartEnd(ReadCollection &cl);
 
-    void addToCovArray(std::vector<int> &arr, Align &align, uint32_t begin, uint32_t end, uint32_t l_arr);
+    void addToCovArray(std::vector<int> &arr, Align &align, uint32_t begin, uint32_t end, uint32_t l_arr) noexcept;
 
     int findY(ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, Utils::Region *region, bool joinLeft);
 

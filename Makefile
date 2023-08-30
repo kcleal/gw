@@ -1,10 +1,12 @@
 TARGET = gw
 
-CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -O3 -DNDEBUG -pipe # -g
+CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -O3 -DNDEBUG -pipe -fsanitize=address -fno-omit-frame-pointer -fsanitize=undefined
 
 CPPFLAGS += -I./include -I./src -I.
 
 LDLIBS += -lskia -lm -ljpeg -lpng -lsvg -lhts -lfontconfig -lpthread
+
+LDFLAGS=-fsanitize=address -fsanitize=undefined
 
 # set system
 PLATFORM=
@@ -42,7 +44,7 @@ ifneq ($(PLATFORM), "Windows")
         LDFLAGS += -L $(wildcard $(SKIA)/out/Rel*)
     else ifeq ($(PLATFORM),"Darwin")
         CPPFLAGS += -I./lib/skia
-        LDFLAGS += -L./lib/skia/out/Release-x64
+        LDFLAGS += -L./lib/skia/out/Release-x64 -fsanitize=address
     else ifeq ($(PLATFORM),"Arm64")
         CPPFLAGS += -I./lib/skia
         LDFLAGS += -L./lib/skia/out/Release-arm64

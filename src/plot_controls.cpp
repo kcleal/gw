@@ -15,6 +15,7 @@
 #include "hts_funcs.h"
 #include "parser.h"
 #include "plot_manager.h"
+#include "menu.h"
 #include "segments.h"
 #include "../include/termcolor.h"
 #include "term_out.h"
@@ -23,9 +24,35 @@
 
 namespace Manager {
 
-    constexpr int NO_REGIONS = -1;
-    constexpr int REFERENCE_TRACK = -2;
-    constexpr int TRACK = -3;
+    enum PlotItem {
+        NO_REGIONS = -1,
+        REFERENCE_TRACK = -2,
+        TRACK = -3
+    };
+
+    enum Errors {
+        NONE,
+        CHROM_NOT_IN_REFERENCE,
+        FEATURE_NOT_IN_TRACKS,
+        BAD_REGION,
+        OPTION_NOT_UNDERSTOOD,
+        GENERIC
+    };
+
+    void error_report(int err) {
+        std::cerr << termcolor::red << "Error:" << termcolor::reset;
+        if (err == CHROM_NOT_IN_REFERENCE) {
+            std::cerr << " loci not understood\n";
+        } else if (err == FEATURE_NOT_IN_TRACKS) {
+            std::cerr << " loci not understood, or feature name not found in tracks\n";
+        } else if (err == BAD_REGION) {
+            std::cerr << " region not understood\n";
+        } else if (err == OPTION_NOT_UNDERSTOOD) {
+            std::cerr << " option not understood\n";
+        } else if (err == GENERIC) {
+            std::cerr << " command not understood / invalid loci or feature name\n";
+        }
+    }
 
     // keeps track of input commands
     int GwPlot::registerKey(GLFWwindow* wind, int key, int scancode, int action, int mods) {
@@ -89,6 +116,9 @@ namespace Manager {
         }
         if (!captureText) {
             if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
+                if (mode == SETTINGS) {
+                    return key;
+                }
                 std::cout << std::endl;
                 if (!commandHistory.empty()) {
                     inputText = commandHistory.back();
@@ -168,7 +198,18 @@ namespace Manager {
             }
         }
         if (captureText) {
-            if (key == GLFW_KEY_ENTER) {
+            if (key == GLFW_KEY_ESCAPE) {
+                captureText = false;
+                processText = false;
+                shiftPress = false;
+                if (mode == SETTINGS && opts.editing_underway) {
+                    opts.editing_underway = false;
+                } else {
+                    inputText = "";
+                    charIndex = 0;
+                }
+                return GLFW_KEY_UNKNOWN;
+            } else if (key == GLFW_KEY_ENTER) {
                 captureText = false;
                 processText = true;
                 shiftPress = false;
@@ -176,18 +217,20 @@ namespace Manager {
                 return key;
             }
             if (!commandHistory.empty()) {
-                if (key == GLFW_KEY_UP && commandIndex > 0) {
-                    commandIndex -= 1;
-                    inputText = commandHistory[commandIndex];
-                    charIndex = inputText.size();
-                    Term::clearLine();
-                    return key;
-                } else if (key == GLFW_KEY_DOWN && commandIndex < (int)commandHistory.size() - 1) {
-                    commandIndex += 1;
-                    inputText = commandHistory[commandIndex];
-                    charIndex = inputText.size();
-                    Term::clearLine();
-                    return key;
+                if (mode != SETTINGS) {
+                    if (key == GLFW_KEY_UP && commandIndex > 0) {
+                        commandIndex -= 1;
+                        inputText = commandHistory[commandIndex];
+                        charIndex = inputText.size();
+                        Term::clearLine();
+                        return key;
+                    } else if (key == GLFW_KEY_DOWN && commandIndex < (int)commandHistory.size() - 1) {
+                        commandIndex += 1;
+                        inputText = commandHistory[commandIndex];
+                        charIndex = inputText.size();
+                        Term::clearLine();
+                        return key;
+                    }
                 }
             }
 
@@ -267,11 +310,23 @@ namespace Manager {
             return false;
         }
         bool valid = false;
+        int reason = NONE;
         constexpr char delim = ' ';
         constexpr char delim_q = '\'';
 
-        commandHistory.push_back(inputText);
-        commandIndex = commandHistory.size();
+        if (mode != SETTINGS) {
+            commandHistory.push_back(inputText);
+            commandIndex = commandHistory.size();
+        } else {
+            if (opts.editing_underway) {
+                Menu::processTextEntry(opts, inputText);
+                imageCache.clear();
+                captureText = false;
+                inputText = "";
+                charIndex = 0;
+                return false;
+            }
+        }
 
         if (inputText == "q" || inputText == "quit") {
             throw CloseException();
@@ -318,17 +373,9 @@ namespace Manager {
             Parse::countExpression(collections, str, headers, bam_paths, bams.size(), regions.size());
             inputText = "";
             return true;
-        } else if (Utils::startsWith(inputText, "config")) {
-            std::cout << "Config ini path: " << opts.ini_path << std::endl;
-            std::string com = opts.editor + " " + opts.ini_path;
-            if (!opts.editor.empty()) {
-                FILE *fp = popen(com.c_str(), "w");
-                pclose(fp);
-//            opts.readIni();
-                std::cout << "Please restart GW to apply any changes\n";
-            } else {
-                std::cout << "No text editor set in .gw.ini, please open config ini manually\n";
-            }
+        } else if (inputText == "settings" ) {
+            last_mode = mode;
+            mode = Show::SETTINGS;
             redraw = true;
             processed = true;
             inputText = "";
@@ -511,13 +558,13 @@ namespace Manager {
             inputText = "";
             return true;
         } else if (inputText == "log2-cov") {
-            opts.log2_cov = (opts.log2_cov) ? false : true;
+            opts.log2_cov = !(opts.log2_cov);
             redraw = true;
             processed = true;
             inputText = "";
             return true;
         } else if (inputText == "low-mem") {
-            opts.low_mem = (opts.low_mem) ? false : true;
+            opts.low_mem = !(opts.low_mem);
             redraw = false;
             processed = true;
             inputText = "";
@@ -577,6 +624,7 @@ namespace Manager {
                 opts.theme = Themes::IgvTheme(); opts.theme.setAlphas(); valid = true; imageCache.clear(); opts.theme_str = "igv";
             } else {
                 valid = false;
+                reason = OPTION_NOT_UNDERSTOOD;
             }
         } else if (inputText == "tlen-y") {
             opts.tlen_yscale = !(opts.tlen_yscale);
@@ -590,39 +638,66 @@ namespace Manager {
                 split = Utils::split(inputText, delim);
             }
             if (split.size() > 1 && split.size() < 4) {
-                int index;
-                try {
-                    index = (split.size() == 3) ? std::stoi(split.back()) : 0;
-                } catch (...) {
-                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " index not understood\n";
-                    inputText = "";
-                    return true;
-                }
+                int index = regionSelection;
                 Utils::Region rgn;
                 try {
                     rgn = Utils::parseRegion(split[1]);
-                } catch (...) {
-                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " region not understood\n";
-                    inputText = "";
-                    return true;
-                }
-                if (regions.empty()) {
-                    regions.push_back(rgn);
-                    fetchRefSeq(regions.back());
-                    valid = true;
-                } else {
-                    if (index < (int)regions.size()) {
-                        rgn.markerPos = regions[index].markerPos;
-                        rgn.markerPosEnd = regions[index].markerPosEnd;
-                        regions[index] = rgn;
-                        fetchRefSeq(regions[index]);
-                        valid = true;
+                    int res = faidx_has_seq(fai, rgn.chrom.c_str());
+                    if (res <= 0) {
+                        valid = false;
+                        reason = CHROM_NOT_IN_REFERENCE;
                     } else {
-                        std::cerr << termcolor::red << "Error:" << termcolor::reset << " region index is out of range. Use 0-based indexing\n";
-                        inputText = "";
-                        return true;
+                        valid = true;
+                    }
+                } catch (...) {
+                    valid = false;
+                    reason = BAD_REGION;
+                }
+                if (valid) {
+                    if (mode != SINGLE) { mode = SINGLE; }
+                    if (regions.empty()) {
+                        regions.push_back(rgn);
+                        fetchRefSeq(regions.back());
+                    } else {
+                        if (index < (int)regions.size()) {
+                            if (regions[index].chrom == rgn.chrom) {
+                                rgn.markerPos = regions[index].markerPos;
+                                rgn.markerPosEnd = regions[index].markerPosEnd;
+                            }
+                            regions[index] = rgn;
+                            fetchRefSeq(regions[index]);
+                        }
+                    }
+                } else {  // search all tracks for matching name, slow but ok for small tracks
+                    if (!tracks.empty()) {
+                        bool res = HGW::searchTracks(tracks, split[1], rgn);
+                        if (res) {
+                            valid = true;
+                            if (mode != SINGLE) { mode = SINGLE; }
+                            if (regions.empty()) {
+                                regions.push_back(rgn);
+                                fetchRefSeq(regions.back());
+                            } else {
+                                if (index < (int) regions.size()) {
+                                    regions[index] = rgn;
+                                    fetchRefSeq(regions[index]);
+                                    valid = true;
+                                }
+                            }
+                        } else {
+                            reason = GENERIC;
+                            valid = false;
+                        }
                     }
                 }
+                if (valid) {
+                    redraw = true;
+                    processed = false;
+                } else {
+                    error_report(reason);
+                }
+                inputText = "";
+                return true;
             }
         } else if (Utils::startsWith(inputText, "grid")) {
             try {
@@ -633,6 +708,7 @@ namespace Manager {
                 valid = false;
             }
         } else if (Utils::startsWith(inputText, "add"))  {
+            if (mode != SINGLE) { mode = SINGLE; }
             std::vector<std::string> split = Utils::split(inputText, delim_q);
             if (split.size() == 1) {
                 split = Utils::split(inputText, delim);
@@ -785,36 +861,56 @@ namespace Manager {
 				valid = true;
 			} catch (...) {
 				valid = false;
+                reason = BAD_REGION;
 			}
 	        if (valid) {
 		        int res = faidx_has_seq(fai, rgn.chrom.c_str());
 		        if (res <= 0) {
-			        std::cerr << termcolor::red << "Error:" << termcolor::reset << " chromosome not found in header " << rgn.chrom << std::endl;
 			        valid = false;
+                    reason = GENERIC;
 		        }
 			}
 			if (valid) {
-				try {
-					if (regions.empty()) {
-						regions.push_back(rgn);
-						fetchRefSeq(regions.back());
-					} else {
+                if (mode != SINGLE) { mode = SINGLE; }
+                if (regions.empty()) {
+                    regions.push_back(rgn);
+                    fetchRefSeq(regions.back());
+                } else {
+                    if (regions[0].chrom == rgn.chrom) {
                         rgn.markerPos = regions[0].markerPos;
                         rgn.markerPosEnd = regions[0].markerPosEnd;
-						regions[0] = rgn;
-						fetchRefSeq(regions[0]);
-					}
-					valid = true;
-				} catch (...) {
-					valid = false;
-				}
-	        }
+                    }
+                    regions[0] = rgn;
+                    fetchRefSeq(regions[0]);
+                }
+	        } else {  // search all tracks for matching name, slow but ok for small tracks
+                if (!tracks.empty()) {
+                    bool res = HGW::searchTracks(tracks, inputText, rgn);
+                    if (res) {
+                        valid = true;
+                        reason = NONE;
+                        if (mode != SINGLE) { mode = SINGLE; }
+                        if (regions.empty()) {
+                            regions.push_back(rgn);
+                            fetchRefSeq(regions.back());
+                        } else {
+                            if (regionSelection  < (int) regions.size()) {
+                                regions[regionSelection] = rgn;
+                                fetchRefSeq(regions[regionSelection]);
+                            }
+                        }
+                    } else {
+                        valid = false;
+                        reason = GENERIC;
+                    }
+                }
+            }
         }
         if (valid) {
             redraw = true;
             processed = false;
         } else {
-            std::cerr << termcolor::red << "Error:" << termcolor::reset << " command not understood\n";
+            error_report(reason);
         }
         inputText = "";
         return true;
@@ -852,6 +948,12 @@ namespace Manager {
             }
         } catch (CloseException & mce) {
             glfwSetWindowShouldClose(wind, GLFW_TRUE);
+        }
+        if (mode != Show::SETTINGS && key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+            last_mode = mode;
+            mode = Show::SETTINGS;
+            opts.menu_table = Themes::MenuTable::MAIN;
+            return;
         }
         if (mode == Show::SINGLE) {
             if (regions.empty() || regionSelection < 0) {
@@ -1036,7 +1138,7 @@ namespace Manager {
                     commandProcessed();
                 }
             }
-        } else {  // show::TILED
+        } else if (mode == Show::TILED) {
             int bLen = opts.number.x * opts.number.y;
             if (action == GLFW_PRESS || action == GLFW_REPEAT) {
                 if (key == opts.scroll_right) {
@@ -1073,8 +1175,39 @@ namespace Manager {
                     }
                 }
             }
+        } else if (mode == Show::SETTINGS) {
+            if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+                if (opts.menu_table == Themes::MenuTable::MAIN) {
+                    mode = last_mode;
+                    redraw = true;
+                    processed = false;
+                    glfwPostEmptyEvent();
+                } else {
+                    opts.menu_table = Themes::MenuTable::MAIN;
+                    captureText = false;
+                    opts.editing_underway = false;
+                }
+            } else if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+                std::string current_genome = opts.genome_tag;
+                bool keep_alive = Menu::navigateMenu(opts, key, action, inputText, &charIndex, &captureText);
+                if (current_genome != opts.genome_tag) {
+                    reference = opts.myIni.get("genomes").get(opts.genome_tag);
+                    fai = fai_load(reference.c_str());
+                    for (auto &bm: bams) {
+                        hts_set_fai_filename(bm, reference.c_str());
+                    }
+                }
+                if (!keep_alive) {
+                    mode = last_mode;
+                    redraw = true;
+                    processed = false;
+                    glfwPostEmptyEvent();
+                }
+            }
+            return;
         }
-        if (key == opts.cycle_link_mode) {
+
+        if (key == opts.cycle_link_mode && action == GLFW_PRESS) {
             opts.link_op = (opts.link_op == 2) ? 0 : opts.link_op += 1;
             std::string lk = (opts.link_op > 0) ? ((opts.link_op == 1) ? "sv" : "all") : "none";
             std::cout << "\nLinking selection " << lk << std::endl;
@@ -1437,7 +1570,6 @@ namespace Manager {
                                 delete r.refSeq;
                             }
                             regions.clear();
-//                            regions.push_back(rgn);
                             regions = rt;
                             redraw = true;
                             processed = false;
@@ -1477,6 +1609,7 @@ namespace Manager {
                         xDrag = -1000000;
                         return;
                     }
+                    std::cerr << " blokc size " << multiRegions.size() << std::endl;
                     if (blockStart + i < (int)multiLabels.size()) {
                         multiLabels[blockStart + i].next();
                         multiLabels[blockStart + i].clicked = true;
@@ -1486,6 +1619,10 @@ namespace Manager {
                 }
                 xDrag = -1000000;
             }
+        }
+        else if (mode == Manager::SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+            Menu::menuSelect(opts);
+            redraw = true;
         }
     }
 
@@ -1626,14 +1763,7 @@ namespace Manager {
 		            return;
 	            }
                 updateCursorGenomePos(cl, (float)xPos);
-            } else {
-                int windowW, windowH;  // convert screen coords to frame buffer coords
-                glfwGetWindowSize(wind, &windowW, &windowH);
-                if (fb_width > windowW) {
-                    xPos *= (float) fb_width / (float) windowW;
-                    yPos *= (float) fb_height / (float) windowH;
-                }
-
+            } else if (mode == TILED) {
                 int i = 0;
                 for (auto &b: bboxes) {
                     if (xPos > b.xStart && xPos < b.xEnd && yPos > b.yStart && yPos < b.yEnd) {
@@ -1669,6 +1799,9 @@ namespace Manager {
                         std::cout << std::flush;
                     }
                 }
+            } else if (mode == SETTINGS) {
+                Menu::menuMousePos(opts, fonts, xPos, yPos, fb_height, fb_width);
+                redraw = true;
             }
         }
     }

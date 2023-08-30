@@ -131,10 +131,14 @@ namespace HGW {
         void open(std::string &p, bool add_to_dict);
         void fetch(const Utils::Region *rgn);
         void next();
+        bool findFeature(std::string &feature, Utils::Region &region);
         void parseVcfRecord(Utils::TrackBlock &b);
         void parseVcfRecord();
         void printTargetRecord(std::string &id_str, std::string &chrm, int pos);
     };
 
+    bool searchTracks(std::vector<GwTrack> &tracks, std::string &feature, Utils::Region &region);
+
     void saveVcf(VCFfile &input_vcf, std::string path, std::vector<Utils::Label> multiLabels);
+
 }

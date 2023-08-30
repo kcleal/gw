@@ -32,7 +32,7 @@ namespace Term {
         std::cout << termcolor::green << "edges                            " << termcolor::reset << "Toggle edges\n";
         std::cout << termcolor::green << "filter           expression      " << termcolor::reset << "Examples 'filter mapq > 0', 'filter ~flag & secondary'\n                                 'filter mapq >= 30 or seq-len > 100'\n";
         std::cout << termcolor::green << "find, f          qname?          " << termcolor::reset << "To find other alignments from selected read use 'find'\n                                 Or use 'find [QNAME]' to find target read'\n";
-        std::cout << termcolor::green << "goto             loci index?     " << termcolor::reset << "e.g. 'goto chr1:1-20000'. Use index if multiple \n                                 regions are open e.g. 'goto 'chr1 20000' 1'\n";
+        std::cout << termcolor::green << "goto             loci/feature    " << termcolor::reset << "e.g. 'goto chr1:1-20000'. 'goto hTERT' \n";
         std::cout << termcolor::green << "grid             width x height  " << termcolor::reset << "Set the grid size for --variant images 'grid 8x8' \n";
         std::cout << termcolor::green << "indel-length     int             " << termcolor::reset << "Label indels >= length\n";
         std::cout << termcolor::green << "insertions, ins                  " << termcolor::reset << "Toggle insertions\n";
@@ -70,13 +70,12 @@ namespace Term {
         std::cout << "resize window        " << termcolor::bright_yellow; std::cout << "SHIFT + ARROW_KEY" << "\n" << termcolor::reset;
         std::cout << "switch viewing mode  " << termcolor::bright_yellow; std::cout << "TAB" << "\n" << termcolor::reset;
 
-
         std::cout << "\n";
     }
 
     void manuals(std::string &s) {
         std::cout << "\nManual for command '" << s << "'\n";
-        std::cout << "--------------------"; for (auto &_ : s) std::cout << "-"; std::cout << "-\n\n";
+        std::cout << "--------------------"; for (int i=0; i<s.size(); ++i) std::cout << "-"; std::cout << "-\n\n";
         if (s == "[locus]" || s == "locus") {
             std::cout << "    Navigate to a genomic locus.\n        You can use chromosome names or chromosome coordinates.\n    Examples:\n        'chr1:1-20000', 'chr1', 'chr1:10000'\n\n";
         } else if (s == "add") {
@@ -113,7 +112,7 @@ namespace Term {
         } else if (s == "find" || s == "f") {
             std::cout << "    Find a read with name.\n        All alignments with the same name will be highlighted with a black border\n    Examples:\n        'find D00360:18:H8VC6ADXX:1:1107:5538:24033'\n\n";
         } else if (s == "goto") {
-            std::cout << "    Navigate to a locus.\n        This moves the left-most view. Or, you can use indexing to specify a region\n    Examples:\n        'goto chr1'   # this will move the left-most view\n        'goto chr1:20000 1'   # this will move the view at column index 1\n\n";
+            std::cout << "    Navigate to a locus or track feature.\n        This moves the current region to a new view point. You can specify a genome locus, or a feature name from one of the loaded tracks\n    Examples:\n        'goto chr1'   \n        'goto hTERT'   # this will search all tracks for an entry called 'hTERT' \n\n";
         } else if (s == "grid") {
             std::cout << "    Set the grid size.\n        Set the number of images displayed in a grid when using --variant option\n    Examples:\n        'grid 8x8'   # this will display 64 image tiles\n\n";
         } else if (s == "indel-length") {
@@ -176,7 +175,6 @@ namespace Term {
             std::cout << "    Set the y limit.\n        The y limit is the maximum depth shown on the drawing e.g. 'ylim 100'.\n\n";
         }
     }
-
     constexpr char basemap[] = {'.', 'A', 'C', '.', 'G', '.', '.', '.', 'T', '.', '.', '.', '.', '.', 'N', 'N', 'N'};
 
 

@@ -236,7 +236,7 @@ namespace Segs {
 //        }
 //    }
 
-    void align_init(Align *self) {
+    void align_init(Align *self) noexcept {
 //        auto start = std::chrono::high_resolution_clock::now();
 
         bam1_t *src = self->delegate;
@@ -412,7 +412,7 @@ namespace Segs {
         }
     }
 
-    void addToCovArray(std::vector<int> &arr, Align &align, uint32_t begin, uint32_t end, uint32_t l_arr) {
+    void addToCovArray(std::vector<int> &arr, Align &align, const uint32_t begin, const uint32_t end, const uint32_t l_arr) noexcept {
         size_t n_blocks = align.block_starts.size();
         for (size_t idx=0; idx < n_blocks; ++idx) {
             uint32_t block_s = align.block_starts[idx];

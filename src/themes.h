@@ -48,6 +48,17 @@
 
 namespace Themes {
 
+    enum MenuTable {
+        MAIN,
+        GENOMES,
+        TRACKS,
+        GENERAL,
+        VIEW_THRESHOLDS,
+        NAVIGATION,
+        INTERACTION,
+        LABELLING,
+        CONTROLS,
+    };
 
     constexpr float base_qual_alpha[11] = {51, 51, 51, 51, 51, 128, 128, 128, 128, 128, 255};
 
@@ -108,8 +119,11 @@ namespace Themes {
         mINI::INIStructure myIni;
         BaseTheme theme;
         Utils::Dims dimensions, number;
+        std::string genome_tag;
         std::string theme_str, fmt, parse_label, labels, link, dimensions_str, number_str, ini_path, outdir;
-        std::string editor;
+        std::string menu_level, control_level;
+        MenuTable menu_table;
+        bool editing_underway;
         int canvas_width, canvas_height;
         int indel_length, ylim, split_view_size, threads, pad, link_op, max_coverage, max_tlen;
         bool no_show, log2_cov, tlen_yscale, low_mem;
@@ -135,6 +149,8 @@ namespace Themes {
         robin_hood::unordered_map<std::string, std::vector<std::string>> tracks;
 
         void readIni();
+        void getOptionsFromIni();
+
     };
 
     class Fonts {

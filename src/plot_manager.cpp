@@ -27,6 +27,7 @@
 
 #include "drawing.h"
 #include "plot_manager.h"
+#include "menu.h"
 #include "segments.h"
 #include "../include/termcolor.h"
 #include "themes.h"
@@ -349,6 +350,8 @@ namespace Manager {
 
         std::cerr << "Type ':help' or ':h' for more info\n";
 
+//        std::cout << "\e[3;0;0t" << std::endl;
+
         setGlfwFrameBufferSize();
         fetchRefSeqs();
         opts.theme.setAlphas();
@@ -374,12 +377,12 @@ namespace Manager {
             if (redraw) {
                 if (mode == Show::SINGLE) {
                     drawScreen(sSurface->getCanvas(), sContext, sSurface);
-                } else {
+                } else if (mode == Show::TILED) {
                     drawTiles(sSurface->getCanvas(), sContext, sSurface);
                 }
             }
 
-            drawOverlay(sSurface->getCanvas(), sContext);
+            drawOverlay(sSurface->getCanvas(), sContext, sSurface);
 
             if (resizeTriggered && std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - resizeTimer) > 100ms) {
                 imageCache.clear();
@@ -617,44 +620,58 @@ namespace Manager {
         redraw = false;
     }
 
+    void GwPlot::drawOverlay(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
 
-    void GwPlot::drawOverlay(SkCanvas* canvas, GrDirectContext* sContext) {
-        if (!imageCacheQueue.empty()) {
-            while (imageCacheQueue.front().first != frameId) {
-                imageCacheQueue.pop_front();
+        if (mode == Show::SETTINGS) {
+            if (!imageCacheQueue.empty()) {
+                while (imageCacheQueue.front().first != frameId) {
+                    imageCacheQueue.pop_front();
+                }
+                canvas->drawImage(imageCacheQueue.back().second, 0, 0);
+                SkPaint bg = opts.theme.bgPaint;
+                bg.setAlpha(220);
+                canvas->drawPaint(bg);
             }
-            canvas->drawImage(imageCacheQueue.back().second, 0, 0);
-        }
-        if (regionSelectionTriggered && regions.size() > 1) {
-            SkRect rect{};
-            float step = fb_width / regions.size();
-            if (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - regionTimer) > 500ms) {
-                regionSelectionTriggered = false;
+            Menu::drawMenu(sSurface->getCanvas(), sContext, sSurface, opts, fonts, monitorScale, inputText, &charIndex);
+        } else {
+            if (!imageCacheQueue.empty()) {
+                while (imageCacheQueue.front().first != frameId) {
+                    imageCacheQueue.pop_front();
+                }
+                canvas->drawImage(imageCacheQueue.back().second, 0, 0);
             }
-            float height = (float)fb_height - gap - gap;
-            float y = gap;
-            SkPaint box{};
-            box.setColor(SK_ColorGRAY);
-            box.setStrokeWidth(monitorScale);
-            box.setAntiAlias(true);
-            box.setStyle(SkPaint::kStroke_Style);
-            rect.setXYWH((float)regionSelection * step + gap, y + gap, step - gap - gap, height);
-            canvas->drawRoundRect(rect, 5, 5, box);
+            if (regionSelectionTriggered && regions.size() > 1) {
+                SkRect rect{};
+                float step = (float)fb_width / (float)regions.size();
+                if (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - regionTimer) > 500ms) {
+                    regionSelectionTriggered = false;
+                }
+                float height = (float)fb_height - gap - gap;
+                float y = gap;
+                SkPaint box{};
+                box.setColor(SK_ColorGRAY);
+                box.setStrokeWidth(monitorScale);
+                box.setAntiAlias(true);
+                box.setStyle(SkPaint::kStroke_Style);
+                rect.setXYWH((float)regionSelection * step + gap, y + gap, step - gap - gap, height);
+                canvas->drawRoundRect(rect, 5, 5, box);
+            }
+            if (drawLine) {
+                double xposm, yposm;
+                glfwGetCursorPos(window, &xposm, &yposm);
+                int windowW, windowH;  // convert screen coords to frame buffer coords
+                glfwGetWindowSize(window, &windowW, &windowH);
+                if (fb_width > windowW) {
+                    xposm *= (float) fb_width / (float) windowW;
+                }
+                SkPath path;
+                path.moveTo(xposm, 0);
+                path.lineTo(xposm, fb_height);
+                canvas->drawPath(path, opts.theme.lcJoins);
+            }
         }
-        if (drawLine) {
-	        double xposm, yposm;
-	        glfwGetCursorPos(window, &xposm, &yposm);
-	        int windowW, windowH;  // convert screen coords to frame buffer coords
-	        glfwGetWindowSize(window, &windowW, &windowH);
-	        if (fb_width > windowW) {
-		        xposm *= (float) fb_width / (float) windowW;
-	        }
-			SkPath path;
-            path.moveTo(xposm, 0);
-            path.lineTo(xposm, fb_height);
-            canvas->drawPath(path, opts.theme.lcJoins);
-        }
-        if (captureText) {
+
+        if (captureText && !opts.editing_underway) {
             fonts.setFontSize(yScaling, monitorScale);
             SkRect rect{};
             float height_f = fonts.overlayHeight * 1.5;
@@ -664,6 +681,7 @@ namespace Manager {
                 float y = fb_height - (fb_height * 0.025);
                 float y2 = fb_height - (height_f * 2.25);
                 float yy = (y2 < y) ? y2 : y;
+                float to_cursor_width = fonts.overlay.measureText(inputText.substr(0, charIndex).c_str(), charIndex, SkTextEncoding::kUTF8);
                 SkPaint box{};
                 box.setColor(SK_ColorGRAY);
                 box.setStrokeWidth(monitorScale);
@@ -672,8 +690,11 @@ namespace Manager {
                 rect.setXYWH(x, yy, w, height_f);
                 canvas->drawRoundRect(rect, 5, 5, opts.theme.bgPaint);
                 canvas->drawRoundRect(rect, 5, 5, box);
-                std::string sText = inputText.substr(0, charIndex) + "|" + inputText.substr(charIndex, inputText.size());
-                sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(sText.c_str(), fonts.overlay);
+                SkPath path;
+                path.moveTo(x + 12 + to_cursor_width, yy + (fonts.overlayHeight * 0.2));
+                path.lineTo(x + 12 + to_cursor_width, yy + fonts.overlayHeight * 1.1);
+                canvas->drawPath(path, opts.theme.lcBright);
+                sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(inputText.c_str(), fonts.overlay);
                 canvas->drawTextBlob(blob, x + 12, yy + fonts.overlayHeight, opts.theme.tcDel);
             }
         }
