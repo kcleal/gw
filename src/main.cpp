@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> img_themes = { "igv", "dark" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
-    argparse::ArgumentParser program("gw", "0.8.3");
+    argparse::ArgumentParser program("gw", "0.9.0");
 
     program.add_argument("genome")
             .default_value(std::string{""}).append()
@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
                 abort();
             }).help("Image theme igv|dark");
     program.add_argument("--fmt")
-            .default_value(iopts.fmt)
+            .default_value("png")
             .action([](const std::string& value) {
                 if (std::find(img_fmt.begin(), img_fmt.end(), value) != img_fmt.end()) { return value;}
                 return std::string{ "png" };

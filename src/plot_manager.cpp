@@ -632,7 +632,7 @@ namespace Manager {
                 bg.setAlpha(220);
                 canvas->drawPaint(bg);
             }
-            Menu::drawMenu(sSurface->getCanvas(), sContext, sSurface, opts, fonts, monitorScale, inputText, &charIndex);
+            Menu::drawMenu(sSurface->getCanvas(), sContext, sSurface, opts, fonts, monitorScale, fb_height, inputText, &charIndex);
         } else {
             if (!imageCacheQueue.empty()) {
                 while (imageCacheQueue.front().first != frameId) {

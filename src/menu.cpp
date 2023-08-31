@@ -84,7 +84,7 @@ namespace Menu {
         return "";
     }
 
-    void drawMenu(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface, Themes::IniOptions &opts, Themes::Fonts &fonts, float monitorScale,
+    void drawMenu(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface, Themes::IniOptions &opts, Themes::Fonts &fonts, float monitorScale, float fb_height,
                   std::string &inputText, int *charIndex) {
         SkRect rect;
         SkPath path;
@@ -108,6 +108,9 @@ namespace Menu {
         tcMenu.setARGB(255, 255, 255, 255);
         tcMenu.setStyle(SkPaint::kStrokeAndFill_Style);
         tcMenu.setAntiAlias(true);
+
+        rect.setXYWH(0, fb_height - m_height, 20000, m_height);
+        canvas->drawRect(rect, opts.theme.bgPaint);
 
         rect.setXYWH(0, 0, m_width + v_gap, 20000);
         canvas->drawRect(rect, bg);
@@ -198,6 +201,9 @@ namespace Menu {
                 } else {
                     canvas->drawRect(rect, menuBg);
                 }
+                if (table_name == "genomes" && heading.first == opts.genome_tag) {
+                    canvas->drawCircle(x*4, y + (m_height/2), 4, tcMenu);
+                }
                 std::string h = "    " + heading.first;
                 sk_sp < SkTextBlob> txt = SkTextBlob::MakeFromString(h.c_str(), fonts.overlay);
                 canvas->drawTextBlob(txt.get(), x*2, y + pad, tcMenu);
@@ -227,6 +233,50 @@ namespace Menu {
                 y += m_height + v_gap;
             }
         }
+        // write tool tip
+        // opts.control_level = "";
+        //                opts.menu_level = keys[ik];
+        std::string tip;
+        if (opts.control_level.empty()) {
+            if (opts.menu_table == Themes::MenuTable::GENOMES) { tip = "Use ENTER key to select genome, or RIGHT_ARROW key to edit path"; }
+            else if (opts.menu_level == "theme") { tip = "Change the theme to one of [dark, igv]"; }
+            else if (opts.menu_level == "dimensions") { tip = "The starting dimensions in pixels of the gw window"; }
+            else if (opts.menu_level == "indel_length") { tip = "Indels with this length (or greater) will be labelled with text"; }
+            else if (opts.menu_level == "ylim") { tip = "The y-limit, or number of rows of reads in the image"; }
+            else if (opts.menu_level == "coverage") { tip = "Turn coverage on or off [true, false]"; }
+            else if (opts.menu_level == "log2_cov") { tip = "Change the y-scale of the coverage track to log2 [true, false]"; }
+            else if (opts.menu_level == "link") { tip = "Change which reads are linked [none, sv, all]"; }
+            else if (opts.menu_level == "split_view_size") { tip = "Structural variants greater than this size will be drawn in two windows "; }
+            else if (opts.menu_level == "threads") { tip = "The number of threads to use for file readings"; }
+            else if (opts.menu_level == "pad") { tip = "The number of bases to pad a region by"; }
+            else if (opts.menu_level == "scroll_speed") { tip = "The speed of scrolling, increase for faster speeds"; }
+            else if (opts.menu_level == "tabix_track_height") { tip = "The space taken up by tracks from tab separated files"; }
+            else if (opts.menu_level == "soft_clip") { tip = "The distance in base-pairs when soft-clips become visible"; }
+            else if (opts.menu_level == "small_indel") { tip = "The distance in base-pairs when small indels become visible"; }
+            else if (opts.menu_level == "snp") { tip = "The distance in base-pairs when snps become visible"; }
+            else if (opts.menu_level == "edge_highlights") { tip = "The distance in base-pairs when edge-highlights become visible"; }
+            else if (opts.menu_level == "scroll_right") { tip = "Keyboard key to use for scrolling right"; }
+            else if (opts.menu_level == "scroll_left") { tip = "Keyboard key to use for scrolling left"; }
+            else if (opts.menu_level == "scroll_down") { tip = "Keyboard key to use for scrolling down"; }
+            else if (opts.menu_level == "scroll_up") { tip = "Keyboard key to use for scrolling up"; }
+            else if (opts.menu_level == "zoom_in") { tip = "Keyboard key to use for zooming in"; }
+            else if (opts.menu_level == "zoom_out") { tip = "Keyboard key to use for zooming out"; }
+            else if (opts.menu_level == "cycle_link_mode") { tip = "Keyboard key to use for cycling link mode"; }
+            else if (opts.menu_level == "print_screen") { tip = "Keyboard key to use for printing screen"; }
+            else if (opts.menu_level == "find_alignments") { tip = "Keyboard key to use for highlighting all alignments from template"; }
+            else if (opts.menu_level == "number") { tip = "The number of images to show at one time"; }
+            else if (opts.menu_level == "parse_label") { tip = "Information to parse from vcf file"; }
+            else if (opts.menu_level == "labels") { tip = "Choice of labels to use"; }
+            else if (opts.menu_level == "delete_labels") { tip = "Keyboard key to remove all labels on screen"; }
+            else if (opts.menu_level == "delete_labels") { tip = "Keyboard key to switch to the interactive alignment-view mode"; }
+        } else {
+            if (opts.menu_level == "close") { tip = "Close settings"; }
+            else if (opts.menu_level == "back") { tip = "Go back to"; }
+            else if (opts.menu_level == "save") { tip = "Save changes to .gw.ini file"; }
+            else if (opts.menu_level == "add") { tip = "Add a new entry"; }
+            else if (opts.menu_level == "delete") { tip = "Delete the selected entry"; }
+        }
+
     }
 
     void menuMousePos(Themes::IniOptions &opts, Themes::Fonts &fonts, float xPos, float yPos, float fb_height, float fb_width) {
@@ -340,7 +390,7 @@ namespace Menu {
             }
             if (ik <= -1) {
                 opts.menu_level = "controls";
-                opts.control_level = Menu::availableButtonsStr(opts.menu_table)[0]; //"back";
+                opts.control_level = Menu::availableButtonsStr(opts.menu_table)[0];
             } else {
                 opts.control_level = "";
                 opts.menu_level = keys[ik];
@@ -489,7 +539,7 @@ namespace Menu {
 
     void applyBoolOption(Option &new_opt, Themes::IniOptions &opts) {
         std::unordered_map<std::string, bool> bool_keys;
-        bool_keys = { {"1", true}, {"true", true}, {"True", true}, {"0", false}, {"false", false}, {"False", false} };
+        bool_keys = { {"1", true}, {"true", true}, {"t", true}, {"True", true}, {"on", true}, {"0", false}, {"false", false}, {"f", false}, {"False", false}, {"off", false} };
         if (bool_keys.find(new_opt.value) == bool_keys.end()) {
             std::cerr << termcolor::red << "Error:" << termcolor::reset << " expected boolean (true/1 etc), instead of " << new_opt.value << std::endl;
             return;

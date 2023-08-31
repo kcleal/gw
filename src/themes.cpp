@@ -256,7 +256,6 @@ namespace Themes {
         theme_str = "dark";
         dimensions_str = "1366x768";
         dimensions = {1366, 768};
-        fmt = "png";
         link = "None";
         link_op = 0;
         number_str = "3x3";
@@ -315,7 +314,6 @@ namespace Themes {
         }
         dimensions_str = myIni["general"]["dimensions"];
         dimensions = Utils::parseDimensions(dimensions_str);
-        fmt = myIni["general"]["fmt"];
 
         std::string lnk = myIni["general"]["link"];
         if (lnk == "none") {

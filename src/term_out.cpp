@@ -75,7 +75,7 @@ namespace Term {
 
     void manuals(std::string &s) {
         std::cout << "\nManual for command '" << s << "'\n";
-        std::cout << "--------------------"; for (int i=0; i<s.size(); ++i) std::cout << "-"; std::cout << "-\n\n";
+        std::cout << "--------------------"; for (int i=0; i<(int)s.size(); ++i) std::cout << "-"; std::cout << "-\n\n";
         if (s == "[locus]" || s == "locus") {
             std::cout << "    Navigate to a genomic locus.\n        You can use chromosome names or chromosome coordinates.\n    Examples:\n        'chr1:1-20000', 'chr1', 'chr1:10000'\n\n";
         } else if (s == "add") {
