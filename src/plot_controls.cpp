@@ -321,10 +321,6 @@ namespace Manager {
             if (opts.editing_underway) {
                 Menu::processTextEntry(opts, inputText);
                 imageCache.clear();
-                captureText = false;
-                inputText = "";
-                charIndex = 0;
-                return false;
             }
         }
 
@@ -1176,16 +1172,19 @@ namespace Manager {
                 }
             }
         } else if (mode == Show::SETTINGS) {
-            if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-                if (opts.menu_table == Themes::MenuTable::MAIN) {
-                    mode = last_mode;
-                    redraw = true;
-                    processed = false;
-                    glfwPostEmptyEvent();
-                } else {
-                    opts.menu_table = Themes::MenuTable::MAIN;
-                    captureText = false;
-                    opts.editing_underway = false;
+            if (key == GLFW_KEY_ESCAPE) {
+                if (action == GLFW_PRESS) {
+                    if (opts.menu_table == Themes::MenuTable::MAIN) {
+                        mode = last_mode;
+                        redraw = true;
+                        processed = false;
+                        glfwPostEmptyEvent();
+                    } else {
+                        opts.menu_table = Themes::MenuTable::MAIN;
+                        captureText = false;
+                        opts.editing_underway = false;
+                        opts.menu_level = opts.previous_level;
+                    }
                 }
             } else if (action == GLFW_PRESS || action == GLFW_REPEAT) {
                 std::string current_genome = opts.genome_tag;
@@ -1197,6 +1196,9 @@ namespace Manager {
                     for (auto &bm: bams) {
                         hts_set_fai_filename(bm, reference.c_str());
                     }
+                    redraw = true;
+                    processed = false;
+                    glfwPostEmptyEvent();
                 }
                 if (!keep_alive) {
                     mode = last_mode;
@@ -1626,7 +1628,7 @@ namespace Manager {
             }
         }
         else if (mode == Manager::SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
-            Menu::menuSelect(opts);
+//            Menu::menuSelect(opts, true);
             redraw = true;
         }
     }

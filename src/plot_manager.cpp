@@ -621,8 +621,7 @@ namespace Manager {
         redraw = false;
     }
 
-    void GwPlot::drawOverlay(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
-
+    void GwPlot::drawOverlay(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface) {
         if (mode == Show::SETTINGS) {
             if (!imageCacheQueue.empty()) {
                 while (imageCacheQueue.front().first != frameId) {
@@ -698,6 +697,17 @@ namespace Manager {
                 sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(inputText.c_str(), fonts.overlay);
                 canvas->drawTextBlob(blob, x + 12, yy + fonts.overlayHeight, opts.theme.tcDel);
             }
+        }
+        if (bams.empty()) {
+            std::string dd_msg = "Drag and drop bam or cram files here";
+            float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
+            float txt_start = ((float)fb_width / 2) - (msg_width / 2);
+            sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(dd_msg.c_str(), fonts.overlay);
+            SkPaint tcMenu;
+            tcMenu.setARGB(255, 100, 100, 100);
+            tcMenu.setStyle(SkPaint::kStrokeAndFill_Style);
+            tcMenu.setAntiAlias(true);
+            canvas->drawTextBlob(blob.get(), txt_start, (float)fb_height / 2, tcMenu);
         }
         sContext->flush();
         glfwSwapBuffers(window);

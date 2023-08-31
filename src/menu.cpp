@@ -269,11 +269,19 @@ namespace Menu {
             else if (opts.menu_level == "delete_labels") { tip = "Keyboard key to remove all labels on screen"; }
             else if (opts.menu_level == "delete_labels") { tip = "Keyboard key to switch to the interactive alignment-view mode"; }
         } else {
-            if (opts.menu_level == "close") { tip = "Close settings"; }
-            else if (opts.menu_level == "back") { tip = "Go back to"; }
-            else if (opts.menu_level == "save") { tip = "Save changes to .gw.ini file"; }
-            else if (opts.menu_level == "add") { tip = "Add a new entry"; }
-            else if (opts.menu_level == "delete") { tip = "Delete the selected entry"; }
+            if (opts.control_level == "close") { tip = "Close settings"; }
+            else if (opts.control_level == "back") { tip = "Go back to"; }
+            else if (opts.control_level == "save") { tip = "Save changes to .gw.ini file"; }
+            else if (opts.control_level == "add") { tip = "Add a new entry"; }
+            else if (opts.control_level == "delete") { tip = "Delete the selected entry"; }
+        }
+        if (!tip.empty()) {
+            SkPaint tip_paint;
+            tip_paint.setARGB(255, 100, 100, 100);
+            tip_paint.setStyle(SkPaint::kStrokeAndFill_Style);
+            tcMenu.setAntiAlias(true);
+            sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(tip.c_str(), fonts.overlay);
+            canvas->drawTextBlob(blob.get(), m_width + v_gap + v_gap, m_height, tip_paint);
         }
 
     }
@@ -297,46 +305,81 @@ namespace Menu {
     }
 
     bool menuSelect(Themes::IniOptions &opts) {
-        opts.previous_level = opts.menu_level;
         if (opts.menu_level == "") {
-            opts.menu_table = Themes::MenuTable::MAIN; return true;
+            opts.menu_table = Themes::MenuTable::MAIN;
+            opts.previous_level = opts.menu_level;
+            opts.control_level = "close";
+            return true;
         } else if (opts.menu_level == "genomes") {
-            opts.menu_table = Themes::MenuTable::GENOMES; return true;
+            opts.menu_table = Themes::MenuTable::GENOMES;
+            opts.previous_level = opts.menu_level;
+            if (opts.myIni["genomes"].size() == 0) {
+                opts.menu_level = "";
+            } else {
+                opts.menu_level = opts.myIni["genomes"].begin()->first;
+            }
+            return true;
         } else if (opts.menu_level == "tracks") {
-            opts.menu_table = Themes::MenuTable::TRACKS; return true;
+            opts.menu_table = Themes::MenuTable::TRACKS;
+            opts.previous_level = opts.menu_level;
+            if (opts.myIni["tracks"].size() == 0) {
+                opts.menu_level = "";
+            } else {
+                opts.menu_level = opts.myIni["tracks"].begin()->first;
+            }
+            return true;
         } else if (opts.menu_level == "general") {
-            opts.menu_table = Themes::MenuTable::GENERAL; return true;
+            opts.menu_table = Themes::MenuTable::GENERAL;
+            opts.previous_level = opts.menu_level;
+            opts.menu_level = opts.myIni["general"].begin()->first;
+            return true;
         } else if (opts.menu_level == "view_thresholds") {
-            opts.menu_table = Themes::MenuTable::VIEW_THRESHOLDS; return true;
+            opts.menu_table = Themes::MenuTable::VIEW_THRESHOLDS;
+            opts.previous_level = opts.menu_level;
+            opts.menu_level = opts.myIni["view_thresholds"].begin()->first;
+            return true;
         } else if (opts.menu_level == "navigation") {
-            opts.menu_table = Themes::MenuTable::NAVIGATION; return true;
+            opts.menu_table = Themes::MenuTable::NAVIGATION;
+            opts.previous_level = opts.menu_level;
+            opts.menu_level = opts.myIni["navigation"].begin()->first;
+            return true;
         } else if (opts.menu_level == "interaction") {
-            opts.menu_table = Themes::MenuTable::INTERACTION; return true;
+            opts.menu_table = Themes::MenuTable::INTERACTION;
+            opts.previous_level = opts.menu_level;
+            opts.menu_level = opts.myIni["interaction"].begin()->first;
+            return true;
         } else if (opts.menu_level == "labelling") {
-            opts.menu_table = Themes::MenuTable::LABELLING; return true;
+            opts.menu_table = Themes::MenuTable::LABELLING;
+            opts.previous_level = opts.menu_level;
+            opts.menu_level = opts.myIni["labelling"].begin()->first;
+            return true;
         }
         //
         else if (opts.menu_level == "controls") {
             if (opts.control_level == "close") {
                 opts.menu_level = "";
                 opts.menu_table = Themes::MenuTable::MAIN;
+                opts.previous_level = opts.menu_level;
                 return false;
             } else if (opts.control_level == "back") {
                 opts.menu_level = "controls";
                 opts.control_level = "close";
                 opts.menu_table = Themes::MenuTable::MAIN;
+                opts.previous_level = opts.menu_level;
                 return true;
             } else if (opts.control_level == "save") {
                 opts.menu_level = "";
                 opts.control_level = "close";
                 opts.menu_table = Themes::MenuTable::MAIN;
-                std::cout << "Saved .gw.ini to " << opts.ini_path << std::endl;
+                opts.previous_level = opts.menu_level;
                 mINI::INIFile file(opts.ini_path);
                 file.write(opts.myIni);
+                std::cout << "Saved .gw.ini to " << opts.ini_path << std::endl;
                 return false;
             } else if (opts.control_level == "delete") {
                 opts.menu_level = "";
                 opts.control_level = "close";
+                opts.previous_level = opts.menu_level;
                 opts.myIni["genomes"].remove(opts.genome_tag);
                 warnRestart();
                 return true;
@@ -419,11 +462,10 @@ namespace Menu {
             }
 
         } else if (action == GLFW_PRESS) {
-            if (!opts.editing_underway && (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER)) {
+            if (!opts.editing_underway && (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) && opts.menu_table == Themes::MenuTable::GENOMES) {
                 opts.genome_tag = opts.menu_level;
-                std::cout << "\nSelected " << opts.genome_tag << ": " << opts.myIni["genomes"][opts.genome_tag] << std::endl;
+                std::cout << "\nSelected " << termcolor::bold << opts.genome_tag << termcolor::reset << " - " << opts.myIni["genomes"][opts.genome_tag] << std::endl;
                 return true;  // force right key for editing, enter is reserved for selecting
-
             }
             else if (key == GLFW_KEY_RIGHT || key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
                 if (opts.editing_underway) {
@@ -440,11 +482,9 @@ namespace Menu {
                 }
             } else if (opts.menu_table == Themes::MenuTable::CONTROLS && key == GLFW_KEY_ESCAPE) {
                 opts.menu_table = Themes::MenuTable::MAIN;
-//                opts.menu_level = "";
                 opts.menu_level = opts.previous_level;
             } else if (opts.menu_table != Themes::MenuTable::MAIN && (key == GLFW_KEY_LEFT || key == GLFW_KEY_ESCAPE)) {
                 opts.menu_table = Themes::MenuTable::MAIN;
-//                opts.menu_level = "";
                 opts.menu_level = opts.previous_level;
             }
         }
