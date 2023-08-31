@@ -318,15 +318,15 @@ namespace Themes {
         dimensions = Utils::parseDimensions(dimensions_str);
 
         std::string lnk = myIni["general"]["link"];
+        link_op = 0;
         if (lnk == "none") {
-            link_op = 0;
         } else if (lnk == "sv") {
             link_op = 1;
         } else if (lnk == "all") {
             link_op = 2;
         } else {
             std::cerr << "Link type not known [none/sv/all] " << lnk << std::endl;
-            std::terminate();
+            std::exit(-1);
         }
         link = myIni["general"]["link"];
 

@@ -56,7 +56,7 @@ namespace Menu {
     }
 
     std::vector<std::string> mainHeadings() {
-        return {"genomes", "tracks", "general", "view_thresholds", "navigation", "interaction", "labelling"};
+        return {"general", "genomes", "interaction", "labelling", "navigation", "tracks", "view_thresholds"};
     }
 
     std::vector<std::string> availableButtonsStr(Themes::MenuTable t) {
@@ -195,6 +195,7 @@ namespace Menu {
             canvas->drawTextBlob(txt.get(), x*2, y, tcMenu);
             y += pad + v_gap;
             for (auto & heading : opts.myIni[table_name]) {
+                if (heading.first == "fmt" || heading.first == "miny") { continue; }  // obsolete
                 rect.setXYWH(x, y, m_width, m_height);
                 if (opts.menu_level == heading.first) {
                     canvas->drawRect(rect, opts.theme.fcDup);
@@ -234,8 +235,6 @@ namespace Menu {
             }
         }
         // write tool tip
-        // opts.control_level = "";
-        //                opts.menu_level = keys[ik];
         std::string tip;
         if (opts.control_level.empty()) {
             if (opts.menu_table == Themes::MenuTable::GENOMES) { tip = "Use ENTER key to select genome, or RIGHT_ARROW key to edit path"; }
@@ -298,6 +297,7 @@ namespace Menu {
     }
 
     bool menuSelect(Themes::IniOptions &opts) {
+        opts.previous_level = opts.menu_level;
         if (opts.menu_level == "") {
             opts.menu_table = Themes::MenuTable::MAIN; return true;
         } else if (opts.menu_level == "genomes") {
@@ -361,10 +361,11 @@ namespace Menu {
             std::cerr << termcolor::red << "Error:" << termcolor::reset << " .gw.ini file could not be read. Please create one in your home directory, in your .config directory, or in the same folder as the gw executable" << std::endl;
             return false;
         }
+        int ik{};
         if (key == GLFW_KEY_DOWN || key == GLFW_KEY_UP) {
             std::vector<std::string> keys;
             int current_i = 0;
-            int ik = -1;
+            ik = -1;
             if (opts.menu_table == Themes::MenuTable::MAIN) {
                 for (auto &ini_key: mainHeadings()) {
                     keys.push_back(ini_key);
@@ -376,6 +377,7 @@ namespace Menu {
             } else {
                 std::string table_name = getMenuKey(opts.menu_table);
                 for (auto &ini_key: opts.myIni[table_name]) {
+                    if (ini_key.first == "fmt" || ini_key.first == "miny") { continue; }  // obsolete
                     keys.push_back(ini_key.first);
                     if (opts.menu_level == keys.back()) {
                         ik = current_i;
@@ -386,7 +388,7 @@ namespace Menu {
             if (key == GLFW_KEY_DOWN) {
                 ik = (ik >= (int) keys.size() - 1) ? (int) keys.size() - 1 : std::max(0, ik + 1);
             } else {
-                ik = (ik <= -1) ? -1 : ik -= 1;
+                ik = std::max(-1, ik - 1);
             }
             if (ik <= -1) {
                 opts.menu_level = "controls";
@@ -417,7 +419,7 @@ namespace Menu {
             }
 
         } else if (action == GLFW_PRESS) {
-            if (!opts.editing_underway && Themes::MenuTable::GENOMES && (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER)) {
+            if (!opts.editing_underway && (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER)) {
                 opts.genome_tag = opts.menu_level;
                 std::cout << "\nSelected " << opts.genome_tag << ": " << opts.myIni["genomes"][opts.genome_tag] << std::endl;
                 return true;  // force right key for editing, enter is reserved for selecting
@@ -438,10 +440,12 @@ namespace Menu {
                 }
             } else if (opts.menu_table == Themes::MenuTable::CONTROLS && key == GLFW_KEY_ESCAPE) {
                 opts.menu_table = Themes::MenuTable::MAIN;
-                opts.menu_level = "";
+//                opts.menu_level = "";
+                opts.menu_level = opts.previous_level;
             } else if (opts.menu_table != Themes::MenuTable::MAIN && (key == GLFW_KEY_LEFT || key == GLFW_KEY_ESCAPE)) {
                 opts.menu_table = Themes::MenuTable::MAIN;
-                opts.menu_level = "";
+//                opts.menu_level = "";
+                opts.menu_level = opts.previous_level;
             }
         }
         return true;
@@ -516,6 +520,7 @@ namespace Menu {
             else if (new_opt.name == "edge_highlights") { opts.edge_highlights = v; }
             else { return; }
             opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
+            std::cerr << " ylim " << opts.ylim << std::endl;
         }
     }
 
@@ -527,7 +532,7 @@ namespace Menu {
             std::cerr << termcolor::red << "Error:" << termcolor::reset << " expected float number, instead of " << new_opt.value << std::endl;
             return;
         }
-        if (new_opt.name == "scroll_spped") { opts.scroll_speed = v; }
+        if (new_opt.name == "scroll_speed") { opts.scroll_speed = v; }
         else if (new_opt.name == "tabix_track_height") { opts.tab_track_height = v; }
         else { return; }
         opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
@@ -614,7 +619,7 @@ namespace Menu {
                 opts.dimensions = dims;
                 warnRestart();
             }
-        } catch (std::runtime_error) {
+        } catch (...) {
             std::cerr << termcolor::red << "Error:" << termcolor::reset << " dimensions not understood" << std::endl;
         }
     }

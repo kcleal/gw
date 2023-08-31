@@ -1190,6 +1190,7 @@ namespace Manager {
             } else if (action == GLFW_PRESS || action == GLFW_REPEAT) {
                 std::string current_genome = opts.genome_tag;
                 bool keep_alive = Menu::navigateMenu(opts, key, action, inputText, &charIndex, &captureText);
+                samMaxY = opts.ylim;
                 if (current_genome != opts.genome_tag) {
                     reference = opts.myIni.get("genomes").get(opts.genome_tag);
                     fai = fai_load(reference.c_str());
@@ -1208,7 +1209,11 @@ namespace Manager {
         }
 
         if (key == opts.cycle_link_mode && action == GLFW_PRESS) {
-            opts.link_op = (opts.link_op == 2) ? 0 : opts.link_op += 1;
+            if (opts.link_op == 2) {
+                opts.link_op = 0;
+            } else {
+                opts.link_op += 1;
+            }
             std::string lk = (opts.link_op > 0) ? ((opts.link_op == 1) ? "sv" : "all") : "none";
             std::cout << "\nLinking selection " << lk << std::endl;
             imageCache.clear();

@@ -43,9 +43,7 @@ namespace Drawing {
                      SkCanvas *canvas, size_t nregions, size_t nbams, float trackY, float covY);
 
     void drawLabel(const Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts,
-                   //robin_hood::unordered_set<std::string> &seenLabels,
-                   ankerl::unordered_dense::set<std::string> &seenLabels,
-                   std::vector<std::string> &sortedLabels);
+                   const ankerl::unordered_dense::set<std::string> &seenLabels, const std::vector<std::string> &sortedLabels);
 
     void drawTracks(Themes::IniOptions &opts, float fb_width, float fb_height,
                     SkCanvas *canvas, float totalTabixY, float tabixY, std::vector<HGW::GwTrack> &tracks,

@@ -120,7 +120,7 @@ namespace Themes {
         Utils::Dims dimensions, number;
         std::string genome_tag;
         std::string theme_str, parse_label, labels, link, dimensions_str, number_str, ini_path, outdir;
-        std::string menu_level, control_level;
+        std::string menu_level, control_level, previous_level;
         MenuTable menu_table;
         bool editing_underway;
         int canvas_width, canvas_height;

@@ -949,9 +949,7 @@ namespace Drawing {
     }
 
     void drawLabel(const Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts,
-//                   robin_hood::unordered_set<std::string> &seenLabels,
-                   const ankerl::unordered_dense::set<std::string> &seenLabels,
-                   const std::vector<std::string> &srtLabels) {
+                   const ankerl::unordered_dense::set<std::string> &seenLabels, const std::vector<std::string> &srtLabels) {
 
         float pad = 2;
         std::string cur = label.current();
