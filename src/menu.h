@@ -21,7 +21,7 @@
 #include "hts_funcs.h"
 #include "plot_manager.h"
 #include "parser.h"
-#include "../include/robin_hood.h"
+#include "../include/unordered_dense.h"
 #include "utils.h"
 #include "segments.h"
 #include "themes.h"

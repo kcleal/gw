@@ -13,7 +13,6 @@
 #include <stdexcept>
 #include <sstream>
 #include <string>
-#include <curses.h>
 
 #include "../include/unordered_dense.h"
 #include "utils.h"
@@ -409,7 +408,10 @@ namespace Utils {
     }
 
     void openLabels(std::string path, ankerl::unordered_dense::map< std::string, Utils::Label> &label_dict,
-                    std::vector<std::string> &inputLabels, robin_hood::unordered_set<std::string> &seenLabels) {
+                    std::vector<std::string> &inputLabels,
+                    ankerl::unordered_dense::set<std::string> &seenLabels
+//                    robin_hood::unordered_set<std::string> &seenLabels
+                    ) {
         std::ifstream f;
         std::string s;
         std::string savedDate;

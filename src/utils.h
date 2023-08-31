@@ -8,7 +8,6 @@
 #include <string>
 #include <vector>
 #include "../include/unordered_dense.h"
-#include "../include/robin_hood.h"
 
 #include "htslib/faidx.h"
 
@@ -102,7 +101,10 @@ namespace Utils {
     void saveLabels(std::vector<Utils::Label> &multiLabels, std::string path);
 
     void openLabels(std::string path, ankerl::unordered_dense::map< std::string, Utils::Label> &label_dict,
-                    std::vector<std::string> &inputLabels, robin_hood::unordered_set<std::string> &seenLabels);
+                    std::vector<std::string> &inputLabels,
+                    ankerl::unordered_dense::set<std::string> &seenLabels
+//                    robin_hood::unordered_set<std::string> &seenLabels
+                    );
 
     std::string getSize(long num);
 

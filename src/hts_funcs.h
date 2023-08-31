@@ -15,7 +15,7 @@
 #include "htslib/tbx.h"
 
 #include "parser.h"
-#include "../include/robin_hood.h"
+#include "../include/unordered_dense.h"
 #include "segments.h"
 #include "themes.h"
 
@@ -57,7 +57,8 @@ namespace HGW {
         FType kind;
         std::string path;
         std::string chrom, chrom2, rid, vartype, label, tag;
-        robin_hood::unordered_set<std::string> *seenLabels;
+//        robin_hood::unordered_set<std::string> *seenLabels;
+        ankerl::unordered_dense::set<std::string> *seenLabels;
         int parse;
         int info_field_type;
         const char *label_to_parse;

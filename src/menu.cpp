@@ -31,7 +31,7 @@
 #include "plot_manager.h"
 #include "segments.h"
 #include "../include/ini.h"
-#include "../include/robin_hood.h"
+#include "../include/unordered_dense.h"
 #include "../include/termcolor.h"
 #include "themes.h"
 #include "utils.h"
@@ -448,7 +448,7 @@ namespace Menu {
     }
 
     enum OptionKind {
-        String, ThemeOption, LinkOption, FmtOption, Bool, Int, Float, IntByInt, Path, KeyboardKey
+        String, ThemeOption, LinkOption, Bool, Int, Float, IntByInt, Path, KeyboardKey
     };
 
     class Option {
@@ -465,8 +465,6 @@ namespace Menu {
                 choices.insert(choices.end(), {"dark", "igv"});
             } else if (kind == LinkOption) {
                 choices.insert(choices.end(), {"none", "sv", "all"});
-            }  else if (kind == FmtOption) {
-                choices.insert(choices.end(), {"png", "pdf"});
             }
         }
     };
@@ -493,8 +491,6 @@ namespace Menu {
             return Option(name, ThemeOption, value, mt);
         } else if (name == "link") {
             return Option(name, LinkOption, value, mt);
-        } else if (name == "fmt") {
-            return Option(name, FmtOption, value, mt);
         } else if (name == "dimensions" || name == "number") {
             return Option(name, IntByInt, value, mt);
         } else {
@@ -552,7 +548,8 @@ namespace Menu {
     }
 
     void applyKeyboardKeyOption(Option &new_opt, Themes::IniOptions &opts) {
-        robin_hood::unordered_map<std::string, int> keys;
+        ankerl::unordered_dense::map<std::string, int> keys;
+//        robin_hood::unordered_map<std::string, int> keys;
         Keys::getKeyTable(keys);
         if (keys.find(new_opt.value) == keys.end()) {
             std::cerr << termcolor::red << "Error:" << termcolor::reset << " key not available." << std::endl;
@@ -605,15 +602,6 @@ namespace Menu {
         opts.link = new_opt.value;
     }
 
-    void applyFmtOption(Option &new_opt, Themes::IniOptions &opts) {
-        if (new_opt.value != "png" && new_opt.value != "pdf") {
-            std::cerr << termcolor::red << "Error:" << termcolor::reset << " fmt must be one of (png, pdf)" << std::endl;
-            return;
-        }
-        opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
-        opts.fmt = new_opt.value;
-    }
-
     void applyIntByIntOption(Option &new_opt, Themes::IniOptions &opts) {
         try {
             Utils::Dims dims = Utils::parseDimensions(new_opt.value);
@@ -662,7 +650,6 @@ namespace Menu {
             case (KeyboardKey) : applyKeyboardKeyOption(new_opt, opts); break;
             case (ThemeOption) : applyThemeOption(new_opt, opts); break;
             case (LinkOption) : applyLinkOption(new_opt, opts); break;
-            case (FmtOption) : applyFmtOption(new_opt, opts); break;
             case (IntByInt) : applyIntByIntOption(new_opt, opts); break;
             case (Path) : applyPathOption(new_opt, opts); break;
             case (String) :  applyStringOption(new_opt, opts); break;

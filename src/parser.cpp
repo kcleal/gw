@@ -7,6 +7,7 @@
 #include <string>
 #include <regex>
 #include <htslib/sam.h>
+#include "../include/unordered_dense.h"
 #include "../include/termcolor.h"
 #include "utils.h"
 #include "parser.h"

@@ -13,6 +13,7 @@
 #include "hts_funcs.h"
 #include "plot_manager.h"
 #include "segments.h"
+#include "../include/unordered_dense.h"
 #include "../include/termcolor.h"
 #include "term_out.h"
 #include "themes.h"

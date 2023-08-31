@@ -39,7 +39,6 @@
 #include "include/core/SkFont.h"
 #include "include/core/SkTextBlob.h"
 
-#include "../include/robin_hood.h"
 #include "../include/argparse.h"
 #include "glob.h"
 #include "../include/ini.h"
@@ -145,8 +144,10 @@ namespace Themes {
         int soft_clip_threshold, small_indel_threshold, snp_threshold;
         int edge_highlights;
 
-        robin_hood::unordered_map<std::string, std::string> references;
-        robin_hood::unordered_map<std::string, std::vector<std::string>> tracks;
+        ankerl::unordered_dense::map<std::string, std::string> references;
+//        robin_hood::unordered_map<std::string, std::string> references;
+        ankerl::unordered_dense::map<std::string, std::vector<std::string>> tracks;
+//        robin_hood::unordered_map<std::string, std::vector<std::string>> tracks;
 
         void readIni();
         void getOptionsFromIni();

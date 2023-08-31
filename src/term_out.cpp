@@ -13,6 +13,7 @@
 #include "hts_funcs.h"
 #include "plot_manager.h"
 #include "segments.h"
+#include "../include/unordered_dense.h"
 #include "../include/termcolor.h"
 #include "term_out.h"
 #include "themes.h"
@@ -477,7 +478,8 @@ namespace Term {
     }
 
     void printKeyFromValue(int v) {
-        robin_hood::unordered_map<std::string, int> key_table;
+        ankerl::unordered_dense::map<std::string, int> key_table;
+//        robin_hood::unordered_map<std::string, int> key_table;
         Keys::getKeyTable(key_table);
         for (auto &p: key_table) {
             if (p.second == v) {

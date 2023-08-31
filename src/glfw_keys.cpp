@@ -5,12 +5,11 @@
 #include <cstring>
 #include <string>
 #include <GLFW/glfw3.h>
-//#include <unordered_map>
-#include "../include/robin_hood.h"
+#include "../include/unordered_dense.h"
 
 namespace Keys {
 
-    void getKeyTable(robin_hood::unordered_map<std::string, int>& kt) {
+    void getKeyTable(ankerl::unordered_dense::map<std::string, int>& kt) {
         kt["SPACE"] = GLFW_KEY_SPACE;
         kt["APOSTROPHE"] = GLFW_KEY_APOSTROPHE;
         kt["COMMA"] = GLFW_KEY_COMMA;

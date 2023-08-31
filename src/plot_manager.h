@@ -29,7 +29,6 @@
 #include "hts_funcs.h"
 #include "menu.h"
 #include "parser.h"
-#include "../include/robin_hood.h"
 #include "utils.h"
 #include "segments.h"
 #include "themes.h"
@@ -109,7 +108,7 @@ namespace Manager {
 //        std::deque<sk_sp<SkImage>> imageCacheQueue;
         std::deque< std::pair<long, sk_sp<SkImage> > > imageCacheQueue;
 
-        robin_hood::unordered_set<std::string> seenLabels;
+        ankerl::unordered_dense::set<std::string> seenLabels;
 
         Themes::IniOptions opts;
         Themes::Fonts fonts;

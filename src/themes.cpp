@@ -5,6 +5,7 @@
 #include "menu.h"
 #include "themes.h"
 #include "glfw_keys.h"
+#include "../include/unordered_dense.h"
 
 namespace Themes {
 
@@ -303,7 +304,8 @@ namespace Themes {
 
     void IniOptions::getOptionsFromIni() {
 
-        robin_hood::unordered_map<std::string, int> key_table;
+        ankerl::unordered_dense::map<std::string, int> key_table;
+//        robin_hood::unordered_map<std::string, int> key_table;
         Keys::getKeyTable(key_table);
 
         theme_str = myIni["general"]["theme"];

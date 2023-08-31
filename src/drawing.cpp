@@ -20,7 +20,7 @@
 
 #include "htslib/sam.h"
 #include "../include/BS_thread_pool.h"
-#include "../include/robin_hood.h"
+#include "../include/unordered_dense.h"
 #include "hts_funcs.h"
 #include "drawing.h"
 
@@ -949,7 +949,9 @@ namespace Drawing {
     }
 
     void drawLabel(const Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts,
-                   robin_hood::unordered_set<std::string> &seenLabels, std::vector<std::string> &srtLabels) {
+//                   robin_hood::unordered_set<std::string> &seenLabels,
+                   const ankerl::unordered_dense::set<std::string> &seenLabels,
+                   const std::vector<std::string> &srtLabels) {
 
         float pad = 2;
         std::string cur = label.current();
