@@ -25,6 +25,7 @@
 #include "include/core/SkSurface.h"
 #include "include/core/SkDocument.h"
 
+#include "../include/unordered_dense.h"
 #include "drawing.h"
 #include "plot_manager.h"
 #include "menu.h"

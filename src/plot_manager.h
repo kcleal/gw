@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "../include/unordered_dense.h"
 #include "../include/BS_thread_pool.h"
 #include "drawing.h"
 #include "glfw_keys.h"
