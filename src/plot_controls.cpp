@@ -994,6 +994,16 @@ namespace Manager {
         }
     }
 
+    void convertScreenCoordsToFrameBufferCoords(GLFWwindow *wind, double *xPos, double *yPos, int fb_width, int fb_height) {
+        int windowW, windowH;
+        glfwGetWindowSize(wind, &windowW, &windowH);
+        if (fb_width > windowW) {
+            *xPos *= (double) fb_width / (double) windowW;
+            *yPos *= (double) fb_height / (double) windowH;
+        }
+    }
+
+
     void GwPlot::keyPress(GLFWwindow *wind, int key, int scancode, int action, int mods) {
         // decide if the input key is part of a command or a redraw request
         key = registerKey(window, key, scancode, action, mods);
@@ -1519,9 +1529,7 @@ namespace Manager {
                 auto w = (float) (((float)cl.region.end - (float)cl.region.start) * (float) regions.size());
                 if (w >= 50000) {
                     int travel = (int) (w * (xDrag / windowW));
-
                     Utils::Region N;
-
                     if (cl.region.start - travel < 0) {
                         travel = cl.region.start;
                         N.chrom = cl.region.chrom;
@@ -1535,7 +1543,6 @@ namespace Manager {
                     if (N.start < 0 || N.end < 0) {
                         return;
                     }
-
                     regionSelection = cl.regionIdx;
                     delete regions[regionSelection].refSeq;
 
@@ -1660,7 +1667,6 @@ namespace Manager {
                         xDrag = -1000000;
                         return;
                     }
-                    std::cerr << " blokc size " << multiRegions.size() << std::endl;
                     if (blockStart + i < (int)multiLabels.size()) {
                         multiLabels[blockStart + i].next();
                         multiLabels[blockStart + i].clicked = true;
@@ -1671,10 +1677,16 @@ namespace Manager {
                 xDrag = -1000000;
             }
         }
-//        else if (mode == Manager::SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
-//            Menu::menuSelect(opts, true);
-//            redraw = true;
-//        }
+        else if (mode == Manager::SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+            bool keep_alive = Menu::menuSelect(opts);
+            redraw = true;
+            if (opts.editing_underway) {
+                textFromSettings = true;
+            }
+            if (!keep_alive) {
+                updateSettings();
+            }
+        }
     }
 
     void GwPlot::updateCursorGenomePos(Segs::ReadCollection &cl, float xPos) {
@@ -1711,12 +1723,7 @@ namespace Manager {
                 if (regions.empty()) {
                     return;
                 }
-                int windowW, windowH;  // convert screen coords to frame buffer coords
-                glfwGetWindowSize(wind, &windowW, &windowH);
-                if (fb_width > windowW) {
-                    xPos *= (float) fb_width / (float) windowW;
-                    yPos *= (float) fb_height / (float) windowH;
-                }
+                convertScreenCoordsToFrameBufferCoords(wind, &xPos, &yPos, fb_width, fb_height);
                 if (yPos >= (fb_height * 0.98)) {
                     updateSlider((float)xPos);
                     return;
@@ -1733,6 +1740,8 @@ namespace Manager {
                 if (cl.region.end - cl.region.start < 50000) {
                     printRegionInfo();
                     auto w = (float) (((float)cl.region.end - (float)cl.region.start) * (float) regions.size());
+                    int windowW, windowH;
+                    glfwGetWindowSize(wind, &windowW, &windowH);
                     int travel = (int) (w * (xDrag / windowW));
                     Utils::Region N;
                     if (cl.region.start - travel < 0) {
@@ -1776,12 +1785,7 @@ namespace Manager {
                 if (regions.empty()) {
                     return;
                 }
-                int windowW, windowH;  // convert screen coords to frame buffer coords
-                glfwGetWindowSize(wind, &windowW, &windowH);
-                if (fb_width > windowW) {
-                    xPos *= (float) fb_width / (float) windowW;
-                    yPos *= (float) fb_height / (float) windowH;
-                }
+                convertScreenCoordsToFrameBufferCoords(wind, &xPos, &yPos, fb_width, fb_height);
                 int rs = getCollectionIdx((float)xPos, (float)yPos);
 	            if (rs <= TRACK) {  // print track info
 		            float rgS = ((float)fb_width / (float)regions.size());
@@ -1851,8 +1855,8 @@ namespace Manager {
                     }
                 }
             } else if (mode == SETTINGS) {
-                Menu::menuMousePos(opts, fonts, xPos, yPos, fb_height, fb_width);
-                redraw = true;
+                convertScreenCoordsToFrameBufferCoords(wind, &xPos, &yPos, fb_width, fb_height);
+                Menu::menuMousePos(opts, fonts, (float)xPos, (float)yPos, (float)fb_height, (float)fb_width, &redraw);
             }
         }
     }

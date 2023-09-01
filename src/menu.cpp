@@ -278,7 +278,8 @@ namespace Menu {
         // write tool tip
         std::string tip;
         if (opts.control_level.empty()) {
-            if (opts.menu_table == Themes::MenuTable::GENOMES) { tip = "Use ENTER key to select genome, or RIGHT_ARROW key to edit path"; }
+            if (opts.menu_table == Themes::MenuTable::MAIN) { tip = opts.ini_path; }
+            else if (opts.menu_table == Themes::MenuTable::GENOMES) { tip = "Use ENTER key to select genome, or RIGHT_ARROW key to edit path"; }
             else if (opts.menu_level == "theme") { tip = "Change the theme to one of [dark, igv]"; }
             else if (opts.menu_level == "dimensions") { tip = "The starting dimensions in pixels of the gw window"; }
             else if (opts.menu_level == "indel_length") { tip = "Indels with this length (or greater) will be labelled with text"; }
@@ -324,23 +325,54 @@ namespace Menu {
             sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(tip.c_str(), fonts.overlay);
             canvas->drawTextBlob(blob.get(), m_width + v_gap + v_gap, pad + v_gap, tip_paint);
         }
-
     }
 
-    void menuMousePos(Themes::IniOptions &opts, Themes::Fonts &fonts, float xPos, float yPos, float fb_height, float fb_width) {
-        if (opts.menu_table == Themes::MenuTable::MAIN) {
-            float pad = fonts.overlayHeight;
-            auto m_height = (float)(pad * 2);
-            float v_gap = 25;
-            float y = v_gap;
-            opts.menu_level = "";
-            for (auto & heading : mainHeadings()) {
-                if (xPos > 0 && xPos <= fb_width && y <= yPos && yPos <= y + m_height) {
-                    opts.menu_level = heading;
+    void menuMousePos(Themes::IniOptions &opts, Themes::Fonts &fonts, float xPos, float yPos, float fb_height, float fb_width, bool *redraw) {
+        float pad = fonts.overlayHeight;
+        float v_gap = 5;
+        float control_box_h = 35;
+        float y = v_gap;
+        float x = v_gap;
+//        float m_width = 26 * fonts.overlayWidth;
+        auto m_height = (float)(pad * 1.5);
+        if (yPos >= y && yPos <= y + control_box_h) {  // mouse over controls
+            std::vector<std::string> controls = availableButtonsStr(opts.menu_table);
+            for (const auto& btn : controls) {
+                if (xPos >= x && xPos <= x + control_box_h) {
+                    opts.menu_level = "controls";
+                    opts.control_level = btn;
+                    *redraw = true;
                     break;
                 }
-                y += pad*2;
-                if (y > fb_height) { break; }
+                x += control_box_h + v_gap;
+            }
+        } else {
+            y += control_box_h + v_gap + m_height;
+            y += pad + v_gap;
+            opts.control_level = "";
+            if (opts.menu_table == Themes::MenuTable::MAIN) {
+                opts.menu_level = "";
+                for (const auto &heading : mainHeadings()) {
+                    if (xPos > 0 && xPos <= fb_width && y <= yPos && yPos <= y + m_height) {
+                        opts.menu_level = heading;
+                        *redraw = true;
+                        break;
+                    }
+                    y += m_height + v_gap;
+                    if (y > fb_height) { break; }
+                }
+            } else {
+                opts.menu_level = "";
+                for (const auto &heading : opts.myIni[getMenuKey(opts.menu_table)]) {
+                    if (heading.first == "fmt" || heading.first == "miny") { continue; }
+                    if (xPos > 0 && xPos <= fb_width && y <= yPos && yPos <= y + m_height) {
+                        opts.menu_level = heading.first;
+                        *redraw = true;
+                        break;
+                    }
+                    y += m_height + v_gap;
+                    if (y > fb_height) { break; }
+                }
             }
         }
     }
