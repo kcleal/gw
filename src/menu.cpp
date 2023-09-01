@@ -1,6 +1,7 @@
 //
 // Created by Kez Cleal on 26/08/2023.
 //
+#include <algorithm>
 #include <cstdlib>
 #include <string>
 #include <cstdio>
@@ -84,8 +85,19 @@ namespace Menu {
         return "";
     }
 
-    void drawMenu(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface, Themes::IniOptions &opts, Themes::Fonts &fonts, float monitorScale, float fb_height,
-                  std::string &inputText, int *charIndex) {
+    Themes::MenuTable getMenuLevel(std::string &s) {
+        if (s == "genomes") { return Themes::MenuTable::GENOMES; }
+        else if (s == "tracks") { return Themes::MenuTable::TRACKS; }
+        else if (s == "general") { return Themes::MenuTable::GENERAL; }
+        else if (s == "view_thresholds") { return Themes::MenuTable::VIEW_THRESHOLDS; }
+        else if (s == "navigation") { return Themes::MenuTable::NAVIGATION; }
+        else if (s == "labelling") { return Themes::MenuTable::LABELLING; }
+        else if (s == "interaction") { return Themes::MenuTable::INTERACTION; }
+        else { return Themes::MenuTable::MAIN; }
+    }
+
+    void drawMenu(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface, Themes::IniOptions &opts, Themes::Fonts &fonts, float monitorScale, float fb_width, float fb_height,
+                  std::string inputText, int charIndex) {
         SkRect rect;
         SkPath path;
         float pad = fonts.overlayHeight;
@@ -109,7 +121,7 @@ namespace Menu {
         tcMenu.setStyle(SkPaint::kStrokeAndFill_Style);
         tcMenu.setAntiAlias(true);
 
-        rect.setXYWH(0, fb_height - m_height, 20000, m_height);
+        rect.setXYWH(0, 0, 20000, m_height);
         canvas->drawRect(rect, opts.theme.bgPaint);
 
         rect.setXYWH(0, 0, m_width + v_gap, 20000);
@@ -169,6 +181,8 @@ namespace Menu {
         }
 
         std::string table_name = getMenuKey(opts.menu_table);
+        float txt_w, to_cursor_width, txt_start;
+        txt_start = x*2 + fonts.overlayWidth + m_width;
 
         if (opts.menu_table == Themes::MenuTable::MAIN) {
             y += control_box_h + v_gap + m_height;
@@ -194,6 +208,7 @@ namespace Menu {
             sk_sp < SkTextBlob> txt = SkTextBlob::MakeFromString(h.c_str(), fonts.overlay);
             canvas->drawTextBlob(txt.get(), x*2, y, tcMenu);
             y += pad + v_gap;
+            bool text_editing_underway = (opts.editing_underway && opts.control_level == "add" && opts.menu_level == "controls");
             for (auto & heading : opts.myIni[table_name]) {
                 if (heading.first == "fmt" || heading.first == "miny") { continue; }  // obsolete
                 rect.setXYWH(x, y, m_width, m_height);
@@ -209,13 +224,26 @@ namespace Menu {
                 sk_sp < SkTextBlob> txt = SkTextBlob::MakeFromString(h.c_str(), fonts.overlay);
                 canvas->drawTextBlob(txt.get(), x*2, y + pad, tcMenu);
                 std::string value = heading.second;
-                if (!opts.editing_underway || opts.menu_level != heading.first) {
+                if (!opts.editing_underway || opts.menu_level != heading.first || text_editing_underway) {
                     sk_sp < SkTextBlob> txt_v = SkTextBlob::MakeFromString(value.c_str(), fonts.overlay);
                     canvas->drawTextBlob(txt_v.get(), x*2 + x + m_width, y + pad, opts.theme.tcDel);
                 } else {
-                    float txt_w = fonts.overlay.measureText(inputText.c_str(), inputText.size(), SkTextEncoding::kUTF8);
-                    float to_cursor_width = fonts.overlay.measureText(inputText.substr(0, *charIndex).c_str(), *charIndex, SkTextEncoding::kUTF8);
-                    float txt_start = x*2 + fonts.overlayWidth + m_width;
+                    txt_w = fonts.overlay.measureText(inputText.c_str(), inputText.size(), SkTextEncoding::kUTF8);
+                    float max_w = fb_width - m_width - (fonts.overlayWidth*5);
+                    if (txt_w > max_w) {
+                        std::string sub;
+                        int i = 0;
+                        for ( ; i < charIndex; ++i) {
+                            sub = inputText.substr(i, inputText.size());
+                            if (fonts.overlay.measureText(sub.c_str(), sub.size(), SkTextEncoding::kUTF8) < max_w) {
+                                break;
+                            }
+                        }
+                        inputText = inputText.substr(i, inputText.size());;
+                        charIndex -= i;
+                        txt_w = fonts.overlay.measureText(inputText.c_str(), inputText.size(), SkTextEncoding::kUTF8);
+                    }
+                    to_cursor_width = fonts.overlay.measureText(inputText.substr(0, charIndex).c_str(), charIndex, SkTextEncoding::kUTF8);
                     SkPaint box;
                     box.setColor(SK_ColorGRAY);
                     box.setStrokeWidth(monitorScale);
@@ -233,6 +261,19 @@ namespace Menu {
                 }
                 y += m_height + v_gap;
             }
+            if (text_editing_underway) {  // new track or genome key being added
+                rect.setXYWH(x, y, m_width, m_height);
+                canvas->drawRect(rect, opts.theme.fcDup);
+                to_cursor_width = fonts.overlay.measureText(inputText.substr(0, charIndex).c_str(), charIndex, SkTextEncoding::kUTF8);
+                float txt_start2 = fonts.overlay.measureText("    ", 4, SkTextEncoding::kUTF8);
+                std::string h = inputText;
+                path.reset();
+                path.moveTo(txt_start2 + to_cursor_width + x, y + (fonts.overlayHeight * 0.2));
+                path.lineTo(txt_start2 + to_cursor_width + x, y + fonts.overlayHeight * 1.1);
+                canvas->drawPath(path, opts.theme.lcBright);
+                sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(h.c_str(), fonts.overlay);
+                canvas->drawTextBlob(blob.get(), x + txt_start2, y + pad, opts.theme.tcDel);
+            }
         }
         // write tool tip
         std::string tip;
@@ -245,7 +286,7 @@ namespace Menu {
             else if (opts.menu_level == "coverage") { tip = "Turn coverage on or off [true, false]"; }
             else if (opts.menu_level == "log2_cov") { tip = "Change the y-scale of the coverage track to log2 [true, false]"; }
             else if (opts.menu_level == "link") { tip = "Change which reads are linked [none, sv, all]"; }
-            else if (opts.menu_level == "split_view_size") { tip = "Structural variants greater than this size will be drawn in two windows "; }
+            else if (opts.menu_level == "split_view_size") { tip = "Structural variants greater than this size will be drawn as two regions"; }
             else if (opts.menu_level == "threads") { tip = "The number of threads to use for file readings"; }
             else if (opts.menu_level == "pad") { tip = "The number of bases to pad a region by"; }
             else if (opts.menu_level == "scroll_speed") { tip = "The speed of scrolling, increase for faster speeds"; }
@@ -261,7 +302,7 @@ namespace Menu {
             else if (opts.menu_level == "zoom_in") { tip = "Keyboard key to use for zooming in"; }
             else if (opts.menu_level == "zoom_out") { tip = "Keyboard key to use for zooming out"; }
             else if (opts.menu_level == "cycle_link_mode") { tip = "Keyboard key to use for cycling link mode"; }
-            else if (opts.menu_level == "print_screen") { tip = "Keyboard key to use for printing screen"; }
+            else if (opts.menu_level == "print_screen") { tip = "Keyboard key to use for printing screen (saves a .png file of the screen)"; }
             else if (opts.menu_level == "find_alignments") { tip = "Keyboard key to use for highlighting all alignments from template"; }
             else if (opts.menu_level == "number") { tip = "The number of images to show at one time"; }
             else if (opts.menu_level == "parse_label") { tip = "Information to parse from vcf file"; }
@@ -281,7 +322,7 @@ namespace Menu {
             tip_paint.setStyle(SkPaint::kStrokeAndFill_Style);
             tcMenu.setAntiAlias(true);
             sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(tip.c_str(), fonts.overlay);
-            canvas->drawTextBlob(blob.get(), m_width + v_gap + v_gap, m_height, tip_paint);
+            canvas->drawTextBlob(blob.get(), m_width + v_gap + v_gap, pad + v_gap, tip_paint);
         }
 
     }
@@ -309,7 +350,6 @@ namespace Menu {
             opts.menu_table = Themes::MenuTable::MAIN;
             opts.previous_level = opts.menu_level;
             opts.control_level = "close";
-            return true;
         } else if (opts.menu_level == "genomes") {
             opts.menu_table = Themes::MenuTable::GENOMES;
             opts.previous_level = opts.menu_level;
@@ -318,7 +358,6 @@ namespace Menu {
             } else {
                 opts.menu_level = opts.myIni["genomes"].begin()->first;
             }
-            return true;
         } else if (opts.menu_level == "tracks") {
             opts.menu_table = Themes::MenuTable::TRACKS;
             opts.previous_level = opts.menu_level;
@@ -327,32 +366,26 @@ namespace Menu {
             } else {
                 opts.menu_level = opts.myIni["tracks"].begin()->first;
             }
-            return true;
         } else if (opts.menu_level == "general") {
             opts.menu_table = Themes::MenuTable::GENERAL;
             opts.previous_level = opts.menu_level;
             opts.menu_level = opts.myIni["general"].begin()->first;
-            return true;
         } else if (opts.menu_level == "view_thresholds") {
             opts.menu_table = Themes::MenuTable::VIEW_THRESHOLDS;
             opts.previous_level = opts.menu_level;
             opts.menu_level = opts.myIni["view_thresholds"].begin()->first;
-            return true;
         } else if (opts.menu_level == "navigation") {
             opts.menu_table = Themes::MenuTable::NAVIGATION;
             opts.previous_level = opts.menu_level;
             opts.menu_level = opts.myIni["navigation"].begin()->first;
-            return true;
         } else if (opts.menu_level == "interaction") {
             opts.menu_table = Themes::MenuTable::INTERACTION;
             opts.previous_level = opts.menu_level;
             opts.menu_level = opts.myIni["interaction"].begin()->first;
-            return true;
         } else if (opts.menu_level == "labelling") {
             opts.menu_table = Themes::MenuTable::LABELLING;
             opts.previous_level = opts.menu_level;
             opts.menu_level = opts.myIni["labelling"].begin()->first;
-            return true;
         }
         //
         else if (opts.menu_level == "controls") {
@@ -366,7 +399,6 @@ namespace Menu {
                 opts.control_level = "close";
                 opts.menu_table = Themes::MenuTable::MAIN;
                 opts.previous_level = opts.menu_level;
-                return true;
             } else if (opts.control_level == "save") {
                 opts.menu_level = "";
                 opts.control_level = "close";
@@ -380,9 +412,10 @@ namespace Menu {
                 opts.menu_level = "";
                 opts.control_level = "close";
                 opts.previous_level = opts.menu_level;
-                opts.myIni["genomes"].remove(opts.genome_tag);
+                opts.myIni[(opts.menu_table == Themes::MenuTable::GENOMES) ? "genomes" : "tracks"].remove(opts.genome_tag);
                 warnRestart();
-                return true;
+            } else if (opts.control_level == "add") {
+                opts.editing_underway = !opts.editing_underway;
             }
         }
         //
@@ -394,7 +427,7 @@ namespace Menu {
         return true;
     }
 
-    bool navigateMenu(Themes::IniOptions &opts, int key, int action, std::string &inputText, int *charIndex, bool *captureText) {
+    bool navigateMenu(Themes::IniOptions &opts, int key, int action, std::string &inputText, int *charIndex, bool *captureText, bool *textFromSettings, bool *processText, std::string &reference_path) {
         /*
          * Notes:
          * string variables are used to keep track of mouse-over events, or keyboard selection events
@@ -404,6 +437,12 @@ namespace Menu {
             std::cerr << termcolor::red << "Error:" << termcolor::reset << " .gw.ini file could not be read. Please create one in your home directory, in your .config directory, or in the same folder as the gw executable" << std::endl;
             return false;
         }
+        // ignore empty command from command-box
+        if (*processText && !*textFromSettings) {
+            *processText = false;
+            return true;
+        }
+
         int ik{};
         if (key == GLFW_KEY_DOWN || key == GLFW_KEY_UP) {
             std::vector<std::string> keys;
@@ -419,14 +458,17 @@ namespace Menu {
                 }
             } else {
                 std::string table_name = getMenuKey(opts.menu_table);
-                for (auto &ini_key: opts.myIni[table_name]) {
-                    if (ini_key.first == "fmt" || ini_key.first == "miny") { continue; }  // obsolete
-                    keys.push_back(ini_key.first);
-                    if (opts.menu_level == keys.back()) {
-                        ik = current_i;
+                if (opts.myIni.has(table_name)) {
+                    for (auto &ini_key: opts.myIni[table_name]) {
+                        if (ini_key.first == "fmt" || ini_key.first == "miny") { continue; }  // obsolete
+                        keys.push_back(ini_key.first);
+                        if (opts.menu_level == keys.back()) {
+                            ik = current_i;
+                        }
+                        current_i += 1;
                     }
-                    current_i += 1;
                 }
+
             }
             if (key == GLFW_KEY_DOWN) {
                 ik = (ik >= (int) keys.size() - 1) ? (int) keys.size() - 1 : std::max(0, ik + 1);
@@ -458,13 +500,46 @@ namespace Menu {
             current_i = std::max(0, std::min(current_i, (int)btns.size() - 1));
             opts.control_level = btns[current_i];
             if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
-                return Menu::menuSelect(opts);
+                bool keep_alive = Menu::menuSelect(opts);
+                if (opts.editing_underway) {
+                    inputText = "";
+                    *charIndex = 0;
+                    *textFromSettings = true;
+                    *captureText = true;
+                } else if (opts.control_level == "add") {
+                    std::string menu_heading = (opts.menu_table == Themes::MenuTable::GENOMES) ? "genomes" : "tracks";
+                    std::replace(inputText.begin(), inputText.end(), ' ', '_');
+                    for(auto &c : inputText) { c = tolower(c); }
+                    opts.myIni[menu_heading][inputText] = "";
+                    opts.menu_level = inputText;
+                    opts.control_level = "";
+                    if (opts.menu_table == Themes::MenuTable::GENOMES) {
+                        bool path_in_ini = false;
+                        for (const auto &ikey : opts.myIni["genomes"]) {
+                            if (ikey.second == reference_path) {
+                                path_in_ini = true;
+                                break;
+                            }
+                        }
+                        if (!path_in_ini) {
+                            inputText = reference_path;
+                        } else {
+                            inputText = "";
+                        }
+                    } else {
+                        inputText = "";
+                    }
+                    opts.editing_underway = true;
+                    *charIndex = inputText.size();
+                    *textFromSettings = true;
+                    *captureText = true;
+                }
+                return keep_alive;
             }
 
         } else if (action == GLFW_PRESS) {
             if (!opts.editing_underway && (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) && opts.menu_table == Themes::MenuTable::GENOMES) {
                 opts.genome_tag = opts.menu_level;
-                std::cout << "\nSelected " << termcolor::bold << opts.genome_tag << termcolor::reset << " - " << opts.myIni["genomes"][opts.genome_tag] << std::endl;
                 return true;  // force right key for editing, enter is reserved for selecting
             }
             else if (key == GLFW_KEY_RIGHT || key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
@@ -476,6 +551,7 @@ namespace Menu {
                     if (opts.editing_underway) {
                         inputText = opts.myIni[getMenuKey(opts.menu_table)][opts.menu_level];
                         *charIndex = inputText.size();
+                        *textFromSettings = true;
                         *captureText = true;
                     }
                     return keep_alive;
@@ -484,8 +560,16 @@ namespace Menu {
                 opts.menu_table = Themes::MenuTable::MAIN;
                 opts.menu_level = opts.previous_level;
             } else if (opts.menu_table != Themes::MenuTable::MAIN && (key == GLFW_KEY_LEFT || key == GLFW_KEY_ESCAPE)) {
-                opts.menu_table = Themes::MenuTable::MAIN;
-                opts.menu_level = opts.previous_level;
+                if (*textFromSettings) {
+                    opts.menu_table = getMenuLevel(opts.previous_level);
+                } else {
+                    opts.menu_table = Themes::MenuTable::MAIN;
+                    opts.menu_level = opts.previous_level;
+                }
+                *captureText = false;
+                *textFromSettings = false;
+                inputText = "";
+                opts.editing_underway = false;
             }
         }
         return true;
@@ -560,7 +644,6 @@ namespace Menu {
             else if (new_opt.name == "edge_highlights") { opts.edge_highlights = v; }
             else { return; }
             opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
-            std::cerr << " ylim " << opts.ylim << std::endl;
         }
     }
 
@@ -594,13 +677,14 @@ namespace Menu {
 
     void applyKeyboardKeyOption(Option &new_opt, Themes::IniOptions &opts) {
         ankerl::unordered_dense::map<std::string, int> keys;
-//        robin_hood::unordered_map<std::string, int> keys;
         Keys::getKeyTable(keys);
-        if (keys.find(new_opt.value) == keys.end()) {
-            std::cerr << termcolor::red << "Error:" << termcolor::reset << " key not available." << std::endl;
+        std::string k = new_opt.value;
+        for(auto &c : k) { c = toupper(c); }
+        if (keys.find(k) == keys.end()) {
+            std::cerr << termcolor::red << "Error:" << termcolor::reset << " key " << k << " not available." << std::endl;
             return;
         }
-        int v = keys[new_opt.value];
+        int v = keys[k];
         if (new_opt.name == "scroll_right") { opts.scroll_right = v; }
         else if (new_opt.name == "scroll_left") { opts.scroll_left = v; }
         else if (new_opt.name == "zoom_out") { opts.zoom_out = v; }
@@ -613,7 +697,7 @@ namespace Menu {
         else if (new_opt.name == "delete_labels") { opts.delete_labels = v; }
         else if (new_opt.name == "enter_interactive_mode") { opts.enter_interactive_mode = v; }
         else { return; }
-        opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
+        opts.myIni[new_opt.table][new_opt.name] = k;
     }
 
     void applyThemeOption(Option &new_opt, Themes::IniOptions &opts) {
@@ -667,12 +751,10 @@ namespace Menu {
     void applyPathOption(Option& new_opt, Themes::IniOptions& opts) {
         if (Utils::startsWith(new_opt.value, "http") || Utils::startsWith(new_opt.value, "ftp")) {
             opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
-            warnRestart();
         } else {
             std::filesystem::path path = new_opt.value;
             if (std::filesystem::exists(path)) {
                 opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
-                warnRestart();
             } else {
                 std::cerr << termcolor::red << "Error:" << termcolor::reset << " local path does not exist: " << path << std::endl;
             }
@@ -687,6 +769,9 @@ namespace Menu {
     }
 
     void processTextEntry(Themes::IniOptions &opts, std::string &inputText) {
+        if (opts.menu_level == "controls") {
+            return;
+        }
         Option new_opt = optionFromStr(opts.menu_level, opts.menu_table, inputText);
         switch (new_opt.kind) {
             case (Int) : applyIntOption(new_opt, opts); break;

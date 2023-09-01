@@ -183,6 +183,7 @@ namespace Manager {
         bool drawLine;
         bool resizeTriggered;
         bool regionSelectionTriggered;
+        bool textFromSettings;
         std::chrono::high_resolution_clock::time_point resizeTimer, regionTimer;
 
         std::string inputText;
@@ -219,11 +220,11 @@ namespace Manager {
 
         void drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
-//        void drawMenu(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
-
         int registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
 
         bool commandProcessed();
+
+        void updateSettings();
 
         int getCollectionIdx(float x, float y);
 

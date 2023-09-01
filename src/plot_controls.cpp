@@ -202,8 +202,14 @@ namespace Manager {
                 captureText = false;
                 processText = false;
                 shiftPress = false;
-                if (mode == SETTINGS && opts.editing_underway) {
-                    opts.editing_underway = false;
+                if (mode == SETTINGS) {
+                    if (opts.editing_underway) {
+                        opts.editing_underway = false;
+                        inputText = "";
+                        charIndex = 0;
+                        textFromSettings = true;
+                    }
+                    return key;
                 } else {
                     inputText = "";
                     charIndex = 0;
@@ -242,11 +248,21 @@ namespace Manager {
                 return key;
             }
 
-            if (ctrlPress && key == GLFW_KEY_V) {
-                std::string string = glfwGetClipboardString(window);
-                if (!string.empty()) {
-                    inputText.append(string);
-                    charIndex = inputText.size();
+            if (ctrlPress) {
+                if (key == GLFW_KEY_V) {
+                    std::string string = glfwGetClipboardString(window);
+                    if (!string.empty()) {
+                        inputText.append(string);
+                        charIndex = (int)inputText.size();
+                    }
+                } else if (!inputText.empty()) {
+                    if (key == GLFW_KEY_A) {
+                        charIndex = 0;
+                    } else if (key == GLFW_KEY_E) {
+                        charIndex = (int)inputText.size();
+                    } else if (key == GLFW_KEY_C) {
+                        glfwSetClipboardString(window, inputText.c_str());
+                    }
                 }
                 ctrlPress = false;
             } else {
@@ -321,8 +337,13 @@ namespace Manager {
             if (opts.editing_underway) {
                 Menu::processTextEntry(opts, inputText);
                 imageCache.clear();
+                return false;
+            }
+            if (textFromSettings) {
+                return false;
             }
         }
+        processText = false; // all command text will be processed below
 
         if (inputText == "q" || inputText == "quit") {
             throw CloseException();
@@ -928,16 +949,58 @@ namespace Manager {
         std::cout << termcolor::reset << std::flush;
     }
 
-    void GwPlot::keyPress(GLFWwindow* wind, int key, int scancode, int action, int mods) {
+    void GwPlot::updateSettings() {
+        mode = last_mode;
+        redraw = true;
+        processed = false;
+        imageCache.clear();
+        inputText = "";
+        opts.editing_underway = false;
+        textFromSettings = false;
+        samMaxY = opts.ylim;
+        if (opts.myIni.get("genomes").has(opts.genome_tag) && reference != opts.myIni["genomes"][opts.genome_tag]) {
+            faidx_t *fai_test = fai_load( opts.myIni["genomes"][opts.genome_tag].c_str());
+            if (fai_test != nullptr) {
+                reference =  opts.myIni["genomes"][opts.genome_tag];
+                fai = fai_load(reference.c_str());
+                for (auto &bm: bams) {
+                    hts_set_fai_filename(bm, reference.c_str());
+                }
+                std::cerr << termcolor::bold << "\n" << opts.genome_tag << termcolor::reset << " loaded from " << reference << std::endl;
+            } else {
+                std::cerr << termcolor::red << "Error:" << termcolor::reset << " could not open " << opts.myIni["genomes"][opts.genome_tag].c_str() << std::endl;
+            }
+            fai_destroy(fai_test);
+        }
+        if (opts.myIni.get("tracks").has(opts.genome_tag)) {
+            std::vector<std::string> track_paths_temp = Utils::split(opts.myIni["tracks"][opts.genome_tag], ',');
+            for (auto &trk_item : track_paths_temp) {
+                if (!Utils::is_file_exist(trk_item)) {
+                    std::cerr << "Warning: track file does not exists - " << trk_item << std::endl;
+                } else {
+                    bool already_loaded = false;
+                    for (const auto &current_track : tracks) {
+                        if (current_track.path == trk_item) {
+                            already_loaded = true;
+                            break;
+                        }
+                    }
+                    if (!already_loaded) {
+                        tracks.resize(tracks.size() + 1);
+                        tracks.back().open(trk_item, true);
+                    }
+                }
+            }
+        }
+    }
+
+    void GwPlot::keyPress(GLFWwindow *wind, int key, int scancode, int action, int mods) {
         // decide if the input key is part of a command or a redraw request
         key = registerKey(window, key, scancode, action, mods);
-        if (key == GLFW_KEY_UNKNOWN) {
+        if (key == GLFW_KEY_UNKNOWN || captureText) {
             return;
         }
-        if (captureText) {
-            glfwPostEmptyEvent();
-            return;
-        }
+
         try {
             if (commandProcessed()) {
                 return;
@@ -945,12 +1008,30 @@ namespace Manager {
         } catch (CloseException & mce) {
             glfwSetWindowShouldClose(wind, GLFW_TRUE);
         }
+
         if (mode != Show::SETTINGS && key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
             last_mode = mode;
             mode = Show::SETTINGS;
             opts.menu_table = Themes::MenuTable::MAIN;
             return;
+        } else if (mode == Show::SETTINGS && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+            if (key == GLFW_KEY_ESCAPE && opts.menu_table == Themes::MenuTable::MAIN) {
+                mode = last_mode;
+                redraw = true;
+                processed = false;
+                updateSettings();
+            } else {
+                bool keep_alive = Menu::navigateMenu(opts, key, action, inputText, &charIndex, &captureText, &textFromSettings, &processText, reference);
+                if (opts.editing_underway) {
+                    textFromSettings = true;
+                }
+                if (!keep_alive) {
+                    updateSettings();
+                }
+            }
+            return;
         }
+
         if (mode == Show::SINGLE) {
             if (regions.empty() || regionSelection < 0) {
                 return;
@@ -1171,43 +1252,6 @@ namespace Manager {
                     }
                 }
             }
-        } else if (mode == Show::SETTINGS) {
-            if (key == GLFW_KEY_ESCAPE) {
-                if (action == GLFW_PRESS) {
-                    if (opts.menu_table == Themes::MenuTable::MAIN) {
-                        mode = last_mode;
-                        redraw = true;
-                        processed = false;
-                        glfwPostEmptyEvent();
-                    } else {
-                        opts.menu_table = Themes::MenuTable::MAIN;
-                        captureText = false;
-                        opts.editing_underway = false;
-                        opts.menu_level = opts.previous_level;
-                    }
-                }
-            } else if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-                std::string current_genome = opts.genome_tag;
-                bool keep_alive = Menu::navigateMenu(opts, key, action, inputText, &charIndex, &captureText);
-                samMaxY = opts.ylim;
-                if (current_genome != opts.genome_tag) {
-                    reference = opts.myIni.get("genomes").get(opts.genome_tag);
-                    fai = fai_load(reference.c_str());
-                    for (auto &bm: bams) {
-                        hts_set_fai_filename(bm, reference.c_str());
-                    }
-                    redraw = true;
-                    processed = false;
-                    glfwPostEmptyEvent();
-                }
-                if (!keep_alive) {
-                    mode = last_mode;
-                    redraw = true;
-                    processed = false;
-                    glfwPostEmptyEvent();
-                }
-            }
-            return;
         }
 
         if (key == opts.cycle_link_mode && action == GLFW_PRESS) {
@@ -1627,10 +1671,10 @@ namespace Manager {
                 xDrag = -1000000;
             }
         }
-        else if (mode == Manager::SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+//        else if (mode == Manager::SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
 //            Menu::menuSelect(opts, true);
-            redraw = true;
-        }
+//            redraw = true;
+//        }
     }
 
     void GwPlot::updateCursorGenomePos(Segs::ReadCollection &cl, float xPos) {

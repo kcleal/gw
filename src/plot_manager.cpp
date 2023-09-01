@@ -72,9 +72,14 @@ namespace Manager {
         captureText = false;
         drawToBackWindow = false;
         useVcf = false;
+        textFromSettings = false;
         monitorScale = 1;
         fonts = Themes::Fonts();
         fai = fai_load(reference.c_str());
+        if (fai == nullptr) {
+            std::cerr << termcolor::red << "Error:" << termcolor::reset << " reference genome could not be opened " << reference << std::endl;
+            std::exit(-1);
+        }
         for (auto &fn: bampaths) {
             htsFile* f = sam_open(fn.c_str(), "r");
             hts_set_fai_filename(f, reference.c_str());
@@ -632,7 +637,7 @@ namespace Manager {
                 bg.setAlpha(220);
                 canvas->drawPaint(bg);
             }
-            Menu::drawMenu(sSurface->getCanvas(), sContext, sSurface, opts, fonts, monitorScale, fb_height, inputText, &charIndex);
+            Menu::drawMenu(sSurface->getCanvas(), sContext, sSurface, opts, fonts, monitorScale, fb_width, fb_height, inputText, charIndex);
         } else {
             if (!imageCacheQueue.empty()) {
                 while (imageCacheQueue.front().first != frameId) {

@@ -208,18 +208,17 @@ int main(int argc, char *argv[]) {
     auto genome = program.get<std::string>("genome");
     bool show_banner = true;
 
-    if (iopts.references.find(genome) != iopts.references.end()) {
+    if (iopts.myIni["genomes"].has(genome)) {
         iopts.genome_tag = genome;
-        genome = iopts.references[genome];
+        genome = iopts.myIni["genomes"][genome];
     } else if (genome.empty() && !program.is_used("--images") && !iopts.ini_path.empty()) {
         // prompt for genome
         print_banner();
         show_banner = false;
-
         std::cerr << "\n Reference genomes listed in " << iopts.ini_path << std::endl << std::endl;
         int i = 0;
         std::vector<std::string> vals;
-        for (auto &rg: iopts.references) {
+        for (auto &rg: iopts.myIni["genomes"]) {
             std::cerr << "   " << i << ": " << rg.first << "     " << rg.second << std::endl;
             vals.push_back(rg.second);
             i += 1;
@@ -244,6 +243,28 @@ int main(int argc, char *argv[]) {
 
     } else if (!genome.empty() && !Utils::is_file_exist(genome)) {
         std::cerr << "Warning: Genome is not a local file" << std::endl;
+    }
+
+    std::vector<std::string> tracks;
+    if (!iopts.genome_tag.empty() && !iopts.ini_path.empty() && iopts.myIni["tracks"].has(iopts.genome_tag)) {
+        std::vector<std::string> track_paths_temp = Utils::split(iopts.myIni["tracks"][iopts.genome_tag], ',');
+        for (auto &trk_item : track_paths_temp) {
+            if (!Utils::is_file_exist(trk_item)) {
+                std::cerr << "Warning: track file does not exists - " << trk_item << std::endl;
+            } else {
+                tracks.push_back(trk_item);
+            }
+        }
+    }
+
+    if (program.is_used("--track")) {
+        tracks = program.get<std::vector<std::string>>("--track");
+        for (auto &trk: tracks){
+            if (!Utils::is_file_exist(trk)) {
+                std::cerr << "Error: track file does not exists - " << trk << std::endl;
+                std::exit(-1);
+            }
+        }
     }
 
     std::vector<std::string> bam_paths;
@@ -306,18 +327,6 @@ int main(int argc, char *argv[]) {
     if (program.is_used("-u")) {
         auto d = program.get<std::string>("-u");
         iopts.number = Utils::parseDimensions(d);
-    }
-
-    std::vector<std::string> tracks;
-    if (program.is_used("--track")) {
-        tracks = program.get<std::vector<std::string>>("--track");
-        for (auto &trk: tracks){
-            if (!Utils::is_file_exist(trk)) {
-                std::cerr << "Error: track file does not exists - " << trk << std::endl;
-                std::abort();
-            }
-            iopts.tracks[genome].push_back(trk);
-        }
     }
 
     if (program.is_used("--indel-length")) {

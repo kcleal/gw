@@ -305,7 +305,7 @@ namespace Themes {
     void IniOptions::getOptionsFromIni() {
 
         ankerl::unordered_dense::map<std::string, int> key_table;
-//        robin_hood::unordered_map<std::string, int> key_table;
+
         Keys::getKeyTable(key_table);
 
         theme_str = myIni["general"]["theme"];
@@ -364,13 +364,6 @@ namespace Themes {
         labels = myIni["labelling"]["labels"];
         delete_labels = key_table[myIni["labelling"]["delete_labels"]];
         enter_interactive_mode = key_table[myIni["labelling"]["enter_interactive_mode"]];
-
-        for (auto const& it2 :  myIni["genomes"]) {
-            references[it2.first] = it2.second;
-        }
-        for (auto const& it2 : myIni["tracks"]) {
-            tracks[it2.first].push_back(it2.second);
-        }
     }
 
     void IniOptions::readIni() {
