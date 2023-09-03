@@ -858,6 +858,7 @@ namespace Drawing {
         float minLetterSize;
         minLetterSize = (textW > 0) ? ((float)fb_width / (float)regions.size()) / textW : 0;
         int index = 0;
+        h *= 0.7;
         for (auto &rgn: regions) {
             int size = rgn.end - rgn.start;
             double xScaling = xPixels / size;
@@ -870,7 +871,7 @@ namespace Drawing {
                 mmPosOffset = 0.05;
                 mmScaling = 0.9;
             } else {
-                mmPosOffset = 0;
+                mmPosOffset = h * 0.2;
                 mmScaling = 1;
             }
             double i = regionW * index;

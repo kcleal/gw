@@ -703,8 +703,10 @@ namespace Menu {
         bool v = bool_keys[new_opt.value];
         if (new_opt.name == "scroll_spped") { opts.scroll_speed = v; }
         else if (new_opt.name == "tabix_track_height") { opts.tab_track_height = v; }
+        else if (new_opt.name == "log2_cov") { opts.log2_cov = v; }
+        else if (new_opt.name == "coverage") { opts.max_coverage = (v) ? 1410065408 : 0; }
         else { return; }
-        opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
+        opts.myIni[new_opt.table][new_opt.name] = (v) ? "true" : "false";
     }
 
     void applyKeyboardKeyOption(Option &new_opt, Themes::IniOptions &opts) {

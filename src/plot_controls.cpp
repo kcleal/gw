@@ -1711,10 +1711,16 @@ namespace Manager {
     }
 
     void GwPlot::mousePos(GLFWwindow* wind, double xPos, double yPos) {
+        int windX, windY;
+        glfwGetWindowSize(wind, &windX, &windY);
+        if (yPos < 0 || xPos < 0 || xPos > windX || yPos > windY) {
+            return;
+        }
         if (lastX == -1) {
             lastX = xPos;
         }
         int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+
         bool lt_last = xPos < lastX;
         lastX = xPos;
         if (state == GLFW_PRESS) {
