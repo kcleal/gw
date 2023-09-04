@@ -1,6 +1,6 @@
 TARGET = gw
 
-CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -O1 -DNDEBUG -pipe -fno-omit-frame-pointer#-fsanitize=address  -fsanitize=undefined
+CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -O1 -DNDEBUG -fno-omit-frame-pointer#-pipe -fsanitize=address  -fsanitize=undefined
 
 CPPFLAGS += -I./include -I./src -I.
 

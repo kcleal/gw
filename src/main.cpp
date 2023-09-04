@@ -16,14 +16,20 @@
 #include "plot_manager.h"
 #include "themes.h"
 #include "utils.h"
+
+#include "GLFW/glfw3.h"
+#define SK_GANESH
+#define SK_GL
+
 #ifdef __APPLE__
     #include <OpenGL/gl.h>
+//    #include <GL/glx.h>
 #elif defined(__linux__)
     #include <GL/gl.h>
     #include <GL/glx.h>
 #endif
-#include "GLFW/glfw3.h"
-#define SK_GL
+
+
 #include "include/gpu/GrBackendSurface.h"
 #include "include/gpu/GrDirectContext.h"
 #include "include/gpu/gl/GrGLInterface.h"
@@ -231,7 +237,7 @@ int main(int argc, char *argv[]) {
         int user_i;
         std::cin >> user_i;
         std::cerr << std::endl;
-        assert (user_i >= 0 && user_i < vals.size());
+        assert (user_i >= 0 && (int)user_i < vals.size());
         try {
             genome = vals[user_i];
         } catch (...) {
@@ -449,13 +455,13 @@ int main(int argc, char *argv[]) {
             glGetIntegerv(GL_DEPTH_BITS, &param); std::cerr << "    GL_DEPTH_BITS " << param << std::endl;
             glGetIntegerv(GL_STENCIL_BITS, &param); std::cerr << "    GL_STENCIL_BITS " << param << std::endl;
             std::cerr << "GL error code: " << glGetError() << std::endl;
-            std::terminate();
+            std::exit(-1);
         }
 
         sContext = GrDirectContext::MakeGL(interface).release();
         if (!sContext) {
             std::cerr << "Error: could not create skia context using MakeGL\n";
-            std::terminate();
+            std::exit(-1);
         }
 
         GrGLFramebufferInfo framebufferInfo;
