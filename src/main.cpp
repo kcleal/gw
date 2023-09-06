@@ -18,7 +18,7 @@
 #include "utils.h"
 
 #include "GLFW/glfw3.h"
-#define SK_GANESH
+
 #define SK_GL
 
 #ifdef __APPLE__

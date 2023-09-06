@@ -9,9 +9,9 @@
 #include <vector>
 #include <unordered_map>
 
-#ifdef __APPLE__
-#include <OpenGL/gl.h>
-#endif
+//#ifdef __APPLE__
+//#include <OpenGL/gl.h>
+//#endif
 
 #include "htslib/faidx.h"
 #include "htslib/hts.h"
@@ -114,8 +114,8 @@ namespace Menu {
             bg.setARGB(255, 15, 15, 25);
             menuBg.setARGB(255, 50, 50, 55);
         } else {
-            bg.setARGB(255, 60, 60, 70);
-            menuBg.setARGB(255, 100, 100, 105);
+            bg.setARGB(255, 255, 255, 255);
+            menuBg.setARGB(255, 60, 60, 65);
         }
         tcMenu.setARGB(255, 255, 255, 255);
         tcMenu.setStyle(SkPaint::kStrokeAndFill_Style);
@@ -328,12 +328,14 @@ namespace Menu {
     }
 
     void menuMousePos(Themes::IniOptions &opts, Themes::Fonts &fonts, float xPos, float yPos, float fb_height, float fb_width, bool *redraw) {
+        if (opts.editing_underway) {
+            return;
+        }
         float pad = fonts.overlayHeight;
         float v_gap = 5;
         float control_box_h = 35;
         float y = v_gap;
         float x = v_gap;
-//        float m_width = 26 * fonts.overlayWidth;
         auto m_height = (float)(pad * 1.5);
         if (yPos >= y && yPos <= y + control_box_h) {  // mouse over controls
             std::vector<std::string> controls = availableButtonsStr(opts.menu_table);
@@ -464,6 +466,7 @@ namespace Menu {
          * Notes:
          * string variables are used to keep track of mouse-over events, or keyboard selection events
          * int enums are used to keep track of what was clicked on (mouse or keyboard), or triggering events.
+         * bool variables keep track of how to handle or capture text
          */
         if (opts.ini_path.empty()) {
             std::cerr << termcolor::red << "Error:" << termcolor::reset << " .gw.ini file could not be read. Please create one in your home directory, in your .config directory, or in the same folder as the gw executable" << std::endl;
@@ -567,6 +570,8 @@ namespace Menu {
                     *captureText = true;
                 }
                 return keep_alive;
+            } else if (key == GLFW_KEY_ESCAPE) {
+                opts.menu_table = Themes::MenuTable::MAIN;
             }
 
         } else if (action == GLFW_PRESS) {
@@ -577,6 +582,12 @@ namespace Menu {
             else if (key == GLFW_KEY_RIGHT || key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
                 if (opts.editing_underway) {
                     opts.editing_underway = false;
+                    *processText = false;
+                    *captureText = false;
+                    *textFromSettings = false;
+                    inputText = "";
+                    opts.editing_underway = false;
+                    opts.menu_table = getMenuLevel(opts.previous_level);
                     return true;
                 } else {
                     bool keep_alive = Menu::menuSelect(opts);

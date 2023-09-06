@@ -54,9 +54,8 @@ namespace Manager {
         }
     }
 
-    // keeps track of input commands
+    // keeps track of input commands. returning GLFW_KEY_UNKNOWN stops further processing of key codes
     int GwPlot::registerKey(GLFWwindow* wind, int key, int scancode, int action, int mods) {
-
 	    if (key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_LEFT_SUPER) {
 		    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
 			    ctrlPress = true;
@@ -79,11 +78,13 @@ namespace Manager {
             captureText = true;
             inputText = "";
             charIndex = 0;
+            textFromSettings = false;
             return key;
         } else if (shiftPress && key == GLFW_KEY_SEMICOLON && !captureText) {
             captureText = true;
             inputText = "";
             charIndex = 0;
+            textFromSettings = false;
             return key;
         }
         if (key == GLFW_KEY_TAB) {
@@ -209,7 +210,7 @@ namespace Manager {
                         charIndex = 0;
                         textFromSettings = true;
                     }
-                    return key;
+                    return GLFW_KEY_UNKNOWN;
                 } else {
                     inputText = "";
                     charIndex = 0;
@@ -339,7 +340,7 @@ namespace Manager {
                 imageCache.clear();
                 return false;
             }
-            if (textFromSettings) {
+            if (textFromSettings) { // process this elsewhere
                 return false;
             }
         }
@@ -1414,6 +1415,35 @@ namespace Manager {
             yW = (float)y;
         }
 
+        float half_h = (float)fb_height / 2;
+        bool tool_popup = (xW <= 60 && yW >= half_h - 60 && yW <= half_h + 60);
+        if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE && tool_popup) {
+            if (yW < half_h) {
+                if (mode != SETTINGS) {
+                    last_mode = mode;
+                    mode = Show::SETTINGS;
+                    opts.menu_table = Themes::MenuTable::MAIN;
+                    opts.menu_level = "";
+                } else {
+                    mode = last_mode;
+                    updateSettings();
+                    opts.editing_underway = false;
+                }
+            } else {
+                if (!captureText) {
+                    captureText = true;
+                    inputText = "";
+                    charIndex = 0;
+                    textFromSettings = false;
+                } else {
+                    captureText = false;
+                    textFromSettings = false;
+                    opts.editing_underway = false;
+                }
+            }
+            return;
+        }
+
         if (xDrag == -1000000) {
             xDrag = 0;
             xOri = x;
@@ -1676,10 +1706,10 @@ namespace Manager {
                 }
                 xDrag = -1000000;
             }
-        }
-        else if (mode == Manager::SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
-            bool keep_alive = Menu::menuSelect(opts);
-            redraw = true;
+        } else if (mode == Manager::SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+            bool keep_alive = Menu::navigateMenu(opts, GLFW_KEY_ENTER, GLFW_PRESS, inputText, &charIndex, &captureText, &textFromSettings, &processText, reference);
+
+           redraw = true;
             if (opts.editing_underway) {
                 textFromSettings = true;
             }

@@ -1,6 +1,6 @@
 TARGET = gw
 
-CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -O1 -DNDEBUG -fno-omit-frame-pointer#-pipe -fsanitize=address  -fsanitize=undefined
+CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -O3 -DNDEBUG -fno-omit-frame-pointer
 
 CPPFLAGS += -I./include -I./src -I.
 
@@ -75,7 +75,7 @@ ifeq ($(PLATFORM),"Linux")
     CPPFLAGS += -I/usr/local/include
     CXXFLAGS += -D LINUX -D __STDC_FORMAT_MACROS
     LDFLAGS += -L/usr/local/lib
-    LDLIBS += -lGL -lfreetype -lfontconfig -luuid -lzlib -licu -ldl $(shell pkg-config --static --libs x11 xrandr xi xxf86vm glfw3)
+    LDLIBS += -lGL -lfreetype -lfontconfig -luuid -lzlib -licu -ldl -lglfw  # or manually-build glfw3 use $(shell pkg-config --static --libs x11 xrandr xi xxf86vm glfw3)
 
 else ifeq ($(PLATFORM),"Darwin")
     CPPFLAGS += -I/usr/local/include

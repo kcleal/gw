@@ -131,8 +131,7 @@ namespace Manager {
         fai_destroy(fai);
     }
 
-    void ErrorCallback(int, const char* err_str)
-    {
+    void ErrorCallback(int, const char* err_str) {
         std::cout << "GLFW Error: " << err_str << std::endl;
     }
 
@@ -145,27 +144,21 @@ namespace Manager {
             std::terminate();
         }
 
-        GLFWmonitor* primary = glfwGetPrimaryMonitor();
-        const GLFWvidmode* mode = glfwGetVideoMode(primary);
+//        GLFWmonitor* primary = glfwGetPrimaryMonitor();
+//        const GLFWvidmode* mode = glfwGetVideoMode(primary);
+//
+//        glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+//        glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+//        glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+//        glfwWindowHint(GLFW_STENCIL_BITS, 8);
+//        glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
 
-        glfwWindowHint(GLFW_RED_BITS, mode->redBits);
-        glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
-        glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
-        glfwWindowHint(GLFW_STENCIL_BITS, 8);
-        glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+//        std::cerr << "Width: " << mode->width << " Height: " << mode->height << " redBits: " << mode->redBits << " greenBits: " << mode->greenBits << " blueBits: " << mode->blueBits << " refreshRate: " << mode->refreshRate << std::endl;
+//         Turn this off for non-remote connections?
+//        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 1);
+//        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+//        glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
 
-        std::cerr << "Width: " << mode->width << " Height: " << mode->height << " redBits: " << mode->redBits << " greenBits: " << mode->greenBits << " blueBits: " << mode->blueBits << " refreshRate: " << mode->refreshRate << std::endl;
-
-        // Turn this off for non-remote connections?
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 1);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-
-        glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
-
-
-        // To set for Linux?
-//        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
-//        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
         window = glfwCreateWindow(width, height, "GW", NULL, NULL);
 
@@ -208,9 +201,7 @@ namespace Manager {
             std::terminate();
         }
         glfwMakeContextCurrent(window);
-
         setGlfwFrameBufferSize();
-
     }
 
     void GwPlot::initBack(int width, int height) {
@@ -657,6 +648,12 @@ namespace Manager {
     }
 
     void GwPlot::drawOverlay(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface) {
+        if (!imageCacheQueue.empty()) {
+            while (imageCacheQueue.front().first != frameId) {
+                imageCacheQueue.pop_front();
+            }
+            canvas->drawImage(imageCacheQueue.back().second, 0, 0);
+        }
         if (mode == Show::SETTINGS) {
             if (!imageCacheQueue.empty()) {
                 while (imageCacheQueue.front().first != frameId) {
@@ -668,42 +665,75 @@ namespace Manager {
                 canvas->drawPaint(bg);
             }
             Menu::drawMenu(sSurface->getCanvas(), sContext, sSurface, opts, fonts, monitorScale, fb_width, fb_height, inputText, charIndex);
-        } else {
-            if (!imageCacheQueue.empty()) {
-                while (imageCacheQueue.front().first != frameId) {
-                    imageCacheQueue.pop_front();
-                }
-                canvas->drawImage(imageCacheQueue.back().second, 0, 0);
+        } else if (regionSelectionTriggered && regions.size() > 1) {
+            SkRect rect{};
+            float step = (float)fb_width / (float)regions.size();
+            if (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - regionTimer) > 500ms) {
+                regionSelectionTriggered = false;
             }
-            if (regionSelectionTriggered && regions.size() > 1) {
-                SkRect rect{};
-                float step = (float)fb_width / (float)regions.size();
-                if (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - regionTimer) > 500ms) {
-                    regionSelectionTriggered = false;
-                }
-                float height = (float)fb_height - gap - gap;
-                float y = gap;
-                SkPaint box{};
-                box.setColor(SK_ColorGRAY);
-                box.setStrokeWidth(monitorScale);
-                box.setAntiAlias(true);
-                box.setStyle(SkPaint::kStroke_Style);
-                rect.setXYWH((float)regionSelection * step + gap, y + gap, step - gap - gap, height);
-                canvas->drawRoundRect(rect, 5, 5, box);
-            }
-            if (drawLine) {
-                double xposm, yposm;
-                glfwGetCursorPos(window, &xposm, &yposm);
-                int windowW, windowH;  // convert screen coords to frame buffer coords
-                glfwGetWindowSize(window, &windowW, &windowH);
-                if (fb_width > windowW) {
-                    xposm *= (float) fb_width / (float) windowW;
-                }
-                SkPath path;
-                path.moveTo(xposm, 0);
-                path.lineTo(xposm, fb_height);
-                canvas->drawPath(path, opts.theme.lcJoins);
-            }
+            float height = (float)fb_height - gap - gap;
+            float y = gap;
+            SkPaint box{};
+            box.setColor(SK_ColorGRAY);
+            box.setStrokeWidth(monitorScale);
+            box.setAntiAlias(true);
+            box.setStyle(SkPaint::kStroke_Style);
+            rect.setXYWH((float)regionSelection * step + gap, y + gap, step - gap - gap, height);
+            canvas->drawRoundRect(rect, 5, 5, box);
+        }
+
+        double xposm, yposm;
+        glfwGetCursorPos(window, &xposm, &yposm);
+        int windowW, windowH;  // convert screen coords to frame buffer coords
+        glfwGetWindowSize(window, &windowW, &windowH);
+        if (fb_width > windowW) {
+            xposm *= (float) fb_width / (float) windowW;
+            yposm *= (float) fb_height / (float) windowH;
+        }
+        float half_h = (float)fb_height / 2;
+        bool tool_popup = (xposm <= 60 && yposm >= half_h - 150 && yposm <= half_h + 150);
+        if (tool_popup) {
+            SkRect rect{};
+            SkPaint pop_paint = opts.theme.bgPaint;
+            pop_paint.setStrokeWidth(monitorScale);
+            pop_paint.setStyle(SkPaint::kStrokeAndFill_Style);
+            pop_paint.setAntiAlias(true);
+            pop_paint.setAlpha(255);
+            rect.setXYWH(0, half_h - 55, 60, 110);
+            canvas->drawRoundRect(rect, 10, 10, pop_paint);
+
+            SkPaint cog_paint = opts.theme.lcBright;
+            cog_paint.setAntiAlias(true);
+            cog_paint.setStrokeWidth(6);
+            cog_paint.setStyle(SkPaint::kStrokeAndFill_Style);
+            canvas->drawCircle(30, half_h - 25, 10, cog_paint);
+
+            SkPath path;
+            path.moveTo(30, half_h - 45);
+            path.lineTo(30, half_h - 5);
+            canvas->drawPath(path, cog_paint);
+            path.moveTo(10, half_h - 25);
+            path.lineTo(50, half_h - 25);
+            canvas->drawPath(path, cog_paint);
+            path.moveTo(16, half_h - 39);
+            path.lineTo(44, half_h - 11);
+            canvas->drawPath(path, cog_paint);
+            path.moveTo(16, half_h - 11);
+            path.lineTo(44, half_h - 39);
+            canvas->drawPath(path, cog_paint);
+
+            canvas->drawCircle(30, half_h - 25, 5, pop_paint);
+
+            rect.setXYWH(15, half_h + 15, 30, 30);
+            cog_paint.setStrokeWidth(monitorScale);
+            cog_paint.setStyle(SkPaint::kStroke_Style);
+            canvas->drawRoundRect(rect, 7, 7, cog_paint);
+
+        } else if (drawLine && mode != SETTINGS) {
+            SkPath path;
+            path.moveTo(xposm, 0);
+            path.lineTo(xposm, fb_height);
+            canvas->drawPath(path, opts.theme.lcJoins);
         }
 
         if (captureText && !opts.editing_underway) {
