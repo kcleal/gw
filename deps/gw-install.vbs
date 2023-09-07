@@ -2,13 +2,6 @@
 set msysShell = CreateObject("WScript.Shell")
 msysShell.run "C:\msys64\ucrt64.exe pacman -Sy --noconfirm mingw-w64-ucrt-x86_64-gw", 0, True
 
-''' If admin priv needed - not currently '''
-' If Not WScript.Arguments.Named.Exists("elevate") Then
-'   CreateObject("Shell.Application").ShellExecute WScript.FullName _
-'     , """" & WScript.ScriptFullName & """ /elevate", "", "runas", 1
-'   WScript.Quit
-' End If
-
 ''' Add gw to PATH so can be used in CMD and PS '''
 Function AddPath(ByVal PathToAdd)
   ' Adds a new path to the user path
@@ -76,6 +69,7 @@ Const strWorkDir = "C:\msys64\home\"
 Dim objShortcut, objShell
 Set objShell = WScript.CreateObject ("Wscript.Shell")
 strLPath = objShell.SpecialFolders ("Desktop")
+strAPath = objShell.SpecialFolders ("AppData")
 WinDir = objShell.ExpandEnvironmentStrings("%WinDir%") ' tmp
 Set objShortcut = objShell.CreateShortcut (strLPath & "\" & strProgramTitle & ".lnk")
 objShortcut.TargetPath = strProgram
@@ -108,11 +102,26 @@ Sub HTTPDownload( myURL, myPath )
     objFile.Close( )
 End Sub
 
-HTTPDownload "https://raw.githubusercontent.com/kcleal/gw/master/include/gw_icon.ico", "C:\msys64\home\gw_icon.ico"
+''' (strAPath & "\" & strProgramTitle & "\gw_icon.ico") '''
+HTTPDownload "https://raw.githubusercontent.com/kcleal/gw/master/include/gw_icon.ico", (strAPath & "\gw_icon.ico")
 
 ' change icon
-objShortcut.IconLocation = "C:\msys64\home\gw_icon.ico"
+objShortcut.IconLocation = (strAPath & "\gw_icon.ico")
 objShortcut.Save
 
+''' Give admin priv - required for adding to applications folder '''
+If Not WScript.Arguments.Named.Exists("elevate") Then
+  CreateObject("Shell.Application").ShellExecute WScript.FullName _
+    , """" & WScript.ScriptFullName & """ /elevate", "", "runas", 1
+  WScript.Quit
+End If
+
+''' Add to applications folder '''
+Set objShortcutP = objShell.CreateShortcut ("C:\ProgramData\Microsoft\Windows\Start Menu\Programs\gw.lnk")
+objShortcutP.TargetPath = strProgram
+objShortcutP.WorkingDirectory = strWorkDir
+objShortcutP.Description = strProgramTitle
+objShortcutP.IconLocation = (strAPath & "\gw_icon.ico")
+objShortcutP.Save
 
 WScript.Quit
