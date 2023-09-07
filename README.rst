@@ -34,7 +34,7 @@ Apple x86_64/arm64::
  
     brew install kcleal/homebrew-gw/gw
     
-Windows, install via msys2 or WSL. For msys2, download `msys2 <https://www.msys2.org/>`_ then run the [gw installer](https://raw.githubusercontent.com/kearseya/gw/master/debs/gw-install.vbs) to create a desktop/start menu shortcut and add to path or open a ucrt64 terminal (start menu) and install (note you will have to manually add to path to use outside of ucrt64)::
+Windows, install via msys2 or WSL. For msys2, download `msys2 <https://www.msys2.org/>`_ then run the `gw installer <https://raw.githubusercontent.com/kearseya/gw/master/debs/gw-install.vbs>` to create a desktop/start menu shortcut and add to path or open a ucrt64 terminal (start menu) and install (note you will have to manually add to path to use outside of ucrt64)::
 
     pacman -Sy mingw-w64-ucrt-x86_64-gw
 
