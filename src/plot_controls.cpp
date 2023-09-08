@@ -934,20 +934,37 @@ namespace Manager {
         return true;
     }
 
-    void GwPlot::printRegionInfo() {
+    int GwPlot::printRegionInfo() {
+        int term_width = Utils::get_terminal_width() - 1;
         if (regions.empty()) {
-            return;
+            return term_width;
+        }
+        std::string pos_str = "\rPos   ";
+        if (term_width <= pos_str.size()) {
+            return term_width;
         }
         Term::clearLine();
-        std::cout << termcolor::bold << "\rPos   " << termcolor::reset ;
-        int i = 0;
-        auto r = regions[regionSelection];
-        std::cout << termcolor::cyan << r.chrom << ":" << r.start << "-" << r.end << termcolor::white << "  (" << Utils::getSize(r.end - r.start) << ")";
-        if (i != (int)regions.size() - 1) {
-            std::cout << "    ";
-        }
+        std::cout << termcolor::bold << pos_str << termcolor::reset;
+        term_width -= (int)pos_str.size();
 
+        auto r = regions[regionSelection];
+        std::string region_str = r.chrom + ":" + std::to_string(r.start) + "-" + std::to_string(r.end);
+        if (term_width <= region_str.size()) {
+            std::cout << std::flush;
+            return term_width;
+        }
+        std::cout << termcolor::cyan << region_str << termcolor::white;
+        term_width -= (int)region_str.size();
+
+        std::string size_str = "  (" + Utils::getSize(r.end - r.start) + ")";
+        if (term_width <= size_str.size()) {
+            std::cout << std::flush;
+            return term_width;
+        }
+        std::cout << size_str;
+        term_width -= (int)size_str.size();
         std::cout << termcolor::reset << std::flush;
+        return term_width;
     }
 
     void GwPlot::updateSettings() {
@@ -1723,8 +1740,7 @@ namespace Manager {
         if (regions.empty() || mode == TILED) {
             return;
         }
-        int pos = (int) (((xPos - (float) cl.xOffset) / cl.xScaling) +
-                         (float) cl.region.start);
+        int pos = (int) (((xPos - (float) cl.xOffset) / cl.xScaling) + (float) cl.region.start);
         auto s = std::to_string(pos);
         int n = (int)s.length() - 3;
         int end = (pos >= 0) ? 0 : 1; // Support for negative numbers
@@ -1732,12 +1748,19 @@ namespace Manager {
             s.insert(n, ",");
             n -= 3;
         }
-        printRegionInfo();
-        if (bams.empty()) {
-            std::cout << "    " << s << std::flush;
+        int term_width_remaining = printRegionInfo();
+        s = "    " + s;
+        if (term_width_remaining < s.size()) {
             return;
         }
-        std::string base_filename = bam_paths[cl.bamIdx].substr(bam_paths[cl.bamIdx].find_last_of("/\\") + 1);
+        std::cout << s << std::flush;
+        term_width_remaining -= (int)s.size();
+        std::string base_filename = "  -  " + bam_paths[cl.bamIdx].substr(bam_paths[cl.bamIdx].find_last_of("/\\") + 1);
+        if (term_width_remaining < base_filename.size()) {
+            std::cout << std::flush;
+            return;
+        }
+        std::cout << base_filename << std::flush;
     }
 
     void GwPlot::mousePos(GLFWwindow* wind, double xPos, double yPos) {

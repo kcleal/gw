@@ -539,10 +539,12 @@ namespace Term {
 			if ((int)bnd->pos <= pos && pos <= (int)bnd->reference_end) {
 				Segs::Align &align = *bnd;
 				uint32_t r_pos = align.pos;
-				uint32_t cigar_l = align.cigar_l;
+				uint32_t cigar_l = align.delegate->core.n_cigar;
 				uint8_t *ptr_seq = bam_get_seq(align.delegate);
 				uint32_t *cigar_p = bam_get_cigar(align.delegate);
-
+                if (cigar_p == nullptr || cigar_l == 0) {
+                    continue;
+                }
 				int r_idx;
 				uint32_t idx = 0;
 				const char *refSeq = cl.region.refSeq;
@@ -655,6 +657,12 @@ namespace Term {
 		}
 		int totCov = A + T + C + G + N + mA + mT + mC + mG + mN;
 
+        int term_space = Utils::get_terminal_width();
+        std::string line = "Coverage    " + std::to_string(totCov) + "      A:" + std::to_string(A) + "  T:" + std::to_string(T) + "  C:" + std::to_string(C) + "  G:" + std::to_string(T) + "     ";
+        if (term_space < (int)line.size()) {
+            return;
+        }
+
 		std::cout << termcolor::bold << "\rCoverage    " << termcolor::reset << totCov << "    ";
 		if (A) {
 			std::cout << "  A:" << A;
@@ -667,6 +675,14 @@ namespace Term {
 		} else {
 			std::cout << "     ";
 		}
+        term_space -= (int)line.size();
+        line.clear();
+        line = "  A:" + std::to_string(mA) + "  T:" + std::to_string(mT) + "  C:" + std::to_string(mC) + "  G:" + std::to_string(mT);
+        if (term_space < line.size()) {
+            std::cout << std::flush;
+            return;
+        }
+
 		if (mA > 0 || mT > 0 || mC > 0 || mG > 0) {
 			if (mA) {
 				std::cout << termcolor::green << "  A" << termcolor::reset << ":" << mA;
@@ -681,6 +697,12 @@ namespace Term {
 				std::cout << termcolor::yellow << "  G" << termcolor::reset << ":" << mG;
 			}
 		}
+        line.clear();
+        line = "    Pos  " + std::to_string(pos);
+        if (term_space < line.size()) {
+            std::cout << std::flush;
+            return;
+        }
         std::cout << termcolor::bold << "    Pos  " << termcolor::reset << pos;
 		std::cout << std::flush;
 	}

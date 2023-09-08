@@ -56,7 +56,7 @@ namespace Segs {
     struct Align {
         bam1_t *delegate;
         int cov_start, cov_end, orient_pattern, left_soft_clip, right_soft_clip, y, edge_type;
-        uint32_t pos, reference_end, cigar_l;
+        uint32_t pos, reference_end;
         bool has_SA, initialized;
         std::vector<uint32_t> block_starts, block_ends;
         std::vector<InsItem> any_ins;
@@ -70,6 +70,7 @@ namespace Segs {
        ReadCollection();
         ~ReadCollection() = default;
         int bamIdx, regionIdx, vScroll;
+        int maxCoverage;
         Utils::Region region;
         std::vector<int> covArr;
         std::vector<int> levelsStart, levelsEnd;

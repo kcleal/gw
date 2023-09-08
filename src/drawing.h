@@ -30,7 +30,7 @@
 
 namespace Drawing {
 
-    void drawCoverage(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
+    void drawCoverage(const Themes::IniOptions &opts, std::vector<Segs::ReadCollection> &collections,
                       SkCanvas *canvas, const Themes::Fonts &fonts, float covY, float refSpace);
 
     void drawBams(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections, SkCanvas* canvas,

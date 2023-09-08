@@ -250,7 +250,7 @@ namespace Segs {
         uint32_t *cigar_p;
 
         cigar_l = src->core.n_cigar;
-        self->cigar_l = cigar_l;
+//        self->cigar_l = cigar_l;
 
         pos = src->core.pos;
         cigar_p = bam_get_cigar(src);

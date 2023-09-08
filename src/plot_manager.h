@@ -173,7 +173,7 @@ namespace Manager {
 
         sk_sp<SkImage> makeImage();
 
-        void printRegionInfo();
+        int printRegionInfo();
 
 
     private:

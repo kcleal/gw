@@ -31,7 +31,11 @@ namespace Drawing {
     char indelChars[50];
     constexpr float polygonHeight = 0.85;
 
-    void drawCoverage(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
+    struct Mismatches {
+        uint32_t A, T, C, G;
+    };
+
+    void drawCoverage(const Themes::IniOptions &opts, std::vector<Segs::ReadCollection> &collections,
                       SkCanvas *canvas, const Themes::Fonts &fonts, const float covYh, const float refSpace) {
 
         const Themes::BaseTheme &theme = opts.theme;
@@ -60,8 +64,8 @@ namespace Drawing {
             const std::vector<int> & covArr_r = cl.covArr;
             std::vector<float> c;
             c.resize(cl.covArr.size());
-            c[0] = cl.covArr[0];
-            int cMaxi = (c[0] > 10) ? c[0] : 10;
+            c[0] = (float)cl.covArr[0];
+            int cMaxi = (c[0] > 10) ? (int)c[0] : 10;
             tot = (float)c[0];
             n = 0;
             if (tot > 0) {
@@ -78,6 +82,7 @@ namespace Drawing {
                     n += 1;
                 }
             }
+            cl.maxCoverage = cMaxi;
             if (n > 0) {
                 mean = tot / n;
                 mean = ((float)((int)(mean * 10))) / 10;
@@ -230,7 +235,7 @@ namespace Drawing {
         }
         path.reset();
         path.moveTo(start + xOffset, yScaledOffset);
-        path.lineTo(start - slop + xOffset, yScaledOffset + polygonH / 2);
+        path.lineTo(start - slop + xOffset, yScaledOffset + (polygonH * 0.5));
         path.lineTo(start + xOffset, yScaledOffset + polygonH);
         path.lineTo(start + width + xOffset, yScaledOffset + polygonH);
         path.lineTo(start + width + xOffset, yScaledOffset);
@@ -255,7 +260,7 @@ namespace Drawing {
         path.moveTo(start + xOffset, yScaledOffset);
         path.lineTo(start + xOffset, yScaledOffset + polygonH);
         path.lineTo(start + width + xOffset, yScaledOffset + polygonH);
-        path.lineTo(start + width + slop + xOffset, yScaledOffset + polygonH / 2);
+        path.lineTo(start + width + slop + xOffset, yScaledOffset + (polygonH * 0.5));
         path.lineTo(start + width + xOffset, yScaledOffset);
         path.close();
         canvas->drawPath(path, faceColor);
@@ -276,37 +281,38 @@ namespace Drawing {
         float y = y0 * yScaling;
         float ph = polygonHeight * yScaling;
         float overhang = textW * 0.125;
-        rect.setXYWH(x - (textW / 2) - 2, y + yOffset, textW + 2, ph);
+        float text_half = textW * 0.5;
+        rect.setXYWH(x - text_half - 2, y + yOffset, textW + 2, ph);
         canvas->drawRect(rect, faceColor);
 
         path.reset();
-        path.moveTo(x - (textW / 2) - overhang, yOffset + y + ph * 0.05);
-        path.lineTo(x + (textW / 2) + overhang, yOffset + y + ph * 0.05);
-        path.moveTo(x - (textW / 2) - overhang, yOffset + y + ph * 0.95);
-        path.lineTo(x + (textW / 2) + overhang, yOffset + y + ph * 0.95);
+        path.moveTo(x - text_half - overhang, yOffset + y + ph * 0.05);
+        path.lineTo(x + text_half + overhang, yOffset + y + ph * 0.05);
+        path.moveTo(x - text_half - overhang, yOffset + y + ph * 0.95);
+        path.lineTo(x + text_half + overhang, yOffset + y + ph * 0.95);
         path.moveTo(x, yOffset + y);
         path.lineTo(x, yOffset + y + ph);
         canvas->drawPath(path, sidesColor);
     }
 
     void drawMismatchesNoMD(SkCanvas *canvas, SkRect &rect, const Themes::BaseTheme &theme, const Utils::Region &region, const Segs::Align &align,
-                            float width, float xScaling, float xOffset, float mmPosOffset, float yScaledOffset, float pH, int l_qseq) {
+                            float width, float xScaling, float xOffset, float mmPosOffset, float yScaledOffset, float pH, int l_qseq, std::vector<Mismatches> &mm_array) {
         uint32_t r_pos = align.pos;
-        uint32_t cigar_l = align.cigar_l;
+        uint32_t cigar_l = align.delegate->core.n_cigar; //align.cigar_l;
         uint8_t *ptr_seq = bam_get_seq(align.delegate);
         uint32_t *cigar_p = bam_get_cigar(align.delegate);
         auto *ptr_qual = bam_get_qual(align.delegate);
-
         int r_idx;
         uint32_t idx = 0;
         const char *refSeq = region.refSeq;
         if (refSeq == nullptr) {
             return;
         }
-        int rlen = region.end - region.start;
-        int op, l, colorIdx;
+        uint32_t rlen = region.end - region.start;
+        uint32_t rbegin = (uint32_t)region.start;
+        uint32_t rend = (uint32_t)region.end;
+        uint32_t op, l, colorIdx;
         float p;
-
         for (int k = 0; k < (int)cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
@@ -331,17 +337,18 @@ namespace Drawing {
             }
             else if (op == BAM_CDIFF) {
                 for (int i=0; i < l; ++l) {
-                    if (r_pos >= (uint32_t)region.start) {
+                    if (r_pos >= rbegin && r_pos < rend) {
                         char bam_base = bam_seqi(ptr_seq, idx);
-                        p = ((int)r_pos - region.start) * xScaling;
+                        p = (float)(r_pos - rbegin) * xScaling;
                         colorIdx = (l_qseq == 0) ? 10 : (ptr_qual[idx] > 10) ? 10 : ptr_qual[idx];
                         rect.setXYWH(p + xOffset + mmPosOffset, yScaledOffset, width, pH);
+                        canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]);
                         switch (bam_base) {
-                            case 1: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
-                            case 2: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
-                            case 4: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
-                            case 8: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
-                            default: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
+                            case 1: mm_array[r_pos - rbegin].A += 1; break;  // A==1, C==2, G==4, T==8, N==>8
+                            case 2: mm_array[r_pos - rbegin].C += 1; break;
+                            case 4: mm_array[r_pos - rbegin].G += 1; break;
+                            case 8: mm_array[r_pos - rbegin].T += 1; break;
+                            default: break;
                         }
                     }
                     idx += 1;
@@ -349,7 +356,6 @@ namespace Drawing {
                 }
             }
             else {  // BAM_CMATCH
-                // A==1, C==2, G==4, T==8, N==>8
                 for (int i=0; i < l; ++i) {
                     r_idx = (int)r_pos - region.start;
                     if (r_idx < 0) {
@@ -357,7 +363,6 @@ namespace Drawing {
                         r_pos += 1;
                         continue;
                     }
-
                     if (r_idx >= rlen) {
                         break;
                     }
@@ -376,15 +381,16 @@ namespace Drawing {
                     }
                     char bam_base = bam_seqi(ptr_seq, idx);
                     if (bam_base != ref_base) {
-                        p = ((int)r_pos - region.start) * xScaling;
+                        p = (float)(r_pos - rbegin) * xScaling;
                         colorIdx = (l_qseq == 0) ? 10 : (ptr_qual[idx] > 10) ? 10 : ptr_qual[idx];
                         rect.setXYWH(p + xOffset + mmPosOffset, yScaledOffset, width, pH);
+                        canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]);
                         switch (bam_base) {
-                            case 1: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
-                            case 2: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
-                            case 4: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
-                            case 8: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
-                            default: canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]); break;
+                            case 1: mm_array[r_pos - rbegin].A += 1; break;  // A==1, C==2, G==4, T==8, N==>8
+                            case 2: mm_array[r_pos - rbegin].C += 1; break;
+                            case 4: mm_array[r_pos - rbegin].G += 1; break;
+                            case 8: mm_array[r_pos - rbegin].T += 1; break;
+                            default: break;
                         }
                     }
                     idx += 1;
@@ -522,8 +528,8 @@ namespace Drawing {
             float xOffset = cl.xOffset;
             float yOffset = cl.yOffset;
             float regionPixels = regionLen * xScaling;
-            float pointSlop = (tan(0.42) * (yScaling/2));  // radians
-            float textDrop = (yScaling - fonts.fontHeight) / 2;
+            float pointSlop = (tan(0.42) * (yScaling * 0.5));  // radians
+            float textDrop = (yScaling - fonts.fontHeight) * 0.5;
 
             bool plotSoftClipAsBlock = regionLen > opts.soft_clip_threshold;
             bool plotPointedPolygons = regionLen < 50000;
@@ -535,6 +541,11 @@ namespace Drawing {
             }
             if (pH > 10) {  // scale to pixel boundary
                 pH = (float)(int)pH;
+            }
+
+            std::vector<Mismatches> mm_vector;
+            if (opts.max_coverage > 0) {
+                mm_vector.resize(regionEnd - regionBegin);
             }
 
             for (auto &a: cl.readQueue) {
@@ -673,7 +684,7 @@ namespace Drawing {
                                     drawIns(canvas, Y, p, yScaling, xOffset, yOffset, textW, theme.insS,
                                             theme.fcIns, path, rect);
                                     text_ins.push_back(SkTextBlob::MakeFromString(indelChars, fonts.fonty));
-                                    textX_ins.push_back(p - (textW / 2) + xOffset - 2);
+                                    textX_ins.push_back(p - (textW * 0.5) + xOffset - 2);
                                     textY_ins.push_back(((Y + polygonHeight) * yScaling) + yOffset - textDrop);
                                 } else {  // line only
                                     drawIns(canvas, Y, p, yScaling, xOffset, yOffset, xScaling, theme.insS,
@@ -709,7 +720,7 @@ namespace Drawing {
                 if (regionLen <= opts.snp_threshold) {
                     float mms = xScaling * mmScaling;
                     width = (regionLen < 500000) ? ((1. > mms) ? 1. : mms) : xScaling;
-                    drawMismatchesNoMD(canvas, rect, theme, cl.region, a, width, xScaling, xOffset, mmPosOffset, yScaledOffset, pH, l_qseq);
+                    drawMismatchesNoMD(canvas, rect, theme, cl.region, a, (float)width, xScaling, xOffset, mmPosOffset, yScaledOffset, pH, l_qseq, mm_vector);
                 }
 
                 // add soft-clips
@@ -752,6 +763,18 @@ namespace Drawing {
                             pos += 1;
                         }
                     }
+                }
+            }
+
+            // draw mismatch blocks on the coverage track
+            if (opts.max_coverage > 0) {
+                int i = 0;
+                for (const auto &item : mm_vector) {
+                    uint32_t sum = item.A + item.T + item.C + item.G;
+                    if (!sum) { i+=1; continue; }
+//                    std::cerr << "sum " << sum << " maxC " << cl.maxCoverage << std::endl;
+
+                    i += 1;
                 }
             }
 
@@ -976,7 +999,7 @@ namespace Drawing {
         for (int i=0; i < idx; i++) {
             value += step;
             step *= -1;
-            step = step / 2;
+            step = step * 0.5;
         }
 
         SkRect bg;
@@ -991,7 +1014,7 @@ namespace Drawing {
         }
         p.setARGB(255, v, v, v);
 
-        if ((wl + pad) > (rect.width() / 2)) {
+        if ((wl + pad) > (rect.width() * 0.5)) {
             bg.setXYWH(x + pad, rect.bottom() - fonts.overlayHeight - pad - pad - pad - pad,  fonts.overlayHeight, fonts.overlayHeight);
             canvas->drawRoundRect(bg,  fonts.overlayHeight, fonts.overlayHeight, p);
             canvas->drawRoundRect(bg,  fonts.overlayHeight, fonts.overlayHeight, opts.theme.lcLabel);
@@ -1121,8 +1144,8 @@ namespace Drawing {
         float stepY = totalTabixY / tracks.size();
         float y = fb_height - totalTabixY;
         float h = (float)stepY * 0.2;
-        float h2 = h / 2;
-        float h4 = h2 / 2;
+        float h2 = h * 0.5;
+        float h4 = h2 * 0.5;
         float t = (float)0.005 * fb_width;
         SkRect rect{};
         SkPath path{};
