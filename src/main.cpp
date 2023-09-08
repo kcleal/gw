@@ -242,7 +242,7 @@ int main(int argc, char *argv[]) {
             genome = vals[user_i];
         } catch (...) {
             std::cerr << "Something went wrong\n";
-            std::terminate();
+            std::exit(-1);
         }
         assert (Utils::is_file_exist(genome));
         iopts.genome_tag = genome;
@@ -349,7 +349,7 @@ int main(int argc, char *argv[]) {
             iopts.link_op = 2;
         } else {
             std::cerr << "Link type not known [none/sv/all]\n";
-            std::terminate();
+            std::exit(-1);
         }
     }
 
@@ -440,20 +440,12 @@ int main(int argc, char *argv[]) {
 
         if (!interface || !interface->validate()) {
 		    std::cerr << "Error: skia GrGLInterface was not valid" << std::endl;
-            GLint param;
             if (!interface) {
                 std::cerr << "    GrGLMakeNativeInterface() returned nullptr" << std::endl;
                 std::cerr << "    GrGLInterface probably missing some GL functions" << std::endl;
             } else {
                 std::cerr << "    fStandard was " << interface->fStandard << std::endl;
             }
-            std::cerr << "    Details of the glfw framebuffer were as follow:\n";
-            glGetIntegerv(GL_RED_BITS, &param); std::cerr << "    GL_RED_BITS " << param << std::endl;
-            glGetIntegerv(GL_GREEN_BITS, &param); std::cerr << "    GL_GREEN_BITS " << param << std::endl;
-            glGetIntegerv(GL_BLUE_BITS, &param); std::cerr << "    GL_BLUE_BITS " << param << std::endl;
-            glGetIntegerv(GL_ALPHA_BITS, &param); std::cerr << "    GL_ALPHA_BITS " << param << std::endl;
-            glGetIntegerv(GL_DEPTH_BITS, &param); std::cerr << "    GL_DEPTH_BITS " << param << std::endl;
-            glGetIntegerv(GL_STENCIL_BITS, &param); std::cerr << "    GL_STENCIL_BITS " << param << std::endl;
             std::cerr << "GL error code: " << glGetError() << std::endl;
             std::exit(-1);
         }
@@ -476,7 +468,7 @@ int main(int argc, char *argv[]) {
             if (!backendRenderTarget.isValid()) {
                 std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
                 glfwTerminate();
-                std::terminate();
+                std::exit(-1);
             }
             sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
                                                               backendRenderTarget,
@@ -496,7 +488,7 @@ int main(int argc, char *argv[]) {
         }
         if (!valid) {
             std::cerr << "ERROR: could not create a valid frame buffer\n";
-            std::terminate();
+            std::exit(-1);
         }
 
         // start UI here
@@ -504,7 +496,7 @@ int main(int argc, char *argv[]) {
             int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));  // plot regions
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
-                std::terminate();
+                std::exit(-1);
             }
         } else if (program.is_used("--variants")) {  // plot variants as tiled images
 
@@ -527,7 +519,7 @@ int main(int argc, char *argv[]) {
             int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
-                std::terminate();
+                std::exit(-1);
             }
 
             if (program.is_used("--out-vcf")) {
@@ -586,7 +578,7 @@ int main(int argc, char *argv[]) {
             int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
-                std::terminate();
+                std::exit(-1);
             }
         }
 
@@ -659,13 +651,13 @@ int main(int argc, char *argv[]) {
                         if (!backendRenderTarget.isValid()) {
                             std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
                             glfwTerminate();
-                            std::terminate();
+                            std::exit(-1);
                         }
                         sSurface = SkSurface::MakeFromBackendRenderTarget(sContext, backendRenderTarget,kBottomLeft_GrSurfaceOrigin,kRGBA_8888_SkColorType,  nullptr, nullptr).release();
                         if (!sSurface) {
                             std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
                             sContext->releaseResourcesAndAbandonContext();
-                            std::terminate();
+                            std::exit(-1);
                         }
                         SkCanvas *canvas = sSurface->getCanvas();
                         if (iopts.link_op == 0) {

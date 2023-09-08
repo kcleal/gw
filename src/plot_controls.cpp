@@ -940,7 +940,7 @@ namespace Manager {
             return term_width;
         }
         std::string pos_str = "\rPos   ";
-        if (term_width <= pos_str.size()) {
+        if (term_width <= (int)pos_str.size()) {
             return term_width;
         }
         Term::clearLine();
@@ -949,7 +949,7 @@ namespace Manager {
 
         auto r = regions[regionSelection];
         std::string region_str = r.chrom + ":" + std::to_string(r.start) + "-" + std::to_string(r.end);
-        if (term_width <= region_str.size()) {
+        if (term_width <= (int)region_str.size()) {
             std::cout << std::flush;
             return term_width;
         }
@@ -957,7 +957,7 @@ namespace Manager {
         term_width -= (int)region_str.size();
 
         std::string size_str = "  (" + Utils::getSize(r.end - r.start) + ")";
-        if (term_width <= size_str.size()) {
+        if (term_width <= (int)size_str.size()) {
             std::cout << std::flush;
             return term_width;
         }
@@ -1010,6 +1010,7 @@ namespace Manager {
                 }
             }
         }
+        pool.reset(opts.threads);
     }
 
     void convertScreenCoordsToFrameBufferCoords(GLFWwindow *wind, double *xPos, double *yPos, int fb_width, int fb_height) {
@@ -1083,7 +1084,7 @@ namespace Manager {
                             if (!bams.empty()) {
                                 HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                             indexes[cl.bamIdx], opts, (bool)opts.max_coverage, false,
-                                                            &samMaxY, filters);
+                                                            &samMaxY, filters, pool);
 
                             }
                         }
@@ -1110,7 +1111,7 @@ namespace Manager {
                             if (!bams.empty()) {
                                 HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                             indexes[cl.bamIdx], opts, (bool)opts.max_coverage, true,
-                                                            &samMaxY, filters);
+                                                            &samMaxY, filters, pool);
                             }
                         }
                     }
@@ -1140,9 +1141,9 @@ namespace Manager {
                                 cl.region = regions[regionSelection];
                                 if (!bams.empty()) {
                                     HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                                                opts, false, true,  &samMaxY, filters);
+                                                                opts, false, true,  &samMaxY, filters, pool);
                                     HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                                                opts, false, false, &samMaxY, filters);
+                                                                opts, false, false, &samMaxY, filters, pool);
                                     if (opts.max_coverage) {  // re process coverage for all reads
                                         cl.covArr.resize(cl.region.end - cl.region.start + 1);
                                         std::fill(cl.covArr.begin(), cl.covArr.end(), 0);
@@ -1613,7 +1614,7 @@ namespace Manager {
                                 col.region = regions[regionSelection];
                                 HGW::appendReadsAndCoverage(col, bams[col.bamIdx], headers[col.bamIdx],
                                                             indexes[col.bamIdx], opts, (bool) opts.max_coverage,
-                                                            lt_last, &samMaxY, filters);
+                                                            lt_last, &samMaxY, filters, pool);
                             }
                         }
                     }
@@ -1750,13 +1751,13 @@ namespace Manager {
         }
         int term_width_remaining = printRegionInfo();
         s = "    " + s;
-        if (term_width_remaining < s.size()) {
+        if (term_width_remaining < (int)s.size()) {
             return;
         }
         std::cout << s << std::flush;
         term_width_remaining -= (int)s.size();
         std::string base_filename = "  -  " + bam_paths[cl.bamIdx].substr(bam_paths[cl.bamIdx].find_last_of("/\\") + 1);
-        if (term_width_remaining < base_filename.size()) {
+        if (term_width_remaining < (int)base_filename.size()) {
             std::cout << std::flush;
             return;
         }
@@ -1829,7 +1830,7 @@ namespace Manager {
                                 HGW::appendReadsAndCoverage(col, bams[col.bamIdx], headers[col.bamIdx],
                                                             indexes[col.bamIdx], opts, (bool) opts.max_coverage,
                                                             !lt_last,
-                                                            &samMaxY, filters);
+                                                            &samMaxY, filters, pool);
                             }
                         }
                     }

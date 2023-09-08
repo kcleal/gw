@@ -50,7 +50,7 @@ namespace HGW {
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, int threads, Utils::Region *region,
                                  bool coverage, bool low_mem,
-                                 std::vector<Parse::Parser> &filters) {
+                                 std::vector<Parse::Parser> &filters, BS::thread_pool &pool) {
         bam1_t *src;
         hts_itr_t *iter_q;
 
@@ -85,7 +85,7 @@ namespace HGW {
             applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
         }
 
-        Segs::init_parallel(readQueue, threads);
+        Segs::init_parallel(readQueue, threads, pool);
         if (coverage) {
             int l_arr = (int)col.covArr.size() - 1;
             for (auto &i : readQueue) {
@@ -184,7 +184,7 @@ namespace HGW {
 
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *samMaxY,
-                                std::vector<Parse::Parser> &filters) {
+                                std::vector<Parse::Parser> &filters, BS::thread_pool &pool) {
         bam1_t *src;
         hts_itr_t *iter_q;
         std::vector<Segs::Align>& readQueue = col.readQueue;
@@ -327,7 +327,7 @@ namespace HGW {
                 applyFilters(filters, newReads, hdr_ptr, col.bamIdx, col.regionIdx);
             }
 
-            Segs::init_parallel(newReads, opts.threads);
+            Segs::init_parallel(newReads, opts.threads, pool);
 
             bool findYall = false;
             if (col.vScroll == 0 && opts.link_op == 0) {  // only new reads need findY, otherwise, reset all below
@@ -1022,7 +1022,7 @@ namespace HGW {
         }
 
         if (!sorted) {
-            std::cout << "Unsorted file: sorting blocks from " << path << std::endl;
+            std::cerr << "Unsorted file: sorting blocks from " << path << std::endl;
             for (auto &item : allBlocks) {
                 std::sort(item.second.begin(), item.second.end(),
                           [](const Utils::TrackBlock &a, const Utils::TrackBlock &b)-> bool { return a.start < b.start || (a.start == b.start && a.end > b.end);});

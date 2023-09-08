@@ -678,7 +678,7 @@ namespace Term {
         term_space -= (int)line.size();
         line.clear();
         line = "  A:" + std::to_string(mA) + "  T:" + std::to_string(mT) + "  C:" + std::to_string(mC) + "  G:" + std::to_string(mT);
-        if (term_space < line.size()) {
+        if (term_space < (int)line.size()) {
             std::cout << std::flush;
             return;
         }
@@ -699,7 +699,7 @@ namespace Term {
 		}
         line.clear();
         line = "    Pos  " + std::to_string(pos);
-        if (term_space < line.size()) {
+        if (term_space < (int)line.size()) {
             std::cout << std::flush;
             return;
         }

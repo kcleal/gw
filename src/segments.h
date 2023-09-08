@@ -63,6 +63,10 @@ namespace Segs {
 //        std::vector<MMbase> mismatches;
     };
 
+    struct Mismatches {
+        uint32_t A, T, C, G;
+    };
+
     typedef ankerl::unordered_dense::map< std::string, std::vector< Align* >> map_t;
 
     class ReadCollection {
@@ -74,6 +78,7 @@ namespace Segs {
         Utils::Region region;
         std::vector<int> covArr;
         std::vector<int> levelsStart, levelsEnd;
+        std::vector<Mismatches> mmVector;
         std::vector<Align> readQueue;
         map_t linked;
         float xScaling, xOffset, yOffset, yPixels;
@@ -86,7 +91,7 @@ namespace Segs {
 
     void align_clear(Align *self);
 
-    void init_parallel(std::vector<Align> &aligns, int n);
+    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool);
 
     void resetCovStartEnd(ReadCollection &cl);
 

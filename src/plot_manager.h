@@ -208,6 +208,8 @@ namespace Manager {
 
         std::vector<Utils::BoundingBox> bboxes;
 
+        BS::thread_pool pool;
+
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
         void drawScreenNoBuffer(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);

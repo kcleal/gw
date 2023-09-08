@@ -109,6 +109,9 @@ namespace Manager {
         blockStart = 0;
         regionSelection = 0;
         mode = Show::SINGLE;
+        if (opts.threads > 1) {
+            pool.reset(opts.threads);
+        }
     }
 
     GwPlot::~GwPlot() {
@@ -517,7 +520,7 @@ namespace Manager {
                     if (opts.max_coverage) {
                         collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
                     }
-                    HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage, opts.low_mem, filters);
+                    HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage, opts.low_mem, filters, pool);
                     int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts, reg, false);
                     if (maxY > samMaxY) {
                         samMaxY = maxY;
@@ -947,6 +950,7 @@ namespace Manager {
                 collections[idx].region = regions[j];
                 if (opts.max_coverage) {
                     collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
+                    collections[idx].mmVector.resize(reg->end - reg->start + 1);
                 }
                 idx += 1;
             }

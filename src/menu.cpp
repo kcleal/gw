@@ -676,15 +676,15 @@ namespace Menu {
             std::cerr << termcolor::red << "Error:" << termcolor::reset << " expected an integer number, instead of " << new_opt.value << std::endl;
         } else {
             int v = std::stoi(new_opt.value);
-            if (new_opt.name == "indel_length") { opts.indel_length = v; }
-            else if (new_opt.name == "ylim") { opts.ylim = v; }
-            else if (new_opt.name == "split_view_size") { opts.split_view_size = v; }
-            else if (new_opt.name == "threads") { opts.threads = v; }
-            else if (new_opt.name == "pad") { opts.pad = v; }
-            else if (new_opt.name == "soft_clip") { opts.soft_clip_threshold = v; }
-            else if (new_opt.name == "small_indel") { opts.small_indel_threshold = v; }
-            else if (new_opt.name == "snp") { opts.snp_threshold = v; }
-            else if (new_opt.name == "edge_highlights") { opts.edge_highlights = v; }
+            if (new_opt.name == "indel_length") { opts.indel_length = std::max(1, v); }
+            else if (new_opt.name == "ylim") { opts.ylim = std::max(1, v); }
+            else if (new_opt.name == "split_view_size") { opts.split_view_size = std::max(1, v); }
+            else if (new_opt.name == "threads") { opts.threads = std::max(1, v); }
+            else if (new_opt.name == "pad") { opts.pad = std::max(1, v); }
+            else if (new_opt.name == "soft_clip") { opts.soft_clip_threshold = std::max(0, v); }
+            else if (new_opt.name == "small_indel") { opts.small_indel_threshold = std::max(1, v); }
+            else if (new_opt.name == "snp") { opts.snp_threshold = std::max(1, v); }
+            else if (new_opt.name == "edge_highlights") { opts.edge_highlights = std::max(1, v); }
             else { return; }
             opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
         }

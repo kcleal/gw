@@ -79,7 +79,7 @@ namespace HGW {
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, int threads, Utils::Region *region,
                                  bool coverage, bool low_mem,
-                                 std::vector<Parse::Parser> &filters);
+                                 std::vector<Parse::Parser> &filters, BS::thread_pool &pool);
 
     void iterDraw(std::vector<Segs::ReadCollection> &cols, int idx, htsFile *b, sam_hdr_t *hdr_ptr,
                         hts_idx_t *index, int threads, Utils::Region *region,
@@ -91,7 +91,7 @@ namespace HGW {
 
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
                                 hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *samMaxY,
-                                std::vector<Parse::Parser> &filters);
+                                std::vector<Parse::Parser> &filters, BS::thread_pool &pool);
 
     /*
     * VCF/BCF/BED/LABEL file reader. No line cacheing or label parsing.

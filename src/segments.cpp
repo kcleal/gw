@@ -368,13 +368,12 @@ namespace Segs {
         self->any_ins.clear();
     }
 
-    void init_parallel(std::vector<Align> &aligns, int n) { //const char *refSeq, int begin, int rlen) {
+    void init_parallel(std::vector<Align> &aligns, int n,  BS::thread_pool &pool) {
         if (n == 1) {
             for (auto &aln : aligns) {
                 align_init(&aln);
             }
         } else {
-            BS::thread_pool pool(n);
             pool.parallelize_loop(0, aligns.size(),
                                   [&aligns](const int a, const int b) {
                                       for (int i = a; i < b; ++i)

@@ -1,12 +1,12 @@
 TARGET = gw
 
-CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -O1 -fno-omit-frame-pointer #-DNDEBUG
+CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -O3 -fno-omit-frame-pointer -DNDEBUG
 
 CPPFLAGS += -I./include -I./src -I.
 
 LDLIBS += -lskia -lm -ljpeg -lpng -lsvg -lhts -lfontconfig -lpthread
 
-LDFLAGS=-fsanitize=address -fsanitize=undefined
+#LDFLAGS=-fsanitize=address -fsanitize=undefined
 
 # set system
 PLATFORM=
