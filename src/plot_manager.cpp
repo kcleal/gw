@@ -30,6 +30,7 @@
 #include "segments.h"
 #include "../include/termcolor.h"
 #include "themes.h"
+#include "../include/window_icon.h"
 
 
 using namespace std::literals;
@@ -131,6 +132,13 @@ namespace Manager {
 //         glfwWindowHint(GLFW_STENCIL_BITS, 8);
 
         window = glfwCreateWindow(width, height, "GW", NULL, NULL);
+
+        #if defined(_WIN32) || defined(_WIN64)
+            GLFWimage iconimage;
+            getWindowIconImage(&iconimage);
+	    glfwSetWindowIcon(window, 1, &iconimage);
+        #endif
+
 
         // https://stackoverflow.com/questions/7676971/pointing-to-a-function-that-is-a-class-member-glfw-setkeycallback/28660673#28660673
         glfwSetWindowUserPointer(window, this);
