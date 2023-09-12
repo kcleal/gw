@@ -610,7 +610,6 @@ namespace Manager {
                         }
                     }
                     processBam();
-                    processed = true;
                     highlightQname();
                     redraw = true;
                     processed = true;
@@ -621,7 +620,6 @@ namespace Manager {
                     fetchRefSeq(regions.back());
                     processed = false;
                     processBam();
-                    processed = true;
                     highlightQname();
                     redraw = true;
                     processed = true;
@@ -1151,6 +1149,9 @@ namespace Manager {
                                         for (auto &i: cl.readQueue) {
                                             Segs::addToCovArray(cl.covArr, i, cl.region.start, cl.region.end, l_arr);
                                         }
+                                        cl.mmVector.resize(cl.region.end - cl.region.start + 1);
+                                        Segs::Mismatches empty_mm{};
+                                        std::fill(cl.mmVector.begin(), cl.mmVector.end(), empty_mm);
                                     }
                                 }
                             }

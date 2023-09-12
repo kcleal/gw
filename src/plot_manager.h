@@ -17,6 +17,7 @@
 #include "htslib/tbx.h"
 
 #include <chrono>
+#include <future>
 #include <filesystem>
 #include <GLFW/glfw3.h>
 #include <string>
@@ -209,6 +210,7 @@ namespace Manager {
         std::vector<Utils::BoundingBox> bboxes;
 
         BS::thread_pool pool;
+//        std::future<void> future_func;
 
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 

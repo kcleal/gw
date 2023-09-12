@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <future>
 #include <string>
 #include <vector>
 
@@ -20,13 +21,6 @@
 
 
 namespace HGW {
-
-    Segs::Align make_align(bam1_t* src) {
-        Segs::Align a;
-        a.delegate = src;
-        a.initialized = false;
-        return a;
-    }
 
     void applyFilters(std::vector<Parse::Parser> &filters, std::vector<Segs::Align>& readQueue, const sam_hdr_t* hdr,
                       int bamIdx, int regionIdx) {
@@ -56,7 +50,8 @@ namespace HGW {
 
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         std::vector<Segs::Align>& readQueue = col.readQueue;
-        readQueue.push_back(make_align(bam_init1()));
+        readQueue.reserve((region->end - region->start) * 60);
+        readQueue.emplace_back(Segs::Align(bam_init1()));
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
             std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
@@ -68,7 +63,7 @@ namespace HGW {
             if (src->core.flag & 4 || src->core.n_cigar == 0) {
                 continue;
             }
-            readQueue.push_back(make_align(bam_init1()));
+            readQueue.emplace_back(Segs::Align(bam_init1()));
             if (low_mem) {
                 size_t new_len = (src->core.n_cigar << 2 ) + src->core.l_qname + ((src->core.l_qseq + 1) >> 1);
                 src->data = (uint8_t*)realloc(src->data, new_len);
@@ -86,6 +81,7 @@ namespace HGW {
         }
 
         Segs::init_parallel(readQueue, threads, pool);
+
         if (coverage) {
             int l_arr = (int)col.covArr.size() - 1;
             for (auto &i : readQueue) {
@@ -113,7 +109,7 @@ namespace HGW {
             }
             readQueue.clear();
         }
-        readQueue.push_back(make_align(bam_init1()));
+        readQueue.emplace_back(Segs::Align(bam_init1()));
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
             std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
@@ -173,12 +169,15 @@ namespace HGW {
             readQueue.erase(readQueue.begin(), readQueue.begin() + idx);
         }
         if (coverage) {  // re process coverage for all reads
-            col.covArr.resize(col.region.end - col.region.start + 1);
+            col.covArr.resize(region->end - region->start + 1);
             std::fill(col.covArr.begin(), col.covArr.end(), 0);
             int l_arr = (int)col.covArr.size() - 1;
             for (auto &i : col.readQueue) {
-                Segs::addToCovArray(col.covArr, i, col.region.start, col.region.end, l_arr);
+                Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
             }
+            col.mmVector.resize(region->end - region->start + 1);
+            Segs::Mismatches empty_mm{};
+            std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
         }
     }
 
@@ -243,7 +242,7 @@ namespace HGW {
                 std::cerr << "\nError: Null iterator when trying to fetch from HTS file in appendReadsAndCoverage (left) " << region->chrom << " " << region->start<< " " << end_r << " " << region->end << std::endl;
                 std::terminate();
             }
-            newReads.push_back(make_align(bam_init1()));
+            newReads.emplace_back(Segs::Align(bam_init1()));
 
             while (sam_itr_next(b, iter_q, newReads.back().delegate) >= 0) {
                 src = newReads.back().delegate;
@@ -253,7 +252,7 @@ namespace HGW {
                 if (src->core.pos >= lastPos) {
                     break;
                 }
-                newReads.push_back(make_align(bam_init1()));
+                newReads.emplace_back(Segs::Align(bam_init1()));
                 if (opts.low_mem) {
                     size_t new_len = (src->core.n_cigar << 2 ) + src->core.l_qname + ((src->core.l_qseq + 1) >> 1);
                     src->data = (uint8_t*)realloc(src->data, new_len);
@@ -297,7 +296,7 @@ namespace HGW {
                 std::cerr << "\nError: Null iterator when trying to fetch from HTS file in appendReadsAndCoverage (!left) " << region->chrom << " " << lastPos << " " << region->end << std::endl;
                 std::terminate();
             }
-            newReads.push_back(make_align(bam_init1()));
+            newReads.emplace_back(Segs::Align(bam_init1()));
 
             while (sam_itr_next(b, iter_q, newReads.back().delegate) >= 0) {
                 src = newReads.back().delegate;
@@ -307,7 +306,7 @@ namespace HGW {
                 if (src->core.pos > region->end) {
                     break;
                 }
-                newReads.push_back(make_align(bam_init1()));
+                newReads.emplace_back(Segs::Align(bam_init1()));
                 if (opts.low_mem) {
                     size_t new_len = (src->core.n_cigar << 2 ) + src->core.l_qname + ((src->core.l_qseq + 1) >> 1);
                     src->data = (uint8_t*)realloc(src->data, new_len);
@@ -370,12 +369,19 @@ namespace HGW {
 
         }
         if (coverage) {  // re process coverage for all reads
+//            auto start = std::chrono::high_resolution_clock::now();
             col.covArr.resize(region->end - region->start + 1);
             std::fill(col.covArr.begin(), col.covArr.end(), 0);
             int l_arr = (int)col.covArr.size() - 1;
             for (auto &i : readQueue) {
                 Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
             }
+            col.mmVector.resize(region->end - region->start + 1);
+            Segs::Mismatches empty_mm{};
+            std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
+//            auto stop = std::chrono::high_resolution_clock::now();
+//            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();
+//            std::cerr << " resizing and stuff! " << duration << std::endl;
         }
         col.processed = true;
     }

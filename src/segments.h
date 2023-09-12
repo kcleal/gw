@@ -2,8 +2,8 @@
 
 #include <cstdint>
 #include <cstring>
-#include <vector>
 #include <deque>
+#include <future>
 #include <iostream>
 #include <vector>
 
@@ -61,6 +61,10 @@ namespace Segs {
         std::vector<uint32_t> block_starts, block_ends;
         std::vector<InsItem> any_ins;
 //        std::vector<MMbase> mismatches;
+        Align(bam1_t *src) {
+            delegate = src;
+            initialized = false;
+        }
     };
 
     struct Mismatches {
@@ -95,8 +99,10 @@ namespace Segs {
 
     void resetCovStartEnd(ReadCollection &cl);
 
-    void addToCovArray(std::vector<int> &arr, Align &align, uint32_t begin, uint32_t end, uint32_t l_arr) noexcept;
+    void addToCovArray(std::vector<int> &arr, const Align &align, const uint32_t begin, const uint32_t end, const uint32_t l_arr) noexcept;
 
     int findY(ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, Utils::Region *region, bool joinLeft);
+
+    void findMismatches(const Themes::IniOptions &opts, std::vector<ReadCollection> &collections);
 
 }
