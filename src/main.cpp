@@ -19,8 +19,6 @@
 
 #include "GLFW/glfw3.h"
 
-#define SK_GL
-
 #ifdef __APPLE__
     #include <OpenGL/gl.h>
 //    #include <GL/glx.h>
@@ -29,7 +27,7 @@
     #include <GL/glx.h>
 #endif
 
-
+#define SK_GL
 #include "include/gpu/GrBackendSurface.h"
 #include "include/gpu/GrDirectContext.h"
 #include "include/gpu/gl/GrGLInterface.h"

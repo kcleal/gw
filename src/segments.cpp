@@ -385,6 +385,7 @@ namespace Segs {
 
     ReadCollection::ReadCollection() {
         vScroll = 0;
+        collection_processed = false;
     }
 
     void ReadCollection::clear() {
@@ -392,7 +393,7 @@ namespace Segs {
         std::fill(levelsEnd.begin(), levelsEnd.end(), 0);
         std::fill(covArr.begin(), covArr.end(), 0);
         linked.clear();
-        processed = false;
+        collection_processed = false;
         for (auto &item: readQueue) {
             bam_destroy1(item.delegate);
         }
@@ -652,7 +653,7 @@ namespace Segs {
                                 r_pos += 1;
                                 continue;
                             }
-                            if (r_idx >= rlen) {
+                            if (r_idx >= (int)rlen) {
                                 break;
                             }
                             char ref_base;

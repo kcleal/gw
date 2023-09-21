@@ -88,7 +88,7 @@ namespace HGW {
                 Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
             }
         }
-        col.processed = true;
+        col.collection_processed = false;
     }
 
 
@@ -139,7 +139,7 @@ namespace HGW {
     }
 
 
-    void trimToRegion(Segs::ReadCollection &col, bool coverage) {
+    void trimToRegion(Segs::ReadCollection &col, bool coverage, int snp_threshold) {
         std::vector<Segs::Align>& readQueue = col.readQueue;
         Utils::Region *region = &col.region;
         while (!readQueue.empty()) {
@@ -175,9 +175,11 @@ namespace HGW {
             for (auto &i : col.readQueue) {
                 Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
             }
-            col.mmVector.resize(region->end - region->start + 1);
-            Segs::Mismatches empty_mm{};
-            std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
+            if (snp_threshold > region->end - region->start) {
+                col.mmVector.resize(region->end - region->start + 1);
+                Segs::Mismatches empty_mm{};
+                std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
+            }
         }
     }
 
@@ -376,14 +378,18 @@ namespace HGW {
             for (auto &i : readQueue) {
                 Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
             }
-            col.mmVector.resize(region->end - region->start + 1);
-            Segs::Mismatches empty_mm{};
-            std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
+            if (opts.snp_threshold > region->end - region->start) {
+                col.mmVector.resize(region->end - region->start + 1);
+                Segs::Mismatches empty_mm{};
+                std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
+            } else {
+                col.mmVector.clear();
+            }
 //            auto stop = std::chrono::high_resolution_clock::now();
 //            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();
 //            std::cerr << " resizing and stuff! " << duration << std::endl;
         }
-        col.processed = true;
+        col.collection_processed = false;
     }
 
     VCFfile::~VCFfile() {

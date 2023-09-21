@@ -520,7 +520,13 @@ namespace Manager {
                     collections[idx].region = regions[j];
                     if (opts.max_coverage) {
                         collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
-                        collections[idx].mmVector.resize(reg->end - reg->start + 1);
+                        if (opts.snp_threshold > reg->end - reg->start) {
+                            collections[idx].mmVector.resize(reg->end - reg->start + 1);
+                            Segs::Mismatches empty_mm{};
+                            std::fill(collections[idx].mmVector.begin(), collections[idx].mmVector.end(), empty_mm);
+                        } else if (!collections[idx].mmVector.empty()) {
+                            collections[idx].mmVector.clear();
+                        }
                     }
                     HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage, opts.low_mem, filters, pool);
                     int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts, reg, false);
@@ -623,16 +629,16 @@ namespace Manager {
             processBam();
             setScaling();
 
-            auto start = std::chrono::high_resolution_clock::now();
+//            auto start = std::chrono::high_resolution_clock::now();
             Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
             Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
             Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY);
             Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
             Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
 
-            auto stop = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();
-            std::cerr << " drew stuff " << duration << std::endl;
+//            auto stop = std::chrono::high_resolution_clock::now();
+//            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();
+//            std::cerr << " drew stuff " << duration << std::endl;
 
             if (opts.max_coverage) {
                 Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
@@ -959,7 +965,14 @@ namespace Manager {
                 collections[idx].region = regions[j];
                 if (opts.max_coverage) {
                     collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
-                    collections[idx].mmVector.resize(reg->end - reg->start + 1);
+                    if (opts.snp_threshold > reg->end - reg->start) {
+                        collections[idx].mmVector.resize(reg->end - reg->start + 1);
+//                        Segs::Mismatches empty_mm{};
+//                        std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
+                    } else if (!collections[idx].mmVector.empty()) {
+                        collections[idx].mmVector.clear();
+                    }
+//                    collections[idx].mmVector.resize(reg->end - reg->start + 1);
                 }
                 idx += 1;
             }

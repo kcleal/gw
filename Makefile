@@ -75,7 +75,9 @@ ifeq ($(PLATFORM),"Linux")
     CPPFLAGS += -I/usr/local/include
     CXXFLAGS += -D LINUX -D __STDC_FORMAT_MACROS
     LDFLAGS += -L/usr/local/lib
-    LDLIBS += -lGL -lfreetype -lfontconfig -luuid -lzlib -licu -ldl -lglfw  # or manually-build glfw3 use $(shell pkg-config --static --libs x11 xrandr xi xxf86vm glfw3)
+    # If installed from conda, glfw3 is named glfw, therefore if glfw3 is installed by another means use this:
+    # LDLIBS += -lGL -lfreetype -lfontconfig -luuid -lzlib -licu -ldl $(shell pkg-config --static --libs x11 xrandr xi xxf86vm glfw3)
+    LDLIBS += -lGL -lfreetype -lfontconfig -luuid -lzlib -licu -ldl -lglfw #$(shell pkg-config --static --libs x11 xrandr xi xxf86vm glfw3)
 
 else ifeq ($(PLATFORM),"Darwin")
     CPPFLAGS += -I/usr/local/include

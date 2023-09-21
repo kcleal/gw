@@ -87,7 +87,7 @@ namespace HGW {
                         std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
                         float trackY, float yScaling, Themes::Fonts &fonts, float refSpace);
 
-    void trimToRegion(Segs::ReadCollection &col, bool coverage);
+    void trimToRegion(Segs::ReadCollection &col, bool coverage, int snp_threshold);
 
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
                                 hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *samMaxY,

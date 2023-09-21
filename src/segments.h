@@ -86,7 +86,7 @@ namespace Segs {
         std::vector<Align> readQueue;
         map_t linked;
         float xScaling, xOffset, yOffset, yPixels;
-        bool processed;
+        bool collection_processed;
 
         void clear();
     };

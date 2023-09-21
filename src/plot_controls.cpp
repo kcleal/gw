@@ -1137,6 +1137,7 @@ namespace Manager {
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = regions[regionSelection];
+                                cl.collection_processed = false;
                                 if (!bams.empty()) {
                                     HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                                                 opts, false, true,  &samMaxY, filters, pool);
@@ -1149,9 +1150,13 @@ namespace Manager {
                                         for (auto &i: cl.readQueue) {
                                             Segs::addToCovArray(cl.covArr, i, cl.region.start, cl.region.end, l_arr);
                                         }
-                                        cl.mmVector.resize(cl.region.end - cl.region.start + 1);
-                                        Segs::Mismatches empty_mm{};
-                                        std::fill(cl.mmVector.begin(), cl.mmVector.end(), empty_mm);
+                                        if (opts.snp_threshold > cl.region.end - cl.region.start) {
+                                            cl.mmVector.resize(cl.region.end - cl.region.start + 1);
+                                            Segs::Mismatches empty_mm{};
+                                            std::fill(cl.mmVector.begin(), cl.mmVector.end(), empty_mm);
+                                        } else {
+                                            cl.mmVector.clear();
+                                        }
                                     }
                                 }
                             }
@@ -1180,8 +1185,9 @@ namespace Manager {
                             for (auto &cl : collections) {
                                 if (cl.regionIdx == regionSelection) {
                                     cl.region = regions[regionSelection];
+                                    cl.collection_processed = false;
                                     if (!bams.empty()) {
-                                        HGW::trimToRegion(cl, opts.max_coverage);
+                                        HGW::trimToRegion(cl, opts.max_coverage, opts.snp_threshold);
                                     }
                                 }
                             }
