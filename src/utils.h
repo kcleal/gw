@@ -54,11 +54,6 @@ namespace Utils {
             end = -1;
             refSeq = nullptr;
         }
-//        ~Region() {
-//            if (refSeq) {
-//                delete refSeq;
-//            }
-//        }
     };
 
     Region parseRegion(std::string &r);
