@@ -50,7 +50,12 @@ namespace HGW {
 
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         std::vector<Segs::Align>& readQueue = col.readQueue;
-        readQueue.reserve((region->end - region->start) * 60);
+        if (region->end - region->start < 1000000) {
+            try {
+                readQueue.reserve((region->end - region->start) * 60);
+            } catch (const std::bad_alloc&) {
+            }
+        }
         readQueue.emplace_back(Segs::Align(bam_init1()));
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
@@ -148,6 +153,7 @@ namespace HGW {
                 if (item.y >= 0 && !col.levelsEnd.empty()) {
                     col.levelsEnd[item.y] = item.cov_start - 1;
                 }
+                bam_destroy1(item.delegate);
                 readQueue.pop_back();
             } else {
                 break;
@@ -167,6 +173,7 @@ namespace HGW {
         }
         if (idx > 0) {
             readQueue.erase(readQueue.begin(), readQueue.begin() + idx);
+            readQueue.shrink_to_fit();
         }
         if (coverage) {  // re process coverage for all reads
             col.covArr.resize(region->end - region->start + 1);
