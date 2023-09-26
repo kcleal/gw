@@ -788,6 +788,7 @@ namespace Manager {
                     if (!inputText.empty() && !Utils::startsWith(cmd_s, inputText)) {
                         continue;
                     }
+
                     if (cmd_s == inputText) {
                         break;
                     }
