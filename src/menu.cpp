@@ -527,7 +527,7 @@ namespace Menu {
                 }
                 current_i += 1;
             }
-            if (key == GLFW_KEY_RIGHT) {
+            if (key == GLFW_KEY_RIGHT || key == GLFW_KEY_TAB) {
                 current_i += 1;
             } else if (key == GLFW_KEY_LEFT) {
                 current_i -= 1;
@@ -579,7 +579,7 @@ namespace Menu {
                 opts.genome_tag = opts.menu_level;
                 return true;  // force right key for editing, enter is reserved for selecting
             }
-            else if (key == GLFW_KEY_RIGHT || key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
+            else if (key == GLFW_KEY_RIGHT || key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER || key == GLFW_KEY_TAB) {
                 if (opts.editing_underway) {
                     opts.editing_underway = false;
                     *processText = false;

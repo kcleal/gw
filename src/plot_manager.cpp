@@ -777,8 +777,27 @@ namespace Manager {
                 path.moveTo(x + 12 + to_cursor_width, yy + (fonts.overlayHeight * 0.2));
                 path.lineTo(x + 12 + to_cursor_width, yy + fonts.overlayHeight * 1.1);
                 canvas->drawPath(path, opts.theme.lcBright);
-                sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(inputText.c_str(), fonts.overlay);
-                canvas->drawTextBlob(blob, x + 12, yy + fonts.overlayHeight, opts.theme.tcDel);
+                if (!inputText.empty()) {
+                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(inputText.c_str(), fonts.overlay);
+                    canvas->drawTextBlob(blob, x + 12, yy + fonts.overlayHeight, opts.theme.tcDel);
+                }
+                int pad = fonts.overlayHeight * 0.2;
+                yy -= pad + pad;
+                for (const auto &cm : {"add", "config", "count", "cov", "edges", "filter", "find"}) {
+                    std::string cmd_s = cm;
+                    if (!inputText.empty() && !Utils::startsWith(cmd_s, inputText)) {
+                        continue;
+                    }
+                    if (cmd_s == inputText) {
+                        break;
+                    }
+                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(cm, fonts.overlay);
+                    canvas->drawTextBlob(blob, x + 12, yy, opts.theme.tcDel);
+                    yy -= fonts.overlayHeight + pad;
+                    if (yy < covY) {
+                        break;
+                    }
+                }
             }
         }
         if (bams.empty()) {
