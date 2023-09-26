@@ -46,9 +46,6 @@ namespace Drawing {
         int last_bamIdx = 0;
         float yOffsetAll = refSpace;
 
-        // find mismatches in reads out of view
-        Segs::findMismatches(opts, collections);
-
         for (auto &cl: collections) {
 
             if (cl.covArr.empty() || cl.readQueue.empty()) {
@@ -59,9 +56,14 @@ namespace Drawing {
             }
             float xScaling = cl.xScaling;
             float xOffset = cl.xOffset;
-            bool draw_mismatch_info = (opts.snp_threshold > (int)cl.covArr.size());
-            bool draw_reference_info = (opts.soft_clip_threshold > (int)cl.covArr.size());
-            std::vector<Segs::Mismatches> mmVector = cl.mmVector;
+            bool draw_mismatch_info = (opts.snp_threshold > (int)cl.covArr.size()) && !cl.mmVector.empty();
+            bool draw_reference_info = (draw_mismatch_info && opts.soft_clip_threshold > (int)cl.covArr.size());
+            std::vector<Segs::Mismatches> &mmVector = cl.mmVector;
+            // find mismatches in reads out of view
+            if (draw_mismatch_info && !cl.collection_processed) {
+                Segs::findMismatches(opts, cl);
+            }
+
             float tot, mean, n;
             const std::vector<int> & covArr_r = cl.covArr;
             std::vector<float> c;
@@ -83,7 +85,7 @@ namespace Drawing {
                     tot += c[i];
                     n += 1;
                     // normalise mismatched bases to nearest whole percentage (avoids extra memory allocation)
-                    if (draw_mismatch_info) {
+                    if (draw_mismatch_info && !cl.collection_processed) {  //
                         auto mm_sum = (float) (mmVector[i].A + mmVector[i].T + mmVector[i].C + mmVector[i].G);
                         if (mm_sum > 0) {
                             mmVector[i].A = (mmVector[i].A > 1) ? (uint32_t) ((((float)mmVector[i].A) / c[i]) * 100) : 0;
@@ -94,6 +96,7 @@ namespace Drawing {
                     }
                 }
             }
+            cl.collection_processed = true;
             cl.maxCoverage = cMaxi;
             if (n > 0) {
                 mean = tot / n;
@@ -383,7 +386,10 @@ namespace Drawing {
 
     void drawMismatchesNoMD(SkCanvas *canvas, SkRect &rect, const Themes::BaseTheme &theme, const Utils::Region &region, const Segs::Align &align,
                             float width, float xScaling, float xOffset, float mmPosOffset, float yScaledOffset, float pH, int l_qseq, std::vector<Segs::Mismatches> &mm_array,
-                            const bool collection_processed) {
+                            bool &collection_processed) {
+        if (mm_array.empty()) {
+            collection_processed = true;
+        }
         uint32_t r_pos = align.pos;
         uint32_t cigar_l = align.delegate->core.n_cigar;
         uint8_t *ptr_seq = bam_get_seq(align.delegate);
@@ -473,6 +479,7 @@ namespace Drawing {
                         rect.setXYWH(p + xOffset + mmPosOffset, yScaledOffset, width, pH);
                         canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]);
                         if (!collection_processed) {
+                            assert (rlen < mm_array.size());
                             switch (bam_base) {
                                 case 1: mm_array[r_pos - rbegin].A += 1; break;  // A==1, C==2, G==4, T==8, N==>8
                                 case 2: mm_array[r_pos - rbegin].C += 1; break;
@@ -886,7 +893,7 @@ namespace Drawing {
                 canvas->drawTextBlob(text_ins[i].get(), textX_ins[i], textY_ins[i], theme.tcIns);
             }
 
-            cl.collection_processed = true;
+//            cl.collection_processed = true;
         }
 
         // draw connecting lines between linked alignments
@@ -958,6 +965,8 @@ namespace Drawing {
         minLetterSize = (textW > 0) ? ((float)fb_width / (float)regions.size()) / textW : 0;
         int index = 0;
         //h *= 0.7;
+        h = (h - 6 < 4) ? 4: h - 6;
+
         for (auto &rgn: regions) {
             int size = rgn.end - rgn.start;
             double xScaling = xPixels / size;
@@ -967,17 +976,17 @@ namespace Drawing {
             }
             double mmPosOffset, mmScaling;
             if (size < 250) {
-                mmPosOffset = 0.05;
-                mmScaling = 0.9;
+                mmPosOffset = 2;// 0.05;
+                mmScaling = 0.9 * xScaling;
             } else {
-                mmPosOffset = h * 0.2;
-                mmScaling = 1;
+                mmPosOffset = 2; //h * 0.2;
+                mmScaling = 1 * xScaling;
             }
             double i = regionW * index;
             i += gap;
             if (textW > 0 && (float)size < minLetterSize && fonts.fontHeight < h) {
                 double v = (xScaling - textW) * 0.5;
-                float yp = h;
+                float yp = h + 2;
                 while (*ref) {
                     switch ((unsigned int)*ref) {
                         case 65: faceColor = theme.fcA; break;
@@ -998,7 +1007,7 @@ namespace Drawing {
                 }
             } else if (size < 20000) {
                 while (*ref) {
-                    rect.setXYWH(i, mmPosOffset, mmScaling * xScaling, h);
+                    rect.setXYWH(i, mmPosOffset, mmScaling, h);
                     switch ((unsigned int)*ref) {
                         case 65: canvas->drawRect(rect, theme.fcA); break;
                         case 67: canvas->drawRect(rect, theme.fcC); break;

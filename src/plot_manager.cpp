@@ -101,10 +101,10 @@ namespace Manager {
         }
         samMaxY = 0;
         yScaling = 0;
-        covY = 0; totalCovY = 0; totalTabixY = 0; tabixY = 0;
+        covY = totalCovY = totalTabixY = tabixY = 0;
         captureText = shiftPress = ctrlPress = processText = false;
-        xDrag = xOri = -1000000;
-        lastX = -1;
+        xDrag = xOri = yDrag = yOri = -1000000;
+        lastX = lastY = -1;
         commandIndex = 0;
         blockStart = 0;
         regionSelection = 0;
@@ -522,7 +522,7 @@ namespace Manager {
                         collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
                         if (opts.snp_threshold > reg->end - reg->start) {
                             collections[idx].mmVector.resize(reg->end - reg->start + 1);
-                            Segs::Mismatches empty_mm{};
+                            Segs::Mismatches empty_mm = {0, 0, 0, 0};
                             std::fill(collections[idx].mmVector.begin(), collections[idx].mmVector.end(), empty_mm);
                         } else if (!collections[idx].mmVector.empty()) {
                             collections[idx].mmVector.clear();
@@ -967,12 +967,11 @@ namespace Manager {
                     collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
                     if (opts.snp_threshold > reg->end - reg->start) {
                         collections[idx].mmVector.resize(reg->end - reg->start + 1);
-//                        Segs::Mismatches empty_mm{};
-//                        std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
+                        Segs::Mismatches empty_mm = {0, 0, 0, 0};
+                        std::fill(collections[idx].mmVector.begin(), collections[idx].mmVector.end(), empty_mm);
                     } else if (!collections[idx].mmVector.empty()) {
                         collections[idx].mmVector.clear();
                     }
-//                    collections[idx].mmVector.resize(reg->end - reg->start + 1);
                 }
                 idx += 1;
             }

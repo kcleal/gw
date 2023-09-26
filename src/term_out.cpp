@@ -519,6 +519,17 @@ namespace Term {
         }
     }
 
+    std::string intToStringCommas(int pos) {
+        auto s = std::to_string(pos + 1);
+        int n = (int)s.length() - 3;
+        int end = (pos + 1 >= 0) ? 0 : 1;
+        while (n > end) {
+            s.insert(n, ",");
+            n -= 3;
+        }
+        return s;
+    }
+
 	void printCoverage(int pos, Segs::ReadCollection &cl) {
         if (cl.readQueue.empty()) {
             return;
@@ -543,6 +554,7 @@ namespace Term {
 				uint8_t *ptr_seq = bam_get_seq(align.delegate);
 				uint32_t *cigar_p = bam_get_cigar(align.delegate);
                 if (cigar_p == nullptr || cigar_l == 0) {
+                    --bnd;
                     continue;
                 }
 				int r_idx;
@@ -580,7 +592,7 @@ namespace Term {
 						continue;
 					}
 					else if (op == BAM_CDIFF) {
-						for (int i=0; i < l; ++l) {
+						for (int i=0; i < l; ++i) {
 							if (r_pos == (uint32_t)pos) {
 								char bam_base = bam_seqi(ptr_seq, idx);
 								switch (bam_base) {
@@ -698,12 +710,20 @@ namespace Term {
 			}
 		}
         line.clear();
-        line = "    Pos  " + std::to_string(pos);
+//        auto s = std::to_string(pos + 1);
+//        int n = (int)s.length() - 3;
+//        int end = (pos + 1 >= 0) ? 0 : 1;
+//        while (n > end) {
+//            s.insert(n, ",");
+//            n -= 3;
+//        }
+        std::string s = intToStringCommas(pos);
+        line = "    Pos  " + s;
         if (term_space < (int)line.size()) {
             std::cout << std::flush;
             return;
         }
-        std::cout << termcolor::bold << "    Pos  " << termcolor::reset << pos;
+        std::cout << termcolor::bold << "    Pos  " << termcolor::reset << s;
 		std::cout << std::flush;
 	}
 

@@ -571,6 +571,13 @@ namespace Manager {
                     return true;
                 }
             }
+            opts.max_coverage = std::max(0, opts.max_coverage);
+            if (opts.max_coverage == 0) {
+                for (auto &cl : collections) {
+                    cl.mmVector.clear();
+                    cl.collection_processed = true;
+                }
+            }
             redraw = true;
             processed = true;
             inputText = "";
@@ -946,7 +953,7 @@ namespace Manager {
         term_width -= (int)pos_str.size();
 
         auto r = regions[regionSelection];
-        std::string region_str = r.chrom + ":" + std::to_string(r.start) + "-" + std::to_string(r.end);
+        std::string region_str = r.chrom + ":" + std::to_string(r.start + 1) + "-" + std::to_string(r.end + 1);
         if (term_width <= (int)region_str.size()) {
             std::cout << std::flush;
             return term_width;
@@ -1152,7 +1159,7 @@ namespace Manager {
                                         }
                                         if (opts.snp_threshold > cl.region.end - cl.region.start) {
                                             cl.mmVector.resize(cl.region.end - cl.region.start + 1);
-                                            Segs::Mismatches empty_mm{};
+                                            Segs::Mismatches empty_mm = {0, 0, 0, 0};
                                             std::fill(cl.mmVector.begin(), cl.mmVector.end(), empty_mm);
                                         } else {
                                             cl.mmVector.clear();
@@ -1472,8 +1479,12 @@ namespace Manager {
         if (xDrag == -1000000) {
             xDrag = 0;
             xOri = x;
+            yDrag = 0;
+            yOri = y;
+
         }
         xDrag = x - xOri;
+        yDrag = y - yOri;
 
         if (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_LEFT) {
             if (regions.empty()) {
@@ -1481,7 +1492,11 @@ namespace Manager {
             }
 
             if (yW >= (fb_height * 0.98)) {
-                updateSlider(xW);
+                if (action == GLFW_PRESS) {
+                    updateSlider(xW);
+                }
+                xOri = x;
+                yOri = y;
                 return;
             }
 
@@ -1578,10 +1593,11 @@ namespace Manager {
                     --bnd;
                 }
                 xDrag = -1000000;
+                yDrag = -1000000;
                 clickedIdx = -1;
 
             } else if (action == GLFW_RELEASE) {
-                auto w = (float) (((float)cl.region.end - (float)cl.region.start) * (float) regions.size());
+                auto w = (float)(cl.region.end - cl.region.start) * (float) regions.size();
                 if (w >= 50000) {
                     int travel = (int) (w * (xDrag / windowW));
                     Utils::Region N;
@@ -1629,6 +1645,7 @@ namespace Manager {
                 clickedIdx = -1;
             }
             xOri = x;
+            yOri = y;
 
         } else if (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
             if (regions.empty()) {
@@ -1637,6 +1654,7 @@ namespace Manager {
             if (!multiRegions.empty() || !imageCache.empty()) {
                 mode = Manager::TILED;
                 xDrag = -1000000;
+                yDrag = -1000000;
                 redraw = true;
                 processed = false;
                 imageCacheQueue.clear();
@@ -1653,6 +1671,9 @@ namespace Manager {
                 }
                 if (i == (int)bboxes.size()) {
                     xDrag = -1000000;
+                    yDrag = -1000000;
+                    xOri = x;
+                    yOri = y;
                     return;
                 }
                 if (!bams.empty()) {
@@ -1720,6 +1741,9 @@ namespace Manager {
                     }
                     if (i == (int)bboxes.size()) {
                         xDrag = -1000000;
+                        yDrag = -1000000;
+                        xOri = x;
+                        yOri = y;
                         return;
                     }
                     if (blockStart + i < (int)multiLabels.size()) {
@@ -1730,6 +1754,9 @@ namespace Manager {
                     }
                 }
                 xDrag = -1000000;
+                yDrag = -1000000;
+                xOri = x;
+                yOri = y;
             }
         } else if (mode == Manager::SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
             bool keep_alive = Menu::navigateMenu(opts, GLFW_KEY_ENTER, GLFW_PRESS, inputText, &charIndex, &captureText, &textFromSettings, &processText, reference);
@@ -1748,14 +1775,8 @@ namespace Manager {
         if (regions.empty() || mode == TILED) {
             return;
         }
-        int pos = (int) (((xPos - (float) cl.xOffset) / cl.xScaling) + (float) cl.region.start);
-        auto s = std::to_string(pos);
-        int n = (int)s.length() - 3;
-        int end = (pos >= 0) ? 0 : 1; // Support for negative numbers
-        while (n > end) {
-            s.insert(n, ",");
-            n -= 3;
-        }
+        int pos = ((int) (((double)xPos - (double)cl.xOffset) / (double)cl.xScaling)) + cl.region.start;
+        std::string s = Term::intToStringCommas(pos);
         int term_width_remaining = printRegionInfo();
         s = "    " + s;
         if (term_width_remaining < (int)s.size()) {
@@ -1779,23 +1800,28 @@ namespace Manager {
         }
         if (lastX == -1) {
             lastX = xPos;
+            lastY = yPos;
         }
         int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
 
         bool lt_last = xPos < lastX;
         lastX = xPos;
+        lastY = yPos;
         if (state == GLFW_PRESS) {
             xDrag = xPos - xOri;
+            yDrag = yPos - yOri;
             if (mode == Manager::SINGLE) {
                 if (regions.empty()) {
                     return;
                 }
                 convertScreenCoordsToFrameBufferCoords(wind, &xPos, &yPos, fb_width, fb_height);
                 if (yPos >= (fb_height * 0.98)) {
-                    updateSlider((float)xPos);
+                    if (yOri >= (windY * 0.98)) {
+                        updateSlider((float) xPos);
+                    }
                     return;
                 }
-                int idx = getCollectionIdx((float)xPos, (float)yPos);
+                int idx = getCollectionIdx((float) xPos, (float) yPos);
                 if (idx < 0) {
                     return;
                 }
@@ -1804,11 +1830,12 @@ namespace Manager {
                 if (clickedIdx == -1 || idx != clickedIdx) {
                     return;
                 }
-                if (cl.region.end - cl.region.start < 50000) {
+                int windowW, windowH;
+                glfwGetWindowSize(wind, &windowW, &windowH);
+
+                if (std::fabs(xDrag) > std::fabs(yDrag) && cl.region.end - cl.region.start < 50000) {
                     printRegionInfo();
-                    auto w = (float) (((float)cl.region.end - (float)cl.region.start) * (float) regions.size());
-                    int windowW, windowH;
-                    glfwGetWindowSize(wind, &windowW, &windowH);
+                    auto w = (float) (cl.region.end - cl.region.start) * (float) regions.size();
                     int travel = (int) (w * (xDrag / windowW));
                     Utils::Region N;
                     if (cl.region.start - travel < 0) {
@@ -1830,15 +1857,29 @@ namespace Manager {
                     N.markerPosEnd = regions[regionSelection].markerPosEnd;
                     fetchRefSeq(N);
                     regions[regionSelection] = N;
-                    for (auto &col : collections) {
-                        if (col.regionIdx == regionSelection) {
-                            col.region = regions[regionSelection];
-                            if (!bams.empty()) {
-                                HGW::appendReadsAndCoverage(col, bams[col.bamIdx], headers[col.bamIdx],
-                                                            indexes[col.bamIdx], opts, (bool) opts.max_coverage,
-                                                            !lt_last,
-                                                            &samMaxY, filters, pool);
-                            }
+                    cl.region = N;
+                    if (!bams.empty()) {
+                        HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts,
+                                                    (bool) opts.max_coverage, !lt_last, &samMaxY, filters, pool);
+                    }
+                    processed = true;
+                    redraw = true;
+                    glfwPostEmptyEvent();
+                    return;
+                } else {
+                    if (std::fabs(yDrag) > std::fabs(xDrag) && std::fabs(yDrag) > 1) {
+                        float travel_y = yDrag / ((float) windowH / (float) cl.levelsStart.size());
+                        if (std::fabs(travel_y) > 1) {
+                            cl.vScroll -= (int) travel_y;
+                            cl.vScroll = (cl.vScroll <= 0) ? 0 : cl.vScroll;
+
+                            cl.levelsStart.clear();
+                            cl.levelsEnd.clear();
+                            cl.linked.clear();
+                            for (auto &itm: cl.readQueue) { itm.y = -1; }
+                            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, &cl.region, false);
+                            samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
+                            yOri = yPos;
                         }
                     }
                     processed = true;
@@ -1877,8 +1918,9 @@ namespace Manager {
                 }
                 Segs::ReadCollection &cl = collections[rs];
                 regionSelection = cl.regionIdx;
-	            int pos = (int) (((xPos - (float) cl.xOffset) / cl.xScaling) + (float) cl.region.start);
-	            int level = (int) ((yPos - (float) cl.yOffset) / (trackY / (float)(cl.levelsStart.size() - cl.vScroll )));
+	            int pos = (int) ((((double)xPos - (double)cl.xOffset) / (double)cl.xScaling) + (double)cl.region.start);
+                float f_level = ((yPos - (float) cl.yOffset) / (trackY / (float)(cl.levelsStart.size() - cl.vScroll )));
+	            int level = (f_level < 0) ? -1 : (int)(f_level);
 	            if (level < 0 && cl.region.end - cl.region.start < 50000) {
 		            Term::clearLine();
 		            Term::printCoverage(pos, cl);

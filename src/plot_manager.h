@@ -198,7 +198,7 @@ namespace Manager {
 
         float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace;
 
-        double xDrag, xOri, lastX;
+        double xDrag, xOri, lastX, yDrag, yOri, lastY;
 
         float yScaling;
 

@@ -34,6 +34,8 @@ namespace Term {
 
     void printKeyFromValue(int v);
 
+    std::string intToStringCommas(int pos);
+
     void printRefSeq(float x, std::vector<Segs::ReadCollection> &collections);
 
 	void printCoverage(int pos, Segs::ReadCollection &cl);

@@ -103,6 +103,6 @@ namespace Segs {
 
     int findY(ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, Utils::Region *region, bool joinLeft);
 
-    void findMismatches(const Themes::IniOptions &opts, std::vector<ReadCollection> &collections);
+    void findMismatches(const Themes::IniOptions &opts, ReadCollection &collection);
 
 }
