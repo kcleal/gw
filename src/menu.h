@@ -47,4 +47,6 @@ namespace Menu {
 
     void processTextEntry(Themes::IniOptions &opts, std::string &inputText);
 
+    std::vector<std::string> getCommandTip();
+
 }

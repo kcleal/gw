@@ -29,7 +29,7 @@ namespace Term {
         std::cout << termcolor::green << "add              region(s)       " << termcolor::reset << "Add one or more regions e.g. 'add chr1:1-20000'\n";
         std::cout << termcolor::green << "config                           " << termcolor::reset << "Opens .gw.ini config in a text editor\n";
         std::cout << termcolor::green << "count            expression?     " << termcolor::reset << "Count reads. See filter for example expressions'\n";
-        std::cout << termcolor::green << "cov                              " << termcolor::reset << "Toggle coverage\n";
+        std::cout << termcolor::green << "cov              value?          " << termcolor::reset << "Change max coverage value. Use 'cov' to toggle coverage\n";
         std::cout << termcolor::green << "edges                            " << termcolor::reset << "Toggle edges\n";
         std::cout << termcolor::green << "filter           expression      " << termcolor::reset << "Examples 'filter mapq > 0', 'filter ~flag & secondary'\n                                 'filter mapq >= 30 or seq-len > 100'\n";
         std::cout << termcolor::green << "find, f          qname?          " << termcolor::reset << "To find other alignments from selected read use 'find'\n                                 Or use 'find [QNAME]' to find target read'\n";
@@ -38,7 +38,7 @@ namespace Term {
         std::cout << termcolor::green << "indel-length     int             " << termcolor::reset << "Label indels >= length\n";
         std::cout << termcolor::green << "insertions, ins                  " << termcolor::reset << "Toggle insertions\n";
         std::cout << termcolor::green << "line                             " << termcolor::reset << "Toggle mouse position vertical line\n";
-        std::cout << termcolor::green << "link             [none/sv/all]   " << termcolor::reset << "Switch read-linking 'link all'\n";
+        std::cout << termcolor::green << "link             none/sv/all     " << termcolor::reset << "Switch read-linking 'link all'\n";
         std::cout << termcolor::green << "low-mem                          " << termcolor::reset << "Toggle low-mem mode\n";
         std::cout << termcolor::green << "log2-cov                         " << termcolor::reset << "Toggle scale coverage by log2\n";
         std::cout << termcolor::green << "mate             add?            " << termcolor::reset << "Use 'mate' to navigate to mate-pair, or 'mate add' \n                                 to add a new region with mate \n";
@@ -50,8 +50,16 @@ namespace Term {
 		std::cout << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window to png e.g. 's', or 's view.png',\n                                 or vcf columns can be used 's {pos}_{info.SU}.png'\n";
         std::cout << termcolor::green << "soft-clips, sc                   " << termcolor::reset << "Toggle soft-clips\n";
         std::cout << termcolor::green << "tags                             " << termcolor::reset << "Print selected sam tags\n";
-        std::cout << termcolor::green << "theme            [igv/dark]      " << termcolor::reset << "Switch color theme e.g. 'theme dark'\n";
+        std::cout << termcolor::green << "theme            igv/dark        " << termcolor::reset << "Switch color theme e.g. 'theme dark'\n";
         std::cout << termcolor::green << "tlen-y                           " << termcolor::reset << "Toggle --tlen-y option\n";
+//        std::cout << termcolor::green << "toggle           cov             " << termcolor::reset << "Toggle visibility of feature\n";
+//        std::cout << termcolor::green << "                 edges           " << termcolor::reset << "\n";
+//        std::cout << termcolor::green << "                 insertions, ins " << termcolor::reset << "\n";
+//        std::cout << termcolor::green << "                 line            " << termcolor::reset << "\n";
+//        std::cout << termcolor::green << "                 low-mem         " << termcolor::reset << "\n";
+//        std::cout << termcolor::green << "                 log2-cov        " << termcolor::reset << "\n";
+//        std::cout << termcolor::green << "                 mismatches, mm  " << termcolor::reset << "\n";
+//        std::cout << termcolor::green << "                 soft-clip, sc   " << termcolor::reset << "\n";
         std::cout << termcolor::green << "var, v           vcf_column?     " << termcolor::reset << "Print variant information e.g. 'var', 'var info',\n                                 or a list of columns 'var pos qual format.SU'\n";
         std::cout << termcolor::green << "ylim             number          " << termcolor::reset << "The maximum y-limit for the image e.g. 'ylim 100'\n";
 

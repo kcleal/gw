@@ -54,6 +54,36 @@ namespace Manager {
         }
     }
 
+    struct TipBounds {
+        int lower, upper;
+    };
+    TipBounds getToolTipBounds(std::string &inputText) {
+        std::vector<std::string> cmds = Menu::getCommandTip();
+        if (inputText.empty()) {
+            return {0, (int)cmds.size()-1};
+        }
+        int min_i = cmds.size();
+        int max_i = 0;
+        int idx = 0;
+        bool any_matches = false;
+        for (const auto &cmd_s : cmds) {
+            if (Utils::startsWith(cmd_s, inputText)) {
+                if (idx < min_i) {
+                    min_i = idx;
+                } else if (idx > max_i) {
+                    max_i = idx;
+                }
+                any_matches = true;
+            }
+            idx += 1;
+        }
+        if (any_matches) {
+            return {min_i, max_i};
+        } else {
+            return {0, (int)cmds.size()-1};
+        }
+    }
+
     // keeps track of input commands. returning GLFW_KEY_UNKNOWN stops further processing of key codes
     int GwPlot::registerKey(GLFWwindow* wind, int key, int scancode, int action, int mods) {
 	    if (key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_LEFT_SUPER) {
@@ -87,7 +117,7 @@ namespace Manager {
             textFromSettings = false;
             return key;
         }
-        if (key == GLFW_KEY_TAB) {
+        if (key == GLFW_KEY_TAB && !captureText) {
             if (mode == Manager::SINGLE && !regions.empty() && (!multiRegions.empty() || !imageCache.empty()) ) {
                 mode = Manager::TILED;
                 redraw = true;
@@ -203,6 +233,7 @@ namespace Manager {
                 captureText = false;
                 processText = false;
                 shiftPress = false;
+                commandToolTipIndex = -1;
                 if (mode == SETTINGS) {
                     if (opts.editing_underway) {
                         opts.editing_underway = false;
@@ -216,15 +247,51 @@ namespace Manager {
                     charIndex = 0;
                 }
                 return GLFW_KEY_UNKNOWN;
-            } else if (key == GLFW_KEY_ENTER) {
+            } if (commandToolTipIndex != -1 && (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER || key == GLFW_KEY_RIGHT)) {
+                std::vector<std::string> cmds = Menu::getCommandTip();
+                inputText = cmds[commandToolTipIndex];
+                charIndex = (int)inputText.size();
+                std::vector<std::string> exec = {"cov", "edges", "insertions", "line", "low-mem", "log2-cov", "mismatches", "soft-clips", "sam"};
+                if (std::find(exec.begin(), exec.end(), inputText) != exec.end()) {
+                    captureText = false;
+                    processText = true;
+                    shiftPress = false;
+                    commandToolTipIndex = -1;
+                    std::cout << "\n";
+                    return GLFW_KEY_ENTER;
+                }
+                return GLFW_KEY_UNKNOWN;
+            } else if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
                 captureText = false;
                 processText = true;
                 shiftPress = false;
+                commandToolTipIndex = -1;
                 std::cout << "\n";
                 return key;
+            } else if (key == GLFW_KEY_TAB && commandToolTipIndex == -1) {
+                TipBounds tip_bounds = getToolTipBounds(inputText);
+                commandToolTipIndex = tip_bounds.upper;
+                return GLFW_KEY_UNKNOWN;
+            } else if ((key == GLFW_KEY_TAB || key == GLFW_KEY_DOWN) && commandToolTipIndex != -1) {
+                TipBounds tip_bounds = getToolTipBounds(inputText);
+                if (commandToolTipIndex <= 0 || commandToolTipIndex <= tip_bounds.lower) {
+                    commandToolTipIndex = tip_bounds.upper;
+                } else {
+                    commandToolTipIndex = std::max(commandToolTipIndex - 1, tip_bounds.lower);
+                }
+                return GLFW_KEY_UNKNOWN;
+            } else if (key == GLFW_KEY_UP && commandToolTipIndex != -1) {
+                TipBounds tip_bounds = getToolTipBounds(inputText);
+                if (commandToolTipIndex < 0 || commandToolTipIndex >= tip_bounds.upper) {
+                    commandToolTipIndex = tip_bounds.lower;
+                } else {
+                    commandToolTipIndex = commandToolTipIndex + 1;
+                }
+                return GLFW_KEY_UNKNOWN;
             }
+            commandToolTipIndex = -1;
             if (!commandHistory.empty()) {
-                if (mode != SETTINGS) {
+                if (mode != SETTINGS && commandToolTipIndex == -1) {
                     if (key == GLFW_KEY_UP && commandIndex > 0) {
                         commandIndex -= 1;
                         inputText = commandHistory[commandIndex];
@@ -359,8 +426,63 @@ namespace Manager {
             Term::manuals(inputText);
             valid = true;
         } else if (inputText == "refresh" || inputText == "r") {
-            valid = true; imageCache.clear(); filters.clear();
-            for (auto &cl: collections) {cl.vScroll = 0; }
+            valid = true;
+            imageCache.clear();
+            filters.clear();
+            for (auto &cl: collections) { cl.vScroll = 0; }
+//        }
+//        else if (Utils::startsWith(inputText, "toggle")) {
+//            std::vector<std::string> split = Utils::split(inputText, delim);
+//            if (split.size() != 2) {
+//                std::cerr << termcolor::red << "Error:" << termcolor::reset << " toggle takes one option e.g. 'toggle cov'\n";
+//                inputText = "";
+//                return true;
+//            }
+//            std::string &ts = split[1];
+//            bool toggle_res = false;
+//            if (ts == "insertions" || ts == "ins") {
+//                valid = true;
+//                opts.small_indel_threshold = (opts.small_indel_threshold == 0) ? std::stoi(opts.myIni["view_thresholds"]["small_indel"]) : 0;
+//                toggle_res = opts.small_indel_threshold;
+//            } else if (ts == "mismatches" || ts == "mm") {
+//                valid = true;
+//                opts.snp_threshold = (opts.snp_threshold == 0) ? std::stoi(opts.myIni["view_thresholds"]["snp"]) : 0;
+//                toggle_res = opts.snp_threshold;
+//            } else if (ts == "edges") {
+//                valid = true;
+//                opts.edge_highlights = (opts.edge_highlights == 0) ? std::stoi(opts.myIni["view_thresholds"]["edge_highlights"]) : 0;
+//                toggle_res = opts.edge_highlights;
+//            } else if (ts == "soft-clips" || ts == "sc") {
+//                valid = true;
+//                opts.soft_clip_threshold = (opts.soft_clip_threshold == 0) ? std::stoi(opts.myIni["view_thresholds"]["soft_clip"]) : 0;
+//                toggle_res = opts.soft_clip_threshold;
+//            } else if (ts == "line") {
+//                valid = true;
+//                drawLine = !drawLine;
+//                toggle_res = drawLine;
+//            } else if (ts == "log2-cov") {
+//                valid = true;
+//                opts.log2_cov = !opts.log2_cov;
+//                toggle_res = opts.log2_cov;
+//            } else if (ts == "low-mem") {
+//                valid = true;
+//                opts.low_mem = !opts.low_mem;
+//                toggle_res = opts.low_mem;
+//            } else if (ts == "tlen-y") {
+//                valid = true;
+//                opts.tlen_yscale = !opts.tlen_yscale;
+//                toggle_res = opts.tlen_yscale;
+//                if (!opts.tlen_yscale) { samMaxY = opts.ylim; }
+//            } else if (ts == "cov") {
+//                valid = true;
+//                opts.max_coverage = (opts.max_coverage) ? 0 : 10000000;
+//                toggle_res = opts.max_coverage;
+//            }
+//            if (valid) {
+//                std::cout << "Toggled " << ts << " to " << toggle_res << std::endl;
+//            } else {
+//                reason = OPTION_NOT_UNDERSTOOD;
+//            }
         } else if (inputText == "link" || inputText == "link all") {
             opts.link_op = 2;
             redraw = true;
@@ -379,8 +501,9 @@ namespace Manager {
             processed = true;
             inputText = "";
             return true;
-        } else if (inputText == "line") {
-            drawLine = (drawLine) ? false : true;
+        }
+        else if (inputText == "line") {
+            drawLine = drawLine ? false : true;
             redraw = true;
             processed = true;
             inputText = "";
@@ -483,7 +606,8 @@ namespace Manager {
                 inputText = "";
                 return true;
             }
-        } else if (inputText =="insertions" || inputText == "ins") {
+        }
+        else if (inputText =="insertions" || inputText == "ins") {
             valid = true;
             opts.small_indel_threshold = (opts.small_indel_threshold == 0) ? std::stoi(opts.myIni["view_thresholds"]["small_indel"]) : 0;
         } else if (inputText =="mismatches" || inputText == "mm") {
@@ -582,7 +706,8 @@ namespace Manager {
             processed = true;
             inputText = "";
             return true;
-        } else if (inputText == "log2-cov") {
+        }
+        else if (inputText == "log2-cov") {
             opts.log2_cov = !(opts.log2_cov);
             redraw = true;
             processed = true;
@@ -649,7 +774,8 @@ namespace Manager {
                 valid = false;
                 reason = OPTION_NOT_UNDERSTOOD;
             }
-        } else if (inputText == "tlen-y") {
+        }
+        else if (inputText == "tlen-y") {
             opts.tlen_yscale = !(opts.tlen_yscale);
             if (!opts.tlen_yscale) {
                 samMaxY = opts.ylim;

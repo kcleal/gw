@@ -206,6 +206,7 @@ namespace Manager {
 
         Utils::Region clicked;
         int clickedIdx;
+        int commandToolTipIndex;
 
         std::vector<Utils::BoundingBox> bboxes;
 

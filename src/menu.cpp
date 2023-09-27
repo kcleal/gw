@@ -831,4 +831,10 @@ namespace Menu {
         }
     }
 
+    std::vector<std::string> getCommandTip() {
+        return {"quit", "ylim", "var", "tlen-y", "theme", "tags", "soft-clips", "snapshot", "sam", "remove",
+                "refresh", "mismatches", "mate", "log2-cov", "low-mem", "link", "line", "insertions", "indel-length",
+                "grid", "goto", "find", "filter", "edges", "cov",  "count", "config", "add"};
+
+    }
 }
