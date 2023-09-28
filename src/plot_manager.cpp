@@ -740,7 +740,6 @@ namespace Manager {
             path.moveTo(16, half_h - 11);
             path.lineTo(44, half_h - 39);
             canvas->drawPath(path, cog_paint);
-
             canvas->drawCircle(30, half_h - 25, 5, pop_paint);
 
             rect.setXYWH(15, half_h + 15, 30, 30);
@@ -758,7 +757,7 @@ namespace Manager {
         if (captureText && !opts.editing_underway) {
             fonts.setFontSize(yScaling, monitorScale);
             SkRect rect{};
-            float height_f = fonts.overlayHeight * 1.5;
+            float height_f = fonts.overlayHeight * 2;
             float x = 50;
             float w = fb_width - 100;
             if (x < w) {
@@ -775,40 +774,43 @@ namespace Manager {
                 canvas->drawRoundRect(rect, 5, 5, opts.theme.bgPaint);
                 canvas->drawRoundRect(rect, 5, 5, box);
                 SkPath path;
-                path.moveTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 0.2));
-                path.lineTo(x + 14 + to_cursor_width, yy + fonts.overlayHeight * 1.1);
+                path.moveTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 0.3));
+                path.lineTo(x + 14 + to_cursor_width, yy + fonts.overlayHeight * 1.5);
                 canvas->drawPath(path, opts.theme.lcBright);
                 if (!inputText.empty()) {
                     sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(inputText.c_str(), fonts.overlay);
-                    canvas->drawTextBlob(blob, x + 14, yy + fonts.overlayHeight, opts.theme.tcDel);
+                    canvas->drawTextBlob(blob, x + 14, yy + (fonts.overlayHeight * 1.3), opts.theme.tcDel);
                 }
-                int pad = fonts.overlayHeight * 0.3;
-                yy -= pad + pad;
-                std::vector<std::string> command_tip = Menu::getCommandTip();
-                int idx = 0;
-                for (const auto &cmd_s : command_tip) {
-                    if (!inputText.empty() && !Utils::startsWith(cmd_s, inputText)) {
+                if (mode != SETTINGS && (commandToolTipIndex != -1 || !inputText.empty())) {
+                    float pad = fonts.overlayHeight * 0.3;
+                    yy -= pad + pad;
+                    std::vector<std::string> command_tip = Menu::getCommandTip();
+                    int idx = 0;
+                    for (const auto &cmd_s : command_tip) {
+                        if (!inputText.empty() && !Utils::startsWith(cmd_s, inputText)) {
+                            idx += 1;
+                            continue;
+                        }
+                        if (cmd_s == inputText) {
+                            break;
+                        }
+                        rect.setXYWH(x, yy - fonts.overlayHeight - pad, fonts.overlayWidth * 16, fonts.overlayHeight + pad + pad);
+                        canvas->drawRoundRect(rect, 5, 5, opts.theme.bgPaint);
+                        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(cmd_s.c_str(), fonts.overlay);
+                        canvas->drawTextBlob(blob, x + (fonts.overlayWidth * 3), yy, opts.theme.tcDel);
+                        if (commandToolTipIndex >= 0 && command_tip[commandToolTipIndex] == cmd_s) {
+                            SkPaint tip_paint = opts.theme.lcBright;
+                            tip_paint.setAntiAlias(true);
+                            tip_paint.setStyle(SkPaint::kStrokeAndFill_Style);
+                            canvas->drawCircle(x + (fonts.overlayWidth), yy - (fonts.overlayHeight*0.5), 3, tip_paint);
+                        }
+                        yy -= fonts.overlayHeight + pad;
                         idx += 1;
-                        continue;
-                    }
-                    if (cmd_s == inputText) {
-                        break;
-                    }
-                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(cmd_s.c_str(), fonts.overlay);
-                    canvas->drawTextBlob(blob, x + 14, yy, opts.theme.tcDel);
-                    if (commandToolTipIndex >= 0 && command_tip[commandToolTipIndex] == cmd_s) {
-                        SkPaint tip_paint = opts.theme.lcBright;
-                        tip_paint.setAntiAlias(true);
-                        tip_paint.setStyle(SkPaint::kStrokeAndFill_Style);
-                        canvas->drawCircle(x + 4, yy - (fonts.overlayHeight*0.5), 3, tip_paint);
-                    }
-                    yy -= fonts.overlayHeight + pad;
-                    idx += 1;
-                    if (yy < covY) {
-                        break;
+                        if (yy < covY) {
+                            break;
+                        }
                     }
                 }
-//                std::cerr << " command index " << commandToolTipIndex << " " << command_tip[commandToolTipIndex] << std::endl;
             }
         }
         if (bams.empty()) {

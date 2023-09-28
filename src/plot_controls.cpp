@@ -56,21 +56,23 @@ namespace Manager {
 
     struct TipBounds {
         int lower, upper;
+        std::string cmd;
     };
     TipBounds getToolTipBounds(std::string &inputText) {
         std::vector<std::string> cmds = Menu::getCommandTip();
         if (inputText.empty()) {
-            return {0, (int)cmds.size()-1};
+            return {0, (int)cmds.size()-1, ""};
         }
-        int min_i = cmds.size();
         int max_i = 0;
+        int min_i = 0;
         int idx = 0;
         bool any_matches = false;
         for (const auto &cmd_s : cmds) {
             if (Utils::startsWith(cmd_s, inputText)) {
-                if (idx < min_i) {
+                if (min_i == 0 && idx > min_i) {
                     min_i = idx;
-                } else if (idx > max_i) {
+                }
+                if (idx >= max_i) {
                     max_i = idx;
                 }
                 any_matches = true;
@@ -78,9 +80,9 @@ namespace Manager {
             idx += 1;
         }
         if (any_matches) {
-            return {min_i, max_i};
+            return {min_i, max_i, cmds[max_i]};
         } else {
-            return {0, (int)cmds.size()-1};
+            return {0, (int)cmds.size()-1, ""};
         }
     }
 
@@ -167,9 +169,6 @@ namespace Manager {
                 int step_x = monitor_w / 8;
                 int step_y = monitor_h / 8;
 
-                glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-                glClear(GL_COLOR_BUFFER_BIT);
-                glfwSwapBuffers(window);
                 redraw = true;
 
                 if (key == GLFW_KEY_RIGHT) {
@@ -247,29 +246,39 @@ namespace Manager {
                     charIndex = 0;
                 }
                 return GLFW_KEY_UNKNOWN;
-            } if (commandToolTipIndex != -1 && (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER || key == GLFW_KEY_RIGHT)) {
+            } if (commandToolTipIndex != -1 && (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER || key == GLFW_KEY_SPACE)) {
                 std::vector<std::string> cmds = Menu::getCommandTip();
                 inputText = cmds[commandToolTipIndex];
                 charIndex = (int)inputText.size();
-                std::vector<std::string> exec = {"cov", "edges", "insertions", "line", "low-mem", "log2-cov", "mismatches", "soft-clips", "sam"};
+                std::vector<std::string> exec = {"cov", "count", "edges", "insertions", "line", "low-mem", "log2-cov", "mismatches", "soft-clips", "sam", "refresh"};
                 if (std::find(exec.begin(), exec.end(), inputText) != exec.end()) {
                     captureText = false;
                     processText = true;
                     shiftPress = false;
+                    redraw = true;
+                    processed = true;
                     commandToolTipIndex = -1;
                     std::cout << "\n";
                     return GLFW_KEY_ENTER;
                 }
+                inputText += " ";
+                charIndex += 1;
                 return GLFW_KEY_UNKNOWN;
             } else if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
                 captureText = false;
                 processText = true;
                 shiftPress = false;
+                redraw = true;
+                processed = true;
                 commandToolTipIndex = -1;
                 std::cout << "\n";
                 return key;
             } else if (key == GLFW_KEY_TAB && commandToolTipIndex == -1) {
                 TipBounds tip_bounds = getToolTipBounds(inputText);
+                if (tip_bounds.lower == tip_bounds.upper) {
+                    inputText = tip_bounds.cmd;
+                    charIndex = inputText.size();
+                }
                 commandToolTipIndex = tip_bounds.upper;
                 return GLFW_KEY_UNKNOWN;
             } else if ((key == GLFW_KEY_TAB || key == GLFW_KEY_DOWN) && commandToolTipIndex != -1) {
@@ -289,7 +298,13 @@ namespace Manager {
                 }
                 return GLFW_KEY_UNKNOWN;
             }
-            commandToolTipIndex = -1;
+            if (inputText.empty() && commandToolTipIndex == -1) {
+                TipBounds tip_bounds = getToolTipBounds(inputText);
+                commandToolTipIndex = tip_bounds.lower;
+            } else {
+                commandToolTipIndex = -1;
+            }
+
             if (!commandHistory.empty()) {
                 if (mode != SETTINGS && commandToolTipIndex == -1) {
                     if (key == GLFW_KEY_UP && commandIndex > 0) {
@@ -390,6 +405,10 @@ namespace Manager {
     }
 
     bool GwPlot::commandProcessed() {
+        Utils::rtrim(inputText);
+        if (charIndex >= (int)inputText.size()) {
+            charIndex = inputText.size() - 1;
+        }
         if (inputText.empty()) {
             return false;
         }
@@ -1587,6 +1606,7 @@ namespace Manager {
                     updateSettings();
                     opts.editing_underway = false;
                 }
+                commandToolTipIndex = -1;
             } else {
                 if (!captureText) {
                     captureText = true;
@@ -1598,8 +1618,19 @@ namespace Manager {
                     textFromSettings = false;
                     opts.editing_underway = false;
                 }
+                commandToolTipIndex = 0;
             }
             return;
+        }
+
+        if (commandToolTipIndex != -1 && captureText && mode != SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+            double xPos_fb = x;
+            double yPos_fb = y;
+            convertScreenCoordsToFrameBufferCoords(wind, &xPos_fb, &yPos_fb, fb_width, fb_height);
+            if (xPos_fb > 50 && xPos_fb < 50 + fonts.overlayWidth * 20 ) {
+                keyPress(wind, GLFW_KEY_ENTER, 0, GLFW_PRESS, 0);
+                return;
+            }
         }
 
         if (xDrag == -1000000) {
@@ -1933,21 +1964,66 @@ namespace Manager {
         bool lt_last = xPos < lastX;
         lastX = xPos;
         lastY = yPos;
+
+        double xPos_fb = xPos;
+        double yPos_fb = yPos;
+        convertScreenCoordsToFrameBufferCoords(wind, &xPos_fb, &yPos_fb, fb_width, fb_height);
+
+        if (captureText && mode != SETTINGS && xPos_fb < (50 + fonts.overlayWidth * 20)) {
+
+            int tip_lb = 0;
+            int tip_ub = (int)inputText.size();
+            if (!inputText.empty()) {
+                TipBounds tip_bounds = getToolTipBounds(inputText);
+                tip_lb = tip_bounds.lower;
+                tip_ub = tip_bounds.upper;
+            }
+
+            float height_f = fonts.overlayHeight * 2;
+            float x = 50;
+            float w = fb_width - 100;
+            if (x > w) {
+                return;
+            }
+            float y = fb_height - (fb_height * 0.025);
+            float y2 = fb_height - (height_f * 2.25);
+            float yy = (y2 < y) ? y2 : y;
+            int pad = fonts.overlayHeight * 0.3;
+            yy -= pad + pad;
+            std::vector<std::string> command_tip = Menu::getCommandTip();
+            for (int idx=0; idx < (int)command_tip.size(); idx++) {
+                if (!inputText.empty() && (idx < tip_lb || idx > tip_ub)) {
+                    continue;
+                }
+                if (yy >= yPos_fb && yy - fonts.overlayHeight <= yPos_fb ) {
+                    commandToolTipIndex = idx;
+                    break;
+                }
+                yy -= fonts.overlayHeight + pad;
+            }
+        }
+        else {
+            commandToolTipIndex = -1;
+        }
+
         if (state == GLFW_PRESS) {
-            xDrag = xPos - xOri;
+            xDrag = xPos - xOri;  // still in window coords not frame buffer coords
             yDrag = yPos - yOri;
+            if (std::abs(xDrag) > 5 || std::abs(yDrag) > 5) {
+                captureText = false;
+            }
+
             if (mode == Manager::SINGLE) {
                 if (regions.empty()) {
                     return;
                 }
-                convertScreenCoordsToFrameBufferCoords(wind, &xPos, &yPos, fb_width, fb_height);
-                if (yPos >= (fb_height * 0.98)) {
+                if (yPos_fb >= (fb_height * 0.98)) {
                     if (yOri >= (windY * 0.98)) {
-                        updateSlider((float) xPos);
+                        updateSlider((float) xPos_fb);
                     }
                     return;
                 }
-                int idx = getCollectionIdx((float) xPos, (float) yPos);
+                int idx = getCollectionIdx((float) xPos_fb, (float) yPos_fb);
                 if (idx < 0) {
                     return;
                 }
@@ -2019,13 +2095,12 @@ namespace Manager {
                 if (regions.empty()) {
                     return;
                 }
-                convertScreenCoordsToFrameBufferCoords(wind, &xPos, &yPos, fb_width, fb_height);
-                int rs = getCollectionIdx((float)xPos, (float)yPos);
+                int rs = getCollectionIdx((float)xPos_fb, (float)yPos_fb);
 	            if (rs <= TRACK) {  // print track info
 		            float rgS = ((float)fb_width / (float)regions.size());
-		            int tIdx = (int)((xPos) / rgS);
+		            int tIdx = (int)((xPos_fb) / rgS);
 		            if (tIdx < (int)regions.size()) {
-			            float relX = xPos - gap;
+			            float relX = xPos_fb - gap;
 			            if (tIdx > 0) {
 				            relX -= (float)tIdx * rgS;
 			            }
@@ -2038,21 +2113,21 @@ namespace Manager {
 	            }
                 if (rs < 0) { // print reference info
                     if (rs == REFERENCE_TRACK) {
-                        Term::updateRefGenomeSeq((float)xPos, collections);
+                        Term::updateRefGenomeSeq((float)xPos_fb, collections);
                     }
                     return;
                 }
                 Segs::ReadCollection &cl = collections[rs];
                 regionSelection = cl.regionIdx;
-	            int pos = (int) ((((double)xPos - (double)cl.xOffset) / (double)cl.xScaling) + (double)cl.region.start);
-                float f_level = ((yPos - (float) cl.yOffset) / (trackY / (float)(cl.levelsStart.size() - cl.vScroll )));
+	            int pos = (int) ((((double)xPos_fb - (double)cl.xOffset) / (double)cl.xScaling) + (double)cl.region.start);
+                float f_level = ((yPos_fb - (float) cl.yOffset) / (trackY / (float)(cl.levelsStart.size() - cl.vScroll )));
 	            int level = (f_level < 0) ? -1 : (int)(f_level);
 	            if (level < 0 && cl.region.end - cl.region.start < 50000) {
 		            Term::clearLine();
 		            Term::printCoverage(pos, cl);
 		            return;
 	            }
-                updateCursorGenomePos(cl, (float)xPos);
+                updateCursorGenomePos(cl, (float)xPos_fb);
             } else if (mode == TILED) {
                 int i = 0;
                 for (auto &b: bboxes) {
@@ -2090,8 +2165,7 @@ namespace Manager {
                     }
                 }
             } else if (mode == SETTINGS) {
-                convertScreenCoordsToFrameBufferCoords(wind, &xPos, &yPos, fb_width, fb_height);
-                Menu::menuMousePos(opts, fonts, (float)xPos, (float)yPos, (float)fb_height, (float)fb_width, &redraw);
+                Menu::menuMousePos(opts, fonts, (float)xPos_fb, (float)yPos_fb, (float)fb_height, (float)fb_width, &redraw);
             }
         }
     }
