@@ -106,12 +106,12 @@ namespace Themes {
             bgPaint.setStrokeWidth(2);
 
             fcNormal.setAlpha(alpha);
-            fcDel.setAlpha(alpha);
-            fcDup.setAlpha(alpha);
-            fcInvF.setAlpha(alpha);
-            fcInvR.setAlpha(alpha);
-            fcTra.setAlpha(alpha);
-            fcSoftClip.setAlpha(alpha);
+//            fcDel.setAlpha(alpha);
+//            fcDup.setAlpha(alpha);
+//            fcInvF.setAlpha(alpha);
+//            fcInvR.setAlpha(alpha);
+//            fcTra.setAlpha(alpha);
+//            fcSoftClip.setAlpha(alpha);
 
             fcNormal0.setAlpha(mapq0_alpha);
             fcDel0.setAlpha(mapq0_alpha);

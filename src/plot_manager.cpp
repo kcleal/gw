@@ -1,4 +1,5 @@
 
+#include <array>
 #include <chrono>
 #include <cstdlib>
 #include <deque>
@@ -784,9 +785,11 @@ namespace Manager {
                 if (mode != SETTINGS && (commandToolTipIndex != -1 || !inputText.empty())) {
                     float pad = fonts.overlayHeight * 0.3;
                     yy -= pad + pad;
-                    std::vector<std::string> command_tip = Menu::getCommandTip();
                     int idx = 0;
-                    for (const auto &cmd_s : command_tip) {
+                    SkPaint tip_paint = opts.theme.lcBright;
+                    tip_paint.setAntiAlias(true);
+                    for (const auto &cmd : Menu::commandToolTip) {
+                        std::string cmd_s = cmd;
                         if (!inputText.empty() && !Utils::startsWith(cmd_s, inputText)) {
                             idx += 1;
                             continue;
@@ -796,13 +799,20 @@ namespace Manager {
                         }
                         rect.setXYWH(x, yy - fonts.overlayHeight - pad, fonts.overlayWidth * 16, fonts.overlayHeight + pad + pad);
                         canvas->drawRoundRect(rect, 5, 5, opts.theme.bgPaint);
-                        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(cmd_s.c_str(), fonts.overlay);
+                        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(cmd, fonts.overlay);
                         canvas->drawTextBlob(blob, x + (fonts.overlayWidth * 3), yy, opts.theme.tcDel);
-                        if (commandToolTipIndex >= 0 && command_tip[commandToolTipIndex] == cmd_s) {
-                            SkPaint tip_paint = opts.theme.lcBright;
-                            tip_paint.setAntiAlias(true);
-                            tip_paint.setStyle(SkPaint::kStrokeAndFill_Style);
+                        tip_paint.setStyle(SkPaint::kStrokeAndFill_Style);
+                        if (commandToolTipIndex >= 0 && Menu::commandToolTip[commandToolTipIndex] == cmd) {
                             canvas->drawCircle(x + (fonts.overlayWidth), yy - (fonts.overlayHeight*0.5), 3, tip_paint);
+                        }
+                        tip_paint.setStyle(SkPaint::kStroke_Style);
+                        int cs_val = Menu::getCommandSwitchValue(opts, cmd_s, drawLine);
+                        if (cs_val == 1) {
+                            path.reset();
+                            path.moveTo(x + (2.*fonts.overlayWidth), yy - (fonts.overlayHeight*0.25));
+                            path.lineTo(x + (2.25*fonts.overlayWidth), yy);
+                            path.lineTo(x + (2.75*fonts.overlayWidth), yy - (fonts.overlayHeight*0.75));
+                            canvas->drawPath(path, tip_paint);
                         }
                         yy -= fonts.overlayHeight + pad;
                         idx += 1;

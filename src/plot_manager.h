@@ -107,7 +107,6 @@ namespace Manager {
 
         ankerl::unordered_dense::map< int, sk_sp<SkImage>> imageCache;
         ankerl::unordered_dense::map< std::string, Utils::Label> inputLabels;
-//        std::deque<sk_sp<SkImage>> imageCacheQueue;
         std::deque< std::pair<long, sk_sp<SkImage> > > imageCacheQueue;
 
         ankerl::unordered_dense::set<std::string> seenLabels;
@@ -211,7 +210,6 @@ namespace Manager {
         std::vector<Utils::BoundingBox> bboxes;
 
         BS::thread_pool pool;
-//        std::future<void> future_func;
 
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 

@@ -47,7 +47,6 @@ namespace HGW {
                                  std::vector<Parse::Parser> &filters, BS::thread_pool &pool) {
         bam1_t *src;
         hts_itr_t *iter_q;
-
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         std::vector<Segs::Align>& readQueue = col.readQueue;
         if (region->end - region->start < 1000000) {

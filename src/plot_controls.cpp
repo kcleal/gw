@@ -1,6 +1,7 @@
 //
 // Created by Kez Cleal on 23/08/2022.
 //
+#include <array>
 #include <cmath>
 #include <iomanip>
 #include <iterator>
@@ -59,20 +60,20 @@ namespace Manager {
         std::string cmd;
     };
     TipBounds getToolTipBounds(std::string &inputText) {
-        std::vector<std::string> cmds = Menu::getCommandTip();
         if (inputText.empty()) {
-            return {0, (int)cmds.size()-1, ""};
+            return {0, (int)  Menu::commandToolTip.size()-1, ""};
         }
         int max_i = 0;
         int min_i = 0;
         int idx = 0;
         bool any_matches = false;
-        for (const auto &cmd_s : cmds) {
+        for (const auto &cmd : Menu::commandToolTip) {
+            std::string cmd_s = cmd;
             if (Utils::startsWith(cmd_s, inputText)) {
-                if (min_i == 0 && idx > min_i) {
+                if (min_i == 0 && idx) {
                     min_i = idx;
                 }
-                if (idx >= max_i) {
+                if (idx > max_i) {
                     max_i = idx;
                 }
                 any_matches = true;
@@ -80,9 +81,9 @@ namespace Manager {
             idx += 1;
         }
         if (any_matches) {
-            return {min_i, max_i, cmds[max_i]};
+            return {min_i, max_i, Menu::commandToolTip[max_i]};
         } else {
-            return {0, (int)cmds.size()-1, ""};
+            return {0, (int)Menu::commandToolTip.size()-1, ""};
         }
     }
 
@@ -226,8 +227,7 @@ namespace Manager {
                 }
                 return GLFW_KEY_UNKNOWN;
             }
-        }
-        if (captureText) {
+        } else { //  captureText here
             if (key == GLFW_KEY_ESCAPE) {
                 captureText = false;
                 processText = false;
@@ -246,12 +246,11 @@ namespace Manager {
                     charIndex = 0;
                 }
                 return GLFW_KEY_UNKNOWN;
-            } if (commandToolTipIndex != -1 && (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER || key == GLFW_KEY_SPACE)) {
-                std::vector<std::string> cmds = Menu::getCommandTip();
-                inputText = cmds[commandToolTipIndex];
-                charIndex = (int)inputText.size();
-                std::vector<std::string> exec = {"cov", "count", "edges", "insertions", "line", "low-mem", "log2-cov", "mismatches", "soft-clips", "sam", "refresh"};
-                if (std::find(exec.begin(), exec.end(), inputText) != exec.end()) {
+            }
+
+            const bool no_command_selected = commandToolTipIndex == -1;
+            if (no_command_selected) {
+                if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
                     captureText = false;
                     processText = true;
                     shiftPress = false;
@@ -259,50 +258,46 @@ namespace Manager {
                     processed = true;
                     commandToolTipIndex = -1;
                     std::cout << "\n";
-                    return GLFW_KEY_ENTER;
+                    return key;
+                } else if (key == GLFW_KEY_TAB) {
+                    if (mode != SETTINGS) {
+                        TipBounds tip_bounds = getToolTipBounds(inputText);
+                        if (tip_bounds.lower == tip_bounds.upper) {
+                            inputText = tip_bounds.cmd;
+                            charIndex = inputText.size();
+                        }
+                        commandToolTipIndex = tip_bounds.upper;
+                        return GLFW_KEY_UNKNOWN;
+                    } else {
+                        captureText = false;
+                        processText = true;
+                        shiftPress = false;
+                        redraw = false;
+                        processed = true;
+                        commandToolTipIndex = -1;
+                        return GLFW_KEY_ENTER;
+                    }
                 }
-                inputText += " ";
-                charIndex += 1;
-                return GLFW_KEY_UNKNOWN;
-            } else if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
-                captureText = false;
-                processText = true;
-                shiftPress = false;
-                redraw = true;
-                processed = true;
-                commandToolTipIndex = -1;
-                std::cout << "\n";
-                return key;
-            } else if (key == GLFW_KEY_TAB && commandToolTipIndex == -1) {
-                TipBounds tip_bounds = getToolTipBounds(inputText);
-                if (tip_bounds.lower == tip_bounds.upper) {
-                    inputText = tip_bounds.cmd;
-                    charIndex = inputText.size();
-                }
-                commandToolTipIndex = tip_bounds.upper;
-                return GLFW_KEY_UNKNOWN;
-            } else if ((key == GLFW_KEY_TAB || key == GLFW_KEY_DOWN) && commandToolTipIndex != -1) {
-                TipBounds tip_bounds = getToolTipBounds(inputText);
-                if (commandToolTipIndex <= 0 || commandToolTipIndex <= tip_bounds.lower) {
-                    commandToolTipIndex = tip_bounds.upper;
-                } else {
-                    commandToolTipIndex = std::max(commandToolTipIndex - 1, tip_bounds.lower);
-                }
-                return GLFW_KEY_UNKNOWN;
-            } else if (key == GLFW_KEY_UP && commandToolTipIndex != -1) {
-                TipBounds tip_bounds = getToolTipBounds(inputText);
-                if (commandToolTipIndex < 0 || commandToolTipIndex >= tip_bounds.upper) {
-                    commandToolTipIndex = tip_bounds.lower;
-                } else {
-                    commandToolTipIndex = commandToolTipIndex + 1;
-                }
-                return GLFW_KEY_UNKNOWN;
-            }
-            if (inputText.empty() && commandToolTipIndex == -1) {
-                TipBounds tip_bounds = getToolTipBounds(inputText);
-                commandToolTipIndex = tip_bounds.lower;
             } else {
-                commandToolTipIndex = -1;
+                if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER || key == GLFW_KEY_SPACE) {
+                    inputText = Menu::commandToolTip[commandToolTipIndex];
+                    charIndex = (int)inputText.size();
+                    std::vector<std::string> exec = {"cov", "count", "edges", "insertions", "line", "low-mem", "log2-cov", "mismatches", "soft-clips", "sam", "refresh"};
+                    if (std::find(exec.begin(), exec.end(), inputText) != exec.end()) {
+                        captureText = false;
+                        processText = true;
+                        shiftPress = false;
+                        redraw = true;
+                        processed = true;
+                        commandToolTipIndex = -1;
+                        std::cout << "\n";
+                        return GLFW_KEY_ENTER;
+                    }
+                    inputText += " ";
+                    charIndex += 1;
+                    commandToolTipIndex = -1;
+                    return GLFW_KEY_UNKNOWN;
+                }
             }
 
             if (!commandHistory.empty()) {
@@ -389,6 +384,26 @@ namespace Manager {
                         }
                     }
                 }
+                // determine which command prefix the user has typed
+                TipBounds tip_bounds = getToolTipBounds(inputText);
+                if (key == GLFW_KEY_TAB || key == GLFW_KEY_DOWN) {
+                    if (commandToolTipIndex <= 0 || commandToolTipIndex <= tip_bounds.lower) {
+                        commandToolTipIndex = tip_bounds.upper;
+                    } else {
+                        commandToolTipIndex = std::max(commandToolTipIndex - 1, tip_bounds.lower);
+                    }
+                    return GLFW_KEY_UNKNOWN;
+                } else if (key == GLFW_KEY_UP) {
+                    if (commandToolTipIndex < 0 || commandToolTipIndex >= tip_bounds.upper) {
+                        commandToolTipIndex = tip_bounds.lower;
+                    } else {
+                        commandToolTipIndex = commandToolTipIndex + 1;
+                    }
+                    return GLFW_KEY_UNKNOWN;
+                }
+                if (tip_bounds.lower == tip_bounds.upper) {
+                    commandToolTipIndex = -1;
+                }
             }
         }
         return key;
@@ -404,7 +419,23 @@ namespace Manager {
         }
     }
 
+    void refreshLinked(ankerl::unordered_dense::map< int, sk_sp<SkImage>> &imageCache, std::vector<Segs::ReadCollection> &collections,
+                       Themes::IniOptions &opts, int &samMaxY) {
+        imageCache.clear();
+        for (auto &cl : collections) {
+            Segs::resetCovStartEnd(cl);
+            cl.levelsStart.clear();
+            cl.levelsEnd.clear();
+            cl.linked.clear();
+            for (auto &itm: cl.readQueue) { itm.y = -1; }
+            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, &cl.region, false);
+            samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
+        }
+    }
+
     bool GwPlot::commandProcessed() {
+        // note setting valid = true sets redraw to true and processed to false, resulting in re-drawing and
+        // re-collecting of reads
         Utils::rtrim(inputText);
         if (charIndex >= (int)inputText.size()) {
             charIndex = inputText.size() - 1;
@@ -439,11 +470,17 @@ namespace Manager {
             return true;
         } else if (inputText == "help" || inputText == "h") {
             Term::help(opts);
-            valid = true;
+            redraw = false;
+            processed = true;
+            inputText = "";
+            return true;
         } else if (Utils::startsWith(inputText, "man ")) {
             inputText.erase(0, 4);
             Term::manuals(inputText);
-            valid = true;
+            redraw = false;
+            processed = true;
+            inputText = "";
+            return true;
         } else if (inputText == "refresh" || inputText == "r") {
             valid = true;
             imageCache.clear();
@@ -504,18 +541,21 @@ namespace Manager {
 //            }
         } else if (inputText == "link" || inputText == "link all") {
             opts.link_op = 2;
+            refreshLinked(imageCache, collections, opts, samMaxY);
             redraw = true;
             processed = true;
             inputText = "";
             return true;
         } else if (inputText == "link sv") {
             opts.link_op = 1;
+            refreshLinked(imageCache, collections, opts, samMaxY);
             redraw = true;
             processed = true;
             inputText = "";
             return true;
         } else if (inputText == "link none") {
             opts.link_op = 0;
+            refreshLinked(imageCache, collections, opts, samMaxY);
             redraw = true;
             processed = true;
             inputText = "";
@@ -523,7 +563,7 @@ namespace Manager {
         }
         else if (inputText == "line") {
             drawLine = drawLine ? false : true;
-            redraw = true;
+            redraw = false;
             processed = true;
             inputText = "";
             return true;
@@ -531,6 +571,8 @@ namespace Manager {
             std::string str = inputText;
             str.erase(0, 6);
             Parse::countExpression(collections, str, headers, bam_paths, bams.size(), regions.size());
+            redraw = false;
+            processed = true;
             inputText = "";
             return true;
         } else if (inputText == "settings" ) {
@@ -598,9 +640,9 @@ namespace Manager {
                 inputText = "";
                 return true;
             }
+            highlightQname();
             redraw = true;
             processed = true;
-            highlightQname();
             inputText = "";
             return true;
 
@@ -609,35 +651,50 @@ namespace Manager {
             try {
                 opts.ylim = std::stoi(split.back());
                 samMaxY = opts.ylim;
-                valid = true;
+                refreshLinked(imageCache, collections, opts, samMaxY);
+                processed = true;
+                redraw = true;
             } catch (...) {
                 std::cerr << termcolor::red << "Error:" << termcolor::reset << " ylim invalid value\n";
-                inputText = "";
-                return true;
             }
+            inputText = "";
+            return true;
         } else if (Utils::startsWith(inputText, "indel-length")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             try {
                 opts.indel_length = std::stoi(split.back());
-                valid = true;
             } catch (...) {
                 std::cerr << termcolor::red << "Error:" << termcolor::reset << " indel-length invalid value\n";
-                inputText = "";
-                return true;
             }
+            processed = true;
+            redraw = true;
+            inputText = "";
+            return true;
         }
         else if (inputText =="insertions" || inputText == "ins") {
-            valid = true;
             opts.small_indel_threshold = (opts.small_indel_threshold == 0) ? std::stoi(opts.myIni["view_thresholds"]["small_indel"]) : 0;
+            processed = true;
+            redraw = true;
+            inputText = "";
+            return true;
         } else if (inputText =="mismatches" || inputText == "mm") {
-            valid = true;
             opts.snp_threshold = (opts.snp_threshold == 0) ? std::stoi(opts.myIni["view_thresholds"]["snp"]) : 0;
+            processed = true;
+            redraw = true;
+            inputText = "";
+            return true;
         } else if (inputText =="edges") {
-            valid = true;
             opts.edge_highlights = (opts.edge_highlights == 0) ? std::stoi(opts.myIni["view_thresholds"]["edge_highlights"]) : 0;
+            processed = true;
+            redraw = true;
+            inputText = "";
+            return true;
         } else if (inputText =="soft-clips" || inputText == "sc") {
-            valid = true;
             opts.soft_clip_threshold = (opts.soft_clip_threshold == 0) ? std::stoi(opts.myIni["view_thresholds"]["soft_clip"]) : 0;
+            processed = true;
+            redraw = true;
+            inputText = "";
+            return true;
         } else if (Utils::startsWith(inputText, "remove ") || Utils::startsWith(inputText, "rm ")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             int ind = 0;
@@ -650,17 +707,19 @@ namespace Manager {
                     inputText = "";
                     return true;
                 }
-                inputText = "";
                 if (ind >= (int)bams.size()) {
                     std::cerr << termcolor::red << "Error:" << termcolor::reset << " bam index is out of range. Use 0-based indexing\n";
                     return true;
                 }
-                valid = true;
                 collections.erase(std::remove_if(collections.begin(), collections.end(), [&ind](const auto col) {
                     return col.bamIdx == ind;
                 }), collections.end());
                 bams.erase(bams.begin() + ind);
                 indexes.erase(indexes.begin() + ind);
+                processed = true;
+                redraw = true;
+                inputText = "";
+                return true;
             } else {
                 try {
                     ind = std::stoi(split.back());
@@ -669,8 +728,6 @@ namespace Manager {
                     inputText = "";
                     return true;
                 }
-                inputText = "";
-                valid = true;
                 regionSelection = 0;
                 if (!regions.empty() && ind < (int)regions.size()) {
                     if (regions.size() == 1 && ind == 0) {
@@ -685,6 +742,10 @@ namespace Manager {
                 collections.erase(std::remove_if(collections.begin(), collections.end(), [&ind](const auto col) {
                     return col.regionIdx == ind;
                 }), collections.end());
+                processed = true;
+                redraw = true;
+                inputText = "";
+                return true;
             }
 
             bool clear_filters = false; // removing a region can invalidate indexes so remove them
@@ -1172,14 +1233,16 @@ namespace Manager {
         }
     }
 
-
     void GwPlot::keyPress(GLFWwindow *wind, int key, int scancode, int action, int mods) {
-        // decide if the input key is part of a command or a redraw request
+        // Decide if the key is part of a user input command (inputText) or a request to process a command / refresh screen
+        // Of note, mouseButton events may be translated into keyPress events and processed here
+        // For example, clicking on a commands from the menu pop-up will translate into a keyPress ENTER and
+        // processed using registerKey
         key = registerKey(window, key, scancode, action, mods);
         if (key == GLFW_KEY_UNKNOWN || captureText) {
             return;
         }
-
+        // text based commands from the user are stored in inputText and handled here
         try {
             if (commandProcessed()) {
                 return;
@@ -1187,7 +1250,7 @@ namespace Manager {
         } catch (CloseException & mce) {
             glfwSetWindowShouldClose(wind, GLFW_TRUE);
         }
-
+        // key events concerning the main menu (not command pop up) are handled here
         if (mode != Show::SETTINGS && key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
             last_mode = mode;
             mode = Show::SETTINGS;
@@ -1210,7 +1273,7 @@ namespace Manager {
             }
             return;
         }
-
+        // Navigation key events are handled below
         if (mode == Show::SINGLE) {
             if (regions.empty() || regionSelection < 0) {
                 return;
@@ -1281,38 +1344,36 @@ namespace Manager {
                     N.markerPosEnd = regions[regionSelection].markerPosEnd;
                     fetchRefSeq(N);
                     regions[regionSelection] = N;
-                    if (opts.link_op != 0) {
-                        processed = false;
-                        redraw = true;
-                    } else {
-                        processed = true;
-                        for (auto &cl : collections) {
-                            if (cl.regionIdx == regionSelection) {
-                                cl.region = regions[regionSelection];
-                                cl.collection_processed = false;
-                                if (!bams.empty()) {
-                                    HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                                                opts, false, true,  &samMaxY, filters, pool);
-                                    HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                                                opts, false, false, &samMaxY, filters, pool);
-                                    if (opts.max_coverage) {  // re process coverage for all reads
-                                        cl.covArr.resize(cl.region.end - cl.region.start + 1);
-                                        std::fill(cl.covArr.begin(), cl.covArr.end(), 0);
-                                        int l_arr = (int) cl.covArr.size() - 1;
-                                        for (auto &i: cl.readQueue) {
-                                            Segs::addToCovArray(cl.covArr, i, cl.region.start, cl.region.end, l_arr);
-                                        }
-                                        if (opts.snp_threshold > cl.region.end - cl.region.start) {
-                                            cl.mmVector.resize(cl.region.end - cl.region.start + 1);
-                                            Segs::Mismatches empty_mm = {0, 0, 0, 0};
-                                            std::fill(cl.mmVector.begin(), cl.mmVector.end(), empty_mm);
-                                        } else {
-                                            cl.mmVector.clear();
-                                        }
+                    for (auto &cl : collections) {
+                        if (cl.regionIdx == regionSelection) {
+                            cl.region = regions[regionSelection];
+                            cl.collection_processed = false;
+                            if (!bams.empty()) {
+                                HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                                            opts, false, true,  &samMaxY, filters, pool);
+                                HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                                            opts, false, false, &samMaxY, filters, pool);
+                                if (opts.max_coverage) {  // re process coverage for all reads
+                                    cl.covArr.resize(cl.region.end - cl.region.start + 1);
+                                    std::fill(cl.covArr.begin(), cl.covArr.end(), 0);
+                                    int l_arr = (int) cl.covArr.size() - 1;
+                                    for (auto &i: cl.readQueue) {
+                                        Segs::addToCovArray(cl.covArr, i, cl.region.start, cl.region.end, l_arr);
+                                    }
+                                    if (opts.snp_threshold > cl.region.end - cl.region.start) {
+                                        cl.mmVector.resize(cl.region.end - cl.region.start + 1);
+                                        Segs::Mismatches empty_mm = {0, 0, 0, 0};
+                                        std::fill(cl.mmVector.begin(), cl.mmVector.end(), empty_mm);
+                                    } else {
+                                        cl.mmVector.clear();
                                     }
                                 }
                             }
                         }
+                        if (opts.link_op != 0) {
+                            refreshLinked(imageCache, collections, opts, samMaxY);
+                        }
+                        processed = true;
                         redraw = true;
                     }
                     printRegionInfo();
@@ -1329,21 +1390,19 @@ namespace Manager {
                         N.markerPosEnd = regions[regionSelection].markerPosEnd;
                         fetchRefSeq(N);
                         regions[regionSelection] = N;
-                        if (opts.link_op != 0) {
-                            processed = false;
-                            redraw = true;
-                        } else {
-                            processed = true;
-                            for (auto &cl : collections) {
-                                if (cl.regionIdx == regionSelection) {
-                                    cl.region = regions[regionSelection];
-                                    cl.collection_processed = false;
-                                    if (!bams.empty()) {
-                                        HGW::trimToRegion(cl, opts.max_coverage, opts.snp_threshold);
-                                    }
+                        for (auto &cl : collections) {
+                            if (cl.regionIdx == regionSelection) {
+                                cl.region = regions[regionSelection];
+                                cl.collection_processed = false;
+                                if (!bams.empty()) {
+                                    HGW::trimToRegion(cl, opts.max_coverage, opts.snp_threshold);
                                 }
                             }
-                            redraw = true;
+                        }
+                        processed = true;
+                        redraw = true;
+                        if (opts.link_op != 0) {
+                            refreshLinked(imageCache, collections, opts, samMaxY);
                         }
                         printRegionInfo();
                     }
@@ -1450,8 +1509,7 @@ namespace Manager {
             }
             std::string lk = (opts.link_op > 0) ? ((opts.link_op == 1) ? "sv" : "all") : "none";
             std::cout << "\nLinking selection " << lk << std::endl;
-            imageCache.clear();
-            processed = false;
+            refreshLinked(imageCache, collections, opts, samMaxY);
             redraw = true;
         }
     }
@@ -1710,9 +1768,7 @@ namespace Manager {
                 int slop = 0;
                 if (!opts.tlen_yscale) {
                     level = (int) ((yW - (float) cl.yOffset) / ((trackY-(gap/2)) / (float)(cl.levelsStart.size() - cl.vScroll )));
-                    if (level < 0) {  // print coverage info
-                        Term::clearLine();
-                        Term::printCoverage(pos, cl);
+                    if (level < 0) {  // print coverage info (mousePos functions already prints out cov info to console)
                         std::cout << std::endl;
                         return;
                     }
@@ -1990,8 +2046,7 @@ namespace Manager {
             float yy = (y2 < y) ? y2 : y;
             int pad = fonts.overlayHeight * 0.3;
             yy -= pad + pad;
-            std::vector<std::string> command_tip = Menu::getCommandTip();
-            for (int idx=0; idx < (int)command_tip.size(); idx++) {
+            for (int idx=0; idx < (int)Menu::commandToolTip.size(); idx++) {
                 if (!inputText.empty() && (idx < tip_lb || idx > tip_ub)) {
                     continue;
                 }
@@ -2007,7 +2062,7 @@ namespace Manager {
         }
 
         if (state == GLFW_PRESS) {
-            xDrag = xPos - xOri;  // still in window coords not frame buffer coords
+            xDrag = xPos - xOri;  // still in window co-ords not frame buffer co-ords
             yDrag = yPos - yOri;
             if (std::abs(xDrag) > 5 || std::abs(yDrag) > 5) {
                 captureText = false;

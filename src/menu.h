@@ -49,4 +49,10 @@ namespace Menu {
 
     std::vector<std::string> getCommandTip();
 
+    constexpr std::array<const char*, 26> commandToolTip = {"ylim", "var", "tlen-y", "theme", "tags", "soft-clips", "snapshot", "sam", "remove",
+                                                            "refresh", "mismatches", "mate", "log2-cov", "low-mem", "link", "line", "insertions", "indel-length",
+                                                            "grid", "goto", "find", "filter", "edges", "cov",  "count", "add"};
+
+    int getCommandSwitchValue(Themes::IniOptions &opts, std::string &cmd_s, bool &drawLine);
+
 }

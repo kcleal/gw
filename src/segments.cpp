@@ -501,7 +501,7 @@ namespace Segs {
             le.resize(opts.ylim + vScroll, 0);
         }
 
-        int qLen = (int)rQ.size();  // assume no overflow
+        int qLen = (int)rQ.size();
         int stopCondition, move, si;
         int memLen = (int)ls.size();
 

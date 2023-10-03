@@ -2,6 +2,7 @@
 // Created by Kez Cleal on 26/08/2023.
 //
 #include <algorithm>
+#include <array>
 #include <cstdlib>
 #include <string>
 #include <cstdio>
@@ -112,12 +113,13 @@ namespace Menu {
         SkPaint tcMenu;
         if (opts.theme_str == "dark") {
             bg.setARGB(255, 15, 15, 25);
-            menuBg.setARGB(255, 50, 50, 55);
+            tcMenu.setARGB(255, 255, 255, 255);
+            menuBg = opts.theme.fcDup;
         } else {
             bg.setARGB(255, 255, 255, 255);
-            menuBg.setARGB(255, 60, 60, 65);
+            tcMenu.setARGB(255, 0, 0, 0);
+            menuBg.setARGB(255, 215, 215, 255);
         }
-        tcMenu.setARGB(255, 255, 255, 255);
         tcMenu.setStyle(SkPaint::kStrokeAndFill_Style);
         tcMenu.setAntiAlias(true);
 
@@ -131,9 +133,9 @@ namespace Menu {
         for (auto& b : btns) {
             rect.setXYWH(x2, y, control_box_h, control_box_h);
             if (b == opts.control_level) {
-                canvas->drawRect(rect, opts.theme.fcDup);
+                canvas->drawRoundRect(rect, 5, 5, menuBg);
             } else {
-                canvas->drawRect(rect, menuBg);
+                canvas->drawRoundRect(rect, 5, 5, bg);
             }
             if (b == "close") {
                 tcMenu.setStrokeWidth(3);
@@ -159,7 +161,7 @@ namespace Menu {
                 path.lineTo(x2 + control_box_h - 12, y + 8);
                 canvas->drawPath(path, tcMenu);
                 rect.setXYWH(x2 + 12, y + 12, control_box_h - 26, 6);
-                canvas->drawRect(rect, ((b == opts.control_level) ? opts.theme.fcDup : menuBg));
+                canvas->drawRect(rect, ((b == opts.control_level) ? menuBg : bg));
             } else if (b == "add") {
                 tcMenu.setStrokeWidth(3);
                 path.reset();
@@ -193,9 +195,9 @@ namespace Menu {
             for (auto & heading : mainHeadings()) {
                 rect.setXYWH(x, y, m_width, m_height);
                 if (opts.menu_level == heading) {
-                    canvas->drawRect(rect, opts.theme.fcDup);
+                    canvas->drawRoundRect(rect, 5, 5, menuBg);
                 } else {
-                    canvas->drawRect(rect, menuBg);
+                    canvas->drawRoundRect(rect, 5, 5, bg);
                 }
                 std::string h = "    " + niceText(heading);
                 sk_sp < SkTextBlob> txt = SkTextBlob::MakeFromString(h.c_str(), fonts.overlay);
@@ -213,11 +215,11 @@ namespace Menu {
                 if (heading.first == "fmt" || heading.first == "miny") { continue; }  // obsolete
                 rect.setXYWH(x, y, m_width, m_height);
                 if (opts.menu_level == heading.first) {
-                    canvas->drawRect(rect, opts.theme.fcDup);
+                    canvas->drawRoundRect(rect, 5, 5, menuBg);
                 } else {
-                    canvas->drawRect(rect, menuBg);
+                    canvas->drawRoundRect(rect, 5, 5, bg);
                 }
-                if (table_name == "genomes" && heading.first == opts.genome_tag) {
+                if ((table_name == "genomes" || table_name == "tracks") && heading.first == opts.genome_tag) {
                     canvas->drawCircle(x*4, y + (m_height/2), 4, tcMenu);
                 }
                 std::string h = "    " + heading.first;
@@ -263,7 +265,7 @@ namespace Menu {
             }
             if (text_editing_underway) {  // new track or genome key being added
                 rect.setXYWH(x, y, m_width, m_height);
-                canvas->drawRect(rect, opts.theme.fcDup);
+                canvas->drawRect(rect, menuBg);
                 to_cursor_width = fonts.overlay.measureText(inputText.substr(0, charIndex).c_str(), charIndex, SkTextEncoding::kUTF8);
                 float txt_start2 = fonts.overlay.measureText("    ", 4, SkTextEncoding::kUTF8);
                 std::string h = inputText;
@@ -831,10 +833,27 @@ namespace Menu {
         }
     }
 
-    std::vector<std::string> getCommandTip() {
-        return {"ylim", "var", "tlen-y", "theme", "tags", "soft-clips", "snapshot", "sam", "remove",
-                "refresh", "mismatches", "mate", "log2-cov", "low-mem", "link", "line", "insertions", "indel-length",
-                "grid", "goto", "find", "filter", "edges", "cov",  "count", "add"};
-
+    int getCommandSwitchValue(Themes::IniOptions &opts, std::string &cmd_s, bool &drawLine) {
+        if (cmd_s == "tlen-y") {
+            return (int)opts.tlen_yscale;
+        } else if (cmd_s == "soft-clips") {
+            return (int)(opts.soft_clip_threshold > 0);
+        } else if (cmd_s == "mismatches") {
+            return (int)(opts.snp_threshold > 0);
+        } else if (cmd_s == "log2-cov") {
+            return (int)(opts.log2_cov);
+        } else if (cmd_s == "low-mem") {
+            return (int)(opts.low_mem);
+        } else if (cmd_s == "line") {
+            return (int)drawLine;
+        } else if (cmd_s == "insertions") {
+            return (int)(opts.small_indel_threshold > 0);
+        } else if (cmd_s == "edges") {
+            return (int)(opts.edge_highlights > 0);
+        } else if (cmd_s == "cov") {
+            return (int)(opts.max_coverage > 0);
+        }
+        return -1;
     }
+
 }
