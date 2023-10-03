@@ -89,6 +89,8 @@ namespace HGW {
 
     void trimToRegion(Segs::ReadCollection &col, bool coverage, int snp_threshold);
 
+    void refreshLinked(std::vector<Segs::ReadCollection> &collections, Themes::IniOptions &opts, int *samMaxY);
+
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
                                 hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *samMaxY,
                                 std::vector<Parse::Parser> &filters, BS::thread_pool &pool);

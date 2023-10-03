@@ -189,6 +189,22 @@ namespace HGW {
         }
     }
 
+    void refreshLinkedCollection(Segs::ReadCollection &cl, Themes::IniOptions &opts, int *samMaxY) {
+        Segs::resetCovStartEnd(cl);
+        cl.levelsStart.clear();
+        cl.levelsEnd.clear();
+        cl.linked.clear();
+        for (auto &itm: cl.readQueue) { itm.y = -1; }
+        int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, &cl.region, false);
+        *samMaxY = (maxY > *samMaxY || opts.tlen_yscale) ? maxY : *samMaxY;
+    }
+
+    void refreshLinked(std::vector<Segs::ReadCollection> &collections, Themes::IniOptions &opts, int *samMaxY) {
+        for (auto &cl : collections) {
+            refreshLinkedCollection(cl, opts, samMaxY);
+        }
+    }
+
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *samMaxY,
                                 std::vector<Parse::Parser> &filters, BS::thread_pool &pool) {
@@ -329,13 +345,10 @@ namespace HGW {
         }
 
         if (!newReads.empty()) {
-
             if (!filters.empty()) {
                 applyFilters(filters, newReads, hdr_ptr, col.bamIdx, col.regionIdx);
             }
-
             Segs::init_parallel(newReads, opts.threads, pool);
-
             bool findYall = false;
             if (col.vScroll == 0 && opts.link_op == 0) {  // only new reads need findY, otherwise, reset all below
                 int maxY = Segs::findY(col, newReads, opts.link_op, opts, region,  left);
@@ -353,12 +366,7 @@ namespace HGW {
                 col.readQueue = newReads;
             }
             if (findYall) {
-                col.levelsStart.clear();
-                col.levelsEnd.clear();
-                int maxY = Segs::findY(col, col.readQueue, opts.link_op, opts, region, left);
-                if (maxY > *samMaxY) {
-                    *samMaxY = maxY;
-                }
+                refreshLinkedCollection(col, opts, samMaxY);
             }
             if (opts.link_op > 0) {
                 // move of data will invalidate some pointers, so reset

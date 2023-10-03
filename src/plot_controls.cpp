@@ -419,20 +419,6 @@ namespace Manager {
         }
     }
 
-    void refreshLinked(ankerl::unordered_dense::map< int, sk_sp<SkImage>> &imageCache, std::vector<Segs::ReadCollection> &collections,
-                       Themes::IniOptions &opts, int &samMaxY) {
-        imageCache.clear();
-        for (auto &cl : collections) {
-            Segs::resetCovStartEnd(cl);
-            cl.levelsStart.clear();
-            cl.levelsEnd.clear();
-            cl.linked.clear();
-            for (auto &itm: cl.readQueue) { itm.y = -1; }
-            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, &cl.region, false);
-            samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
-        }
-    }
-
     bool GwPlot::commandProcessed() {
         // note setting valid = true sets redraw to true and processed to false, resulting in re-drawing and
         // re-collecting of reads
@@ -541,21 +527,24 @@ namespace Manager {
 //            }
         } else if (inputText == "link" || inputText == "link all") {
             opts.link_op = 2;
-            refreshLinked(imageCache, collections, opts, samMaxY);
+            imageCache.clear();
+            HGW::refreshLinked(collections, opts, &samMaxY);
             redraw = true;
             processed = true;
             inputText = "";
             return true;
         } else if (inputText == "link sv") {
             opts.link_op = 1;
-            refreshLinked(imageCache, collections, opts, samMaxY);
+            imageCache.clear();
+            HGW::refreshLinked(collections, opts, &samMaxY);
             redraw = true;
             processed = true;
             inputText = "";
             return true;
         } else if (inputText == "link none") {
             opts.link_op = 0;
-            refreshLinked(imageCache, collections, opts, samMaxY);
+            imageCache.clear();
+            HGW::refreshLinked(collections, opts, &samMaxY);
             redraw = true;
             processed = true;
             inputText = "";
@@ -651,7 +640,8 @@ namespace Manager {
             try {
                 opts.ylim = std::stoi(split.back());
                 samMaxY = opts.ylim;
-                refreshLinked(imageCache, collections, opts, samMaxY);
+                imageCache.clear();
+                HGW::refreshLinked(collections, opts, &samMaxY);
                 processed = true;
                 redraw = true;
             } catch (...) {
@@ -1371,7 +1361,7 @@ namespace Manager {
                             }
                         }
                         if (opts.link_op != 0) {
-                            refreshLinked(imageCache, collections, opts, samMaxY);
+                            HGW::refreshLinked(collections, opts, &samMaxY);
                         }
                         processed = true;
                         redraw = true;
@@ -1402,7 +1392,7 @@ namespace Manager {
                         processed = true;
                         redraw = true;
                         if (opts.link_op != 0) {
-                            refreshLinked(imageCache, collections, opts, samMaxY);
+                            HGW::refreshLinked(collections, opts, &samMaxY);
                         }
                         printRegionInfo();
                     }
@@ -1509,7 +1499,8 @@ namespace Manager {
             }
             std::string lk = (opts.link_op > 0) ? ((opts.link_op == 1) ? "sv" : "all") : "none";
             std::cout << "\nLinking selection " << lk << std::endl;
-            refreshLinked(imageCache, collections, opts, samMaxY);
+            imageCache.clear();
+            HGW::refreshLinked(collections, opts, &samMaxY);
             redraw = true;
         }
     }
