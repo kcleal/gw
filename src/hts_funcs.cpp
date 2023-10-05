@@ -407,18 +407,19 @@ namespace HGW {
     }
 
     VCFfile::~VCFfile() {
-        if (fp && !path.empty()) {
-            vcf_close(fp);
-            bcf_destroy(v);
-        }
-        if (!lines.empty()) {
-            for (auto &v: lines) {
-                bcf_destroy1(v);
-            }
-        }
+        // Using these cause memory freeing issues?
+//        if (fp && !path.empty()) {
+//            vcf_close(fp);
+//            bcf_destroy(v);
+//        }
+//        if (!lines.empty()) {
+//            for (auto &v: lines) {
+//                bcf_destroy1(v);
+//            }
+//        }
     }
 
-    void VCFfile::open(std::string f) {
+    void VCFfile::open(const std::string &f) {
         done = false;
         path = f;
         if (Utils::endsWith(path, ".vcf")) {
@@ -600,7 +601,7 @@ namespace HGW {
                 }
                 break;
         }
-        if (seenLabels != nullptr && !seenLabels->contains(label)) {
+        if (!(*seenLabels).empty() && !seenLabels->contains(label)) {
             seenLabels->insert(label);
         }
     }
@@ -848,7 +849,7 @@ namespace HGW {
         }
     }
 
-    void GwTrack::open(std::string &p, bool add_to_dict=true) {
+    void GwTrack::open(const std::string &p, bool add_to_dict=true) {
         fileIndex = 0;
         path = p;
         if (Utils::endsWith(p, ".bed")) {
@@ -1394,4 +1395,116 @@ namespace HGW {
         bcf_hdr_destroy(new_hdr);
         bcf_close(fp_out);
     }
+
+    GwVariantTrack::GwVariantTrack(std::string &path, bool cacheStdin, Themes::IniOptions *t_opts, int startIndex,
+                                   std::vector<std::string> &t_labelChoices,
+                                   ankerl::unordered_dense::map< std::string, Utils::Label> *t_inputLabels,
+                                   ankerl::unordered_dense::set<std::string> *t_seenLabels) {
+
+        labelChoices = t_labelChoices;
+        inputLabels = t_inputLabels;
+        mouseOverTileIndex = -1;
+        blockStart = 0;
+        m_opts = t_opts;
+
+        if (cacheStdin || Utils::endsWith(path, ".vcf") ||
+            Utils::endsWith(path, ".vcf.gz") ||
+            Utils::endsWith(path, ".bcf")) {
+            variantTrack.done = true;
+            vcf.done = false;
+            useVcf = true;
+            vcf.seenLabels = t_seenLabels;
+            vcf.cacheStdin = cacheStdin;
+            vcf.label_to_parse = m_opts->parse_label.c_str();
+            vcf.open(path);
+            trackDone = &vcf.done;
+            if (startIndex > 0) {
+                nextN(startIndex);
+            }
+        } else {  // bed file or labels file, or some other tsv
+            useVcf = false;
+            vcf.done = true;
+            variantTrack.done = false;
+            variantTrack.open(path, false);
+            trackDone = &variantTrack.done;
+            variantTrack.fetch(nullptr);  // initialize iterators
+            if (startIndex > 0) {
+                nextN(startIndex);
+            }
+        }
+        init = true;
+    }
+
+    GwVariantTrack::~GwVariantTrack() {
+
+    }
+
+    void GwVariantTrack::nextN(int number) {
+        if (number == 0) {
+            return;
+        }
+        if (useVcf) {
+            trackDone = &vcf.done;
+        } else {
+            trackDone = &variantTrack.done;
+        }
+        while (!(*trackDone)) {
+            for (int i=0; i < number; ++i) {
+                if (*trackDone) {
+                    break;
+                }
+                if (useVcf) {
+                    vcf.next();
+                    this->appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype);
+                } else {
+                    variantTrack.next();
+                    std::string label = "";
+                    this->appendVariantSite(variantTrack.chrom, variantTrack.start, variantTrack.chrom2,
+                                      variantTrack.stop, variantTrack.rid, label, variantTrack.vartype);
+                }
+            }
+            break;
+        }
+    }
+
+    void GwVariantTrack::iterateToIndex(int targetIndex) {
+        int currentIndex = multiRegions.size();
+        if (targetIndex > currentIndex) {
+            nextN(targetIndex - currentIndex);
+        }
+    }
+
+    void GwVariantTrack::appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label, std::string &vartype) {
+        long rlen = stop - start;
+        std::vector<Utils::Region> v;
+        bool isTrans = chrom != chrom2;
+        if (!isTrans && rlen <= m_opts->split_view_size) {
+            Utils::Region r;
+            v.resize(1);
+            v[0].chrom = chrom;
+            v[0].start = (1 > start - m_opts->pad) ? 1 : start - m_opts->pad;
+            v[0].end = stop + m_opts->pad;
+            v[0].markerPos = start;
+            v[0].markerPosEnd = stop;
+        } else {
+            v.resize(2);
+            v[0].chrom = chrom;
+            v[0].start = (1 > start - m_opts->pad) ? 1 : start - m_opts->pad;
+            v[0].end = start + m_opts->pad;
+            v[0].markerPos = start;
+            v[0].markerPosEnd = start;
+            v[1].chrom = chrom2;
+            v[1].start = (1 > stop - m_opts->pad) ? 1 : stop - m_opts->pad;
+            v[1].end = stop + m_opts->pad;
+            v[1].markerPos = stop;
+            v[1].markerPosEnd = stop;
+        }
+        multiRegions.push_back(v);
+        if (inputLabels->contains(rid)) {
+            multiLabels.push_back((*inputLabels)[rid]);
+        } else {
+            multiLabels.push_back(Utils::makeLabel(chrom, start, label, labelChoices, rid, vartype, "", 0));
+        }
+    }
+
 }

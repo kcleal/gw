@@ -449,7 +449,9 @@ namespace Menu {
                 opts.control_level = "close";
                 opts.previous_level = opts.menu_level;
                 opts.myIni[(opts.menu_table == Themes::MenuTable::GENOMES) ? "genomes" : "tracks"].remove(opts.genome_tag);
-                warnRestart();
+                if (opts.menu_table == Themes::MenuTable::GENOMES) {
+                    warnRestart();
+                }
             } else if (opts.control_level == "add") {
                 opts.editing_underway = !opts.editing_underway;
             }
@@ -468,7 +470,7 @@ namespace Menu {
          * Notes:
          * string variables are used to keep track of mouse-over events, or keyboard selection events
          * int enums are used to keep track of what was clicked on (mouse or keyboard), or triggering events.
-         * bool variables keep track of how to handle or capture text
+         * bool-pointer input variables keep track of how to handle or capture text
          */
         if (opts.ini_path.empty()) {
             std::cerr << termcolor::red << "Error:" << termcolor::reset << " .gw.ini file could not be read. Please create one in your home directory, in your .config directory, or in the same folder as the gw executable" << std::endl;
@@ -480,7 +482,7 @@ namespace Menu {
             return true;
         }
 
-        int ik{};
+        int ik;
         if (key == GLFW_KEY_DOWN || key == GLFW_KEY_UP) {
             std::vector<std::string> keys;
             int current_i = 0;
@@ -577,9 +579,21 @@ namespace Menu {
             }
 
         } else if (action == GLFW_PRESS) {
-            if (!opts.editing_underway && (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) && opts.menu_table == Themes::MenuTable::GENOMES) {
-                opts.genome_tag = opts.menu_level;
-                return true;  // force right key for editing, enter is reserved for selecting
+            if (!opts.editing_underway && (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) && (opts.menu_table == Themes::MenuTable::GENOMES || opts.menu_table == Themes::MenuTable::TRACKS)) {
+                // clicking on new item updates the genome_tag, same item triggers editing mode
+                if (opts.genome_tag != opts.menu_level) {
+                    opts.genome_tag = opts.menu_level;
+                    return true;
+                } else {
+                    bool keep_alive = Menu::menuSelect(opts);
+                    if (opts.editing_underway) {
+                        inputText = opts.myIni[getMenuKey(opts.menu_table)][opts.menu_level];
+                        *charIndex = inputText.size();
+                        *textFromSettings = true;
+                        *captureText = true;
+                    }
+                    return keep_alive;
+                }
             }
             else if (key == GLFW_KEY_RIGHT || key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER || key == GLFW_KEY_TAB) {
                 if (opts.editing_underway) {

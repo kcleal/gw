@@ -250,17 +250,6 @@ int main(int argc, char *argv[]) {
     }
 
     std::vector<std::string> tracks;
-    if (!iopts.genome_tag.empty() && !iopts.ini_path.empty() && iopts.myIni["tracks"].has(iopts.genome_tag)) {
-        std::vector<std::string> track_paths_temp = Utils::split(iopts.myIni["tracks"][iopts.genome_tag], ',');
-        for (auto &trk_item : track_paths_temp) {
-            if (!Utils::is_file_exist(trk_item)) {
-                std::cerr << "Warning: track file does not exists - " << trk_item << std::endl;
-            } else {
-                tracks.push_back(trk_item);
-            }
-        }
-    }
-
     if (program.is_used("--track")) {
         tracks = program.get<std::vector<std::string>>("--track");
         for (auto &trk: tracks){
@@ -502,7 +491,7 @@ int main(int argc, char *argv[]) {
             std::vector<std::string> labels = Utils::split(iopts.labels, ',');
             plotter.setLabelChoices(labels);
 
-            bool cacheStdin = (v == "-" || program.is_used("--out-vcf"));
+            bool cacheStdin = (v == "-" || program.is_used("--out-vcf")); // todo remove caching when --out-vcf is used
 
             if (program.is_used("--in-labels")) {
                 Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels, plotter.seenLabels);
@@ -511,7 +500,8 @@ int main(int argc, char *argv[]) {
                 plotter.setOutLabelFile(program.get<std::string>("--out-labels"));
             }
 
-            plotter.setVariantFile(v, iopts.start_index, cacheStdin);
+            plotter.addVariantTrack(v, iopts.start_index, cacheStdin);
+//            plotter.setVariantFile(v, iopts.start_index, cacheStdin);
             plotter.mode = Manager::Show::TILED;
 
             int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));
@@ -521,7 +511,7 @@ int main(int argc, char *argv[]) {
             }
 
             if (program.is_used("--out-vcf")) {
-                HGW::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
+//                HGW::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
             }
         } else if (program.is_used("--images")) {
 
@@ -557,11 +547,11 @@ int main(int argc, char *argv[]) {
 		    if (Utils::endsWith(p, ".png")) {
                         std::vector<std::string> m = Utils::split(p.erase(p.size() - 4), '~');
                         try {
-                            plotter.appendVariantSite(m[1], std::stoi(m[2]), m[3], std::stoi(m[4]), m[5], emptylabel, m[0]);
+//                            plotter.appendVariantSite(m[1], std::stoi(m[2]), m[3], std::stoi(m[4]), m[5], emptylabel, m[0]);
                         } catch (...) {
                             // append an empty variant, use the index at the id
                             std::string stri = std::to_string(index);
-                            plotter.appendVariantSite(emptylabel, 0, emptylabel, 0, stri, emptylabel, emptylabel);
+//                            plotter.appendVariantSite(emptylabel, 0, emptylabel, 0, stri, emptylabel, emptylabel);
                         }
                         index += 1;
                     }
@@ -873,29 +863,29 @@ int main(int argc, char *argv[]) {
 
         } else if (program.is_used("--variants") && program.is_used("--out-vcf") && program.is_used("--in-labels")) {
 
-            auto v = program.get<std::string>("--variants");
-            std::vector<std::string> labels = Utils::split(iopts.labels, ',');
-            if (program.is_used("--in-labels")) {
-                Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels, plotter.seenLabels);
-            }
-            plotter.setVariantFile(v, iopts.start_index, false);
-            plotter.setLabelChoices(labels);
-            plotter.mode = Manager::Show::TILED;
-
-            HGW::VCFfile &vcf = plotter.vcf;
-            std::vector<std::string> empty_labels;
-            while (true) {
-                vcf.next();
-                if (vcf.done) {break; }
-                if (plotter.inputLabels.contains(vcf.rid)) {
-                    plotter.multiLabels.push_back(plotter.inputLabels[vcf.rid]);
-                } else {
-                    plotter.multiLabels.push_back(Utils::makeLabel(vcf.chrom, vcf.start, vcf.label, empty_labels, vcf.rid, vcf.vartype, "", 0));
-                }
-            }
-            if (program.is_used("--out-vcf")) {
-                HGW::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
-            }
+//            auto v = program.get<std::string>("--variants");
+//            std::vector<std::string> labels = Utils::split(iopts.labels, ',');
+//            if (program.is_used("--in-labels")) {
+//                Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels, plotter.seenLabels);
+//            }
+//            plotter.setVariantFile(v, iopts.start_index, false);
+//            plotter.setLabelChoices(labels);
+//            plotter.mode = Manager::Show::TILED;
+//
+//            HGW::VCFfile &vcf = plotter.vcf;
+//            std::vector<std::string> empty_labels;
+//            while (true) {
+//                vcf.next();
+//                if (vcf.done) {break; }
+//                if (plotter.inputLabels.contains(vcf.rid)) {
+//                    plotter.multiLabels.push_back(plotter.inputLabels[vcf.rid]);
+//                } else {
+//                    plotter.multiLabels.push_back(Utils::makeLabel(vcf.chrom, vcf.start, vcf.label, empty_labels, vcf.rid, vcf.vartype, "", 0));
+//                }
+//            }
+//            if (program.is_used("--out-vcf")) {
+//                HGW::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
+//            }
         }
     }
     if (!iopts.no_show)

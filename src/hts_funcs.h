@@ -57,7 +57,6 @@ namespace HGW {
         FType kind;
         std::string path;
         std::string chrom, chrom2, rid, vartype, label, tag;
-//        robin_hood::unordered_set<std::string> *seenLabels;
         ankerl::unordered_dense::set<std::string> *seenLabels;
         int parse;
         int info_field_type;
@@ -69,7 +68,7 @@ namespace HGW {
 		std::string variantString;
 		std::vector<std::string> sample_names;
 
-        void open(std::string f);
+        void open(const std::string &f);
         void next();
         void printTargetRecord(std::string &id_str, std::string &chrom, int pos);
 		void get_samples();
@@ -104,7 +103,7 @@ namespace HGW {
         GwTrack() = default;
         ~GwTrack();
 
-        std::string path;
+        std::string path, genome_tag;
         std::string chrom, chrom2, rid, vartype;
         int start, stop;
         int fileIndex;
@@ -131,7 +130,7 @@ namespace HGW {
         bool done;
 		std::string variantString;
 
-        void open(std::string &p, bool add_to_dict);
+        void open(const std::string &p, bool add_to_dict);
         void fetch(const Utils::Region *rgn);
         void next();
         bool findFeature(std::string &feature, Utils::Region &region);
@@ -144,4 +143,34 @@ namespace HGW {
 
     void saveVcf(VCFfile &input_vcf, std::string path, std::vector<Utils::Label> multiLabels);
 
+
+    /*
+     * A union of VCFfile and GwTrack, tiled images will be drawn from this class
+    */
+    class GwVariantTrack {
+    public:
+        GwVariantTrack(std::string &path, bool cacheStdin, Themes::IniOptions *t_opts, int startIndex,
+                       std::vector<std::string> &t_labelChoices,
+                       ankerl::unordered_dense::map< std::string, Utils::Label> *t_inputLabels,
+                       ankerl::unordered_dense::set<std::string> *t_seenLabels);
+        ~GwVariantTrack();
+        bool init;
+        bool useVcf;
+        bool *trackDone;
+        int mouseOverTileIndex;
+        int blockStart;
+        HGW::VCFfile vcf;
+        HGW::GwTrack variantTrack;
+        std::vector<std::vector<Utils::Region>> multiRegions;  // used for creating tiled regions
+        std::vector<Utils::Label> multiLabels;  // used for labelling tiles
+        std::vector<std::string> labelChoices;
+        ankerl::unordered_dense::map< std::string, Utils::Label> *inputLabels;
+        Themes::IniOptions *m_opts;
+
+        void nextN(int number);
+        void iterateToIndex(int index);
+
+    private:
+        void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label, std::string &vartype);
+    };
 }

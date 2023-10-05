@@ -45,8 +45,9 @@ namespace Term {
         std::cout << termcolor::green << "mismatches, mm                   " << termcolor::reset << "Toggle mismatches\n";
         std::cout << termcolor::green << "quit, q          -               " << termcolor::reset << "Quit GW\n";
         std::cout << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
-        std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. 'rm 1'. To remove a bam \n                                 use the bam index 'rm bam0'\n";
+        std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. 'rm 1'. To remove a bam \n                                 use the bam index 'rm bam1', or track 'rm track1'\n";
         std::cout << termcolor::green << "sam                              " << termcolor::reset << "Print selected read in sam format'\n";
+        std::cout << termcolor::green << "settings                         " << termcolor::reset << "Open the settings menu'\n";
 		std::cout << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window to png e.g. 's', or 's view.png',\n                                 or vcf columns can be used 's {pos}_{info.SU}.png'\n";
         std::cout << termcolor::green << "soft-clips, sc                   " << termcolor::reset << "Toggle soft-clips\n";
         std::cout << termcolor::green << "tags                             " << termcolor::reset << "Print selected sam tags\n";
@@ -143,7 +144,7 @@ namespace Term {
         } else if (s == "refresh" || s == "r") {
             std::cout << "    Refresh the drawing.\n        All filters will be removed any everything will be redrawn.\n\n";
         } else if (s == "remove" || s == "rm") {
-            std::cout << "    Remove a region or bam.\n        Remove a region or bam by index. To remove a bam add a 'bam' prefix.\n    Examples:\n        'rm 0', 'rm bam1'\n\n";
+            std::cout << "    Remove a region, bam or track.\n        Remove a region, bam or track by index. To remove a bam or track add a 'bam' or 'track' prefix.\n    Examples:\n        'rm 0', 'rm bam1', 'rm track2'\n\n";
         } else if (s == "sam") {
             std::cout << "    Print the sam format of the read.\n        First select a read using the mouse then type ':sam'.\n\n";
 		} else if (s == "snapshot" || s == "s") {

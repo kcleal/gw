@@ -75,7 +75,7 @@ namespace Manager {
         drawLine = false;
         captureText = false;
         drawToBackWindow = false;
-        useVcf = false;
+//        useVcf = false;
         textFromSettings = false;
         monitorScale = 1;
         fonts = Themes::Fonts();
@@ -94,11 +94,21 @@ namespace Manager {
             hts_idx_t* idx = sam_index_load(f, fn.c_str());
             indexes.push_back(idx);
         }
-        tracks.resize(track_paths.size());
-        int i = 0;
-        for (auto &tp: track_paths) {
-            tracks[i].open(tp, true);
-            i += 1;
+        if (!opts.genome_tag.empty() && !opts.ini_path.empty() && opts.myIni["tracks"].has(opts.genome_tag)) {
+            std::vector<std::string> track_paths_temp = Utils::split(opts.myIni["tracks"][opts.genome_tag], ',');
+            for (const auto &trk_item : track_paths_temp) {
+                if (!Utils::is_file_exist(trk_item)) {
+                    std::cerr << "Warning: track file does not exists - " << trk_item << std::endl;
+                } else {
+                    tracks.push_back(HGW::GwTrack());
+                    tracks.back().genome_tag = opts.genome_tag;
+                    tracks.back().open(trk_item, true);
+                }
+            }
+        }
+        for (const auto &tp: track_paths) {
+            tracks.push_back(HGW::GwTrack());
+            tracks.back().open(tp, true);
         }
         samMaxY = 0;
         yScaling = 0;
@@ -107,8 +117,9 @@ namespace Manager {
         xDrag = xOri = yDrag = yOri = -1000000;
         lastX = lastY = -1;
         commandIndex = 0;
-        blockStart = 0;
+//        blockStart = 0;
         regionSelection = 0;
+        variantFileSelection = 0;
         commandToolTipIndex = -1;
         mode = Show::SINGLE;
         if (opts.threads > 1) {
@@ -239,71 +250,80 @@ namespace Manager {
         }
     }
 
-    void GwPlot::setVariantFile(std::string &path, int startIndex, bool cacheStdin) {
-        if (cacheStdin || Utils::endsWith(path, ".vcf") ||
-            Utils::endsWith(path, ".vcf.gz") ||
-            Utils::endsWith(path, ".bcf")) {
-            variantTrack.done = true;
-			useVcf = true;
-            mouseOverTileIndex = -1;
-            vcf.seenLabels = &seenLabels;
-            vcf.cacheStdin = cacheStdin;
-            vcf.label_to_parse = opts.parse_label.c_str();
-            vcf.open(path);  // todo some error checking needed?
-            if (startIndex > 0) {
-                int bLen = opts.number.x * opts.number.y;
-                bool done = false;
-                while (!done) {
-                    if (vcf.done) {
-                        done = true;
-                    } else {
-                        for (int i=0; i < bLen; ++ i) {
-                            if (vcf.done) {
-                                done = true;
-                                break;
-                            }
-                            vcf.next();
-                            appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype);
-                        }
-                        if (blockStart + bLen > startIndex) {
-                            done = true;
-                        } else if (!done) {
-                            blockStart += bLen;
-                        }
-                    }
-                }
-            }
-        } else {  // bed file or labels file, or some other tsv
-			useVcf = false;
-            vcf.done = true;
-            variantTrack.open(path, false);
-            variantTrack.fetch(nullptr);  // initialize iterators
-            if (startIndex > 0) {
-                int bLen = opts.number.x * opts.number.y;
-                bool done = false;
-                while (!done) {
-                    if (variantTrack.done) {
-                        done = true;
-                    } else {
-                        for (int i=0; i < bLen; ++ i) {
-                            if (variantTrack.done) {
-                                done = true;
-                                break;
-                            }
-                            variantTrack.next();
-                            std::string label = "";
-                            appendVariantSite(variantTrack.chrom, variantTrack.start, variantTrack.chrom2,
-                                              variantTrack.stop, variantTrack.rid, label, variantTrack.vartype);
-                        }
-                        if (blockStart + bLen > startIndex) {
-                            done = true;
-                        } else if (!done) {
-                            blockStart += bLen;
-                        }
-                    }
-                }
-            }
-        }
+//    void GwPlot::setVariantFile(std::string &path, int startIndex, bool cacheStdin) {
+//        if (cacheStdin || Utils::endsWith(path, ".vcf") ||
+//            Utils::endsWith(path, ".vcf.gz") ||
+//            Utils::endsWith(path, ".bcf")) {
+//            variantTrack.done = true;
+//			useVcf = true;
+//            mouseOverTileIndex = -1;
+//            vcf.seenLabels = &seenLabels;
+//            vcf.cacheStdin = cacheStdin;
+//            vcf.label_to_parse = opts.parse_label.c_str();
+//            vcf.open(path);
+//            if (startIndex > 0) {
+//                int bLen = opts.number.x * opts.number.y;
+//                bool done = false;
+//                while (!done) {
+//                    if (vcf.done) {
+//                        done = true;
+//                    } else {
+//                        for (int i=0; i < bLen; ++ i) {
+//                            if (vcf.done) {
+//                                done = true;
+//                                break;
+//                            }
+//                            vcf.next();
+//                            appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype);
+//                        }
+//                        if (blockStart + bLen > startIndex) {
+//                            done = true;
+//                        } else if (!done) {
+//                            blockStart += bLen;
+//                        }
+//                    }
+//                }
+//            }
+//        } else {  // bed file or labels file, or some other tsv
+//			useVcf = false;
+//            vcf.done = true;
+//            variantTrack.open(path, false);
+//            variantTrack.fetch(nullptr);  // initialize iterators
+//            if (startIndex > 0) {
+//                int bLen = opts.number.x * opts.number.y;
+//                bool done = false;
+//                while (!done) {
+//                    if (variantTrack.done) {
+//                        done = true;
+//                    } else {
+//                        for (int i=0; i < bLen; ++ i) {
+//                            if (variantTrack.done) {
+//                                done = true;
+//                                break;
+//                            }
+//                            variantTrack.next();
+//                            std::string label = "";
+//                            appendVariantSite(variantTrack.chrom, variantTrack.start, variantTrack.chrom2,
+//                                              variantTrack.stop, variantTrack.rid, label, variantTrack.vartype);
+//                        }
+//                        if (blockStart + bLen > startIndex) {
+//                            done = true;
+//                        } else if (!done) {
+//                            blockStart += bLen;
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
+
+    void GwPlot::addVariantTrack(std::string &path, int startIndex, bool cacheStdin) {
+        variantTracks.push_back(
+                HGW::GwVariantTrack(path, cacheStdin, &opts, startIndex,
+                labelChoices,
+                &inputLabels,
+                &seenLabels)
+                );
     }
 
     void GwPlot::setOutLabelFile(const std::string &path) {
@@ -311,7 +331,7 @@ namespace Manager {
     }
 
     void GwPlot::saveLabels() {
-        if (!outLabelFile.empty()) Utils::saveLabels(multiLabels, outLabelFile);
+//        if (!outLabelFile.empty()) Utils::saveLabels(multiLabels, outLabelFile);
     }
 
     void GwPlot::setLabelChoices(std::vector<std::string> &labels) {
@@ -344,39 +364,39 @@ namespace Manager {
         }
     }
 
-    void GwPlot::appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label, std::string &vartype) {
-        this->clearCollections();
-        long rlen = stop - start;
-        std::vector<Utils::Region> v;
-        bool isTrans = chrom != chrom2;
-        if (!isTrans && rlen <= opts.split_view_size) {
-            Utils::Region r;
-            v.resize(1);
-            v[0].chrom = chrom;
-            v[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
-            v[0].end = stop + opts.pad;
-            v[0].markerPos = start;
-            v[0].markerPosEnd = stop;
-        } else {
-            v.resize(2);
-            v[0].chrom = chrom;
-            v[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
-            v[0].end = start + opts.pad;
-            v[0].markerPos = start;
-            v[0].markerPosEnd = start;
-            v[1].chrom = chrom2;
-            v[1].start = (1 > stop - opts.pad) ? 1 : stop - opts.pad;
-            v[1].end = stop + opts.pad;
-            v[1].markerPos = stop;
-            v[1].markerPosEnd = stop;
-        }
-        multiRegions.push_back(v);
-        if (inputLabels.contains(rid)) {
-            multiLabels.push_back(inputLabels[rid]);
-        } else {
-            multiLabels.push_back(Utils::makeLabel(chrom, start, label, labelChoices, rid, vartype, "", 0));
-        }
-    }
+//    void GwPlot::appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label, std::string &vartype) {
+//        this->clearCollections();
+//        long rlen = stop - start;
+//        std::vector<Utils::Region> v;
+//        bool isTrans = chrom != chrom2;
+//        if (!isTrans && rlen <= opts.split_view_size) {
+//            Utils::Region r;
+//            v.resize(1);
+//            v[0].chrom = chrom;
+//            v[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
+//            v[0].end = stop + opts.pad;
+//            v[0].markerPos = start;
+//            v[0].markerPosEnd = stop;
+//        } else {
+//            v.resize(2);
+//            v[0].chrom = chrom;
+//            v[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
+//            v[0].end = start + opts.pad;
+//            v[0].markerPos = start;
+//            v[0].markerPosEnd = start;
+//            v[1].chrom = chrom2;
+//            v[1].start = (1 > stop - opts.pad) ? 1 : stop - opts.pad;
+//            v[1].end = stop + opts.pad;
+//            v[1].markerPos = stop;
+//            v[1].markerPosEnd = stop;
+//        }
+//        multiRegions.push_back(v);
+//        if (inputLabels.contains(rid)) {
+//            multiLabels.push_back(inputLabels[rid]);
+//        } else {
+//            multiLabels.push_back(Utils::makeLabel(chrom, start, label, labelChoices, rid, vartype, "", 0));
+//        }
+//    }
 
     int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay) {
 
@@ -391,10 +411,10 @@ namespace Manager {
         if (mode == Show::SINGLE) {
             printRegionInfo();
         } else {
-            blockStart = 0;
+//            blockStart = 0;
             mouseOverTileIndex = 0;
             bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
-            std::cerr << termcolor::green << "Index     " << termcolor::reset << blockStart << std::endl;
+            std::cerr << termcolor::green << "Index     " << termcolor::reset << variantTracks[variantFileSelection].blockStart << std::endl;
         }
         bool wasResized = false;
         std::chrono::high_resolution_clock::time_point autoSaveTimer = std::chrono::high_resolution_clock::now();
@@ -839,23 +859,28 @@ namespace Manager {
     }
 
     void GwPlot::tileDrawingThread(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
-        int bStart = blockStart;
+        std::cerr << " starting tileDrawing\n";
+        currentVarTrack = &variantTracks[variantFileSelection];
+        int bStart = currentVarTrack->blockStart;
         int bLen = (int)opts.number.x * (int)opts.number.y;
         int endIdx = bStart + bLen;
+        currentVarTrack->iterateToIndex(endIdx);
         for (int i=bStart; i<endIdx; ++i) {
             bool c = imageCache.contains(i);
-            if (!c && i < (int)multiRegions.size() && !bams.empty()) {
-                regions = multiRegions[i];
+            if (!c && i < (int)currentVarTrack->multiRegions.size() && !bams.empty()) {
+                regions = currentVarTrack->multiRegions[i];
                 runDraw(canvas);
                 sk_sp<SkImage> img(sSurface->makeImageSnapshot());
                 imageCache[i] = img;
                 sContext->flush();
             }
         }
+//        std::cerr << " done tileDrawing\n";
     }
 
     void GwPlot::tileLoadingThread() {
-        int bStart = blockStart;
+        currentVarTrack = &variantTracks[variantFileSelection];
+        int bStart = currentVarTrack->blockStart;
         int bLen = (int)opts.number.x * (int)opts.number.y;
         int endIdx = bStart + bLen;
         BS::thread_pool pool(opts.threads);
@@ -896,50 +921,51 @@ namespace Manager {
     }
 
     void GwPlot::drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
-        int bStart = blockStart;
-        int bLen = opts.number.x * opts.number.y + 1;
-        if (image_glob.empty()) {
+        currentVarTrack = &variantTracks[variantFileSelection];
+        int bStart = currentVarTrack->blockStart;
+
+        std::cerr << " starting drawTiles\n";
+
+//        int bLen = opts.number.x * opts.number.y + 1;
+//        if (image_glob.empty()) {
+//            currentVarTrack->iterateToIndex(bStart + bLen);
             // load some vcf regions and labels for drawing
-            if (useVcf && !vcf.done && bStart + bLen > (int)multiRegions.size()) {
-                for (int i=0; i < bLen; ++ i) {
-                    vcf.next();
-                    if (vcf.done) {
-                        break;
-                    }
-                    appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype);
-                }
-            // load some bed or other variant track for drawing
-            } else if (!useVcf && !variantTrack.done) {
-                std::string empty_label = "";
-                for (int i=0; i < bLen; ++ i) {
-                    variantTrack.next();
-                    if (variantTrack.done) {
-                        break;
-                    }
-                    appendVariantSite(variantTrack.chrom, variantTrack.start, variantTrack.chrom, variantTrack.stop, variantTrack.rid, empty_label, variantTrack.vartype);
-                }
-            }
-        } else {
+//            if (useVcf && !vcf.done && bStart + bLen > (int)multiRegions.size()) {
+//                for (int i=0; i < bLen; ++ i) {
+//                    vcf.next();
+//                    if (vcf.done) {
+//                        break;
+//                    }
+//                    appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype);
+//                }
+//            // load some bed or other variant track for drawing
+//            } else if (!useVcf && !variantTrack.done) {
+//                std::string empty_label = "";
+//                for (int i=0; i < bLen; ++ i) {
+//                    variantTrack.next();
+//                    if (variantTrack.done) {
+//                        break;
+//                    }
+//                    appendVariantSite(variantTrack.chrom, variantTrack.start, variantTrack.chrom, variantTrack.stop, variantTrack.rid, empty_label, variantTrack.vartype);
+//                }
+//            }
+//        } else {
             // add empty labels for images (labels from --in-labels are loaded earlier)
 //            for (int i=bStart; i < bStart + bLen; i++) {
 //                const char *fname = image_glob[i].c_str();
 //                std::cout << fname << std::endl;
 //            }
-        }
+//        }
 
         setGlfwFrameBufferSize();
         setScaling();
         bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height);
-        SkSamplingOptions sampOpts = SkSamplingOptions();
 
         if (image_glob.empty()) {
             tileDrawingThread(canvas, sContext, sSurface);
         } else {
             tileLoadingThread();
         }
-
-        int i = bStart;
-        canvas->drawPaint(opts.theme.bgPaint);
 
         std::vector<std::string> srtLabels;
         for (auto &itm: seenLabels) {
@@ -954,18 +980,22 @@ namespace Manager {
         if (pivot != srtLabels.end()) {
             std::rotate(srtLabels.begin(), pivot, pivot + 1);
         }
+
+        canvas->drawPaint(opts.theme.bgPaint);
+        SkSamplingOptions sampOpts = SkSamplingOptions();
+        int i = bStart;
         for (auto &b : bboxes) {
             SkRect rect;
             if (imageCache.contains(i)) {
                 rect.setXYWH(b.xStart, b.yStart, b.width, b.height);
                 canvas->drawImageRect(imageCache[i], rect, sampOpts);
                 if (i - bStart != mouseOverTileIndex) {
-                    if (!multiLabels.empty()) {
-                        multiLabels[i].mouseOver = false;
+                    if (!currentVarTrack->multiLabels.empty()) {
+                        currentVarTrack->multiLabels[i].mouseOver = false;
                     }
                 }
-                if (!multiLabels.empty()) {
-                    Drawing::drawLabel(opts, canvas, rect, multiLabels[i], fonts, seenLabels, srtLabels);
+                if (!currentVarTrack->multiLabels.empty()) {
+                    Drawing::drawLabel(opts, canvas, rect, currentVarTrack->multiLabels[i], fonts, seenLabels, srtLabels);
                 }
             }
             ++i;

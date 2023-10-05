@@ -90,20 +90,23 @@ namespace Manager {
         std::string outLabelFile;
 
         std::vector<Utils::Region> regions;
-        std::vector<std::vector<Utils::Region>> multiRegions;  // used for creating tiled regions
 
-        std::vector<std::string> labelChoices;
-        std::vector<Utils::Label> multiLabels;  // used for labelling tiles
+//        std::vector<std::vector<Utils::Region>> multiRegions;  // used for creating tiled regions
+//        std::vector<Utils::Label> multiLabels;  // used for labelling tiles
+
+        std::vector<std::string> labelChoices;  // enumeration of labels to use
 
         std::vector<std::filesystem::path> image_glob;
 
-        std::vector<Segs::ReadCollection> collections;
+        std::vector<Segs::ReadCollection> collections;  // stores alignments
+
+        std::vector<HGW::GwVariantTrack> variantTracks;
 
         std::vector<Parse::Parser> filters;
 
-		bool useVcf;  // indicated which of the below files to use
-        HGW::VCFfile vcf;  // These two are input files for generating tiled images
-        HGW::GwTrack variantTrack;
+//		bool useVcf;  // indicated which of the below files to use
+//        HGW::VCFfile vcf;  // These two are input files for generating tiled images
+//        HGW::GwTrack variantTrack;
 
         ankerl::unordered_dense::map< int, sk_sp<SkImage>> imageCache;
         ankerl::unordered_dense::map< std::string, Utils::Label> inputLabels;
@@ -131,7 +134,9 @@ namespace Manager {
 
         void setRasterSize(int width, int height);
 
-        void setVariantFile(std::string &path, int startIndex, bool cacheStdin);
+//        void setVariantFile(std::string &path, int startIndex, bool cacheStdin);
+
+        void addVariantTrack(std::string &path, int startIndex, bool cacheStdin);
 
         void setOutLabelFile(const std::string &path);
 
@@ -151,7 +156,7 @@ namespace Manager {
 
         void setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop);
 
-        void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string & rid, std::string &label, std::string &vartype);
+//        void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string & rid, std::string &label, std::string &vartype);
 
         int startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay);
 
@@ -201,11 +206,14 @@ namespace Manager {
 
         float yScaling;
 
-        int blockStart, blockLen, regionSelection;
+//        int blockStart, blockLen;
+        int regionSelection, variantFileSelection; //
 
         Utils::Region clicked;
         int clickedIdx;
         int commandToolTipIndex;
+
+        HGW::GwVariantTrack *currentVarTrack;
 
         std::vector<Utils::BoundingBox> bboxes;
 
