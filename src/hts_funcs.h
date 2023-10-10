@@ -159,6 +159,7 @@ namespace HGW {
         bool *trackDone;
         int mouseOverTileIndex;
         int blockStart;
+        std::string path;
         HGW::VCFfile vcf;
         HGW::GwTrack variantTrack;
         std::vector<std::vector<Utils::Region>> multiRegions;  // used for creating tiled regions

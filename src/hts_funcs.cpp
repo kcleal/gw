@@ -1421,6 +1421,7 @@ namespace HGW {
             if (startIndex > 0) {
                 nextN(startIndex);
             }
+            this->path = vcf.path;
         } else {  // bed file or labels file, or some other tsv
             useVcf = false;
             vcf.done = true;
@@ -1431,6 +1432,7 @@ namespace HGW {
             if (startIndex > 0) {
                 nextN(startIndex);
             }
+            this->path = variantTrack.path;
         }
         init = true;
     }

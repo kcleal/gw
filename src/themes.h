@@ -119,7 +119,7 @@ namespace Themes {
         BaseTheme theme;
         Utils::Dims dimensions, number;
         std::string genome_tag;
-        std::string theme_str, parse_label, labels, link, dimensions_str, number_str, ini_path, outdir;
+        std::string theme_str, font_str, parse_label, labels, link, dimensions_str, number_str, ini_path, outdir;
         std::string menu_level, control_level, previous_level;
         MenuTable menu_table;
         bool editing_underway;
@@ -143,6 +143,7 @@ namespace Themes {
         int start_index;
         int soft_clip_threshold, small_indel_threshold, snp_threshold;
         int edge_highlights;
+        int font_size;
 
         void readIni();
         void getOptionsFromIni();
@@ -153,7 +154,7 @@ namespace Themes {
     public:
         Fonts();
         ~Fonts() = default;
-
+        int fontTypefaceSize;
         float fontSize, fontHeight, fontMaxSize, overlayWidth, overlayHeight;
         SkRect rect;
         SkPath path;
@@ -161,6 +162,7 @@ namespace Themes {
         SkFont fonty, overlay;
         float textWidths[10];  // text size is scaled between 10 values to try and fill a read
 
+        void setTypeface(std::string &fontStr, int size);
         void setFontSize(float yScaling, float yScale);
     };
 

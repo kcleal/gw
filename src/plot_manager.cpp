@@ -75,10 +75,10 @@ namespace Manager {
         drawLine = false;
         captureText = false;
         drawToBackWindow = false;
-//        useVcf = false;
         textFromSettings = false;
         monitorScale = 1;
         fonts = Themes::Fonts();
+        fonts.setTypeface(opt.font_str, opt.font_size);
         fai = fai_load(reference.c_str());
         if (fai == nullptr) {
             std::cerr << termcolor::red << "Error:" << termcolor::reset << " reference genome could not be opened " << reference << std::endl;
@@ -117,7 +117,6 @@ namespace Manager {
         xDrag = xOri = yDrag = yOri = -1000000;
         lastX = lastY = -1;
         commandIndex = 0;
-//        blockStart = 0;
         regionSelection = 0;
         variantFileSelection = 0;
         commandToolTipIndex = -1;
@@ -399,7 +398,6 @@ namespace Manager {
 //    }
 
     int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay) {
-
         std::cerr << "Type ':help' or ':h' for more info\n";
 
 //        std::cout << "\e[3;0;0t" << std::endl;
@@ -414,6 +412,7 @@ namespace Manager {
 //            blockStart = 0;
             mouseOverTileIndex = 0;
             bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
+            std::cout << termcolor::magenta << "File      " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
             std::cerr << termcolor::green << "Index     " << termcolor::reset << variantTracks[variantFileSelection].blockStart << std::endl;
         }
         bool wasResized = false;
@@ -844,7 +843,17 @@ namespace Manager {
             }
         }
         if (bams.empty()) {
-            std::string dd_msg = "Drag and drop bam or cram files here";
+            std::string dd_msg = "Drag-and-drop bam or cram files here";
+            float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
+            float txt_start = ((float)fb_width / 2) - (msg_width / 2);
+            sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(dd_msg.c_str(), fonts.overlay);
+            SkPaint tcMenu;
+            tcMenu.setARGB(255, 100, 100, 100);
+            tcMenu.setStyle(SkPaint::kStrokeAndFill_Style);
+            tcMenu.setAntiAlias(true);
+            canvas->drawTextBlob(blob.get(), txt_start, (float)fb_height / 2, tcMenu);
+        } else if (regions.empty()) {
+            std::string dd_msg = "Type e.g. '/chr1' to add a region, or drag-and-drop a vcf file here";
             float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
             float txt_start = ((float)fb_width / 2) - (msg_width / 2);
             sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(dd_msg.c_str(), fonts.overlay);
@@ -858,8 +867,7 @@ namespace Manager {
         glfwSwapBuffers(window);
     }
 
-    void GwPlot::tileDrawingThread(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
-        std::cerr << " starting tileDrawing\n";
+    void GwPlot::tileDrawingThread(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface) {
         currentVarTrack = &variantTracks[variantFileSelection];
         int bStart = currentVarTrack->blockStart;
         int bLen = (int)opts.number.x * (int)opts.number.y;
@@ -875,7 +883,6 @@ namespace Manager {
                 sContext->flush();
             }
         }
-//        std::cerr << " done tileDrawing\n";
     }
 
     void GwPlot::tileLoadingThread() {
@@ -896,7 +903,7 @@ namespace Manager {
                                           g_mutex.lock();
 
 #if defined(_WIN32)
-					  const wchar_t* outp = image_glob[i].c_str();
+					  const wchar_t *outp = image_glob[i].c_str();
 					  std::wstring pw(outp);
 					  std::string outp_str(pw.begin(), pw.end());
 					  const char *fname = outp_str.c_str();
@@ -920,11 +927,10 @@ namespace Manager {
                               }).wait();
     }
 
-    void GwPlot::drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
+    void GwPlot::drawTiles(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface) {
         currentVarTrack = &variantTracks[variantFileSelection];
         int bStart = currentVarTrack->blockStart;
 
-        std::cerr << " starting drawTiles\n";
 
 //        int bLen = opts.number.x * opts.number.y + 1;
 //        if (image_glob.empty()) {

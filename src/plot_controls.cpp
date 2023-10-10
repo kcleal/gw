@@ -157,6 +157,20 @@ namespace Manager {
                 if (!commandHistory.empty()) {
                     inputText = commandHistory.back();
                 }
+            } else if (mode == TILED && ctrlPress && variantTracks.size() > 1) {
+                int before = variantFileSelection;
+                if (key == GLFW_KEY_LEFT) {
+                    variantFileSelection = (variantFileSelection > 0) ? variantFileSelection - 1 : 0;
+                } else if (key == GLFW_KEY_RIGHT) {
+                    variantFileSelection = (variantFileSelection < (int)variantTracks.size() - 1) ? variantFileSelection + 1 : variantFileSelection;
+                }
+                if (variantFileSelection != before) {
+                    std::cout << termcolor::magenta << "File      " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
+                    redraw = true;
+                    processed = false;
+                    imageCache.clear();
+                }
+                return GLFW_KEY_UNKNOWN;
             } else if ((key == GLFW_KEY_RIGHT || key == GLFW_KEY_LEFT || key == GLFW_KEY_UP || key == GLFW_KEY_DOWN) && shiftPress) {
                 GLFWmonitor * monitor = glfwGetPrimaryMonitor();
                 int monitor_xpos, monitor_ypos, monitor_w, monitor_h;
@@ -1200,6 +1214,9 @@ namespace Manager {
         opts.editing_underway = false;
         textFromSettings = false;
         samMaxY = opts.ylim;
+        //fonts.setTypeface(opts.font_str, opts.font_size);
+        fonts = Themes::Fonts();
+        fonts.setTypeface(opts.font_str, opts.font_size);
         if (opts.myIni.get("genomes").has(opts.genome_tag) && reference != opts.myIni["genomes"][opts.genome_tag]) {
             faidx_t *fai_test = fai_load( opts.myIni["genomes"][opts.genome_tag].c_str());
             if (fai_test != nullptr) {
@@ -1567,6 +1584,7 @@ namespace Manager {
 //                setVariantFile(pth, opts.start_index, false);
                 currentVarTrack->blockStart = 0;
                 mode = Manager::Show::TILED;
+                std::cout << termcolor::magenta << "File      " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
                 std::cout << termcolor::green << "Index     " << termcolor::reset << currentVarTrack->blockStart << std::endl;
             }
             ++paths;

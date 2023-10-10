@@ -77,6 +77,7 @@ namespace Manager {
         int fb_width, fb_height;
         float monitorScale, gap;
         int samMaxY;
+        int regionSelection, variantFileSelection;
         bool drawToBackWindow;
 
         std::string reference;
@@ -205,9 +206,6 @@ namespace Manager {
         double xDrag, xOri, lastX, yDrag, yOri, lastY;
 
         float yScaling;
-
-//        int blockStart, blockLen;
-        int regionSelection, variantFileSelection; //
 
         Utils::Region clicked;
         int clickedIdx;

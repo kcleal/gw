@@ -74,10 +74,6 @@ namespace Themes {
         ecMateUnmapped.setStyle(SkPaint::kStroke_Style);
         ecMateUnmapped.setStrokeWidth(1);
 
-        ecSplit.setARGB(255, 0, 0, 255);
-        ecSplit.setStyle(SkPaint::kStroke_Style);
-        ecSplit.setStrokeWidth(1);
-
         fcIns.setARGB(255, 156, 85, 201);
 
         lwMateUnmapped = 0.5;
@@ -195,14 +191,15 @@ namespace Themes {
         fcTrack.setARGB(200, 0, 0, 0);
         bgPaint.setARGB(255, 255, 255, 255);
         fcNormal.setARGB(255, 182, 182, 182);
-        fcDel.setARGB(255, 220, 20, 60);
+        fcDel.setARGB(255, 180, 15, 40);
         fcDup.setARGB(255, 30, 144, 255);
         fcInvF.setARGB(255, 46, 139, 0);
         fcInvR.setARGB(255, 46, 139, 7);
         fcTra.setARGB(255, 255, 105, 180);
         fcSoftClip.setARGB(255, 0, 128, 128);
         fcA.setARGB(255, 0, 215, 127);
-        fcT.setARGB(255, 215, 0, 0);
+//        fcT.setARGB(255, 215, 0, 0);
+        fcT.setARGB(255, 232, 55, 99);
         fcC.setARGB(255, 20, 20, 205);
         fcG.setARGB(255, 205, 133, 63);
         fcN.setARGB(255, 128, 128, 128);
@@ -218,6 +215,9 @@ namespace Themes {
         ecSelected.setARGB(255, 0, 0, 0);
         ecSelected.setStyle(SkPaint::kStroke_Style);
         ecSelected.setStrokeWidth(2);
+        ecSplit.setARGB(255, 0, 0, 255);
+        ecSplit.setStyle(SkPaint::kStroke_Style);
+        ecSplit.setStrokeWidth(1);
     }
 
     DarkTheme::DarkTheme() {
@@ -226,8 +226,8 @@ namespace Themes {
         fcTrack.setARGB(200, 227, 232, 255);
         bgPaint.setARGB(255, 0, 0, 0);
         fcNormal.setARGB(255, 90, 90, 95);
-//        fcDel.setARGB(255, 185, 25, 25);
-        fcDel.setARGB(255, 232, 55, 99);
+        fcDel.setARGB(255, 185, 25, 25);
+//        fcDel.setARGB(255, 232, 55, 99);
         fcDup.setARGB(255, 24, 100, 198);
         fcInvF.setARGB(255, 49, 167, 118);
         fcInvR.setARGB(255, 49, 167, 0);
@@ -239,8 +239,8 @@ namespace Themes {
         fcT.setARGB(255, 232, 55, 99);
         fcC.setARGB(255, 77, 125, 245);
 //        fcC.setARGB(255, 78, 148, 242);
-//        fcG.setARGB(255, 226, 132, 19);
-        fcG.setARGB(255, 239, 187, 74);
+        fcG.setARGB(255, 226, 132, 19);
+//        fcG.setARGB(255, 239, 187, 74);
         fcN.setARGB(255, 128, 128, 128);
         lcJoins.setARGB(255, 142, 142, 142);
         lcLightJoins.setARGB(255, 82, 82, 82);
@@ -254,6 +254,9 @@ namespace Themes {
         ecSelected.setARGB(255, 255, 255, 255);
         ecSelected.setStyle(SkPaint::kStroke_Style);
         ecSelected.setStrokeWidth(2);
+        ecSplit.setARGB(255, 109, 160, 199);
+        ecSplit.setStyle(SkPaint::kStroke_Style);
+        ecSplit.setStrokeWidth(1);
     }
 
     IniOptions::IniOptions() {
@@ -275,6 +278,8 @@ namespace Themes {
         threads = 3;
         pad = 500;
         start_index = 0;
+        font_str = "Menlo";
+        font_size = 14;
 
         soft_clip_threshold = 20000;
         small_indel_threshold = 100000;
@@ -343,6 +348,12 @@ namespace Themes {
         log2_cov = myIni["general"]["coverage"] == "true";
         log2_cov = myIni["general"]["log2_cov"] == "true";
         scroll_speed = std::stof(myIni["general"]["scroll_speed"]);
+        if (myIni["general"].has("font")) {
+            font_str = myIni["general"]["font"];
+        }
+        if (myIni["general"].has("font_size")) {
+            font_size = std::stoi(myIni["general"]["font_size"]);
+        }
 
         soft_clip_threshold = std::stoi(myIni["view_thresholds"]["soft_clip"]);
         small_indel_threshold = std::stoi(myIni["view_thresholds"]["small_indel"]);
@@ -361,6 +372,7 @@ namespace Themes {
         if (myIni["interaction"].has("find_alignments")) {
             find_alignments = key_table[myIni["interaction"]["find_alignments"]];
         }
+
 
         number_str = myIni["labelling"]["number"];
         number = Utils::parseDimensions(number_str);
@@ -413,17 +425,20 @@ namespace Themes {
     }
 
 
-    Fonts::Fonts (){
+    Fonts::Fonts() {
         rect = SkRect::MakeEmpty();
         path = SkPath();
-        char fn[20] = "Menlo";
-        face = SkTypeface::MakeFromName(fn, SkFontStyle::Normal());
-        SkScalar ts = 16;
+        fontMaxSize = 35; // in pixels
+    }
+
+    void Fonts::setTypeface(std::string &fontStr, int size) {
+        face = SkTypeface::MakeFromName(fontStr.c_str(), SkFontStyle::Normal());
+        SkScalar ts = size;
         fonty.setSize(ts);
         fonty.setTypeface(face);
         overlay.setSize(ts);
         overlay.setTypeface(face);
-        fontMaxSize = 25; // in pixels
+        fontTypefaceSize = size;
     }
 
     void Fonts::setFontSize(float maxHeight, float yScale) {
@@ -432,7 +447,7 @@ namespace Themes {
         SkPaint paint1;
         const SkPaint* pnt = &paint1;
         SkScalar height;
-        int font_size = 12 * yScale;
+        int font_size = fontTypefaceSize * yScale;
         fonty.setSize(font_size * yScale);
         fonty.getBounds(glyphs, 1, bounds, pnt);
         fontMaxSize = bounds[0].height();
@@ -448,7 +463,7 @@ namespace Themes {
             --font_size;
         }
         if (!was_set) {
-            fontSize = 14 * yScale;
+            fontSize = fontTypefaceSize * yScale;
             fontHeight = fontMaxSize;
             for (auto &i : textWidths) {
                 i = 0;
@@ -461,7 +476,7 @@ namespace Themes {
                 textWidths[i] = (float)w * (i + 1);
             }
         }
-        overlay.setSize(14 * yScale);
+        overlay.setSize(fontTypefaceSize * yScale);
         overlay.getBounds(glyphs, 1, bounds, pnt);
         overlayHeight = bounds[0].height();
         overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);

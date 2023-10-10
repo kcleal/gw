@@ -312,6 +312,9 @@ namespace Menu {
             else if (opts.menu_level == "labels") { tip = "Choice of labels to use"; }
             else if (opts.menu_level == "delete_labels") { tip = "Keyboard key to remove all labels on screen"; }
             else if (opts.menu_level == "delete_labels") { tip = "Keyboard key to switch to the interactive alignment-view mode"; }
+            else if (opts.menu_level == "font") { tip = "Change the font"; }
+            else if (opts.menu_level == "font_size") { tip = "Change the font size"; }
+
         } else {
             if (opts.control_level == "close") { tip = "Close settings"; }
             else if (opts.control_level == "back") { tip = "Go back to"; }
@@ -658,7 +661,7 @@ namespace Menu {
 
     Option optionFromStr(std::string &name, Themes::MenuTable mt, std::string &value) {
         std::unordered_map<std::string, OptionKind> option_map;
-        for (const auto& v : {"indel_length", "ylim", "split_view_size", "threads", "pad", "soft_clip", "small_indel", "snp", "edge_highlights"}) {
+        for (const auto& v : {"indel_length", "ylim", "split_view_size", "threads", "pad", "soft_clip", "small_indel", "snp", "edge_highlights", "font_size"}) {
             option_map[v] = Int;
         }
         for (const auto& v : {"scroll_speed", "tabix_track_height"}) {
@@ -670,6 +673,7 @@ namespace Menu {
         for (const auto& v : {"scroll_right", "scroll_left", "zoom_out", "zoom_in", "scroll_down", "scroll_up", "cycle_link_mode", "print_screen", "find_alignments", "delete_labels", "enter_interactive_mode"}) {
             option_map[v] = KeyboardKey;
         }
+        option_map["font"] = String;
         if (mt == Themes::MenuTable::GENOMES) {
             return Option(name, Path, value, mt);
         } else if (option_map.find(name) != option_map.end()) {
@@ -701,6 +705,7 @@ namespace Menu {
             else if (new_opt.name == "small_indel") { opts.small_indel_threshold = std::max(1, v); }
             else if (new_opt.name == "snp") { opts.snp_threshold = std::max(1, v); }
             else if (new_opt.name == "edge_highlights") { opts.edge_highlights = std::max(1, v); }
+            else if (new_opt.name == "font_size") { opts.font_size = std::max(1, v); }
             else { return; }
             opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
         }
@@ -823,6 +828,7 @@ namespace Menu {
     }
 
     void applyStringOption(Option &new_opt, Themes::IniOptions &opts) {
+        if (new_opt.name == "font") { opts.font_str = new_opt.value; }
         opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
         if (new_opt.name == "labels" || new_opt.name == "parse_label") {
             warnRestart();

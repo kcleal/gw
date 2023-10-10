@@ -487,11 +487,8 @@ int main(int argc, char *argv[]) {
             }
         } else if (program.is_used("--variants")) {  // plot variants as tiled images
 
-            auto v = program.get<std::string>("--variants");
             std::vector<std::string> labels = Utils::split(iopts.labels, ',');
             plotter.setLabelChoices(labels);
-
-            bool cacheStdin = (v == "-" || program.is_used("--out-vcf")); // todo remove caching when --out-vcf is used
 
             if (program.is_used("--in-labels")) {
                 Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels, plotter.seenLabels);
@@ -499,9 +496,11 @@ int main(int argc, char *argv[]) {
             if (program.is_used("--out-labels")) {
                 plotter.setOutLabelFile(program.get<std::string>("--out-labels"));
             }
-
-            plotter.addVariantTrack(v, iopts.start_index, cacheStdin);
-//            plotter.setVariantFile(v, iopts.start_index, cacheStdin);
+            auto variant_paths = program.get<std::vector<std::string>>("--variants");
+            for (auto &v : variant_paths) {
+                bool cacheStdin = (v == "-" || program.is_used("--out-vcf")); // todo remove caching when --out-vcf is used
+                plotter.addVariantTrack(v, iopts.start_index, cacheStdin);
+            }
             plotter.mode = Manager::Show::TILED;
 
             int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));
@@ -509,7 +508,7 @@ int main(int argc, char *argv[]) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
                 std::exit(-1);
             }
-
+            // todo set out folder if multiple vcfs used
             if (program.is_used("--out-vcf")) {
 //                HGW::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
             }
