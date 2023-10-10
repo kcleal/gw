@@ -69,7 +69,7 @@ namespace Manager {
         bool any_matches = false;
         for (const auto &cmd : Menu::commandToolTip) {
             std::string cmd_s = cmd;
-            if (Utils::startsWith(cmd_s, inputText)) {
+            if (Utils::startsWith(cmd_s, inputText) || Utils::startsWith(inputText, cmd_s)) {
                 if (min_i == 0 && idx) {
                     min_i = idx;
                 }
@@ -282,7 +282,7 @@ namespace Manager {
                 if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER || key == GLFW_KEY_SPACE) {
                     inputText = Menu::commandToolTip[commandToolTipIndex];
                     charIndex = (int)inputText.size();
-                    std::vector<std::string> exec = {"cov", "count", "edges", "insertions", "line", "low-mem", "log2-cov", "mismatches", "soft-clips", "sam", "refresh"};
+                    std::vector<std::string> exec = {"cov", "count", "edges", "insertions", "line", "low-mem", "log2-cov", "mate", "mate add", "mismatches", "tags", "soft-clips", "sam", "refresh"};
                     if (std::find(exec.begin(), exec.end(), inputText) != exec.end()) {
                         captureText = false;
                         processText = true;
@@ -2054,9 +2054,8 @@ namespace Manager {
         double xPos_fb = xPos;
         double yPos_fb = yPos;
         convertScreenCoordsToFrameBufferCoords(wind, &xPos_fb, &yPos_fb, fb_width, fb_height);
-
+        // register popup toolbar
         if (captureText && mode != SETTINGS && xPos_fb < (50 + fonts.overlayWidth * 20)) {
-
             int tip_lb = 0;
             int tip_ub = (int)inputText.size();
             if (!inputText.empty()) {
@@ -2064,7 +2063,6 @@ namespace Manager {
                 tip_lb = tip_bounds.lower;
                 tip_ub = tip_bounds.upper;
             }
-
             float height_f = fonts.overlayHeight * 2;
             float x = 50;
             float w = fb_width - 100;

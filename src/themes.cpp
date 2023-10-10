@@ -224,18 +224,23 @@ namespace Themes {
         name = "dark";
         fcCoverage.setARGB(255, 95, 95, 105);
         fcTrack.setARGB(200, 227, 232, 255);
-        bgPaint.setARGB(255, 10, 10, 20);
+        bgPaint.setARGB(255, 0, 0, 0);
         fcNormal.setARGB(255, 90, 90, 95);
-        fcDel.setARGB(255, 185, 25, 25);
+//        fcDel.setARGB(255, 185, 25, 25);
+        fcDel.setARGB(255, 232, 55, 99);
         fcDup.setARGB(255, 24, 100, 198);
         fcInvF.setARGB(255, 49, 167, 118);
         fcInvR.setARGB(255, 49, 167, 0);
         fcTra.setARGB(255, 225, 185, 185);
         fcSoftClip.setARGB(255, 0, 128, 128);
-        fcA.setARGB(255, 106, 186, 79);
-        fcT.setARGB(255, 201, 49, 24);
+//        fcA.setARGB(255, 106, 186, 79);
+        fcA.setARGB(255, 105, 213, 92);
+//        fcT.setARGB(255, 201, 49, 24);
+        fcT.setARGB(255, 232, 55, 99);
         fcC.setARGB(255, 77, 125, 245);
-        fcG.setARGB(255, 226, 132, 19);
+//        fcC.setARGB(255, 78, 148, 242);
+//        fcG.setARGB(255, 226, 132, 19);
+        fcG.setARGB(255, 239, 187, 74);
         fcN.setARGB(255, 128, 128, 128);
         lcJoins.setARGB(255, 142, 142, 142);
         lcLightJoins.setARGB(255, 82, 82, 82);
@@ -411,7 +416,7 @@ namespace Themes {
     Fonts::Fonts (){
         rect = SkRect::MakeEmpty();
         path = SkPath();
-        char fn[20] = "arial";
+        char fn[20] = "Menlo";
         face = SkTypeface::MakeFromName(fn, SkFontStyle::Normal());
         SkScalar ts = 16;
         fonty.setSize(ts);

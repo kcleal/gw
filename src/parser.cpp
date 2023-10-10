@@ -26,12 +26,14 @@ namespace Parse {
         opMap["qname"] = QNAME;
         opMap["tlen"] = TLEN;
         opMap["abs-tlen"] = ABS_TLEN;
+        opMap["rname"] = RNAME;
         opMap["rnext"] = RNEXT;
         opMap["pos"] = POS;
         opMap["ref-end"] = REF_END;
         opMap["pnext"] = PNEXT;
         opMap["seq"] = SEQ;
         opMap["seq-len"] = SEQ_LEN;
+        opMap["cigar"] = CIGAR;
 
         opMap["RG"] = RG;
         opMap["BC"] = BC;
@@ -92,9 +94,11 @@ namespace Parse {
         permit[POS] = numeric_like;
         permit[REF_END] = numeric_like;
         permit[PNEXT] = numeric_like;
+        permit[RNAME] = string_like;
         permit[RNEXT] = string_like;
         permit[SEQ] = string_like;
         permit[SEQ_LEN] = numeric_like;
+        permit[CIGAR] = string_like;
 
         // tags
         permit[RG] = string_like;
@@ -413,6 +417,32 @@ namespace Parse {
         int_val = bam_aux2i(tag_ptr);
     }
 
+    void getCigarStr(std::string &str_val, const Segs::Align &aln) {
+        uint32_t l, cigar_l, op, k;
+        uint32_t *cigar_p;
+        cigar_l = aln.delegate->core.n_cigar;
+        cigar_p = bam_get_cigar(aln.delegate);
+        for (k = 0; k < cigar_l; k++) {
+            op = cigar_p[k] & BAM_CIGAR_MASK;
+            l = cigar_p[k] >> BAM_CIGAR_SHIFT;
+            str_val += std::to_string(l);
+            switch (op) {
+                case 0:
+                    str_val += "M"; break;
+                case 1:
+                    str_val += "I"; break;
+                case 2:
+                    str_val += "D"; break;
+                case 4:
+                    str_val += "S"; break;
+                case 5:
+                    str_val += "H"; break;
+
+                default: break;
+            }
+        }
+    }
+
     bool Parser::eval(const Segs::Align &aln, const sam_hdr_t* hdr, int bamIdx, int regionIdx) {
 
         bool block_result = true;
@@ -456,6 +486,10 @@ namespace Parse {
                         int_val = bam_endpos(aln.delegate);
                     case PNEXT:
                         int_val = aln.delegate->core.mpos;
+                        break;
+                    case RNAME:
+                        char_ptr = sam_hdr_tid2name(hdr, aln.delegate->core.tid);
+                        str_val = char_ptr;
                         break;
                     case RNEXT:
                         char_ptr = sam_hdr_tid2name(hdr, aln.delegate->core.mtid);
@@ -518,6 +552,9 @@ namespace Parse {
                     case AS:
                         getIntTag("AS", int_val, aln);
                         break;
+                    case CIGAR:
+                         getCigarStr(str_val, aln);
+                         break;
                     default:
                         break;
 
