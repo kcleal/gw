@@ -66,6 +66,19 @@ jobs:
           cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a lib/libglfw.a
           rm -rf glfw-3.3.8*
           
+#           freetype
+#          wget https://downloads.sourceforge.net/project/freetype/freetype2/2.13.2/freetype-2.13.2.tar.xz
+#          tar -xvf freetype-2.13.2.tar.xz && rm freetype-2.13.2.tar.xz
+#          cd freetype-2.13.2
+#          ./configure --enable-freetype-config --without-harfbuzz
+#          make -j3
+#
+#          # fontconfig
+#          wget https://www.freedesktop.org/software/fontconfig/release/fontconfig-2.14.2.tar.xz
+#          tar -xvf fontconfig-2.14.2.tar.xz && rm fontconfig-2.14.2.tar.xz
+#          cd fontconfig-2.14.2 && ./configure
+#          make -j3
+
           ls
           echo "--"
           ls include
@@ -74,7 +87,7 @@ jobs:
           echo "--"
           
           make prep
-          CONDA_PREFIX="." make -j3
+          CONDA_PREFIX="." CPPFLAGS+="-I./lib/skia/third_party/externals/freetype/include " make -j3
         
       - name: package
         run: |
@@ -82,11 +95,11 @@ jobs:
           mv deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
           cp gw gw.app/Contents/MacOS/gw_program
           # ignore code signing error
-          create-dmg 'gw.app' --dmg-title='gw-intel.dmg' || true
-          mv gw\ undefined.dmg gw-intel.dmg
+          create-dmg 'gw.app' --dmg-title='gw-x64.dmg' || true
+          mv gw\ undefined.dmg gw-x64.dmg
           
       - name: upload
         uses: actions/upload-artifact@v3
         with:
           name: macos-latest-intel
-          path: ${{ github.workspace }}/gw-intel.dmg
+          path: ${{ github.workspace }}/gw-x64.dmg
