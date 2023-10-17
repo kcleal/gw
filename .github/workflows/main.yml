@@ -40,7 +40,7 @@ jobs:
         run: |
           brew install node graphicsmagick imagemagick
           npm install --global create-dmg
-
+        
       - name: build
         run: |
           git clone --depth 1 https://github.com/ebiggers/libdeflate.git
