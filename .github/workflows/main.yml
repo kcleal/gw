@@ -75,7 +75,7 @@ jobs:
           echo "--"
           
           make prep
-          make -j3
+          CONDA_PREFIX="." make -j3
         
       - name: package
         run: |
