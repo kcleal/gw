@@ -804,7 +804,6 @@ namespace Manager {
                 if (mode != SETTINGS && (commandToolTipIndex != -1 || !inputText.empty())) {
                     float pad = fonts.overlayHeight * 0.3;
                     yy -= pad + pad;
-                    int idx = 0;
                     SkPaint tip_paint = opts.theme.lcBright;
                     tip_paint.setAntiAlias(true);
                     for (const auto &cmd : Menu::commandToolTip) {
