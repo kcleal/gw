@@ -39,12 +39,10 @@ jobs:
       - name: Install dependencies
         run: |
           brew install node graphicsmagick imagemagick
-          # brew install fontconfig glfw htslib icu4c wget zlib node graphicsmagick imagemagick
           npm install --global create-dmg
 
       - name: build
         run: |
-          
           git clone --depth 1 https://github.com/ebiggers/libdeflate.git
           cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
           cp build/libdeflate.a ../lib && cp libdeflate.h ../include
@@ -65,6 +63,7 @@ jobs:
           unzip glfw-3.3.8.bin.MACOS.zip
           cp -rf glfw-3.3.8.bin.MACOS/include/* include
           cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a lib
+          cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a lib/libglfw.a
           rm -rf glfw-3.3.8*
           
           ls
