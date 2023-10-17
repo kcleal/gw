@@ -1,0 +1,59 @@
+name: gw-macos-distro
+on:
+  push:
+    branches:
+      #- main
+      - gw_dev
+  pull_request:
+    branches:
+      #- main
+      - gw_dev
+
+jobs:
+  macos-intel:
+    runs-on: macos-12
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+          brew install fontconfig glfw htslib icu4c wget zlib
+
+      - name: build
+        run: |
+          mkdir build
+          cd build
+          make prep
+          make
+        
+      - name: package
+        run: |
+          #
+      - name: upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: macos-latest-intel
+          path: ${{ github.workspace }}/gw
+          
+  macos-arm:
+    runs-on: macos-13-xlarge
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+          brew install fontconfig glfw htslib icu4c wget zlib
+
+      - name: build
+        run: |
+          mkdir build
+          cd build
+          make prep
+          make
+        
+      - name: package
+        run: |
+          #
+      - name: upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: macos-latest-arm
+          path: ${{ github.workspace }}/gw
