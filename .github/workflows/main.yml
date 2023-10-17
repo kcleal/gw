@@ -66,19 +66,6 @@ jobs:
           cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a lib/libglfw.a
           rm -rf glfw-3.3.8*
           
-#           freetype
-#          wget https://downloads.sourceforge.net/project/freetype/freetype2/2.13.2/freetype-2.13.2.tar.xz
-#          tar -xvf freetype-2.13.2.tar.xz && rm freetype-2.13.2.tar.xz
-#          cd freetype-2.13.2
-#          ./configure --enable-freetype-config --without-harfbuzz
-#          make -j3
-#
-#          # fontconfig
-#          wget https://www.freedesktop.org/software/fontconfig/release/fontconfig-2.14.2.tar.xz
-#          tar -xvf fontconfig-2.14.2.tar.xz && rm fontconfig-2.14.2.tar.xz
-#          cd fontconfig-2.14.2 && ./configure
-#          make -j3
-
           ls
           echo "--"
           ls include
@@ -87,7 +74,8 @@ jobs:
           echo "--"
           
           make prep
-          CONDA_PREFIX="." CPPFLAGS+="-I./lib/skia/third_party/externals/freetype/include " make -j3
+          cp -rf ./lib/skia/third_party/externals/freetype/include/* ./include
+          CONDA_PREFIX="." make -j3
         
       - name: package
         run: |
