@@ -33,23 +33,28 @@ jobs:
   #         path: ${{ github.workspace }}/*.exe
 
   macos-intel:
-    runs-on: macos-latest-xlarge #macos-12
+    runs-on: macos-12
     steps:
       - uses: actions/checkout@v3
       - name: Install dependencies
         run: |
-          brew install fontconfig glfw htslib icu4c wget zlib
+          brew install fontconfig glfw htslib icu4c wget zlib create-dmg
 
       - name: build
         run: |
           make prep
-          make
+          make -j3
         
       - name: package
         run: |
-          #
+          osacompile gw.app deps/gw_applescript_prog.scpt
+          mv deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
+          cp gw gw.app/Contents/MacOS/gw_program
+          create-dmg 'gw.app' --dmg-title='gw-intel.dmg'
+          mv gw\ undefined.dmg gw-intel.dmg
+          
       - name: upload
         uses: actions/upload-artifact@v3
         with:
           name: macos-latest-intel
-          path: ${{ github.workspace }}/gw
+          path: ${{ github.workspace }}/gw-intel.dmg
