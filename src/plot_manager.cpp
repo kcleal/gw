@@ -809,7 +809,6 @@ namespace Manager {
                     for (const auto &cmd : Menu::commandToolTip) {
                         std::string cmd_s = cmd;
                         if (!inputText.empty() && !Utils::startsWith(cmd_s, inputText)) {
-                            idx += 1;
                             continue;
                         }
                         if (cmd_s == inputText) {
@@ -833,7 +832,6 @@ namespace Manager {
                             canvas->drawPath(path, tip_paint);
                         }
                         yy -= fonts.overlayHeight + pad;
-                        idx += 1;
                         if (yy < covY) {
                             break;
                         }
