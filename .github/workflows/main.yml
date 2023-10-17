@@ -47,6 +47,8 @@ jobs:
         
       - name: package
         run: |
+          pwd
+          ls
           osacompile gw.app deps/gw_applescript_prog.scpt
           mv deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
           cp gw gw.app/Contents/MacOS/gw_program
