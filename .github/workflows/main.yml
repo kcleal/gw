@@ -49,7 +49,7 @@ jobs:
           cp build/libdeflate.a /usr/local/lib && cp libdeflate.h /usr/local/include && cd ../
           
           wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.17/htslib-1.17.tar.bz2
-
+          
           tar -xvf htslib.tar.bz2
           mv htslib-1.17 htslib && rm htslib.tar.bz2
           cd htslib
@@ -65,7 +65,7 @@ jobs:
           cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a lib
           cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a lib/libglfw.a
           rm -rf glfw-3.3.8*
-          
+
 #          BREW=$(brew --prefix)
 #          cp $BREW/lib/libfontconfig.a ./lib
           echo "------"
@@ -73,15 +73,16 @@ jobs:
           rm /usr/local/opt/fontconfig/lib/libfontconfig*dylib
           ls /usr/local/opt/fontconfig/lib/libfontconfig*
           
+          make prep
+          cp -rf ./lib/skia/third_party/externals/freetype/include/* ./include
+            
           ls
           echo "--"
           ls include
           echo "--"
           ls lib
           echo "--"
-          
-          make prep
-          cp -rf ./lib/skia/third_party/externals/freetype/include/* ./include
+             
           CONDA_PREFIX="." make -j3
         
       - name: package
