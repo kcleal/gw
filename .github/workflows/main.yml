@@ -66,6 +66,8 @@ jobs:
           cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a lib/libglfw.a
           rm -rf glfw-3.3.8*
           
+          rm /usr/local/opt/fontconfig/lib/libfontconfig*
+          
           ls
           echo "--"
           ls include
