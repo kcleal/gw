@@ -14,6 +14,7 @@
 #include "htslib/vcf.h"
 
 #include "../include/BS_thread_pool.h"
+#include "../include/termcolor.h"
 #include "drawing.h"
 #include "segments.h"
 #include "themes.h"
@@ -21,6 +22,46 @@
 
 
 namespace HGW {
+
+    void guessRefGenomeFromBam(std::string &inputName, Themes::IniOptions &opts, std::vector<std::string> &bam_paths, std::vector<Utils::Region> &regions) {
+        htsFile* f = sam_open(inputName.c_str(), "r");
+        sam_hdr_t *hdr_ptr = sam_hdr_read(f);
+        bool success = false;
+        std::string longestName;
+        int longest = 0;
+        for (auto & refName : opts.myIni["genomes"]) {
+            faidx_t *fai = fai_load(refName.second.c_str());
+            if (!fai) {
+                continue;
+            }
+            success = false;
+            for (int tid=0; tid < hdr_ptr->n_targets; tid++) {
+                const char *chrom_name = sam_hdr_tid2name(hdr_ptr, tid);
+                int bam_length = sam_hdr_tid2len(hdr_ptr, tid);
+                if (bam_length > longest) {
+                    longestName = chrom_name;
+                    longest = bam_length;
+                }
+                if (!faidx_has_seq(fai, chrom_name) || (bam_length != faidx_seq_len(fai, chrom_name))) {
+                    success = false;
+                    break;
+                }
+                if (tid > 23) {
+                    break;
+                }
+                success = true;
+            }
+            if (success) {
+                bam_paths.push_back(inputName);
+                inputName = refName.second;
+                regions.push_back(Utils::parseRegion(longestName));
+                break;
+            }
+        }
+        if (!success) {
+            std::cerr << termcolor::red << "Error:" << termcolor::reset << " could not find a matching reference genome in .gw.ini file";
+        }
+    }
 
     void applyFilters(std::vector<Parse::Parser> &filters, std::vector<Segs::Align>& readQueue, const sam_hdr_t* hdr,
                       int bamIdx, int regionIdx) {

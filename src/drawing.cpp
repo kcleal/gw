@@ -7,6 +7,8 @@
 #include <vector>
 #include <utility>
 #include <cstdio>
+#include <sstream>
+#include <string>
 #include <GLFW/glfw3.h>
 
 #include "include/core/SkCanvas.h"
@@ -41,8 +43,8 @@ namespace Drawing {
         std::vector<float> textX, textY;
         std::vector<float> textX_ins, textY_ins;
 
-        float covY = covYh * 0.95;
-
+        const float covY = covYh * 0.95;
+        const float covY_f = covY * 0.3;
         int last_bamIdx = 0;
         float yOffsetAll = refSpace;
 
@@ -65,7 +67,7 @@ namespace Drawing {
             }
 
             float tot, mean, n;
-            const std::vector<int> & covArr_r = cl.covArr;
+            const std::vector<int> &covArr_r = cl.covArr;
             std::vector<float> c;
             c.resize(cl.covArr.size());
             c[0] = (float)cl.covArr[0];
@@ -76,6 +78,7 @@ namespace Drawing {
                 n += 1;
             }
             float cMax;
+            bool processThis = draw_mismatch_info && !cl.collection_processed;
             for (size_t i=1; i<c.size(); ++i) { // cum sum
                 c[i] = ((float)covArr_r[i]) + c[i-1];
                 if (c[i] > cMaxi) {
@@ -85,7 +88,7 @@ namespace Drawing {
                     tot += c[i];
                     n += 1;
                     // normalise mismatched bases to nearest whole percentage (avoids extra memory allocation)
-                    if (draw_mismatch_info && !cl.collection_processed) {  //
+                    if (processThis) {  //
                         auto mm_sum = (float) (mmVector[i].A + mmVector[i].T + mmVector[i].C + mmVector[i].G);
                         if (mm_sum > 0) {
                             mmVector[i].A = (mmVector[i].A > 1) ? (uint32_t) ((((float)mmVector[i].A) / c[i]) * 100) : 0;
@@ -123,7 +126,7 @@ namespace Drawing {
                 } else {
                     i = ((1 - (i / cMax)) * covY) * 0.7;
                 }
-                i += yOffsetAll + (covY * 0.3);
+                i += yOffsetAll + covY_f;
             }
             int step;
             if (c.size() > 2000) {
@@ -227,10 +230,10 @@ namespace Drawing {
             std::sprintf(indelChars, "%d", cMaxi);
 
             sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(indelChars, fonts.overlay);
-            canvas->drawTextBlob(blob, xOffset + 25, (covY * 0.3) + yOffsetAll + 10, theme.tcDel);
+            canvas->drawTextBlob(blob, xOffset + 25, covY_f + yOffsetAll + 10, theme.tcDel);
             path.reset();
-            path.moveTo(xOffset, (covY * 0.3) + yOffsetAll);
-            path.lineTo(xOffset + 20, (covY * 0.3) + yOffsetAll);
+            path.moveTo(xOffset, covY_f + yOffsetAll);
+            path.lineTo(xOffset + 20, covY_f + yOffsetAll);
             path.moveTo(xOffset, covY + yOffsetAll);
             path.lineTo(xOffset + 20, covY + yOffsetAll);
             canvas->drawPath(path, theme.lcJoins);
@@ -239,7 +242,7 @@ namespace Drawing {
             ap += std::sprintf(indelChars, "%s", "avg. ");
             std::sprintf(ap, "%.1f", mean);
 
-            if (((covY * 0.5) + yOffsetAll + 10 - fonts.overlayHeight) - ((covY * 0.3) + yOffsetAll + 10) > 0) { // dont overlap text
+            if (((covY * 0.5) + yOffsetAll + 10 - fonts.overlayHeight) - (covY_f + yOffsetAll + 10) > 0) { // dont overlap text
                 blob = SkTextBlob::MakeFromString(indelChars, fonts.overlay);
                 canvas->drawTextBlob(blob, xOffset + 25, (covY * 0.5) + yOffsetAll + 10, theme.tcDel);
             }
@@ -384,7 +387,7 @@ namespace Drawing {
         canvas->drawPath(path, sidesColor);
     }
 
-    void drawMismatchesNoMD(SkCanvas *canvas, SkRect &rect, const Themes::BaseTheme &theme, const Utils::Region &region, const Segs::Align &align,
+    void drawMismatchesNoMD2(SkCanvas *canvas, SkRect &rect, const Themes::BaseTheme &theme, const Utils::Region &region, const Segs::Align &align,
                             float width, float xScaling, float xOffset, float mmPosOffset, float yScaledOffset, float pH, int l_qseq, std::vector<Segs::Mismatches> &mm_array,
                             bool &collection_processed) {
         if (mm_array.empty()) {
@@ -409,22 +412,22 @@ namespace Drawing {
         for (uint32_t k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
-            if (op == BAM_CSOFT_CLIP) {
+            if (op == BAM_CSOFT_CLIP || op == BAM_CINS) {
                 idx += l;
                 continue;
             }
-            else if (op == BAM_CINS) {
-                idx += l;
-                continue;
-            }
-            else if (op == BAM_CDEL) {
+//            else if (op == BAM_CINS) {
+//                idx += l;
+//                continue;
+//            }
+            else if (op == BAM_CDEL || op == BAM_CREF_SKIP) {
                 r_pos += l;
                 continue;
             }
-            else if (op == BAM_CREF_SKIP) {
-                r_pos += l;
-                continue;
-            }
+//            else if (op == BAM_CREF_SKIP) {
+//                r_pos += l;
+//                continue;
+//            }
             else if (op == BAM_CHARD_CLIP || op == BAM_CEQUAL) {
                 continue;
             }
@@ -492,6 +495,117 @@ namespace Drawing {
                     idx += 1;
                     r_pos += 1;
                 }
+            }
+        }
+    }
+
+    void drawMismatchesNoMD(SkCanvas *canvas, SkRect &rect, const Themes::BaseTheme &theme, const Utils::Region &region, const Segs::Align &align,
+                            float width, float xScaling, float xOffset, float mmPosOffset, float yScaledOffset, float pH, int l_qseq, std::vector<Segs::Mismatches> &mm_array,
+                            bool &collection_processed) {
+        if (mm_array.empty()) {
+            collection_processed = true;
+            return;
+        }
+
+        uint32_t r_pos = align.pos;
+        uint32_t cigar_l = align.delegate->core.n_cigar;
+        uint8_t *ptr_seq = bam_get_seq(align.delegate);
+        uint32_t *cigar_p = bam_get_cigar(align.delegate);
+        auto *ptr_qual = bam_get_qual(align.delegate);
+
+        if (!region.refSeq) return;
+        const char *refSeq = region.refSeq;
+
+        const uint32_t rlen = region.end - region.start;
+        const uint32_t rbegin = region.start;
+        const uint32_t rend = region.end;
+        uint32_t idx = 0, op, l;
+        float p, precalculated_xOffset_mmPosOffset = xOffset + mmPosOffset; // Precalculate this sum
+
+        for (uint32_t k = 0; k < cigar_l; k++) {
+            op = cigar_p[k] & BAM_CIGAR_MASK;
+            l = cigar_p[k] >> BAM_CIGAR_SHIFT;
+
+            switch (op) {
+                case BAM_CMATCH:
+                    for (uint32_t i = 0; i < l; ++i) {
+                        int r_idx = (int)r_pos - rbegin;  // Casting once and reusing.
+                        if (r_idx < 0) {
+                            idx += 1;
+                            r_pos += 1;
+                            continue;
+                        }
+                        if (r_idx >= (int)rlen) {
+                            break;
+                        }
+
+                        char ref_base;
+                        char current_base = refSeq[r_idx];
+                        // Using a lookup might be faster if 'switch-case' doesn't optimize well in the compiler.
+                        switch (current_base) {
+                            case 'A': case 'a': ref_base = 1; break;
+                            case 'C': case 'c': ref_base = 2; break;
+                            case 'G': case 'g': ref_base = 4; break;
+                            case 'T': case 't': ref_base = 8; break;
+                            default: ref_base = 15; break;  // assuming 'N' and other characters map to 15
+                        }
+
+                        char bam_base = bam_seqi(ptr_seq, idx);
+                        if (bam_base != ref_base) {
+                            p = (r_pos - rbegin) * xScaling;
+                            uint32_t colorIdx = (l_qseq == 0) ? 10 : (ptr_qual[idx] > 10) ? 10 : ptr_qual[idx];
+                            rect.setXYWH(p + precalculated_xOffset_mmPosOffset, yScaledOffset, width, pH);
+                            canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]);
+                            if (!collection_processed) {
+                                assert (rlen < mm_array.size());
+                                auto &mismatch = mm_array[r_pos - rbegin]; // Reduce redundant calculations
+                                switch (bam_base) {
+                                    case 1: mismatch.A += 1; break;
+                                    case 2: mismatch.C += 1; break;
+                                    case 4: mismatch.G += 1; break;
+                                    case 8: mismatch.T += 1; break;
+                                    default: break;
+                                }
+                            }
+                        }
+                        idx += 1;
+                        r_pos += 1;
+                    }
+                    break;
+                case BAM_CSOFT_CLIP:
+                case BAM_CINS:
+                    idx += l;
+                    break;
+                case BAM_CDEL:
+                case BAM_CREF_SKIP:
+                    r_pos += l;
+                    break;
+//                default:
+                case BAM_CDIFF:
+                    for (uint32_t i = 0; i < l; ++i) { // fixed from ++l to ++i
+                        if (r_pos >= rbegin && r_pos < rend) {
+                            char bam_base = bam_seqi(ptr_seq, idx);
+                            p = (r_pos - rbegin) * xScaling;
+                            //uint32_t colorIdx = (l_qseq == 0) ? 10 : std::min((int)ptr_qual[idx], 10); // Avoid multiple comparisons
+                            uint32_t colorIdx = (l_qseq == 0) ? 10 : (ptr_qual[idx] > 10) ? 10 : ptr_qual[idx];
+                            rect.setXYWH(p + precalculated_xOffset_mmPosOffset, yScaledOffset, width, pH);
+                            canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]);
+
+                            auto &mismatch = mm_array[r_pos - rbegin]; // Reduce redundant calculations
+                            switch (bam_base) {
+                                case 1: mismatch.A += 1; break;
+                                case 2: mismatch.C += 1; break;
+                                case 4: mismatch.G += 1; break;
+                                case 8: mismatch.T += 1; break;
+                                default: break;
+                            }
+                        }
+                        idx += 1;
+                        r_pos += 1;
+                    }
+                    break;
+//                default:
+//                    break;
             }
         }
     }
@@ -966,7 +1080,7 @@ namespace Drawing {
         int index = 0;
         //h *= 0.7;
         h = (h - 6 < 4) ? 4: h - 6;
-
+        float yp = h + 2;
         for (auto &rgn: regions) {
             int size = rgn.end - rgn.start;
             double xScaling = xPixels / size;
@@ -986,7 +1100,7 @@ namespace Drawing {
             i += gap;
             if (textW > 0 && (float)size < minLetterSize && fonts.fontHeight < h) {
                 double v = (xScaling - textW) * 0.5;
-                float yp = h + 2;
+
                 while (*ref) {
                     switch ((unsigned int)*ref) {
                         case 65: faceColor = theme.fcA; break;
@@ -1081,7 +1195,7 @@ namespace Drawing {
         start = 1;
 
         float value = start;
-        for (int i=0; i < idx; i++) {
+        for (int i=0; i < idx; ++i) {
             value += step;
             step *= -1;
             step = step * 0.5;

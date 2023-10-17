@@ -145,7 +145,8 @@ namespace Themes {
         int edge_highlights;
         int font_size;
 
-        void readIni();
+        bool readIni();
+        static std::filesystem::path writeDefaultIni(std::filesystem::path &homedir, std::filesystem::path &home_config, std::filesystem::path &gwIni);
         void getOptionsFromIni();
 
     };

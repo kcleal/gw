@@ -5,7 +5,9 @@
 #include "menu.h"
 #include "themes.h"
 #include "glfw_keys.h"
+#include "../include/defaultIni.hpp"
 #include "../include/unordered_dense.h"
+
 
 namespace Themes {
 
@@ -383,7 +385,27 @@ namespace Themes {
         enter_interactive_mode = key_table[myIni["labelling"]["enter_interactive_mode"]];
     }
 
-    void IniOptions::readIni() {
+    std::filesystem::path IniOptions::writeDefaultIni(std::filesystem::path &homedir, std::filesystem::path &home_config, std::filesystem::path &gwIni) {
+        std::ofstream outIni;
+        std::filesystem::path outPath;
+        if (std::filesystem::exists(homedir / home_config)) {
+            outPath = homedir / home_config / gwIni ;
+        } else if (std::filesystem::exists(homedir)) {
+            outPath = homedir / gwIni;
+        } else {
+            return outPath;
+        }
+        outIni.open(outPath);
+        if (!outIni) {
+            return outPath;
+        }
+        std::cout << "Saving .gw.ini file to " << outPath.string() << std::endl;
+        outIni << DefaultIni::defaultIniString();
+        outIni.close();
+        return outPath;
+    }
+
+    bool IniOptions::readIni() {
 
 # if defined(_WIN32) || defined(_WIN64)
     const char *homedrive_c = std::getenv("HOMEDRIVE");
@@ -392,7 +414,6 @@ namespace Themes {
 	std::string homepath(homepath_c ? homepath_c : "");
 	std::string home = homedrive + homepath;
 #else
-
         struct passwd *pw = getpwuid(getuid());
         std::string home(pw->pw_dir);
 #endif
@@ -410,18 +431,20 @@ namespace Themes {
                 if (std::filesystem::exists(exe_path / gwini)) {
                     path = exe_path / gwini;
                 } else {
-                    theme = Themes::DarkTheme();
-                    return;
+                    path = writeDefaultIni(homedir, home_config, gwini);
+                    if (path.empty()) {
+                        std::cerr << "Error: .gw.ini file could not be read or created. Unexpected behavior may arise\n";
+                        theme = Themes::DarkTheme();
+                        return false;
+                    }
                 }
             }
         }
         ini_path = path.string();
-
         mINI::INIFile file(ini_path);
         file.read(myIni);
-
         getOptionsFromIni();
-
+        return true;
     }
 
 

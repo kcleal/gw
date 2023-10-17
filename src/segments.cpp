@@ -236,6 +236,23 @@ namespace Segs {
 //        }
 //    }
 
+    constexpr uint32_t PP_RR_MR = 50;
+
+    constexpr std::array<Pattern, 49> posFirst = {INV_F, u, u, u, u, u, u, u,
+                                                  u, u, u, u, u, u, u, u,
+                                                  DUP, u, u, u, u, u, u, u,
+                                                  u, u, u, u, u, u, u, u,
+                                                  DEL, u, u, u, u, u, u, u,
+                                                  u, u, u, u, u, u, u, u,
+                                                  INV_R};
+    constexpr std::array<Pattern, 49> mateFirst = {INV_R, u, u, u, u, u, u, u,
+                                                  u, u, u, u, u, u, u, u,
+                                                  DEL, u, u, u, u, u, u, u,
+                                                  u, u, u, u, u, u, u, u,
+                                                  DUP, u, u, u, u, u, u, u,
+                                                  u, u, u, u, u, u, u, u,
+                                                  INV_F};
+
     void align_init(Align *self) noexcept {
 //        auto start = std::chrono::high_resolution_clock::now();
 
@@ -250,7 +267,6 @@ namespace Segs {
         uint32_t *cigar_p;
 
         cigar_l = src->core.n_cigar;
-//        self->cigar_l = cigar_l;
 
         pos = src->core.pos;
         cigar_p = bam_get_cigar(src);
@@ -260,11 +276,26 @@ namespace Segs {
 
         uint32_t last_op = 0;
 
+        self->any_ins.reserve(cigar_l);
+        self->block_starts.reserve(cigar_l);
+        self->block_ends.reserve(cigar_l);
+
         for (k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
 
             switch (op) {
+                case BAM_CMATCH: case BAM_CEQUAL: case BAM_CDIFF:
+                    if (last_op == BAM_CINS) {
+                        if (!self->block_ends.empty() ) {
+                            self->block_ends.back() = pos + l;
+                        }
+                    } else {
+                        self->block_starts.push_back(pos);
+                        self->block_ends.push_back(pos + l);
+                    }
+                    pos += l;
+                    break;
                 case BAM_CINS:
                     self->any_ins.push_back({pos, l});
                     break;
@@ -280,18 +311,18 @@ namespace Segs {
                         self->right_soft_clip = (int)l;
                     }
                     break;
-                case BAM_CHARD_CLIP: case BAM_CPAD: case BAM_CBACK:
-                    break;  // do something for these?
+//                case BAM_CHARD_CLIP: case BAM_CPAD: case BAM_CBACK:
+//                    break;  // do something for these?
                 default:  // Match case --> MATCH, EQUAL, DIFF
-                    if (last_op == 1) {
-                        if (!self->block_ends.empty() ) {
-                            self->block_ends.back() = pos + l;
-                        }
-                    } else {
-                        self->block_starts.push_back(pos);
-                        self->block_ends.push_back(pos + l);
-                    }
-                    pos += l;
+//                    if (last_op == 1) {
+//                        if (!self->block_ends.empty() ) {
+//                            self->block_ends.back() = pos + l;
+//                        }
+//                    } else {
+//                        self->block_starts.push_back(pos);
+//                        self->block_ends.push_back(pos + l);
+//                    }
+//                    pos += l;
                     break;
             }
             last_op = op;
@@ -299,11 +330,11 @@ namespace Segs {
 
         uint32_t flag = src->core.flag;
 
-        if (flag & 16) {  // reverse strand
-            self->cov_start -= 1;   // pad between alignments
-        } else {
-            self->cov_end += 1;
-        }
+//        if (flag & 16) {  // reverse strand
+//            self->cov_start -= 1;   // pad between alignments
+//        } else {
+//            self->cov_end += 1;
+//        }
 
         if (bam_aux_get(self->delegate, "SA") != nullptr) {
             self->has_SA = true;
@@ -313,40 +344,57 @@ namespace Segs {
 
         self->y = -1;
 
-        int ptrn = NORMAL;
-        constexpr uint32_t PP_RR_MR = 50;  // proper-pair, read-reverse, mate-reverse flags
-        if (flag & 1 && !(flag & 12)) {  // proper-pair, not (unmapped, mate-unmapped)
-            if (src->core.tid == src->core.mtid) {
-
-                uint32_t info = flag & PP_RR_MR;
-
-                if (self->pos <= src->core.mpos) {
-                    if (info == 0) {
-                        ptrn = INV_F;
-                    } else if (info == 16) {
-                        ptrn = DUP;
-                    } else if (info == 32) {
-                        ptrn = DEL;
-                    } else if (info == 48) {
-                        ptrn = INV_R;
-                    }
-                } else {
-                    if (info == 16) {
-                        ptrn = DEL;
-                    } else if (info == 48) {
-                        ptrn = INV_F;
-                    } else if (info == 0) {
-                        ptrn = INV_R;
-                    } else if (info == 32) {
-                        ptrn = DUP;
-                    }
-                }
-
+//        int ptrn;
+//        int ptrn = NORMAL;
+          // proper-pair, read-reverse, mate-reverse flags
+        if (src->core.tid != src->core.mtid) {
+            self->orient_pattern = TRA;
+        } else {
+            uint32_t info = flag & PP_RR_MR;
+            if (self->pos <= src->core.mpos) {
+                self->orient_pattern = posFirst[info];
             } else {
-                ptrn = TRA;
+                self->orient_pattern = mateFirst[info];
             }
         }
-        self->orient_pattern = ptrn;
+
+//        else if (flag & BAM_FPAIRED && !(flag & 12)) {  // proper-pair, not (unmapped, mate-unmapped)
+//            if (src->core.tid == src->core.mtid) {
+//                uint32_t info = flag & PP_RR_MR;
+//                if (self->pos <= src->core.mpos) {
+//                    self->orient_pattern = posFirst[info];
+//                    if (info == 0) {
+//                        ptrn = INV_F;
+//                    } else if (info == 16) {
+//                        ptrn = DUP;
+//                    } else if (info == 32) {
+//                        ptrn = DEL;
+//                    } else if (info == 48) {
+//                        ptrn = INV_R;
+//                    }
+//                } else {
+//                    self->orient_pattern = mateFirst[info];
+
+//                    if (info == 16) {
+//                        ptrn = DEL;
+//                    } else if (info == 48) {
+//                        ptrn = INV_F;
+//                    } else if (info == 0) {
+//                        ptrn = INV_R;
+//                    } else if (info == 32) {
+//                        ptrn = DUP;
+//                    }
+//                }
+
+//            } else {
+//                self->orient_pattern = TRA;
+//            }
+//        }
+//        else {
+//            self->orient_pattern = NORMAL;
+//        }
+//        self->orient_pattern = ptrn;
+
 
         if (flag & 2048 || self->has_SA) {
             self->edge_type = 2;  // "SPLIT"
@@ -419,8 +467,10 @@ namespace Segs {
             if (block_s >= end) { break; }
             uint32_t block_e = align.block_ends[idx];
             if (block_e < begin) { continue; }
-            uint32_t s = (block_s >= begin) ? block_s - begin : 0;
-            uint32_t e = (block_e < end) ? block_e - begin : l_arr;
+//            uint32_t s = (block_s >= begin) ? block_s - begin : 0;
+//            uint32_t e = (block_e < end) ? block_e - begin : l_arr;
+            uint32_t s = std::max(block_s, begin) - begin;
+            uint32_t e = std::min(block_e, end) - begin;
             arr[s] += 1;
             arr[e] -= 1;
         }
@@ -464,13 +514,13 @@ namespace Segs {
             }
 
             // set all aligns with same name to have the same start and end coverage locations
-            for (auto const& keyVal : lm) {
+            for (auto const &keyVal : lm) {
                 const std::vector<Align *> &ind = keyVal.second;
                 int size = (int)ind.size();
                 if (size > 1) {
                     uint32_t cs = ind.front()->cov_start;
                     uint32_t ce = ind.back()->cov_end;
-                    for (auto const j : ind) {
+                    for (auto const &j : ind) {
                         j->cov_start = cs;
                         j->cov_end = ce;
                     }
@@ -604,112 +654,278 @@ namespace Segs {
             for (uint32_t k = 0; k < cigar_l; k++) {
                 op = cigar_p[k] & BAM_CIGAR_MASK;
                 l = cigar_p[k] >> BAM_CIGAR_SHIFT;
-                if (op == BAM_CSOFT_CLIP) {
-                    idx += l;
-                    continue;
-                } else if (op == BAM_CINS) {
-                    idx += l;
-                    continue;
-                } else if (op == BAM_CDEL) {
-                    r_pos += l;
-                    continue;
-                } else if (op == BAM_CREF_SKIP) {
-                    r_pos += l;
-                    continue;
-                } else if (op == BAM_CHARD_CLIP || op == BAM_CEQUAL) {
-                    continue;
-                } else if (op == BAM_CDIFF) {
-                    for (uint32_t i = 0; i < l; ++l) {
-                        if (r_pos >= rbegin && r_pos < rend) {
-                            char bam_base = bam_seqi(ptr_seq, idx);
-                            switch (bam_base) {
-                                case 1:
-                                    mm_array[r_pos - rbegin].A += 1;
-                                    break;  // A==1, C==2, G==4, T==8, N==>8
-                                case 2:
-                                    mm_array[r_pos - rbegin].C += 1;
-                                    break;
-                                case 4:
-                                    mm_array[r_pos - rbegin].G += 1;
-                                    break;
-                                case 8:
-                                    mm_array[r_pos - rbegin].T += 1;
-                                    break;
-                                default:
-                                    break;
+
+                switch (op) {
+//                    case BAM_CMATCH:
+//                        for (uint32_t i = 0; i < l; ++i) {
+//                            r_idx = (int) r_pos - region.start;
+//                            if (r_idx < 0) {
+//                                idx += 1;
+//                                r_pos += 1;
+//                                continue;
+//                            }
+//                            if (r_idx >= (int)rlen) {
+//                                break;
+//                            }
+//
+//                            char ref_base;
+//                            switch (refSeq[r_idx]) {
+//                                case 'A':
+//                                case 'a':
+//                                    ref_base = 1;
+//                                    break;
+//                                case 'C':
+//                                case 'c':
+//                                    ref_base = 2;
+//                                    break;
+//                                case 'G':
+//                                case 'g':
+//                                    ref_base = 4;
+//                                    break;
+//                                case 'T':
+//                                case 't':
+//                                    ref_base = 8;
+//                                    break;
+//                                case 'N':
+//                                default:
+//                                    ref_base = 15;
+//                                    break;
+//                            }
+//
+//                            char bam_base = bam_seqi(ptr_seq, idx);
+//                            if (bam_base != ref_base) {
+//                                switch (bam_base) {
+//                                    case 1:
+//                                        mm_array[r_pos - rbegin].A += 1;
+//                                        break;
+//                                    case 2:
+//                                        mm_array[r_pos - rbegin].C += 1;
+//                                        break;
+//                                    case 4:
+//                                        mm_array[r_pos - rbegin].G += 1;
+//                                        break;
+//                                    case 8:
+//                                        mm_array[r_pos - rbegin].T += 1;
+//                                        break;
+//                                    default:
+//                                        break;
+//                                }
+//                            }
+//                            idx += 1;
+//                            r_pos += 1;
+//                        }
+                    case BAM_CSOFT_CLIP:
+                    case BAM_CINS:
+                        idx += l;
+                        break;
+
+                    case BAM_CDEL:
+                    case BAM_CREF_SKIP:
+                        r_pos += l;
+                        break;
+
+                    case BAM_CHARD_CLIP:
+                    case BAM_CEQUAL:
+                        // Nothing to do here, just continue in the loop
+                        break;
+//                    default:
+                    case BAM_CDIFF:
+                        for (uint32_t i = 0; i < l; ++i) {
+                            if (r_pos >= rbegin && r_pos < rend) {
+                                char bam_base = bam_seqi(ptr_seq, idx);
+                                switch (bam_base) {
+                                    case 1:
+                                        mm_array[r_pos - rbegin].A += 1;
+                                        break;
+                                    case 2:
+                                        mm_array[r_pos - rbegin].C += 1;
+                                        break;
+                                    case 4:
+                                        mm_array[r_pos - rbegin].G += 1;
+                                        break;
+                                    case 8:
+                                        mm_array[r_pos - rbegin].T += 1;
+                                        break;
+                                    default:
+                                        break;
+                                }
                             }
-                        }
-                        idx += 1;
-                        r_pos += 1;
-                    }
-                } else {  // BAM_CMATCH
-                    for (uint32_t i = 0; i < l; ++i) {
-                        r_idx = (int) r_pos - region.start;
-                        if (r_idx < 0) {
                             idx += 1;
                             r_pos += 1;
-                            continue;
                         }
-                        if (r_idx >= (int)rlen) {
-                            break;
-                        }
-                        char ref_base;
-                        switch (refSeq[r_idx]) {
-                            case 'A':
-                                ref_base = 1;
+                        break;
+
+                    default:
+                        for (uint32_t i = 0; i < l; ++i) {
+                            r_idx = (int) r_pos - region.start;
+                            if (r_idx < 0) {
+                                idx += 1;
+                                r_pos += 1;
+                                continue;
+                            }
+                            if (r_idx >= (int)rlen) {
                                 break;
-                            case 'C':
-                                ref_base = 2;
-                                break;
-                            case 'G':
-                                ref_base = 4;
-                                break;
-                            case 'T':
-                                ref_base = 8;
-                                break;
-                            case 'N':
-                                ref_base = 15;
-                                break;
-                            case 'a':
-                                ref_base = 1;
-                                break;
-                            case 'c':
-                                ref_base = 2;
-                                break;
-                            case 'g':
-                                ref_base = 4;
-                                break;
-                            case 't':
-                                ref_base = 8;
-                                break;
-                            default:
-                                ref_base = 15;
-                                break;
-                        }
-                        char bam_base = bam_seqi(ptr_seq, idx);
-                        if (bam_base != ref_base) {
-                            switch (bam_base) {
-                                case 1:
-                                    mm_array[r_pos - rbegin].A += 1;
-                                    break;  // A==1, C==2, G==4, T==8, N==>8
-                                case 2:
-                                    mm_array[r_pos - rbegin].C += 1;
+                            }
+
+                            char ref_base;
+                            switch (refSeq[r_idx]) {
+                                case 'A':
+                                case 'a':
+                                    ref_base = 1;
                                     break;
-                                case 4:
-                                    mm_array[r_pos - rbegin].G += 1;
+                                case 'C':
+                                case 'c':
+                                    ref_base = 2;
                                     break;
-                                case 8:
-                                    mm_array[r_pos - rbegin].T += 1;
+                                case 'G':
+                                case 'g':
+                                    ref_base = 4;
                                     break;
+                                case 'T':
+                                case 't':
+                                    ref_base = 8;
+                                    break;
+                                case 'N':
                                 default:
+                                    ref_base = 15;
                                     break;
                             }
+
+                            char bam_base = bam_seqi(ptr_seq, idx);
+                            if (bam_base != ref_base) {
+                                switch (bam_base) {
+                                    case 1:
+                                        mm_array[r_pos - rbegin].A += 1;
+                                        break;
+                                    case 2:
+                                        mm_array[r_pos - rbegin].C += 1;
+                                        break;
+                                    case 4:
+                                        mm_array[r_pos - rbegin].G += 1;
+                                        break;
+                                    case 8:
+                                        mm_array[r_pos - rbegin].T += 1;
+                                        break;
+                                    default:
+                                        break;
+                                }
+                            }
+                            idx += 1;
+                            r_pos += 1;
                         }
-                        idx += 1;
-                        r_pos += 1;
-                    }
+                        break;
                 }
             }
+
+//            for (uint32_t k = 0; k < cigar_l; k++) {
+//                op = cigar_p[k] & BAM_CIGAR_MASK;
+//                l = cigar_p[k] >> BAM_CIGAR_SHIFT;
+//                if (op == BAM_CSOFT_CLIP) {
+//                    idx += l;
+//                    continue;
+//                } else if (op == BAM_CINS) {
+//                    idx += l;
+//                    continue;
+//                } else if (op == BAM_CDEL) {
+//                    r_pos += l;
+//                    continue;
+//                } else if (op == BAM_CREF_SKIP) {
+//                    r_pos += l;
+//                    continue;
+//                } else if (op == BAM_CHARD_CLIP || op == BAM_CEQUAL) {
+//                    continue;
+//                } else if (op == BAM_CDIFF) {
+//                    for (uint32_t i = 0; i < l; ++i) {
+//                        if (r_pos >= rbegin && r_pos < rend) {
+//                            char bam_base = bam_seqi(ptr_seq, idx);
+//                            switch (bam_base) {
+//                                case 1:
+//                                    mm_array[r_pos - rbegin].A += 1;
+//                                    break;  // A==1, C==2, G==4, T==8, N==>8
+//                                case 2:
+//                                    mm_array[r_pos - rbegin].C += 1;
+//                                    break;
+//                                case 4:
+//                                    mm_array[r_pos - rbegin].G += 1;
+//                                    break;
+//                                case 8:
+//                                    mm_array[r_pos - rbegin].T += 1;
+//                                    break;
+//                                default:
+//                                    break;
+//                            }
+//                        }
+//                        idx += 1;
+//                        r_pos += 1;
+//                    }
+//                } else {  // BAM_CMATCH
+//                    for (uint32_t i = 0; i < l; ++i) {
+//                        r_idx = (int) r_pos - region.start;
+//                        if (r_idx < 0) {
+//                            idx += 1;
+//                            r_pos += 1;
+//                            continue;
+//                        }
+//                        if (r_idx >= (int)rlen) {
+//                            break;
+//                        }
+//                        char ref_base;
+//                        switch (refSeq[r_idx]) {
+//                            case 'A':
+//                                ref_base = 1;
+//                                break;
+//                            case 'C':
+//                                ref_base = 2;
+//                                break;
+//                            case 'G':
+//                                ref_base = 4;
+//                                break;
+//                            case 'T':
+//                                ref_base = 8;
+//                                break;
+//                            case 'N':
+//                                ref_base = 15;
+//                                break;
+//                            case 'a':
+//                                ref_base = 1;
+//                                break;
+//                            case 'c':
+//                                ref_base = 2;
+//                                break;
+//                            case 'g':
+//                                ref_base = 4;
+//                                break;
+//                            case 't':
+//                                ref_base = 8;
+//                                break;
+//                            default:
+//                                ref_base = 15;
+//                                break;
+//                        }
+//                        char bam_base = bam_seqi(ptr_seq, idx);
+//                        if (bam_base != ref_base) {
+//                            switch (bam_base) {
+//                                case 1:
+//                                    mm_array[r_pos - rbegin].A += 1;
+//                                    break;  // A==1, C==2, G==4, T==8, N==>8
+//                                case 2:
+//                                    mm_array[r_pos - rbegin].C += 1;
+//                                    break;
+//                                case 4:
+//                                    mm_array[r_pos - rbegin].G += 1;
+//                                    break;
+//                                case 8:
+//                                    mm_array[r_pos - rbegin].T += 1;
+//                                    break;
+//                                default:
+//                                    break;
+//                            }
+//                        }
+//                        idx += 1;
+//                        r_pos += 1;
+//                    }
+//                }
+//            }
 
         }
     }

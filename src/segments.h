@@ -21,7 +21,8 @@
 namespace Segs {
 
     enum Pattern {
-        NORMAL,
+        u = 0,
+        NORMAL = 0,
         DEL,
         INV_F,
         INV_R,

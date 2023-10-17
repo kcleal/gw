@@ -62,7 +62,11 @@ void print_banner() {
 int main(int argc, char *argv[]) {
 
     Themes::IniOptions iopts;
-    iopts.readIni();
+    bool success = iopts.readIni();
+    if (!success) {
+
+    }
+
     static const std::vector<std::string> img_fmt = { "png", "pdf" };
     static const std::vector<std::string> img_themes = { "igv", "dark" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
@@ -208,8 +212,17 @@ int main(int argc, char *argv[]) {
         std::cout << iopts.ini_path << std::endl;
         return 0;
     }
-
+    std::vector<std::string> bam_paths;
+    std::vector<Utils::Region> regions;
     auto genome = program.get<std::string>("genome");
+
+    if (Utils::endsWith(genome, ".bam") || Utils::endsWith(genome, ".cram")) {
+        HGW::guessRefGenomeFromBam(genome, iopts, bam_paths, regions);
+        if (genome.empty()) {
+            std::exit(0);
+        }
+    }
+
     bool show_banner = true;
 
     if (iopts.myIni["genomes"].has(genome)) {
@@ -260,7 +273,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    std::vector<std::string> bam_paths;
     if (program.is_used("-b")) {
         if (!program.is_used("genome") && genome.empty()) {
             std::cerr << "Error: please provide a reference genome if loading a bam file\n";
@@ -284,7 +296,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    std::vector<Utils::Region> regions;
     if (program.is_used("-r")) {
         std::vector<std::string> regions_str;
         regions_str = program.get<std::vector<std::string>>("-r");

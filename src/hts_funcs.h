@@ -33,6 +33,8 @@ namespace HGW {
         STDIN,
     };
 
+    void guessRefGenomeFromBam(std::string &inputName, Themes::IniOptions &opts, std::vector<std::string> &bam_paths, std::vector<Utils::Region> &regions);
+
     void print_BCF_IDX(hts_idx_t *idx_v, bcf_hdr_t *hdr, std::string &chrom, int pos, htsFile *fp, std::string &id_str, std::string &variantString);
 
     void print_VCF_NOI(std::string &path, std::string &id_str, std::string &varinatString);
