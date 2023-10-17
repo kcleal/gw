@@ -66,8 +66,7 @@ jobs:
           cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a lib/libglfw.a
           rm -rf glfw-3.3.8*
           
-          rm /usr/local/opt/fontconfig/lib/libfontconfig*dylib
-          ls /usr/local/opt/fontconfig/lib/libfontconfig*
+          cp /usr/local/opt/fontconfig/lib/libfontconfig.a ./lib
           
           make prep
           cp -rf ./lib/skia/third_party/externals/freetype/include/* ./include
@@ -84,8 +83,7 @@ jobs:
           osacompile -o gw.app deps/gw_applescript_prog.scpt
           mv deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
           cp gw gw.app/Contents/MacOS/gw_program
-          # ignore code signing error
-          create-dmg 'gw.app' --dmg-title='gw-x64.dmg' || true
+          create-dmg 'gw.app' || true
           ls
           mv gw\ undefined.dmg gw-x64.dmg
           
