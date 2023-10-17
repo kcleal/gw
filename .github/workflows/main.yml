@@ -40,7 +40,6 @@ jobs:
         run: |
           brew install node graphicsmagick imagemagick
           npm install --global create-dmg
-
       - name: build
         run: |
           git clone --depth 1 https://github.com/ebiggers/libdeflate.git
@@ -84,7 +83,6 @@ jobs:
           echo "--"
              
           CONDA_PREFIX="." make -j3
-        
       - name: package
         run: |
           osacompile -o gw.app deps/gw_applescript_prog.scpt
@@ -93,7 +91,6 @@ jobs:
           # ignore code signing error
           create-dmg 'gw.app' --dmg-title='gw-x64.dmg' || true
           mv gw\ undefined.dmg gw-x64.dmg
-          
       - name: upload
         uses: actions/upload-artifact@v3
         with:
