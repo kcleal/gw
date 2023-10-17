@@ -86,6 +86,7 @@ jobs:
           cp gw gw.app/Contents/MacOS/gw_program
           # ignore code signing error
           create-dmg 'gw.app' --dmg-title='gw-x64.dmg' || true
+          ls
           mv gw\ undefined.dmg gw-x64.dmg
           
       - name: upload
