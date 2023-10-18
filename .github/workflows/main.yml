@@ -82,9 +82,10 @@ jobs:
         run: |
           osacompile -o gw.app deps/gw_applescript_prog.scpt
           #mv deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
-          #cp gw gw.app/Contents/MacOS/gw_program
-          #codesign --remove-signature ./gw.app
-          #codesign --force --deep -s - gw.app -v
+          cp gw gw.app/Contents/MacOS/gw_program
+          codesign --remove-signature ./gw.app
+          codesign --force --deep -s - gw.app -v
+          codesign --verify -vvvv gw.app
           create-dmg 'gw.app' || true
           ls
           mv gw\ undefined.dmg gw-x64.dmg
