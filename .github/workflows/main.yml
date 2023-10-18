@@ -86,6 +86,9 @@ jobs:
           create-dmg 'gw.app' || true
           ls
           mv gw\ undefined.dmg gw-x64.dmg
+          cd gw-x64.dmg
+          codesign --remove-signature ./gw.app
+          codesign --force --deep -s - gw.app -v && cd ../
           
       - name: upload
         uses: actions/upload-artifact@v3
