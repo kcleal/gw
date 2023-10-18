@@ -82,7 +82,7 @@ jobs:
         run: |
           osacompile -o gw.app deps/gw_applescript_prog.scpt
           #mv deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
-          cp gw gw.app/Contents/MacOS/gw_program
+          #cp gw gw.app/Contents/MacOS/gw_program
           #codesign --remove-signature ./gw.app
           #codesign --force --deep -s - gw.app -v
           create-dmg 'gw.app' || true
