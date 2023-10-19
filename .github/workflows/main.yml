@@ -39,6 +39,7 @@ jobs:
       - name: Install dependencies
         run: |
           brew install node graphicsmagick imagemagick
+          brew uninstall curl
           npm install --global create-dmg
           
       - name: build
@@ -52,7 +53,7 @@ jobs:
           tar -xvf htslib.tar.bz2
           mv htslib-1.17 htslib && rm htslib.tar.bz2 && cd htslib
           #./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
-          ./configure --disable-libcurl --disable-s3 --enable-lzma --enable-bz2 --without-libdeflate
+          ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --without-libdeflate
           make -j3
           cp -rf htslib ../include && cp libhts.a ../lib && cd ../
           
