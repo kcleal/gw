@@ -47,8 +47,8 @@ jobs:
           osacompile -o gw.app deps/gw_applescript_prog.scpt
           cp deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
           mkdir -p gw.app/Contents/Frameworks/ && cd gw.app/Contents/Frameworks
-          cp -rf ../../lib .
-          cp -rf ../../include .
+          cp -rf ../../../lib .
+          cp -rf ../../../include .
 
           cp $(brew --Cellar)/curl/8.*/lib/libcurl.a ./lib
           cp -rf $(brew --Cellar)/curl/8.*/include/curl ./include
