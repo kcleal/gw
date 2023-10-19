@@ -92,7 +92,9 @@ jobs:
           pwd && ls && cd ${MAIN}
           
           echo "CODE SIGNING"
-          ls
+          ls -l
+          sudo chown -R $(whoami) ./gw.app
+          chmod -R a+rw ./gw.app
           codesign --remove-signature ./gw.app
           codesign --force --deep -s - gw.app -v
           codesign --verify -vvvv gw.app
