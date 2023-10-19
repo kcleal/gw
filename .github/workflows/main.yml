@@ -85,7 +85,7 @@ jobs:
           ls
           echo "FRAMEWORKS CONTAINS: " && ls ${FRAMEWORKS}
           
-          LDFLAGS+=" -Wl,-rpath,@executable_path/../Frameworks -L${FRAMEWORKS} " make -3
+          LDFLAGS+=" -Wl,-rpath,@executable_path/../Frameworks -L${FRAMEWORKS} " make
           echo "BUILT GW"
           mv gw gw_program
           rm -rf include lib src Makefile
