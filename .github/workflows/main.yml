@@ -77,7 +77,6 @@ jobs:
           
           cp /usr/local/opt/fontconfig/lib/libfontconfig.a ./lib
           
-          #make prep
           cp -rf ./lib/skia/third_party/externals/freetype/include/* ./include
           cd ../../../
           pwd
