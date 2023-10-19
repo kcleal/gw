@@ -92,8 +92,9 @@ jobs:
           pwd && ls && cd ${MAIN}
           
           echo "CODE SIGNING"
+          ls
           codesign --remove-signature ./gw.app
-          codesign --force -s - gw.app -v
+          codesign --force --deep -s - gw.app -v
           codesign --verify -vvvv gw.app
           create-dmg 'gw.app' || true
           ls
