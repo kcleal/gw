@@ -68,9 +68,9 @@ jobs:
           
           wget https://github.com/glfw/glfw/releases/download/3.3.8/glfw-3.3.8.bin.MACOS.zip
           unzip glfw-3.3.8.bin.MACOS.zip && rm glfw-3.3.8.bin.MACOS.zip
-          cp -rf glfw-3.3.8.bin.MACOS/include/* /usr/local/include
-          cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a /usr/local/lib
-          cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a /usr/local/lib/libglfw.a
+          cp -rf glfw-3.3.8.bin.MACOS/include/* ${MAIN}/include
+          cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a ${MAIN}/lib
+          cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a ${MAIN}/lib/libglfw.a
           rm -rf glfw-3.3.8.bin.MACOS
           
           cp /usr/local/opt/fontconfig/lib/libfontconfig.a ${MAIN}/lib
@@ -85,7 +85,7 @@ jobs:
           ls
           echo "FRAMEWORKS CONTAINS: " && ls ${FRAMEWORKS}
           
-          CPPFLAGS+=' -I${MAIN}/include ' LDFLAGS+=' -Wl,-rpath,@executable_path/../Frameworks -L../Frameworks ' make -j3
+          CPPFLAGS+=' -I${MAIN}/include ' LDFLAGS+=' -Wl,-rpath,@executable_path/../Frameworks -L@rpath/../Frameworks ' make -j3
           echo "BUILT GW"
           mv gw gw_program
           rm -rf include lib src Makefile
