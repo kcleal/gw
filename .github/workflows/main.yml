@@ -50,8 +50,10 @@ jobs:
           cp -rf ../../../lib .
           cp -rf ../../../include .
 
-          cp $(brew --Cellar)/curl/8.*/lib/libcurl.a ./lib
+          cp $(brew --Cellar)/curl/8.*/lib/libcurl* ./lib
           cp -rf $(brew --Cellar)/curl/8.*/include/curl ./include
+          ls ./lib
+          ls ./include
           
           #git clone --depth 1 https://github.com/ebiggers/libdeflate.git
           #cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
