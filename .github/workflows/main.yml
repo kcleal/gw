@@ -39,7 +39,7 @@ jobs:
       - name: Install dependencies
         run: |
           brew install node graphicsmagick imagemagick
-          brew uninstall curl
+          brew uninstall --ignore-dependencies curl
           npm install --global create-dmg
           
       - name: build
