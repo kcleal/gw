@@ -69,8 +69,8 @@ jobs:
           wget https://github.com/glfw/glfw/releases/download/3.3.8/glfw-3.3.8.bin.MACOS.zip
           unzip glfw-3.3.8.bin.MACOS.zip && rm glfw-3.3.8.bin.MACOS.zip
           cp -rf glfw-3.3.8.bin.MACOS/include/* ${MAIN}/include
-          cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a ${MAIN}/lib
-          cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a ${MAIN}/lib/libglfw.a
+          cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a ${FRAMEWORKS}
+          cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a ${FRAMEWORKS}/libglfw.a
           rm -rf glfw-3.3.8.bin.MACOS
           
           cp /usr/local/opt/fontconfig/lib/libfontconfig.a ${MAIN}/lib
