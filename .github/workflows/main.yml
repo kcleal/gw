@@ -50,8 +50,25 @@ jobs:
           cp -rf ../../../lib .
           cp -rf ../../../include .
 
-          cp $(brew --Cellar)/curl/8.*/lib/libcurl* ./lib
-          cp -rf $(brew --Cellar)/curl/8.*/include/curl ./include
+          #cp $(brew --Cellar)/curl/8.*/lib/libcurl* ./lib
+          #cp -rf $(brew --Cellar)/curl/8.*/include/curl ./include
+          
+          wget https://curl.se/download/curl-8.4.0.tar.gz && tar -xvf curl-8.4.0.tar.gz
+          rm curl-8.4.0.tar.gz && cd curl-8.4.0
+          export ARCH=x86_64
+          export SDK=macosx
+          export DEPLOYMENT_TARGET=10.8
+
+          export CFLAGS="-arch $ARCH -isysroot $(xcrun -sdk $SDK --show-sdk-path) -m$SDK-version-min=$DEPLOYMENT_TARGET"
+          ./configure --host=$ARCH-apple-darwin --prefix $(pwd)/artifacts --with-secure-transport
+          make -j3
+          ls
+          echo "--"
+          ls ./lib
+          echo "--"
+          ls ./include
+          cd ../
+          
           ls ./lib
           ls ./include
           
