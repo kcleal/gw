@@ -53,15 +53,14 @@ jobs:
           cp $(brew --Cellar)/curl/8.*/lib/libcurl* .
           cp -rf $(brew --Cellar)/curl/8.*/include/curl ../../../include
           
-          ls .
-          ls ./include
+          pwd && ls .
           
           git clone --depth 1 https://github.com/ebiggers/libdeflate.git
           cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
           cp build/libdeflate.a ../ && cp libdeflate.h ../../../include && cd ../
           rm -rf libdeflate
           #cp build/libdeflate.a /usr/local/lib && cp libdeflate.h /usr/local/include && cd ../
-          echo '----'
+          echo '----' && pwd
           ls .
 
           wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.17/htslib-1.17.tar.bz2
@@ -99,7 +98,7 @@ jobs:
           cp -rf ../../../Makefile .
           
           echo "BUILDING GW HERE"
-          ls
+          pwd && ls
           echo "Fameworks contains" && ls ../Frameworks
           
           LDFLAGS+='-L../Frameworks ' CPPFLAGS+='-I./include make -j3
