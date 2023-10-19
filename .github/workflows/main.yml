@@ -41,7 +41,7 @@ jobs:
           brew install node graphicsmagick imagemagick
           npm install --global create-dmg
           
-      - name: build
+      - name: package
         run: |
           make prep
           osacompile -o gw.app deps/gw_applescript_prog.scpt
@@ -62,7 +62,7 @@ jobs:
           tar -xvf htslib.tar.bz2
           mv htslib-1.17 htslib && rm htslib.tar.bz2 && cd htslib
           #./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
-          ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --without-libdeflate
+          LDFLAGS+='-L../lib ' ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --without-libdeflate
           make -j3
           cp -rf htslib ../include && cp libhts.a ../lib && cd ../
           
@@ -87,8 +87,6 @@ jobs:
           CONDA_PREFIX="gw.app/Contents/Frameworks" make -j3
           cp gw gw.app/Contents/MacOS/gw_program
           
-      - name: package
-        run: |
           #osacompile -o gw.app deps/gw_applescript_prog.scpt
           #cp deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
           #cp gw gw.app/Contents/MacOS/gw_program
@@ -97,11 +95,11 @@ jobs:
           codesign --verify -vvvv gw.app
           create-dmg 'gw.app' || true
           ls
-          mv gw\ undefined.dmg gw-x64.dmg
+          mv gw\ undefined.dmg gw-macos-intel.dmg
           
       - name: upload
         uses: actions/upload-artifact@v3
         with:
-          name: macos-latest-intel
-          path: ${{ github.workspace }}/gw-x64.dmg
+          name: gw-macos-intel
+          path: ${{ github.workspace }}/gw-macos-intel.dmg
           
