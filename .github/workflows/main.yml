@@ -81,11 +81,11 @@ jobs:
           cp -rf ${MAIN}/src .
           cp -rf ${MAIN}/Makefile .
           
-          echo "BUILDING GW IN ${pwd}"
-          echo ls
+          echo "BUILDING GW"
+          ls
           echo "FRAMEWORKS CONTAINS: " && ls ${FRAMEWORKS}
           
-          CPPFLAGS+=' -I${MAIN}/include ' LDFLAGS+=' -Wl,-rpath,@executable_path/../Frameworks -L./lib ' make -j3
+          CPPFLAGS+=' -I${MAIN}/include ' LDFLAGS+=' -Wl,-rpath,@executable_path/../Frameworks -L${FRAMEWORKS} ' make -j3
           echo "BUILT GW"
           mv gw gw_program
           rm -rf include lib src Makefile
