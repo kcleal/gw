@@ -62,12 +62,14 @@ jobs:
           #cp build/libdeflate.a /usr/local/lib && cp libdeflate.h /usr/local/include && cd ../
           echo '----' && pwd
           ls .
+          echo "AND"
+          ls ../../../include
 
           wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.17/htslib-1.17.tar.bz2
           tar -xvf htslib.tar.bz2
           mv htslib-1.17 htslib && rm htslib.tar.bz2 && cd htslib
           #./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
-          LDFLAGS+='-L. ' CPPFLAGS+='-I../../../include ' ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
+          LDFLAGS+='-L/Users/runner/work/gw/gw/gw.app/Contents/Frameworks ' CPPFLAGS+='-I../../../include ' ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
           make -j3
           cp -rf ./htslib ../../../../include && cp libhts.a ../ && cd ../
           rm -rf htslib
@@ -101,9 +103,12 @@ jobs:
           pwd && ls
           echo "Fameworks contains" && ls ../Frameworks
           
-          LDFLAGS+='-L../Frameworks ' CPPFLAGS+='-I./include make -j3
+          LDFLAGS+=' -L../Frameworks ' CPPFLAGS+=' -I./include LDFLAGS+=' -Wl,-rpath,@executable_path/../Frameworks ' make -j3
           echo "BUILT GW"
-          cp gw gw.app/Contents/MacOS/gw_program
+          mv gw gw_program
+          rm -rf include lib src Makefile
+          pwd && ls
+          #cp gw gw.app/Contents/MacOS/gw_program
           
           #osacompile -o gw.app deps/gw_applescript_prog.scpt
           #cp deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
