@@ -87,11 +87,13 @@ jobs:
           ls lib
           echo "--"
           CONDA_PREFIX="gw.app/Contents/Frameworks" make -j3
+          echo "BUILT GW"
           cp gw gw.app/Contents/MacOS/gw_program
           
           #osacompile -o gw.app deps/gw_applescript_prog.scpt
           #cp deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
           #cp gw gw.app/Contents/MacOS/gw_program
+          echo "CODE SIGNING"
           codesign --remove-signature ./gw.app
           codesign --force --deep -s - gw.app -v
           codesign --verify -vvvv gw.app
