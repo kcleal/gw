@@ -39,11 +39,20 @@ jobs:
       - name: Install dependencies
         run: |
           brew install node graphicsmagick imagemagick
-          brew uninstall --ignore-dependencies curl
           npm install --global create-dmg
           
       - name: build
         run: |
+          make prep
+          osacompile -o gw.app deps/gw_applescript_prog.scpt
+          cp deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
+          mkdir -p gw.app/Contents/Frameworks/ && cd gw.app/Contents/Frameworks
+          cp -rf ../../lib .
+          cp -rf ../../include .
+
+          cp $(brew --Cellar)/curl/8.*/lib/libcurl.a ./lib
+          cp -rf $(brew --Cellar)/curl/8.*/include/curl ./include
+          
           #git clone --depth 1 https://github.com/ebiggers/libdeflate.git
           #cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
           #cp build/libdeflate.a ../lib && cp libdeflate.h ../include
@@ -65,21 +74,24 @@ jobs:
           
           cp /usr/local/opt/fontconfig/lib/libfontconfig.a ./lib
           
-          make prep
+          #make prep
           cp -rf ./lib/skia/third_party/externals/freetype/include/* ./include
+          cd ../../../
+          pwd
           ls
           echo "--"
           ls include
           echo "--"
           ls lib
           echo "--"
-          CONDA_PREFIX="." make -j3
+          CONDA_PREFIX="gw.app/Contents/Frameworks" make -j3
+          cp gw gw.app/Contents/MacOS/gw_program
           
       - name: package
         run: |
-          osacompile -o gw.app deps/gw_applescript_prog.scpt
-          cp deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
-          cp gw gw.app/Contents/MacOS/gw_program
+          #osacompile -o gw.app deps/gw_applescript_prog.scpt
+          #cp deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
+          #cp gw gw.app/Contents/MacOS/gw_program
           codesign --remove-signature ./gw.app
           codesign --force --deep -s - gw.app -v
           codesign --verify -vvvv gw.app
