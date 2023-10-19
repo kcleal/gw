@@ -73,11 +73,11 @@ jobs:
           #./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
           LDFLAGS+='-L${FRAMEWORKS} ' CPPFLAGS+='-I${MAIN}/include ' ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
           make -j3
-          cp -rf ./htslib ${MAIN}/include && cp libhts.a ${MAIN}/lib && cd ../
+          cp -rf ./htslib ${MAIN}/include && cp libhts.* ${FRAMEWORKS}/lib && cd ../
           rm -rf htslib
           
           wget https://github.com/glfw/glfw/releases/download/3.3.8/glfw-3.3.8.bin.MACOS.zip
-          unzip glfw-3.3.8.bin.MACOS.zip
+          unzip glfw-3.3.8.bin.MACOS.zip && rm glfw-3.3.8.bin.MACOS.zip
           cp -rf glfw-3.3.8.bin.MACOS/include/* /usr/local/include
           cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a /usr/local/lib
           cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a /usr/local/lib/libglfw.a
@@ -96,6 +96,7 @@ jobs:
           ls lib
           echo "--"
           cd gw.app/Contents/MacOS
+          cp -rf ${MAIN}/include .
           cp -rf ${MAIN}/lib .
           cp -rf ${MAIN}/src .
           cp -rf ${MAIN}/Makefile .
