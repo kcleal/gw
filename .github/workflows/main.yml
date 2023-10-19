@@ -58,7 +58,7 @@ jobs:
           
           git clone --depth 1 https://github.com/ebiggers/libdeflate.git
           cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
-          cp build/libdeflate.a ../lib && cp libdeflate.h ../include
+          cp build/libdeflate.a ../lib && cp libdeflate.h ../include && cd ../
           #cp build/libdeflate.a /usr/local/lib && cp libdeflate.h /usr/local/include && cd ../
           echo '----'
           ls ./lib
