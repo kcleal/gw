@@ -89,11 +89,11 @@ jobs:
           echo "BUILT GW"
           mv gw gw_program
           rm -rf include lib src Makefile
-          pwd && ls
+          pwd && ls && cd ${MAIN}
           
           echo "CODE SIGNING"
           codesign --remove-signature ./gw.app
-          codesign --force --deep -s - gw.app -v
+          codesign --force -s - gw.app -v
           codesign --verify -vvvv gw.app
           create-dmg 'gw.app' || true
           ls
