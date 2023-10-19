@@ -43,46 +43,48 @@ jobs:
           
       - name: package
         run: |
+          MAIN=$(pwd)
           make prep
           osacompile -o gw.app deps/gw_applescript_prog.scpt
           cp deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
           mkdir -p gw.app/Contents/Frameworks/ && cd gw.app/Contents/Frameworks
+          FRAMEWORKS=$(pwd)
           #cp -rf ../../../lib/* .
           #cp -rf ../../../include .
 
           cp $(brew --Cellar)/curl/8.*/lib/libcurl* .
-          cp -rf $(brew --Cellar)/curl/8.*/include/curl ../../../include
+          cp -rf $(brew --Cellar)/curl/8.*/include/curl ${MAIN}/include
           
           pwd && ls .
           
           git clone --depth 1 https://github.com/ebiggers/libdeflate.git
           cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
-          cp build/libdeflate.a ../ && cp libdeflate.h ../../../include && cd ../
+          cp build/libdeflate.a ${MAIN}/lib && cp libdeflate.h ${MAIN}/include && cd ../
           rm -rf libdeflate
-          #cp build/libdeflate.a /usr/local/lib && cp libdeflate.h /usr/local/include && cd ../
+          
           echo '----' && pwd
-          ls .
+          ls ${FRAMEWORKS}
           echo "AND"
-          ls ../../../include
+          ls ${MAIN}/include
 
           wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.17/htslib-1.17.tar.bz2
           tar -xvf htslib.tar.bz2
           mv htslib-1.17 htslib && rm htslib.tar.bz2 && cd htslib
           #./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
-          LDFLAGS+='-L/Users/runner/work/gw/gw/gw.app/Contents/Frameworks ' CPPFLAGS+='-I../../../include ' ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
+          LDFLAGS+='-L${FRAMEWORKS} ' CPPFLAGS+='-I${MAIN}/include ' ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
           make -j3
-          cp -rf ./htslib ../../../../include && cp libhts.a ../ && cd ../
+          cp -rf ./htslib ${MAIN}/include && cp libhts.a ${MAIN}/lib && cd ../
           rm -rf htslib
           
           wget https://github.com/glfw/glfw/releases/download/3.3.8/glfw-3.3.8.bin.MACOS.zip
           unzip glfw-3.3.8.bin.MACOS.zip
-          cp -rf glfw-3.3.8.bin.MACOS/include/* ../../../include
-          cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a .
-          cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a ./libglfw.a
+          cp -rf glfw-3.3.8.bin.MACOS/include/* ${MAIN}/include
+          cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a ${MAIN}/lib
+          cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a ${MAIN}/lib/libglfw.a
           rm -rf glfw-3.3.8.bin.MACOS
           
-          cp /usr/local/opt/fontconfig/lib/libfontconfig.a .
-          cd ../../../
+          cp /usr/local/opt/fontconfig/lib/libfontconfig.a ${FRAMEWORKS}
+          cd ${MAIN}
           
           cp -rf ./lib/skia/third_party/externals/freetype/include/* ./include
           
@@ -94,16 +96,15 @@ jobs:
           ls lib
           echo "--"
           cd gw.app/Contents/MacOS
-          cp -rf ../../../include .
-          cp -rf ../../../lib .
-          cp -rf ../../../src .
-          cp -rf ../../../Makefile .
+          cp -rf ${MAIN}/lib .
+          cp -rf ${MAIN}/src .
+          cp -rf ${MAIN}/Makefile .
           
           echo "BUILDING GW HERE"
           pwd && ls
-          echo "Fameworks contains" && ls ../Frameworks
+          echo "Fameworks contains" && ls ${FRAMEWORKS}
           
-          LDFLAGS+=' -L../Frameworks ' CPPFLAGS+=' -I./include LDFLAGS+=' -Wl,-rpath,@executable_path/../Frameworks ' make -j3
+          CPPFLAGS+=' -I${MAIN}/include ' LDFLAGS+=' -Wl,-rpath,@executable_path/../Frameworks -L${MAIN}/lib ' make -j3
           echo "BUILT GW"
           mv gw gw_program
           rm -rf include lib src Makefile
