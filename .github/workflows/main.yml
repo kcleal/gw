@@ -49,10 +49,7 @@ jobs:
           
           osacompile -o gw.app deps/gw_applescript_prog.scpt
           cp deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
-          #mkdir -p gw.app/Contents/Frameworks/ && cd gw.app/Contents/Frameworks
-          #FRAMEWORKS=$(pwd) && cd ../../../
 
-          #cp $(brew --Cellar)/curl/8.*/lib/libcurl* ${FRAMEWORKS}
           cp $(brew --Cellar)/curl/8.*/lib/libcurl*.a ./lib
           cp -rf $(brew --Cellar)/curl/8.*/include/* ./include
           cp -rf $(brew --Cellar)/curl/8.*/include/curl/* ./include
@@ -65,6 +62,8 @@ jobs:
 
           echo "LIB CONTAINS: " && ls ./lib
           echo "INCLUDE CONTAINS: " && ls ./include
+          echo "CURL REQUIRES: " && otool -L ./lib/libcurl.h
+          
           export LDFLAGS+=" -L${MAIN}/lib "
           export CPPFLAGS+=" -I${MAIN}/include "
           
@@ -78,24 +77,15 @@ jobs:
           wget https://github.com/glfw/glfw/releases/download/3.3.8/glfw-3.3.8.bin.MACOS.zip
           unzip glfw-3.3.8.bin.MACOS.zip && rm glfw-3.3.8.bin.MACOS.zip
           cp -rf glfw-3.3.8.bin.MACOS/include/* ${MAIN}/include
-          #cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a ${FRAMEWORKS}
           cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a ${MAIN}/lib/libglfw.a
           rm -rf glfw-3.3.8.bin.MACOS
           
           cp /usr/local/opt/fontconfig/lib/libfontconfig.a ${MAIN}/lib
           
-          #cd ${MAIN}/gw.app/Contents/MacOS
-          #cp -rf ${MAIN}/include .
-          #cp -rf ${MAIN}/lib .
-          #cp -rf ${MAIN}/src .
-          #cp -rf ${MAIN}/Makefile .
-          
           echo "BUILDING GW"
           echo "LIB CONTAINS: " && ls ./lib
           echo "INCLUDE CONTAINS: " && ls ./include
-          #echo "FRAMEWORKS CONTAINS: " && ls ${FRAMEWORKS}
           make
-          #LDFLAGS+=" -Wl,-rpath,@executable_path/../Frameworks -L${FRAMEWORKS} " make
           echo "BUILT GW"
           mv gw ./gw.app/Contents/MacOS/gw_program
           rm -rf include lib src Makefile
