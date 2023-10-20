@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Install dependencies
         run: |
-          brew install node graphicsmagick imagemagick
+          brew install graphicsmagick brew
           npm install --global create-dmg
           
       - name: package
@@ -51,6 +51,11 @@ jobs:
           cp deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
 
           cp $(brew --Cellar)/curl/8.*/lib/libcurl*.a ./lib
+
+          echo "AR CURL: " && ar -t ./lib/libcurl.a
+          echo "HAS easy init?: " && nm ./lib/libcurl.a | grep curl_easy_init
+          echo "HAS easy pause?: " && nm ./lib/libcurl.a | grep curl_easy_pause
+          
           cp -rf $(brew --Cellar)/curl/8.*/include/* ./include
           cp -rf $(brew --Cellar)/curl/8.*/include/curl/* ./include
           brew uninstall --ignore-dependencies curl
