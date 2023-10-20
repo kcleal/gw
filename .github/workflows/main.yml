@@ -60,10 +60,10 @@ jobs:
           #cp -rf $(brew --Cellar)/curl/8.*/include/curl/* ./include
           #brew uninstall --ignore-dependencies curl
           
-          git clone --depth 1 https://github.com/ebiggers/libdeflate.git
-          cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
-          cp build/libdeflate.a ${MAIN}/lib && cp libdeflate.h ${MAIN}/include && cd ../
-          rm -rf libdeflate
+          #git clone --depth 1 https://github.com/ebiggers/libdeflate.git
+          #cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
+          #cp build/libdeflate.a ${MAIN}/lib && cp libdeflate.h ${MAIN}/include && cd ../
+          #rm -rf libdeflate
 
           echo "LIB CONTAINS: " && ls ./lib
           echo "INCLUDE CONTAINS: " && ls ./include
@@ -75,7 +75,7 @@ jobs:
           wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.17/htslib-1.17.tar.bz2
           tar -xvf htslib.tar.bz2 && mv htslib-1.17 htslib && rm htslib.tar.bz2 && cd htslib
           #./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
-          ./configure --enable-lzma --enable-bz2 --with-libdeflate
+          ./configure --enable-libcurl --enable-lzma --enable-bz2 --without-libdeflate
           make
           cp -rf ./htslib ${MAIN}/include && cp libhts.*a ${MAIN}/lib
           cd ${MAIN} && rm -rf htslib
