@@ -55,6 +55,7 @@ jobs:
           #cp $(brew --Cellar)/curl/8.*/lib/libcurl* ${FRAMEWORKS}
           cp $(brew --Cellar)/curl/8.*/lib/libcurl*.a ./lib
           cp -rf $(brew --Cellar)/curl/8.*/include/* ./include
+          cp -rf $(brew --Cellar)/curl/8.*/include/curl/* ./include
           brew uninstall --ignore-dependencies curl
           
           git clone --depth 1 https://github.com/ebiggers/libdeflate.git
