@@ -62,7 +62,7 @@ jobs:
 
           echo "LIB CONTAINS: " && ls ./lib
           echo "INCLUDE CONTAINS: " && ls ./include
-          echo "CURL REQUIRES: " && otool -L ./lib/libcurl.h
+          echo "CURL REQUIRES: " && otool -L ./lib/libcurl.a
           
           export LDFLAGS+=" -L${MAIN}/lib "
           export CPPFLAGS+=" -I${MAIN}/include "
