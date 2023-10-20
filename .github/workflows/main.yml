@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Install dependencies
         run: |
-          brew install graphicsmagick brew
+          brew install graphicsmagick curl
           npm install --global create-dmg
           
       - name: package
