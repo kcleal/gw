@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Install dependencies
         run: |
-          brew install graphicsmagick
+          brew install graphicsmagick dylibbundler
           npm install --global create-dmg
           
       - name: package
@@ -50,24 +50,12 @@ jobs:
           osacompile -o gw.app deps/gw_applescript_prog.scpt
           cp deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
 
-          #cp $(brew --Cellar)/curl/8.*/lib/libcurl*.a ./lib
-
-          #echo "AR CURL: " && ar -t ./lib/libcurl.a
-          #echo "HAS easy init?: " && nm ./lib/libcurl.a | grep curl_easy_init
-          #echo "HAS easy pause?: " && nm ./lib/libcurl.a | grep curl_easy_pause
           
-          #cp -rf $(brew --Cellar)/curl/8.*/include/* ./include
-          #cp -rf $(brew --Cellar)/curl/8.*/include/curl/* ./include
-          #brew uninstall --ignore-dependencies curl
           
           #git clone --depth 1 https://github.com/ebiggers/libdeflate.git
           #cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
           #cp build/libdeflate.a ${MAIN}/lib && cp libdeflate.h ${MAIN}/include && cd ../
           #rm -rf libdeflate
-
-          echo "LIB CONTAINS: " && ls ./lib
-          echo "INCLUDE CONTAINS: " && ls ./include
-          #echo "CURL REQUIRES: " && otool -L ./lib/libcurl.a
           
           export LDFLAGS+=" -L${MAIN}/lib "
           export CPPFLAGS+=" -I${MAIN}/include "
@@ -95,6 +83,9 @@ jobs:
           echo "BUILT GW"
           mv gw ./gw.app/Contents/MacOS/gw_program
           rm -rf include lib src Makefile
+
+          dylibbundler -od -b -x ./gw.app/Contents/MacOS/gw_program -d ./gw.app/Contents/libs/ -p @executable_path/../libs/
+    
           pwd && ls && cd ${MAIN}
 
           echo "VALIDATION"
