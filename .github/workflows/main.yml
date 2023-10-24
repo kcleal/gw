@@ -38,58 +38,34 @@ jobs:
       - uses: actions/checkout@v3
       - name: Install dependencies
         run: |
-          brew install graphicsmagick dylibbundler
+          brew install graphicsmagick dylibbundler glfw fontconfig
           npm install --global create-dmg
           
       - name: package
         run: |
-          MAIN=$(pwd)
           make prep
-          cp -rf ${MAIN}/lib/skia/third_party/externals/freetype/include/* ${MAIN}/include
           
           osacompile -o gw.app deps/gw_applescript_prog.scpt
           cp deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
-
           
+          git clone --depth 1 https://github.com/ebiggers/libdeflate.git
+          cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
+          cp build/libdeflate.a /usr/local/lib && cp libdeflate.h /usr/local/include && cd ../
           
-          #git clone --depth 1 https://github.com/ebiggers/libdeflate.git
-          #cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
-          #cp build/libdeflate.a ${MAIN}/lib && cp libdeflate.h ${MAIN}/include && cd ../
-          #rm -rf libdeflate
-          
-          export LDFLAGS+=" -L${MAIN}/lib "
-          export CPPFLAGS+=" -I${MAIN}/include "
-          
-          wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.17/htslib-1.17.tar.bz2
-          tar -xvf htslib.tar.bz2 && mv htslib-1.17 htslib && rm htslib.tar.bz2 && cd htslib
-          #./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
-          ./configure --enable-libcurl --enable-lzma --enable-bz2 --without-libdeflate
-          make
-          cp -rf ./htslib ${MAIN}/include && cp libhts.*a ${MAIN}/lib
-          cd ${MAIN} && rm -rf htslib
-          
-          wget https://github.com/glfw/glfw/releases/download/3.3.8/glfw-3.3.8.bin.MACOS.zip
-          unzip glfw-3.3.8.bin.MACOS.zip && rm glfw-3.3.8.bin.MACOS.zip
-          cp -rf glfw-3.3.8.bin.MACOS/include/* ${MAIN}/include
-          cp glfw-3.3.8.bin.MACOS/lib-x86_64/libglfw3.a ${MAIN}/lib/libglfw.a
-          rm -rf glfw-3.3.8.bin.MACOS
-          
-          cp /usr/local/opt/fontconfig/lib/libfontconfig.a ${MAIN}/lib
+          wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.18/htslib-1.18.tar.bz2
+          tar -xvf htslib.tar.bz2 && mv htslib-* htslib && rm htslib.tar.bz2 && cd htslib
+          ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
+          make && make install && cd ../
           
           echo "BUILDING GW"
-          echo "LIB CONTAINS: " && ls ./lib
-          echo "INCLUDE CONTAINS: " && ls ./include
           make
-          echo "BUILT GW"
-          mv gw ./gw.app/Contents/MacOS/gw_program
+          mv gw ./gw.app/Contents/MacOS
           rm -rf include lib src Makefile
-
-          dylibbundler -od -b -x ./gw.app/Contents/MacOS/gw_program -d ./gw.app/Contents/libs/ -p @executable_path/../libs/
-    
-          pwd && ls && cd ${MAIN}
-
+          
+          dylibbundler -od -b -x ./gw.app/Contents/MacOS/gw -d ./gw.app/Contents/libs/ -p @executable_path/../libs/
+          
           echo "VALIDATION"
-          otool -L gw.app/Contents/MacOS/gw_program
+          otool -L gw.app/Contents/MacOS/gw
           echo ""
           
           echo "CODE SIGNING"
@@ -108,4 +84,3 @@ jobs:
         with:
           name: gw-macos-intel
           path: ${{ github.workspace }}/gw-macos-intel.dmg
-          
