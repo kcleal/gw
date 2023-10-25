@@ -1,0 +1,19 @@
+on open fileList
+	if (count of fileList) is equal to 0 then
+		display dialog "No files selected!" buttons {"OK"} default button "OK"
+	else
+		set filePath to item 1 of fileList
+		tell application "Terminal"
+			do script "/Applications/gw.app/Contents/MacOS/gw " & quoted form of POSIX path of filePath
+			activate
+		end tell
+	end if
+end open
+
+on run
+	-- Code to run when the app is opened without any file
+	tell application "Terminal"
+		do script "/Applications/gw.app/Contents/MacOS/gw"
+		activate
+	end tell
+end run

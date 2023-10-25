@@ -45,7 +45,7 @@ jobs:
         run: |
           make prep
           
-          osacompile -o gw.app deps/gw_applescript_prog.scpt
+          osacompile -o gw.app deps/gw_applescript_prog.txt
           cp deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
           
           git clone --depth 1 https://github.com/ebiggers/libdeflate.git
