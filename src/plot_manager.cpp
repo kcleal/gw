@@ -962,7 +962,8 @@ namespace Manager {
 
         setGlfwFrameBufferSize();
         setScaling();
-        bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height);
+        float y_gap = (variantTracks.size() <= 1) ? 0 : 20;
+        bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height, 15, 15, y_gap);
 
         if (image_glob.empty()) {
             tileDrawingThread(canvas, sContext, sSurface);

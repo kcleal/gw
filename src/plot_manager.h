@@ -87,7 +87,7 @@ namespace Manager {
         std::vector<sam_hdr_t* > headers;
         std::vector<hts_idx_t* > indexes;
 
-        std::vector<HGW::GwTrack> tracks;
+        std::vector<HGW::GwTrack> tracks;  // tracks that are plotted at the bottom of screen
         std::string outLabelFile;
 
         std::vector<Utils::Region> regions;
@@ -101,7 +101,7 @@ namespace Manager {
 
         std::vector<Segs::ReadCollection> collections;  // stores alignments
 
-        std::vector<HGW::GwVariantTrack> variantTracks;
+        std::vector<HGW::GwVariantTrack> variantTracks; // make image tiles from these
 
         std::vector<Parse::Parser> filters;
 
