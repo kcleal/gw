@@ -1493,14 +1493,17 @@ namespace HGW {
         }
         while (!(*trackDone)) {
             for (int i=0; i < number; ++i) {
-                if (*trackDone) {
-                    break;
-                }
                 if (useVcf) {
                     vcf.next();
+                    if (*trackDone) {
+                        break;
+                    }
                     this->appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype);
                 } else {
                     variantTrack.next();
+                    if (*trackDone) {
+                        break;
+                    }
                     std::string label = "";
                     this->appendVariantSite(variantTrack.chrom, variantTrack.start, variantTrack.chrom2,
                                       variantTrack.stop, variantTrack.rid, label, variantTrack.vartype);

@@ -2044,13 +2044,15 @@ namespace Manager {
             return;
         }
         std::cout << s << std::flush;
-        term_width_remaining -= (int)s.size();
-        std::string base_filename = "  -  " + bam_paths[cl.bamIdx].substr(bam_paths[cl.bamIdx].find_last_of("/\\") + 1);
-        if (term_width_remaining < (int)base_filename.size()) {
-            std::cout << std::flush;
-            return;
+        if (!bam_paths.empty()) {
+            term_width_remaining -= (int)s.size();
+            std::string base_filename = "  -  " + bam_paths[cl.bamIdx].substr(bam_paths[cl.bamIdx].find_last_of("/\\") + 1);
+            if (term_width_remaining < (int)base_filename.size()) {
+                std::cout << std::flush;
+                return;
+            }
+            std::cout << base_filename << std::flush;
         }
-        std::cout << base_filename << std::flush;
     }
 
     void GwPlot::mousePos(GLFWwindow* wind, double xPos, double yPos) {
