@@ -3,8 +3,6 @@
 //
 
 #include <algorithm>
-#include <chrono>
-#include <future>
 #include <string>
 #include <vector>
 
@@ -37,7 +35,7 @@ namespace HGW {
             success = false;
             for (int tid=0; tid < hdr_ptr->n_targets; tid++) {
                 const char *chrom_name = sam_hdr_tid2name(hdr_ptr, tid);
-                int bam_length = sam_hdr_tid2len(hdr_ptr, tid);
+                int bam_length = (int)sam_hdr_tid2len(hdr_ptr, tid);
                 if (bam_length > longest) {
                     longestName = chrom_name;
                     longest = bam_length;
@@ -96,7 +94,7 @@ namespace HGW {
             } catch (const std::bad_alloc&) {
             }
         }
-        readQueue.emplace_back(Segs::Align(bam_init1()));
+        readQueue.emplace_back(bam_init1());
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
             std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
@@ -108,7 +106,7 @@ namespace HGW {
             if (src->core.flag & 4 || src->core.n_cigar == 0) {
                 continue;
             }
-            readQueue.emplace_back(Segs::Align(bam_init1()));
+            readQueue.emplace_back(bam_init1());
             if (low_mem) {
                 size_t new_len = (src->core.n_cigar << 2 ) + src->core.l_qname + ((src->core.l_qseq + 1) >> 1);
                 src->data = (uint8_t*)realloc(src->data, new_len);
@@ -154,7 +152,7 @@ namespace HGW {
             }
             readQueue.clear();
         }
-        readQueue.emplace_back(Segs::Align(bam_init1()));
+        readQueue.emplace_back(bam_init1());
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
             std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
@@ -186,7 +184,7 @@ namespace HGW {
 
     void trimToRegion(Segs::ReadCollection &col, bool coverage, int snp_threshold) {
         std::vector<Segs::Align>& readQueue = col.readQueue;
-        Utils::Region *region = &col.region;
+        Utils::Region *region = col.region;
         while (!readQueue.empty()) {
             Segs::Align &item = readQueue.back();
             if (item.cov_start > region->end + 1000) {
@@ -236,7 +234,7 @@ namespace HGW {
         cl.levelsEnd.clear();
         cl.linked.clear();
         for (auto &itm: cl.readQueue) { itm.y = -1; }
-        int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, &cl.region, false);
+        int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, cl.region, false);
         *samMaxY = (maxY > *samMaxY || opts.tlen_yscale) ? maxY : *samMaxY;
     }
 
@@ -252,7 +250,7 @@ namespace HGW {
         bam1_t *src;
         hts_itr_t *iter_q;
         std::vector<Segs::Align>& readQueue = col.readQueue;
-        Utils::Region *region = &col.region;
+        Utils::Region *region = col.region;
         bool tlen_y = opts.tlen_yscale;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         int lastPos;

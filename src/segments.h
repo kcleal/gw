@@ -80,7 +80,7 @@ namespace Segs {
         ~ReadCollection() = default;
         int bamIdx, regionIdx, vScroll;
         int maxCoverage;
-        Utils::Region region;
+        Utils::Region *region;
         std::vector<int> covArr;
         std::vector<int> levelsStart, levelsEnd;
         std::vector<Mismatches> mmVector;

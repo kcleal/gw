@@ -260,8 +260,8 @@ namespace Segs {
 
         self->pos = src->core.pos;
         self->reference_end = bam_endpos(src);  // reference_end - already checked for 0 length cigar and mapped
-        self->cov_start = self->pos;
-        self->cov_end = self->reference_end;
+        self->cov_start = (int)self->pos;
+        self->cov_end = (int)self->reference_end;
 
         uint32_t pos, l, cigar_l, op, k;
         uint32_t *cigar_p;
@@ -627,12 +627,12 @@ namespace Segs {
     void findMismatches(const Themes::IniOptions &opts, ReadCollection &collection) {
 
         std::vector<Segs::Mismatches> &mm_array = collection.mmVector;
-        const Utils::Region &region = collection.region;
-        int regionLen = region.end - region.start;
+        const Utils::Region *region = collection.region;
+        int regionLen = region->end - region->start;
         if (opts.max_coverage == 0 || regionLen > opts.snp_threshold) {
             return;
         }
-        const char *refSeq = region.refSeq;
+        const char *refSeq = region->refSeq;
         if (refSeq == nullptr) {
             return;
         }
@@ -647,9 +647,9 @@ namespace Segs {
             int r_idx;
             uint32_t idx = 0;
 
-            uint32_t rlen = region.end - region.start;
-            auto rbegin = (uint32_t) region.start;
-            auto rend = (uint32_t) region.end;
+            uint32_t rlen = region->end - region->start;
+            auto rbegin = (uint32_t) region->start;
+            auto rend = (uint32_t) region->end;
             uint32_t op, l;
             for (uint32_t k = 0; k < cigar_l; k++) {
                 op = cigar_p[k] & BAM_CIGAR_MASK;
@@ -757,7 +757,7 @@ namespace Segs {
 
                     default:
                         for (uint32_t i = 0; i < l; ++i) {
-                            r_idx = (int) r_pos - region.start;
+                            r_idx = (int) r_pos - region->start;
                             if (r_idx < 0) {
                                 idx += 1;
                                 r_pos += 1;

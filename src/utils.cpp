@@ -320,10 +320,10 @@ namespace Utils {
         bboxes.resize(dims.x * dims.y);
         int i = 0;
         for (int x = 0; x < dims.x; ++x) {
-            for (int y = ySpace; y < dims.y; ++y) {
+            for (int y = 0; y < dims.y; ++y) {
                 BoundingBox &b = bboxes[i];
                 b.xStart = (w * (float) x) + padX;
-                b.yStart = (h * (float) y) + padY;
+                b.yStart = (h * (float) y) + padY + ySpace;
                 b.xEnd = b.xStart + w - padX;
                 b.yEnd = b.yStart + h - padY;
                 b.width = w - padX * 2;

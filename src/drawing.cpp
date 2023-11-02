@@ -154,7 +154,7 @@ namespace Drawing {
             canvas->drawPath(path, paint);
 
             if (draw_mismatch_info) {
-                const char *refSeq = cl.region.refSeq;
+                const char *refSeq = cl.region->refSeq;
                 float mmPosOffset, mmScaling;
                 if ((int)mmVector.size() < 500) {
                     mmPosOffset = 0.05;
@@ -499,7 +499,7 @@ namespace Drawing {
         }
     }
 
-    void drawMismatchesNoMD(SkCanvas *canvas, SkRect &rect, const Themes::BaseTheme &theme, const Utils::Region &region, const Segs::Align &align,
+    void drawMismatchesNoMD(SkCanvas *canvas, SkRect &rect, const Themes::BaseTheme &theme, const Utils::Region *region, const Segs::Align &align,
                             float width, float xScaling, float xOffset, float mmPosOffset, float yScaledOffset, float pH, int l_qseq, std::vector<Segs::Mismatches> &mm_array,
                             bool &collection_processed) {
         if (mm_array.empty()) {
@@ -513,12 +513,12 @@ namespace Drawing {
         uint32_t *cigar_p = bam_get_cigar(align.delegate);
         auto *ptr_qual = bam_get_qual(align.delegate);
 
-        if (!region.refSeq) return;
-        const char *refSeq = region.refSeq;
+        if (!region->refSeq) return;
+        const char *refSeq = region->refSeq;
 
-        const uint32_t rlen = region.end - region.start;
-        const uint32_t rbegin = region.start;
-        const uint32_t rend = region.end;
+        const uint32_t rlen = region->end - region->start;
+        const uint32_t rbegin = region->start;
+        const uint32_t rend = region->end;
         uint32_t idx = 0, op, l;
         float p, precalculated_xOffset_mmPosOffset = xOffset + mmPosOffset; // Precalculate this sum
 
@@ -730,8 +730,8 @@ namespace Drawing {
 
         for (auto &cl: collections) {
 
-            int regionBegin = cl.region.start;
-            int regionEnd = cl.region.end;
+            int regionBegin = cl.region->start;
+            int regionEnd = cl.region->end;
             int regionLen = regionEnd - regionBegin;
 
             float xScaling = cl.xScaling;
@@ -974,10 +974,10 @@ namespace Drawing {
             }
 
             // draw markers
-            if (cl.region.markerPos != -1) {
+            if (cl.region->markerPos != -1) {
                 float rp = refSpace + 6 + (cl.bamIdx * cl.yPixels);
                 float xp = refSpace * 0.3;
-                float markerP = (xScaling * (float)(cl.region.markerPos - cl.region.start)) + cl.xOffset;
+                float markerP = (xScaling * (float)(cl.region->markerPos - cl.region->start)) + cl.xOffset;
                 if (markerP > cl.xOffset && markerP < regionPixels - cl.xOffset) {
                     path.reset();
                     path.moveTo(markerP, rp);
@@ -987,7 +987,7 @@ namespace Drawing {
                     path.lineTo(markerP, rp);
                     canvas->drawPath(path, theme.marker_paint);
                 }
-                float markerP2 = (xScaling * (float)(cl.region.markerPosEnd - cl.region.start)) + cl.xOffset;
+                float markerP2 = (xScaling * (float)(cl.region->markerPosEnd - cl.region->start)) + cl.xOffset;
                 if (markerP2 > cl.xOffset && markerP2 < (regionPixels + cl.xOffset)) {
                     path.reset();
                     path.moveTo(markerP2, rp);
@@ -1021,7 +1021,7 @@ namespace Drawing {
                         const std::vector<Segs::Align *> &ind = keyVal.second;
                         int size = (int)ind.size();
                         if (size > 1) {
-                            float max_x = rc.xOffset + (((float)rc.region.end - (float)rc.region.start) * rc.xScaling);
+                            float max_x = rc.xOffset + (((float)rc.region->end - (float)rc.region->start) * rc.xScaling);
                             for (int jdx=0; jdx < size - 1; ++jdx) {
 
                                 const Segs::Align *segA = ind[jdx];
@@ -1031,8 +1031,8 @@ namespace Drawing {
 
                                 long cstart = std::min(segA->block_ends.front(), segB->block_ends.front());
                                 long cend = std::max(segA->block_starts.back(), segB->block_starts.back());
-                                double x_a = ((double)cstart - (double)rc.region.start) * rc.xScaling;
-                                double x_b = ((double)cend - (double)rc.region.start) * rc.xScaling;
+                                double x_a = ((double)cstart - (double)rc.region->start) * rc.xScaling;
+                                double x_b = ((double)cend - (double)rc.region->start) * rc.xScaling;
 
                                 x_a = (x_a < 0) ? 0: x_a;
                                 x_b = (x_b < 0) ? 0 : x_b;
@@ -1075,8 +1075,7 @@ namespace Drawing {
         double regionW = (double)fb_width / (double)regions.size();
         double xPixels = regionW - gap - gap;
         float textW = fonts.overlayWidth;
-        float minLetterSize;
-        minLetterSize = (textW > 0) ? ((float)fb_width / (float)regions.size()) / textW : 0;
+        float minLetterSize = (textW > 0) ? ((float)fb_width / (float)regions.size()) / textW : 0;
         int index = 0;
         //h *= 0.7;
         h = (h - 6 < 4) ? 4: h - 6;
@@ -1098,7 +1097,7 @@ namespace Drawing {
             }
             double i = regionW * index;
             i += gap;
-            if (textW > 0 && (float)size < minLetterSize && fonts.fontHeight < h) {
+            if (textW > 0 && (float)size < minLetterSize && fonts.fontSize <= h * 1.35) {
                 double v = (xScaling - textW) * 0.5;
 
                 while (*ref) {
@@ -1145,7 +1144,7 @@ namespace Drawing {
     void drawBorders(const Themes::IniOptions &opts, float fb_width, float fb_height,
                  SkCanvas *canvas, size_t nregions, size_t nbams, float trackY, float covY) {
         SkPath path;
-        float refSpace = fb_height * 0.02;
+        float refSpace = fb_height * 0.025;
         if (nregions > 1) {
             float x = fb_width / nregions;
             float step = x;
@@ -1519,9 +1518,9 @@ namespace Drawing {
             if (cl.bamIdx + 1 != (int)headers.size()) {
                 continue;
             }
-            auto length = (float) faidx_seq_len(fai, cl.region.chrom.c_str());
-            float s = (float)cl.region.start / length;
-            float e = (float)cl.region.end / length;
+            auto length = (float) faidx_seq_len(fai, cl.region->chrom.c_str());
+            float s = (float)cl.region->start / length;
+            float e = (float)cl.region->end / length;
             float w = (e - s) * drawWidth;
             if (w < 3 ) {
                 w = 3;

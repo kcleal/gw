@@ -415,7 +415,6 @@ namespace Manager {
             std::cerr << termcolor::green << "Index     " << termcolor::reset << variantTracks[variantFileSelection].blockStart << std::endl;
         }
 
-        std::cerr << " n variant tracks " << variantTracks.size() << " " << variantFileSelection << std::endl;
         bool wasResized = false;
         std::chrono::high_resolution_clock::time_point autoSaveTimer = std::chrono::high_resolution_clock::now();
         while (true) {
@@ -539,7 +538,7 @@ namespace Manager {
                     Utils::Region *reg = &regions[j];
                     collections[idx].bamIdx = i;
                     collections[idx].regionIdx = j;
-                    collections[idx].region = regions[j];
+                    collections[idx].region = &regions[j];
                     if (opts.max_coverage) {
                         collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
                         if (opts.snp_threshold > reg->end - reg->start) {
@@ -564,7 +563,7 @@ namespace Manager {
                 for (int j=0; j<(int)regions.size(); ++j) {
                     collections[idx].bamIdx = -1;
                     collections[idx].regionIdx = j;
-                    collections[idx].region = regions[j];
+                    collections[idx].region = &regions[j];
                     idx += 1;
                 }
             }
@@ -596,7 +595,7 @@ namespace Manager {
     }
 
     void GwPlot::setScaling() {  // sets z_scaling, y_scaling trackY and regionWidth
-        refSpace = (float)(fb_height * 0.02); // slider space is the same
+        refSpace =  (float)(fb_height * 0.025); // slider space is the same
         auto fbh = (float) fb_height;
         auto fbw = (float) fb_width;
         if (bams.empty()) {
@@ -634,7 +633,7 @@ namespace Manager {
         bamHeight = covY + trackY;
 
         for (auto &cl: collections) {
-            cl.xScaling = (float)((regionWidth - gap2) / ((double)(cl.region.end - cl.region.start)));
+            cl.xScaling = (float)((regionWidth - gap2) / ((double)(cl.region->end - cl.region->start)));
             cl.xOffset = (regionWidth * (float)cl.regionIdx) + gap;
             cl.yOffset = (float)cl.bamIdx * bamHeight + covY + refSpace;
             cl.yPixels = trackY + covY;
@@ -871,7 +870,6 @@ namespace Manager {
         int bLen = (int)opts.number.x * (int)opts.number.y;
         int endIdx = bStart + bLen;
         currentVarTrack->iterateToIndex(endIdx);
-        std::cerr <<  bStart << " " << endIdx << " here \n";
         for (int i=bStart; i<endIdx; ++i) {
             bool c = imageCache.contains(i);
             if (!c && i < (int)currentVarTrack->multiRegions.size() && !bams.empty()) {
@@ -879,7 +877,6 @@ namespace Manager {
                 runDraw(canvas);
                 sk_sp<SkImage> img(sSurface->makeImageSnapshot());
                 imageCache[i] = img;
-                std::cerr << i << " " << regions.size() << std::endl;
                 sContext->flush();
             }
         }
@@ -890,7 +887,7 @@ namespace Manager {
         int bStart = currentVarTrack->blockStart;
         int bLen = (int)opts.number.x * (int)opts.number.y;
         int endIdx = bStart + bLen;
-        BS::thread_pool pool(opts.threads);
+        //BS::thread_pool pool(opts.threads);
         int n_images = (int)image_glob.size();
         pool.parallelize_loop(bStart, endIdx,
                               [&](const int a, const int b) {
@@ -965,7 +962,7 @@ namespace Manager {
 
         setGlfwFrameBufferSize();
         setScaling();
-        float y_gap = (variantTracks.size() <= 1) ? 0 : 20;
+        float y_gap = (variantTracks.size() <= 1) ? 0 : (10 * monitorScale);
         bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height, 15, 15, y_gap);
 
         if (image_glob.empty()) {
@@ -1041,7 +1038,7 @@ namespace Manager {
                 Utils::Region *reg = &regions[j];
                 collections[idx].bamIdx = i;
                 collections[idx].regionIdx = j;
-                collections[idx].region = regions[j];
+                collections[idx].region = &regions[j];
                 if (opts.max_coverage) {
                     collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
                     if (opts.snp_threshold > reg->end - reg->start) {

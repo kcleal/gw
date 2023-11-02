@@ -452,6 +452,7 @@ namespace Themes {
         rect = SkRect::MakeEmpty();
         path = SkPath();
         fontMaxSize = 35; // in pixels
+        fontHeight = 0;
     }
 
     void Fonts::setTypeface(std::string &fontStr, int size) {

@@ -270,9 +270,9 @@ namespace Parse {
 
         }
         for (auto &output: allTokens) {
-            int res = prep_evaluations(evaluations, output);
-            if (res < 0) {
-                return res;
+            int result = prep_evaluations(evaluations, output);
+            if (result < 0) {
+                return result;
             }
         }
         return 1;
@@ -670,7 +670,7 @@ namespace Parse {
                 }
             }
             std::cout << termcolor::bright_blue << "File\t" << bam_paths[col.bamIdx] << termcolor::reset << std::endl;
-            std::cout << "Region\t" << col.region.chrom << ":" << col.region.start << "-" << col.region.end << std::endl;
+            std::cout << "Region\t" << col.region->chrom << ":" << col.region->start << "-" << col.region->end << std::endl;
             if (!str.empty()) {
                 std::cout << "Filter\t" << str << std::endl;
             }

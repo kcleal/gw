@@ -503,11 +503,11 @@ namespace Term {
     void printRefSeq(float x, std::vector<Segs::ReadCollection> &collections) {
         for (auto &cl: collections) {
             float min_x = cl.xOffset;
-            float max_x = cl.xScaling * ((float)(cl.region.end - cl.region.start)) + min_x;
-            int size = cl.region.end - cl.region.start;
+            float max_x = cl.xScaling * ((float)(cl.region->end - cl.region->start)) + min_x;
+            int size = cl.region->end - cl.region->start;
             if (x > min_x && x < max_x && size <= 20000) {
-                const char * s = cl.region.refSeq;
-                std::cout << "\n\n" << cl.region.chrom << ":" << cl.region.start << "-" << cl.region.end << "\n";
+                const char * s = cl.region->refSeq;
+                std::cout << "\n\n" << cl.region->chrom << ":" << cl.region->start << "-" << cl.region->end << "\n";
                 while (*s) {
                     switch ((unsigned int)*s) {
                         case 65: std::cout << termcolor::green << "a"; break;
@@ -570,21 +570,17 @@ namespace Term {
                 }
 				int r_idx;
 				uint32_t idx = 0;
-				const char *refSeq = cl.region.refSeq;
+				const char *refSeq = cl.region->refSeq;
 				if (refSeq == nullptr) {
 					return;
 				}
-				int rlen = cl.region.end - cl.region.start;
+				int rlen = cl.region->end - cl.region->start;
 				int op, l;
 
 				for (int k = 0; k < (int)cigar_l; k++) {
 					op = cigar_p[k] & BAM_CIGAR_MASK;
 					l = cigar_p[k] >> BAM_CIGAR_SHIFT;
-					if (op == BAM_CSOFT_CLIP) {
-						idx += l;
-						continue;
-					}
-					else if (op == BAM_CINS) {
+					if (op == BAM_CSOFT_CLIP || op == BAM_CINS) {
 						idx += l;
 						continue;
 					}
@@ -626,7 +622,7 @@ namespace Term {
 								r_pos += 1;
 								continue;
 							}
-							r_idx = (int)r_pos - cl.region.start;
+							r_idx = (int)r_pos - cl.region->start;
 							if (r_idx < 0) {
 								idx += 1;
 								r_pos += 1;
@@ -771,29 +767,33 @@ namespace Term {
 		}
 	}
 
-    void updateRefGenomeSeq(float xW, std::vector<Segs::ReadCollection> &collections) {
-        for (auto &cl: collections) {
-            float min_x = cl.xOffset;
-            float max_x = cl.xScaling * ((float)(cl.region.end - cl.region.start)) + min_x;
+//    void updateRefGenomeSeq(float xW, std::vector<Segs::ReadCollection> &collections, Utils::Region *region,
+//                            float xOffset, float xScaling) {
+    void updateRefGenomeSeq(Utils::Region *region, float xW, float xOffset, float xScaling) {
+//        for (auto &cl: collections) {
+//            float min_x = cl.xOffset;
+//            float max_x = cl.xScaling * ((float)(region->end - region->start)) + min_x;
+            float min_x = xOffset;
+            float max_x = xScaling * ((float)(region->end - region->start)) + min_x;
             if (xW > min_x && xW < max_x) {
-                int pos = (int) (((xW - (float) cl.xOffset) / cl.xScaling) + (float) cl.region.start);
+                int pos = (int) (((xW - (float)xOffset) / xScaling) + (float)region->start);
                 int chars =  Utils::get_terminal_width() - 11;
                 if (chars <= 0) {
                     return;
                 }
                 int i = chars / 2; //30;
-                int startIdx = pos - cl.region.start - i;
+                int startIdx = pos - region->start - i;
                 if (startIdx < 0) {
                     i += startIdx;
                     startIdx = 0;
                 }
-                if (startIdx > cl.region.end - cl.region.start) {
+                if (startIdx > region->end - region->start) {
                     return;  // something went wrong
                 }
-                if (cl.region.refSeq == nullptr || startIdx >= (int)strlen(cl.region.refSeq)) {
+                if (region->refSeq == nullptr || startIdx >= (int)strlen(region->refSeq)) {
                     return;
                 }
-                const char * s = &cl.region.refSeq[startIdx];
+                const char * s = &region->refSeq[startIdx];
                 Term::clearLine();
                 std::cout << termcolor::bold << "\rRef       " << termcolor::reset ;
                 int l = 0;
@@ -818,5 +818,5 @@ namespace Term {
                 return;
             }
         }
-    }
+//    }
 }
