@@ -409,12 +409,13 @@ namespace Manager {
         if (mode == Show::SINGLE) {
             printRegionInfo();
         } else {
-//            blockStart = 0;
             mouseOverTileIndex = 0;
             bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
             std::cout << termcolor::magenta << "File      " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
             std::cerr << termcolor::green << "Index     " << termcolor::reset << variantTracks[variantFileSelection].blockStart << std::endl;
         }
+
+        std::cerr << " n variant tracks " << variantTracks.size() << " " << variantFileSelection << std::endl;
         bool wasResized = false;
         std::chrono::high_resolution_clock::time_point autoSaveTimer = std::chrono::high_resolution_clock::now();
         while (true) {
@@ -870,6 +871,7 @@ namespace Manager {
         int bLen = (int)opts.number.x * (int)opts.number.y;
         int endIdx = bStart + bLen;
         currentVarTrack->iterateToIndex(endIdx);
+        std::cerr <<  bStart << " " << endIdx << " here \n";
         for (int i=bStart; i<endIdx; ++i) {
             bool c = imageCache.contains(i);
             if (!c && i < (int)currentVarTrack->multiRegions.size() && !bams.empty()) {
@@ -877,6 +879,7 @@ namespace Manager {
                 runDraw(canvas);
                 sk_sp<SkImage> img(sSurface->makeImageSnapshot());
                 imageCache[i] = img;
+                std::cerr << i << " " << regions.size() << std::endl;
                 sContext->flush();
             }
         }

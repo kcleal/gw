@@ -595,6 +595,7 @@ namespace Manager {
                 int rr = p.set_filter(s, bams.size(), regions.size());
                 if (rr > 0) {
                     filters.push_back(p);
+                    std::cout << inputText << std::endl;
                 } else {
                     inputText = "";
                     return false;
@@ -1575,7 +1576,12 @@ namespace Manager {
                     return;
                 }
                 good = true;
-                std::cout << "Loading: " << pth << std::endl;
+                std::vector<std::string> labels = Utils::split(opts.labels, ',');
+                setLabelChoices(labels);
+
+                mouseOverTileIndex = 0;
+                bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
+
                 imageCache.clear();
                 addVariantTrack(pth, opts.start_index, false);
 
@@ -2162,10 +2168,16 @@ namespace Manager {
                     N.markerPosEnd = regions[regionSelection].markerPosEnd;
                     fetchRefSeq(N);
                     regions[regionSelection] = N;
-                    cl.region = N;
-                    if (!bams.empty()) {
-                        HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts,
-                                                    (bool) opts.max_coverage, !lt_last, &samMaxY, filters, pool);
+                    for (auto &cl : collections) {
+                        if (cl.regionIdx == regionSelection) {
+                            cl.region = N;
+                            if (!bams.empty()) {
+                                HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
+                                                            indexes[cl.bamIdx], opts, (bool)opts.max_coverage, !lt_last,
+                                                            &samMaxY, filters, pool);
+
+                            }
+                        }
                     }
                     processed = true;
                     redraw = true;

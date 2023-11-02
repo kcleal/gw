@@ -360,15 +360,16 @@ namespace Parse {
 
     bool seq_contains(const uint8_t *seq, uint32_t len, const std::string &fstr) {
         auto slen = (int)fstr.size();
+        int target = slen - 1;
         int j;
-        for (int i=0; i< (int)len ; i++){
-            for (j=0 ; j < slen; j++) {
+        for (int i=0; i < (int)len; i++){
+            for (j=0; j < slen; j++) {
                 if (fstr[j] != seq_nt16_str[bam_seqi(seq, i + j)]) {
                     break;
                 }
-            }
-            if (j == slen - 1) {
-                return true;
+                if (j == target) {
+                    return true;
+                }
             }
         }
         return false;
