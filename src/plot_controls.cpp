@@ -1310,12 +1310,13 @@ namespace Manager {
             }
 
             if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+                Utils::Region &region = regions[regionSelection];
                 if (key == opts.scroll_right) {
-                    int shift = (int)(((float)regions[regionSelection].end - (float)regions[regionSelection].start) * opts.scroll_speed);
-                    delete regions[regionSelection].refSeq;
-                    regions[regionSelection].start = regions[regionSelection].start + shift;
-                    regions[regionSelection].end = regions[regionSelection].end + shift;
-                    fetchRefSeq(regions[regionSelection]);
+                    int shift = (int)(((float)region.end - (float)region.start) * opts.scroll_speed);
+                    delete region.refSeq;
+                    region.start = region.start + shift;
+                    region.end = region.end + shift;
+                    fetchRefSeq(region);
 
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
@@ -1333,24 +1334,15 @@ namespace Manager {
                     printRegionInfo();
 
                 } else if (key == opts.scroll_left) {
-                    int shift = (int)(((float)regions[regionSelection].end - (float)regions[regionSelection].start) * opts.scroll_speed);
-                    shift = (regions[regionSelection].start - shift > 0) ? shift : 0;
+                    int shift = (int)(((float)region.end - (float)region.start) * opts.scroll_speed);
+                    shift = (region.start - shift > 0) ? shift : 0;
                     if (shift == 0) {
                         return;
                     }
-                    delete regions[regionSelection].refSeq;
-                    regions[regionSelection].start = regions[regionSelection].start - shift;
-                    regions[regionSelection].end = regions[regionSelection].end - shift;
-                    fetchRefSeq(regions[regionSelection]);
-
-                    Utils::Region N;
-                    N.chrom = regions[regionSelection].chrom;
-                    N.start = regions[regionSelection].start - shift;
-                    N.end = regions[regionSelection].end - shift;
-                    N.markerPos = regions[regionSelection].markerPos;
-                    N.markerPosEnd = regions[regionSelection].markerPosEnd;
-                    fetchRefSeq(N);
-                    regions[regionSelection] = N;
+                    delete region.refSeq;
+                    region.start = region.start - shift;
+                    region.end = region.end - shift;
+                    fetchRefSeq(region);
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
                             cl.region = &regions[regionSelection];
@@ -1366,15 +1358,15 @@ namespace Manager {
                     printRegionInfo();
 
                 } else if (key == opts.zoom_out) {
-                    int shift = (int)((((float)regions[regionSelection].end - (float)regions[regionSelection].start) * opts.scroll_speed)) + 10;
-                    shift = (regions[regionSelection].start - shift > 0) ? shift : 0;
+                    int shift = (int)((((float)region.end - (float)region.start) * opts.scroll_speed)) + 10;
+                    int shift_left = (region.start - shift > 0) ? shift : region.start;
                     if (shift == 0) {
                         return;
                     }
-                    delete regions[regionSelection].refSeq;
-                    regions[regionSelection].start = regions[regionSelection].start - shift;
-                    regions[regionSelection].end = regions[regionSelection].end + shift;
-                    fetchRefSeq(regions[regionSelection]);
+                    delete region.refSeq;
+                    region.start = region.start - shift_left;
+                    region.end = region.end + shift;
+                    fetchRefSeq(region);
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
                             cl.region = &regions[regionSelection];
@@ -1410,17 +1402,12 @@ namespace Manager {
                     printRegionInfo();
 
                 } else if (key == opts.zoom_in) {
-                    if (regions[regionSelection].end - regions[regionSelection].start > 50) {
-                        int shift = (int)(((float)regions[regionSelection].end - (float)regions[regionSelection].start) * opts.scroll_speed);
-                        shift = (regions[regionSelection].start - shift > 0) ? shift : 0;
-                        if (shift == 0) {
-                            return;
-                        }
-                        delete regions[regionSelection].refSeq;
-                        regions[regionSelection].start = regions[regionSelection].start + shift;
-                        regions[regionSelection].end = regions[regionSelection].end - shift;
-                        fetchRefSeq(regions[regionSelection]);
-
+                    if (region.end - region.start > 50) {
+                        int shift = (int)(((float)region.end - (float)region.start) * opts.scroll_speed);
+                        delete region.refSeq;
+                        region.start = region.start + shift;
+                        region.end = region.end - shift;
+                        fetchRefSeq(region);
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = &regions[regionSelection];
@@ -1598,7 +1585,7 @@ namespace Manager {
 
     int GwPlot::getCollectionIdx(float x, float y) {
         if (y <= refSpace) {
-            return REFERENCE_TRACK; //-2;  // reference
+            return REFERENCE_TRACK; //-2
         } else if (!tracks.empty() && y >= refSpace + totalCovY + (trackY*(float)headers.size()) && y < (float)fb_height - refSpace) {
 			int index = -3;
 			float trackSpace = (float)fb_height - totalCovY - refSpace - refSpace - (trackY*(float)headers.size());
@@ -1611,7 +1598,7 @@ namespace Manager {
 			return index;  // track
 		}
         if (regions.empty()) {
-            return NO_REGIONS; //-1;
+            return NO_REGIONS; //-1
         }
         int i = 0;
         if (bams.empty()) {
@@ -1640,7 +1627,7 @@ namespace Manager {
                 i += 1;
             }
         }
-        return NO_REGIONS; //-1;
+        return NO_REGIONS; //-1
     }
 
     void GwPlot::updateSlider(float xW) {
@@ -1726,6 +1713,7 @@ namespace Manager {
             }
             return;
         }
+
         // click on one of the commands in the pop-up menu
         if (commandToolTipIndex != -1 && captureText && mode != SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
             double xPos_fb = x;
@@ -1736,7 +1724,6 @@ namespace Manager {
                 return;
             }
         }
-
         if (xDrag == -1000000) {
             xDrag = 0;
             xOri = x;
@@ -1746,6 +1733,7 @@ namespace Manager {
         }
         xDrag = x - xOri;
         yDrag = y - yOri;
+
         // custom clicks for each mode SINGLE/TILED/SETTINGS. Menu navigation is deferred to Menu::navigateMenu
         if (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_LEFT) {
             if (regions.empty()) {
@@ -1763,7 +1751,21 @@ namespace Manager {
 
             int idx = getCollectionIdx(xW, yW);
             if (idx == REFERENCE_TRACK && action == GLFW_RELEASE) {
-                Term::printRefSeq(xW, collections);
+                if (collections.empty()) {
+                    float xScaling = (float)((regionWidth - gap - gap) / ((double)(regions[regionSelection].end -regions[regionSelection].start)));
+                    float xOffset = (regionWidth * (float)regionSelection) + gap;
+                    Term::printRefSeq(&regions[regionSelection], xW, xOffset, xScaling);
+                } else {
+                    for (auto &cl: collections) {
+                        float min_x = cl.xOffset;
+                        float max_x = cl.xScaling * ((float)(cl.region->end - cl.region->start)) + min_x;
+                        if (xW > min_x && xW < max_x) {
+                            Term::printRefSeq(cl.region, xW, cl.xOffset, cl.xScaling);
+                            break;
+                        }
+                    }
+                }
+
             } else if (idx <= TRACK && action == GLFW_RELEASE) {
 	            float rS = ((float)fb_width / (float)regions.size());
 	            int tIdx = (int)((xW) / rS);
@@ -1779,32 +1781,33 @@ namespace Manager {
 					Term::printTrack(relX, tracks[(idx * -1) -3], &regions[tIdx], false);
 				}
 			}
+            if (action == GLFW_PRESS) {
+                if (collections.empty() || idx < 0) {
+                    clicked = regions[regionSelection];
+                    clickedIdx = -1;
+                } else {
+                    clicked = *collections[idx].region;
+                    clickedIdx = idx;
+                    regionSelection = collections[idx].regionIdx;
+                }
+            }
+
             if (idx < 0) {
                 return;
             }
 
-            Segs::ReadCollection &cl = collections[idx];
-            regionSelection = cl.regionIdx;
-            if (action == GLFW_PRESS) {
-                clicked = *cl.region;
-                clickedIdx = idx;
-            }
             if (std::abs(xDrag) < 5 && action == GLFW_RELEASE && !bams.empty()) {
+                Segs::ReadCollection &cl = collections[idx];
                 int pos = (int) (((xW - (float) cl.xOffset) / cl.xScaling) + (float) cl.region->start);
-
                 if (ctrlPress) {  // zoom in to mouse position
                     int strt = pos - 2500;
                     strt = (strt < 0) ? 0 : strt;
-                    Utils::Region N;
-                    N.chrom = cl.region->chrom;
-                    N.start = strt;
-                    N.end = strt + 5000;
+                    Utils::Region &region = regions[regionSelection];
+                    region.start = strt;
+                    region.end = strt + 5000;
                     regionSelection = cl.regionIdx;
-                    delete regions[regionSelection].refSeq;
-                    N.markerPos = regions[regionSelection].markerPos;
-                    N.markerPosEnd = regions[regionSelection].markerPosEnd;
-                    fetchRefSeq(N);
-                    regions[regionSelection] = N;
+                    delete region.refSeq;
+                    fetchRefSeq(region);
                     processed = false;
                     redraw = true;
                     return;
@@ -1856,32 +1859,26 @@ namespace Manager {
                 clickedIdx = -1;
 
             } else if (action == GLFW_RELEASE) {
-                auto w = (float)(cl.region->end - cl.region->start) * (float) regions.size();
+                Utils::Region &region = regions[regionSelection];
+                auto w = (float)(region.end - region.start) * (float) regions.size();
                 if (w >= 50000) {
                     int travel = (int) (w * (xDrag / windowW));
-                    Utils::Region N;
-                    if (cl.region->start - travel < 0) {
-                        travel = cl.region->start;
-                        N.chrom = cl.region->chrom;
-                        N.start = 0;
-                        N.end = clicked.end - travel;
+                    int old_start = region.start;
+                    if (region.start - travel < 0) {
+                        travel = region.start;
+                        region.start = 0;
+                        region.end = clicked.end - travel;
                     } else {
-                        N.chrom = cl.region->chrom;
-                        N.start = clicked.start - travel;
-                        N.end = clicked.end - travel;
+                        region.start = clicked.start - travel;
+                        region.end = clicked.end - travel;
                     }
-                    if (N.start < 0 || N.end < 0) {
+                    if (region.start < 0 || region.end < 0) {
                         return;
                     }
-                    regionSelection = cl.regionIdx;
-                    delete regions[regionSelection].refSeq;
+                    delete region.refSeq;
+                    fetchRefSeq(region);
 
-                    N.markerPos = regions[regionSelection].markerPos;
-                    N.markerPosEnd = regions[regionSelection].markerPosEnd;
-                    fetchRefSeq(N);
-
-                    bool lt_last = N.start < cl.region->start;
-                    regions[regionSelection] = N;
+                    bool lt_last = region.start < old_start;
                     if (opts.link_op != 0) {
                         processed = false;
                         redraw = true;
@@ -1976,6 +1973,9 @@ namespace Manager {
                     }
                 }
             } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+                if (regions.empty()) {
+                    return;
+                }
                 if (std::fabs(xDrag) > fb_width / 8.) {
                     int nmb = opts.number.x * opts.number.y;
                     if (xDrag > 0) {
@@ -2033,11 +2033,12 @@ namespace Manager {
         }
     }
 
-    void GwPlot::updateCursorGenomePos(Segs::ReadCollection &cl, float xPos) {
+    //void GwPlot::updateCursorGenomePos(Segs::ReadCollection &cl, float xPos) {
+    void GwPlot::updateCursorGenomePos(float xOffset, float xScaling, float xPos, Utils::Region *region, int bamIdx=0) {
         if (regions.empty() || mode == TILED) {
             return;
         }
-        int pos = ((int) (((double)xPos - (double)cl.xOffset) / (double)cl.xScaling)) + cl.region->start;
+        int pos = ((int) (((double)xPos - (double)xOffset) / (double)xScaling)) + region->start;
         std::string s = Term::intToStringCommas(pos);
         int term_width_remaining = printRegionInfo();
         s = "    " + s;
@@ -2047,7 +2048,7 @@ namespace Manager {
         std::cout << s << std::flush;
         if (!bam_paths.empty()) {
             term_width_remaining -= (int)s.size();
-            std::string base_filename = "  -  " + bam_paths[cl.bamIdx].substr(bam_paths[cl.bamIdx].find_last_of("/\\") + 1);
+            std::string base_filename = "  -  " + bam_paths[bamIdx].substr(bam_paths[bamIdx].find_last_of("/\\") + 1);
             if (term_width_remaining < (int)base_filename.size()) {
                 std::cout << std::flush;
                 return;
@@ -2111,12 +2112,12 @@ namespace Manager {
         }
 
         if (state == GLFW_PRESS) {
+
             xDrag = xPos - xOri;  // still in window co-ords not frame buffer co-ords
             yDrag = yPos - yOri;
             if (std::abs(xDrag) > 5 || std::abs(yDrag) > 5) {
                 captureText = false;
             }
-
             if (mode == Manager::SINGLE) {
                 if (regions.empty()) {
                     return;
@@ -2128,44 +2129,27 @@ namespace Manager {
                     return;
                 }
                 int idx = getCollectionIdx((float) xPos_fb, (float) yPos_fb);
-                if (idx < 0) {
-                    return;
-                }
-                Segs::ReadCollection &cl = collections[idx];
-                regionSelection = cl.regionIdx;
-                if (clickedIdx == -1 || idx != clickedIdx) {
-                    return;
-                }
                 int windowW, windowH;
                 glfwGetWindowSize(wind, &windowW, &windowH);
+                Utils::Region &region = regions[regionSelection];
 
-                if (std::fabs(xDrag) > std::fabs(yDrag) && cl.region->end - cl.region->start < 50000) {
+                if (std::fabs(xDrag) > std::fabs(yDrag) && region.end - region.start < 50000) {
                     printRegionInfo();
-                    auto w = (float) (cl.region->end - cl.region->start) * (float) regions.size();
+                    auto w = (float) (region.end - region.start) * (float) regions.size();
                     int travel = (int) (w * (xDrag / windowW));
-                    Utils::Region N;
-                    if (cl.region->start - travel < 0) {
-                        travel = cl.region->start;
-                        N.chrom = cl.region->chrom;
-                        N.start = 0;
-                        N.end = clicked.end - travel;
+                    if (region.start - travel < 1) {
+                        return;
                     } else {
-                        N.chrom = cl.region->chrom;
-                        N.start = clicked.start - travel;
-                        N.end = clicked.end - travel;
+                        region.start = clicked.start - travel;
+                        region.end = clicked.end - travel;
                     }
-                    if (N.start < 0 || N.end < 0) {
+                    if (region.start < 1 || region.end < 1) {
                         return;
                     }
-                    regionSelection = cl.regionIdx;
-                    delete regions[regionSelection].refSeq;
-                    N.markerPos = regions[regionSelection].markerPos;
-                    N.markerPosEnd = regions[regionSelection].markerPosEnd;
-                    fetchRefSeq(N);
-                    regions[regionSelection] = N;
+                    delete region.refSeq;
+                    fetchRefSeq(region);
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
-                            cl.region = &regions[regionSelection];
                             if (!bams.empty()) {
                                 HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                             indexes[cl.bamIdx], opts, (bool)opts.max_coverage, !lt_last,
@@ -2179,6 +2163,15 @@ namespace Manager {
                     glfwPostEmptyEvent();
                     return;
                 } else {
+                    if (idx < 0) {
+                        return;
+                    }
+                    Segs::ReadCollection &cl = collections[idx];
+                        regionSelection = cl.regionIdx;
+                    if (clickedIdx == -1 || idx != clickedIdx) {
+                        return;
+                    }
+
                     if (std::fabs(yDrag) > std::fabs(xDrag) && std::fabs(yDrag) > 1) {
                         float travel_y = yDrag / ((float) windowH / (float) cl.levelsStart.size());
                         if (std::fabs(travel_y) > 1) {
@@ -2222,10 +2215,10 @@ namespace Manager {
 		            }
 	            }
                 if (rs < 0) { // print reference info
+                    float xScaling = (float)((regionWidth - gap - gap) / ((double)(regions[regionSelection].end -regions[regionSelection].start)));
+                    float xOffset = (regionWidth * (float)regionSelection) + gap;
                     if (rs == REFERENCE_TRACK) {
                         if (collections.empty()) {
-                            float xScaling = (float)((regionWidth - gap - gap) / ((double)(regions[regionSelection].end -regions[regionSelection].start)));
-                            float xOffset = (regionWidth * (float)regionSelection) + gap;
                             Term::updateRefGenomeSeq(&regions[regionSelection], (float)xPos_fb, xOffset,  xScaling);
                         } else {
                             for (auto &cl: collections) {
@@ -2237,9 +2230,12 @@ namespace Manager {
                                 }
                             }
                         }
+                    } else {
+                        updateCursorGenomePos(xOffset, xScaling, (float)xPos_fb, &regions[regionSelection]);
                     }
                     return;
                 }
+
                 Segs::ReadCollection &cl = collections[rs];
                 regionSelection = cl.regionIdx;
 	            int pos = (int) ((((double)xPos_fb - (double)cl.xOffset) / (double)cl.xScaling) + (double)cl.region->start);
@@ -2250,7 +2246,7 @@ namespace Manager {
 		            Term::printCoverage(pos, cl);
 		            return;
 	            }
-                updateCursorGenomePos(cl, (float)xPos_fb);
+                updateCursorGenomePos(cl.xOffset, cl.xScaling, (float)xPos_fb, cl.region, cl.bamIdx);
             } else if (mode == TILED) {
                 currentVarTrack = &variantTracks[variantFileSelection];
                 int i = 0;

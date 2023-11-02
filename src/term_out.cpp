@@ -490,7 +490,6 @@ namespace Term {
 
     void printKeyFromValue(int v) {
         ankerl::unordered_dense::map<std::string, int> key_table;
-//        robin_hood::unordered_map<std::string, int> key_table;
         Keys::getKeyTable(key_table);
         for (auto &p: key_table) {
             if (p.second == v) {
@@ -500,14 +499,16 @@ namespace Term {
         }
     }
 
-    void printRefSeq(float x, std::vector<Segs::ReadCollection> &collections) {
-        for (auto &cl: collections) {
-            float min_x = cl.xOffset;
-            float max_x = cl.xScaling * ((float)(cl.region->end - cl.region->start)) + min_x;
-            int size = cl.region->end - cl.region->start;
+    //void printRefSeq(float x, std::vector<Segs::ReadCollection> &collections) {
+    void printRefSeq(Utils::Region *region, float x, float xOffset, float xScaling) {
+//    for (auto &cl: collections) {
+            float min_x = xOffset;
+            float max_x = xScaling * ((float)(region->end - region->start)) + min_x;
+            int size = region->end - region->start;
+            std::cerr << x << " " << min_x << " " << max_x << "  " << size << std::endl;
             if (x > min_x && x < max_x && size <= 20000) {
-                const char * s = cl.region->refSeq;
-                std::cout << "\n\n" << cl.region->chrom << ":" << cl.region->start << "-" << cl.region->end << "\n";
+                const char * s = region->refSeq;
+                std::cout << "\n\n" << region->chrom << ":" << region->start << "-" << region->end << "\n";
                 while (*s) {
                     switch ((unsigned int)*s) {
                         case 65: std::cout << termcolor::green << "a"; break;
@@ -527,7 +528,7 @@ namespace Term {
                 std::cout << termcolor::reset << std::endl << std::endl;
                 return;
             }
-        }
+//        }
     }
 
     std::string intToStringCommas(int pos) {
@@ -767,12 +768,7 @@ namespace Term {
 		}
 	}
 
-//    void updateRefGenomeSeq(float xW, std::vector<Segs::ReadCollection> &collections, Utils::Region *region,
-//                            float xOffset, float xScaling) {
     void updateRefGenomeSeq(Utils::Region *region, float xW, float xOffset, float xScaling) {
-//        for (auto &cl: collections) {
-//            float min_x = cl.xOffset;
-//            float max_x = cl.xScaling * ((float)(region->end - region->start)) + min_x;
             float min_x = xOffset;
             float max_x = xScaling * ((float)(region->end - region->start)) + min_x;
             if (xW > min_x && xW < max_x) {

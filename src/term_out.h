@@ -36,12 +36,11 @@ namespace Term {
 
     std::string intToStringCommas(int pos);
 
-    void printRefSeq(float x, std::vector<Segs::ReadCollection> &collections);
+    void printRefSeq(Utils::Region *region, float x, float xOffset, float xScaling);
 
 	void printCoverage(int pos, Segs::ReadCollection &cl);
 
 	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver);
 
-    //void updateRefGenomeSeq(float xW, std::vector<Segs::ReadCollection> &collections);
     void updateRefGenomeSeq(Utils::Region *region, float xW, float xOffset, float xScaling);
 }

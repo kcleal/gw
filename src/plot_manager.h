@@ -239,7 +239,8 @@ namespace Manager {
 
         void highlightQname();
 
-        void updateCursorGenomePos(Segs::ReadCollection &cl, float xPos);
+        void updateCursorGenomePos(float xOffset, float xScaling, float xPos, Utils::Region *region, int bamIdx);
+        //void updateCursorGenomePos(Segs::ReadCollection &cl, float xPos);
 
         void updateSlider(float xPos);
 
