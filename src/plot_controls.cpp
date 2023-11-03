@@ -159,7 +159,7 @@ namespace Manager {
                     variantFileSelection = (variantFileSelection < (int)variantTracks.size() - 1) ? variantFileSelection + 1 : variantFileSelection;
                 }
                 if (variantFileSelection != before) {
-                    std::cout << termcolor::magenta << "File      " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
+                    std::cout << termcolor::magenta << "\nFile    " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
                     redraw = true;
                     processed = false;
                     imageCache.clear();
@@ -1167,12 +1167,64 @@ namespace Manager {
         return true;
     }
 
+    void GwPlot::printIndexInfo() {
+        int term_width = Utils::get_terminal_width() - 1;
+        Term::clearLine();
+        std::string i_str = "\rIndex   ";
+        if (term_width <= (int)i_str.size()) {
+            return;
+        }
+        Term::clearLine();
+        std::cout << termcolor::bold << i_str << termcolor::reset;
+        term_width -= (int)i_str.size();
+        int blockStart = currentVarTrack->blockStart;
+
+        std::string ind = std::to_string(blockStart) + "-" + std::to_string(blockStart + (opts.number.x * opts.number.y) - 1);
+        if (term_width <= (int)ind.size()) {
+            std::cout << std::flush;
+            return;
+        }
+        std::cout << ind;
+        term_width -= (int)ind.size();
+
+        if (currentVarTrack->multiRegions.size() <= blockStart) {
+            std::cout << std::flush;
+            return;
+        }
+        Utils::Region &start_region = currentVarTrack->multiRegions[blockStart].front();
+        std::string chrom = start_region.chrom;
+        int start = start_region.start;
+
+        std::string region_str1 = "   " + chrom + ":" + std::to_string(start);
+        if (term_width <= (int)region_str1.size()) {
+            std::cout << std::flush;
+            return;
+        }
+        std::cout << region_str1;
+        term_width -= (int)region_str1.size();
+
+        if (currentVarTrack->multiRegions.size() <= blockStart + (opts.number.x * opts.number.y) - 1) {
+            std::cout << std::flush;
+            return;
+        }
+
+        Utils::Region &end_region = currentVarTrack->multiRegions[blockStart + (opts.number.x * opts.number.y) - 1].front();
+        int end = end_region.end;
+        std::string region_str2 = + "-" + std::to_string(end);
+        if (term_width <= (int)region_str2.size()) {
+            std::cout << std::flush;
+            return;
+        }
+        std::cout << region_str2;
+        std::cout << std::flush;
+    }
+
     int GwPlot::printRegionInfo() {
         int term_width = Utils::get_terminal_width() - 1;
         if (regions.empty()) {
             return term_width;
         }
-        std::string pos_str = "\rPos   ";
+        std::string pos_str = "\rPos     ";
         if (term_width <= (int)pos_str.size()) {
             return term_width;
         }
@@ -1492,8 +1544,6 @@ namespace Manager {
                     if (!*currentVarTrack->trackDone) {
                         currentVarTrack->blockStart += bLen;
                         redraw = true;
-                        Term::clearLine();
-                        std::cout << termcolor::green << "\rIndex     " << termcolor::reset << currentVarTrack->blockStart << std::endl;
                     }
                 } else if (key == opts.scroll_left) {
                     if (currentVarTrack->blockStart == 0) {
@@ -1501,8 +1551,6 @@ namespace Manager {
                     }
                     currentVarTrack->blockStart = (currentVarTrack->blockStart - bLen > 0) ? currentVarTrack->blockStart - bLen : 0;
                     redraw = true;
-                    Term::clearLine();
-                    std::cout << termcolor::green << "\rIndex     " << termcolor::reset << currentVarTrack->blockStart << std::endl;
                 } else if (key == opts.zoom_out) {
                     opts.number.x += 1;
                     opts.number.y += 1;
@@ -1572,8 +1620,7 @@ namespace Manager {
 //                setVariantFile(pth, opts.start_index, false);
                 currentVarTrack->blockStart = 0;
                 mode = Manager::Show::TILED;
-                std::cout << termcolor::magenta << "File      " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
-                std::cout << termcolor::green << "Index     " << termcolor::reset << currentVarTrack->blockStart << std::endl;
+                std::cout << termcolor::magenta << "\nFile    " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
             }
             ++paths;
         }
@@ -1976,13 +2023,27 @@ namespace Manager {
                 if (regions.empty()) {
                     return;
                 }
+
+                bool variantFile_click = variantTracks.size() > 1 && yW < fb_height * 0.02;
+                if (variantFile_click) {
+                    std::cerr << xW << " hi\n";
+                    float tile_box_w = std::fmin(100 * monitorScale, (fb_width - (variantTracks.size() * gap + 1)) / variantTracks.size());
+                    float x_val = gap;
+                    for (int i=0; i < variantTracks.size(); ++i) {
+                        if (x_val - gap <= xW && x_val + tile_box_w >= xW) {
+                            variantFileSelection = i;
+                            redraw = true;
+                            break;
+                        }
+                        x_val += tile_box_w + gap;
+                    }
+                }
+
                 if (std::fabs(xDrag) > fb_width / 8.) {
                     int nmb = opts.number.x * opts.number.y;
                     if (xDrag > 0) {
                         currentVarTrack->blockStart = (currentVarTrack->blockStart - nmb < 0) ? 0 : currentVarTrack->blockStart - nmb;
                         redraw = true;
-                        std::cout << "\r                                                                               ";
-                        std::cout << termcolor::green << "\rIndex     " << termcolor::reset << currentVarTrack->blockStart << std::flush;
                     } else {
                         size_t targetSize = (image_glob.empty()) ? currentVarTrack->multiRegions.size() : image_glob.size();
                         if (currentVarTrack->blockStart + nmb >= (int)targetSize) {
@@ -1990,8 +2051,6 @@ namespace Manager {
                         }
                         currentVarTrack->blockStart += nmb;
                         redraw = true;
-                        std::cout << "\r                                                                               ";
-                        std::cout << termcolor::green << "\rIndex     " << termcolor::reset << currentVarTrack->blockStart << std::flush;
                     }
                 } else if (std::fabs(xDrag) < 5) {
                     int i = 0;
@@ -2266,7 +2325,7 @@ namespace Manager {
                         mouseOverTileIndex = i;
                     }
                     Term::clearLine();
-                    std::cout << termcolor::bold << "\rPos  " << termcolor::reset << lbl.chrom << ":" << lbl.pos << termcolor::bold <<
+                    std::cout << termcolor::bold << "\rPos     " << termcolor::reset << lbl.chrom << ":" << lbl.pos << termcolor::bold <<
                               "    ID  "  << termcolor::reset << lbl.variantId << termcolor::bold <<
                               "    Type  "  << termcolor::reset << lbl.vartype << termcolor::bold <<
                               "    Index  "  << termcolor::reset << mouseOverTileIndex + currentVarTrack->blockStart;
@@ -2276,11 +2335,11 @@ namespace Manager {
                     std::vector<Utils::Region> rt;
                     if (Utils::parseFilenameToMouseClick(image_glob[currentVarTrack->blockStart + i], rt, fai, opts.pad, opts.split_view_size)) {
                         Term::clearLine();
-                        std::cout << termcolor::bold << "\rPos  ";
+                        std::cout << termcolor::bold << "\rPos     ";
                         for (auto &r : rt) {
                             std::cout << termcolor::reset << r.chrom << ":" << r.start << "-" << r.end << termcolor::bold << "    ";
                         }
-                        std::cout << "File  "  << termcolor::reset << image_glob[currentVarTrack->blockStart + i].filename();
+                        std::cout << "\nFile    " << termcolor::reset << image_glob[currentVarTrack->blockStart + i].filename();
                         std::cout << std::flush;
                     }
                 }

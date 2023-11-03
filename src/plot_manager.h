@@ -179,6 +179,8 @@ namespace Manager {
 
         sk_sp<SkImage> makeImage();
 
+        void printIndexInfo();
+
         int printRegionInfo();
 
 

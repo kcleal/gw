@@ -411,8 +411,7 @@ namespace Manager {
         } else {
             mouseOverTileIndex = 0;
             bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
-            std::cout << termcolor::magenta << "File      " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
-            std::cerr << termcolor::green << "Index     " << termcolor::reset << variantTracks[variantFileSelection].blockStart << std::endl;
+            std::cout << termcolor::magenta << "File    " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
         }
 
         bool wasResized = false;
@@ -430,6 +429,7 @@ namespace Manager {
                     drawScreen(sSurface->getCanvas(), sContext, sSurface);
                 } else if (mode == Show::TILED) {
                     drawTiles(sSurface->getCanvas(), sContext, sSurface);
+                    printIndexInfo();
                 }
             }
 
@@ -718,7 +718,31 @@ namespace Manager {
             box.setAntiAlias(true);
             box.setStyle(SkPaint::kStroke_Style);
             rect.setXYWH((float)regionSelection * step + gap, y + gap, step - gap - gap, height);
-            canvas->drawRoundRect(rect, 5, 5, box);
+            canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, box);
+        }
+
+        if (mode == Show::TILED && variantTracks.size() > 1) {
+            float tile_box_w = std::fmin(100 * monitorScale, (fb_width - (variantTracks.size() * gap + 1)) / variantTracks.size());
+            SkPaint box{};
+            SkRect rect{};
+            box = opts.theme.ecSelected;
+            box.setStyle(SkPaint::kStroke_Style);
+            float x_val = gap;
+            float h = fb_height * 0.01;
+            float y_val;
+            for (int i=0; i < variantTracks.size(); ++i) {
+                if (i == variantFileSelection) {
+                    box = opts.theme.fcDup;
+                    y_val = 0;
+                } else {
+                    box = opts.theme.fcCoverage;
+                    box.setStyle(SkPaint::kStrokeAndFill_Style);
+                    y_val = -h / 2;
+                }
+                rect.setXYWH(x_val, y_val, tile_box_w, h);
+                canvas->drawRect(rect,  box);
+                x_val += tile_box_w + gap;
+            }
         }
 
         double xposm, yposm;
@@ -774,6 +798,26 @@ namespace Manager {
             canvas->drawPath(path, opts.theme.lcJoins);
         }
 
+        bool variantFile_info = mode == TILED && variantTracks.size() > 1 && yposm < fb_height * 0.02;
+        if (variantFile_info) {
+            float tile_box_w = std::fmin(100 * monitorScale, (fb_width - (variantTracks.size() * gap + 1)) / variantTracks.size());
+            float x_val = gap;
+            float h = fonts.overlayHeight / 2;
+            SkRect rect{};
+            for (int i=0; i < variantTracks.size(); ++i) {
+                if (x_val - gap <= xposm && x_val + tile_box_w >= xposm) {
+                    std::string &fname = variantTracks[i].path;
+                    rect.setXYWH(x_val, h, fname.size() * fonts.overlayWidth + gap + gap, fonts.overlayHeight*2);
+                    canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale,opts.theme.bgPaint);
+                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(fname.c_str(), fonts.overlay);
+                    canvas->drawTextBlob(blob, x_val + gap, h + (fonts.overlayHeight * 1.3), opts.theme.tcDel);
+                    rect.setXYWH(x_val, 0, tile_box_w, fb_width * 0.005);
+                    canvas->drawRect(rect,  opts.theme.fcDup);
+                }
+                x_val += tile_box_w + gap;
+            }
+        }
+
         if (captureText && !opts.editing_underway) {
             fonts.setFontSize(yScaling, monitorScale);
             SkRect rect{};
@@ -791,8 +835,8 @@ namespace Manager {
                 box.setAntiAlias(true);
                 box.setStyle(SkPaint::kStroke_Style);
                 rect.setXYWH(x, yy, w, height_f);
-                canvas->drawRoundRect(rect, 5, 5, opts.theme.bgPaint);
-                canvas->drawRoundRect(rect, 5, 5, box);
+                canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, opts.theme.bgPaint);
+                canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, box);
                 SkPath path;
                 path.moveTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 0.3));
                 path.lineTo(x + 14 + to_cursor_width, yy + fonts.overlayHeight * 1.5);
@@ -815,7 +859,7 @@ namespace Manager {
                             break;
                         }
                         rect.setXYWH(x, yy - fonts.overlayHeight - pad, fonts.overlayWidth * 16, fonts.overlayHeight + pad + pad);
-                        canvas->drawRoundRect(rect, 5, 5, opts.theme.bgPaint);
+                        canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, opts.theme.bgPaint);
                         sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(cmd, fonts.overlay);
                         canvas->drawTextBlob(blob, x + (fonts.overlayWidth * 3), yy, opts.theme.tcDel);
                         tip_paint.setStyle(SkPaint::kStrokeAndFill_Style);

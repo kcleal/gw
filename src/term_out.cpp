@@ -499,36 +499,32 @@ namespace Term {
         }
     }
 
-    //void printRefSeq(float x, std::vector<Segs::ReadCollection> &collections) {
     void printRefSeq(Utils::Region *region, float x, float xOffset, float xScaling) {
-//    for (auto &cl: collections) {
-            float min_x = xOffset;
-            float max_x = xScaling * ((float)(region->end - region->start)) + min_x;
-            int size = region->end - region->start;
-            std::cerr << x << " " << min_x << " " << max_x << "  " << size << std::endl;
-            if (x > min_x && x < max_x && size <= 20000) {
-                const char * s = region->refSeq;
-                std::cout << "\n\n" << region->chrom << ":" << region->start << "-" << region->end << "\n";
-                while (*s) {
-                    switch ((unsigned int)*s) {
-                        case 65: std::cout << termcolor::green << "a"; break;
-                        case 67: std::cout << termcolor::blue << "c"; break;
-                        case 71: std::cout << termcolor::yellow << "g"; break;
-                        case 78: std::cout << termcolor::bright_grey << "n"; break;
-                        case 84: std::cout << termcolor::red << "t"; break;
-                        case 97: std::cout << termcolor::green << "A"; break;
-                        case 99: std::cout << termcolor::blue << "C"; break;
-                        case 103: std::cout << termcolor::yellow << "G"; break;
-                        case 110: std::cout << termcolor::bright_grey << "N"; break;
-                        case 116: std::cout << termcolor::red << "T"; break;
-                        default: std::cout << "?"; break;
-                    }
-                    ++s;
+        float min_x = xOffset;
+        float max_x = xScaling * ((float)(region->end - region->start)) + min_x;
+        int size = region->end - region->start;
+        if (x > min_x && x < max_x && size <= 20000) {
+            const char * s = region->refSeq;
+            std::cout << "\n\n" << region->chrom << ":" << region->start << "-" << region->end << "\n";
+            while (*s) {
+                switch ((unsigned int)*s) {
+                    case 65: std::cout << termcolor::green << "a"; break;
+                    case 67: std::cout << termcolor::blue << "c"; break;
+                    case 71: std::cout << termcolor::yellow << "g"; break;
+                    case 78: std::cout << termcolor::bright_grey << "n"; break;
+                    case 84: std::cout << termcolor::red << "t"; break;
+                    case 97: std::cout << termcolor::green << "A"; break;
+                    case 99: std::cout << termcolor::blue << "C"; break;
+                    case 103: std::cout << termcolor::yellow << "G"; break;
+                    case 110: std::cout << termcolor::bright_grey << "N"; break;
+                    case 116: std::cout << termcolor::red << "T"; break;
+                    default: std::cout << "?"; break;
                 }
-                std::cout << termcolor::reset << std::endl << std::endl;
-                return;
+                ++s;
             }
-//        }
+            std::cout << termcolor::reset << std::endl << std::endl;
+            return;
+        }
     }
 
     std::string intToStringCommas(int pos) {
@@ -769,50 +765,50 @@ namespace Term {
 	}
 
     void updateRefGenomeSeq(Utils::Region *region, float xW, float xOffset, float xScaling) {
-            float min_x = xOffset;
-            float max_x = xScaling * ((float)(region->end - region->start)) + min_x;
-            if (xW > min_x && xW < max_x) {
-                int pos = (int) (((xW - (float)xOffset) / xScaling) + (float)region->start);
-                int chars =  Utils::get_terminal_width() - 11;
-                if (chars <= 0) {
-                    return;
-                }
-                int i = chars / 2; //30;
-                int startIdx = pos - region->start - i;
-                if (startIdx < 0) {
-                    i += startIdx;
-                    startIdx = 0;
-                }
-                if (startIdx > region->end - region->start) {
-                    return;  // something went wrong
-                }
-                if (region->refSeq == nullptr || startIdx >= (int)strlen(region->refSeq)) {
-                    return;
-                }
-                const char * s = &region->refSeq[startIdx];
-                Term::clearLine();
-                std::cout << termcolor::bold << "\rRef       " << termcolor::reset ;
-                int l = 0;
-                while (*s && l < chars) {
-                    switch ((unsigned int)*s) { // this is a bit of mess, but gets the job done
-                        case 65: ((l == i) ? (std::cout << termcolor::underline << termcolor::green << "a" << termcolor::reset) : (std::cout << termcolor::green << "a") ); break;
-                        case 67: ((l == i) ? (std::cout << termcolor::underline << termcolor::blue << "c" << termcolor::reset) : (std::cout << termcolor::blue << "c") ); break;
-                        case 71: ((l == i) ? (std::cout << termcolor::underline << termcolor::yellow << "g" << termcolor::reset) : (std::cout << termcolor::yellow << "g") ); break;
-                        case 78: ((l == i) ? (std::cout << termcolor::underline << termcolor::bright_grey << "n" << termcolor::reset) : (std::cout << termcolor::bright_grey << "n") ); break;
-                        case 84: ((l == i) ? (std::cout << termcolor::underline << termcolor::red << "t" << termcolor::reset) : (std::cout << termcolor::red << "t") ); break;
-                        case 97: ((l == i) ? (std::cout << termcolor::underline << termcolor::green << "A" << termcolor::reset) : (std::cout << termcolor::green << "A") ); break;
-                        case 99: ((l == i) ? (std::cout << termcolor::underline << termcolor::blue << "C" << termcolor::reset) : (std::cout << termcolor::blue << "C") ); break;
-                        case 103: ((l == i) ? (std::cout << termcolor::underline << termcolor::yellow << "G" << termcolor::reset) : (std::cout << termcolor::yellow << "G") ); break;
-                        case 110: ((l == i) ? (std::cout << termcolor::underline << termcolor::bright_grey << "N" << termcolor::reset) : (std::cout << termcolor::bright_grey << "N") ); break;
-                        case 116: ((l == i) ? (std::cout << termcolor::underline << termcolor::red << "T" << termcolor::reset) : (std::cout << termcolor::red << "T") ); break;
-                        default: std::cout << "?"; break;
-                    }
-                    ++s;
-                    l += 1;
-                }
-                std::cout << termcolor::reset << std::flush;
+        float min_x = xOffset;
+        float max_x = xScaling * ((float)(region->end - region->start)) + min_x;
+        if (xW > min_x && xW < max_x) {
+            int pos = (int) (((xW - (float)xOffset) / xScaling) + (float)region->start);
+            int chars =  Utils::get_terminal_width() - 11;
+            if (chars <= 0) {
                 return;
             }
+            int i = chars / 2; //30;
+            int startIdx = pos - region->start - i;
+            if (startIdx < 0) {
+                i += startIdx;
+                startIdx = 0;
+            }
+            if (startIdx > region->end - region->start) {
+                return;  // something went wrong
+            }
+            if (region->refSeq == nullptr || startIdx >= (int)strlen(region->refSeq)) {
+                return;
+            }
+            const char * s = &region->refSeq[startIdx];
+            Term::clearLine();
+            std::cout << termcolor::bold << "\rRef       " << termcolor::reset ;
+            int l = 0;
+            while (*s && l < chars) {
+                switch ((unsigned int)*s) { // this is a bit of mess, but gets the job done
+                    case 65: ((l == i) ? (std::cout << termcolor::underline << termcolor::green << "a" << termcolor::reset) : (std::cout << termcolor::green << "a") ); break;
+                    case 67: ((l == i) ? (std::cout << termcolor::underline << termcolor::blue << "c" << termcolor::reset) : (std::cout << termcolor::blue << "c") ); break;
+                    case 71: ((l == i) ? (std::cout << termcolor::underline << termcolor::yellow << "g" << termcolor::reset) : (std::cout << termcolor::yellow << "g") ); break;
+                    case 78: ((l == i) ? (std::cout << termcolor::underline << termcolor::bright_grey << "n" << termcolor::reset) : (std::cout << termcolor::bright_grey << "n") ); break;
+                    case 84: ((l == i) ? (std::cout << termcolor::underline << termcolor::red << "t" << termcolor::reset) : (std::cout << termcolor::red << "t") ); break;
+                    case 97: ((l == i) ? (std::cout << termcolor::underline << termcolor::green << "A" << termcolor::reset) : (std::cout << termcolor::green << "A") ); break;
+                    case 99: ((l == i) ? (std::cout << termcolor::underline << termcolor::blue << "C" << termcolor::reset) : (std::cout << termcolor::blue << "C") ); break;
+                    case 103: ((l == i) ? (std::cout << termcolor::underline << termcolor::yellow << "G" << termcolor::reset) : (std::cout << termcolor::yellow << "G") ); break;
+                    case 110: ((l == i) ? (std::cout << termcolor::underline << termcolor::bright_grey << "N" << termcolor::reset) : (std::cout << termcolor::bright_grey << "N") ); break;
+                    case 116: ((l == i) ? (std::cout << termcolor::underline << termcolor::red << "T" << termcolor::reset) : (std::cout << termcolor::red << "T") ); break;
+                    default: std::cout << "?"; break;
+                }
+                ++s;
+                l += 1;
+            }
+            std::cout << termcolor::reset << std::flush;
+            return;
         }
-//    }
+    }
+
 }
