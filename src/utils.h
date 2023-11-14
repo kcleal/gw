@@ -35,12 +35,21 @@ namespace Utils {
 
     bool is_file_exist(std::string FileName);
 
-    struct TrackBlock {
+    class TrackBlock {
+    public:
         std::string chrom, name, line, vartype;
         int start, end;
         int strand;  // 0 is none, 1 forward, 2 reverse
-        std::vector<int> s;  // block starts and block ends for bed12
+        std::vector<std::string> parts;
+        std::vector<int> s;  // block starts and block ends for bed12/GFF
         std::vector<int> e;
+        std::vector<bool> drawThick;
+    };
+
+    class GFFTrackBlock {
+    public:
+        std::string chrom, name, line, vartype;
+        int start, end;
     };
 
     struct Region {

@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <sstream>
 #include <string>
+#include <memory>
 #include <GLFW/glfw3.h>
 
 #include "include/core/SkCanvas.h"
@@ -1327,6 +1328,285 @@ namespace Drawing {
         }
     }
 
+    void drawBed12(Themes::IniOptions &opts, float fb_width, float fb_height,
+                   SkCanvas *canvas, float totalTabixY, float tabixY, std::vector<HGW::GwTrack> &tracks,
+                   const std::vector<Utils::Region> &regions, const Themes::Fonts &fonts,
+                   float gap, HGW::GwTrack &trk, bool any_text, const Utils::Region &rgn, SkRect &rect,
+                   SkPath &path, SkPath &path2, float padX, float padY, float stepX, float stepY,
+                   float y, float h, float h2, float h4, float gap2, float xScaling, float t) {
+        std::vector<std::string> lens, starts;
+        Utils::split(trk.parts[10], ',', lens);
+        Utils::split(trk.parts[11], ',', starts);
+        if (any_text) {
+            drawTrackBlock(trk.start, trk.stop, trk.rid, rgn, rect, path, padX, padY, y, h, stepX, gap, gap2, xScaling, t,
+                           opts, canvas, fonts, true, false, false);
+        }
+        int last_end = 0;
+        if (starts.size() == lens.size()) {
+            int target = (int)lens.size();
+            int gene_start = trk.start;
+            int stranded = (trk.parts[5] == "+") ? 1 : (trk.parts[5] == "-") ? -1 : 0;
+            int thickStart = std::stoi(trk.parts[6]);
+            int thickEnd = (std::stoi(trk.parts[7]));
+            thickEnd = (thickEnd == thickStart) ? trk.stop : thickEnd;
+            bool add_line = true;  // vertical line at start of interval
+            for (int i=0; i < target; ++i) {
+                int s, e;
+                try {
+                    s = gene_start + std::stoi(starts[i]);
+                    e = s + std::stoi(lens[i]);
+                } catch (...) {
+                    std::cerr << "Error: problem parsing file, line was: " << trk.variantString << std::endl;
+                    break;
+                }
+                if (s > rgn.end && last_end > rgn.end) {
+                    break;
+                } else if (e < rgn.start) {
+                    last_end = e;
+                    continue;
+                }
+                if (s >= thickStart && e <= thickEnd) { // block is all thick
+                    drawTrackBlock(s, e, trk.rid, rgn, rect, path, padX, padY, y, h, stepX, gap, gap2, xScaling, t,
+                                   opts, canvas, fonts, false, true, add_line);
+                } else if (e < thickStart || s > thickEnd) {  // block is all thin
+                    drawTrackBlock(s, e, trk.rid, rgn, rect, path, padX, padY, y - h4, h2, stepX, gap, gap2, xScaling, t,
+                                   opts, canvas, fonts, false, true, add_line);
+
+                } else {  // left or right is thin
+                    if (s < thickStart) {  // left small block
+                        drawTrackBlock(s, thickStart, trk.rid, rgn, rect, path, padX, padY, y - h4, h2, stepX, gap, gap2, xScaling, t,
+                                       opts, canvas, fonts, false, true, add_line);
+                        add_line = false;
+
+                    }
+                    if (e > thickEnd) {  // right small block
+                        drawTrackBlock(thickEnd, e, trk.rid, rgn, rect, path, padX, padY, y - h4, h2, stepX, gap, gap2, xScaling, t,
+                                       opts, canvas, fonts, false, true, add_line);
+                        add_line = false;
+                    }
+                    drawTrackBlock(std::max(s, thickStart), std::min(e, thickEnd), trk.rid, rgn, rect, path, padX, padY, y, h, stepX, gap, gap2, xScaling, t,
+                                   opts, canvas, fonts, false, true, add_line);
+
+                }
+
+                float x, yy, w;
+                yy = y + padY - (h/2);
+                if (i > 0) {  // add arrows
+                    x = ((float)(std::max(last_end, rgn.start) - rgn.start) * xScaling) + padX;
+                    w = ((float)(std::min(s, rgn.end) - rgn.start) * xScaling) + padX;
+                    if (w > 0) {
+                        path2.reset();
+                        path2.moveTo(x, yy);
+                        path2.lineTo(w, yy);
+                        canvas->drawPath(path2, opts.theme.fcTrack);
+                        if (stranded != 0 && w - x > 50) {
+                            while (x + 50 < w) {
+                                x += 50;
+                                path2.reset();
+                                if (stranded == 1) {
+                                    path2.moveTo(x, yy);
+                                    path2.lineTo(x-6, yy + 6);
+                                    path2.moveTo(x, yy);
+                                    path2.lineTo(x-6, yy - 6);
+                                } else {
+                                    path2.moveTo(x, yy);
+                                    path2.lineTo(x+6, yy + 6);
+                                    path2.moveTo(x, yy);
+                                    path2.lineTo(x+6, yy - 6);
+                                }
+                                canvas->drawPath(path2, opts.theme.fcTrack);
+                            }
+                        }
+                    }
+
+                }
+                if (stranded != 0) {
+                    x = ((float)(std::max(s, rgn.start) - rgn.start) * xScaling) + padX;
+                    w = ((float)(std::min(e, rgn.end) - rgn.start) * xScaling) + padX;
+                    if (w - x > 50) {
+                        while (x + 50 < w) {
+                            x += 50;
+                            path2.reset();
+                            if (stranded == 1) {
+                                path2.moveTo(x, yy);
+                                path2.lineTo(x-4, yy + 4);
+                                path2.moveTo(x, yy);
+                                path2.lineTo(x-4, yy - 4);
+                            } else {
+                                path2.moveTo(x, yy);
+                                path2.lineTo(x+4, yy + 4);
+                                path2.moveTo(x, yy);
+                                path2.lineTo(x+4, yy - 4);
+                            }
+                            canvas->drawPath(path2, opts.theme.bgPaint);
+                        }
+                    }
+                }
+                add_line = false;
+                last_end = e;
+            }
+        } else {
+            drawTrackBlock(trk.start, trk.stop, trk.rid, rgn, rect, path, padX, padY, y, h, stepX, gap, gap2, xScaling, t,
+                           opts, canvas, fonts, any_text, true, true);
+        }
+    }
+
+    void drawGff3(Themes::IniOptions &opts, float fb_width, float fb_height,
+                  SkCanvas *canvas, float totalTabixY, float tabixY, std::vector<HGW::GwTrack> &tracks,
+                  const std::vector<Utils::Region> &regions, const Themes::Fonts &fonts,
+                  float gap, Utils::TrackBlock &trk, bool any_text, const Utils::Region &rgn, SkRect &rect,
+                  SkPath &path, SkPath &path2, float padX, float padY, float stepX, float stepY,
+                  float y, float h, float h2, float h4, float gap2, float xScaling, float t) {
+
+
+        int target = (int)trk.s.size();
+        int gene_start = trk.start;
+        int stranded = 1; //(trk.parts[5] == "+") ? 1 : (trk.parts[5] == "-") ? -1 : 0;
+        bool add_line = true;  // vertical line at start of interval
+        for (int i=0; i < target; ++i) {
+            int s, e;
+            s = trk.s[i];
+            e = trk.e[i];
+            if (e < rgn.start) {
+                continue;
+            }
+            bool isThick = trk.drawThick[i];
+            if (isThick) { // block is all thick
+                drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, gap, gap2, xScaling, t,
+                               opts, canvas, fonts, false, true, add_line);
+            }
+            float x, yy, w;
+            yy = y + padY - (h/2);
+            int lastEnd = (i > 0) ? trk.e[i-1] : trk.start;
+            if (lastEnd < s) {  // add arrows
+                x = ((float)(lastEnd - rgn.start) * xScaling) + padX;
+                w = ((float)(s - rgn.start) * xScaling) + padX;
+//                std::cerr << trk.e[i-1] << " " << s << std::endl;
+                if (w > 0) {
+                    path2.reset();
+                    path2.moveTo(x, yy);
+                    path2.lineTo(w, yy);
+                    canvas->drawPath(path2, opts.theme.fcTrack);
+                    if (stranded != 0 && w - x > 50) {
+                        while (x + 50 < w) {
+                            x += 50;
+                            path2.reset();
+                            if (stranded == 1) {
+                                path2.moveTo(x, yy);
+                                path2.lineTo(x-6, yy + 6);
+                                path2.moveTo(x, yy);
+                                path2.lineTo(x-6, yy - 6);
+                            } else {
+                                path2.moveTo(x, yy);
+                                path2.lineTo(x+6, yy + 6);
+                                path2.moveTo(x, yy);
+                                path2.lineTo(x+6, yy - 6);
+                            }
+                            canvas->drawPath(path2, opts.theme.fcTrack);
+                        }
+                    }
+                }
+
+            }
+//            if (stranded != 0) {
+//                x = ((float)(std::max(s, rgn.start) - rgn.start) * xScaling) + padX;
+//                w = ((float)(std::min(e, rgn.end) - rgn.start) * xScaling) + padX;
+//                if (w - x > 50) {
+//                    while (x + 50 < w) {
+//                        x += 50;
+//                        path2.reset();
+//                        if (stranded == 1) {
+//                            path2.moveTo(x, yy);
+//                            path2.lineTo(x-4, yy + 4);
+//                            path2.moveTo(x, yy);
+//                            path2.lineTo(x-4, yy - 4);
+//                        } else {
+//                            path2.moveTo(x, yy);
+//                            path2.lineTo(x+4, yy + 4);
+//                            path2.moveTo(x, yy);
+//                            path2.lineTo(x+4, yy - 4);
+//                        }
+//                        canvas->drawPath(path2, opts.theme.bgPaint);
+//                    }
+//                }
+//            }
+
+//            add_line = false;
+        }
+    }
+
+    void collectGFFTrackData(HGW::GwTrack &trk, std::vector<Utils::TrackBlock> &features) {
+        // For GFF convert all child features into TrackBlocks
+        ankerl::unordered_dense::map< std::string, std::vector< std::shared_ptr<Utils::GFFTrackBlock> > > gffParentMap;
+        std::vector< std::shared_ptr<Utils::GFFTrackBlock> > gffBlocks;
+        while (true) {
+            trk.next();
+            if (trk.done) {
+                break;
+            }
+            if (trk.parent.empty()) {
+                continue;
+            }
+            gffBlocks.push_back(std::make_shared<Utils::GFFTrackBlock>());
+            std::shared_ptr<Utils::GFFTrackBlock> g = gffBlocks.back();
+            g->chrom = trk.chrom;
+            g->start = trk.start;
+            g->end = trk.stop;
+            g->name = trk.rid;
+            g->vartype = trk.vartype;
+            gffParentMap[trk.parent].push_back(g);
+        }
+        // assume gff is sorted
+        features.resize(gffParentMap.size());
+        int i = 0;
+        for (auto &pg : gffParentMap) {
+            int j = 0;
+            Utils::TrackBlock &track = features[i];
+            std::cerr << " \nFeature: " << pg.second[0]->name << std::endl;
+            for (auto &g: pg.second) {
+                if (j == 0) {
+                    track.chrom = g->chrom;
+                    track.start = g->start;
+                    track.name = g->name;
+                    track.end = g->end;
+                } else if (g->end > track.end) {
+                    track.end = g->end;
+                }
+                track.s.push_back(g->start);
+                track.e.push_back(g->end);
+                if (g->vartype == "exon" || g->vartype == "CDS") {
+                    track.drawThick.push_back(true);
+                } else {
+                    track.drawThick.push_back(false);
+                }
+                std::cerr << "    " << track.chrom << " " << track.start << " " << track.end << " " << g->vartype << std::endl;
+            }
+            std::cerr << " starts size " << track.s.size() << std::endl;
+            i += 1;
+        }
+    }
+    void collectTrackData(HGW::GwTrack &trk, std::vector<Utils::TrackBlock> &features) {
+        while (true) {
+            trk.next();
+            if (trk.done) {
+                break;
+            }
+            // check for big bed. BED_IDX will already be split, BED_NOI is split here
+            if (trk.kind == HGW::BED_NOI) {
+                trk.parts.clear();
+                Utils::split(trk.variantString, '\t', trk.parts);
+            }
+            features.resize(features.size() + 1);
+            Utils::TrackBlock *b = &features.back();
+            b->chrom = trk.chrom;
+            b->name = trk.rid;
+            b->start = trk.start;
+            b->end = trk.stop;
+            b->line = trk.variantString;
+            b->parts = trk.parts;
+        }
+    }
+
     void drawTracks(Themes::IniOptions &opts, float fb_width, float fb_height,
                      SkCanvas *canvas, float totalTabixY, float tabixY, std::vector<HGW::GwTrack> &tracks,
                      const std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, float gap) {
@@ -1350,142 +1630,80 @@ namespace Drawing {
         SkPath path2{};
 
         opts.theme.lcLightJoins.setAntiAlias(true);
+        bool expanded = true;
         for (auto &rgn : regions) {
             bool any_text = (rgn.end - rgn.start) < 500000;
             float xScaling = (stepX - gap2) / (float)(rgn.end - rgn.start);
             for (auto & trk : tracks) {
                 trk.fetch(&rgn);
-                while (true) {
-                    trk.next();
-                    if (trk.done) {
-                        break;
-                    }
-                    // check for big bed. BED_IDX will already be split, BED_NOI is split here
-                    if (trk.kind == HGW::BED_NOI) {
-                        trk.parts.clear();
-                        Utils::split(trk.variantString, '\t', trk.parts);
-                    }
-                    if (!trk.parts.empty() && trk.parts.size() >= 12) {
-                        std::vector<std::string> lens, starts;
-                        Utils::split(trk.parts[10], ',', lens);
-                        Utils::split(trk.parts[11], ',', starts);
-                        if (any_text) {
-                            drawTrackBlock(trk.start, trk.stop, trk.rid, rgn, rect, path, padX, padY, y, h, stepX, gap, gap2, xScaling, t,
-                                           opts, canvas, fonts, true, false, false);
-                        }
-                        int last_end = 0;
-                        if (starts.size() == lens.size()) {
-                            int target = (int)lens.size();
-                            int gene_start = trk.start;
-                            int stranded = (trk.parts[5] == "+") ? 1 : (trk.parts[5] == "-") ? -1 : 0;
-                            int thickStart = std::stoi(trk.parts[6]);
-                            int thickEnd = (std::stoi(trk.parts[7]));
-                            thickEnd = (thickEnd == thickStart) ? trk.stop : thickEnd;
-                            bool add_line = true;  // vertical line at start of interval
-                            for (int i=0; i < target; ++i) {
-                                int s, e;
-                                try {
-                                    s = gene_start + std::stoi(starts[i]);
-                                    e = s + std::stoi(lens[i]);
-                                } catch (...) {
-                                    std::cerr << "Error: problem parsing big bed, pos was: " << trk.parts[0] << " " << trk.parts[1] << std::endl;
-                                    break;
-                                }
-                                if (s > rgn.end && last_end > rgn.end) {
-                                    break;
-                                } else if (e < rgn.start) {
-                                    last_end = e;
-                                    continue;
-                                }
-                                if (s >= thickStart && e <= thickEnd) { // block is all thick
-                                    drawTrackBlock(s, e, trk.rid, rgn, rect, path, padX, padY, y, h, stepX, gap, gap2, xScaling, t,
-                                                   opts, canvas, fonts, false, true, add_line);
-                                } else if (e < thickStart || s > thickEnd) {  // block is all thin
-                                    drawTrackBlock(s, e, trk.rid, rgn, rect, path, padX, padY, y - h4, h2, stepX, gap, gap2, xScaling, t,
-                                                   opts, canvas, fonts, false, true, add_line);
+                bool isGFF = trk.kind == HGW::GFF3_NOI || trk.kind == HGW::GFF3_IDX;
+                std::vector<Utils::TrackBlock> features;
+                if (isGFF) {
+                    collectGFFTrackData(trk, features);
+                } else {
+                    collectTrackData(trk, features);
+                }
+                Segs::findTrackY(features,  isGFF, expanded);
+                bool isBed12 = !trk.parts.empty() && trk.parts.size() >= 12;
 
-                                } else {  // left or right is thin
-                                    if (s < thickStart) {  // left small block
-                                        drawTrackBlock(s, thickStart, trk.rid, rgn, rect, path, padX, padY, y - h4, h2, stepX, gap, gap2, xScaling, t,
-                                                       opts, canvas, fonts, false, true, add_line);
-                                        add_line = false;
-
-                                    }
-                                    if (e > thickEnd) {  // right small block
-                                        drawTrackBlock(thickEnd, e, trk.rid, rgn, rect, path, padX, padY, y - h4, h2, stepX, gap, gap2, xScaling, t,
-                                                       opts, canvas, fonts, false, true, add_line);
-                                        add_line = false;
-                                    }
-                                    drawTrackBlock(std::max(s, thickStart), std::min(e, thickEnd), trk.rid, rgn, rect, path, padX, padY, y, h, stepX, gap, gap2, xScaling, t,
-                                                   opts, canvas, fonts, false, true, add_line);
-
-                                }
-
-                                float x, yy, w;
-                                yy = y + padY - (h/2);
-                                if (i > 0) {  // add arrows
-                                    x = ((float)(std::max(last_end, rgn.start) - rgn.start) * xScaling) + padX;
-                                    w = ((float)(std::min(s, rgn.end) - rgn.start) * xScaling) + padX;
-                                    if (w > 0) {
-                                        path2.reset();
-                                        path2.moveTo(x, yy);
-                                        path2.lineTo(w, yy);
-                                        canvas->drawPath(path2, opts.theme.fcTrack);
-                                        if (stranded != 0 && w - x > 50) {
-                                            while (x + 50 < w) {
-                                                x += 50;
-                                                path2.reset();
-                                                if (stranded == 1) {
-                                                    path2.moveTo(x, yy);
-                                                    path2.lineTo(x-6, yy + 6);
-                                                    path2.moveTo(x, yy);
-                                                    path2.lineTo(x-6, yy - 6);
-                                                } else {
-                                                    path2.moveTo(x, yy);
-                                                    path2.lineTo(x+6, yy + 6);
-                                                    path2.moveTo(x, yy);
-                                                    path2.lineTo(x+6, yy - 6);
-                                                }
-                                                canvas->drawPath(path2, opts.theme.fcTrack);
-                                            }
-                                        }
-                                    }
-
-                                }
-                                if (stranded != 0) {
-                                    x = ((float)(std::max(s, rgn.start) - rgn.start) * xScaling) + padX;
-                                    w = ((float)(std::min(e, rgn.end) - rgn.start) * xScaling) + padX;
-                                    if (w - x > 50) {
-                                        while (x + 50 < w) {
-                                            x += 50;
-                                            path2.reset();
-                                            if (stranded == 1) {
-                                                path2.moveTo(x, yy);
-                                                path2.lineTo(x-4, yy + 4);
-                                                path2.moveTo(x, yy);
-                                                path2.lineTo(x-4, yy - 4);
-                                            } else {
-                                                path2.moveTo(x, yy);
-                                                path2.lineTo(x+4, yy + 4);
-                                                path2.moveTo(x, yy);
-                                                path2.lineTo(x+4, yy - 4);
-                                            }
-                                            canvas->drawPath(path2, opts.theme.bgPaint);
-                                        }
-                                    }
-                                }
-                                add_line = false;
-                                last_end = e;
-                            }
-                        } else {
-                            drawTrackBlock(trk.start, trk.stop, trk.rid, rgn, rect, path, padX, padY, y, h, stepX, gap, gap2, xScaling, t,
-                                           opts, canvas, fonts, any_text, true, true);
-                        }
+                for (auto &f : features) {
+                    if (isGFF) {
+                        drawGff3(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap,
+                                 f, any_text, rgn, rect, path, path2, padX, padY, stepX, stepY, y, h, h2, h4, gap2,
+                                 xScaling, t);
+                    } else if (isBed12) {
+//                        drawBed12(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap,
+//                                  trk, any_text, rgn, rect, path, path2, padX, padY, stepX, stepY, y, h, h2, h4, gap2,
+//                                  xScaling, t);
                     } else {
-                        drawTrackBlock(trk.start, trk.stop, trk.rid, rgn, rect, path, padX, padY, y, h, stepX, gap, gap2, xScaling, t,
-                                       opts, canvas, fonts, any_text, true, true);
+                        drawTrackBlock(f.start, f.end, f.name, rgn, rect, path, padX, padY, y, h, stepX, gap, gap2,
+                                       xScaling, t, opts, canvas, fonts, any_text, true, true);
                     }
                 }
+
+
+//                while (true) {
+//                    trk.next();
+//                    if (trk.done) {
+//                        break;
+//                    }
+//
+//                    // check for big bed. BED_IDX will already be split, BED_NOI is split here
+//                    if (trk.kind == HGW::BED_NOI) {
+//                        trk.parts.clear();
+//                        Utils::split(trk.variantString, '\t', trk.parts);
+//                    }
+//                    features.resize(features.size() + 1);
+//                    Utils::TrackBlock *b = &features.back();
+//                    b->chrom = trk.chrom;
+//                    b->name = trk.rid;
+//                    b->start = trk.start;
+//                    b->end = trk.stop;
+//                    b->line = trk.variantString;
+//                    b->parts = trk.parts;
+//                    if (trk.kind == HGW::GFF3_IDX || trk.kind == HGW::GFF3_NOI) {
+//                        if (!b->name.empty()) {
+//                            std::string name = b->name;
+//                            featureMap[name].push_back(b);
+//                        }
+//                    }
+
+//                    bool is_bed12 = !trk.parts.empty() && trk.parts.size() >= 12;
+
+//                    if (is_bed12) {
+//                        drawBed12(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap,
+//                                  trk, any_text, rgn, rect, path, path2, padX, padY, stepX, stepY, y, h, h2, h4, gap2,
+//                                  xScaling, t);
+//                    } else if (trk.kind == HGW::GFF3_IDX || trk.kind == HGW::GFF3_NOI) {
+//                        drawGff3(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap,
+//                                 trk, any_text, rgn, rect, path, path2, padX, padY, stepX, stepY, y, h, h2, h4, gap2,
+//                                 xScaling, t);
+//                    } else {
+//                        drawTrackBlock(trk.start, trk.stop, trk.rid, rgn, rect, path, padX, padY, y, h, stepX, gap, gap2, xScaling, t,
+//                                       opts, canvas, fonts, any_text, true, true);
+//                    }
+//                }
+
                 padY += stepY;
             }
             padY = 0;

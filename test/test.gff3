@@ -54,4 +54,3 @@ chr1	MSU_osa1r7	exon	10504	10817	.	+	.	ID=LOC_Os01g01010.1:exon_12;Parent=LOC_Os
 chr1	MSU_osa1r7	three_prime_UTR	10504	10817	.	+	.	ID=LOC_Os01g01010.1:utr_4;Parent=LOC_Os01g01010.1
 chr1	MSU_osa1r7	exon	10504	10562	.	+	.	ID=LOC_Os01g01010.2:exon_12;Parent=LOC_Os01g01010.2
 chr1	MSU_osa1r7	CDS	10504	10562	.	+	.	ID=LOC_Os01g01010.2:cds_11;Parent=LOC_Os01g01010.2
-

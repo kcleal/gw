@@ -23,14 +23,15 @@
 namespace HGW {
 
      enum FType {
-        BED_IDX,
-        VCF_IDX,
-        BCF_IDX,
-        VCF_NOI,  // NOI for no index
-        BED_NOI,
-        GFF3,
-        GW_LABEL,
-        STDIN,
+         GFF3_IDX,
+         BED_IDX,
+         VCF_IDX,
+         BCF_IDX,
+         VCF_NOI,  // NOI for no index
+         BED_NOI,
+         GFF3_NOI,
+         GW_LABEL,
+         STDIN,
     };
 
     void guessRefGenomeFromBam(std::string &inputName, Themes::IniOptions &opts, std::vector<std::string> &bam_paths, std::vector<Utils::Region> &regions);
@@ -97,16 +98,16 @@ namespace HGW {
                                 std::vector<Parse::Parser> &filters, BS::thread_pool &pool);
 
     /*
-    * VCF/BCF/BED/LABEL file reader. No line cacheing or label parsing.
-    * BED files with no tab index will be cached, as will LABEL files.
+    * VCF/BCF/BED/GFF3/LABEL file reader. No label parsing for vcf/bcf.
+    * Non-indexed files are cached using TrackBlock items. Files with an index are fetched during drawing.
     */
     class GwTrack {
     public:
         GwTrack() = default;
         ~GwTrack();
-
+        // The iterator state is cached here during iteration:
         std::string path, genome_tag;
-        std::string chrom, chrom2, rid, vartype;
+        std::string chrom, chrom2, rid, vartype, parent;
         int start, stop;
         int fileIndex;
         FType kind;
@@ -121,8 +122,8 @@ namespace HGW {
         hts_itr_t *iter_q;
 
         int region_end;
-        std::vector<std::string> parts;
-        std::vector<Utils::TrackBlock> vals;
+        std::vector<std::string> parts;  // string split by delimiter
+//        std::vector<Utils::TrackBlock> vals;
         std::vector<Utils::TrackBlock>::iterator vals_end;
         std::vector<Utils::TrackBlock>::iterator iter_blk;
 

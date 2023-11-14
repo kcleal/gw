@@ -663,7 +663,6 @@ namespace HGW {
                 tmp_id = it->d.id;
                 if (tmp_id == id_str) {
                     vcf_format(hdr, it, &kstr);
-                    // std::cout << std::endl << kstr.s << std::endl;
 					variantString = kstr.s;
 					break;
                 } else if (pos < it->pos) {
@@ -901,8 +900,10 @@ namespace HGW {
             kind = VCF_IDX;
         } else if (Utils::endsWith(p, ".bcf")) {
             kind = BCF_IDX;
+        } else if (Utils::endsWith(p, ".gff3.gz")) {
+            kind = GFF3_IDX;
         } else if (Utils::endsWith(p, ".gff3")) {
-            kind = GFF3;
+            kind = GFF3_NOI;
         } else {
             kind = GW_LABEL;
         }
@@ -993,7 +994,6 @@ namespace HGW {
                         lastb = -1;
                     }
                     allBlocks[b.chrom].push_back(b);
-
                     if (b.start < lastb) {
                         sorted = false;
                     }
@@ -1002,7 +1002,10 @@ namespace HGW {
                     allBlocks_flat.push_back(b);
                 }
             }
-        } else if (kind == GFF3) {
+        } else if (kind == GFF3_IDX) {
+            fp = hts_open(p.c_str(), "r");
+            idx_t = tbx_index_load(p.c_str());
+
 //            std::fstream fpu;
 //            fpu.open(p, std::ios::in);
 //            if (!fpu.is_open()) {
@@ -1105,7 +1108,7 @@ namespace HGW {
                 done = false;
             } else {
                 if (allBlocks.contains(rgn->chrom)) {
-                    vals = allBlocks[rgn->chrom];
+                    std::vector<Utils::TrackBlock> &vals = allBlocks[rgn->chrom];
                     vals_end = vals.end();
                     iter_blk = std::lower_bound(vals.begin(), vals.end(), rgn->start,
                                                 [](Utils::TrackBlock &a, int x)-> bool { return a.start < x;});
@@ -1130,7 +1133,7 @@ namespace HGW {
                 }
             }
         } else {
-            if (kind == BED_IDX || kind == VCF_IDX) {
+            if (kind == BED_IDX || kind == VCF_IDX || kind == GFF3_IDX) {
                 if (rgn == nullptr) {
                     iter_q = nullptr;
                     done = false;
@@ -1138,10 +1141,6 @@ namespace HGW {
                     int tid = tbx_name2id(idx_t, rgn->chrom.c_str());
                     iter_q = tbx_itr_queryi(idx_t, tid, rgn->start, rgn->end);
                     if (iter_q == nullptr) {
-//                        std::cerr << "\nError: Null iterator when trying to fetch from indexed bed file in fetch "
-//                                  << rgn->chrom
-//                                  << " " << rgn->start << " " << rgn->end << std::endl;
-//                        std::terminate();
                         done = true;
                     } else {
                         done = false;
@@ -1151,8 +1150,6 @@ namespace HGW {
                 int tid = bcf_hdr_name2id(hdr, rgn->chrom.c_str());
                 iter_q = bcf_itr_queryi(idx_v, tid, rgn->start, rgn->end);
                 if (iter_q == nullptr) {
-//                    std::cerr << "\nError: Null iterator when trying to fetch from vcf file in fetch " << rgn->chrom << " " << rgn->start << " " << rgn->end << std::endl;
-//                    std::terminate();
                     done = true;
                 } else {
                     done = false;
@@ -1176,13 +1173,13 @@ namespace HGW {
                 return;
             }
             parseVcfRecord();
-        } else if (kind == BED_IDX || kind == VCF_IDX) {
+        } else if (kind == BED_IDX || kind == VCF_IDX || kind == GFF3_IDX) {
             kstring_t str = {0,0, nullptr};
             if (iter_q != nullptr) {
                 res = tbx_itr_next(fp, idx_t, iter_q, &str);
                 if (res < 0) {
                     if (res < -1) {
-                        std::cerr << "Error: iterating vcf file returned " << res << std::endl;
+                        std::cerr << "Error: iterating returned code: " << res << " from file: " << path  << std::endl;
                     }
                     done = true;
                     return;
@@ -1191,7 +1188,7 @@ namespace HGW {
                 res = hts_getline(fp, '\n', &str);
                 if (res < 0) {
                     if (res < -1) {
-                        std::cerr << "Error: iterating bed.gz file returned " << res << std::endl;
+                        std::cerr << "Error: iterating returned code: " << res << " from file: " << path  << std::endl;
                     }
                     done = true;
                     return;
@@ -1210,18 +1207,35 @@ namespace HGW {
                     fileIndex += 1;
                 }
                 vartype = "";
+            } else if (kind == GFF3_IDX) {
+                parts.clear();
+                parts = Utils::split(str.s, '\t');
+                chrom = parts[0];
+                start = std::stoi(parts[3]);
+                stop = std::stoi(parts[4]);
+                vartype = parts[2];
+                for (const auto &item :  Utils::split(parts[8], ';')) {
+                    std::vector<std::string> keyval = Utils::split(item, '=');
+                    if (keyval[0] == "ID") {
+                        rid = keyval[1];
+                    } else if (keyval[0] == "Parent") {
+                        parent = keyval[1];
+                        break;
+                    }
+                }
             } else {
                 res = vcf_parse(&str, hdr, v);
                 if (res < 0) {
                     if (res < -1) {
-                        std::cerr << "Error: iterating vcf file returned " << res << std::endl;
+                        std::cerr << "Error: iterating returned code: " << res << " from file: " << path  << std::endl;
                     }
                     done = true;
                     return;
                 }
                 parseVcfRecord();
             }
-        } else if (kind > BCF_IDX) {  // non indexed but cached
+        } else if (kind > BCF_IDX) {  // non indexed but cached VCF_NOI / BED_NOI / GFF3(todo) / GW_LABEL / STDIN
+            // first line of the region is cached here and resolved during drawing / mouse-clicks
             if (iter_blk != vals_end) {
                 if (iter_blk->start < region_end) {
                     chrom = iter_blk->chrom;
