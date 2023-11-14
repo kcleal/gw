@@ -41,7 +41,9 @@ jobs:
           brew install graphicsmagick dylibbundler glfw fontconfig
           brew list | grep python
           brew unlink python@3.12
-          brew link --overwrite python@3.11
+          which python
+          which python3
+          rm /usr/local/bin/python3
           
           npm install --global create-dmg
           
