@@ -39,6 +39,7 @@ jobs:
       - name: Install dependencies
         run: |
           brew install python@3.11 graphicsmagick dylibbundler glfw fontconfig
+          python3 -m pip install packaging
           npm install --global create-dmg
           
       - name: package
