@@ -39,8 +39,10 @@ jobs:
       - name: Install dependencies
         run: |
           brew install graphicsmagick dylibbundler glfw fontconfig
-          brew switch python 3.11
-          python --version
+          brew list | grep python
+          brew unlink python@3.12
+          brew link --overwrite python@3.11
+          
           npm install --global create-dmg
           
       - name: package
