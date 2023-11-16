@@ -177,4 +177,9 @@ namespace HGW {
     private:
         void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label, std::string &vartype);
     };
+
+    void collectGFFTrackData(HGW::GwTrack &trk, std::vector<Utils::TrackBlock> &features);
+
+    void collectTrackData(HGW::GwTrack &trk, std::vector<Utils::TrackBlock> &features);
+
 }

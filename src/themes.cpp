@@ -350,6 +350,7 @@ namespace Themes {
         log2_cov = myIni["general"]["coverage"] == "true";
         log2_cov = myIni["general"]["log2_cov"] == "true";
         scroll_speed = std::stof(myIni["general"]["scroll_speed"]);
+        tab_track_height = std::stof(myIni["general"]["tabix_track_height"]);
         if (myIni["general"].has("font")) {
             font_str = myIni["general"]["font"];
         }
@@ -448,6 +449,8 @@ namespace Themes {
     }
 
 
+    const SkGlyphID glyphs[1] = {100};
+
     Fonts::Fonts() {
         rect = SkRect::MakeEmpty();
         path = SkPath();
@@ -465,8 +468,17 @@ namespace Themes {
         fontTypefaceSize = size;
     }
 
+    void Fonts::setOverlayHeight(float yScale) {
+        SkRect bounds[1];
+        SkPaint paint1;
+        const SkPaint* pnt = &paint1;
+        overlay.setSize(fontTypefaceSize * yScale);
+        overlay.getBounds(glyphs, 1, bounds, pnt);
+        overlayHeight = bounds[0].height();
+        overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
+    }
+
     void Fonts::setFontSize(float maxHeight, float yScale) {
-        const SkGlyphID glyphs[1] = {100};
         SkRect bounds[1];
         SkPaint paint1;
         const SkPaint* pnt = &paint1;
@@ -500,9 +512,5 @@ namespace Themes {
                 textWidths[i] = (float)w * (i + 1);
             }
         }
-        overlay.setSize(fontTypefaceSize * yScale);
-        overlay.getBounds(glyphs, 1, bounds, pnt);
-        overlayHeight = bounds[0].height();
-        overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
     }
 }

@@ -762,6 +762,9 @@ namespace Term {
 				}
 			}
 		}
+        if (!mouseOver) {
+            std::cout << std::endl;
+        }
 	}
 
     void updateRefGenomeSeq(Utils::Region *region, float xW, float xOffset, float xScaling) {

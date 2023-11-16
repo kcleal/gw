@@ -164,6 +164,7 @@ namespace Themes {
         float textWidths[10];  // text size is scaled between 10 values to try and fill a read
 
         void setTypeface(std::string &fontStr, int size);
+        void setOverlayHeight(float yScale);
         void setFontSize(float yScaling, float yScale);
     };
 

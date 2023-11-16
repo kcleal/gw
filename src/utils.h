@@ -40,16 +40,19 @@ namespace Utils {
         std::string chrom, name, line, vartype;
         int start, end;
         int strand;  // 0 is none, 1 forward, 2 reverse
+        int level;
+        bool anyToDraw;
         std::vector<std::string> parts;
         std::vector<int> s;  // block starts and block ends for bed12/GFF
         std::vector<int> e;
-        std::vector<bool> drawThick;
+        std::vector<uint8_t> drawThickness;  // 0 no line, 1 is thin line, 2 fat line
     };
 
     class GFFTrackBlock {
     public:
         std::string chrom, name, line, vartype;
         int start, end;
+        int strand;  // 0 is none, 1 forward, 2 reverse
     };
 
     struct Region {

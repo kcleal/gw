@@ -760,13 +760,32 @@ namespace Segs {
         }
     }
 
-    void findTrackY(std::vector<Utils::TrackBlock> &features, bool isGFF, bool expanded) {
-        if (!expanded) {
-            return;
+    int findTrackY(std::vector<Utils::TrackBlock> &features, bool expanded) {
+        if (!expanded || features.empty()) {
+            return 1;
         }
-
-
-
-
+        std::vector<int> ls;
+        std::vector<int> le;
+        for (auto &b : features) {
+            if (!b.anyToDraw) {
+                continue;
+            }
+            size_t memLen = ls.size();
+            size_t i;
+            for (i=0; i < memLen; ++i) {
+                if (b.start > le[i]) {
+                    le[i] = b.end;
+                    b.level = (int)i;
+                    break;
+                }
+            }
+            if (i == memLen) {
+                ls.push_back(b.start);
+                le.push_back(b.end);
+                b.level = memLen;
+            }
+        }
+        assert (ls.size() >= 1);
+        return (int)ls.size();
     }
 }

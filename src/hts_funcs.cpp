@@ -1139,7 +1139,11 @@ namespace HGW {
                     done = false;
                 } else {
                     int tid = tbx_name2id(idx_t, rgn->chrom.c_str());
-                    iter_q = tbx_itr_queryi(idx_t, tid, rgn->start, rgn->end);
+                    if (kind == GFF3_IDX) {
+                        iter_q = tbx_itr_queryi(idx_t, tid, std::max(1, rgn->start - 100000), rgn->end + 100000);
+                    } else {
+                        iter_q = tbx_itr_queryi(idx_t, tid, rgn->start, rgn->end);
+                    }
                     if (iter_q == nullptr) {
                         done = true;
                     } else {
@@ -1562,6 +1566,83 @@ namespace HGW {
             multiLabels.push_back((*inputLabels)[rid]);
         } else {
             multiLabels.push_back(Utils::makeLabel(chrom, start, label, labelChoices, rid, vartype, "", 0));
+        }
+    }
+
+    void collectGFFTrackData(HGW::GwTrack &trk, std::vector<Utils::TrackBlock> &features) {
+        // For GFF convert all child features into TrackBlocks
+        ankerl::unordered_dense::map< std::string, std::vector< std::shared_ptr<Utils::GFFTrackBlock> > > gffParentMap;
+        std::vector< std::shared_ptr<Utils::GFFTrackBlock> > gffBlocks;
+        while (true) {
+            trk.next();
+            if (trk.done) {
+                break;
+            }
+            if (trk.parent.empty()) {
+                continue;
+            }
+            gffBlocks.push_back(std::make_shared<Utils::GFFTrackBlock>());
+            std::shared_ptr<Utils::GFFTrackBlock> g = gffBlocks.back();
+            g->chrom = trk.chrom;
+            g->start = trk.start;
+            g->end = trk.stop;
+            g->name = trk.parent;
+            g->vartype = trk.vartype;
+            g->strand = (trk.parts[6] == "-") ? 2 : 1; // assume all on same strand
+            gffParentMap[trk.parent].push_back(g);
+        }
+        // assume gff is sorted
+        features.resize(gffParentMap.size());
+        int i = 0;
+        for (auto &pg : gffParentMap) {
+            int j = 0;
+            Utils::TrackBlock &track = features[i];
+            track.anyToDraw = false;
+            for (auto &g: pg.second) {
+                if (j == 0) {
+                    track.chrom = g->chrom;
+                    track.start = g->start;
+                    track.name = g->name;
+                    track.end = g->end;
+                    track.strand = g->strand;
+                } else if (g->end > track.end) {
+                    track.end = g->end;
+                }
+                track.s.push_back(g->start);
+                track.e.push_back(g->end);
+                if (g->vartype == "exon" || g->vartype == "CDS") {
+                    track.drawThickness.push_back(2);  // fat line
+                    if (!track.anyToDraw) { track.anyToDraw = true; }
+                } else if (g->vartype == "mRNA" || g->vartype == "gene") {
+                    track.drawThickness.push_back(0);  // no line
+                } else {
+                    track.drawThickness.push_back(1);  // thin line
+                    if (!track.anyToDraw) { track.anyToDraw = true; }
+                }
+                j += 1;
+            }
+            i += 1;
+        }
+    }
+    void collectTrackData(HGW::GwTrack &trk, std::vector<Utils::TrackBlock> &features) {
+        while (true) {
+            trk.next();
+            if (trk.done) {
+                break;
+            }
+            // check for big bed. BED_IDX will already be split, BED_NOI is split here
+            if (trk.kind == HGW::BED_NOI) {
+                trk.parts.clear();
+                Utils::split(trk.variantString, '\t', trk.parts);
+            }
+            features.resize(features.size() + 1);
+            Utils::TrackBlock *b = &features.back();
+            b->chrom = trk.chrom;
+            b->name = trk.rid;
+            b->start = trk.start;
+            b->end = trk.stop;
+            b->line = trk.variantString;
+            b->parts = trk.parts;
         }
     }
 

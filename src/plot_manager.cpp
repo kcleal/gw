@@ -113,7 +113,7 @@ namespace Manager {
         samMaxY = 0;
         yScaling = 0;
         covY = totalCovY = totalTabixY = tabixY = 0;
-        captureText = shiftPress = ctrlPress = processText = false;
+        captureText = shiftPress = ctrlPress = processText = tabBorderPress = false;
         xDrag = xOri = yDrag = yOri = -1000000;
         lastX = lastY = -1;
         commandIndex = 0;
@@ -401,6 +401,7 @@ namespace Manager {
         std::cerr << "Type ':help' or ':h' for more info\n";
 
 //        std::cout << "\e[3;0;0t" << std::endl;
+        vCursor = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
 
         setGlfwFrameBufferSize();
         fetchRefSeqs();
@@ -595,7 +596,9 @@ namespace Manager {
     }
 
     void GwPlot::setScaling() {  // sets z_scaling, y_scaling trackY and regionWidth
-        refSpace =  (float)(fb_height * 0.025); // slider space is the same
+        fonts.setOverlayHeight(monitorScale);
+        refSpace =  fonts.overlayHeight;
+        sliderSpace = refSpace;
         auto fbh = (float) fb_height;
         auto fbw = (float) fb_width;
         if (bams.empty()) {
@@ -608,22 +611,17 @@ namespace Manager {
         } else {
             totalCovY = 0; covY = 0;
         }
-        float gap2 = gap*2;
-
         if (tracks.empty()) {
             totalTabixY = 0; tabixY = 0;
         } else {
-            totalTabixY = fbh * ((float)0.07 * (float)tracks.size());
-            if (totalTabixY > (float)0.15 * fbh) {
-                totalTabixY = (float)0.15 * fbh;
-            }
+            totalTabixY = (fbh - refSpace - sliderSpace) * (float)opts.tab_track_height;
             tabixY = totalTabixY / (float)tracks.size();
         }
         if (nbams > 0) {
-            trackY = (fbh - totalCovY - totalTabixY - gap2 - refSpace ) / nbams;
-            yScaling = ((fbh - totalCovY - totalTabixY - gap2 - refSpace ) / (float)samMaxY) / nbams;
-            // scale to pixel boundary
-            yScaling = (samMaxY < 80) ? (float)(int)yScaling : yScaling;
+            trackY = (fbh - totalCovY - totalTabixY - refSpace - sliderSpace) / nbams;
+            yScaling = ((fbh - totalCovY - totalTabixY - refSpace - sliderSpace - (gap * nbams)) / (float)samMaxY) / nbams;
+            // try to scale to pixel boundary
+//            yScaling = (samMaxY < 80) ? (float)(int)yScaling : yScaling;
         } else {
             trackY = 0;
             yScaling = 0;
@@ -631,9 +629,8 @@ namespace Manager {
         fonts.setFontSize(yScaling, monitorScale);
         regionWidth = fbw / (float)regions.size();
         bamHeight = covY + trackY;
-
         for (auto &cl: collections) {
-            cl.xScaling = (float)((regionWidth - gap2) / ((double)(cl.region->end - cl.region->start)));
+            cl.xScaling = (float)((regionWidth - gap - gap) / ((double)(cl.region->end - cl.region->start)));
             cl.xOffset = (regionWidth * (float)cl.regionIdx) + gap;
             cl.yOffset = (float)cl.bamIdx * bamHeight + covY + refSpace;
             cl.yPixels = trackY + covY;
@@ -653,7 +650,7 @@ namespace Manager {
 //            auto start = std::chrono::high_resolution_clock::now();
             Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
             Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
-            Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY);
+            Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace);
             Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
             Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
 
@@ -1064,7 +1061,7 @@ namespace Manager {
         }
         Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY);
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
     }
 
@@ -1114,7 +1111,7 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY);
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
     }
 

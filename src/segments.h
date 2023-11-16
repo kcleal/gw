@@ -106,6 +106,6 @@ namespace Segs {
 
     void findMismatches(const Themes::IniOptions &opts, ReadCollection &collection);
 
-    void findTrackY(std::vector<Utils::TrackBlock> &features, bool isGFF, bool expanded);
+    int findTrackY(std::vector<Utils::TrackBlock> &features, bool expanded);
 
 }

@@ -199,15 +199,19 @@ namespace Manager {
         std::string cursorGenomePos;
 
         bool captureText, shiftPress, ctrlPress, processText;
+        bool tabBorderPress;
         std::vector< std::string > commandHistory;
         int commandIndex, charIndex;
         int mouseOverTileIndex;
 
-        float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace;
+        float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace, sliderSpace;
 
         double xDrag, xOri, lastX, yDrag, yOri, lastY;
 
         float yScaling;
+
+        GLFWcursor* vCursor;
+        GLFWcursor* normalCursor;
 
         Utils::Region clicked;
         int clickedIdx;

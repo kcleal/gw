@@ -1635,7 +1635,7 @@ namespace Manager {
             return REFERENCE_TRACK; //-2
         } else if (!tracks.empty() && y >= refSpace + totalCovY + (trackY*(float)headers.size()) && y < (float)fb_height - refSpace) {
 			int index = -3;
-			float trackSpace = (float)fb_height - totalCovY - refSpace - refSpace - (trackY*(float)headers.size());
+			float trackSpace = (float)fb_height - totalCovY - refSpace - sliderSpace - (trackY*(float)headers.size());
 			trackSpace = trackSpace / (float)tracks.size();
 			float cIdx = (y - (refSpace + totalCovY + (trackY*(float)headers.size()))) / trackSpace;
 			index -= int(cIdx);
@@ -1814,19 +1814,27 @@ namespace Manager {
                 }
 
             } else if (idx <= TRACK && action == GLFW_RELEASE) {
-	            float rS = ((float)fb_width / (float)regions.size());
-	            int tIdx = (int)((xW) / rS);
-	            if (tIdx < (int)regions.size()) {
-		            float relX = xW - gap;
-		            if (tIdx > 0) {
-			            relX -= (float)tIdx * rS;
-		            }
-		            relX /= (rS - gap - gap);
-		            if (relX < 0 || relX > 1) {
-			            return;
-		            }
-					Term::printTrack(relX, tracks[(idx * -1) -3], &regions[tIdx], false);
-				}
+                if (std::abs(xDrag) < 5 && std::abs(yDrag) < 5) {
+                    float rS = ((float)fb_width / (float)regions.size());
+                    int tIdx = (int)((xW) / rS);
+                    if (tIdx < (int)regions.size()) {
+                        float relX = xW - gap;
+                        if (tIdx > 0) {
+                            relX -= (float)tIdx * rS;
+                        }
+                        relX /= (rS - gap - gap);
+                        if (relX < 0 || relX > 1) {
+                            return;
+                        }
+                        Term::printTrack(relX, tracks[(idx * -1) -3], &regions[tIdx], false);
+                    }
+                }
+                clickedIdx = -1;
+                xOri = x;
+                yOri = y;
+                xDrag = -1000000;
+                yDrag = -1000000;
+                return;
 			}
             if (action == GLFW_PRESS) {
                 if (collections.empty() || idx < 0) {
@@ -1951,11 +1959,11 @@ namespace Manager {
             yOri = y;
 
         } else if (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
-            if (regions.empty()) {
+            if (regions.empty() || !variantTracks.empty()) {
                 return;
             }
             currentVarTrack = &variantTracks[variantFileSelection];
-            if (!currentVarTrack->multiRegions.empty() || !imageCache.empty()) {
+            if (currentVarTrack != nullptr && (!currentVarTrack->multiRegions.empty() || !imageCache.empty())) {
                 mode = Manager::TILED;
                 xDrag = -1000000;
                 yDrag = -1000000;
@@ -2170,6 +2178,13 @@ namespace Manager {
             commandToolTipIndex = -1;
         }
 
+        float trackBoundary = totalCovY + refSpace + (trackY*(float)headers.size());
+        if (std::fabs(yPos_fb - trackBoundary) < 5 * monitorScale) {
+            glfwSetCursor(window, vCursor);
+        } else {
+            glfwSetCursor(window, normalCursor);
+        }
+
         if (state == GLFW_PRESS) {
 
             xDrag = xPos - xOri;  // still in window co-ords not frame buffer co-ords
@@ -2177,6 +2192,7 @@ namespace Manager {
             if (std::abs(xDrag) > 5 || std::abs(yDrag) > 5) {
                 captureText = false;
             }
+
             if (mode == Manager::SINGLE) {
                 if (regions.empty()) {
                     return;
@@ -2187,11 +2203,25 @@ namespace Manager {
                     }
                     return;
                 }
+                if (!tracks.empty()) {
+                    float trackBoundary = totalCovY + refSpace + (trackY*(float)headers.size());
+                    if (tabBorderPress || (std::fabs(yPos_fb - trackBoundary) < 5 * monitorScale && xDrag < 5 && yDrag < 5)) {
+                        if (yPos_fb <= refSpace + totalCovY + 10) {
+                            return;
+                        }
+                        tabBorderPress = true;
+                        float drawingArea = ((float)fb_height - refSpace - sliderSpace);
+                        float new_boundary = fb_height - yPos_fb - refSpace;
+                        opts.tab_track_height = new_boundary / drawingArea;
+                        redraw = true;
+                        return;
+                    }
+                }
+
                 int idx = getCollectionIdx((float) xPos_fb, (float) yPos_fb);
                 int windowW, windowH;
                 glfwGetWindowSize(wind, &windowW, &windowH);
                 Utils::Region &region = regions[regionSelection];
-
                 if (std::fabs(xDrag) > std::fabs(yDrag) && region.end - region.start < 50000) {
                     printRegionInfo();
                     auto w = (float) (region.end - region.start) * (float) regions.size();
@@ -2226,13 +2256,13 @@ namespace Manager {
                         return;
                     }
                     Segs::ReadCollection &cl = collections[idx];
-                        regionSelection = cl.regionIdx;
+                    regionSelection = cl.regionIdx;
                     if (clickedIdx == -1 || idx != clickedIdx) {
                         return;
                     }
 
                     if (std::fabs(yDrag) > std::fabs(xDrag) && std::fabs(yDrag) > 1) {
-                        float travel_y = yDrag / ((float) windowH / (float) cl.levelsStart.size());
+                        float travel_y = yDrag / ((float) ((windowH * (1 - opts.tab_track_height)) / (float)bams.size()) / (float) cl.levelsStart.size());
                         if (std::fabs(travel_y) > 1) {
                             cl.vScroll -= (int) travel_y;
                             cl.vScroll = (cl.vScroll <= 0) ? 0 : cl.vScroll;
@@ -2254,6 +2284,7 @@ namespace Manager {
             }
         } else {
             if (mode == Manager::SINGLE) {
+                tabBorderPress = false;
                 if (regions.empty()) {
                     return;
                 }
@@ -2289,8 +2320,8 @@ namespace Manager {
                                 }
                             }
                         }
-                    } else {
-                        updateCursorGenomePos(xOffset, xScaling, (float)xPos_fb, &regions[regionSelection]);
+//                    } else {
+//                        updateCursorGenomePos(xOffset, xScaling, (float)xPos_fb, &regions[regionSelection]);
                     }
                     return;
                 }
