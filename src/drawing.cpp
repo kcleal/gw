@@ -1431,7 +1431,7 @@ namespace Drawing {
         float stepX = fb_width / (float)regions.size();
         float refSpace = fonts.overlayHeight;
         float stepY = (totalTabixY - gap2) / (float)tracks.size();
-        float padY = gap + (stepY * 0.25);
+        float padY = gap; // + (stepY * 0.25);
         float y = fb_height - totalTabixY - refSpace;
         float t = (float)0.005 * fb_width;
 
@@ -1440,7 +1440,8 @@ namespace Drawing {
         SkPath path2{};
 
         opts.theme.lcLightJoins.setAntiAlias(true);
-        bool expanded = true;
+        bool expanded = opts.expand_tracks;
+
         for (auto &rgn : regions) {
             bool any_text = (rgn.end - rgn.start) < 500000;
             float xScaling = (stepX - gap2) / (float)(rgn.end - rgn.start);
@@ -1455,22 +1456,23 @@ namespace Drawing {
                 } else {
                     HGW::collectTrackData(trk, features);
                 }
-                int nLevels = Segs::findTrackY(features, expanded);
+                int nLevels = Segs::findTrackY(features, expanded, rgn);
+
                 float blockSpace = (stepY / (float)nLevels) * 0.35;
                 float h = std::fmin(blockSpace, 20);
                 float h2 = h * 0.5;
                 float h4 = h2 * 0.5;
 
-                float padY_track = padY;
-                float step_track = (stepY - gap2) / (float)nLevels;
+                float step_track = (stepY - gap2) / ((float)nLevels);
 
                 bool isBed12 = !trk.parts.empty() && trk.parts.size() >= 12;
 
                 for (auto &f : features) {
                     if (isGFF) {
-                        if (!f.anyToDraw) {
+                        if (!f.anyToDraw || f.start > rgn.end || f.end < rgn.start) {
                             continue;
                         }
+                        float padY_track = padY + (step_track * f.level);
                         drawGff3(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap,
                                  f, any_text, rgn, rect, path, path2, padX, padY_track, stepX, stepY, y, h, h2, h4, gap2,
                                  xScaling, t, nLevels);
@@ -1482,9 +1484,9 @@ namespace Drawing {
                         drawTrackBlock(f.start, f.end, f.name, rgn, rect, path, padX, padY, y, h, stepX, gap, gap2,
                                        xScaling, t, opts, canvas, fonts, any_text, true, true, false);
                     }
-                    if (nLevels > 1) {
-                        padY_track += step_track;
-                    }
+//                    if (nLevels > 1) {
+//                        padY_track += step_track;
+//                    }
                 }
 
 

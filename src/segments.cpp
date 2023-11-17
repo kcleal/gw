@@ -760,32 +760,39 @@ namespace Segs {
         }
     }
 
-    int findTrackY(std::vector<Utils::TrackBlock> &features, bool expanded) {
+
+    struct TrackRange {
+        int start, end;
+    };
+
+    int findTrackY(std::vector<Utils::TrackBlock> &features, bool expanded, const Utils::Region &rgn) {
         if (!expanded || features.empty()) {
             return 1;
         }
-        std::vector<int> ls;
-        std::vector<int> le;
+        std::vector<TrackRange> levels;
         for (auto &b : features) {
-            if (!b.anyToDraw) {
+            if (!b.anyToDraw || b.start > rgn.end || b.end < rgn.start) {
                 continue;
             }
-            size_t memLen = ls.size();
-            size_t i;
-            for (i=0; i < memLen; ++i) {
-                if (b.start > le[i]) {
-                    le[i] = b.end;
-                    b.level = (int)i;
-                    break;
+            if (levels.empty()) {
+                levels.emplace_back() = {b.s[0], b.e[0]};
+            } else {
+                size_t memLen = levels.size();
+                size_t i;
+                for (i=0; i < memLen; ++i) {
+                    if (b.s[i] > levels[i].end) {
+                        levels[i].end = b.e[i];
+                        b.level = (int)i;
+                        break;
+                    }
+                }
+                if (i == memLen) {
+                    levels.emplace_back() = {b.s[i], b.e[i]};
+                    b.level = memLen;
                 }
             }
-            if (i == memLen) {
-                ls.push_back(b.start);
-                le.push_back(b.end);
-                b.level = memLen;
-            }
         }
-        assert (ls.size() >= 1);
-        return (int)ls.size();
+        assert (levels.size() >= 1);
+        return (int)levels.size();
     }
 }

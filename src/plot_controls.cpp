@@ -290,8 +290,7 @@ namespace Manager {
                 if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER || key == GLFW_KEY_SPACE) {
                     inputText = Menu::commandToolTip[commandToolTipIndex];
                     charIndex = (int)inputText.size();
-                    std::vector<std::string> exec = {"cov", "count", "edges", "insertions", "line", "low-mem", "log2-cov", "mate", "mate add", "mismatches", "tags", "soft-clips", "sam", "refresh"};
-                    if (std::find(exec.begin(), exec.end(), inputText) != exec.end()) {
+                    if (std::find( Menu::exec.begin(), Menu::exec.end(), inputText) != Menu::exec.end()) {
                         captureText = false;
                         processText = true;
                         shiftPress = false;
@@ -717,7 +716,7 @@ namespace Manager {
                 }), collections.end());
                 bams.erase(bams.begin() + ind);
                 indexes.erase(indexes.begin() + ind);
-                processed = true;
+                processed = false;
                 redraw = true;
                 inputText = "";
                 return true;
@@ -811,6 +810,13 @@ namespace Manager {
         }
         else if (inputText == "log2-cov") {
             opts.log2_cov = !(opts.log2_cov);
+            redraw = true;
+            processed = true;
+            inputText = "";
+            return true;
+        }
+        else if (inputText == "expand-tracks") {
+            opts.expand_tracks = !(opts.expand_tracks);
             redraw = true;
             processed = true;
             inputText = "";
@@ -1297,7 +1303,7 @@ namespace Manager {
                     }
                 }
             }
-        } else if (!tracks.empty()) {
+        } else if (!tracks.empty() && !opts.genome_tag.empty()) {
             std::string &genome_tag = opts.genome_tag;
             tracks.erase(std::remove_if(tracks.begin(), tracks.end(),
                                         [&genome_tag] (HGW::GwTrack &trk) { return (trk.genome_tag == genome_tag); } ),

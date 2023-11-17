@@ -296,6 +296,7 @@ namespace Themes {
         log2_cov = false;
         tlen_yscale = false;
         low_mem = false;
+        expand_tracks = false;
 
         scroll_speed = 0.15;
         tab_track_height = 0.05;
@@ -347,7 +348,7 @@ namespace Themes {
         split_view_size = std::stoi(myIni["general"]["split_view_size"]);
         threads = std::stoi(myIni["general"]["threads"]);
         pad = std::stoi(myIni["general"]["pad"]);
-        log2_cov = myIni["general"]["coverage"] == "true";
+        max_coverage = (myIni["general"]["coverage"] == "true") ? 100000 : 0;
         log2_cov = myIni["general"]["log2_cov"] == "true";
         scroll_speed = std::stof(myIni["general"]["scroll_speed"]);
         tab_track_height = std::stof(myIni["general"]["tabix_track_height"]);
@@ -356,6 +357,9 @@ namespace Themes {
         }
         if (myIni["general"].has("font_size")) {
             font_size = std::stoi(myIni["general"]["font_size"]);
+        }
+        if (myIni["general"].has("expand_tracks")) {
+            expand_tracks = myIni["general"]["expand_tracks"] == "true";
         }
 
         soft_clip_threshold = std::stoi(myIni["view_thresholds"]["soft_clip"]);

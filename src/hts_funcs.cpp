@@ -1218,6 +1218,8 @@ namespace HGW {
                 start = std::stoi(parts[3]);
                 stop = std::stoi(parts[4]);
                 vartype = parts[2];
+                rid.clear();
+                parent.clear();
                 for (const auto &item :  Utils::split(parts[8], ';')) {
                     std::vector<std::string> keyval = Utils::split(item, '=');
                     if (keyval[0] == "ID") {

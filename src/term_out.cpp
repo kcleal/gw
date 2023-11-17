@@ -31,6 +31,7 @@ namespace Term {
         std::cout << termcolor::green << "count            expression?     " << termcolor::reset << "Count reads. See filter for example expressions'\n";
         std::cout << termcolor::green << "cov              value?          " << termcolor::reset << "Change max coverage value. Use 'cov' to toggle coverage\n";
         std::cout << termcolor::green << "edges                            " << termcolor::reset << "Toggle edges\n";
+        std::cout << termcolor::green << "expand-track                     " << termcolor::reset << "Toggle showing expanded tracks\n";
         std::cout << termcolor::green << "filter           expression      " << termcolor::reset << "Examples 'filter mapq > 0', 'filter ~flag & secondary'\n                                 'filter mapq >= 30 or seq-len > 100'\n";
         std::cout << termcolor::green << "find, f          qname?          " << termcolor::reset << "To find other alignments from selected read use 'find'\n                                 Or use 'find [QNAME]' to find target read'\n";
         std::cout << termcolor::green << "goto             loci/feature    " << termcolor::reset << "e.g. 'goto chr1:1-20000'. 'goto hTERT' \n";
@@ -98,6 +99,8 @@ namespace Term {
             std::cout << "    Toggle coverage track.\n        This will turn on/off coverage tracks.\n\n";
         } else if (s == "edges" || s == "sc") {
             std::cout << "    Toggle edge highlights.\n        Edge highlights are turned on or off.\n\n";
+        } else if (s == "expand-tracks") {
+                std::cout << "    Toggle expand-tracks.\n        Features in the tracks panel are expanded so overlapping features can be seen.\n\n";
         } else if (s == "filter") {
             std::cout << "    Filter visible reads.\n"
                          "        Reads can be filtered using an expression '{property} {operation} {value}' (the white-spaces are also needed).\n"

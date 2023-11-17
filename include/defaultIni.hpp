@@ -38,6 +38,7 @@ namespace DefaultIni {
                "ylim=50\n"
                "coverage=true\n"
                "log2_cov=false\n"
+               "expand_tracks=false\n"
                "link=none\n"
                "split_view_size=10000\n"
                "threads=4\n"
