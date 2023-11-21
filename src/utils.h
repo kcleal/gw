@@ -55,11 +55,15 @@ namespace Utils {
         int strand;  // 0 is none, 1 forward, 2 reverse
     };
 
-    struct Region {
+    class Region {
+    public:
+//    struct Region {
         std::string chrom;
         int start, end;
         int markerPos, markerPosEnd;
         const char *refSeq;
+        std::vector<std::vector<Utils::TrackBlock>> featuresInView;  // one vector for each Track
+        std::vector<int> featureLevels;
         Region() {
             chrom = "";
             start = -1;

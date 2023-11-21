@@ -40,7 +40,7 @@ namespace Term {
 
 	void printCoverage(int pos, Segs::ReadCollection &cl);
 
-	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver);
+	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver, int targetLevel, int trackIdx);
 
     void updateRefGenomeSeq(Utils::Region *region, float xW, float xOffset, float xScaling);
 }

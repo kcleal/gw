@@ -110,6 +110,7 @@ namespace HGW {
         std::string chrom, chrom2, rid, vartype, parent;
         int start, stop;
         int fileIndex;
+
         FType kind;
 
         htsFile *fp;
@@ -123,12 +124,13 @@ namespace HGW {
 
         int region_end;
         std::vector<std::string> parts;  // string split by delimiter
-//        std::vector<Utils::TrackBlock> vals;
+
         std::vector<Utils::TrackBlock>::iterator vals_end;
         std::vector<Utils::TrackBlock>::iterator iter_blk;
 
         ankerl::unordered_dense::map< std::string, std::vector<Utils::TrackBlock>>  allBlocks;
         std::vector<Utils::TrackBlock> allBlocks_flat;
+
         Utils::TrackBlock block;
         bool done;
 		std::string variantString;
@@ -143,6 +145,10 @@ namespace HGW {
     };
 
     bool searchTracks(std::vector<GwTrack> &tracks, std::string &feature, Utils::Region &region);
+
+    void collectGFFTrackData(GwTrack &trk, std::vector<Utils::TrackBlock> &features);
+
+    void collectTrackData(GwTrack &trk, std::vector<Utils::TrackBlock> &features);
 
     void saveVcf(VCFfile &input_vcf, std::string path, std::vector<Utils::Label> multiLabels);
 
@@ -177,9 +183,5 @@ namespace HGW {
     private:
         void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label, std::string &vartype);
     };
-
-    void collectGFFTrackData(HGW::GwTrack &trk, std::vector<Utils::TrackBlock> &features);
-
-    void collectTrackData(HGW::GwTrack &trk, std::vector<Utils::TrackBlock> &features);
 
 }

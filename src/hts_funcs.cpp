@@ -1224,7 +1224,8 @@ namespace HGW {
                     std::vector<std::string> keyval = Utils::split(item, '=');
                     if (keyval[0] == "ID") {
                         rid = keyval[1];
-                    } else if (keyval[0] == "Parent") {
+                    }
+                    else if (keyval[0] == "Parent") {
                         parent = keyval[1];
                         break;
                     }
@@ -1588,7 +1589,7 @@ namespace HGW {
             g->chrom = trk.chrom;
             g->start = trk.start;
             g->end = trk.stop;
-            g->name = trk.parent;
+            g->name = trk.rid;
             g->vartype = trk.vartype;
             g->strand = (trk.parts[6] == "-") ? 2 : 1; // assume all on same strand
             gffParentMap[trk.parent].push_back(g);
@@ -1604,7 +1605,7 @@ namespace HGW {
                 if (j == 0) {
                     track.chrom = g->chrom;
                     track.start = g->start;
-                    track.name = g->name;
+                    track.name = pg.first;
                     track.end = g->end;
                     track.strand = g->strand;
                 } else if (g->end > track.end) {
@@ -1645,6 +1646,47 @@ namespace HGW {
             b->end = trk.stop;
             b->line = trk.variantString;
             b->parts = trk.parts;
+            b->anyToDraw = true;
+            if (trk.parts.size() >= 5) {
+                b->strand = (trk.parts[5] == "+") ? 1 : (trk.parts[5] == "-") ? -1 : 0;
+            }
+            bool tryBed12 = !trk.parts.empty() && trk.parts.size() >= 12;
+            if (tryBed12) {
+                std::vector<std::string> lens, starts;
+                Utils::split(trk.parts[10], ',', lens);
+                Utils::split(trk.parts[11], ',', starts);
+                if (starts.size() != lens.size()) {
+                    continue;
+                }
+                int target = (int)lens.size();
+                int gene_start = trk.start;
+                int thickStart, thickEnd;
+                try {
+                    thickStart = std::stoi(trk.parts[6]);
+                    thickEnd = (std::stoi(trk.parts[7]));
+                } catch (...) {
+                    continue;
+                }
+                b->drawThickness.resize(target, 0);
+                thickEnd = (thickEnd == thickStart) ? trk.stop : thickEnd;
+                for (int i=0; i < target; ++i) {
+                    int s, e;
+                    try {
+                        s = gene_start + std::stoi(starts[i]);
+                        e = s + std::stoi(lens[i]);
+                    } catch (...) {
+                        break;
+                    }
+                    if (s >= thickStart && e <= thickEnd) {
+                        b->drawThickness[i] = 2;
+                    } else {
+                        b->drawThickness[i] = 1;
+                    }
+                    b->s.push_back(s);
+                    b->e.push_back(e);
+
+                }
+            }
         }
     }
 

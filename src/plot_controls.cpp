@@ -40,6 +40,8 @@ namespace Manager {
         GENERIC
     };
 
+    constexpr int DRAG_UNSET = -1000000;
+
     void error_report(int err) {
         std::cerr << termcolor::red << "Error:" << termcolor::reset;
         if (err == CHROM_NOT_IN_REFERENCE) {
@@ -1193,7 +1195,7 @@ namespace Manager {
         std::cout << ind;
         term_width -= (int)ind.size();
 
-        if (currentVarTrack->multiRegions.size() <= blockStart) {
+        if ((int)currentVarTrack->multiRegions.size() <= blockStart) {
             std::cout << std::flush;
             return;
         }
@@ -1209,7 +1211,7 @@ namespace Manager {
         std::cout << region_str1;
         term_width -= (int)region_str1.size();
 
-        if (currentVarTrack->multiRegions.size() <= blockStart + (opts.number.x * opts.number.y) - 1) {
+        if ((int)currentVarTrack->multiRegions.size() <= blockStart + (opts.number.x * opts.number.y) - 1) {
             std::cout << std::flush;
             return;
         }
@@ -1737,7 +1739,7 @@ namespace Manager {
         }
         // settings button or command box button
         float half_h = (float)fb_height / 2;
-        bool tool_popup = (xW <= 60 && yW >= half_h - 60 && yW <= half_h + 60);
+        bool tool_popup = (xW > 0 && xW <= 60 && yW >= half_h - 60 && yW <= half_h + 60 && (std::fabs(xDrag) < 5 || xDrag == DRAG_UNSET) && (std::fabs(yDrag) < 5 || yDrag == DRAG_UNSET));
         if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE && tool_popup) {
             if (yW < half_h) {
                 if (mode != SETTINGS) {
@@ -1777,7 +1779,7 @@ namespace Manager {
                 return;
             }
         }
-        if (xDrag == -1000000) {
+        if (xDrag == DRAG_UNSET) {
             xDrag = 0;
             xOri = x;
             yDrag = 0;
@@ -1832,14 +1834,20 @@ namespace Manager {
                         if (relX < 0 || relX > 1) {
                             return;
                         }
-                        Term::printTrack(relX, tracks[(idx * -1) -3], &regions[tIdx], false);
+                        int trackIdx = (idx * -1) -3;
+                        HGW::GwTrack &targetTrack = tracks[trackIdx];
+                        float stepY =  (totalTabixY) / (float)tracks.size();
+                        float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[trackIdx]);
+                        float y = fb_height - totalTabixY - refSpace;  // start of tracks on canvas
+                        int featureLevel = (int)(yW - y - (trackIdx * stepY)) / step_track;
+                        Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx);
                     }
                 }
                 clickedIdx = -1;
                 xOri = x;
                 yOri = y;
-                xDrag = -1000000;
-                yDrag = -1000000;
+                xDrag = DRAG_UNSET;
+                yDrag = DRAG_UNSET;
                 return;
 			}
             if (action == GLFW_PRESS) {
@@ -1915,8 +1923,8 @@ namespace Manager {
                     }
                     --bnd;
                 }
-                xDrag = -1000000;
-                yDrag = -1000000;
+                xDrag = DRAG_UNSET;
+                yDrag = DRAG_UNSET;
                 clickedIdx = -1;
 
             } else if (action == GLFW_RELEASE) {
@@ -1963,6 +1971,8 @@ namespace Manager {
             }
             xOri = x;
             yOri = y;
+            xDrag = DRAG_UNSET;
+            yDrag = DRAG_UNSET;
 
         } else if (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
             if (regions.empty() || !variantTracks.empty()) {
@@ -1971,8 +1981,8 @@ namespace Manager {
             currentVarTrack = &variantTracks[variantFileSelection];
             if (currentVarTrack != nullptr && (!currentVarTrack->multiRegions.empty() || !imageCache.empty())) {
                 mode = Manager::TILED;
-                xDrag = -1000000;
-                yDrag = -1000000;
+                xDrag = DRAG_UNSET;
+                yDrag = DRAG_UNSET;
                 redraw = true;
                 processed = false;
                 imageCacheQueue.clear();
@@ -1989,8 +1999,8 @@ namespace Manager {
                     ++i;
                 }
                 if (i == (int)bboxes.size()) {
-                    xDrag = -1000000;
-                    yDrag = -1000000;
+                    xDrag = DRAG_UNSET;
+                    yDrag = DRAG_UNSET;
                     xOri = x;
                     yOri = y;
                     return;
@@ -2040,10 +2050,9 @@ namespace Manager {
 
                 bool variantFile_click = variantTracks.size() > 1 && yW < fb_height * 0.02;
                 if (variantFile_click) {
-                    std::cerr << xW << " hi\n";
                     float tile_box_w = std::fmin(100 * monitorScale, (fb_width - (variantTracks.size() * gap + 1)) / variantTracks.size());
                     float x_val = gap;
-                    for (int i=0; i < variantTracks.size(); ++i) {
+                    for (int i=0; i < (int)variantTracks.size(); ++i) {
                         if (x_val - gap <= xW && x_val + tile_box_w >= xW) {
                             variantFileSelection = i;
                             redraw = true;
@@ -2075,8 +2084,8 @@ namespace Manager {
                         ++i;
                     }
                     if (i == (int)bboxes.size()) {
-                        xDrag = -1000000;
-                        yDrag = -1000000;
+                        xDrag = DRAG_UNSET;
+                        yDrag = DRAG_UNSET;
                         xOri = x;
                         yOri = y;
                         return;
@@ -2088,8 +2097,8 @@ namespace Manager {
                         redraw = true;
                     }
                 }
-                xDrag = -1000000;
-                yDrag = -1000000;
+                xDrag = DRAG_UNSET;
+                yDrag = DRAG_UNSET;
                 xOri = x;
                 yOri = y;
             }
@@ -2283,7 +2292,7 @@ namespace Manager {
                         }
                     }
                     processed = true;
-                    redraw = true;
+                    redraw = false;
                     glfwPostEmptyEvent();
                     return;
                 }
@@ -2296,6 +2305,9 @@ namespace Manager {
                 }
                 int rs = getCollectionIdx((float)xPos_fb, (float)yPos_fb);
 	            if (rs <= TRACK) {  // print track info
+                    if (tracks.empty()) {
+                        return;
+                    }
 		            float rgS = ((float)fb_width / (float)regions.size());
 		            int tIdx = (int)((xPos_fb) / rgS);
 		            if (tIdx < (int)regions.size()) {
@@ -2307,7 +2319,13 @@ namespace Manager {
 						if (relX < 0 || relX > 1) {
 							return;
 						}
-			            Term::printTrack(relX, tracks[(rs * -1) -3], &regions[tIdx], true);
+                        int targetIndex = (rs * -1) -3;
+                        HGW::GwTrack &targetTrack = tracks[targetIndex];
+                        float stepY =  (totalTabixY) / (float)tracks.size();
+                        float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[targetIndex]);
+                        float y = fb_height - totalTabixY - refSpace;  // start of tracks on canvas
+                        int featureLevel = (int)(yPos_fb - y - (targetIndex * stepY)) / step_track;
+			            Term::printTrack(relX, targetTrack, &regions[tIdx], true, featureLevel, targetIndex);
 		            }
 	            }
                 if (rs < 0) { // print reference info

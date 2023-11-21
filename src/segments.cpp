@@ -770,26 +770,23 @@ namespace Segs {
             return 1;
         }
         std::vector<TrackRange> levels;
+        levels.reserve(100);
         for (auto &b : features) {
-            if (!b.anyToDraw || b.start > rgn.end || b.end < rgn.start) {
+            if (!b.anyToDraw) {
                 continue;
             }
-            if (levels.empty()) {
-                levels.emplace_back() = {b.s[0], b.e[0]};
-            } else {
-                size_t memLen = levels.size();
-                size_t i;
-                for (i=0; i < memLen; ++i) {
-                    if (b.s[i] > levels[i].end) {
-                        levels[i].end = b.e[i];
-                        b.level = (int)i;
-                        break;
-                    }
+            size_t memLen = levels.size();
+            size_t i = 0;
+            for (; i < memLen; ++i) {
+                if (b.start > levels[i].end) {
+                    levels[i].end = b.end + 5;
+                    b.level = (int)i;
+                    break;
                 }
-                if (i == memLen) {
-                    levels.emplace_back() = {b.s[i], b.e[i]};
-                    b.level = memLen;
-                }
+            }
+            if (i == memLen) {
+                levels.emplace_back() = {b.start, b.end + 5};
+                b.level = memLen;
             }
         }
         assert (levels.size() >= 1);

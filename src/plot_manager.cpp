@@ -170,8 +170,10 @@ namespace Manager {
 
 //        std::cerr << "Width: " << mode->width << " Height: " << mode->height << " redBits: " << mode->redBits << " greenBits: " << mode->greenBits << " blueBits: " << mode->blueBits << " refreshRate: " << mode->refreshRate << std::endl;
 //         Turn this off for non-remote connections?
-//        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 1);
-//        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+//        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
+//        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+//        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+//        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
 //        glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
 
 
@@ -646,17 +648,11 @@ namespace Manager {
         } else {
             processBam();
             setScaling();
-
-//            auto start = std::chrono::high_resolution_clock::now();
             Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
             Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
             Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace);
             Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
             Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
-
-//            auto stop = std::chrono::high_resolution_clock::now();
-//            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();
-//            std::cerr << " drew stuff " << duration << std::endl;
 
             if (opts.max_coverage) {
                 Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
@@ -727,7 +723,7 @@ namespace Manager {
             float x_val = gap;
             float h = fb_height * 0.01;
             float y_val;
-            for (int i=0; i < variantTracks.size(); ++i) {
+            for (int i=0; i < (int)variantTracks.size(); ++i) {
                 if (i == variantFileSelection) {
                     box = opts.theme.fcDup;
                     y_val = 0;
@@ -751,7 +747,7 @@ namespace Manager {
             yposm *= (float) fb_height / (float) windowH;
         }
         float half_h = (float)fb_height / 2;
-        bool tool_popup = (xposm <= 60 && yposm >= half_h - 150 && yposm <= half_h + 150);
+        bool tool_popup = (xposm > 0 && xposm <= 60 && yposm >= half_h - 150 && yposm <= half_h + 150 && xDrag == -1000000 && yDrag == -1000000);
         if (tool_popup) {
             SkRect rect{};
             SkPaint pop_paint = opts.theme.bgPaint;
@@ -801,7 +797,7 @@ namespace Manager {
             float x_val = gap;
             float h = fonts.overlayHeight / 2;
             SkRect rect{};
-            for (int i=0; i < variantTracks.size(); ++i) {
+            for (int i=0; i < (int)variantTracks.size(); ++i) {
                 if (x_val - gap <= xposm && x_val + tile_box_w >= xposm) {
                     std::string &fname = variantTracks[i].path;
                     rect.setXYWH(x_val, h, fname.size() * fonts.overlayWidth + gap + gap, fonts.overlayHeight*2);

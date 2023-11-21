@@ -734,37 +734,75 @@ namespace Term {
 		std::cout << std::flush;
 	}
 
-	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver) {
-		track.fetch(rgn);
+	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver, int targetLevel, int trackIdx) {
+
 		int target = (int)((float)(rgn->end - rgn->start) * x) + rgn->start;
 		std::filesystem::path p = track.path;
-		while (true) {
-			track.next();
-			if (track.done) {
-				break;
-			}
-			if (track.start <= target && track.stop > target) {
+        for (auto &b : rgn->featuresInView[0]) {
+            if (b.start <= target && b.end > target && b.level == targetLevel) {
                 clearLine();
-				std::cout << "\r" << termcolor::bold << p.filename().string() << termcolor::reset << "    " << \
-                    termcolor::cyan << track.chrom << ":" << track.start << "-" << track.stop << termcolor::reset;
-                if (!track.rid.empty()) {
-                    std::cout << termcolor::bold << "    ID  " << termcolor::reset << track.rid;
+                std::cout << "\r" << termcolor::bold << p.filename().string() << termcolor::reset << "    " << \
+                    termcolor::cyan << b.chrom << ":" << b.start << "-" << b.end << termcolor::reset;
+                if (!b.name.empty()) {
+                    std::cout << termcolor::bold << "    ID  " << termcolor::reset << b.name;
                 }
-                if (!track.vartype.empty()) {
-                    std::cout << termcolor::bold << "    Type  " << termcolor::reset << track.vartype;
+                if (!b.vartype.empty()) {
+                    std::cout << termcolor::bold << "    Type  " << termcolor::reset << b.vartype;
                 }
                 std::cout << std::flush;
-				if (!mouseOver) {
-					std::cout << std::endl;
-                    track.printTargetRecord(track.rid, rgn->chrom, target);
-                    if (!track.variantString.empty()) {
-                        std::cout << track.variantString << std::endl;
+                if (!mouseOver) {
+                    std::cout << std::endl;
+                    for (auto &p: b.parts) {
+                        std::cout << "\t" << p;
                     }
-				} else {
-					break;
-				}
-			}
-		}
+                    std::cout << std::endl;
+//                    Utils::Region tmp_region;
+//                    tmp_region.chrom = rgn->chrom;
+//                    tmp_region.start = rgn->start;
+//                    tmp_region.end = rgn->end;
+//                    track.fetch(&tmp_region);
+//                    std::cout << std::endl;
+//                    track.printTargetRecord(b.name, b.chrom, target);
+//                    if (!track.variantString.empty()) {
+//                        std::cout << track.variantString << std::endl;
+//                    }
+                } else {
+                    break;
+                }
+            }
+        }
+
+
+
+
+
+//		while (true) {
+//			track.next();
+//			if (track.done) {
+//				break;
+//			}
+//			if (track.start <= target && track.stop > target) {
+//                clearLine();
+//				std::cout << "\r" << termcolor::bold << p.filename().string() << termcolor::reset << "    " << \
+//                    termcolor::cyan << track.chrom << ":" << track.start << "-" << track.stop << termcolor::reset;
+//                if (!track.rid.empty()) {
+//                    std::cout << termcolor::bold << "    ID  " << termcolor::reset << track.rid;
+//                }
+//                if (!track.vartype.empty()) {
+//                    std::cout << termcolor::bold << "    Type  " << termcolor::reset << track.vartype;
+//                }
+//                std::cout << std::flush;
+//				if (!mouseOver) {
+//					std::cout << std::endl;
+//                    track.printTargetRecord(track.rid, rgn->chrom, target);
+//                    if (!track.variantString.empty()) {
+//                        std::cout << track.variantString << std::endl;
+//                    }
+//				} else {
+//					break;
+//				}
+//			}
+//		}
         if (!mouseOver) {
             std::cout << std::endl;
         }
