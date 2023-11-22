@@ -15,6 +15,7 @@
 #include "htslib/tbx.h"
 
 #include "parser.h"
+#include "../include/IITree.h"
 #include "../include/unordered_dense.h"
 #include "segments.h"
 #include "themes.h"
@@ -97,6 +98,9 @@ namespace HGW {
                                 hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *samMaxY,
                                 std::vector<Parse::Parser> &filters, BS::thread_pool &pool);
 
+    struct EndIdx {
+        int end, size, index;
+    };
     /*
     * VCF/BCF/BED/GFF3/LABEL file reader. No label parsing for vcf/bcf.
     * Non-indexed files are cached using TrackBlock items. Files with an index are fetched during drawing.
@@ -128,8 +132,8 @@ namespace HGW {
         std::vector<Utils::TrackBlock>::iterator vals_end;
         std::vector<Utils::TrackBlock>::iterator iter_blk;
 
-        ankerl::unordered_dense::map< std::string, std::vector<Utils::TrackBlock>>  allBlocks;
-        std::vector<Utils::TrackBlock> allBlocks_flat;
+        ankerl::unordered_dense::map< std::string, IITree<int, Utils::TrackBlock>> allBlocks;
+        std::vector<Utils::TrackBlock> overlappingBlocks;
 
         Utils::TrackBlock block;
         bool done;

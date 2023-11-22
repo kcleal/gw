@@ -908,9 +908,6 @@ namespace HGW {
             kind = GW_LABEL;
         }
 
-        bool sorted = true;
-        int lastb = -1;
-
         if (kind == VCF_NOI) {
             fp = bcf_open(path.c_str(), "r");
             hdr = bcf_hdr_read(fp);
@@ -927,20 +924,7 @@ namespace HGW {
                 }
                 Utils::TrackBlock b;
                 parseVcfRecord(b);
-                if (add_to_dict) {
-                    if (sorted) {
-                        if (allBlocks.find(b.chrom) == allBlocks.end()) {
-                            lastb = -1;
-                        }
-                        allBlocks[b.chrom].push_back(b);
-                        if (b.start < lastb) {
-                            sorted = false;
-                        }
-                        lastb = b.start;
-                    }
-                } else {
-                    allBlocks_flat.push_back(b);
-                }
+                allBlocks[b.chrom].add(b.start, b.end, b);
             }
         } else if (kind == BED_NOI || kind == GW_LABEL) {
             std::fstream fpu;
@@ -958,17 +942,13 @@ namespace HGW {
                     continue;
                 }
                 std::vector<std::string> parts = Utils::split(tp, delim);
-                if (parts.size() < 3) {
+                if (parts.size() < 9) {
                     std::cerr << "Error: parsing file, not enough columns in line split by tab. n columns = "
                               << parts.size() << ", line was: " << tp << ", at file index " << count << std::endl;
                 }
                 Utils::TrackBlock b;
                 b.line = tp;
                 b.chrom = parts[0];
-
-                if (add_to_dict && !allBlocks.contains(b.chrom)) {
-                    lastb = -1;
-                }
                 b.start = std::stoi(parts[1]);
                 b.strand = 0;
                 if (kind == BED_NOI) {  // bed
@@ -989,87 +969,60 @@ namespace HGW {
                 } else { // assume gw_label file
                     b.end = b.start + 1;
                 }
-                if (add_to_dict) {
-                    if (allBlocks.find(b.chrom) == allBlocks.end()) {
-                        lastb = -1;
-                    }
-                    allBlocks[b.chrom].push_back(b);
-                    if (b.start < lastb) {
-                        sorted = false;
-                    }
-                    lastb = b.start;
-                } else {
-                    allBlocks_flat.push_back(b);
-                }
+                allBlocks[b.chrom].add(b.start, b.end, b);
             }
         } else if (kind == GFF3_IDX) {
             fp = hts_open(p.c_str(), "r");
             idx_t = tbx_index_load(p.c_str());
+        }
+        else if (kind == GFF3_NOI) {
+            std::fstream fpu;
+            fpu.open(p, std::ios::in);
+            if (!fpu.is_open()) {
+                std::cerr << "Error: opening track file " << path << std::endl;
+                std::terminate();
+            }
+            std::string tp;
+            const char delim = '\t';
+            int count = 0;
+            std::vector<Utils::TrackBlock> track_blocks;
+            ankerl::unordered_dense::map< std::string, int> name_to_track_block_idx;
 
-//            std::fstream fpu;
-//            fpu.open(p, std::ios::in);
-//            if (!fpu.is_open()) {
-//                std::cerr << "Error: opening track file " << path << std::endl;
-//                std::terminate();
-//            }
-//            std::string tp;
-//            const char delim = '\t';
-//            int count = 0;
-//            std::vector<Utils::TrackBlock> track_blocks;
-//            ankerl::unordered_dense::map< std::string, int> name_to_track_block_idx;
-//
-//            while (getline(fpu, tp)) {
-//                count += 1;
-//                if (tp[0] == '#') {
-//                    continue;
-//                }
-//                std::vector<std::string> parts = Utils::split(tp, delim);
-//                if (parts.size() < 9) {
-//                    std::cerr << "Error: parsing file, not enough columns in line split by tab. n columns = "
-//                              << parts.size() << ", line was: " << tp << ", at file index " << count << std::endl;
-//                }
-//
-//                Utils::TrackBlock b;
-//                b.line = tp;
-//                b.chrom = parts[0];
-//
-//                if (add_to_dict && !allBlocks.contains(b.chrom)) {
-//                    lastb = -1;
-//                }
-//                b.start = std::stoi(parts[3]);
-//                b.strand = 0;
-//                if (kind == BED_NOI) {  // bed
-//                    b.end = std::stoi(parts[2]);
-//                    if (parts.size() > 3) {
-//                        b.name = parts[3];
-//                        if (parts.size() >= 6) {
-//                            if (parts[5] == "+") {
-//                                b.strand = 1;
-//                            } else if (parts[5] == "-") {
-//                                b.strand = 2;
-//                            }
-//                        }
-//                    } else {
-//                        b.name = std::to_string(fileIndex);
-//                        fileIndex += 1;
-//                    }
-//                } else { // assume gw_label file
-//                    b.end = b.start + 1;
-//                }
-//                if (add_to_dict) {
-//                    if (allBlocks.find(b.chrom) == allBlocks.end()) {
-//                        lastb = -1;
-//                    }
-//                    allBlocks[b.chrom].push_back(b);
-//
-//                    if (b.start < lastb) {
-//                        sorted = false;
-//                    }
-//                    lastb = b.start;
-//                } else {
-//                    allBlocks_flat.push_back(b);
-//                }
-//            }
+            while (getline(fpu, tp)) {
+                count += 1;
+                if (tp[0] == '#') {
+                    continue;
+                }
+                Utils::TrackBlock b;
+                b.parts = Utils::split(tp, delim);
+                if (b.parts.size() < 9) {
+                    std::cerr << "Error: parsing file, not enough columns in line split by tab. n columns = "
+                              << b.parts.size() << ", line was: " << tp << ", at file index " << count << std::endl;
+                }
+                b.line = tp;
+                b.chrom = b.parts[0];
+                b.vartype = b.parts[2];
+                b.start = std::stoi(b.parts[3]);
+                b.end = std::stoi(b.parts[4]);
+                if (b.parts[6] == "+") {
+                    b.strand = 1;
+                } else if (b.parts[6] == "-") {
+                    b.strand = 2;
+                } else {
+                    b.strand = 0;
+                }
+                for (const auto &item :  Utils::split(b.parts[8], ';')) {
+                    std::vector<std::string> keyval = Utils::split(item, '=');
+                    if (keyval[0] == "ID") {
+                        b.name = keyval[1];
+                    }
+                    else if (keyval[0] == "Parent") {
+                        parent = keyval[1];
+                        break;
+                    }
+                }
+                allBlocks[b.chrom].add(b.start, b.end, b);
+            }
         } else if (kind == BED_IDX) {
             fp = hts_open(p.c_str(), "r");
             idx_t = tbx_index_load(p.c_str());
@@ -1090,44 +1043,34 @@ namespace HGW {
             std::terminate();
         }
 
-        if (!sorted) {
-            std::cerr << "Unsorted file: sorting blocks from " << path << std::endl;
-            for (auto &item : allBlocks) {
-                std::sort(item.second.begin(), item.second.end(),
-                          [](const Utils::TrackBlock &a, const Utils::TrackBlock &b)-> bool { return a.start < b.start || (a.start == b.start && a.end > b.end);});
-            }
+        for (auto &item : allBlocks) {
+            item.second.index();
         }
     }
 
     void GwTrack::fetch(const Utils::Region *rgn) {
         if (kind > BCF_IDX) {  // non-indexed
             if (rgn == nullptr) {
-                iter_blk = allBlocks_flat.begin();
-                vals_end = allBlocks_flat.end();
-                region_end = 2000000000;
-                done = false;
+//                iter_blk = allBlocks_flat.begin();
+//                vals_end = allBlocks_flat.end();
+//                region_end = 2000000000;
+//                done = false;
             } else {
                 if (allBlocks.contains(rgn->chrom)) {
-                    std::vector<Utils::TrackBlock> &vals = allBlocks[rgn->chrom];
-                    vals_end = vals.end();
-                    iter_blk = std::lower_bound(vals.begin(), vals.end(), rgn->start,
-                                                [](Utils::TrackBlock &a, int x)-> bool { return a.start < x;});
-                    if (iter_blk != vals.begin()) {
-                        --iter_blk;
-                        while (iter_blk != vals.begin()) {
-                            if (iter_blk->end > rgn->start) {
-                                --iter_blk;
-                            } else {
-                                break;
-                            }
-                        }
-                    }
-                    region_end = rgn->end;
-                    if (iter_blk == vals_end) {
+                    std::vector<size_t> a;
+                    allBlocks[rgn->chrom].overlap(rgn->start, rgn->end, a);
+                    overlappingBlocks.clear();
+                    if (a.empty()) {
                         done = true;
-                    } else {
-                        done = false;
+                        return;
                     }
+                    done = false;
+                    overlappingBlocks.resize(a.size());
+                    for (size_t i = 0; i < a.size(); ++i) {
+                        overlappingBlocks[i] = allBlocks[rgn->chrom].data(a[i]);
+                    }
+                    iter_blk = overlappingBlocks.begin();
+                    vals_end = overlappingBlocks.end();
                 } else {
                     done = true;
                 }
@@ -1244,17 +1187,14 @@ namespace HGW {
         } else if (kind > BCF_IDX) {  // non indexed but cached VCF_NOI / BED_NOI / GFF3(todo) / GW_LABEL / STDIN
             // first line of the region is cached here and resolved during drawing / mouse-clicks
             if (iter_blk != vals_end) {
-                if (iter_blk->start < region_end) {
-                    chrom = iter_blk->chrom;
-                    start = iter_blk->start;
-                    stop = iter_blk->end;
-                    rid = iter_blk->name;
-                    vartype = iter_blk->vartype;
-                    variantString = iter_blk->line;
-                    ++iter_blk;
-                } else {
-                    done = true;
-                }
+                chrom = iter_blk->chrom;
+                start = iter_blk->start;
+                stop = iter_blk->end;
+                rid = iter_blk->name;
+                vartype = iter_blk->vartype;
+                variantString = iter_blk->line;
+                parts = iter_blk->parts;
+                ++iter_blk;
             } else {
                 done = true;
             }
@@ -1303,20 +1243,21 @@ namespace HGW {
                 }
             }
         } else if (kind > BCF_IDX) {
-            if (!allBlocks_flat.empty()) {
-                for (auto &b : allBlocks_flat) {
-                    if (b.name == feature) {
-                        region.chrom = b.chrom;
-                        region.start = b.start;
-                        region.end = b.end;
-                        region.markerPos = b.start;
-                        region.markerPosEnd = b.end;
-                        return true;
-                    }
-                }
-            } else {
+//            if (!allBlocks_flat.empty()) {
+//                for (auto &b : allBlocks_flat) {
+//                    if (b.name == feature) {
+//                        region.chrom = b.chrom;
+//                        region.start = b.start;
+//                        region.end = b.end;
+//                        region.markerPos = b.start;
+//                        region.markerPosEnd = b.end;
+//                        return true;
+//                    }
+//                }
+//            } else {
                 for (auto &chrom_blocks : allBlocks) {
-                    for (auto &b : chrom_blocks.second) {
+                    for (size_t i=0; i < chrom_blocks.second.size(); ++i) {
+                        const Utils::TrackBlock &b = chrom_blocks.second.data(i);
                         if (b.name == feature) {
                             region.chrom = b.chrom;
                             region.start = b.start;
@@ -1327,7 +1268,7 @@ namespace HGW {
                         }
                     }
                 }
-            }
+//            }
         }
         return false;
     }
@@ -1343,9 +1284,9 @@ namespace HGW {
             return print_BED_IDX(path, chrm, pos, variantString);
         } else {
 			if (allBlocks.contains(chrm)) {
-				return print_cached(allBlocks[chrm], chrm, pos, false, variantString);
+				return print_cached(overlappingBlocks, chrm, pos, false, variantString);
 			} else {
-				return print_cached(allBlocks_flat, chrm, pos, true, variantString);
+//				return print_cached(allBlocks_flat, chrm, pos, true, variantString);
 			}
 		}
     }
@@ -1362,7 +1303,6 @@ namespace HGW {
     }
 
     void saveVcf(VCFfile &input_vcf, std::string path, std::vector<Utils::Label> multiLabels) {
-
         std::cout << "\nSaving output vcf\n";
         if (multiLabels.empty()) {
             std::cerr << "Error: no labels detected\n";

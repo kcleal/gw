@@ -723,26 +723,26 @@ namespace Manager {
                 inputText = "";
                 return true;
             } else if (Utils::startsWith(split.back(), "track")) {
-                    split.back().erase(0, 5);
-                    try {
-                        ind = std::stoi(split.back());
-                    } catch (...) {
-                        std::cerr << termcolor::red << "Error:" << termcolor::reset << " track index not understood\n";
-                        inputText = "";
-                        return true;
-                    }
-                    if (ind >= (int)tracks.size()) {
-                        std::cerr << termcolor::red << "Error:" << termcolor::reset << " track index is out of range. Use 0-based indexing\n";
-                        return true;
-                    }
-                    int track_index = 0;
-                    tracks.erase(std::remove_if(tracks.begin(), tracks.end(), [&ind, &track_index](const auto &trk) {
-                        return (track_index++) == ind;
-                    }), tracks.end());
-                    processed = true;
-                    redraw = true;
+                split.back().erase(0, 5);
+                try {
+                    ind = std::stoi(split.back());
+                } catch (...) {
+                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " track index not understood\n";
                     inputText = "";
                     return true;
+                }
+                if (ind >= (int)tracks.size()) {
+                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " track index is out of range. Use 0-based indexing\n";
+                    return true;
+                }
+                int track_index = 0;
+                tracks.erase(std::remove_if(tracks.begin(), tracks.end(), [&ind, &track_index](const auto &trk) {
+                    return (track_index++) == ind;
+                }), tracks.end());
+                processed = false;
+                redraw = true;
+                inputText = "";
+                return true;
             } else {
                 try {
                     ind = std::stoi(split.back());
@@ -765,7 +765,7 @@ namespace Manager {
                 collections.erase(std::remove_if(collections.begin(), collections.end(), [&ind](const auto col) {
                     return col.regionIdx == ind;
                 }), collections.end());
-                processed = true;
+                processed = false;
                 redraw = true;
                 inputText = "";
                 return true;

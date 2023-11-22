@@ -1336,8 +1336,6 @@ namespace Drawing {
                 bool isBed12 = !trk.parts.empty() && trk.parts.size() >= 12;
 
                 for (auto &f : features) {
-
-                    bool wasDrawn = false;
                     float padY_track = padY + (step_track * f.level);
                     if (isGFF || isBed12) {
                         if (!f.anyToDraw || f.start > rgn.end || f.end < rgn.start) {
@@ -1346,9 +1344,9 @@ namespace Drawing {
                         drawGappedTrackBlock(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap,
                                  f, any_text, rgn, rect, path, path2, padX, padY_track, stepX, step_track, y, h, h2, h4, gap2,
                                  xScaling, t, nLevels, &labelsEndLevels[f.level]);
-                        wasDrawn = true;
+
                     }
-                    if (!wasDrawn) {
+                    else {
                         drawTrackBlock(f.start, f.end, f.name, rgn, rect, path, padX, padY_track, y, h, stepX, stepY, gap, gap2,
                                        xScaling, t, opts, canvas, fonts, any_text, true, true, false, &labelsEndLevels[f.level]);
                     }
