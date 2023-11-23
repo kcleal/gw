@@ -1068,16 +1068,7 @@ namespace Manager {
 
         std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
 
-        std::chrono::high_resolution_clock::time_point a;
-
-        a = std::chrono::high_resolution_clock::now();
-
         fetchRefSeqs();
-
-        std::cerr << " fetchRefSeqs " << std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - a).count() << std::endl;
-
-        a = std::chrono::high_resolution_clock::now();
-
 
         // This is a subset of processBam function:
         samMaxY = opts.ylim;
@@ -1104,9 +1095,6 @@ namespace Manager {
         }
         setScaling();
 
-        std::cerr << " prepare aligns " << std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - a).count() << std::endl;
-
-
         canvas->drawPaint(opts.theme.bgPaint);
         idx = 0;
         for (int i=0; i<(int)bams.size(); ++i) {
@@ -1114,34 +1102,19 @@ namespace Manager {
             sam_hdr_t *hdr_ptr = headers[i];
             hts_idx_t *index = indexes[i];
             for (int j=0; j<(int)regions.size(); ++j) {
-
-                a = std::chrono::high_resolution_clock::now();
-
                 Utils::Region *reg = &regions[j];
                 HGW::iterDraw(collections, idx, b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage,
                                     opts.low_mem, filters, opts, canvas, trackY, yScaling, fonts, refSpace);
                 idx += 1;
-
-                std::cerr << " draw " << std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - a).count() << std::endl;
-
             }
         }
-
-        a = std::chrono::high_resolution_clock::now();
-
         if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
-        std::cerr << " drawcov " << std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - a).count() << std::endl;
-
-
-        a = std::chrono::high_resolution_clock::now();
 
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
-
-        std::cerr << " drawrest " << std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - a).count() << std::endl;
 
         std::cerr << " FUNC " << std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count() << std::endl;
 
