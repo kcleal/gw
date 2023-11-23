@@ -253,9 +253,8 @@ namespace Segs {
                                                   u, u, u, u, u, u, u, u,
                                                   INV_F};
 
-    void align_init(Align *self) noexcept {
+    void align_init(Align *self) { //noexcept {
 //        auto start = std::chrono::high_resolution_clock::now();
-
         bam1_t *src = self->delegate;
 
         self->pos = src->core.pos;
@@ -314,27 +313,12 @@ namespace Segs {
 //                case BAM_CHARD_CLIP: case BAM_CPAD: case BAM_CBACK:
 //                    break;  // do something for these?
                 default:  // Match case --> MATCH, EQUAL, DIFF
-//                    if (last_op == 1) {
-//                        if (!self->block_ends.empty() ) {
-//                            self->block_ends.back() = pos + l;
-//                        }
-//                    } else {
-//                        self->block_starts.push_back(pos);
-//                        self->block_ends.push_back(pos + l);
-//                    }
-//                    pos += l;
                     break;
             }
             last_op = op;
         }
 
         uint32_t flag = src->core.flag;
-
-//        if (flag & 16) {  // reverse strand
-//            self->cov_start -= 1;   // pad between alignments
-//        } else {
-//            self->cov_end += 1;
-//        }
 
         if (bam_aux_get(self->delegate, "SA") != nullptr) {
             self->has_SA = true;
@@ -344,8 +328,6 @@ namespace Segs {
 
         self->y = -1;
 
-//        int ptrn;
-//        int ptrn = NORMAL;
           // proper-pair, read-reverse, mate-reverse flags
         if (src->core.tid != src->core.mtid) {
             self->orient_pattern = TRA;
@@ -357,45 +339,6 @@ namespace Segs {
                 self->orient_pattern = mateFirst[info];
             }
         }
-
-//        else if (flag & BAM_FPAIRED && !(flag & 12)) {  // proper-pair, not (unmapped, mate-unmapped)
-//            if (src->core.tid == src->core.mtid) {
-//                uint32_t info = flag & PP_RR_MR;
-//                if (self->pos <= src->core.mpos) {
-//                    self->orient_pattern = posFirst[info];
-//                    if (info == 0) {
-//                        ptrn = INV_F;
-//                    } else if (info == 16) {
-//                        ptrn = DUP;
-//                    } else if (info == 32) {
-//                        ptrn = DEL;
-//                    } else if (info == 48) {
-//                        ptrn = INV_R;
-//                    }
-//                } else {
-//                    self->orient_pattern = mateFirst[info];
-
-//                    if (info == 16) {
-//                        ptrn = DEL;
-//                    } else if (info == 48) {
-//                        ptrn = INV_F;
-//                    } else if (info == 0) {
-//                        ptrn = INV_R;
-//                    } else if (info == 32) {
-//                        ptrn = DUP;
-//                    }
-//                }
-
-//            } else {
-//                self->orient_pattern = TRA;
-//            }
-//        }
-//        else {
-//            self->orient_pattern = NORMAL;
-//        }
-//        self->orient_pattern = ptrn;
-
-
         if (flag & 2048 || self->has_SA) {
             self->edge_type = 2;  // "SPLIT"
         } else if (flag & 8) {
@@ -403,9 +346,7 @@ namespace Segs {
         } else {
             self->edge_type = 1;  // "NORMAL"
         }
-
         self->initialized = true;
-
 //        auto stop = std::chrono::high_resolution_clock::now();
 //        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
     }

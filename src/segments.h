@@ -92,7 +92,7 @@ namespace Segs {
         void clear();
     };
 
-    void align_init(Align *self) noexcept;
+    void align_init(Align *self); // noexcept;
 
     void align_clear(Align *self);
 

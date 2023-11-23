@@ -1615,13 +1615,15 @@ namespace HGW {
                 } else if (g->vartype == "mRNA" || g->vartype == "gene") {
                     track.drawThickness.push_back(0);  // no line
                 } else if (g->vartype == "start_codon") {
+                    track.coding_start = g->start;
                     std::fill(track.drawThickness.begin(), track.drawThickness.end(), 1);
                     track.drawThickness.push_back(2);
                 } else if (g->vartype == "stop_codon") {
+                    track.coding_end = g->end;
                     restAreThin = true;
                     track.drawThickness.push_back(2);
                 } else {
-                    track.drawThickness.push_back(1);  // thin line
+                    track.drawThickness.push_back(1);
                     if (!track.anyToDraw) { track.anyToDraw = true; }
                 }
                 j += 1;

@@ -1065,37 +1065,37 @@ namespace Manager {
         if (bams.empty()) {
             return;
         }
-
-        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
-
+//        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
         fetchRefSeqs();
 
         // This is a subset of processBam function:
         samMaxY = opts.ylim;
         collections.resize(bams.size() * regions.size());
+
         int idx = 0;
         for (int i=0; i<(int)bams.size(); ++i) {
             for (int j=0; j<(int)regions.size(); ++j) {
                 Utils::Region *reg = &regions[j];
-                collections[idx].bamIdx = i;
-                collections[idx].regionIdx = j;
-                collections[idx].region = &regions[j];
+                Segs::ReadCollection &col = collections[idx];
+                col.bamIdx = i;
+                col.regionIdx = j;
+                col.region = reg;
                 if (opts.max_coverage) {
-                    collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
+                    col.covArr.resize(reg->end - reg->start + 1, 0);
                     if (opts.snp_threshold > reg->end - reg->start) {
-                        collections[idx].mmVector.resize(reg->end - reg->start + 1);
+                        col.mmVector.resize(reg->end - reg->start + 1);
                         Segs::Mismatches empty_mm = {0, 0, 0, 0};
-                        std::fill(collections[idx].mmVector.begin(), collections[idx].mmVector.end(), empty_mm);
-                    } else if (!collections[idx].mmVector.empty()) {
-                        collections[idx].mmVector.clear();
+                        std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
+                    } else if (!col.mmVector.empty()) {
+                        col.mmVector.clear();
                     }
                 }
                 idx += 1;
             }
         }
         setScaling();
-
         canvas->drawPaint(opts.theme.bgPaint);
+
         idx = 0;
         for (int i=0; i<(int)bams.size(); ++i) {
             htsFile* b = bams[i];
@@ -1104,20 +1104,16 @@ namespace Manager {
             for (int j=0; j<(int)regions.size(); ++j) {
                 Utils::Region *reg = &regions[j];
                 HGW::iterDraw(collections, idx, b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage,
-                                    opts.low_mem, filters, opts, canvas, trackY, yScaling, fonts, refSpace);
+                              opts.low_mem, filters, opts, canvas, trackY, yScaling, fonts, refSpace);
                 idx += 1;
             }
         }
         if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
-
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
-
-        std::cerr << " FUNC " << std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count() << std::endl;
-
     }
 
     void imageToPng(sk_sp<SkImage> &img, fs::path &path) {

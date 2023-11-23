@@ -707,6 +707,7 @@ namespace Drawing {
                                 text, textX, textY);
                     }
                 }
+
                 // add soft-clip blocks
                 int start = (int)a.pos - regionBegin;
                 int end = (int)a.reference_end - regionBegin;
@@ -1148,7 +1149,7 @@ namespace Drawing {
         float w;
         SkPaint faceColour;
         if (shaded) {
-            faceColour = opts.theme.fcNormal;
+            faceColour = opts.theme.fcCoverage;
         } else {
             faceColour = opts.theme.fcTrack;
         }
@@ -1173,7 +1174,7 @@ namespace Drawing {
         if (add_rect) {
             canvas->drawRect(rect, faceColour);
             if (shaded) {
-                canvas->drawRect(rect, opts.theme.lcLabel);
+                canvas->drawRect(rect, opts.theme.lcLightJoins);
             }
         }
         if (v_line && x != 0) {
@@ -1237,8 +1238,27 @@ namespace Drawing {
             }
             bool add_line = (i == 0);  // vertical line at start of interval
             uint8_t thickness = trk.drawThickness[i];
+
             if (thickness && s < rgn.end && e > rgn.start) {
-                if (thickness == 1) {
+
+                if ((trk.coding_end != -1 && s >= trk.coding_end) || (trk.coding_start != -1 && e <= trk.coding_start)) {
+                   thickness = 1;
+                }
+
+                if (s < trk.coding_end && e > trk.coding_end) { //overlaps, split in to two blocks!
+                    drawTrackBlock(s, trk.coding_end, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2, xScaling, t,
+                                   opts, canvas, fonts, false, true, add_line, false, labelsEnd);
+                    drawTrackBlock(trk.coding_end, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2, xScaling, t,
+                                   opts, canvas, fonts, false, true, add_line, true, labelsEnd);
+                }
+//                if (s < trk.coding_start && e < trk.coding_end) {
+//                    drawTrackBlock(s, trk.coding_start, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2, xScaling, t,
+//                                   opts, canvas, fonts, false, true, add_line, true, labelsEnd);
+//                    drawTrackBlock(trk.coding_start, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2, xScaling, t,
+//                                   opts, canvas, fonts, false, true, add_line, false, labelsEnd);
+//                }
+
+                else if (thickness == 1) {
                     drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2, xScaling, t,
                                    opts, canvas, fonts, false, true, add_line, true, labelsEnd);
                 } else {
@@ -1256,7 +1276,7 @@ namespace Drawing {
                     path2.reset();
                     path2.moveTo(x, yy);
                     path2.lineTo(w, yy);
-                    canvas->drawPath(path2, opts.theme.fcTrack);
+                    canvas->drawPath(path2, opts.theme.lcLightJoins);
                     if (stranded != 0 && w - x > 50) {
                         while (x + 50 < w) {
                             x += 50;
@@ -1272,7 +1292,7 @@ namespace Drawing {
                                 path2.moveTo(x, yy);
                                 path2.lineTo(x+6, yy - 6);
                             }
-                            canvas->drawPath(path2, opts.theme.fcTrack);
+                            canvas->drawPath(path2, opts.theme.lcJoins);
                         }
                     }
                 }

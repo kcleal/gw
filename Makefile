@@ -6,7 +6,7 @@ CPPFLAGS += -I./include -I./src -I.
 
 LDLIBS += -lskia -lm -ljpeg -lpng -lsvg -lhts -lfontconfig -lpthread
 
-LDFLAGS=-fsanitize=address -fsanitize=undefined
+#LDFLAGS=-fsanitize=address -fsanitize=undefined
 
 # set system
 PLATFORM=

@@ -39,6 +39,7 @@ namespace Utils {
     public:
         std::string chrom, name, line, vartype, parent;
         int start, end;
+        int coding_start, coding_end;
         int strand;  // 0 is none, 1 forward, 2 reverse
         int level;
         bool anyToDraw;
@@ -46,6 +47,10 @@ namespace Utils {
         std::vector<int> s;  // block starts and block ends for bed12/GFF
         std::vector<int> e;
         std::vector<uint8_t> drawThickness;  // 0 no line, 1 is thin line, 2 fat line
+        TrackBlock() {
+            coding_start = -1;
+            coding_end = -1;
+        }
     };
 
     class GFFTrackBlock {
