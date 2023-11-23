@@ -2,6 +2,7 @@
 // Created by Kez Cleal on 25/07/2022.
 //
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <htslib/faidx.h>
 #include <iostream>
@@ -61,11 +62,21 @@ void print_banner() {
 
 int main(int argc, char *argv[]) {
 
+    std::chrono::high_resolution_clock::time_point timer_initial = std::chrono::high_resolution_clock::now();
+    std::chrono::high_resolution_clock::time_point timer_point;
+
+    timer_point = std::chrono::high_resolution_clock::now();
+
+
+
     Themes::IniOptions iopts;
     bool success = iopts.readIni();
     if (!success) {
 
     }
+
+    std::cerr << " point " << std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - timer_point).count() << std::endl;
+
 
     static const std::vector<std::string> img_fmt = { "png", "pdf" };
     static const std::vector<std::string> img_themes = { "igv", "dark" };
@@ -397,6 +408,8 @@ int main(int argc, char *argv[]) {
         iopts.start_index = program.get<int>("--start-index");
     }
 
+    std::cerr << " point2 " << std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - timer_point).count() << std::endl;
+
     /*
      * / Gw start
      */
@@ -664,6 +677,8 @@ int main(int argc, char *argv[]) {
                             plotter.runDraw(canvas);
                         }
                         img = sSurface->makeImageSnapshot();
+                        std::cerr << " pointa " << std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - timer_point).count() << std::endl;
+
                     } else {
                         plotter.setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
                         plotter.gap = 0;
@@ -693,6 +708,8 @@ int main(int argc, char *argv[]) {
                         fs::path out_path = outdir / fname;
                         Manager::imageToPng(img, out_path);
                     }
+
+                    return 0;
 
                 } else {  // chromosome plot
                     if (program.is_used("--file")) {
@@ -900,5 +917,8 @@ int main(int argc, char *argv[]) {
     }
     if (!iopts.no_show)
         std::cout << "\nGw finished\n";
+
+    std::cerr << " total " << std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - timer_initial).count() << std::endl;
+
     return 0;
 };
