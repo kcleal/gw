@@ -1154,7 +1154,6 @@ namespace Drawing {
         }
         if (start < rgn.start && stop >= rgn.end) { // track spans whole region
             rect.setXYWH(padX, y + padY, stepX - gap2, h);
-            w = (float)(stop - rgn.start) * xScaling;
         } else if (start < rgn.start && stop >= rgn.start) {  // overhangs left side
             w = (float)(stop - rgn.start) * xScaling;
             x = 0;
@@ -1173,11 +1172,14 @@ namespace Drawing {
         }
         if (add_rect) {
             canvas->drawRect(rect, faceColour);
+            if (shaded) {
+                canvas->drawRect(rect, opts.theme.lcLabel);
+            }
         }
         if (v_line && x != 0) {
             path.moveTo(x + padX, y + padY);
             path.lineTo(x + padX, y + h + padY);
-            canvas->drawPath(path, opts.theme.lcJoins);
+            canvas->drawPath(path, opts.theme.lcLightJoins);
         }
         if (!add_text) {
             return;
@@ -1235,7 +1237,7 @@ namespace Drawing {
             }
             bool add_line = (i == 0);  // vertical line at start of interval
             uint8_t thickness = trk.drawThickness[i];
-            if (thickness) {
+            if (thickness && s < rgn.end && e > rgn.start) {
                 if (thickness == 1) {
                     drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2, xScaling, t,
                                    opts, canvas, fonts, false, true, add_line, true, labelsEnd);
@@ -1314,7 +1316,7 @@ namespace Drawing {
             rgn.featureLevels.resize(tracks.size());
             for (auto & trk : tracks) {
                 trk.fetch(&rgn);
-                bool isGFF = trk.kind == HGW::GFF3_NOI || trk.kind == HGW::GFF3_IDX;
+                bool isGFF = trk.kind == HGW::GFF3_NOI || trk.kind == HGW::GFF3_IDX || trk.kind == HGW::GTF_NOI || trk.kind == HGW::GTF_IDX ;
                 std::vector<Utils::TrackBlock> &features = rgn.featuresInView[trackIdx];
                 features.clear();
 
@@ -1390,15 +1392,15 @@ namespace Drawing {
             if (w < 3 ) {
                 w = 3;
             }
-            float yp = ((cl.bamIdx + 1) * rowHeight) - yh;
+            float yp = ((cl.bamIdx + 1) * rowHeight) - yh - (yh*0.5);
             float xp = (cl.regionIdx * colWidth) + gap;
             rect.setXYWH(xp + (s * drawWidth),
-                         yp - 4,
+                         yp,
                          w,
                          yh);
             path.reset();
-            path.moveTo(xp, ((cl.bamIdx + 1) * rowHeight) - (yh * 0.5) - 4);
-            path.lineTo(xp + drawWidth, ((cl.bamIdx + 1) * rowHeight) - (yh * 0.5) - 4);
+            path.moveTo(xp, ((cl.bamIdx + 1) * rowHeight) - (yh));
+            path.lineTo(xp + drawWidth, ((cl.bamIdx + 1) * rowHeight) - (yh));
             canvas->drawPath(path, line);
             canvas->drawRect(rect, paint);
         }

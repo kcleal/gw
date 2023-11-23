@@ -718,6 +718,7 @@ namespace Manager {
                 }), collections.end());
                 bams.erase(bams.begin() + ind);
                 indexes.erase(indexes.begin() + ind);
+                headers.erase(headers.begin() + ind);
                 processed = false;
                 redraw = true;
                 inputText = "";

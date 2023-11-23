@@ -904,6 +904,10 @@ namespace HGW {
             kind = GFF3_IDX;
         } else if (Utils::endsWith(p, ".gff3")) {
             kind = GFF3_NOI;
+        } else if (Utils::endsWith(p, ".gtf.gz")) {
+            kind = GTF_IDX;
+        } else if (Utils::endsWith(p, ".gtf")) {
+            kind = GTF_NOI;
         } else {
             kind = GW_LABEL;
         }
@@ -971,11 +975,11 @@ namespace HGW {
                 }
                 allBlocks[b.chrom].add(b.start, b.end, b);
             }
-        } else if (kind == GFF3_IDX) {
+        } else if (kind == GFF3_IDX || kind == GTF_IDX) {
             fp = hts_open(p.c_str(), "r");
             idx_t = tbx_index_load(p.c_str());
         }
-        else if (kind == GFF3_NOI) {
+        else if (kind == GFF3_NOI || kind == GTF_NOI) {
             std::fstream fpu;
             fpu.open(p, std::ios::in);
             if (!fpu.is_open()) {
@@ -1012,14 +1016,26 @@ namespace HGW {
                     b.strand = 0;
                 }
                 for (const auto &item :  Utils::split(b.parts[8], ';')) {
-                    std::vector<std::string> keyval = Utils::split(item, '=');
-                    if (keyval[0] == "ID") {
-                        b.name = keyval[1];
+                    if (kind == GFF3_NOI) {
+                        std::vector<std::string> keyval = Utils::split(item, '=');
+                        if (keyval[0] == "ID") {
+                            b.name = keyval[1];
+                        }
+                        else if (keyval[0] == "Parent") {
+                            b.parent = keyval[1];
+                            break;
+                        }
+                    } else {
+                        std::vector<std::string> keyval = Utils::split(item, ' ');
+                        if (keyval[0] == "transcript_id") {
+                            b.name = keyval[1];
+                        }
+                        else if (keyval[0] == "gene_id") {
+                            b.parent = keyval[1];
+                            break;
+                        }
                     }
-                    else if (keyval[0] == "Parent") {
-                        parent = keyval[1];
-                        break;
-                    }
+
                 }
                 allBlocks[b.chrom].add(b.start, b.end, b);
             }
@@ -1058,7 +1074,11 @@ namespace HGW {
             } else {
                 if (allBlocks.contains(rgn->chrom)) {
                     std::vector<size_t> a;
-                    allBlocks[rgn->chrom].overlap(rgn->start, rgn->end, a);
+                    if (kind == GFF3_NOI || kind == GTF_NOI) {
+                        allBlocks[rgn->chrom].overlap(rgn->start - 100000, rgn->end + 100000, a);
+                    } else {
+                        allBlocks[rgn->chrom].overlap(rgn->start, rgn->end, a);
+                    }
                     overlappingBlocks.clear();
                     if (a.empty()) {
                         done = true;
@@ -1076,13 +1096,13 @@ namespace HGW {
                 }
             }
         } else {
-            if (kind == BED_IDX || kind == VCF_IDX || kind == GFF3_IDX) {
+            if (kind == BED_IDX || kind == VCF_IDX || kind == GFF3_IDX || kind == GTF_IDX) {
                 if (rgn == nullptr) {
                     iter_q = nullptr;
                     done = false;
                 } else {
                     int tid = tbx_name2id(idx_t, rgn->chrom.c_str());
-                    if (kind == GFF3_IDX) {
+                    if (kind == GFF3_IDX || kind == GTF_IDX) {
                         iter_q = tbx_itr_queryi(idx_t, tid, std::max(1, rgn->start - 100000), rgn->end + 100000);
                     } else {
                         iter_q = tbx_itr_queryi(idx_t, tid, rgn->start, rgn->end);
@@ -1120,7 +1140,7 @@ namespace HGW {
                 return;
             }
             parseVcfRecord();
-        } else if (kind == BED_IDX || kind == VCF_IDX || kind == GFF3_IDX) {
+        } else if (kind == BED_IDX || kind == VCF_IDX || kind == GFF3_IDX || kind == GTF_IDX) {
             kstring_t str = {0,0, nullptr};
             if (iter_q != nullptr) {
                 res = tbx_itr_next(fp, idx_t, iter_q, &str);
@@ -1154,7 +1174,7 @@ namespace HGW {
                     fileIndex += 1;
                 }
                 vartype = "";
-            } else if (kind == GFF3_IDX) {
+            } else if (kind == GFF3_IDX || kind == GTF_IDX) {
                 parts.clear();
                 parts = Utils::split(str.s, '\t');
                 chrom = parts[0];
@@ -1164,13 +1184,24 @@ namespace HGW {
                 rid.clear();
                 parent.clear();
                 for (const auto &item :  Utils::split(parts[8], ';')) {
-                    std::vector<std::string> keyval = Utils::split(item, '=');
-                    if (keyval[0] == "ID") {
-                        rid = keyval[1];
-                    }
-                    else if (keyval[0] == "Parent") {
-                        parent = keyval[1];
-                        break;
+                    if (kind == GFF3_NOI) {
+                        std::vector<std::string> keyval = Utils::split(item, '=');
+                        if (keyval[0] == "ID") {
+                            rid = keyval[1];
+                        }
+                        else if (keyval[0] == "Parent") {
+                            parent = keyval[1];
+                            break;
+                        }
+                    } else {
+                        std::vector<std::string> keyval = Utils::split(item, ' ');
+                        if (keyval[0] == "transcript_id") {
+                            rid = keyval[1];
+                        }
+                        else if (keyval[0] == "gene_id") {
+                            parent = keyval[1];
+                            break;
+                        }
                     }
                 }
             } else {
@@ -1184,13 +1215,14 @@ namespace HGW {
                 }
                 parseVcfRecord();
             }
-        } else if (kind > BCF_IDX) {  // non indexed but cached VCF_NOI / BED_NOI / GFF3(todo) / GW_LABEL / STDIN
+        } else if (kind > BCF_IDX) {  // non indexed but cached VCF_NOI / BED_NOI / GFF3 (todo) / GW_LABEL / STDIN?
             // first line of the region is cached here and resolved during drawing / mouse-clicks
             if (iter_blk != vals_end) {
                 chrom = iter_blk->chrom;
                 start = iter_blk->start;
                 stop = iter_blk->end;
                 rid = iter_blk->name;
+                parent = iter_blk->parent;
                 vartype = iter_blk->vartype;
                 variantString = iter_blk->line;
                 parts = iter_blk->parts;
@@ -1532,32 +1564,62 @@ namespace HGW {
             g->name = trk.rid;
             g->vartype = trk.vartype;
             g->strand = (trk.parts[6] == "-") ? 2 : 1; // assume all on same strand
+            g->parts.insert(g->parts.end(), trk.parts.begin(), trk.parts.end());
             gffParentMap[trk.parent].push_back(g);
         }
         // assume gff is sorted
+
         features.resize(gffParentMap.size());
         int i = 0;
         for (auto &pg : gffParentMap) {
             int j = 0;
             Utils::TrackBlock &track = features[i];
+            std::sort(pg.second.begin(), pg.second.end(),
+                      [](const std::shared_ptr<Utils::GFFTrackBlock> &a, const std::shared_ptr<Utils::GFFTrackBlock> &b)-> bool
+                      { return a->start < b->start || (a->start == b->start && a->end < b->end);});
+
             track.anyToDraw = false;
+            bool restAreThin = false;
             for (auto &g: pg.second) {
                 if (j == 0) {
                     track.chrom = g->chrom;
                     track.start = g->start;
                     track.name = pg.first;
+                    if (track.name.front() == '"') {
+                        track.name.erase(0, 1);
+                    }
+                    if (track.name.back() == '"') {
+                        track.name.erase(track.name.size() - 1, 1);
+                    }
+                    track.parent = pg.first;
+                    if (track.parent.front() == '"') {
+                        track.parent.erase(0, 1);
+                    }
+                    if (track.name.back() == '"') {
+                        track.parent.erase(track.parent.size() - 1, 1);
+                    }
                     track.end = g->end;
                     track.strand = g->strand;
                 } else if (g->end > track.end) {
                     track.end = g->end;
                 }
+                track.parts.insert(track.parts.end(), g->parts.begin(), g->parts.end());
+                track.parts.push_back("\n");
                 track.s.push_back(g->start);
                 track.e.push_back(g->end);
-                if (g->vartype == "exon" || g->vartype == "CDS") {
+                if (restAreThin) {
+                    track.drawThickness.push_back(1);
+                } else if (g->vartype == "exon" || g->vartype == "CDS") {
                     track.drawThickness.push_back(2);  // fat line
                     if (!track.anyToDraw) { track.anyToDraw = true; }
                 } else if (g->vartype == "mRNA" || g->vartype == "gene") {
                     track.drawThickness.push_back(0);  // no line
+                } else if (g->vartype == "start_codon") {
+                    std::fill(track.drawThickness.begin(), track.drawThickness.end(), 1);
+                    track.drawThickness.push_back(2);
+                } else if (g->vartype == "stop_codon") {
+                    restAreThin = true;
+                    track.drawThickness.push_back(2);
                 } else {
                     track.drawThickness.push_back(1);  // thin line
                     if (!track.anyToDraw) { track.anyToDraw = true; }
@@ -1586,6 +1648,7 @@ namespace HGW {
             b->end = trk.stop;
             b->line = trk.variantString;
             b->parts = trk.parts;
+//            b->parent = trk.parent;
             b->anyToDraw = true;
             if (trk.parts.size() >= 5) {
                 b->strand = (trk.parts[5] == "+") ? 1 : (trk.parts[5] == "-") ? -1 : 0;

@@ -25,12 +25,14 @@ namespace HGW {
 
      enum FType {
          GFF3_IDX,
+         GTF_IDX,
          BED_IDX,
          VCF_IDX,
          BCF_IDX,
          VCF_NOI,  // NOI for no index
          BED_NOI,
          GFF3_NOI,
+         GTF_NOI,
          GW_LABEL,
          STDIN,
     };

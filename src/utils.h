@@ -37,7 +37,7 @@ namespace Utils {
 
     class TrackBlock {
     public:
-        std::string chrom, name, line, vartype;
+        std::string chrom, name, line, vartype, parent;
         int start, end;
         int strand;  // 0 is none, 1 forward, 2 reverse
         int level;
@@ -51,6 +51,7 @@ namespace Utils {
     class GFFTrackBlock {
     public:
         std::string chrom, name, line, vartype;
+        std::vector<std::string> parts;
         int start, end;
         int strand;  // 0 is none, 1 forward, 2 reverse
     };

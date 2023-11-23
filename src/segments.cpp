@@ -773,6 +773,7 @@ namespace Segs {
         levels.reserve(100);
         for (auto &b : features) {
             if (!b.anyToDraw) {
+                b.level = -1;
                 continue;
             }
             size_t memLen = levels.size();

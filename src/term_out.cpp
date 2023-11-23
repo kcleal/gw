@@ -735,15 +735,17 @@ namespace Term {
 	}
 
 	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver, int targetLevel, int trackIdx) {
-
 		int target = (int)((float)(rgn->end - rgn->start) * x) + rgn->start;
 		std::filesystem::path p = track.path;
+        bool isGFF = (track.kind == HGW::FType::GFF3_NOI || track.kind == HGW::FType::GFF3_IDX || track.kind == HGW::FType::GTF_NOI || track.kind == HGW::FType::GTF_IDX );
         for (auto &b : rgn->featuresInView[0]) {
-            if (b.start <= target && b.end > target && b.level == targetLevel) {
+            if (b.start <= target && b.end >= target && b.level == targetLevel) {
                 clearLine();
                 std::cout << "\r" << termcolor::bold << p.filename().string() << termcolor::reset << "    " << \
                     termcolor::cyan << b.chrom << ":" << b.start << "-" << b.end << termcolor::reset;
-                if (!b.name.empty()) {
+                if (!b.parent.empty()) {
+                    std::cout << termcolor::bold << "    Parent  " << termcolor::reset << b.parent;
+                } else if (!b.name.empty()) {
                     std::cout << termcolor::bold << "    ID  " << termcolor::reset << b.name;
                 }
                 if (!b.vartype.empty()) {
@@ -752,8 +754,34 @@ namespace Term {
                 std::cout << std::flush;
                 if (!mouseOver) {
                     std::cout << std::endl;
-                    for (auto &p: b.parts) {
-                        std::cout << "\t" << p;
+                    std::vector<std::string> &parts = b.parts;
+                    if (isGFF) {
+                        int i = 0; int j = 0;
+                        while (i < (int)parts.size()) {
+                            for (j = i; j < (int)parts.size(); ++j ) {
+                                if (parts[j] == "\n") {
+                                    int start = std::stoi(parts[i + 3]);
+                                    int end = std::stoi(parts[i + 4]);
+                                    if (start <= target && end >= target) {
+                                        bool first = true;
+                                        assert (j >=9);
+                                        for (int k=j-9; k <= j; ++k) {
+                                            if (first) { std::cout << parts[k]; first = false;}
+                                            else { std::cout << "\t" << parts[k]; }
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+                            i = j + 1;
+                        }
+
+                    } else {
+                        bool first = true;
+                        for (auto &p: parts) {
+                            if (first) { std::cout << p; first = false; }
+                            else { std::cout << "\t" << p; }
+                        }
                     }
                     std::cout << std::endl;
 //                    Utils::Region tmp_region;
@@ -772,37 +800,6 @@ namespace Term {
             }
         }
 
-
-
-
-
-//		while (true) {
-//			track.next();
-//			if (track.done) {
-//				break;
-//			}
-//			if (track.start <= target && track.stop > target) {
-//                clearLine();
-//				std::cout << "\r" << termcolor::bold << p.filename().string() << termcolor::reset << "    " << \
-//                    termcolor::cyan << track.chrom << ":" << track.start << "-" << track.stop << termcolor::reset;
-//                if (!track.rid.empty()) {
-//                    std::cout << termcolor::bold << "    ID  " << termcolor::reset << track.rid;
-//                }
-//                if (!track.vartype.empty()) {
-//                    std::cout << termcolor::bold << "    Type  " << termcolor::reset << track.vartype;
-//                }
-//                std::cout << std::flush;
-//				if (!mouseOver) {
-//					std::cout << std::endl;
-//                    track.printTargetRecord(track.rid, rgn->chrom, target);
-//                    if (!track.variantString.empty()) {
-//                        std::cout << track.variantString << std::endl;
-//                    }
-//				} else {
-//					break;
-//				}
-//			}
-//		}
         if (!mouseOver) {
             std::cout << std::endl;
         }
@@ -817,7 +814,7 @@ namespace Term {
             if (chars <= 0) {
                 return;
             }
-            int i = chars / 2; //30;
+            int i = chars / 2;
             int startIdx = pos - region->start - i;
             if (startIdx < 0) {
                 i += startIdx;
