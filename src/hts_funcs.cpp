@@ -1184,7 +1184,7 @@ namespace HGW {
                 rid.clear();
                 parent.clear();
                 for (const auto &item :  Utils::split(parts[8], ';')) {
-                    if (kind == GFF3_NOI) {
+                    if (kind == GFF3_IDX) {
                         std::vector<std::string> keyval = Utils::split(item, '=');
                         if (keyval[0] == "ID") {
                             rid = keyval[1];
@@ -1566,6 +1566,7 @@ namespace HGW {
             g->strand = (trk.parts[6] == "-") ? 2 : 1; // assume all on same strand
             g->parts.insert(g->parts.end(), trk.parts.begin(), trk.parts.end());
             gffParentMap[trk.parent].push_back(g);
+
         }
         // assume gff is sorted
 

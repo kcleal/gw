@@ -56,6 +56,7 @@ namespace Themes {
         NAVIGATION,
         INTERACTION,
         LABELLING,
+        SHIFT_KEYMAP,
         CONTROLS,
     };
 
@@ -116,6 +117,7 @@ namespace Themes {
         ~IniOptions() {};
 
         mINI::INIStructure myIni;
+        ankerl::unordered_dense::map<int, std::string> shift_keymap;
         BaseTheme theme;
         Utils::Dims dimensions, number;
         std::string genome_tag;

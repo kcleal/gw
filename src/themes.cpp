@@ -389,6 +389,20 @@ namespace Themes {
         labels = myIni["labelling"]["labels"];
         delete_labels = key_table[myIni["labelling"]["delete_labels"]];
         enter_interactive_mode = key_table[myIni["labelling"]["enter_interactive_mode"]];
+
+        if (myIni.has("shift_keymap")) {
+            shift_keymap[key_table[myIni["shift_keymap"]["ampersand"]]] = "&";
+            shift_keymap[key_table[myIni["shift_keymap"]["bar"]]] = "|";
+            shift_keymap[key_table[myIni["shift_keymap"]["colon"]]] = ":";
+            shift_keymap[key_table[myIni["shift_keymap"]["curly_open"]]] = "{";
+            shift_keymap[key_table[myIni["shift_keymap"]["curly_close"]]] = "}";
+            shift_keymap[key_table[myIni["shift_keymap"]["dollar"]]] = "$";
+            shift_keymap[key_table[myIni["shift_keymap"]["exclamation"]]] = "!";
+            shift_keymap[key_table[myIni["shift_keymap"]["greater_than"]]] = ">";
+            shift_keymap[key_table[myIni["shift_keymap"]["less_than"]]] = "<";
+            shift_keymap[key_table[myIni["shift_keymap"]["tilde"]]] = "~";
+            shift_keymap[key_table[myIni["shift_keymap"]["underscore"]]] = "_";
+        }
     }
 
     std::filesystem::path IniOptions::writeDefaultIni(std::filesystem::path &homedir, std::filesystem::path &home_config, std::filesystem::path &gwIni) {

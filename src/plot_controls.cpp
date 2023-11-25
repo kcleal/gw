@@ -368,24 +368,29 @@ namespace Manager {
                 if (letter || key == GLFW_KEY_SPACE) {
                     if (key == GLFW_KEY_SPACE) {  // deal with special keys first
                         Term::editInputText(inputText, " ", charIndex);
-                    } else if (key == GLFW_KEY_SEMICOLON && mods == GLFW_MOD_SHIFT) {
-                        Term::editInputText(inputText, ":", charIndex);
-                    } else if (key == GLFW_KEY_1 && mods == GLFW_MOD_SHIFT) {  // this will probably not work for every keyboard
-                        Term::editInputText(inputText, "!", charIndex);
-                    } else if (key == GLFW_KEY_7 && mods == GLFW_MOD_SHIFT) {
-                        Term::editInputText(inputText, "&", charIndex);
-                    } else if (key == GLFW_KEY_COMMA && mods == GLFW_MOD_SHIFT) {
-                        Term::editInputText(inputText, "<", charIndex);
-                    } else if (key == GLFW_KEY_PERIOD && mods == GLFW_MOD_SHIFT) {
-                        Term::editInputText(inputText, ">", charIndex);
-					} else if (key == GLFW_KEY_LEFT_BRACKET && mods == GLFW_MOD_SHIFT) {
-                        Term::editInputText(inputText, "{", charIndex);
-					} else if (key == GLFW_KEY_RIGHT_BRACKET && mods == GLFW_MOD_SHIFT) {
-                        Term::editInputText(inputText, "}", charIndex);
-					} else if (key == GLFW_KEY_MINUS && mods == GLFW_MOD_SHIFT) {
-                        Term::editInputText(inputText, "_", charIndex);
-                    } else {
-                        if (mods == GLFW_MOD_SHIFT) { // uppercase
+                    }
+//                    else if (key == GLFW_KEY_SEMICOLON && mods == GLFW_MOD_SHIFT) {
+//                        Term::editInputText(inputText, ":", charIndex);
+//                    } else if (key == GLFW_KEY_1 && mods == GLFW_MOD_SHIFT) {  // this will probably not work for every keyboard
+//                        Term::editInputText(inputText, "!", charIndex);
+//                    } else if (key == GLFW_KEY_7 && mods == GLFW_MOD_SHIFT) {
+//                        Term::editInputText(inputText, "&", charIndex);
+//                    } else if (key == GLFW_KEY_COMMA && mods == GLFW_MOD_SHIFT) {
+//                        Term::editInputText(inputText, "<", charIndex);
+//                    } else if (key == GLFW_KEY_PERIOD && mods == GLFW_MOD_SHIFT) {
+//                        Term::editInputText(inputText, ">", charIndex);
+//					} else if (key == GLFW_KEY_LEFT_BRACKET && mods == GLFW_MOD_SHIFT) {
+//                        Term::editInputText(inputText, "{", charIndex);
+//					} else if (key == GLFW_KEY_RIGHT_BRACKET && mods == GLFW_MOD_SHIFT) {
+//                        Term::editInputText(inputText, "}", charIndex);
+//					} else if (key == GLFW_KEY_MINUS && mods == GLFW_MOD_SHIFT) {
+//                        Term::editInputText(inputText, "_", charIndex);
+//                    }
+                    else {
+                        if (mods == GLFW_MOD_SHIFT && opts.shift_keymap.contains(key)) {
+                            Term::editInputText(inputText, opts.shift_keymap[key].c_str(), charIndex);
+                        }
+                        else if (mods == GLFW_MOD_SHIFT) { // uppercase
                             std::string str = letter;
                             std::transform(str.begin(), str.end(),str.begin(), ::toupper);
                             Term::editInputText(inputText, str.c_str(), charIndex);

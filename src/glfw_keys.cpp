@@ -12,10 +12,10 @@ namespace Keys {
     void getKeyTable(ankerl::unordered_dense::map<std::string, int>& kt) {
         kt["SPACE"] = GLFW_KEY_SPACE;
         kt["APOSTROPHE"] = GLFW_KEY_APOSTROPHE;
-        kt["COMMA"] = GLFW_KEY_COMMA;
-        kt["MINUS"] = GLFW_KEY_MINUS;
-        kt["PERIOD"] = GLFW_KEY_PERIOD;
-        kt["SLASH"] = GLFW_KEY_SLASH;
+        kt[","] = GLFW_KEY_COMMA;
+        kt["-"] = GLFW_KEY_MINUS;
+        kt["."] = GLFW_KEY_PERIOD;
+        kt["/"] = GLFW_KEY_SLASH;
         kt["0"] = GLFW_KEY_0;
         kt["1"] = GLFW_KEY_1;
         kt["2"] = GLFW_KEY_2;
@@ -26,8 +26,8 @@ namespace Keys {
         kt["7"] = GLFW_KEY_7;
         kt["8"] = GLFW_KEY_8;
         kt["9"] = GLFW_KEY_9;
-        kt["SEMICOLON"] = GLFW_KEY_SEMICOLON;
-        kt["EQUAL"] = GLFW_KEY_EQUAL;
+        kt[";"] = GLFW_KEY_SEMICOLON;
+        kt["="] = GLFW_KEY_EQUAL;
         kt["A"] = GLFW_KEY_A;
         kt["B"] = GLFW_KEY_B;
         kt["C"] = GLFW_KEY_C;
@@ -54,10 +54,10 @@ namespace Keys {
         kt["X"] = GLFW_KEY_X;
         kt["Y"] = GLFW_KEY_Y;
         kt["Z"] = GLFW_KEY_Z;
-        kt["LEFT_BRACKET"] = GLFW_KEY_LEFT_BRACKET;
-        kt["BACKSLASH"] = GLFW_KEY_BACKSLASH;
-        kt["RIGHT_BRACKET"] = GLFW_KEY_RIGHT_BRACKET;
-        kt["GRAVE_ACCENT"] = GLFW_KEY_GRAVE_ACCENT;
+        kt["["] = GLFW_KEY_LEFT_BRACKET;
+        kt["\\"] = GLFW_KEY_BACKSLASH;
+        kt["]"] = GLFW_KEY_RIGHT_BRACKET;
+        kt["`"] = GLFW_KEY_GRAVE_ACCENT;
         kt["WORLD_1"] = GLFW_KEY_WORLD_1;
         kt["WORLD_2"] = GLFW_KEY_WORLD_2;
         kt["ESCAPE"] = GLFW_KEY_ESCAPE;
@@ -130,6 +130,6 @@ namespace Keys {
         kt["RIGHT_ALT"] = GLFW_KEY_RIGHT_ALT;
         kt["RIGHT_SUPER"] = GLFW_KEY_RIGHT_SUPER;
         kt["MENU"] = GLFW_KEY_MENU;
-    };
+    }
 
 }

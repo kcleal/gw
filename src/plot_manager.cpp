@@ -840,6 +840,13 @@ namespace Manager {
                 }
                 if (mode != SETTINGS && (commandToolTipIndex != -1 || !inputText.empty())) {
                     float pad = fonts.overlayHeight * 0.3;
+                    if (inputText.empty() && yy - (Menu::commandToolTip.size() * (fonts.overlayHeight+ pad)) < covY) {
+                        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(Menu::commandToolTip[commandToolTipIndex], fonts.overlay);
+                        SkPaint grey;
+                        grey.setColor(SK_ColorGRAY);
+                        canvas->drawTextBlob(blob, x + 14 + fonts.overlayWidth + fonts.overlayWidth, yy + (fonts.overlayHeight * 1.3), grey);
+                    }
+
                     yy -= pad + pad;
                     SkPaint tip_paint = opts.theme.lcBright;
                     tip_paint.setAntiAlias(true);

@@ -58,7 +58,7 @@ namespace Menu {
     }
 
     std::vector<std::string> mainHeadings() {
-        return {"general", "genomes", "interaction", "labelling", "navigation", "tracks", "view_thresholds"};
+        return {"general", "genomes", "interaction", "labelling", "navigation", "tracks", "view_thresholds", "shift_keymap"};
     }
 
     std::vector<std::string> availableButtonsStr(Themes::MenuTable t) {
@@ -81,6 +81,7 @@ namespace Menu {
             case Themes::MenuTable::NAVIGATION: return "navigation";
             case Themes::MenuTable::INTERACTION: return "interaction";
             case Themes::MenuTable::LABELLING: return "labelling";
+            case Themes::MenuTable::SHIFT_KEYMAP: return "shift_keymap";
             case Themes::MenuTable::CONTROLS: return "Controls";
         }
         return "";
@@ -94,6 +95,7 @@ namespace Menu {
         else if (s == "navigation") { return Themes::MenuTable::NAVIGATION; }
         else if (s == "labelling") { return Themes::MenuTable::LABELLING; }
         else if (s == "interaction") { return Themes::MenuTable::INTERACTION; }
+        else if (s == "shift_keymap") { return Themes::MenuTable::SHIFT_KEYMAP; }
         else { return Themes::MenuTable::MAIN; }
     }
 
@@ -282,6 +284,7 @@ namespace Menu {
         if (opts.control_level.empty()) {
             if (opts.menu_table == Themes::MenuTable::MAIN) { tip = opts.ini_path; }
             else if (opts.menu_table == Themes::MenuTable::GENOMES) { tip = "Use ENTER key to select genome, or RIGHT_ARROW key to edit path"; }
+            else if (opts.menu_table == Themes::MenuTable::SHIFT_KEYMAP) { tip = "Change characters selected when using shift+key"; }
             else if (opts.menu_level == "theme") { tip = "Change the theme to one of [dark, igv]"; }
             else if (opts.menu_level == "dimensions") { tip = "The starting dimensions in pixels of the gw window"; }
             else if (opts.menu_level == "indel_length") { tip = "Indels with this length (or greater) will be labelled with text"; }
@@ -426,6 +429,10 @@ namespace Menu {
             opts.menu_table = Themes::MenuTable::LABELLING;
             opts.previous_level = opts.menu_level;
             opts.menu_level = opts.myIni["labelling"].begin()->first;
+        } else if (opts.menu_level == "shift_keymap") {
+            opts.menu_table = Themes::MenuTable::SHIFT_KEYMAP;
+            opts.previous_level = opts.menu_level;
+            opts.menu_level = opts.myIni["shift_keymap"].begin()->first;
         }
         //
         else if (opts.menu_level == "controls") {
@@ -832,7 +839,7 @@ namespace Menu {
     void applyStringOption(Option &new_opt, Themes::IniOptions &opts) {
         if (new_opt.name == "font") { opts.font_str = new_opt.value; }
         opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
-        if (new_opt.name == "labels" || new_opt.name == "parse_label") {
+        if (new_opt.name == "labels" || new_opt.name == "parse_label" || new_opt.table == "shift_keymap") {
             warnRestart();
         }
     }
