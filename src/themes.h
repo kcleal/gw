@@ -41,6 +41,7 @@
 
 #include "../include/argparse.h"
 #include "glob.h"
+#define MINI_CASE_SENSITIVE
 #include "../include/ini.h"
 #include "utils.h"
 

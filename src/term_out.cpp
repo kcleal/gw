@@ -5,9 +5,11 @@
 #include <filesystem>
 #include <htslib/sam.h>
 #include <string>
-#include <thread>
-#include <unordered_map>
+#include <iterator>
+#include <regex>
 #include <vector>
+#include <curl/curl.h>
+#include <curl/easy.h>
 #include "htslib/hts.h"
 #include "drawing.h"
 #include "hts_funcs.h"
@@ -44,6 +46,7 @@ namespace Term {
         std::cout << termcolor::green << "log2-cov                         " << termcolor::reset << "Toggle scale coverage by log2\n";
         std::cout << termcolor::green << "mate             add?            " << termcolor::reset << "Use 'mate' to navigate to mate-pair, or 'mate add' \n                                 to add a new region with mate \n";
         std::cout << termcolor::green << "mismatches, mm                   " << termcolor::reset << "Toggle mismatches\n";
+        std::cout << termcolor::green << "online                           " << termcolor::reset << "Show links to online genome browsers\n";
         std::cout << termcolor::green << "quit, q          -               " << termcolor::reset << "Quit GW\n";
         std::cout << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
         std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. 'rm 1'. To remove a bam \n                                 use the bam index 'rm bam1', or track 'rm track1'\n";
@@ -144,6 +147,8 @@ namespace Term {
             std::cout << "    Goto mate alignment.\n        Either moves the left-most view to the mate locus, or adds a new view of the mate locus.\n    Examples:\n        'mate', 'mate add'\n\n";
         } else if (s == "mismatches" || s == "mm") {
             std::cout << "    Toggle mismatches.\n        Mismatches with the reference genome are turned on or off.\n\n";
+        } else if (s == "online") {
+            std::cout << "    Show links to online browsers for the current region.\n        A genome tag may need to be added e.g. 'online hg38'\n\n";
         } else if (s == "refresh" || s == "r") {
             std::cout << "    Refresh the drawing.\n        All filters will be removed any everything will be redrawn.\n\n";
         } else if (s == "remove" || s == "rm") {
@@ -804,6 +809,127 @@ namespace Term {
             std::cout << std::endl;
         }
 	}
+
+    int check_url(const char *url) {
+        CURL *curl;
+        CURLcode response;
+        curl = curl_easy_init();
+        curl_easy_setopt(curl, CURLOPT_URL, url);
+        curl_easy_setopt(curl, CURLOPT_NOBODY, 1);
+        response = curl_easy_perform(curl);
+        curl_easy_cleanup(curl);
+        return (response == CURLE_OK) ? 1 : 0;
+    }
+
+    void replaceRegionInLink(std::regex &chrom_pattern, std::regex &start_pattern, std::regex &end_pattern, std::string &link, std::string &chrom, int start, int end) {
+        link = std::regex_replace(link, chrom_pattern, chrom);
+        link = std::regex_replace(link, start_pattern, std::to_string(start));
+        link = std::regex_replace(link, end_pattern, std::to_string(end));
+    }
+
+    int checkAndPrintRegionLink(std::string &link, const char *info) {
+        if (check_url(link.c_str())) {
+            std::cout << termcolor::green << "\n" << info << "\n" << termcolor::reset;
+            std::cout << link << std::endl;
+            return 1;
+        }
+        return 0;
+    }
+
+    void printOnlineLinks(std::vector<HGW::GwTrack> &tracks, Utils::Region &rgn, std::string &genome_tag) {
+        if (genome_tag.empty()) {
+            std::cerr << termcolor::red << "Error:" << termcolor::reset
+                      << " a 'genome_tag' must be provided for the current reference genome e.g. hg19 or hs1"
+                      << std::endl;
+            return;
+        }
+        std::cout << "\nFetching online resources for genome: " << termcolor::bold << genome_tag << termcolor::reset
+                  << std::endl;
+
+        std::string chrom = rgn.chrom;
+        std::string chrom_no_chr = chrom;
+        if (Utils::startsWith(chrom_no_chr, "chr")) {
+            chrom_no_chr.erase(0, 3);
+        }
+        std::string link;
+
+        std::regex genome_pattern("GENOME");
+        std::regex chrom_pattern("CHROM");
+        std::regex start_pattern("START");
+        std::regex end_pattern("END");
+
+        bool is_hg19 = (genome_tag == "grch37" || Utils::startsWith(genome_tag, "GRCh37") || genome_tag == "hg19");
+        bool is_hg38 = (genome_tag == "grch38" || Utils::startsWith(genome_tag, "GRCh38") || genome_tag == "hg38");
+        bool is_t2t = (Utils::startsWith(genome_tag, "t2t") || Utils::startsWith(genome_tag, "T2T") ||
+                       Utils::startsWith(genome_tag, "chm13v2") || genome_tag == "hs1");
+        int p = 0;
+        // Ucsc, Decipher, Gnomad, ensemble, ncbi
+        if (is_hg19) {
+            link = "https://genome.ucsc.edu/cgi-bin/hgTracks?db=hg19&lastVirtModeType=default&lastVirtModeExtraState=&virtModeType=default&virtMode=0&nonVirtPosition=&position=CHROM%3ASTART%2DEND&hgsid=1791027784_UAbj7DxAIuZZsoF0z5BQmYQgoS6j";
+            replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom, rgn.start, rgn.end);
+            p += checkAndPrintRegionLink(link, "UCSC Genome Browser GRCh37");
+
+            link = "https://www.deciphergenomics.org/browser#q/grch37:CHROM:START-END/location/CHROM:START-END";
+            replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom_no_chr, rgn.start, rgn.end);
+            p += checkAndPrintRegionLink(link, "DECIPHER Genome Browser GRCh37");
+
+            link = "https://gnomad.broadinstitute.org/region/CHROM-START-END?dataset=gnomad_r2_1";
+            replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom_no_chr, rgn.start, rgn.end);
+            p += checkAndPrintRegionLink(link, "Gnomad Genome Browser v2.1");
+
+            link = "http://grch37.ensembl.org/Homo_sapiens/Location/View?r=CHROM:START-END";
+            replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom_no_chr, rgn.start, rgn.end);
+            p += checkAndPrintRegionLink(link, "Ensemble Genome Browser GRCh37");
+
+            link = "https://www.ncbi.nlm.nih.gov/genome/gdv/browser/genome/?chr=CHROM&from=START&to=END&id=GCF_000001405.40";
+            replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom_no_chr, rgn.start, rgn.end);
+            p += checkAndPrintRegionLink(link, "NCBI Genome Browser GRCh37");
+
+        } else if (is_hg38) {
+            link  = "https://genome.ucsc.edu/cgi-bin/hgTracks?db=hg38&lastVirtModeType=default&lastVirtModeExtraState=&virtModeType=default&virtMode=0&nonVirtPosition=&position=CHROM%3ASTART%2DEND&hgsid=1791027784_UAbj7DxAIuZZsoF0z5BQmYQgoS6j";
+            replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom, rgn.start, rgn.end);
+            p += checkAndPrintRegionLink(link, "UCSC Genome Browser GRCh38");
+
+            link = "https://www.deciphergenomics.org/browser#q/CHROM:START-END/location/CHROM:START-END";
+            replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom_no_chr, rgn.start, rgn.end);
+            p += checkAndPrintRegionLink(link, "DECIPHER Genome Browser GRCh38");
+
+            link = "https://gnomad.broadinstitute.org/region/CHROM-START-END?dataset=gnomad_sv_r4";
+            replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom_no_chr, rgn.start, rgn.end);
+            p += checkAndPrintRegionLink(link, "Gnomad Genome Browser v4");
+
+            link = "http://www.ensembl.org/Homo_sapiens/Location/View?r=CHROM%3ASTART-END";
+            replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom_no_chr, rgn.start, rgn.end);
+            p += checkAndPrintRegionLink(link, "Ensemble Genome Browser GRCh38");
+
+            link = "https://www.ncbi.nlm.nih.gov/genome/gdv/browser/genome/?chr=CHROM&from=START&to=END&id=GCF_000001405.40";
+            replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom_no_chr, rgn.start, rgn.end);
+            p += checkAndPrintRegionLink(link, "NCBI Genome Browser GRCh38");
+
+        } else if (is_t2t) {
+            link  = "https://genome.ucsc.edu/cgi-bin/hgTracks?db=hub_3267197_GCA_009914755.4&lastVirtModeType=default&lastVirtModeExtraState=&virtModeType=default&virtMode=0&nonVirtPosition=&position=CHROM%3ASTART%2DEND&hgsid=1791153048_ztJI6SNAA8eGqv01Z11jfkDfa76v";
+            replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom, rgn.start, rgn.end);
+            p += checkAndPrintRegionLink(link, "UCSC Genome Browser T2T v2.0");
+
+            link = "https://rapid.ensembl.org/Homo_sapiens_GCA_009914755.4/Location/View?r=CHROM%3ASTART-END";
+            replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom_no_chr, rgn.start, rgn.end);
+            p += checkAndPrintRegionLink(link, "Ensemble Genome Browser T2T v2.0");
+
+            link  = "https://www.ncbi.nlm.nih.gov/genome/gdv/browser/genome/?chr=CHROM&from=START&to=END&id=GCF_009914755.1";
+            replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom, rgn.start, rgn.end);
+            p += checkAndPrintRegionLink(link, "NCBI Genome Browser T2T v2.0");
+        } else {
+            link  = "https://genome-euro.ucsc.edu/cgi-bin/hgTracks?db=GENOME&lastVirtModeType=default&lastVirtModeExtraState=&virtModeType=default&virtMode=0&nonVirtPosition=&position=CHROM%3ASTART%2DEND&hgsid=308573407_B0yK8LZQyOQXcYLjPy7a3u2IW7an";
+            link = std::regex_replace(link, genome_pattern, genome_tag);
+            replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom, rgn.start, rgn.end);
+            p += checkAndPrintRegionLink(link, genome_tag.c_str());
+        }
+        if (!p) {
+            std::cout << "Could not find find any valid links, invalid genome_tag? Should be e.g. hg19 or mm39 etc\n";
+        } else {
+            std::cout << std::endl;
+        }
+    }
 
     void updateRefGenomeSeq(Utils::Region *region, float xW, float xOffset, float xScaling) {
         float min_x = xOffset;

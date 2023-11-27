@@ -292,7 +292,7 @@ namespace Manager {
                 if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER || key == GLFW_KEY_SPACE) {
                     inputText = Menu::commandToolTip[commandToolTipIndex];
                     charIndex = (int)inputText.size();
-                    if (std::find( Menu::exec.begin(), Menu::exec.end(), inputText) != Menu::exec.end()) {
+                    if (std::find( Menu::exec.begin(), Menu::exec.end(), inputText) != Menu::exec.end() || (inputText == "online" && !opts.genome_tag.empty())) {
                         captureText = false;
                         processText = true;
                         shiftPress = false;
@@ -1060,7 +1060,7 @@ namespace Manager {
             valid = true;
 
 		} else if (inputText == "s" || Utils::startsWith(inputText, "snapshot") || Utils::startsWith(inputText, "s ")) {
-			std::vector<std::string> split = Utils::split(inputText, delim);
+            std::vector<std::string> split = Utils::split(inputText, delim);
             if (split.size() > 2) {
                 valid = false;
             } else {
@@ -1119,6 +1119,20 @@ namespace Manager {
 //                }
                 valid = true;
             }
+        } else if (Utils::startsWith(inputText, "online")) {
+            std::vector<std::string> split = Utils::split(inputText, delim);
+            std::string genome_tag;
+            if (opts.genome_tag.empty() && split.size() >= 2) {
+                genome_tag = split[1];
+            } else {
+                genome_tag = opts.genome_tag;
+            }
+            Term::printOnlineLinks(tracks, regions[regionSelection], genome_tag);
+            redraw = false;
+            processed = true;
+            inputText = "";
+            return true;
+
         } else {
 	        Utils::Region rgn;
 			try {
