@@ -72,7 +72,7 @@ namespace Themes {
         // face colours
         SkPaint bgPaint, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip, \
                 fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack;
-        SkPaint fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0, fcSoftClip0;
+        SkPaint fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0, fcSoftClip0, fcBigWig;
 
         std::vector<SkPaint> mate_fc;
         std::vector<SkPaint> mate_fc0;
@@ -112,6 +112,12 @@ namespace Themes {
             ~DarkTheme() = default;
     };
 
+    class RainbowTheme: public BaseTheme {
+    public:
+        RainbowTheme();
+        ~RainbowTheme() = default;
+    };
+
     class IniOptions {
     public:
         IniOptions();
@@ -143,6 +149,7 @@ namespace Themes {
         int print_screen;
         int delete_labels;
         int enter_interactive_mode;
+        int repeat_command;
         int start_index;
         int soft_clip_threshold, small_indel_threshold, snp_threshold;
         int edge_highlights;

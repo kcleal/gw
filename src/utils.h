@@ -42,6 +42,7 @@ namespace Utils {
         int coding_start, coding_end;
         int strand;  // 0 is none, 1 forward, 2 reverse
         int level;
+        float value;
         bool anyToDraw;
         std::vector<std::string> parts;
         std::vector<int> s;  // block starts and block ends for bed12/GFF
@@ -50,6 +51,8 @@ namespace Utils {
         TrackBlock() {
             coding_start = -1;
             coding_end = -1;
+            value = 0;
+            level = 0;
         }
     };
 

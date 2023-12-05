@@ -13,6 +13,7 @@
 
 #include "../include/BS_thread_pool.h"
 #include "../include/termcolor.h"
+#include "../lib/libBigWig/bigWig.h"
 #include "drawing.h"
 #include "segments.h"
 #include "themes.h"
@@ -827,6 +828,15 @@ namespace HGW {
 //        if (t != nullptr) {
 //            tbx_destroy(t);
 //        }
+        if (bigWig_fp) {
+            bwClose(bigWig_fp);
+            if (kind == BIGWIG) {
+                bwDestroyOverlappingIntervals(bigWig_intervals);
+            } else {
+                bbDestroyOverlappingEntries(bigBed_entries);
+            }
+        }
+
     }
 
 
@@ -908,6 +918,10 @@ namespace HGW {
             kind = GTF_IDX;
         } else if (Utils::endsWith(p, ".gtf")) {
             kind = GTF_NOI;
+        } else if (Utils::endsWith(p, ".bigwig") || Utils::endsWith(p, ".bw")) {
+            kind = BIGWIG;
+        } else if (Utils::endsWith(p, ".bigbed") || Utils::endsWith(p, ".bb")) {
+            kind = BIGBED;
         } else {
             kind = GW_LABEL;
         }
@@ -939,17 +953,17 @@ namespace HGW {
             }
             std::string tp;
             const char delim = '\t';
-            int count = 0;
+//            int count = 0;
             while (getline(fpu, tp)) {
-                count += 1;
+//                count += 1;
                 if (tp[0] == '#') {
                     continue;
                 }
                 std::vector<std::string> parts = Utils::split(tp, delim);
-                if (parts.size() < 9) {
-                    std::cerr << "Error: parsing file, not enough columns in line split by tab. n columns = "
-                              << parts.size() << ", line was: " << tp << ", at file index " << count << std::endl;
-                }
+//                if (parts.size() < 9) {
+//                    std::cerr << "Error: parsing file, not enough columns in line split by tab. n columns = "
+//                              << parts.size() << ", line was: " << tp << ", at file index " << count << std::endl;
+//                }
                 Utils::TrackBlock b;
                 b.line = tp;
                 b.chrom = parts[0];
@@ -978,8 +992,7 @@ namespace HGW {
         } else if (kind == GFF3_IDX || kind == GTF_IDX) {
             fp = hts_open(p.c_str(), "r");
             idx_t = tbx_index_load(p.c_str());
-        }
-        else if (kind == GFF3_NOI || kind == GTF_NOI) {
+        } else if (kind == GFF3_NOI || kind == GTF_NOI) {
             std::fstream fpu;
             fpu.open(p, std::ios::in);
             if (!fpu.is_open()) {
@@ -1054,9 +1067,29 @@ namespace HGW {
             idx_t = tbx_index_load(path.c_str());
             v = bcf_init1();
             v->max_unpack = BCF_UN_INFO;
+        } else if (kind == BIGWIG) {
+            bigWig_fp = bwOpen(path.c_str(), NULL, "r");
+            if(bwInit(1<<17) != 0) {
+                std::cerr << "Error: bw init error from file: " << path << std::endl;
+                throw std::exception();
+            }
+            if (!bigWig_fp) {
+                std::cerr << "Error: could not open " << path << std::endl;
+                throw std::exception();
+            }
+        } else if (kind == BIGBED) {
+            bigWig_fp = bbOpen(path.c_str(), NULL);
+            if(bwInit(1<<17) != 0) {
+                std::cerr << "Error: bw init error from file: " << path << std::endl;
+                throw std::exception();
+            }
+            if (!bigWig_fp) {
+                std::cerr << "Error: could not open " << path << std::endl;
+                throw std::exception();
+            }
         } else {
             std::cerr << "Error: file stype not supported for " << path << std::endl;
-            std::terminate();
+            throw std::exception();
         }
 
         for (auto &item : allBlocks) {
@@ -1121,6 +1154,19 @@ namespace HGW {
                 } else {
                     done = false;
                 }
+            } else if (kind == BIGWIG) {
+                bigWig_intervals = bwGetValues(bigWig_fp, rgn->chrom.c_str(), (uint32_t)std::max(1, rgn->start - 100000), (uint32_t)rgn->end + 100000, 0);
+                done = true;
+
+            } else if (kind == BIGBED) {
+                bigBed_entries = bbGetOverlappingEntries(bigWig_fp, rgn->chrom.c_str(), (uint32_t)std::max(1, rgn->start), (uint32_t)rgn->end, 1);
+                chrom = rgn->chrom;
+                current_iter_index = 0;
+                done = false;
+                num_intervals = (int)bigBed_entries->l;
+                if (current_iter_index == num_intervals) {
+                    done = true;
+                }
             }
         }
     }
@@ -1130,6 +1176,24 @@ namespace HGW {
         if (done) {
             return;
         }
+        if (kind > BCF_IDX) {  // non indexed cached VCF_NOI / BED_NOI / GFF3 (todo) / GW_LABEL / STDIN?
+            // first line of the region is cached here and resolved during drawing / mouse-clicks
+            if (iter_blk != vals_end) {
+                chrom = iter_blk->chrom;
+                start = iter_blk->start;
+                stop = iter_blk->end;
+                rid = iter_blk->name;
+                parent = iter_blk->parent;
+                vartype = iter_blk->vartype;
+                variantString = iter_blk->line;
+                parts = iter_blk->parts;
+                ++iter_blk;
+            } else {
+                done = true;
+            }
+            return;
+        }
+        // Indexed formats below:
         if (kind == BCF_IDX) {
             res = bcf_itr_next(fp, iter_q, v);
             if (res < 0) {
@@ -1204,7 +1268,7 @@ namespace HGW {
                         }
                     }
                 }
-            } else {
+            } else {  // VCF_IDX
                 res = vcf_parse(&str, hdr, v);
                 if (res < 0) {
                     if (res < -1) {
@@ -1215,21 +1279,19 @@ namespace HGW {
                 }
                 parseVcfRecord();
             }
-        } else if (kind > BCF_IDX) {  // non indexed but cached VCF_NOI / BED_NOI / GFF3 (todo) / GW_LABEL / STDIN?
-            // first line of the region is cached here and resolved during drawing / mouse-clicks
-            if (iter_blk != vals_end) {
-                chrom = iter_blk->chrom;
-                start = iter_blk->start;
-                stop = iter_blk->end;
-                rid = iter_blk->name;
-                parent = iter_blk->parent;
-                vartype = iter_blk->vartype;
-                variantString = iter_blk->line;
-                parts = iter_blk->parts;
-                ++iter_blk;
-            } else {
+        } else if (kind == BIGBED) {
+            if (current_iter_index == num_intervals) {
                 done = true;
+//                bbDestroyOverlappingEntries(bigBed_entries);
+                return;
             }
+            start = (int)bigBed_entries->start[current_iter_index];
+            stop = (int)bigBed_entries->end[current_iter_index];
+            if (bigBed_entries->str != nullptr) {
+                parts = Utils::split(bigBed_entries->str[current_iter_index], '\t');
+                rid = parts[0];
+            }
+            current_iter_index += 1;
         }
     }
 
@@ -1655,6 +1717,15 @@ namespace HGW {
             b->anyToDraw = true;
             if (trk.parts.size() >= 5) {
                 b->strand = (trk.parts[5] == "+") ? 1 : (trk.parts[5] == "-") ? -1 : 0;
+            }
+            if (trk.kind == BIGBED) {
+                if (trk.parts[2] == "-") {
+                    b->strand = -1;
+                } else if (trk.parts[2] == "+") {
+                    b->strand = 1;
+                } else {
+                    b->strand = 0;
+                }
             }
             bool tryBed12 = !trk.parts.empty() && trk.parts.size() >= 12;
             if (tryBed12) {

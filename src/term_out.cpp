@@ -743,7 +743,7 @@ namespace Term {
 		int target = (int)((float)(rgn->end - rgn->start) * x) + rgn->start;
 		std::filesystem::path p = track.path;
         bool isGFF = (track.kind == HGW::FType::GFF3_NOI || track.kind == HGW::FType::GFF3_IDX || track.kind == HGW::FType::GTF_NOI || track.kind == HGW::FType::GTF_IDX );
-        for (auto &b : rgn->featuresInView[0]) {
+        for (auto &b : rgn->featuresInView[trackIdx]) {
             if (b.start <= target && b.end >= target && b.level == targetLevel) {
                 clearLine();
                 std::cout << "\r" << termcolor::bold << p.filename().string() << termcolor::reset << "    " << \

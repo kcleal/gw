@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
     }
 
     static const std::vector<std::string> img_fmt = { "png", "pdf" };
-    static const std::vector<std::string> img_themes = { "igv", "dark" };
+    static const std::vector<std::string> img_themes = { "igv", "dark", "rainbow" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
     argparse::ArgumentParser program("gw", "0.9.0");
@@ -112,9 +112,9 @@ int main(int argc, char *argv[]) {
             .default_value(iopts.theme_str)
             .action([](const std::string& value) {
                 if (std::find(img_themes.begin(), img_themes.end(), value) != img_themes.end()) { return value;}
-                std::cerr << "Error: --theme not in {igv, dark}" << std::endl;
+                std::cerr << "Error: --theme not in {igv, dark, rainbow}" << std::endl;
                 abort();
-            }).help("Image theme igv|dark");
+            }).help("Image theme igv|dark|rainbow");
     program.add_argument("--fmt")
             .default_value("png")
             .action([](const std::string& value) {
@@ -198,9 +198,7 @@ int main(int argc, char *argv[]) {
     program.add_argument("--config")
             .default_value(false).implicit_value(true)
             .help("Display path of loaded .gw.ini config");
-    program.add_argument("--use-raster")
-            .default_value(false).implicit_value(true)
-            .help("Use raster backend for plotting images (applies to --no-show only)");
+
     // check input for errors and merge input options with IniOptions
     try {
         program.parse_args(argc, argv);
@@ -319,10 +317,18 @@ int main(int argc, char *argv[]) {
         iopts.no_show = program.get<bool>("-n");
     }
 
-    if (program.is_used("--theme") && program.get<std::string>("--theme") == "igv") {
-        iopts.theme = Themes::IgvTheme();
-        iopts.theme_str = "igv";
-    } else {  // defaults to igv theme
+    if (program.is_used("--theme")) {
+        iopts.theme_str = program.get<std::string>("--theme");
+        if (iopts.theme_str == "dark") {
+            iopts.theme = Themes::DarkTheme();
+        } else if (iopts.theme_str == "igv") {
+            iopts.theme = Themes::IgvTheme();
+        } else if (iopts.theme_str == "rainbow") {
+            iopts.theme = Themes::RainbowTheme();
+        } else {
+            std::cerr << "Error: unknown theme " << iopts.theme_str << std::endl;
+            std::exit(-1);
+        }
     }
 
     if (program.is_used("--dims")) {
@@ -582,7 +588,7 @@ int main(int argc, char *argv[]) {
             }
         }
 
-    // save plot to file, use GPU if single image, or --use-raster backend otherwise. If no regions are
+    // save plot to file. If no regions are
     // provided, but --outdir is present then the whole genome is plotted using raster backend
     } else {
 
@@ -639,45 +645,17 @@ int main(int argc, char *argv[]) {
             } else {
                 sk_sp<SkImage> img;
                 if (!regions.empty()) {  // plot target regions
-                    if (!program.is_used("--use-raster")) {
-                        plotter.initBack(iopts.dimensions.x, iopts.dimensions.y);
-                        int fb_height, fb_width;
-                        glfwGetFramebufferSize(plotter.backWindow, &fb_width, &fb_height);
-                        sContext = GrDirectContext::MakeGL(nullptr).release();
-                        GrGLFramebufferInfo framebufferInfo;
-                        framebufferInfo.fFBOID = 0;
-                        framebufferInfo.fFormat = GL_RGBA8;
-                        GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
-                        if (!backendRenderTarget.isValid()) {
-                            std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
-                            glfwTerminate();
-                            std::exit(-1);
-                        }
-                        sSurface = SkSurface::MakeFromBackendRenderTarget(sContext, backendRenderTarget,kBottomLeft_GrSurfaceOrigin,kRGBA_8888_SkColorType,  nullptr, nullptr).release();
-                        if (!sSurface) {
-                            std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
-                            sContext->releaseResourcesAndAbandonContext();
-                            std::exit(-1);
-                        }
-                        SkCanvas *canvas = sSurface->getCanvas();
-                        if (iopts.link_op == 0) {
-                            plotter.runDrawNoBuffer(canvas);
-                        } else {
-                            plotter.runDraw(canvas);
-                        }
-                        img = sSurface->makeImageSnapshot();
+                    plotter.setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
+                    plotter.gap = 0;
+                    sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
+                    SkCanvas *canvas = rasterSurface->getCanvas();
+                    if (iopts.link_op == 0) {
+                        plotter.runDrawNoBuffer(canvas);
                     } else {
-                        plotter.setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
-                        plotter.gap = 0;
-                        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
-                        SkCanvas *canvas = rasterSurface->getCanvas();
-                        if (iopts.link_op == 0) {
-                            plotter.runDrawNoBuffer(canvas);
-                        } else {
-                            plotter.runDraw(canvas);
-                        }
-                        img = rasterSurface->makeImageSnapshot();
+                        plotter.runDraw(canvas);
                     }
+                    img = rasterSurface->makeImageSnapshot();
+
                     if (outdir.empty()) {
                         std::string fpath;
                         if (program.is_used("--file")) {

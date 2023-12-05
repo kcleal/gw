@@ -94,8 +94,10 @@ namespace Manager {
             hts_idx_t* idx = sam_index_load(f, fn.c_str());
             indexes.push_back(idx);
         }
+
         if (!opts.genome_tag.empty() && !opts.ini_path.empty() && opts.myIni["tracks"].has(opts.genome_tag)) {
             std::vector<std::string> track_paths_temp = Utils::split(opts.myIni["tracks"][opts.genome_tag], ',');
+            tracks.reserve(track_paths.size() + track_paths_temp.size());
             for (const auto &trk_item : track_paths_temp) {
                 if (!Utils::is_file_exist(trk_item)) {
                     std::cerr << "Warning: track file does not exists - " << trk_item << std::endl;
@@ -105,6 +107,8 @@ namespace Manager {
                     tracks.back().open(trk_item, true);
                 }
             }
+        } else {
+            tracks.reserve(track_paths.size());
         }
         for (const auto &tp: track_paths) {
             tracks.push_back(HGW::GwTrack());
@@ -350,6 +354,9 @@ namespace Manager {
             regions[0].end = stop + opts.pad;
             regions[0].markerPos = start;
             regions[0].markerPosEnd = stop;
+            if (opts.tlen_yscale) {
+                opts.max_tlen = stop - start;
+            }
         } else {
             regions.resize(2);
             regions[0].chrom = chrom;
@@ -362,6 +369,9 @@ namespace Manager {
             regions[1].end = stop + opts.pad;
             regions[1].markerPos = stop;
             regions[1].markerPosEnd = stop;
+            if (opts.tlen_yscale) {
+                opts.max_tlen = 1500;
+            }
         }
     }
 
@@ -587,20 +597,20 @@ namespace Manager {
             monitorScale = 1;
             glfwGetFramebufferSize(backWindow, &fb_width, &fb_height);
         }
-        gap = 10 * monitorScale;
+        gap = std::fmax(5, fb_height * 0.01 * monitorScale);
     }
 
     void GwPlot::setRasterSize(int width, int height) {
         monitorScale = 1;
         fb_width = width;
         fb_height = height;
-        gap = 10;
+        gap = std::fmax(5, fb_height * 0.01 * monitorScale);
     }
 
     void GwPlot::setScaling() {  // sets z_scaling, y_scaling trackY and regionWidth
         fonts.setOverlayHeight(monitorScale);
         refSpace =  fonts.overlayHeight;
-        sliderSpace = refSpace;
+        sliderSpace = std::fmax((float)(fb_height * 0.0175), 10*monitorScale); //refSpace + (gap * 0.5); // + gap + gap;
         auto fbh = (float) fb_height;
         auto fbw = (float) fb_width;
         if (bams.empty()) {
@@ -650,7 +660,7 @@ namespace Manager {
             setScaling();
             Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
             Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
-            Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace);
+            Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
             Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
             Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
 
@@ -1064,7 +1074,7 @@ namespace Manager {
         }
         Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace);
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
     }
 
@@ -1119,7 +1129,7 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace);
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
     }
 

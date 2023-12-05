@@ -17,6 +17,7 @@
 #include "parser.h"
 #include "../include/IITree.h"
 #include "../include/unordered_dense.h"
+#include "../lib/libBigWig/bigWig.h"
 #include "segments.h"
 #include "themes.h"
 
@@ -24,12 +25,14 @@
 namespace HGW {
 
      enum FType {
+         BIGWIG,
+         BIGBED,
          GFF3_IDX,
          GTF_IDX,
          BED_IDX,
          VCF_IDX,
          BCF_IDX,
-         VCF_NOI,  // NOI for no index
+         VCF_NOI,  // NOI for no index. All are > BCF_IDX
          BED_NOI,
          GFF3_NOI,
          GTF_NOI,
@@ -115,6 +118,7 @@ namespace HGW {
         std::string path, genome_tag;
         std::string chrom, chrom2, rid, vartype, parent;
         int start, stop;
+        float value;  // for continuous data
         int fileIndex;
 
         FType kind;
@@ -127,6 +131,13 @@ namespace HGW {
         bcf1_t *v;
         tbx_t *t;
         hts_itr_t *iter_q;
+
+        int current_iter_index;
+        int num_intervals;
+        bigWigFile_t *bigWig_fp;
+//        bwOverlapIterator_t *bigWig_iterator;
+        bwOverlappingIntervals_t *bigWig_intervals;
+        bbOverlappingEntries_t *bigBed_entries;
 
         int region_end;
         std::vector<std::string> parts;  // string split by delimiter

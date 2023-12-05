@@ -15,6 +15,7 @@ namespace Themes {
 
         fcCoverage.setStyle(SkPaint::kStrokeAndFill_Style);
         fcCoverage.setStrokeWidth(0);
+//        fcCoverage.setAntiAlias(true);
 
         std::vector<std::vector<int>> tmp = {{158, 1,   66},
                                              {179, 24,  71},
@@ -89,103 +90,100 @@ namespace Themes {
 
         marker_paint.setStyle(SkPaint::kStrokeAndFill_Style);
         marker_paint.setStrokeWidth(3);
+
+        fcBigWig.setARGB(255, 20, 90, 190);
+        fcBigWig.setStyle(SkPaint::kStrokeAndFill_Style);
+        fcBigWig.setStrokeWidth(1);
     }
 
     void BaseTheme::setAlphas() {
-            fcNormal0 = fcNormal;
-            fcDel0 = fcDel;
-            fcDup0 = fcDup;
-            fcInvF0 = fcInvF;
-            fcInvR0 = fcInvR;
-            fcTra0 = fcTra;
-            fcSoftClip0 = fcSoftClip;
+        fcNormal0 = fcNormal;
+        fcDel0 = fcDel;
+        fcDup0 = fcDup;
+        fcInvF0 = fcInvF;
+        fcInvR0 = fcInvR;
+        fcTra0 = fcTra;
+        fcSoftClip0 = fcSoftClip;
 
-            bgPaint.setStyle(SkPaint::kStrokeAndFill_Style);
-            bgPaint.setStrokeWidth(2);
+        bgPaint.setStyle(SkPaint::kStrokeAndFill_Style);
+        bgPaint.setStrokeWidth(2);
 
-            fcNormal.setAlpha(alpha);
-//            fcDel.setAlpha(alpha);
-//            fcDup.setAlpha(alpha);
-//            fcInvF.setAlpha(alpha);
-//            fcInvR.setAlpha(alpha);
-//            fcTra.setAlpha(alpha);
-//            fcSoftClip.setAlpha(alpha);
+        fcNormal.setAlpha(alpha);
 
-            fcNormal0.setAlpha(mapq0_alpha);
-            fcDel0.setAlpha(mapq0_alpha);
-            fcDup0.setAlpha(mapq0_alpha);
-            fcInvF0.setAlpha(mapq0_alpha);
-            fcInvR0.setAlpha(mapq0_alpha);
-            fcTra0.setAlpha(mapq0_alpha);
-            fcSoftClip0.setAlpha(mapq0_alpha);
+        fcNormal0.setAlpha(mapq0_alpha);
+        fcDel0.setAlpha(mapq0_alpha);
+        fcDup0.setAlpha(mapq0_alpha);
+        fcInvF0.setAlpha(mapq0_alpha);
+        fcInvR0.setAlpha(mapq0_alpha);
+        fcTra0.setAlpha(mapq0_alpha);
+        fcSoftClip0.setAlpha(mapq0_alpha);
 
-            fcTrack.setStyle(SkPaint::kStrokeAndFill_Style);
-            fcTrack.setStrokeWidth(2);
-            fcTrack.setAntiAlias(true);
+        fcTrack.setStyle(SkPaint::kStrokeAndFill_Style);
+        fcTrack.setStrokeWidth(2);
+        fcTrack.setAntiAlias(true);
 
-            lcJoins.setStyle(SkPaint::kStroke_Style);
-            lcJoins.setStrokeWidth(2);
+        lcJoins.setStyle(SkPaint::kStroke_Style);
+        lcJoins.setStrokeWidth(2);
 
-            lcLightJoins.setStyle(SkPaint::kStroke_Style);
-            lcLightJoins.setStrokeWidth(1);
+        lcLightJoins.setStyle(SkPaint::kStroke_Style);
+        lcLightJoins.setStrokeWidth(1);
 
-            lcLabel.setStyle(SkPaint::kStroke_Style);
-            lcLabel.setStrokeWidth(1);
-            lcLabel.setAntiAlias(true);
+        lcLabel.setStyle(SkPaint::kStroke_Style);
+        lcLabel.setStrokeWidth(1);
+        lcLabel.setAntiAlias(true);
 
 //            lcBright.setStyle(SkPaint::kStrokeAndFill_Style);
-            lcBright.setStyle(SkPaint::kStroke_Style);
-            lcBright.setStrokeWidth(1);
-            lcBright.setAntiAlias(true);
+        lcBright.setStyle(SkPaint::kStroke_Style);
+        lcBright.setStrokeWidth(1);
+        lcBright.setAntiAlias(true);
 
-            insF = fcIns;
-            insF.setStyle(SkPaint::kFill_Style);
+        insF = fcIns;
+        insF.setStyle(SkPaint::kFill_Style);
 
-            insS = fcIns;
-            insS.setStyle(SkPaint::kStroke_Style);
-            insS.setStrokeWidth(4);
+        insS = fcIns;
+        insS.setStyle(SkPaint::kStroke_Style);
+        insS.setStrokeWidth(4);
 
-            marker_paint.setStyle(SkPaint::kStrokeAndFill_Style);
-            marker_paint.setAntiAlias(true);
-            marker_paint.setStrokeMiter(0.1);
-            marker_paint.setStrokeWidth(0.5);
+        marker_paint.setStyle(SkPaint::kStrokeAndFill_Style);
+        marker_paint.setAntiAlias(true);
+        marker_paint.setStrokeMiter(0.1);
+        marker_paint.setStrokeWidth(0.5);
 
-            for (size_t i=0; i < mate_fc.size(); ++i) {
-                SkPaint p = mate_fc[i];
-                mate_fc[i].setAlpha(alpha);
-                p.setAlpha(mapq0_alpha);
-                mate_fc0.push_back(p);
-            }
-            SkPaint p;
-            // A==1, C==2, G==4, T==8, N==>8
-            for (size_t i=0; i<11; ++i) {
-                p = fcA;
-                p.setAlpha(base_qual_alpha[i]);
-                BasePaints[1][i] = p;
+        for (size_t i=0; i < mate_fc.size(); ++i) {
+            SkPaint p = mate_fc[i];
+            mate_fc[i].setAlpha(alpha);
+            p.setAlpha(mapq0_alpha);
+            mate_fc0.push_back(p);
+        }
+        SkPaint p;
+        // A==1, C==2, G==4, T==8, N==>8
+        for (size_t i=0; i<11; ++i) {
+            p = fcA;
+            p.setAlpha(base_qual_alpha[i]);
+            BasePaints[1][i] = p;
 
-                p = fcT;
-                p.setAlpha(base_qual_alpha[i]);
-                BasePaints[8][i] = p;
+            p = fcT;
+            p.setAlpha(base_qual_alpha[i]);
+            BasePaints[8][i] = p;
 
-                p = fcC;
-                p.setAlpha(base_qual_alpha[i]);
-                BasePaints[2][i] = p;
+            p = fcC;
+            p.setAlpha(base_qual_alpha[i]);
+            BasePaints[2][i] = p;
 
-                p = fcG;
-                p.setAlpha(base_qual_alpha[i]);
-                BasePaints[4][i] = p;
+            p = fcG;
+            p.setAlpha(base_qual_alpha[i]);
+            BasePaints[4][i] = p;
 
-                p = fcN;
-                p.setAlpha(base_qual_alpha[i]);
-                BasePaints[9][i] = p;
-                BasePaints[10][i] = p;
-                BasePaints[11][i] = p;
-                BasePaints[12][i] = p;
-                BasePaints[13][i] = p;
-                BasePaints[14][i] = p;
-                BasePaints[15][i] = p;
-            }
-
+            p = fcN;
+            p.setAlpha(base_qual_alpha[i]);
+            BasePaints[9][i] = p;
+            BasePaints[10][i] = p;
+            BasePaints[11][i] = p;
+            BasePaints[12][i] = p;
+            BasePaints[13][i] = p;
+            BasePaints[14][i] = p;
+            BasePaints[15][i] = p;
+        }
     }
 
     IgvTheme::IgvTheme() {
@@ -230,20 +228,15 @@ namespace Themes {
         bgPaint.setARGB(255, 0, 0, 0);
         fcNormal.setARGB(255, 90, 90, 95);
         fcDel.setARGB(255, 185, 25, 25);
-//        fcDel.setARGB(255, 232, 55, 99);
         fcDup.setARGB(255, 24, 100, 198);
         fcInvF.setARGB(255, 49, 167, 118);
         fcInvR.setARGB(255, 49, 167, 0);
         fcTra.setARGB(255, 225, 185, 185);
         fcSoftClip.setARGB(255, 0, 128, 128);
-//        fcA.setARGB(255, 106, 186, 79);
         fcA.setARGB(255, 105, 213, 92);
-//        fcT.setARGB(255, 201, 49, 24);
         fcT.setARGB(255, 232, 55, 99);
         fcC.setARGB(255, 77, 125, 245);
-//        fcC.setARGB(255, 78, 148, 242);
         fcG.setARGB(255, 226, 132, 19);
-//        fcG.setARGB(255, 239, 187, 74);
         fcN.setARGB(255, 128, 128, 128);
         lcJoins.setARGB(255, 142, 142, 142);
         lcLightJoins.setARGB(255, 82, 82, 82);
@@ -251,6 +244,41 @@ namespace Themes {
         lcBright.setColor(SK_ColorWHITE);
         tcDel.setARGB(255, 227, 227, 227);
         tcLabels.setARGB(255, 0, 0, 0);
+        tcIns.setARGB(255, 227, 227, 227);
+        tcBackground.setARGB(255, 10, 10, 20);
+        marker_paint.setARGB(255, 220, 220, 220);
+        ecSelected.setARGB(255, 255, 255, 255);
+        ecSelected.setStyle(SkPaint::kStroke_Style);
+        ecSelected.setStrokeWidth(2);
+        ecSplit.setARGB(255, 109, 160, 199);
+        ecSplit.setStyle(SkPaint::kStroke_Style);
+        ecSplit.setStrokeWidth(1);
+    }
+
+    RainbowTheme::RainbowTheme() {
+        name = "rainbow";
+        fcCoverage.setARGB(255, 73, 77, 79);
+        fcTrack.setARGB(200, 227, 232, 255);
+        bgPaint.setARGB(255, 45, 45, 48);
+        fcNormal.setARGB(255, 73, 77, 79);
+        fcDel.setARGB(255, 185, 25, 25);
+        fcIns.setARGB(255, 5, 25, 135);
+        fcDup.setARGB(255, 24, 100, 198);
+        fcInvF.setARGB(255, 49, 167, 118);
+        fcInvR.setARGB(255, 49, 167, 0);
+        fcTra.setARGB(255, 225, 185, 185);
+        fcSoftClip.setARGB(255, 0, 128, 128);
+        fcA.setARGB(255, 105, 213, 92);
+        fcT.setARGB(255, 232, 55, 99);
+        fcC.setARGB(255, 77, 125, 245);
+        fcG.setARGB(255, 226, 132, 19);
+        fcN.setARGB(255, 128, 128, 128);
+        lcJoins.setARGB(255, 142, 142, 142);
+        lcLightJoins.setARGB(255, 82, 82, 82);
+        lcLabel.setARGB(255, 182, 182, 182);
+        lcBright.setColor(SK_ColorWHITE);
+        tcDel.setARGB(255, 57, 57, 57);
+        tcLabels.setARGB(255, 100, 100, 100);
         tcIns.setARGB(255, 227, 227, 227);
         tcBackground.setARGB(255, 10, 10, 20);
         marker_paint.setARGB(255, 220, 220, 220);
@@ -314,6 +342,7 @@ namespace Themes {
         delete_labels = GLFW_KEY_DELETE;
         enter_interactive_mode = GLFW_KEY_ENTER;
         find_alignments=GLFW_KEY_F;
+        repeat_command=GLFW_KEY_R;
     }
 
     void IniOptions::getOptionsFromIni() {
@@ -325,6 +354,8 @@ namespace Themes {
         theme_str = myIni["general"]["theme"];
         if (theme_str == "dark") {
             theme = Themes::DarkTheme();
+        } else if (theme_str == "rainbow") {
+            theme = Themes::RainbowTheme();
         } else {
             theme = Themes::IgvTheme();
         }
@@ -380,7 +411,9 @@ namespace Themes {
         if (myIni["interaction"].has("find_alignments")) {
             find_alignments = key_table[myIni["interaction"]["find_alignments"]];
         }
-
+        if (myIni["interaction"].has("repeat_command")) {
+            repeat_command = key_table[myIni["interaction"]["repeat_command"]];
+        }
 
         number_str = myIni["labelling"]["number"];
         number = Utils::parseDimensions(number_str);

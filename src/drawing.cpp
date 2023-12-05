@@ -2,6 +2,7 @@
 // Created by Kez Cleal on 12/08/2022.
 //
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <vector>
@@ -89,8 +90,7 @@ namespace Drawing {
                     n += 1;
                     // normalise mismatched bases to nearest whole percentage (avoids extra memory allocation)
                     if (processThis) {  //
-                        auto mm_sum = (float) (mmVector[i].A + mmVector[i].T + mmVector[i].C + mmVector[i].G);
-                        if (mm_sum > 0) {
+                        if (mmVector[i].A || mmVector[i].T || mmVector[i].C || mmVector[i].G) {
                             mmVector[i].A = (mmVector[i].A > 1) ? (uint32_t) ((((float)mmVector[i].A) / c[i]) * 100) : 0;
                             mmVector[i].T = (mmVector[i].T > 1) ? (uint32_t) ((((float)mmVector[i].T) / c[i]) * 100) : 0;
                             mmVector[i].C = (mmVector[i].C > 1) ? (uint32_t) ((((float)mmVector[i].C) / c[i]) * 100) : 0;
@@ -636,6 +636,7 @@ namespace Drawing {
             float pH = yScaling * polygonHeight;
             if (opts.tlen_yscale) {
                 pH = trackY / (float)opts.ylim;
+                yScaling *= 0.95;
             }
             if (pH > 10) {  // scale to pixel boundary
                 pH = (float)(int)pH;
@@ -1031,7 +1032,7 @@ namespace Drawing {
     }
 
     void drawBorders(const Themes::IniOptions &opts, float fb_width, float fb_height,
-                 SkCanvas *canvas, size_t nRegions, size_t nbams, float trackY, float covY, int nTracks, float totalTabixY, float refSpace) {
+                 SkCanvas *canvas, size_t nRegions, size_t nbams, float trackY, float covY, int nTracks, float totalTabixY, float refSpace, float gap) {
         SkPath path;
         if (nRegions > 1) {
             float x = fb_width / nRegions;
@@ -1140,6 +1141,79 @@ namespace Drawing {
         }
     }
 
+    void drawTrackBigWig(HGW::GwTrack &trk, const Utils::Region &rgn, SkRect &rect, float padX, float padY,
+                        float y, float stepX, float stepY, float gap, float gap2, float xScaling, float t,
+                        Themes::IniOptions &opts, SkCanvas *canvas, const Themes::Fonts &fonts) {
+        if (trk.bigWig_intervals == nullptr || trk.bigWig_intervals->l == 0) {
+            return;
+        }
+        // see chr19:5,930,464-5,931,225 in test/test_fixedStep.bigwig
+        float cMax = std::numeric_limits<float>::min();
+        float cMin = std::numeric_limits<float>::max();
+        float v;
+        int length = (int)trk.bigWig_intervals->l;
+        for (int i=0; i<length; ++i) {
+            v = trk.bigWig_intervals->value[i];
+            cMin = std::fmin(v, cMin);
+            cMax = std::fmax(v, cMax);
+        }
+        float range = std::fmax(cMax, 0) - std::fmin(cMin, 0);
+        float availableSPace = stepY - gap2;
+        float y_negativeValueOffset;
+        if (cMin < 0) {
+            y_negativeValueOffset = availableSPace * 0.5;
+            range = std::fmax(std::fabs(cMin), cMax) * 2;
+        } else {
+            y_negativeValueOffset = 0;
+        }
+        // normalize to space available
+        for (int i=0; i<length; ++i) {
+            float &vi = trk.bigWig_intervals->value[i];
+            vi = vi / range;
+        }
+
+        float startY = y + availableSPace + (gap * 0.5);
+        float x = padX;
+//        if (y_negativeValueOffset != 0) {
+        SkPath path;
+        path.moveTo(padX, startY - y_negativeValueOffset);
+        path.lineTo(padX + stepX - gap2, startY - y_negativeValueOffset);
+        canvas->drawPath(path, opts.theme.fcBigWig);
+//        }
+        int step = length / 100000;
+        step = (step) ? step : 1;
+        for (int i=0; i<length; i+=step)  {
+            if (trk.bigWig_intervals->start[i] < rgn.start) {
+                continue;
+            } else if (trk.bigWig_intervals->start[i] >= rgn.end) {
+                break;
+            }
+            v = trk.bigWig_intervals->value[i];
+            x = padX + ((trk.bigWig_intervals->start[i] - rgn.start) * xScaling);
+            rect.setXYWH(x, startY - y_negativeValueOffset, std::fmax(1, xScaling), -v * availableSPace);
+            canvas->drawRect(rect, opts.theme.fcBigWig);
+        }
+        if (availableSPace > 2 * fonts.overlayHeight) {
+            path.reset();
+            path.moveTo(padX, startY - availableSPace);
+            path.lineTo(padX + 20, startY - availableSPace);
+            path.moveTo(padX, startY);
+            path.lineTo(padX + 20, startY);
+            canvas->drawPath(path, opts.theme.lcJoins);
+
+            std::string str = std::to_string(cMax);
+            str.erase ( str.find_last_not_of('0') + 1, std::string::npos );
+            str.erase ( str.find_last_not_of('.') + 1, std::string::npos );
+            sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(str.c_str(), fonts.overlay);
+            canvas->drawTextBlob(blob, padX + 25, startY - availableSPace + fonts.overlayHeight, opts.theme.tcDel);
+            str = std::to_string(cMin);
+            str.erase ( str.find_last_not_of('0') + 1, std::string::npos );
+            str.erase ( str.find_last_not_of('.') + 1, std::string::npos );
+            blob = SkTextBlob::MakeFromString(str.c_str(), fonts.overlay);
+            canvas->drawTextBlob(blob, padX + 25, startY, opts.theme.tcDel);
+
+        }
+    }
 
     void drawTrackBlock(int start, int stop, std::string &rid, const Utils::Region &rgn, SkRect &rect, SkPath &path, float padX, float padY,
                         float y, float h, float stepX, float stepY, float gap, float gap2, float xScaling, float t,
@@ -1325,7 +1399,7 @@ namespace Drawing {
         bool expanded = opts.expand_tracks;
 
         for (auto &rgn : regions) {
-            bool any_text = true; //(rgn.end - rgn.start) < 500000;
+            bool any_text = true;
             float xScaling = (stepX - gap2) / (float)(rgn.end - rgn.start);
             float padY = gap;
             int trackIdx = 0;
@@ -1336,6 +1410,13 @@ namespace Drawing {
             rgn.featureLevels.resize(tracks.size());
             for (auto & trk : tracks) {
                 trk.fetch(&rgn);
+                if (trk.kind == HGW::BIGWIG) {
+                    drawTrackBigWig(trk, rgn, rect, padX, padY, y + (stepY * trackIdx),  stepX, stepY, gap, gap2,
+                                    xScaling, t, opts, canvas, fonts);
+                    trackIdx += 1;
+                    continue;
+                }
+
                 bool isGFF = trk.kind == HGW::GFF3_NOI || trk.kind == HGW::GFF3_IDX || trk.kind == HGW::GTF_NOI || trk.kind == HGW::GTF_IDX ;
                 std::vector<Utils::TrackBlock> &features = rgn.featuresInView[trackIdx];
                 features.clear();
@@ -1345,6 +1426,7 @@ namespace Drawing {
                 } else {
                     HGW::collectTrackData(trk, features);
                 }
+
                 int nLevels = Segs::findTrackY(features, expanded, rgn);
                 rgn.featureLevels[trackIdx] = nLevels;
                 std::vector<float> labelsEndLevels(nLevels, 0);
@@ -1356,25 +1438,28 @@ namespace Drawing {
                 float h4 = h2 * 0.5;
                 float step_track = (stepY - gap2 ) / ((float)nLevels);
                 bool isBed12 = !trk.parts.empty() && trk.parts.size() >= 12;
+                float textLevelEnd = 0;  // makes sure text doesnt overlap on same level
 
                 for (auto &f : features) {
                     float padY_track = padY + (step_track * f.level);
+                    float *fLevelEnd = (nLevels > 1) ? &labelsEndLevels[f.level] : &textLevelEnd;
                     if (isGFF || isBed12) {
                         if (!f.anyToDraw || f.start > rgn.end || f.end < rgn.start) {
                             continue;
                         }
                         drawGappedTrackBlock(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap,
                                  f, any_text, rgn, rect, path, path2, padX, padY_track, stepX, step_track, y, h, h2, h4, gap2,
-                                 xScaling, t, nLevels, &labelsEndLevels[f.level]);
+                                 xScaling, t, nLevels, fLevelEnd);
 
                     }
                     else {
                         drawTrackBlock(f.start, f.end, f.name, rgn, rect, path, padX, padY_track, y, h, stepX, stepY, gap, gap2,
-                                       xScaling, t, opts, canvas, fonts, any_text, true, true, false, &labelsEndLevels[f.level]);
+                                       xScaling, t, opts, canvas, fonts, any_text, true, true, false, fLevelEnd);
                     }
                 }
                 trackIdx += 1;
                 padY += stepY;
+
             }
             padX += stepX;
         }
@@ -1392,7 +1477,7 @@ namespace Drawing {
         line.setStyle(SkPaint::kStroke_Style);
         SkRect rect{};
         SkPath path{};
-        auto yh = (float)(fb_height * 0.015);
+        auto yh = std::fmax((float)(fb_height * 0.0175), 10*monitorScale);
         float rowHeight = (float)fb_height / (float)headers.size();
         float colWidth = (float)fb_width / (float)nRegions;
         float gap = 50;

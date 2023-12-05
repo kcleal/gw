@@ -145,7 +145,7 @@ namespace Manager {
 //            }
         }
         if (!captureText) {
-            if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
+            if (key == opts.repeat_command) {
                 if (mode == SETTINGS) {
                     return key;
                 }
@@ -721,9 +721,9 @@ namespace Manager {
                 collections.erase(std::remove_if(collections.begin(), collections.end(), [&ind](const auto &col) {
                     return col.bamIdx == ind;
                 }), collections.end());
-                bams.erase(bams.begin() + ind);
-                indexes.erase(indexes.begin() + ind);
-                headers.erase(headers.begin() + ind);
+                bams.erase(bams.begin() + ind, bams.begin() + ind + 1);
+                indexes.erase(indexes.begin() + ind, indexes.begin() + ind + 1);
+                headers.erase(headers.begin() + ind, headers.begin() + ind + 1);
                 processed = false;
                 redraw = true;
                 inputText = "";
@@ -741,13 +741,18 @@ namespace Manager {
                     std::cerr << termcolor::red << "Error:" << termcolor::reset << " track index is out of range. Use 0-based indexing\n";
                     return true;
                 }
-                int track_index = 0;
-                tracks.erase(std::remove_if(tracks.begin(), tracks.end(), [&ind, &track_index](const auto &trk) {
-                    return (track_index++) == ind;
-                }), tracks.end());
+                for (auto &rgn : regions) {
+                    rgn.featuresInView.clear();
+                    rgn.featureLevels.clear();
+                }
+                tracks.erase(tracks.begin() + ind, tracks.begin() + ind + 1);
+                for (auto &trk: tracks) {
+                    trk.open(trk.path, true);
+                }
                 processed = false;
                 redraw = true;
                 inputText = "";
+                std::cerr << tracks.size() << std::endl;
                 return true;
             } else {
                 try {
@@ -891,12 +896,23 @@ namespace Manager {
                 reason = OPTION_NOT_UNDERSTOOD;
             }
         }
-        else if (inputText == "tlen-y") {
-            opts.tlen_yscale = !(opts.tlen_yscale);
-            if (!opts.tlen_yscale) {
-                samMaxY = opts.ylim;
-            }
+        else if (Utils::startsWith(inputText, "tlen-y")) {
             valid = true;
+            std::vector<std::string> split = Utils::split(inputText, delim);
+            if (split.size() == 2) {
+                try {
+                    opts.max_tlen = std::stoi(split.back());
+                    opts.tlen_yscale = true;
+                } catch (...) {
+                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " 'tlen-y NUMBER' not understood\n";
+                    return true;
+                }
+            } else {
+                opts.tlen_yscale = !(opts.tlen_yscale);
+                if (!opts.tlen_yscale) {
+                    samMaxY = opts.ylim;
+                }
+            }
         } else if (Utils::startsWith(inputText, "goto")) {
             std::vector<std::string> split = Utils::split(inputText, delim_q);
             if (split.size() == 1) {
@@ -2214,10 +2230,12 @@ namespace Manager {
         }
 
         float trackBoundary = totalCovY + refSpace + (trackY*(float)headers.size());
-        if (std::fabs(yPos_fb - trackBoundary) < 5 * monitorScale) {
-            glfwSetCursor(window, vCursor);
-        } else {
-            glfwSetCursor(window, normalCursor);
+        if (!tracks.empty()) {
+            if (std::fabs(yPos_fb - trackBoundary) < 5 * monitorScale) {
+                glfwSetCursor(window, vCursor);
+            } else {
+                glfwSetCursor(window, normalCursor);
+            }
         }
 
         if (state == GLFW_PRESS) {

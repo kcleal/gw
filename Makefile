@@ -2,11 +2,11 @@ TARGET = gw
 
 CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG
 
-CPPFLAGS += -I./include -I./src -I.
+CPPFLAGS += -I./include -I./src -I. -I./lib/libBigWig
 
 LDLIBS += -lskia -lm -ljpeg -lpng -lsvg -lhts -lfontconfig -lpthread
 
-#LDFLAGS=-fsanitize=address -fsanitize=undefined
+LDFLAGS=-fsanitize=address -fsanitize=undefined
 
 # set system
 PLATFORM=
@@ -113,11 +113,14 @@ prep:
 		$(info "Downloading pre-build skia skia from: $(SKIA_LINK)")
 		cd lib/skia && wget -O skia.zip $(SKIA_LINK) && unzip -o skia.zip && rm skia.zip && cd ../../
     endif
+	$(MAKE) -C lib/libBigWig
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -g $(CPPFLAGS) -c $< -o $@
 
-#.PRECIOUS: $(TARGET) $(OBJECTS)
+
+LDFLAGS += -L./lib/libBigWig
+LDLIBS += -lBigWig
 
 
 $(TARGET): $(OBJECTS)
