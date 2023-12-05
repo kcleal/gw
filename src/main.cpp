@@ -438,15 +438,11 @@ int main(int argc, char *argv[]) {
         if (show_banner) {
             print_banner();
         }
-        std::cerr << "INIT DISPLAY HERE\n"; // << glGetString(GL_VERSION)  <<std::endl;
         // initialize display screen
         plotter.init(iopts.dimensions.x, iopts.dimensions.y);
-        std::cerr << "WINDOW INIT DONE\n";
         int fb_height, fb_width;
         glfwGetFramebufferSize(plotter.window, &fb_width, &fb_height);
-        std::cerr << "FB SIZE DONE\n";
         sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
-        std::cerr << "MAKE INTERFACE DONE\n";
         if (!interface || !interface->validate()) {
 		    std::cerr << "Error: skia GrGLInterface was not valid" << std::endl;
             if (!interface) {
@@ -464,7 +460,6 @@ int main(int argc, char *argv[]) {
             std::cerr << "Error: could not create skia context using MakeGL\n";
             std::exit(-1);
         }
-        std::cerr << "CONTEXT DONE\n";
 
         GrGLFramebufferInfo framebufferInfo;
         framebufferInfo.fFBOID = 0;
