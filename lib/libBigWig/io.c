@@ -14,7 +14,7 @@ size_t GLOBAL_DEFAULTBUFFERSIZE;
 #ifndef NOCURL
 uint64_t getContentLength(const URL_t *URL) {
     double size;
-    if(curl_easy_getinfo(URL->x.curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &size) != CURLE_OK) {
+    if(curl_easy_getinfo(URL->x.curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &size) != CURLE_OK) {
         return 0;
     }
     if(size== -1.0) return 0;

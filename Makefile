@@ -1,12 +1,11 @@
 TARGET = gw
 
-CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG
+.PHONY: default all debug clean
 
-CPPFLAGS += -I./include -I./src -I. -I./lib/libBigWig
+default: $(TARGET)
 
-LDLIBS += -lskia -lm -ljpeg -lpng -lsvg -lhts -lfontconfig -lpthread
-
-LDFLAGS=-fsanitize=address -fsanitize=undefined
+all: default
+debug: default
 
 # set system
 PLATFORM=
@@ -65,6 +64,25 @@ ifeq ($(PLATFORM),"Arm64")
     SKIA_LINK = https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia.zip
 endif
 
+# download skia binaries, set for non-Windows platforms
+prep:
+    ifneq ($SKIA_LINK,"")
+		$(info "Downloading pre-build skia skia from: $(SKIA_LINK)")
+		cd lib/skia && wget -O skia.zip $(SKIA_LINK) && unzip -o skia.zip && rm skia.zip && cd ../../
+    endif
+
+
+CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG
+
+CPPFLAGS += -I./lib/libBigWig -I./include -I./src -I.
+
+LDLIBS += -lskia -lm -ljpeg -lpng -lsvg -lhts -lfontconfig -lpthread
+
+#LDFLAGS += -L./lib/libBigWig
+
+#LDFLAGS=-fsanitize=address -fsanitize=undefined
+
+
 # set platform flags and libs
 ifeq ($(PLATFORM),"Linux")
     ifeq (${XDG_SESSION_TYPE},"wayland")  # wayland is untested!
@@ -76,56 +94,38 @@ ifeq ($(PLATFORM),"Linux")
     CXXFLAGS += -D LINUX -D __STDC_FORMAT_MACROS
     LDFLAGS += -L/usr/local/lib
     # If installed from conda, glfw3 is named glfw, therefore if glfw3 is installed by another means use this:
-    # LDLIBS += -lGL -lfreetype -lfontconfig -luuid -lzlib -licu -ldl $(shell pkg-config --static --libs x11 xrandr xi xxf86vm glfw3)
-    LDLIBS += -lGL -lfreetype -lfontconfig -luuid -lzlib -licu -ldl -lglfw #$(shell pkg-config --static --libs x11 xrandr xi xxf86vm glfw3)
+#     LDLIBS += -lGL -lfreetype -lfontconfig -luuid -lzlib -licu -ldl $(shell pkg-config --static --libs x11 xrandr xi xxf86vm glfw3)
+#    LDLIBS += -lEGL -lGLESv2 -lfreetype -lfontconfig -luuid -lzlib -licu -ldl -lglfw #$(shell pkg-config --static --libs x11 xrandr xi xxf86vm glfw3)
+    LDLIBS += -lGL -lfreetype -lfontconfig -luuid -lz -lcurl -licu -ldl -lglfw
 
 else ifeq ($(PLATFORM),"Darwin")
     CPPFLAGS += -I/usr/local/include
     CXXFLAGS += -D OSX -stdlib=libc++ -arch x86_64 -fvisibility=hidden -mmacosx-version-min=10.15 -Wno-deprecated-declarations
     LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=10.15 -L/usr/local/lib
-    LDLIBS += -lglfw -lzlib -licu -ldl
+    LDLIBS += -lglfw -lzlib -lcurl -licu -ldl
 
 else ifeq ($(PLATFORM),"Arm64")
     CPPFLAGS += -I/usr/local/include
     CXXFLAGS += -D OSX -stdlib=libc++ -arch arm64 -fvisibility=hidden -mmacosx-version-min=10.15 -Wno-deprecated-declarations
     LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=10.15 -L/usr/local/lib
-    LDLIBS += -lglfw -lzlib -licu -ldl
+    LDLIBS += -lglfw -lzlib -lcurl -licu -ldl
 
 else ifeq ($(PLATFORM),"Windows")
     CXXFLAGS += -D WIN32
     CPPFLAGS += $(shell pkgconf -cflags skia) $(shell ncursesw6-config --cflags)
     LDLIBS += $(shell pkgconf -libs skia)
-    LDLIBS += -lharfbuzz-subset -lglfw3
+    LDLIBS += -lharfbuzz-subset -lglfw3 -lcurl
 endif
 
-.PHONY: default all debug clean
-
-default: $(TARGET)
-
-all: default
-debug: default
 
 OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
-
-# download link for skia binaries, set for non-Windows platforms
-prep:
-    ifneq ($SKIA_LINK,"")
-		$(info "Downloading pre-build skia skia from: $(SKIA_LINK)")
-		cd lib/skia && wget -O skia.zip $(SKIA_LINK) && unzip -o skia.zip && rm skia.zip && cd ../../
-    endif
-	$(MAKE) -C lib/libBigWig
-
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) -g $(CPPFLAGS) -c $< -o $@
-
-
-LDFLAGS += -L./lib/libBigWig
-LDLIBS += -lBigWig
+OBJECTS += $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
 
 
 $(TARGET): $(OBJECTS)
 	$(CXX) -g $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $@
 
+
 clean:
-	-rm -f *.o ./src/*.o ./src/*.o.tmp
+	-rm -f *.o ./src/*.o ./src/*.o.tmp ./lib/libBigWig/*.o
 	-rm -f $(TARGET)

@@ -183,6 +183,12 @@ namespace Manager {
 
         window = glfwCreateWindow(width, height, "GW", NULL, NULL);
 
+        if (!window) {
+            glfwTerminate();
+            std::cerr << "ERROR: glfwCreateWindow failed\n";
+            std::exit(-1);
+        }
+
         // https://stackoverflow.com/questions/7676971/pointing-to-a-function-that-is-a-class-member-glfw-setkeycallback/28660673#28660673
         glfwSetWindowUserPointer(window, this);
 

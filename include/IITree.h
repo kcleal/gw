@@ -55,7 +55,7 @@ class IITree {
         int k;
         if (a.size() == 0) return -1;
         for (i = 0; i < a.size(); i += 2) last_i = i, last = a[i].max = a[i].en; // leaves (i.e. at level 0)
-        for (k = 1; 1LL<<k <= a.size(); ++k) { // process internal nodes in the bottom-up order
+        for (k = 1; 1LL<<k <= (long long int)a.size(); ++k) { // process internal nodes in the bottom-up order
             size_t x = 1LL<<(k-1), i0 = (x<<1) - 1, step = x<<2; // i0 is the first node
             for (i = i0; i < a.size(); i += step) { // traverse all nodes at level k
                 S el = a[i - x].max;                          // max value of the left child
