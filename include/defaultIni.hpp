@@ -44,7 +44,7 @@ namespace DefaultIni {
                "threads=4\n"
                "pad=500\n"
                "scroll_speed=0.15\n"
-               "tabix_track_height=0.05\n"
+               "tabix_track_height=0.15\n"
                "font=Menlo\n"
                "font_size=14\n"
                "\n"
@@ -66,13 +66,27 @@ namespace DefaultIni {
                "cycle_link_mode=L\n"
                "print_screen=PRINT_SCREEN\n"
                "find_alignments=F\n"
+               "repeat_command=R\n"
                "\n"
                "[labelling]\n"
                "number=3x3\n"
                "parse_label=filter\n"
                "labels=PASS,FAIL\n"
                "delete_labels=DELETE\n"
-               "enter_interactive_mode=ENTER";
+               "enter_interactive_mode=ENTER\n"
+               "\n"
+               "[shift_keymap]\n"
+               "ampersand=7\n"
+               "bar=\\\n"
+               "colon=;\n"
+               "curly_open=[\n"
+               "curly_close=]\n"
+               "dollar=4\n"
+               "exclamation=1\n"
+               "greater_than=.\n"
+               "less_than=,\n"
+               "tilde=`\n"
+               "underscore=-";
     }
 }
 

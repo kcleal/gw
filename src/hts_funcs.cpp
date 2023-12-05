@@ -3,6 +3,8 @@
 //
 
 #include <algorithm>
+#include <chrono>
+#include <future>
 #include <string>
 #include <vector>
 
@@ -22,44 +24,95 @@
 
 namespace HGW {
 
-    void guessRefGenomeFromBam(std::string &inputName, Themes::IniOptions &opts, std::vector<std::string> &bam_paths, std::vector<Utils::Region> &regions) {
-        htsFile* f = sam_open(inputName.c_str(), "r");
-        sam_hdr_t *hdr_ptr = sam_hdr_read(f);
-        bool success = false;
-        std::string longestName;
-        int longest = 0;
-        for (auto & refName : opts.myIni["genomes"]) {
-            faidx_t *fai = fai_load(refName.second.c_str());
-            if (!fai) {
-                continue;
-            }
+    class GenomeJob {
+    public:
+        bool success;
+        std::string refName, path, longestName;
+        int longest;
+        faidx_t *fai;
+        GenomeJob(std::string qRefName, std::string qPath) {
+            refName = qRefName;
+            path = qPath;
             success = false;
-            for (int tid=0; tid < hdr_ptr->n_targets; tid++) {
-                const char *chrom_name = sam_hdr_tid2name(hdr_ptr, tid);
-                int bam_length = (int)sam_hdr_tid2len(hdr_ptr, tid);
-                if (bam_length > longest) {
-                    longestName = chrom_name;
-                    longest = bam_length;
-                }
-                if (!faidx_has_seq(fai, chrom_name) || (bam_length != faidx_seq_len(fai, chrom_name))) {
-                    success = false;
-                    break;
-                }
-                if (tid > 23) {
-                    break;
-                }
-                success = true;
+            longest = 0;
+        }
+    };
+
+    bool guessGenomeJob(GenomeJob *j, sam_hdr_t *hdr_ptr) {
+        j->fai = fai_load(j->path.c_str());
+        if (!j->fai) {
+            return false;
+        }
+        for (int tid=0; tid < hdr_ptr->n_targets; tid++) {
+            const char *chrom_name = sam_hdr_tid2name(hdr_ptr, tid);
+            int bam_length = (int)sam_hdr_tid2len(hdr_ptr, tid);
+            if (bam_length > j->longest) {
+                j->longestName = chrom_name;
+                j->longest = bam_length;
             }
-            if (success) {
-                bam_paths.push_back(inputName);
-                inputName = refName.second;
-                regions.push_back(Utils::parseRegion(longestName));
+            if (!faidx_has_seq(j->fai, chrom_name) || (bam_length != faidx_seq_len(j->fai, chrom_name))) {
+                j->success = false;
+                return false;
+            }
+            if (tid > 23) {
                 break;
             }
+            j->success = true;
+            return true;
         }
-        if (!success) {
-            std::cerr << termcolor::red << "Error:" << termcolor::reset << " could not find a matching reference genome in .gw.ini file";
+        return false;
+    }
+
+    void guessRefGenomeFromBam(std::string &inputName, Themes::IniOptions &opts, std::vector<std::string> &bam_paths, std::vector<Utils::Region> &regions) {
+
+        htsFile* f = sam_open(inputName.c_str(), "r");
+        sam_hdr_t *hdr_ptr = sam_hdr_read(f);
+
+        int online = 0;
+        for (auto & refName : opts.myIni["genomes"]) {
+            if (!Utils::startsWith(refName.second, "http")) {
+                GenomeJob j = GenomeJob(refName.first, refName.second);
+                guessGenomeJob(&j, hdr_ptr);
+                if (j.success) {
+                    bam_paths.push_back(inputName);
+                    inputName = j.refName;
+                    if (regions.empty() && j.longest) {
+                        regions.push_back(Utils::parseRegion(j.longestName));
+                    }
+                    std::cerr << " yep " << refName.first << std::endl;
+                    return;
+                }
+            } else {
+                online += 1;
+            }
         }
+
+
+        BS::thread_pool pool;
+        std::vector<GenomeJob> jobs;
+        std::vector<std::future<bool>> genomeFutures;
+        jobs.reserve(online);
+
+        for (auto & refName : opts.myIni["genomes"]) {
+            if (Utils::startsWith(refName.second, "http")) {
+                jobs.push_back(GenomeJob(refName.first, refName.second));
+                genomeFutures.push_back(pool.submit(guessGenomeJob, &jobs.back(), hdr_ptr));
+            }
+        }
+
+        pool.wait_for_tasks();
+        for (auto & j : jobs) {
+            if (j.success) {
+                bam_paths.push_back(inputName);
+                inputName = j.refName;
+                if (regions.empty() && j.longest) {
+                    regions.push_back(Utils::parseRegion(j.longestName));
+                }
+                return;
+            }
+        }
+        std::cerr << "Error: could not find suitable reference genome in .gw.ini. Try a local file?\n";
+        std::exit(-1);
     }
 
     void applyFilters(std::vector<Parse::Parser> &filters, std::vector<Segs::Align>& readQueue, const sam_hdr_t* hdr,

@@ -212,8 +212,18 @@ int main(int argc, char *argv[]) {
         std::cout << iopts.ini_path << std::endl;
         return 0;
     }
-    std::vector<std::string> bam_paths;
+
     std::vector<Utils::Region> regions;
+    if (program.is_used("-r")) {
+        std::vector<std::string> regions_str;
+        regions_str = program.get<std::vector<std::string>>("-r");
+        for (size_t i=0; i < regions_str.size(); i++){
+            regions.push_back(Utils::parseRegion(regions_str[i]));
+        }
+    }
+
+    std::vector<std::string> bam_paths;
+
     auto genome = program.get<std::string>("genome");
 
     if (Utils::endsWith(genome, ".bam") || Utils::endsWith(genome, ".cram")) {
@@ -259,7 +269,7 @@ int main(int argc, char *argv[]) {
         iopts.genome_tag = genome;
 
     } else if (!genome.empty() && !Utils::is_file_exist(genome)) {
-        std::cerr << "Warning: Genome is not a local file" << std::endl;
+        std::cerr << "Loading remote genome" << std::endl;
     }
 
     std::vector<std::string> tracks;
@@ -293,14 +303,6 @@ int main(int argc, char *argv[]) {
                     bam_paths.push_back(glob_item.string());
                 }
             }
-        }
-    }
-
-    if (program.is_used("-r")) {
-        std::vector<std::string> regions_str;
-        regions_str = program.get<std::vector<std::string>>("-r");
-        for (size_t i=0; i < regions_str.size(); i++){
-            regions.push_back(Utils::parseRegion(regions_str[i]));
         }
     }
 
