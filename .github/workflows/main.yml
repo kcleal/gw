@@ -39,11 +39,14 @@ jobs:
       - name: Install dependencies
         run: |
           brew install graphicsmagick dylibbundler glfw fontconfig
-          brew list | grep python
+          # npm broken for python3.12 so use this as work around
+          brew list | grep python@
           brew unlink python@3.12
-          which python
-          which python3
-          rm /usr/local/bin/python3
+          which python && python --version
+          which python3 && python --version
+
+          python -m pip install packaging
+          python3 -m pip install packaging
           
           npm install --global create-dmg
           
