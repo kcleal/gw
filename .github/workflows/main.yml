@@ -42,8 +42,13 @@ jobs:
           # npm broken for python3.12 so use this as work around
           brew list | grep python@
           brew unlink python@3.12
+          shopt -s expand_aliases
           export alias python=$(brew --prefix)/bin/python3.11
           export alias python3=$(brew --prefix)/bin/python3.11
+
+          rm /Library/Frameworks/Python.framework/Versions/Current/bin/python
+          rm /usr/local/bin/python3
+          
           which python && python --version
           which python3 && python --version
           python -m pip install packaging
