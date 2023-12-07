@@ -104,16 +104,16 @@ jobs:
   deb-package:
     runs-on: ubuntu-22.04
     steps:
-      - uses: |
-          actions/checkout@v3
-          battila7/get-version-action@v2
+      - uses: actions/checkout@v3
       - name: Install dependencies
         run: |
           sudo apt update
           sudo apt-get install dh-make build-essential
           sudo apt-get install devscripts fakeroot debootstrap pbuilder autotools-dev
           sudo apt install libgl1-mesa-dev libfontconfig-dev libcurl4-openssl-dev libglfw3-dev
-
+      - name: get_version
+        id: attrs
+        uses: battila7/get-version-action@v2
       - name: build
         run: |
           git clone --depth 1 https://github.com/ebiggers/libdeflate.git
@@ -149,8 +149,7 @@ jobs:
           dpkg-buildpackage
 
       - name: upload
-        uses: |
-          actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3
         with:
           name: debian-package
           path: ${{ github.workspace }}/gw_${{ steps.get_version.outputs.version-without-v }}_amd64.deb
