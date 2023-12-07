@@ -5,32 +5,32 @@ on:
   pull_request:
 
 jobs:
-  # mingw:
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       sys: [clang64, ucrt64]
-  #   name: ${{ matrix.sys }}
-  #   runs-on: windows-latest
-  #   defaults:
-  #     run:
-  #       shell: msys2 {0}
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #     - uses: msys2/setup-msys2@v2
-  #       with:
-  #         msystem: ${{ matrix.sys }}
-  #         update: true
-  #         install: make
-  #         pacboy: toolchain:p glfw:p skia:p htslib:p freeglut:p glew:p ncurses:p fontconfig:p dlfcn:p libpng:p
-  #     - name: build
-  #       run: |
-  #         make
-  #     - name: upload
-  #       uses: actions/upload-artifact@v3
-  #       with:
-  #         name: mingw-${{ matrix.sys }}
-  #         path: ${{ github.workspace }}/*.exe
+  mingw:
+   strategy:
+     fail-fast: false
+     matrix:
+       sys: [clang64, ucrt64]
+   name: ${{ matrix.sys }}
+   runs-on: windows-latest
+   defaults:
+     run:
+       shell: msys2 {0}
+   steps:
+     - uses: actions/checkout@v3
+     - uses: msys2/setup-msys2@v2
+       with:
+         msystem: ${{ matrix.sys }}
+         update: true
+         install: make
+         pacboy: toolchain:p glfw:p skia:p htslib:p freeglut:p glew:p ncurses:p fontconfig:p dlfcn:p libpng:p
+     - name: build
+       run: |
+         make
+     - name: upload
+       uses: actions/upload-artifact@v3
+       with:
+         name: mingw-${{ matrix.sys }}
+         path: ${{ github.workspace }}/*.exe
 
   macos-intel:
     runs-on: macos-12
@@ -46,9 +46,9 @@ jobs:
           alias python=$(brew --prefix)/bin/python3.11
           alias python3=$(brew --prefix)/bin/python3.11
 
-          rm -rf /Library/Frameworks/Python.framework/Versions/3.12
-          rm /usr/local/bin/python3
-          rm /Library/Frameworks/Python.framework/Versions/Current/bin/python
+          sudo rm -rf /Library/Frameworks/Python.framework/Versions/3.12
+          sudo rm /usr/local/bin/python3
+          sudo rm /Library/Frameworks/Python.framework/Versions/Current/bin/python
           
           which python && python --version
           which python3 && python --version
@@ -93,10 +93,61 @@ jobs:
           codesign --verify -vvvv gw.app
           create-dmg 'gw.app' || true
           ls
-          mv gw\ undefined.dmg gw-macos-intel.dmg
+          mv gw\ undefined.dmg gw_${{ steps.get_version.outputs.version-without-v }}_macos_intel.dmg
           
       - name: upload
         uses: actions/upload-artifact@v3
         with:
           name: gw-macos-intel
-          path: ${{ github.workspace }}/gw-macos-intel.dmg
+          path: ${{ github.workspace }}/gw_${{ steps.get_version.outputs.version-without-v }}_macos_intel.dmg
+
+  deb-package:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt-get install dh-make build-essential
+          sudo apt-get install devscripts fakeroot debootstrap pbuilder autotools-dev
+          sudo apt install libgl1-mesa-dev libfontconfig-dev libcurl4-openssl-dev libglfw3-dev
+
+      - name: build
+        run: |
+          git clone --depth 1 https://github.com/ebiggers/libdeflate.git
+          cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
+          cp build/libdeflate.a ../lib && cp libdeflate.h ../include
+          cp build/libdeflate.a /usr/local/lib && cp libdeflate.h /usr/local/include && cd ../
+          
+          wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.17/htslib-1.17.tar.bz2
+          tar -xvf htslib.tar.bz2
+          mv htslib-1.17 htslib && rm htslib.tar.bz2 && cd htslib
+          ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
+          make -j3
+          sudo make install
+          cp -rf htslib ../include && cp libhts.a ../lib && cd ../
+          
+          cd ../
+          
+          sed -i '121 i \\t-mv gw usr/bin' Makefile
+          
+          make prep
+          mkdir -p usr/bin # also can be done in makefile
+          mkdir -p usr/share/icons
+          mkdir -p usr/share/applications
+          cp include/gw_icon.png usr/share/icons/
+          cp deps/gw.desktop usr/share/applications/
+
+      - name: package
+        run: |
+          dh_make --single --createorig --packagename gw_${{ steps.get_version.outputs.version-without-v }} --email kcleal@cardiff.ac.uk --yes --native
+          printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop" > debian/install
+          printf "override_dh_shlibdeps:\n\tdh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info" >> debian/rules
+          
+          dpkg-buildpackage
+
+      - name: upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: debian-package
+          path: ${{ github.workspace }}/gw_${{ steps.get_version.outputs.version-without-v }}_amd64.deb
