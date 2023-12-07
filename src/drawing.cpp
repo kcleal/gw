@@ -1054,7 +1054,7 @@ namespace Drawing {
         float minLetterSize = (textW > 0) ? ((float) fb_width / (float) regions.size()) / textW : 0;
         int index = 0;
         //h *= 0.7;
-        h = (h - 6 < 4) ? 4 : h - 6;
+//        h = (h - 6 < 4) ? 4 : h - 6;
         float yp = h + 2;
         for (auto &rgn: regions) {
             int size = rgn.end - rgn.start;
@@ -1611,7 +1611,11 @@ namespace Drawing {
                            const faidx_t *fai, std::vector<sam_hdr_t *> &headers, size_t nRegions, float fb_width,
                            float fb_height, float monitorScale) {
         SkPaint paint, line;
-        paint.setColor(SK_ColorRED);
+        if (opts.theme_str == "slate") {
+            paint.setARGB(255, 160, 160, 165);
+        } else {
+            paint.setColor(SK_ColorRED);
+        }
         paint.setStrokeWidth(3);
         paint.setStyle(SkPaint::kStroke_Style);
         line.setColor((opts.theme_str == "dark") ? SK_ColorWHITE : SK_ColorBLACK);

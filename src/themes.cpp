@@ -257,12 +257,13 @@ namespace Themes {
 
     SlateTheme::SlateTheme() {
         name = "slate";
-        fcCoverage.setARGB(255, 73, 77, 79);
+        fcCoverage.setARGB(255, 93, 92, 99);
         fcTrack.setARGB(200, 227, 232, 255);
         bgPaint.setARGB(255, 45, 45, 48);
-        fcNormal.setARGB(255, 83, 87, 89);
+        fcNormal.setARGB(255, 83, 82, 89);
         fcDel.setARGB(255, 185, 25, 25);
-        fcIns.setARGB(255, 225, 235, 245);
+//        fcIns.setARGB(255, 225, 235, 245);
+        fcIns.setARGB(255, 128, 91, 240);
         fcDup.setARGB(255, 24, 100, 198);
         fcInvF.setARGB(255, 49, 167, 118);
         fcInvR.setARGB(255, 49, 167, 0);
@@ -279,7 +280,7 @@ namespace Themes {
         lcBright.setColor(SK_ColorWHITE);
         tcDel.setARGB(255, 255, 255, 255);
         tcLabels.setARGB(255, 100, 100, 100);
-        tcIns.setARGB(255, 27, 27, 27);
+        tcIns.setARGB(255, 227, 227, 227);
         tcBackground.setARGB(255, 10, 10, 20);
         marker_paint.setARGB(255, 220, 220, 220);
         ecSelected.setARGB(255, 255, 255, 255);

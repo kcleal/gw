@@ -526,7 +526,7 @@ namespace Manager {
 
     void GwPlot::setScaling() {  // sets z_scaling, y_scaling trackY and regionWidth
         fonts.setOverlayHeight(monitorScale);
-        refSpace =  fonts.overlayHeight;
+        refSpace =  fonts.overlayHeight * 1.25;
         sliderSpace = std::fmax((float)(fb_height * 0.0175), 10*monitorScale); //refSpace + (gap * 0.5); // + gap + gap;
         auto fbh = (float) fb_height;
         auto fbw = (float) fb_width;
