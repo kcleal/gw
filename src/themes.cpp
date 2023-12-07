@@ -255,14 +255,14 @@ namespace Themes {
         ecSplit.setStrokeWidth(1);
     }
 
-    RainbowTheme::RainbowTheme() {
-        name = "rainbow";
+    SlateTheme::SlateTheme() {
+        name = "slate";
         fcCoverage.setARGB(255, 73, 77, 79);
         fcTrack.setARGB(200, 227, 232, 255);
         bgPaint.setARGB(255, 45, 45, 48);
-        fcNormal.setARGB(255, 73, 77, 79);
+        fcNormal.setARGB(255, 83, 87, 89);
         fcDel.setARGB(255, 185, 25, 25);
-        fcIns.setARGB(255, 5, 25, 135);
+        fcIns.setARGB(255, 225, 235, 245);
         fcDup.setARGB(255, 24, 100, 198);
         fcInvF.setARGB(255, 49, 167, 118);
         fcInvR.setARGB(255, 49, 167, 0);
@@ -270,16 +270,16 @@ namespace Themes {
         fcSoftClip.setARGB(255, 0, 128, 128);
         fcA.setARGB(255, 105, 213, 92);
         fcT.setARGB(255, 232, 55, 99);
-        fcC.setARGB(255, 77, 125, 245);
+        fcC.setARGB(255, 77, 155, 245);
         fcG.setARGB(255, 226, 132, 19);
         fcN.setARGB(255, 128, 128, 128);
         lcJoins.setARGB(255, 142, 142, 142);
         lcLightJoins.setARGB(255, 82, 82, 82);
         lcLabel.setARGB(255, 182, 182, 182);
         lcBright.setColor(SK_ColorWHITE);
-        tcDel.setARGB(255, 57, 57, 57);
+        tcDel.setARGB(255, 255, 255, 255);
         tcLabels.setARGB(255, 100, 100, 100);
-        tcIns.setARGB(255, 227, 227, 227);
+        tcIns.setARGB(255, 27, 27, 27);
         tcBackground.setARGB(255, 10, 10, 20);
         marker_paint.setARGB(255, 220, 220, 220);
         ecSelected.setARGB(255, 255, 255, 255);
@@ -326,6 +326,7 @@ namespace Themes {
         tlen_yscale = false;
         low_mem = false;
         expand_tracks = false;
+        vcf_as_tracks = false;
 
         scroll_speed = 0.15;
         tab_track_height = 0.05;
@@ -355,7 +356,7 @@ namespace Themes {
         if (theme_str == "dark") {
             theme = Themes::DarkTheme();
         } else if (theme_str == "rainbow") {
-            theme = Themes::RainbowTheme();
+            theme = Themes::SlateTheme();
         } else {
             theme = Themes::IgvTheme();
         }
@@ -413,6 +414,9 @@ namespace Themes {
         }
         if (myIni["interaction"].has("repeat_command")) {
             repeat_command = key_table[myIni["interaction"]["repeat_command"]];
+        }
+        if (myIni["interaction"].has("vcf_as_tracks")) {
+            vcf_as_tracks = myIni["interaction"]["vcf_as_tracks"] == "true";
         }
 
         number_str = myIni["labelling"]["number"];

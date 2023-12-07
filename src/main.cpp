@@ -9,7 +9,7 @@
 #include <string>
 #include "argparse.h"
 #include "../include/BS_thread_pool.h"
-#include "../include/strnatcmp.h"
+//#include "../include/strnatcmp.h"
 #include "glob.h"
 #include "hts_funcs.h"
 #include "parser.h"
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
     }
 
     static const std::vector<std::string> img_fmt = { "png", "pdf" };
-    static const std::vector<std::string> img_themes = { "igv", "dark", "rainbow" };
+    static const std::vector<std::string> img_themes = { "igv", "dark", "slate" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
     argparse::ArgumentParser program("gw", "0.9.0");
@@ -112,9 +112,9 @@ int main(int argc, char *argv[]) {
             .default_value(iopts.theme_str)
             .action([](const std::string& value) {
                 if (std::find(img_themes.begin(), img_themes.end(), value) != img_themes.end()) { return value;}
-                std::cerr << "Error: --theme not in {igv, dark, rainbow}" << std::endl;
+                std::cerr << "Error: --theme not in {igv, dark, slate}" << std::endl;
                 abort();
-            }).help("Image theme igv|dark|rainbow");
+            }).help("Image theme igv|dark|slate");
     program.add_argument("--fmt")
             .default_value("png")
             .action([](const std::string& value) {
@@ -123,7 +123,7 @@ int main(int argc, char *argv[]) {
             }).help("Output file format");
     program.add_argument("--track")
             .default_value(std::string{""}).append()
-            .help("Track to display at bottom of window BED/VCF. Repeat for multiple files stacked vertically");
+            .help("Track to display at bottom of window BED/VCF/GFF3/GTF/BEGBID/BIGWIG. Repeat for multiple files stacked vertically");
     program.add_argument("--parse-label")
             .default_value(iopts.parse_label).append()
             .help("Label to parse from vcf file (used with -v) e.g. 'filter' or 'info.SU' or 'qual'");
@@ -294,11 +294,11 @@ int main(int argc, char *argv[]) {
                 bam_paths.push_back(item);
             } else {
                 std::vector<std::filesystem::path> glob_paths = glob::glob(item);
-#if defined(_WIN32) || defined(_WIN64)
-                std::sort(glob_paths.begin(), glob_paths.end());
-#else
-                std::sort(glob_paths.begin(), glob_paths.end(), compareNat);
-#endif
+//#if defined(_WIN32) || defined(_WIN64)
+//                std::sort(glob_paths.begin(), glob_paths.end());
+//#else
+//                std::sort(glob_paths.begin(), glob_paths.end(), compareNat);
+//#endif
                 for (auto &glob_item : glob_paths) {
                     bam_paths.push_back(glob_item.string());
                 }
@@ -325,8 +325,8 @@ int main(int argc, char *argv[]) {
             iopts.theme = Themes::DarkTheme();
         } else if (iopts.theme_str == "igv") {
             iopts.theme = Themes::IgvTheme();
-        } else if (iopts.theme_str == "rainbow") {
-            iopts.theme = Themes::RainbowTheme();
+        } else if (iopts.theme_str == "slate") {
+            iopts.theme = Themes::SlateTheme();
         } else {
             std::cerr << "Error: unknown theme " << iopts.theme_str << std::endl;
             std::exit(-1);
@@ -536,16 +536,13 @@ int main(int argc, char *argv[]) {
             if (img == ".") {
                 img += "/";
             }
-            std::vector<std::filesystem::path> paths = glob::glob(img);
-#if defined(_WIN32) || defined(_WIN64)
-            std::sort(paths.begin(), paths.end());
-#else
-            std::sort(paths.begin(), paths.end(), compareNat);
-#endif
-            plotter.image_glob = paths;
-            if (plotter.image_glob.size() == 1) {
+
+            plotter.addVariantTrack(img, iopts.start_index, false);
+            if (plotter.variantTracks.back().image_glob.size() == 1) {
                 plotter.opts.number.x = 1; plotter.opts.number.y = 1;
             }
+
+
             std::vector<std::string> labels = Utils::split(iopts.labels, ',');
             plotter.setLabelChoices(labels);
 
@@ -553,15 +550,15 @@ int main(int argc, char *argv[]) {
                 Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels, plotter.seenLabels);
                 std::string emptylabel;
                 int index = 0;
-                for (auto &item : plotter.image_glob) {
+                for (auto &item : plotter.variantTracks.back().image_glob) {
 #if defined(_WIN32) || defined(_WIN64)
-			const wchar_t* pc = item.filename().c_str();
-			std::wstring ws(pc);
-			std::string p(ws.begin(), ws.end());
+                    const wchar_t* pc = item.filename().c_str();
+                    std::wstring ws(pc);
+                    std::string p(ws.begin(), ws.end());
 #else
-		    std::string p = item.filename();
+		            std::string p = item.filename();
 #endif
-		    if (Utils::endsWith(p, ".png")) {
+		            if (Utils::endsWith(p, ".png")) {
                         std::vector<std::string> m = Utils::split(p.erase(p.size() - 4), '~');
                         try {
 //                            plotter.appendVariantSite(m[1], std::stoi(m[2]), m[3], std::stoi(m[4]), m[5], emptylabel, m[0]);
@@ -579,7 +576,7 @@ int main(int argc, char *argv[]) {
             }
 
             plotter.mode = Manager::Show::TILED;
-
+            std::cerr << ": got here\n";
             int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
@@ -618,35 +615,37 @@ int main(int argc, char *argv[]) {
                         std::cerr << "Error: please provide an output directory using --outdir, or direct to --file\n";
                         std::exit(-1);
                     }
-                    fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".pdf";
+                    fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" +
+                            std::to_string(regions[0].end) + ".pdf";
                     out_path = outdir / fname;
                 }
 
 #if defined(_WIN32) || defined(_WIN64)
                 const wchar_t* outp = out_path.c_str();
-		std::wstring pw(outp);
-		std::string outp_str(pw.begin(), pw.end());
-		SkFILEWStream out(outp_str.c_str());
+        std::wstring pw(outp);
+        std::string outp_str(pw.begin(), pw.end());
+        SkFILEWStream out(outp_str.c_str());
 #else
                 SkFILEWStream out(out_path.c_str());
 #endif
                 SkDynamicMemoryWStream buffer;
 
                 auto pdfDocument = SkPDF::MakeDocument(&buffer);
-                SkCanvas* pageCanvas = pdfDocument->beginPage(iopts.dimensions.x,iopts.dimensions.y);
+                SkCanvas *pageCanvas = pdfDocument->beginPage(iopts.dimensions.x, iopts.dimensions.y);
                 plotter.fb_width = iopts.dimensions.x;
                 plotter.fb_height = iopts.dimensions.y;
                 plotter.runDraw(pageCanvas);
                 pdfDocument->close();
                 buffer.writeToStream(&out);
-
-            // Plot a png image, either of target region (GPU/raster) or whole chromosome (raster)
             } else {
+
+                // Plot a png image, either of target region or whole chromosome
                 sk_sp<SkImage> img;
                 if (!regions.empty()) {  // plot target regions
                     plotter.setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
                     plotter.gap = 0;
-                    sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
+                    sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
+                                                                                    iopts.dimensions.y);
                     SkCanvas *canvas = rasterSurface->getCanvas();
                     if (iopts.link_op == 0) {
                         plotter.runDrawNoBuffer(canvas);
@@ -665,7 +664,7 @@ int main(int argc, char *argv[]) {
                         }
                     } else {
                         fs::path fname = "GW~";
-                        for (auto &rgn : regions) {
+                        for (auto &rgn: regions) {
                             fname += rgn.chrom + "~" + std::to_string(rgn.start) + "~" + std::to_string(rgn.end) + "~";
                         }
                         fname += ".png";
@@ -675,6 +674,7 @@ int main(int argc, char *argv[]) {
                     return 0;
 
                 } else {  // chromosome plot
+
                     if (program.is_used("--file")) {
                         std::cerr << "Error: --file option not supported without --region";
                         return -1;
@@ -685,6 +685,7 @@ int main(int argc, char *argv[]) {
                     }
                     std::cerr << "Plotting chromosomes\n";
                     std::vector<Manager::GwPlot *> managers;
+                    managers.reserve(iopts.threads);
                     for (int i = 0; i < iopts.threads; ++i) {
                         auto *m = new Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
                         m->opts.theme.setAlphas();
@@ -695,9 +696,9 @@ int main(int argc, char *argv[]) {
                         managers.push_back(m);
                     }
 
-                    std::vector< std::vector<Utils::Region> > jobs(iopts.threads);
+                    std::vector<std::vector<Utils::Region> > jobs(iopts.threads);
                     int part = 0;
-                    for (int i=0; i < faidx_nseq(managers[0]->fai); ++i) {
+                    for (int i = 0; i < faidx_nseq(managers[0]->fai); ++i) {
                         const char *chrom = faidx_iseq(managers[0]->fai, i);
                         int seq_len = faidx_seq_len(managers[0]->fai, chrom);
                         Utils::Region N;
@@ -705,10 +706,10 @@ int main(int argc, char *argv[]) {
                         N.start = 1;
                         N.end = seq_len;
                         jobs[part].push_back(N);
-                        part = (part == (int)jobs.size() - 1) ? 0 : part + 1;
+                        part = (part == (int) jobs.size() - 1) ? 0 : part + 1;
                     }
 
-                    int ts = std::min(iopts.threads, (int)jobs.size());
+                    int ts = std::min(iopts.threads, (int) jobs.size());
                     BS::thread_pool pool(ts);
                     int block = 0;
                     pool.parallelize_loop(0, jobs.size(),
@@ -719,29 +720,32 @@ int main(int argc, char *argv[]) {
                                               mtx.unlock();
                                               Manager::GwPlot *plt = managers[this_block];
                                               std::vector<Utils::Region> &all_regions = jobs[this_block];
-                                              sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
+                                              sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(
+                                                      iopts.dimensions.x, iopts.dimensions.y);
                                               SkCanvas *canvas = rasterSurface->getCanvas();
-                                              for (auto &rgn : all_regions) {
+                                              for (auto &rgn: all_regions) {
                                                   plt->collections.clear();
                                                   delete plt->regions[0].refSeq;
                                                   plt->regions[0].chrom = rgn.chrom;
                                                   plt->regions[0].start = rgn.start;
                                                   plt->regions[0].end = rgn.end;
                                                   if (iopts.link_op == 0) {
-                                                      plotter.runDrawNoBuffer(canvas);
+                                                      plt->runDrawNoBuffer(canvas);
                                                   } else {
-                                                      plotter.runDraw(canvas);
+                                                      plt->runDraw(canvas);
                                                   }
                                                   sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
-                                                  fs::path fname = "GW~" + plt->regions[0].chrom + "~" + std::to_string(plt->regions[0].start) + "~" + std::to_string(plt->regions[0].end) + "~.png";
+                                                  fs::path fname = "GW~" + plt->regions[0].chrom + "~" +
+                                                                   std::to_string(plt->regions[0].start) + "~" +
+                                                                   std::to_string(plt->regions[0].end) + "~.png";
                                                   fs::path out_path = outdir / fname;
                                                   Manager::imageToPng(img, out_path);
                                               }
                                           })
                             .wait();
 
-                    for (auto &itm : managers) {
-                        delete(itm);
+                    for (auto &itm: managers) {
+                        delete (itm);
                     }
                 }
             }
@@ -751,8 +755,13 @@ int main(int argc, char *argv[]) {
                 std::cerr << "Error: please provide an output directory using --outdir\n";
                 std::exit(-1);
             }
+            auto variant_paths = program.get<std::vector<std::string>>("--variants");
+            if (variant_paths.size() >1) {
+                std::cerr << "Error: only a single --variant file can be used with these options\n";
+                std::exit(-1);
+            }
 
-            auto v = program.get<std::string>("--variants");
+            std::string &v = variant_paths[0];
 
             if (Utils::endsWith(v, "vcf") || Utils::endsWith(v, "vcf.gz") || Utils::endsWith(v, "bcf")) {
 

@@ -112,10 +112,10 @@ namespace Themes {
             ~DarkTheme() = default;
     };
 
-    class RainbowTheme: public BaseTheme {
+    class SlateTheme: public BaseTheme {
     public:
-        RainbowTheme();
-        ~RainbowTheme() = default;
+        SlateTheme();
+        ~SlateTheme() = default;
     };
 
     class IniOptions {
@@ -134,7 +134,7 @@ namespace Themes {
         bool editing_underway;
         int canvas_width, canvas_height;
         int indel_length, ylim, split_view_size, threads, pad, link_op, max_coverage, max_tlen;
-        bool no_show, log2_cov, tlen_yscale, low_mem, expand_tracks;
+        bool no_show, log2_cov, tlen_yscale, low_mem, expand_tracks, vcf_as_tracks;
         float scroll_speed, tab_track_height;
         int scroll_right;
         int scroll_left;

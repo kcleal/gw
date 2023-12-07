@@ -18,6 +18,8 @@
 #include "../include/IITree.h"
 #include "../include/unordered_dense.h"
 #include "../lib/libBigWig/bigWig.h"
+//#include "../include/strnatcmp.h"
+#include "glob.h"
 #include "segments.h"
 #include "themes.h"
 
@@ -66,7 +68,7 @@ namespace HGW {
         FType kind;
         std::string path;
         std::string chrom, chrom2, rid, vartype, label, tag;
-        ankerl::unordered_dense::set<std::string> *seenLabels;
+        std::shared_ptr<ankerl::unordered_dense::set<std::string>> seenLabels;
         int parse;
         int info_field_type;
         const char *label_to_parse;
@@ -135,7 +137,6 @@ namespace HGW {
         int current_iter_index;
         int num_intervals;
         bigWigFile_t *bigWig_fp;
-//        bwOverlapIterator_t *bigWig_iterator;
         bwOverlappingIntervals_t *bigWig_intervals;
         bbOverlappingEntries_t *bigBed_entries;
 
@@ -153,6 +154,7 @@ namespace HGW {
 		std::string variantString;
 
         void open(const std::string &p, bool add_to_dict);
+        void close();
         void fetch(const Utils::Region *rgn);
         void next();
         bool findFeature(std::string &feature, Utils::Region &region);
@@ -171,27 +173,36 @@ namespace HGW {
 
 
     /*
-     * A union of VCFfile and GwTrack, tiled images will be drawn from this class
+     * A union of VCFfile, GwTrack and image-glob, tiled images will be drawn from this class
     */
+    enum TrackType {
+        VCF,
+        GW_TRACK,
+        IMAGES
+    };
     class GwVariantTrack {
     public:
         GwVariantTrack(std::string &path, bool cacheStdin, Themes::IniOptions *t_opts, int startIndex,
                        std::vector<std::string> &t_labelChoices,
-                       ankerl::unordered_dense::map< std::string, Utils::Label> *t_inputLabels,
-                       ankerl::unordered_dense::set<std::string> *t_seenLabels);
+                       std::shared_ptr<ankerl::unordered_dense::map< std::string, Utils::Label>> t_inputLabels,
+                       std::shared_ptr<ankerl::unordered_dense::set<std::string>> t_seenLabels);
         ~GwVariantTrack();
         bool init;
-        bool useVcf;
+//        bool useVcf;
+        TrackType type;
         bool *trackDone;
         int mouseOverTileIndex;
         int blockStart;
-        std::string path;
+        std::string path, fileName;
+
         HGW::VCFfile vcf;
         HGW::GwTrack variantTrack;
-        std::vector<std::vector<Utils::Region>> multiRegions;  // used for creating tiled regions
-        std::vector<Utils::Label> multiLabels;  // used for labelling tiles
-        std::vector<std::string> labelChoices;
-        ankerl::unordered_dense::map< std::string, Utils::Label> *inputLabels;
+        std::vector<std::filesystem::path> image_glob;
+
+        std::vector<std::vector<Utils::Region>> multiRegions;  // used for creating tiled regions (a single, or two regions side-by-side)
+        std::vector<Utils::Label> multiLabels;  // used for labelling tiles, tracks mouse clicks etc
+        std::vector<std::string> labelChoices;  // a defined set of labels to use
+        std::shared_ptr<ankerl::unordered_dense::map< std::string, Utils::Label>> inputLabels;
         Themes::IniOptions *m_opts;
 
         void nextN(int number);

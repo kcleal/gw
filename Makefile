@@ -82,9 +82,6 @@ CPPFLAGS += -I./lib/libBigWig -I./include -I./src -I.
 
 LDLIBS += -lskia -lm -ljpeg -lpng -lsvg -lhts -lfontconfig -lpthread
 
-#LDFLAGS += -L./lib/libBigWig
-
-#LDFLAGS=-fsanitize=address -fsanitize=undefined
 
 
 # set platform flags and libs
@@ -126,9 +123,10 @@ OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 OBJECTS += $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
 
 
+debug: LDFLAGS+=-fsanitize=address -fsanitize=undefined
+
 $(TARGET): $(OBJECTS)
 	$(CXX) -g $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $@
-
 
 clean:
 	-rm -f *.o ./src/*.o ./src/*.o.tmp ./lib/libBigWig/*.o

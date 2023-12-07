@@ -487,59 +487,6 @@ namespace Manager {
             imageCache.clear();
             filters.clear();
             for (auto &cl: collections) { cl.vScroll = 0; }
-//        }
-//        else if (Utils::startsWith(inputText, "toggle")) {
-//            std::vector<std::string> split = Utils::split(inputText, delim);
-//            if (split.size() != 2) {
-//                std::cerr << termcolor::red << "Error:" << termcolor::reset << " toggle takes one option e.g. 'toggle cov'\n";
-//                inputText = "";
-//                return true;
-//            }
-//            std::string &ts = split[1];
-//            bool toggle_res = false;
-//            if (ts == "insertions" || ts == "ins") {
-//                valid = true;
-//                opts.small_indel_threshold = (opts.small_indel_threshold == 0) ? std::stoi(opts.myIni["view_thresholds"]["small_indel"]) : 0;
-//                toggle_res = opts.small_indel_threshold;
-//            } else if (ts == "mismatches" || ts == "mm") {
-//                valid = true;
-//                opts.snp_threshold = (opts.snp_threshold == 0) ? std::stoi(opts.myIni["view_thresholds"]["snp"]) : 0;
-//                toggle_res = opts.snp_threshold;
-//            } else if (ts == "edges") {
-//                valid = true;
-//                opts.edge_highlights = (opts.edge_highlights == 0) ? std::stoi(opts.myIni["view_thresholds"]["edge_highlights"]) : 0;
-//                toggle_res = opts.edge_highlights;
-//            } else if (ts == "soft-clips" || ts == "sc") {
-//                valid = true;
-//                opts.soft_clip_threshold = (opts.soft_clip_threshold == 0) ? std::stoi(opts.myIni["view_thresholds"]["soft_clip"]) : 0;
-//                toggle_res = opts.soft_clip_threshold;
-//            } else if (ts == "line") {
-//                valid = true;
-//                drawLine = !drawLine;
-//                toggle_res = drawLine;
-//            } else if (ts == "log2-cov") {
-//                valid = true;
-//                opts.log2_cov = !opts.log2_cov;
-//                toggle_res = opts.log2_cov;
-//            } else if (ts == "low-mem") {
-//                valid = true;
-//                opts.low_mem = !opts.low_mem;
-//                toggle_res = opts.low_mem;
-//            } else if (ts == "tlen-y") {
-//                valid = true;
-//                opts.tlen_yscale = !opts.tlen_yscale;
-//                toggle_res = opts.tlen_yscale;
-//                if (!opts.tlen_yscale) { samMaxY = opts.ylim; }
-//            } else if (ts == "cov") {
-//                valid = true;
-//                opts.max_coverage = (opts.max_coverage) ? 0 : 10000000;
-//                toggle_res = opts.max_coverage;
-//            }
-//            if (valid) {
-//                std::cout << "Toggled " << ts << " to " << toggle_res << std::endl;
-//            } else {
-//                reason = OPTION_NOT_UNDERSTOOD;
-//            }
         } else if (inputText == "link" || inputText == "link all") {
             opts.link_op = 2;
             imageCache.clear();
@@ -601,6 +548,7 @@ namespace Manager {
                     return false;
                 }
             }
+            imageCache.clear();
             valid = true;
 
         } else if (inputText =="sam") {
@@ -649,6 +597,7 @@ namespace Manager {
             redraw = true;
             processed = true;
             inputText = "";
+            imageCache.clear();
             return true;
 
         } else if (Utils::startsWith(inputText, "ylim")) {
@@ -672,34 +621,59 @@ namespace Manager {
             } catch (...) {
                 std::cerr << termcolor::red << "Error:" << termcolor::reset << " indel-length invalid value\n";
             }
-            processed = true;
+            if (mode == SINGLE) {
+                processed = true;
+            } else {
+                processed = false;
+            }
             redraw = true;
             inputText = "";
+            imageCache.clear();
             return true;
         }
         else if (inputText =="insertions" || inputText == "ins") {
             opts.small_indel_threshold = (opts.small_indel_threshold == 0) ? std::stoi(opts.myIni["view_thresholds"]["small_indel"]) : 0;
-            processed = true;
+            if (mode == SINGLE) {
+                processed = true;
+            } else {
+                processed = false;
+            }
             redraw = true;
             inputText = "";
+            imageCache.clear();
             return true;
         } else if (inputText =="mismatches" || inputText == "mm") {
             opts.snp_threshold = (opts.snp_threshold == 0) ? std::stoi(opts.myIni["view_thresholds"]["snp"]) : 0;
-            processed = true;
+            if (mode == SINGLE) {
+                processed = true;
+            } else {
+                processed = false;
+            }
             redraw = true;
             inputText = "";
+            imageCache.clear();
             return true;
         } else if (inputText =="edges") {
             opts.edge_highlights = (opts.edge_highlights == 0) ? std::stoi(opts.myIni["view_thresholds"]["edge_highlights"]) : 0;
-            processed = true;
+            if (mode == SINGLE) {
+                processed = true;
+            } else {
+                processed = false;
+            }
             redraw = true;
             inputText = "";
+            imageCache.clear();
             return true;
         } else if (inputText =="soft-clips" || inputText == "sc") {
             opts.soft_clip_threshold = (opts.soft_clip_threshold == 0) ? std::stoi(opts.myIni["view_thresholds"]["soft_clip"]) : 0;
-            processed = true;
+            if (mode == SINGLE) {
+                processed = true;
+            } else {
+                processed = false;
+            }
             redraw = true;
             inputText = "";
+            imageCache.clear();
             return true;
         } else if (Utils::startsWith(inputText, "remove ") || Utils::startsWith(inputText, "rm ")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
@@ -727,6 +701,7 @@ namespace Manager {
                 processed = false;
                 redraw = true;
                 inputText = "";
+                imageCache.clear();
                 return true;
             } else if (Utils::startsWith(split.back(), "track")) {
                 split.back().erase(0, 5);
@@ -745,6 +720,7 @@ namespace Manager {
                     rgn.featuresInView.clear();
                     rgn.featureLevels.clear();
                 }
+                tracks[ind].close();
                 tracks.erase(tracks.begin() + ind, tracks.begin() + ind + 1);
                 for (auto &trk: tracks) {
                     trk.open(trk.path, true);
@@ -752,7 +728,7 @@ namespace Manager {
                 processed = false;
                 redraw = true;
                 inputText = "";
-                std::cerr << tracks.size() << std::endl;
+                imageCache.clear();
                 return true;
             } else {
                 try {
@@ -779,6 +755,7 @@ namespace Manager {
                 processed = false;
                 redraw = true;
                 inputText = "";
+                imageCache.clear();
                 return true;
             }
 
@@ -817,27 +794,46 @@ namespace Manager {
                 }
             }
             redraw = true;
-            processed = true;
+            if (mode == SINGLE) {
+                processed = true;
+            } else {
+                processed = false;
+            }
             inputText = "";
+            imageCache.clear();
             return true;
         }
         else if (inputText == "log2-cov") {
             opts.log2_cov = !(opts.log2_cov);
             redraw = true;
-            processed = true;
+            if (mode == SINGLE) {
+                processed = true;
+            } else {
+                processed = false;
+            }
             inputText = "";
+            imageCache.clear();
             return true;
         }
         else if (inputText == "expand-tracks") {
             opts.expand_tracks = !(opts.expand_tracks);
             redraw = true;
-            processed = true;
+            if (mode == SINGLE) {
+                processed = true;
+            } else {
+                processed = false;
+            }
             inputText = "";
+            imageCache.clear();
             return true;
         } else if (inputText == "low-mem") {
             opts.low_mem = !(opts.low_mem);
             redraw = false;
-            processed = true;
+            if (mode == SINGLE) {
+                processed = true;
+            } else {
+                processed = false;
+            }
             inputText = "";
             std::cout << "Low memory mode " << ((opts.low_mem) ? "on" : "off") << std::endl;
             return true;
@@ -865,10 +861,15 @@ namespace Manager {
                     processBam();
                     highlightQname();
                     redraw = true;
-                    processed = true;
+                    if (mode == SINGLE) {
+                        processed = true;
+                    } else {
+                        processed = false;
+                    }
                     inputText = "";
+                    imageCache.clear();
                     return true;
-                } else if (inputText == "mate add") {
+                } else if (inputText == "mate add" && mode == SINGLE) {
                     regions.push_back(Utils::parseRegion(mate));
                     fetchRefSeq(regions.back());
                     processed = false;
@@ -877,20 +878,26 @@ namespace Manager {
                     redraw = true;
                     processed = true;
                     inputText = "";
+                    imageCache.clear();
                     return true;
                 }
             }
         } else if (Utils::startsWith(inputText, "theme")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             if (split.size() != 2) {
-                std::cerr << termcolor::red << "Error:" << termcolor::reset << " theme must be either 'igv' or 'dark'\n";
+                std::cerr << termcolor::red << "Error:" << termcolor::reset << " theme must be either 'igv', 'dark' or 'slate'\n";
                 inputText = "";
                 return true;
             }
             if (split.back() == "dark") {
                 opts.theme = Themes::DarkTheme();  opts.theme.setAlphas(); valid = true; imageCache.clear(); opts.theme_str = "dark";
+                imageCache.clear();
             } else if (split.back() == "igv") {
                 opts.theme = Themes::IgvTheme(); opts.theme.setAlphas(); valid = true; imageCache.clear(); opts.theme_str = "igv";
+                imageCache.clear();
+            } else if (split.back() == "slate") {
+                opts.theme = Themes::SlateTheme(); opts.theme.setAlphas(); valid = true; imageCache.clear(); opts.theme_str = "slate";
+                imageCache.clear();
             } else {
                 valid = false;
                 reason = OPTION_NOT_UNDERSTOOD;
@@ -988,7 +995,7 @@ namespace Manager {
             } catch (...) {
                 valid = false;
             }
-        } else if (Utils::startsWith(inputText, "add"))  {
+        } else if (Utils::startsWith(inputText, "add") && mode != TILED)  {
             if (mode != SINGLE) { mode = SINGLE; }
             std::vector<std::string> split = Utils::split(inputText, delim_q);
             if (split.size() == 1) {
@@ -1581,7 +1588,7 @@ namespace Manager {
             int bLen = opts.number.x * opts.number.y;
             if (action == GLFW_PRESS || action == GLFW_REPEAT) {
                 if (key == opts.scroll_right) {
-                    size_t currentSize = (image_glob.empty()) ? currentVarTrack->multiRegions.size() : image_glob.size();
+                    size_t currentSize = (currentVarTrack->image_glob.empty()) ? currentVarTrack->multiRegions.size() : currentVarTrack->image_glob.size();
                     if (currentVarTrack->blockStart + bLen > (int)currentSize) {
                         currentVarTrack->blockStart += bLen;
                     }
@@ -1631,11 +1638,13 @@ namespace Manager {
 
     void GwPlot::pathDrop(GLFWwindow* wind, int count, const char** paths) {
         bool good = false;
+
         for (int i=0; i < count; ++ i) {
             std::string pth = *paths;
+            std::cerr << " load vcf as track " << opts.vcf_as_tracks << " " << (!opts.vcf_as_tracks && (Utils::endsWith(pth, ".vcf.gz") || Utils::endsWith(pth, ".vcf") || Utils::endsWith(pth, ".bcf"))) << std::endl;
             if (Utils::endsWith(pth, ".bam") || Utils::endsWith(pth, ".cram")) {
                 good = true;
-                std::cout << "Loading: " << pth << std::endl;
+                std::cout << termcolor::magenta << "\nAlignments  " << termcolor::reset << pth << "\n";
                 bam_paths.push_back(pth);
                 htsFile* f = sam_open(pth.c_str(), "r");
                 hts_set_threads(f, opts.threads);
@@ -1644,27 +1653,27 @@ namespace Manager {
                 headers.push_back(hdr_ptr);
                 hts_idx_t* idx = sam_index_load(f, pth.c_str());
                 indexes.push_back(idx);
-            } else if (Utils::endsWith(pth, ".vcf.gz") || Utils::endsWith(pth, ".vcf") || Utils::endsWith(pth, ".bcf")) {
-                if (!image_glob.empty()) {
-                    std::cerr << "Error: --images are already open, can not open variant file\n";
-                    return;
-                }
+            } else if (!opts.vcf_as_tracks && (Utils::endsWith(pth, ".vcf.gz") || Utils::endsWith(pth, ".vcf") || Utils::endsWith(pth, ".bcf"))) {
                 good = true;
                 std::vector<std::string> labels = Utils::split(opts.labels, ',');
                 setLabelChoices(labels);
-
                 mouseOverTileIndex = 0;
                 bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
-
                 imageCache.clear();
                 addVariantTrack(pth, opts.start_index, false);
-
                 variantFileSelection = (int)variantTracks.size() - 1;
                 currentVarTrack = &variantTracks[variantFileSelection];
-//                setVariantFile(pth, opts.start_index, false);
                 currentVarTrack->blockStart = 0;
                 mode = Manager::Show::TILED;
-                std::cout << termcolor::magenta << "\nFile    " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
+                std::cout << termcolor::magenta << "\nFile        " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
+            } else {
+                tracks.push_back(HGW::GwTrack());
+                try {
+                    tracks.back().open(pth, true);
+                    std::cout << termcolor::magenta << "\nTrack       " << termcolor::reset << pth << "\n";
+                } catch (...) {
+                    tracks.pop_back();
+                }
             }
             ++paths;
         }
@@ -1775,8 +1784,10 @@ namespace Manager {
         }
         // settings button or command box button
         float half_h = (float)fb_height / 2;
-        bool tool_popup = (xW > 0 && xW <= 60 && yW >= half_h - 60 && yW <= half_h + 60 && (std::fabs(xDrag) < 5 || xDrag == DRAG_UNSET) && (std::fabs(yDrag) < 5 || yDrag == DRAG_UNSET));
+        bool tool_popup = (xW > 0 && xW <= 60 && yW >= half_h - 60 && yW <= half_h + 60) ; // && (std::fabs(xDrag) < 5 || xDrag == DRAG_UNSET) && (std::fabs(yDrag) < 5 || yDrag == DRAG_UNSET));
         if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE && tool_popup) {
+            xDrag = DRAG_UNSET;
+            yDrag = DRAG_UNSET;
             if (yW < half_h) {
                 if (mode != SETTINGS) {
                     last_mode = mode;
@@ -1806,14 +1817,15 @@ namespace Manager {
         }
 
         // click on one of the commands in the pop-up menu
-        if (commandToolTipIndex != -1 && captureText && mode != SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+        if (commandToolTipIndex != -1 && captureText && mode != SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT) {
             double xPos_fb = x;
             double yPos_fb = y;
             convertScreenCoordsToFrameBufferCoords(wind, &xPos_fb, &yPos_fb, fb_width, fb_height);
-            if (xPos_fb > 50 && xPos_fb < 50 + fonts.overlayWidth * 20 ) {
+            if (xPos_fb > 50 && xPos_fb < 50 + fonts.overlayWidth * 20 && action == GLFW_RELEASE) {
                 keyPress(wind, GLFW_KEY_ENTER, 0, GLFW_PRESS, 0);
                 return;
             }
+            return;
         }
         if (xDrag == DRAG_UNSET) {
             xDrag = 0;
@@ -1896,7 +1908,6 @@ namespace Manager {
                     regionSelection = collections[idx].regionIdx;
                 }
             }
-
             if (idx < 0) {
                 return;
             }
@@ -2011,7 +2022,7 @@ namespace Manager {
             yDrag = DRAG_UNSET;
 
         } else if (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
-            if (regions.empty() || !variantTracks.empty()) {
+            if (regions.empty() || variantTracks.empty()) {
                 return;
             }
             currentVarTrack = &variantTracks[variantFileSelection];
@@ -2059,7 +2070,7 @@ namespace Manager {
                         // todo check this!
                         // try and parse location from filename
                         std::vector<Utils::Region> rt;
-                        bool parsed = Utils::parseFilenameToMouseClick(image_glob[currentVarTrack->blockStart + i], rt, fai, opts.pad, opts.split_view_size);
+                        bool parsed = Utils::parseFilenameToMouseClick(currentVarTrack->image_glob[currentVarTrack->blockStart + i], rt, fai, opts.pad, opts.split_view_size);
                         if (parsed) {
                             if (rt.size() == 1 && rt[0].end - rt[0].start > 500000) {
                                 int posX = (int)(((xW - gap) / (float)(fb_width - gap - gap)) * (float)(rt[0].end - rt[0].start)) + rt[0].start;
@@ -2080,6 +2091,16 @@ namespace Manager {
                     }
                 }
             } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+                if (captureText) {
+                    captureText = false;
+                    processText = false;
+                    shiftPress = false;
+                    commandToolTipIndex = -1;
+                    xDrag = DRAG_UNSET;
+                    yDrag = DRAG_UNSET;
+                    return;
+                }
+
                 if (regions.empty()) {
                     return;
                 }
@@ -2097,18 +2118,28 @@ namespace Manager {
                         x_val += tile_box_w + gap;
                     }
                 }
-
-                if (std::fabs(xDrag) > fb_width / 8.) {
+                if (std::fabs(xDrag) > fb_width / 16.) {
                     int nmb = opts.number.x * opts.number.y;
+                    bool scroll_left;
                     if (xDrag > 0) {
-                        currentVarTrack->blockStart = (currentVarTrack->blockStart - nmb < 0) ? 0 : currentVarTrack->blockStart - nmb;
-                        redraw = true;
+                        scroll_left = true;
                     } else {
-                        size_t targetSize = (image_glob.empty()) ? currentVarTrack->multiRegions.size() : image_glob.size();
-                        if (currentVarTrack->blockStart + nmb >= (int)targetSize) {
+                        scroll_left = false;
+                    }
+                    if (!scroll_left) {
+                        size_t currentSize = (currentVarTrack->image_glob.empty()) ? currentVarTrack->multiRegions.size() : currentVarTrack->image_glob.size();
+                        if (currentVarTrack->blockStart + nmb > (int)currentSize) {
+                            currentVarTrack->blockStart += nmb;
+                        }
+                        if (!*currentVarTrack->trackDone) {
+                            currentVarTrack->blockStart += nmb;
+                            redraw = true;
+                        }
+                    } else {
+                        if (currentVarTrack->blockStart == 0) {
                             return;
                         }
-                        currentVarTrack->blockStart += nmb;
+                        currentVarTrack->blockStart = (currentVarTrack->blockStart - nmb > 0) ? currentVarTrack->blockStart - nmb : 0;
                         redraw = true;
                     }
                 } else if (std::fabs(xDrag) < 5) {
@@ -2424,15 +2455,15 @@ namespace Manager {
                               "    Index  "  << termcolor::reset << mouseOverTileIndex + currentVarTrack->blockStart;
                     std::cout << std::flush;
                 // todo check this currentVarTrack->
-                } else if (currentVarTrack->blockStart + i < (int)image_glob.size()) {
+                } else if (currentVarTrack->blockStart + i < (int)currentVarTrack->image_glob.size()) {
                     std::vector<Utils::Region> rt;
-                    if (Utils::parseFilenameToMouseClick(image_glob[currentVarTrack->blockStart + i], rt, fai, opts.pad, opts.split_view_size)) {
+                    if (Utils::parseFilenameToMouseClick(currentVarTrack->image_glob[currentVarTrack->blockStart + i], rt, fai, opts.pad, opts.split_view_size)) {
                         Term::clearLine();
                         std::cout << termcolor::bold << "\rPos     ";
                         for (auto &r : rt) {
                             std::cout << termcolor::reset << r.chrom << ":" << r.start << "-" << r.end << termcolor::bold << "    ";
                         }
-                        std::cout << "\nFile    " << termcolor::reset << image_glob[currentVarTrack->blockStart + i].filename();
+                        std::cout << "\nFile    " << termcolor::reset << currentVarTrack->image_glob[currentVarTrack->blockStart + i].filename();
                         std::cout << std::flush;
                     }
                 }

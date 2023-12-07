@@ -20,6 +20,7 @@
 #include <future>
 #include <filesystem>
 #include <GLFW/glfw3.h>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -92,12 +93,7 @@ namespace Manager {
 
         std::vector<Utils::Region> regions;
 
-//        std::vector<std::vector<Utils::Region>> multiRegions;  // used for creating tiled regions
-//        std::vector<Utils::Label> multiLabels;  // used for labelling tiles
-
         std::vector<std::string> labelChoices;  // enumeration of labels to use
-
-        std::vector<std::filesystem::path> image_glob;
 
         std::vector<Segs::ReadCollection> collections;  // stores alignments
 
@@ -105,15 +101,13 @@ namespace Manager {
 
         std::vector<Parse::Parser> filters;
 
-//		bool useVcf;  // indicated which of the below files to use
-//        HGW::VCFfile vcf;  // These two are input files for generating tiled images
-//        HGW::GwTrack variantTrack;
-
         ankerl::unordered_dense::map< int, sk_sp<SkImage>> imageCache;
-        ankerl::unordered_dense::map< std::string, Utils::Label> inputLabels;
-        std::deque< std::pair<long, sk_sp<SkImage> > > imageCacheQueue;
 
-        ankerl::unordered_dense::set<std::string> seenLabels;
+        // keys are variantFilename and variantId
+        ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::map< std::string, Utils::Label>> inputLabels;
+        ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::set<std::string>> seenLabels;
+
+        std::deque< std::pair<long, sk_sp<SkImage> > > imageCacheQueue;
 
         Themes::IniOptions opts;
         Themes::Fonts fonts;
@@ -233,7 +227,7 @@ namespace Manager {
 
         void tileLoadingThread();
 
-        void drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
+        void drawTiles(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface);
 
         int registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
 

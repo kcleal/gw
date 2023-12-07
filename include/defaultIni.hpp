@@ -67,6 +67,7 @@ namespace DefaultIni {
                "print_screen=PRINT_SCREEN\n"
                "find_alignments=F\n"
                "repeat_command=R\n"
+               "vcf_as_tracks=false\n"
                "\n"
                "[labelling]\n"
                "number=3x3\n"

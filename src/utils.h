@@ -123,12 +123,12 @@ namespace Utils {
 
     void labelToFile(std::ofstream &f, Utils::Label &l, std::string &dateStr);
 
-    void saveLabels(std::vector<Utils::Label> &multiLabels, std::string path);
+    void saveLabels(std::vector<Utils::Label> &multiLabels, std::ofstream &fileOut, std::string &dateStr, std::string &variantFileName);
 
-    void openLabels(std::string path, ankerl::unordered_dense::map< std::string, Utils::Label> &label_dict,
+    void openLabels(std::string path,
+                    ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::map< std::string, Utils::Label>> &label_dict,
                     std::vector<std::string> &inputLabels,
-                    ankerl::unordered_dense::set<std::string> &seenLabels
-//                    robin_hood::unordered_set<std::string> &seenLabels
+                    ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::set<std::string>> &seenLabels
                     );
 
     std::string getSize(long num);

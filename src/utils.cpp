@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <iostream>
 #include <iterator>
+#include <memory>
 #include <cmath>
 #include <cstring>
 #include <ctime>
@@ -142,6 +143,12 @@ namespace Utils {
                                    [&](std::string const &cmp) -> bool {
                                        return cmp == "";
                                    }), elems.end());
+        return elems;
+    }
+
+    std::unique_ptr<std::vector<std::string>> split_keep_empty(const std::string &s, const char delim) {
+        std::unique_ptr<std::vector<std::string>> elems = std::make_unique<std::vector<std::string>>();
+        split(s, delim, std::back_inserter(*elems));
         return elems;
     }
 
@@ -394,47 +401,46 @@ namespace Utils {
 
     void labelToFile(std::ofstream &f, Utils::Label &l, std::string &dateStr) {
         f << l.chrom << "\t" << l.pos << "\t" << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" <<
-        (((l.contains_parsed_label && l.i == l.ori_i) || (!l.contains_parsed_label && l.i > 0)) ? l.savedDate : dateStr) << std::endl;
+        (((l.contains_parsed_label && l.i == l.ori_i) || (!l.contains_parsed_label && l.i > 0)) ? l.savedDate : dateStr) <<
+        std::endl;
     }
 
-    void saveLabels(std::vector<Utils::Label> &multiLabels, std::string path) {
-        std::string str = dateTime();
-        std::ofstream f;
-        f.open (path);
-        f << "#chrom\tpos\tvariant_ID\tlabel\tvar_type\tlabelled_date\n";
+    void saveLabels(std::vector<Utils::Label> &multiLabels, std::ofstream &fileOut, std::string &dateStr, std::string &variantFileName) {
         for (auto &l : multiLabels) {
-            f << l.chrom << "\t" << l.pos << "\t" << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" <<
-            (((l.contains_parsed_label && l.i == l.ori_i) || (!l.contains_parsed_label && l.i > 0)) ? l.savedDate : str) << std::endl;
+            fileOut << l.chrom << "\t" << l.pos << "\t" << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" <<
+            (((l.contains_parsed_label && l.i == l.ori_i) || (!l.contains_parsed_label && l.i > 0)) ? l.savedDate : dateStr) <<
+            "\t" << variantFileName <<
+            std::endl;
         }
-        f.close();
     }
 
-    void openLabels(std::string path, ankerl::unordered_dense::map< std::string, Utils::Label> &label_dict,
+    void openLabels(std::string path,
+                    ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::map< std::string, Utils::Label>> &label_dict,
                     std::vector<std::string> &inputLabels,
-                    ankerl::unordered_dense::set<std::string> &seenLabels
-//                    robin_hood::unordered_set<std::string> &seenLabels
+                    ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::set<std::string>> &seenLabels
                     ) {
         std::ifstream f;
         std::string s;
-        std::string savedDate;
+        std::string savedDate, variantFilename;
         f.open(path);
         int idx = 0;
         while (std::getline(f, s)) {
             if (idx > 0) {
-                std::vector<std::string> v = split(s, '\t');
-                bool clicked = !v[5].empty();
-                int pos = std::stoi(v[1]);
-                if (v.size() == 5) {
+                std::unique_ptr<std::vector<std::string>> v = split_keep_empty(s, '\t');
+                bool clicked = !v->at(5).empty();
+                int pos = std::stoi(v->at(1));
+                if (v->size() == 5) {
                     savedDate = "";
                 } else {
-                    savedDate = v[5];
+                    savedDate = v->at(5);
                 }
-                if (!seenLabels.contains(v[3])) {
-                    seenLabels.insert(v[3]);
+                variantFilename = v->at(6);
+                if (!seenLabels[variantFilename].contains(v->at(3))) {
+                    seenLabels[variantFilename].insert(v->at(3));
                 }
-                Label l = makeLabel(v[0], pos, v[3], inputLabels, v[2], v[4], savedDate, clicked);
-                std::string key = v[2];
-                label_dict[key] = l;
+                Label l = makeLabel(v->at(0), pos, v->at(3), inputLabels, v->at(2), v->at(4), savedDate, clicked);
+                std::string key = v->at(2);
+                label_dict[variantFilename][key] = l;
             }
             idx += 1;
         }

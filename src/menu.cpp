@@ -113,7 +113,7 @@ namespace Menu {
         SkPaint bg;
         SkPaint menuBg;
         SkPaint tcMenu;
-        if (opts.theme_str == "dark") {
+        if (opts.theme_str != "igv") {
             bg.setARGB(255, 15, 15, 25);
             tcMenu.setARGB(255, 255, 255, 255);
             menuBg = opts.theme.fcDup;
@@ -285,13 +285,14 @@ namespace Menu {
             if (opts.menu_table == Themes::MenuTable::MAIN) { tip = opts.ini_path; }
             else if (opts.menu_table == Themes::MenuTable::GENOMES) { tip = "Use ENTER key to select genome, or RIGHT_ARROW key to edit path"; }
             else if (opts.menu_table == Themes::MenuTable::SHIFT_KEYMAP) { tip = "Change characters selected when using shift+key"; }
-            else if (opts.menu_level == "theme") { tip = "Change the theme to one of [dark, igv]"; }
+            else if (opts.menu_level == "theme") { tip = "Change the theme to one of [dark, igv, slate]"; }
             else if (opts.menu_level == "dimensions") { tip = "The starting dimensions in pixels of the gw window"; }
             else if (opts.menu_level == "indel_length") { tip = "Indels with this length (or greater) will be labelled with text"; }
             else if (opts.menu_level == "ylim") { tip = "The y-limit, or number of rows of reads in the image"; }
             else if (opts.menu_level == "coverage") { tip = "Turn coverage on or off [true, false]"; }
             else if (opts.menu_level == "log2_cov") { tip = "Change the y-scale of the coverage track to log2 [true, false]"; }
             else if (opts.menu_level == "expand_tracks") { tip = "Expand overlapping track features [true, false]"; }
+            else if (opts.menu_level == "vcf_as_tracks") { tip = "Drag-and-dropped vcf/bcf files will be added as track features [true, false]"; }
             else if (opts.menu_level == "link") { tip = "Change which reads are linked [none, sv, all]"; }
             else if (opts.menu_level == "split_view_size") { tip = "Structural variants greater than this size will be drawn as two regions"; }
             else if (opts.menu_level == "threads") { tip = "The number of threads to use for file readings"; }
@@ -675,7 +676,7 @@ namespace Menu {
         for (const auto& v : {"scroll_speed", "tabix_track_height"}) {
             option_map[v] = Float;
         }
-        for (const auto& v : {"coverage", "log2_cov", "expand_tracks"}) {
+        for (const auto& v : {"coverage", "log2_cov", "expand_tracks", "vcf_as_tracks"}) {
             option_map[v] = Bool;
         }
         for (const auto& v : {"scroll_right", "scroll_left", "zoom_out", "zoom_in", "scroll_down", "scroll_up", "cycle_link_mode", "print_screen", "find_alignments", "delete_labels", "enter_interactive_mode"}) {
@@ -745,6 +746,7 @@ namespace Menu {
         else if (new_opt.name == "tabix_track_height") { opts.tab_track_height = v; }
         else if (new_opt.name == "log2_cov") { opts.log2_cov = v; }
         else if (new_opt.name == "expand_tracks") { opts.expand_tracks = v; }
+        else if (new_opt.name == "vcf_as_tracks") { opts.vcf_as_tracks = v; }
         else if (new_opt.name == "coverage") { opts.max_coverage = (v) ? 1410065408 : 0; }
         else { return; }
         opts.myIni[new_opt.table][new_opt.name] = (v) ? "true" : "false";

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <chrono>
 #include <future>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -881,7 +882,10 @@ namespace HGW {
 //        if (t != nullptr) {
 //            tbx_destroy(t);
 //        }
-        if (bigWig_fp) {
+    }
+
+    void GwTrack::close() {
+        if ((kind == BIGWIG || kind == BIGBED) && bigWig_fp) {
             bwClose(bigWig_fp);
             if (kind == BIGWIG) {
                 bwDestroyOverlappingIntervals(bigWig_intervals);
@@ -889,9 +893,7 @@ namespace HGW {
                 bbDestroyOverlappingEntries(bigBed_entries);
             }
         }
-
     }
-
 
     void GwTrack::parseVcfRecord(Utils::TrackBlock &b) {
         kstring_t kstr = {0,0,0};
@@ -981,7 +983,15 @@ namespace HGW {
 
         if (kind == VCF_NOI) {
             fp = bcf_open(path.c_str(), "r");
+            if (!fp) {
+                std::cerr << "Error: could not open " << path << std::endl;
+                throw std::exception();
+            }
             hdr = bcf_hdr_read(fp);
+            if (!hdr) {
+                std::cerr << "Error: could not open header of " << path << std::endl;
+                throw std::exception();
+            }
             v = bcf_init1();
             v->max_unpack = BCF_UN_INFO;
             while (true) {
@@ -1002,13 +1012,11 @@ namespace HGW {
             fpu.open(p, std::ios::in);
             if (!fpu.is_open()) {
                 std::cerr << "Error: opening track file " << path << std::endl;
-                std::terminate();
+                throw std::exception();
             }
             std::string tp;
             const char delim = '\t';
-//            int count = 0;
             while (getline(fpu, tp)) {
-//                count += 1;
                 if (tp[0] == '#') {
                     continue;
                 }
@@ -1044,13 +1052,21 @@ namespace HGW {
             }
         } else if (kind == GFF3_IDX || kind == GTF_IDX) {
             fp = hts_open(p.c_str(), "r");
+            if (!fp) {
+                std::cerr << "Error: could not open " << path << std::endl;
+                throw std::exception();
+            }
             idx_t = tbx_index_load(p.c_str());
+            if (!idx_t) {
+                std::cerr << "Error: could not open index of " << path << std::endl;
+                throw std::exception();
+            }
         } else if (kind == GFF3_NOI || kind == GTF_NOI) {
             std::fstream fpu;
             fpu.open(p, std::ios::in);
             if (!fpu.is_open()) {
                 std::cerr << "Error: opening track file " << path << std::endl;
-                std::terminate();
+                throw std::exception();
             }
             std::string tp;
             const char delim = '\t';
@@ -1107,16 +1123,40 @@ namespace HGW {
             }
         } else if (kind == BED_IDX) {
             fp = hts_open(p.c_str(), "r");
+            if (!fp) {
+                std::cerr << "Error: could not open " << path << std::endl;
+                throw std::exception();
+            }
             idx_t = tbx_index_load(p.c_str());
+            if (!idx_t) {
+                std::cerr << "Error: could not open index of " << path << std::endl;
+                throw std::exception();
+            }
         } else if (kind == BCF_IDX) {
             fp = bcf_open(p.c_str(), "r");
+            if (!fp) {
+                std::cerr << "Error: could not open " << path << std::endl;
+                throw std::exception();
+            }
             hdr = bcf_hdr_read(fp);
+            if (!hdr) {
+                std::cerr << "Error: could not open header of " << path << std::endl;
+                throw std::exception();
+            }
             idx_v = bcf_index_load(p.c_str());
             v = bcf_init1();
             v->max_unpack = BCF_UN_INFO;
         } else if (kind == VCF_IDX) {
             fp = bcf_open(path.c_str(), "r");
+            if (!fp) {
+                std::cerr << "Error: could not open " << path << std::endl;
+                throw std::exception();
+            }
             hdr = bcf_hdr_read(fp);
+            if (!hdr) {
+                std::cerr << "Error: could not open header of " << path << std::endl;
+                throw std::exception();
+            }
             idx_t = tbx_index_load(path.c_str());
             v = bcf_init1();
             v->max_unpack = BCF_UN_INFO;
@@ -1545,21 +1585,22 @@ namespace HGW {
 
     GwVariantTrack::GwVariantTrack(std::string &path, bool cacheStdin, Themes::IniOptions *t_opts, int startIndex,
                                    std::vector<std::string> &t_labelChoices,
-                                   ankerl::unordered_dense::map< std::string, Utils::Label> *t_inputLabels,
-                                   ankerl::unordered_dense::set<std::string> *t_seenLabels) {
+                                   std::shared_ptr< ankerl::unordered_dense::map< std::string, Utils::Label>>  t_inputLabels,
+                                   std::shared_ptr< ankerl::unordered_dense::set<std::string>> t_seenLabels) {
 
         labelChoices = t_labelChoices;
         inputLabels = t_inputLabels;
         mouseOverTileIndex = -1;
         blockStart = 0;
         m_opts = t_opts;
+        fileName = std::filesystem::path(path).filename();
 
         if (cacheStdin || Utils::endsWith(path, ".vcf") ||
             Utils::endsWith(path, ".vcf.gz") ||
             Utils::endsWith(path, ".bcf")) {
             variantTrack.done = true;
             vcf.done = false;
-            useVcf = true;
+            type = VCF;
             vcf.seenLabels = t_seenLabels;
             vcf.cacheStdin = cacheStdin;
             vcf.label_to_parse = m_opts->parse_label.c_str();
@@ -1568,9 +1609,20 @@ namespace HGW {
             if (startIndex > 0) {
                 nextN(startIndex);
             }
-            this->path = vcf.path;
+        } else if (Utils::endsWith(path, ".png") || Utils::endsWith(path, ".png'") || Utils::endsWith(path, ".png\"")) {
+            type = IMAGES;
+            image_glob = glob::glob(path);
+//#if defined(_WIN32) || defined(_WIN64)
+//            std::sort(paths.begin(), paths.end());
+//#else
+//            std::sort(image_glob.begin(), image_glob.end(), compareNat);
+//#endif
+            if (image_glob.empty()) {
+                std::cerr << "Warning: no images found with pattern: " << path << std::endl;
+            }
+
         } else {  // bed file or labels file, or some other tsv
-            useVcf = false;
+            type =  GW_TRACK;
             vcf.done = true;
             variantTrack.done = false;
             variantTrack.open(path, false);
@@ -1579,8 +1631,8 @@ namespace HGW {
             if (startIndex > 0) {
                 nextN(startIndex);
             }
-            this->path = variantTrack.path;
         }
+        this->path = path;
         init = true;
     }
 
@@ -1589,17 +1641,17 @@ namespace HGW {
     }
 
     void GwVariantTrack::nextN(int number) {
-        if (number == 0) {
+        if (number == 0 || type == IMAGES) {
             return;
         }
-        if (useVcf) {
+        if (type == VCF) {
             trackDone = &vcf.done;
-        } else {
+        } else if (type == GW_TRACK) {
             trackDone = &variantTrack.done;
         }
         while (!(*trackDone)) {
             for (int i=0; i < number; ++i) {
-                if (useVcf) {
+                if (type == VCF) {
                     vcf.next();
                     if (*trackDone) {
                         break;
@@ -1610,7 +1662,7 @@ namespace HGW {
                     if (*trackDone) {
                         break;
                     }
-                    std::string label = "";
+                    std::string label;
                     this->appendVariantSite(variantTrack.chrom, variantTrack.start, variantTrack.chrom2,
                                       variantTrack.stop, variantTrack.rid, label, variantTrack.vartype);
                 }
