@@ -139,6 +139,7 @@ jobs:
           cp deps/gw.desktop usr/share/applications/
 
       - name: package
+        uses: battila7/get-version-action@v2
         run: |
           dh_make --single --createorig --packagename gw_${{ steps.get_version.outputs.version-without-v }} --email clealk@cardiff.ac.uk --yes --native
           printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop" > debian/install
@@ -147,7 +148,9 @@ jobs:
           dpkg-buildpackage
 
       - name: upload
-        uses: actions/upload-artifact@v3
+        uses: |
+          actions/upload-artifact@v3
+          battila7/get-version-action@v2
         with:
           name: debian-package
           path: ${{ github.workspace }}/gw_${{ steps.get_version.outputs.version-without-v }}_amd64.deb
