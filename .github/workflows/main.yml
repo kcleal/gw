@@ -47,8 +47,8 @@ jobs:
           alias python3=$(brew --prefix)/bin/python3.11
 
           sudo rm -rf /Library/Frameworks/Python.framework/Versions/3.12
-          sudo rm /usr/local/bin/python3
-          sudo rm /Library/Frameworks/Python.framework/Versions/Current/bin/python
+          sudo rm -f /usr/local/bin/python3
+          sudo rm -f /Library/Frameworks/Python.framework/Versions/Current/bin/python
 
           which python && python --version
           which python3 && python --version

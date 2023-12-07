@@ -1,0 +1,9 @@
+#!/usr/bin/gnome-terminal
+[Desktop Entry]
+Encoding=UTF-8
+Version=0.9
+Type=Application
+Terminal=false
+Exec=/usr/bin/gw
+Name=gw
+Icon=/usr/share/icons/gw_icon.png
