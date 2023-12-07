@@ -2463,7 +2463,18 @@ namespace Manager {
                         for (auto &r : rt) {
                             std::cout << termcolor::reset << r.chrom << ":" << r.start << "-" << r.end << termcolor::bold << "    ";
                         }
-                        std::cout << "\nFile    " << termcolor::reset << currentVarTrack->image_glob[currentVarTrack->blockStart + i].filename();
+
+                        std::filesystem::path fsp = currentVarTrack->image_glob[currentVarTrack->blockStart + i];
+#if defined(_WIN32) || defined(_WIN64)
+                        const wchar_t* pc = fsp.filename().c_str();
+                        std::wstring ws(pc);
+                        std::string p(ws.begin(), ws.end());
+                        std::string fileName = p;
+#else
+                        std::string fileName = fsp.filename();
+#endif
+
+                        std::cout << "\nFile    " << termcolor::reset << fileName;
                         std::cout << std::flush;
                     }
                 }

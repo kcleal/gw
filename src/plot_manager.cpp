@@ -263,7 +263,17 @@ namespace Manager {
     }
 
     void GwPlot::addVariantTrack(std::string &path, int startIndex, bool cacheStdin) {
-        std::string variantFilename = std::filesystem::path(path).filename();
+
+        std::filesystem::path fsp(path);
+#if defined(_WIN32) || defined(_WIN64)
+        const wchar_t* pc = fsp.filename().c_str();
+        std::wstring ws(pc);
+        std::string p(ws.begin(), ws.end());
+        std::string variantFilename = p;
+#else
+        std::string variantFilename = fsp.filename();
+#endif
+
         std::shared_ptr<ankerl::unordered_dense::map< std::string, Utils::Label>> inLabels = std::make_shared<ankerl::unordered_dense::map< std::string, Utils::Label>>(inputLabels[variantFilename]);
         std::shared_ptr<ankerl::unordered_dense::set<std::string>> sLabels = std::make_shared<ankerl::unordered_dense::set<std::string>>(seenLabels[variantFilename]);
         variantTracks.push_back(
@@ -288,7 +298,17 @@ namespace Manager {
         f.open(outLabelFile);
         f << "#chrom\tpos\tvariant_ID\tlabel\tvar_type\tlabelled_date\tvariant_filename\n";
         for (auto &vf : variantTracks) {
-            std::string fileName = std::filesystem::path(vf.path).filename();
+
+            std::filesystem::path fsp(vf.path);
+#if defined(_WIN32) || defined(_WIN64)
+            const wchar_t* pc = fsp.filename().c_str();
+            std::wstring ws(pc);
+            std::string p(ws.begin(), ws.end());
+            std::string fileName = p;
+#else
+            std::string fileName = fsp.filename();
+#endif
+
             Utils::saveLabels(vf.multiLabels, f, dateStr, fileName);
         }
         f.close();
