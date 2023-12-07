@@ -1593,7 +1593,17 @@ namespace HGW {
         mouseOverTileIndex = -1;
         blockStart = 0;
         m_opts = t_opts;
-        fileName = std::filesystem::path(path).filename();
+
+        std::filesystem::path fsp(path);
+#if defined(_WIN32) || defined(_WIN64)
+        const wchar_t* pc = fsp.filename().c_str();
+        std::wstring ws(pc);
+        std::string p(ws.begin(), ws.end());
+        fileName = p;
+#else
+        fileName = fsp.filename();
+#endif
+
 
         if (cacheStdin || Utils::endsWith(path, ".vcf") ||
             Utils::endsWith(path, ".vcf.gz") ||
