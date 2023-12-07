@@ -104,7 +104,9 @@ jobs:
   deb-package:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: |
+          actions/checkout@v3
+          battila7/get-version-action@v2
       - name: Install dependencies
         run: |
           sudo apt update
@@ -139,7 +141,6 @@ jobs:
           cp deps/gw.desktop usr/share/applications/
 
       - name: package
-        uses: battila7/get-version-action@v2
         run: |
           dh_make --single --createorig --packagename gw_${{ steps.get_version.outputs.version-without-v }} --email clealk@cardiff.ac.uk --yes --native
           printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop" > debian/install
@@ -150,7 +151,6 @@ jobs:
       - name: upload
         uses: |
           actions/upload-artifact@v3
-          battila7/get-version-action@v2
         with:
           name: debian-package
           path: ${{ github.workspace }}/gw_${{ steps.get_version.outputs.version-without-v }}_amd64.deb
