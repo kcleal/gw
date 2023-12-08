@@ -158,13 +158,14 @@ jobs:
           cp deps/gw.desktop usr/share/applications/
           cp -rf /usr/lib/gwhts usr/lib/gwhts
           cp -rf /usr/include/gwhts usr/include/gwhts
-          sudo ln -s usr/lib/gwhts/libhts.so.3 usr/lib/libhts.so.3
+          # sudo ln -s usr/lib/gwhts/libhts.so.3 usr/lib/libhts.so.3
 
       - name: package
         run: |
           dh_make --single --createorig --packagename gw_${version} --email clealk@cardiff.ac.uk --yes --native
           printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop\nusr/lib/gwhts/\nusr/lib/libhts.so.3" > debian/install
           printf "override_dh_shlibdeps:\n\tdh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info" >> debian/rules
+          sed -i '3 i export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):/usr/lib/gwhts' debian/rules
           # printf "\noverride_dh_auto_build:\n\tdh_auto_build -- LDFLAGS=\"\$$LDFLAGS -L./lib  -L./lib/skia/out/Release-x64  -L/usr/local/lib  -L/usr/lib \"\n" >> debian/rules
           
           dpkg-buildpackage
