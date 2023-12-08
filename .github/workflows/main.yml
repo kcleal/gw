@@ -113,7 +113,7 @@ jobs:
           sudo apt update
           sudo apt-get install dh-make build-essential
           sudo apt-get install devscripts fakeroot debootstrap pbuilder autotools-dev
-          sudo apt install libz-dev libbz2-dev liblzma-dev libcurl4-openssl-dev libssl-dev
+          sudo apt install zlib1g-dev libbz2-dev liblzma-dev libncurses5-dev libncursesw5-dev libssl-dev 
           sudo apt install libgl1-mesa-dev libfontconfig-dev libcurl4-openssl-dev libglfw3-dev
       - name: build
         run: |
@@ -132,7 +132,14 @@ jobs:
           ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
           make -j3
           echo "HTSLIB BUILT" && pwd
-          cp -rf htslib ../include && cp libhts.a ../lib
+          sudo mkdir -p /usr/lib/gwhts
+          sudo cp libhts.* /usr/lib/gwhts 
+          cp -rf htslib ../include 
+          
+          # && cp libhts.a ../lib && cp libhts.so* ../lib
+          # sudo mkdir -p /usr/include/gwhts/htslib
+          # && sudo cp htslib/*.h /usr/include/gwhts/htslib
+          
           cd ${BUILD_DIR}
           
           pwd
@@ -141,20 +148,24 @@ jobs:
           ls lib
           
           sed -i '130 i \\t-mv gw usr/bin' Makefile
+          sed -i 's@-L/usr/local/lib@-L/usr/local/lib -L/usr/lib/gwhts@g' Makefile
           
           make prep
           mkdir -p usr/bin # also can be done in makefile
-          mkdir -p usr/lib
+          mkdir -p usr/lib/gwhts
+          mkdir -p usr/include/gwhts
           mkdir -p usr/share/icons
           mkdir -p usr/share/applications
           cp include/gw_icon.png usr/share/icons/
           cp deps/gw.desktop usr/share/applications/
-          # cp lib/libhts.* usr/lib
+          cp lib/libhts.* usr/lib/gwhts
+          cp -rf lib/htslib usr/include/gwhts
+          sudo ln -s usr/lib/gwhts/libhts.so.3 usr/lib/libhts.so.3
 
       - name: package
         run: |
           dh_make --single --createorig --packagename gw_${version} --email clealk@cardiff.ac.uk --yes --native
-          printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop" > debian/install
+          printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop\nusr/lib/gwhts/\nusr/lib/libhts.so.3" > debian/install
           printf "override_dh_shlibdeps:\n\tdh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info" >> debian/rules
           # printf "\noverride_dh_auto_build:\n\tdh_auto_build -- LDFLAGS=\"\$$LDFLAGS -L./lib  -L./lib/skia/out/Release-x64  -L/usr/local/lib  -L/usr/lib \"\n" >> debian/rules
           
