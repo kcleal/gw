@@ -132,7 +132,7 @@ jobs:
           ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
           make -j3
           echo "HTSLIB BUILT" && pwd
-          sudo mkdir -p 
+          sudo mkdir -p /usr/lib/gwhts
           sudo cp libhts.* /usr/lib/gwhts 
           cp -rf htslib ../include 
           
