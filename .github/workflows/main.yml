@@ -142,7 +142,7 @@ jobs:
           mkdir -p usr/share/applications
           cp include/gw_icon.png usr/share/icons/
           cp deps/gw.desktop usr/share/applications/
-          cp lib/htslib* usr/lib
+          cp lib/libhts.* usr/lib
 
       - name: package
         run: |
