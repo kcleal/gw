@@ -102,7 +102,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: gw_macos_intel
-          path: ${{ github.workspace }}/gw_${version}_macos_intel.dmg
+          path: /Users/runner/work/gw/*.dmg
 
   deb-package:
     runs-on: ubuntu-22.04
@@ -155,4 +155,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: debian-package
-          path: ${{ github.workspace }}/gw_${version}_amd64.deb
+          path: /home/runner/work/gw/*.deb
