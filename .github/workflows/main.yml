@@ -155,6 +155,7 @@ jobs:
           dh_make --single --createorig --packagename gw_${version} --email clealk@cardiff.ac.uk --yes --native
           printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop" > debian/install
           printf "override_dh_shlibdeps:\n\tdh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info" >> debian/rules
+          printf "\noverride_dh_auto_build:\n\tdh_auto_build -- LDFLAGS=\"-L./lib\"\n" >> debian/rules
           
           dpkg-buildpackage
 
