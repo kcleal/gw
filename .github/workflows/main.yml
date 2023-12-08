@@ -125,11 +125,13 @@ jobs:
           tar -xvf htslib.tar.bz2
           mv htslib-1.17 htslib && rm htslib.tar.bz2 && cd htslib
           ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
-          make -j3
+          make --prefix=$(pwd)/../lib -j3
           sudo make install
           cp -rf htslib ../include && cp libhts.a ../lib && cd ../
           
           cd ../
+          pwd
+          ls
           
           sed -i '130 i \\t-mv gw usr/bin' Makefile
           
