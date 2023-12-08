@@ -134,7 +134,7 @@ jobs:
           echo "HTSLIB BUILT" && pwd
           cp -rf htslib ../include
           sudo mkdir -p /usr/lib/gwhts && sudo cp libhts.* /usr/lib/gwhts 
-          sudo mkdir -p /usr/include/gwhts/htslib && && sudo cp htslib/*.h /usr/include/gwhts/htslib
+          sudo mkdir -p /usr/include/gwhts/htslib && sudo cp htslib/*.h /usr/include/gwhts/htslib
           
           # && cp libhts.a ../lib && cp libhts.so* ../lib
           
