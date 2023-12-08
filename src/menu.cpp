@@ -661,7 +661,7 @@ namespace Menu {
             this->value = value;
             this->table = getMenuKey(mt);
             if (kind == ThemeOption) {
-                choices.insert(choices.end(), {"dark", "igv"});
+                choices.insert(choices.end(), {"dark", "igv", "slate"});
             } else if (kind == LinkOption) {
                 choices.insert(choices.end(), {"none", "sv", "all"});
             }

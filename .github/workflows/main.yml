@@ -102,7 +102,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: gw_macos_intel
-          path: /Users/runner/work/gw/*.dmg
+          path: /home/runner/work/gw/*.dmg
 
   deb-package:
     runs-on: ubuntu-22.04
@@ -114,9 +114,6 @@ jobs:
           sudo apt-get install dh-make build-essential
           sudo apt-get install devscripts fakeroot debootstrap pbuilder autotools-dev
           sudo apt install libgl1-mesa-dev libfontconfig-dev libcurl4-openssl-dev libglfw3-dev
-      - name: get_version
-        id: attrs
-        uses: battila7/get-version-action@v2
       - name: build
         run: |
           git clone --depth 1 https://github.com/ebiggers/libdeflate.git
@@ -138,10 +135,12 @@ jobs:
           
           make prep
           mkdir -p usr/bin # also can be done in makefile
+          mkdir -p usr/lib
           mkdir -p usr/share/icons
           mkdir -p usr/share/applications
           cp include/gw_icon.png usr/share/icons/
           cp deps/gw.desktop usr/share/applications/
+          cp lib/htslib* usr/lib
 
       - name: package
         run: |
