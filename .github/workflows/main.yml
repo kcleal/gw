@@ -36,6 +36,7 @@ jobs:
     runs-on: macos-12
     steps:
       - uses: actions/checkout@v3
+        env: VERSION=$(awk -F '"' '/argparse::ArgumentParser program\("gw"/ {print $4}' src/main.cpp)
       - name: Install dependencies
         run: |
           brew install graphicsmagick dylibbundler glfw fontconfig
@@ -59,6 +60,7 @@ jobs:
 
       - name: package
         run: |
+          echo "Building version: " $VERSION
           make prep
 
           osacompile -o gw.app deps/gw_applescript_prog.txt
@@ -98,7 +100,7 @@ jobs:
       - name: upload
         uses: actions/upload-artifact@v3
         with:
-          name: gw-macos-intel
+          name: gw_macos_intel
           path: ${{ github.workspace }}/gw_${{ steps.get_version.outputs.version-without-v }}_macos_intel.dmg
 
   deb-package:
