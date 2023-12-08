@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+env:
+  version: 0.9.0
+
 jobs:
   mingw:
    strategy:
@@ -36,7 +39,6 @@ jobs:
     runs-on: macos-12
     steps:
       - uses: actions/checkout@v3
-        env: VERSION=$(awk -F '"' '/argparse::ArgumentParser program\("gw"/ {print $4}' src/main.cpp)
       - name: Install dependencies
         run: |
           brew install graphicsmagick dylibbundler glfw fontconfig
@@ -60,7 +62,6 @@ jobs:
 
       - name: package
         run: |
-          echo "Building version: " $VERSION
           make prep
 
           osacompile -o gw.app deps/gw_applescript_prog.txt
@@ -95,13 +96,13 @@ jobs:
           codesign --verify -vvvv gw.app
           create-dmg 'gw.app' || true
           ls
-          mv gw\ undefined.dmg gw_${{ steps.get_version.outputs.version-without-v }}_macos_intel.dmg
+          mv gw\ undefined.dmg gw_${version}_macos_intel.dmg
 
       - name: upload
         uses: actions/upload-artifact@v3
         with:
           name: gw_macos_intel
-          path: ${{ github.workspace }}/gw_${{ steps.get_version.outputs.version-without-v }}_macos_intel.dmg
+          path: ${{ github.workspace }}/gw_${version}_macos_intel.dmg
 
   deb-package:
     runs-on: ubuntu-22.04
@@ -144,7 +145,7 @@ jobs:
 
       - name: package
         run: |
-          dh_make --single --createorig --packagename gw_${{ steps.get_version.outputs.version-without-v }} --email clealk@cardiff.ac.uk --yes --native
+          dh_make --single --createorig --packagename gw_${version} --email clealk@cardiff.ac.uk --yes --native
           printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop" > debian/install
           printf "override_dh_shlibdeps:\n\tdh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info" >> debian/rules
           
@@ -154,4 +155,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: debian-package
-          path: ${{ github.workspace }}/gw_${{ steps.get_version.outputs.version-without-v }}_amd64.deb
+          path: ${{ github.workspace }}/gw_${version}_amd64.deb
