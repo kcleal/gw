@@ -184,7 +184,6 @@ jobs:
           dpkg-buildpackage
           
           pwd && ls
-          readelf -d usr/bin/gw | grep RPATH
 
       - name: upload
         uses: actions/upload-artifact@v3
