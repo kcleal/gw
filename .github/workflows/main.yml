@@ -178,7 +178,7 @@ jobs:
           dh_make --single --createorig --packagename gw_${version} --email clealk@cardiff.ac.uk --yes --native
           echo "Packed ./usr/lib directory has: " && ls ./usr/lib
           echo "Updating LDFLAGS " && pwd
-          export LDFLAGS += -L./lib/skia/out/Release-x64  -L/usr/local/lib  -L/usr/lib -L./usr/lib -Wl,-rpath,'$ORIGIN/./usr/lib'
+          export LDFLAGS="$LDFLAGS -L./lib/skia/out/Release-x64 -L/usr/local/lib -L/usr/lib -L./usr/lib -Wl,-rpath,'$ORIGIN/./usr/lib'"
           
           # printf "\noverride_dh_auto_build:\n\tdh_auto_build -- LDFLAGS=\"\$$LDFLAGS -L./lib/skia/out/Release-x64  -L/usr/local/lib  -L/usr/lib -L./usr/lib -Wl,-rpath,'$ORIGIN/./usr/lib' \"\n" >> debian/rules
           
