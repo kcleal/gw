@@ -1,14 +1,13 @@
 Source: gw
-Section: unknown
+Section: bioinformatics
 Priority: optional
 Maintainer: "Kez Cleal" <clealk@cardiff.ac.uk>
-Build-Depends: debhelper (= 13)
+Build-Depends: debhelper (>=9)
 Standards-Version: 4.6.0
 Homepage: https://github.com/kcleal/gw
 Rules-Requires-Root: no
 
 Package: gw
-Architecture: any
-Multi-Arch: foreign
+Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: Genome browser and variant annotation package.
+Description: Genome browser and variant annotation package
