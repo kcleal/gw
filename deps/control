@@ -1,0 +1,13 @@
+Source: debhello
+Section: unknown
+Priority: extra
+Maintainer: "Kez Cleal" <clealk@cardiff.ac.uk>
+Build-Depends: debhelper (>=9)
+Standards-Version: 3.9.7
+Homepage: https://github.com/kcleal/gw
+
+Package: gw
+Architecture: all
+Multi-Arch: foreign
+Depends: ${misc:Depends}
+Description: Genome browser and variant annotation package.

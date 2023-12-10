@@ -154,9 +154,6 @@ jobs:
           cp libhts.so* ${BUILD_DIR}/usr/lib
           
           cd ${BUILD_DIR}
-          
-          pwd
-          ls
           echo "---"
           ls lib
           
@@ -182,12 +179,12 @@ jobs:
           
           # printf "\noverride_dh_auto_build:\n\tdh_auto_build -- LDFLAGS=\"\$$LDFLAGS -L./lib/skia/out/Release-x64  -L/usr/local/lib  -L/usr/lib -L./usr/lib -Wl,-rpath,'$ORIGIN/./usr/lib' \"\n" >> debian/rules
           
-          cat debian/control 1>&2
+          cat debian/control
           
           dpkg-buildpackage
           
           pwd && ls
-          readelf -d gw | grep RPATH
+          readelf -d usr/bin/gw | grep RPATH
 
       - name: upload
         uses: actions/upload-artifact@v3
