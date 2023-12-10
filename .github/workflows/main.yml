@@ -115,6 +115,7 @@ jobs:
           sudo apt-get install devscripts fakeroot debootstrap pbuilder autotools-dev
           sudo apt install zlib1g-dev libbz2-dev liblzma-dev libncurses5-dev libncursesw5-dev libssl-dev 
           sudo apt install libgl1-mesa-dev libfontconfig-dev libcurl4-openssl-dev libglfw3-dev
+
       - name: build
         run: |
           BUILD_DIR=$(pwd)
@@ -122,10 +123,10 @@ jobs:
           
           mkdir -p usr/bin
           mkdir -p usr/lib
-#          mkdir -p usr/lib/gwhts
-#          mkdir -p usr/lib/hts
-#          mkdir -p usr/include/gwhts
-#          mkdir -p usr/include/hts  # not sure if this is needed
+          # mkdir -p usr/lib/gwhts
+          # mkdir -p usr/lib/hts
+          # mkdir -p usr/include/gwhts
+          # mkdir -p usr/include/hts  # not sure if this is needed
           mkdir -p usr/share/icons
           mkdir -p usr/share/applications
           cp include/gw_icon.png usr/share/icons/
@@ -145,8 +146,8 @@ jobs:
           make -j3
           echo "HTSLIB BUILT" && pwd
           cp -rf htslib ${BUILD_DIR}/include
-#          sudo mkdir -p /usr/lib/gwhts && sudo cp libhts.* /usr/lib/gwhts  
-#          sudo mkdir -p /usr/include/gwhts/htslib && sudo cp htslib/*.h /usr/include/gwhts/htslib
+          # sudo mkdir -p /usr/lib/gwhts && sudo cp libhts.* /usr/lib/gwhts  
+          # sudo mkdir -p /usr/include/gwhts/htslib && sudo cp htslib/*.h /usr/include/gwhts/htslib
           sudo mkdir -p /usr/include/gwhts/htslib && sudo cp htslib/*.h /usr/include/gwhts/htslib
           
           # && cp libhts.a ../lib && cp libhts.so* ../lib
@@ -160,20 +161,20 @@ jobs:
           ls lib
           
           sed -i '130 i \\t-mv gw usr/bin' Makefile
-#          sed -i 's@-L/usr/local/lib@-L/usr/local/lib -L/usr/lib/gwhts@g' Makefile
+          # sed -i 's@-L/usr/local/lib@-L/usr/local/lib -L/usr/lib/gwhts@g' Makefile
           
           make prep
 
-#          cp -rf /usr/lib/gwhts usr/lib/gwhts
-#          cp -rf /usr/include/gwhts usr/include/gwhts
-          # sudo ln -s usr/lib/gwhts/libhts.so.3 usr/lib/libhts.so.3
+         # cp -rf /usr/lib/gwhts usr/lib/gwhts
+         # cp -rf /usr/include/gwhts usr/include/gwhts
+         # sudo ln -s usr/lib/gwhts/libhts.so.3 usr/lib/libhts.so.3
 
       - name: package
         run: |
           dh_make --single --createorig --packagename gw_${version} --email clealk@cardiff.ac.uk --yes --native
-#          printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop\nusr/lib/gwhts/" > debian/install
+          # printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop\nusr/lib/gwhts/" > debian/install
           printf "override_dh_shlibdeps:\n\tdh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info" >> debian/rules
-#          sed -i '3 i export LD_LIBRARY_PATH=/usr/lib/gwhts' debian/rules
+          # sed -i '3 i export LD_LIBRARY_PATH=/usr/lib/gwhts' debian/rules
           echo "Updating LDFLAGS " && pwd
           printf "\noverride_dh_auto_build:\n\tdh_auto_build -- LDFLAGS=\"\$$LDFLAGS -L./lib/skia/out/Release-x64  -L/usr/local/lib  -L/usr/lib -Wl,-rpath,./usr/lib \"\n" >> debian/rules
           
