@@ -121,19 +121,13 @@ jobs:
           BUILD_DIR=$(pwd)
           pwd
           
-          # mkdir -p usr/bin
-          # mkdir -p usr/lib
           mkdir -p usr/lib/gwhts
-          
-          # mkdir -p usr/lib/hts
           # mkdir -p usr/include/gwhts
-          # mkdir -p usr/include/hts
           
           mkdir -p usr/share/icons
           mkdir -p usr/share/applications
           cp include/gw_icon.png usr/share/icons/
           cp deps/gw.desktop usr/share/applications/ 
-          ls
           
           git clone --depth 1 https://github.com/ebiggers/libdeflate.git
           cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
@@ -145,15 +139,13 @@ jobs:
           tar -xvf htslib.tar.bz2
           mv htslib-1.17 htslib && rm htslib.tar.bz2 && cd htslib
           ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
-          make -j3
+          make -j4
           echo "HTSLIB BUILT" && pwd
           cp -rf htslib ${BUILD_DIR}/include
           
-          # sudo mkdir -p /usr/lib/gwhts && sudo cp libhts.* /usr/lib/gwhts  
-          # sudo mkdir -p /usr/include/gwhts/htslib && sudo cp htslib/*.h /usr/include/gwhts/htslib
+          sudo mkdir -p /usr/lib/gwhts && sudo cp libhts.so* /usr/lib/gwhts  
           # sudo mkdir -p /usr/include/gwhts/htslib && sudo cp htslib/*.h /usr/include/gwhts/htslib
           
-          # && cp libhts.a ../lib && cp libhts.so* ../lib
           cp libhts.so* ${BUILD_DIR}/usr/lib/gwhts
           
           cd ${BUILD_DIR}
@@ -171,13 +163,15 @@ jobs:
 
       - name: package
         run: |
-          # printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop\nusr/lib/gwhts/" > debian/install
-          # printf "override_dh_shlibdeps:\n\tdh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info" >> debian/rules
-          # sed -i '3 i export LD_LIBRARY_PATH=/usr/lib/gwhts' debian/rules
           
           dh_make --single --createorig --packagename gw_${version} --email clealk@cardiff.ac.uk --yes --native
           
-          cp deps/control debian/control
+          # cp deps/control debian/control
+          
+          printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop\nusr/lib/gwhts/" > debian/install
+          
+          # printf "override_dh_shlibdeps:\n\tdh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info" >> debian/rules
+          # sed -i '3 i export LD_LIBRARY_PATH=/usr/lib/gwhts' debian/rules
           
           export LDFLAGS="$LDFLAGS -L./lib/skia/out/Release-x64 -L/usr/local/lib -L/usr/lib -L./usr/lib/gwhts -Wl,-rpath,'$ORIGIN/./usr/lib/gwhts'"
           
@@ -189,7 +183,7 @@ jobs:
           
           dpkg-buildpackage
           
-          pwd && ls
+          pwd && ls -lh /home/runner/work/gw/
 
       - name: upload
         uses: actions/upload-artifact@v3
