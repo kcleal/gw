@@ -8,101 +8,101 @@ env:
   version: 0.9.0
 
 jobs:
-  mingw:
-   strategy:
-     fail-fast: false
-     matrix:
-       sys: [clang64, ucrt64]
-   name: ${{ matrix.sys }}
-   runs-on: windows-latest
-   defaults:
-     run:
-       shell: msys2 {0}
-   steps:
-     - uses: actions/checkout@v3
-     - uses: msys2/setup-msys2@v2
-       with:
-         msystem: ${{ matrix.sys }}
-         update: true
-         install: make
-         pacboy: toolchain:p glfw:p skia:p htslib:p freeglut:p glew:p ncurses:p fontconfig:p dlfcn:p libpng:p
-     - name: build
-       run: |
-         make
-     - name: upload
-       uses: actions/upload-artifact@v3
-       with:
-         name: mingw-${{ matrix.sys }}
-         path: ${{ github.workspace }}/*.exe
-
-  macos-intel:
-    runs-on: macos-12
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install dependencies
-        run: |
-          brew install graphicsmagick dylibbundler glfw fontconfig
-          # npm broken for python3.12 so use this as work around
-          brew list | grep python@
-          # brew unlink python@3.12
-          shopt -s expand_aliases
-          alias python=$(brew --prefix)/bin/python3.11
-          alias python3=$(brew --prefix)/bin/python3.11
-
-          sudo rm -rf /Library/Frameworks/Python.framework/Versions/3.12
-          sudo rm -f /usr/local/bin/python3
-          sudo rm -f /Library/Frameworks/Python.framework/Versions/Current/bin/python
-
-          which python && python --version
-          which python3 && python --version
-          python -m pip install packaging
-          python3 -m pip install packaging
-
-          npm install --global create-dmg
-
-      - name: package
-        run: |
-          make prep
-
-          osacompile -o gw.app deps/gw_applescript_prog.txt
-          cp deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
-
-          git clone --depth 1 https://github.com/ebiggers/libdeflate.git
-          cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
-          cp build/libdeflate.a /usr/local/lib && cp libdeflate.h /usr/local/include && cd ../
-
-          wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.18/htslib-1.18.tar.bz2
-          tar -xvf htslib.tar.bz2 && mv htslib-* htslib && rm htslib.tar.bz2 && cd htslib
-          ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
-          make && make install && cd ../
-
-          echo "BUILDING GW"
-          make
-          mv gw ./gw.app/Contents/MacOS
-          rm -rf include lib src Makefile
-
-          dylibbundler -od -b -x ./gw.app/Contents/MacOS/gw -d ./gw.app/Contents/libs/ -p @executable_path/../libs/
-
-          echo "VALIDATION"
-          otool -L gw.app/Contents/MacOS/gw
-          echo ""
-
-          echo "CODE SIGNING"
-          ls -l
-          sudo chown -R $(whoami) ./gw.app
-          chmod -R a+rw ./gw.app
-          codesign --remove-signature ./gw.app
-          codesign --force --deep -s - gw.app -v
-          codesign --verify -vvvv gw.app
-          create-dmg 'gw.app' || true
-          ls
-          mv gw\ undefined.dmg gw_${version}_macos_intel.dmg
-
-      - name: upload
-        uses: actions/upload-artifact@v3
-        with:
-          name: gw_macos_intel
-          path: /home/runner/work/gw/*.dmg
+#  mingw:
+#   strategy:
+#     fail-fast: false
+#     matrix:
+#       sys: [clang64, ucrt64]
+#   name: ${{ matrix.sys }}
+#   runs-on: windows-latest
+#   defaults:
+#     run:
+#       shell: msys2 {0}
+#   steps:
+#     - uses: actions/checkout@v3
+#     - uses: msys2/setup-msys2@v2
+#       with:
+#         msystem: ${{ matrix.sys }}
+#         update: true
+#         install: make
+#         pacboy: toolchain:p glfw:p skia:p htslib:p freeglut:p glew:p ncurses:p fontconfig:p dlfcn:p libpng:p
+#     - name: build
+#       run: |
+#         make
+#     - name: upload
+#       uses: actions/upload-artifact@v3
+#       with:
+#         name: mingw-${{ matrix.sys }}
+#         path: ${{ github.workspace }}/*.exe
+#
+#  macos-intel:
+#    runs-on: macos-12
+#    steps:
+#      - uses: actions/checkout@v3
+#      - name: Install dependencies
+#        run: |
+#          brew install graphicsmagick dylibbundler glfw fontconfig
+#          # npm broken for python3.12 so use this as work around
+#          brew list | grep python@
+#          # brew unlink python@3.12
+#          shopt -s expand_aliases
+#          alias python=$(brew --prefix)/bin/python3.11
+#          alias python3=$(brew --prefix)/bin/python3.11
+#
+#          sudo rm -rf /Library/Frameworks/Python.framework/Versions/3.12
+#          sudo rm -f /usr/local/bin/python3
+#          sudo rm -f /Library/Frameworks/Python.framework/Versions/Current/bin/python
+#
+#          which python && python --version
+#          which python3 && python --version
+#          python -m pip install packaging
+#          python3 -m pip install packaging
+#
+#          npm install --global create-dmg
+#
+#      - name: package
+#        run: |
+#          make prep
+#
+#          osacompile -o gw.app deps/gw_applescript_prog.txt
+#          cp deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
+#
+#          git clone --depth 1 https://github.com/ebiggers/libdeflate.git
+#          cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
+#          cp build/libdeflate.a /usr/local/lib && cp libdeflate.h /usr/local/include && cd ../
+#
+#          wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.18/htslib-1.18.tar.bz2
+#          tar -xvf htslib.tar.bz2 && mv htslib-* htslib && rm htslib.tar.bz2 && cd htslib
+#          ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
+#          make && make install && cd ../
+#
+#          echo "BUILDING GW"
+#          make
+#          mv gw ./gw.app/Contents/MacOS
+#          rm -rf include lib src Makefile
+#
+#          dylibbundler -od -b -x ./gw.app/Contents/MacOS/gw -d ./gw.app/Contents/libs/ -p @executable_path/../libs/
+#
+#          echo "VALIDATION"
+#          otool -L gw.app/Contents/MacOS/gw
+#          echo ""
+#
+#          echo "CODE SIGNING"
+#          ls -l
+#          sudo chown -R $(whoami) ./gw.app
+#          chmod -R a+rw ./gw.app
+#          codesign --remove-signature ./gw.app
+#          codesign --force --deep -s - gw.app -v
+#          codesign --verify -vvvv gw.app
+#          create-dmg 'gw.app' || true
+#          ls
+#          mv gw\ undefined.dmg gw_${version}_macos_intel.dmg
+#
+#      - name: upload
+#        uses: actions/upload-artifact@v3
+#        with:
+#          name: gw_macos_intel
+#          path: /home/runner/work/gw/*.dmg
 
   deb-package:
     runs-on: ubuntu-22.04
@@ -175,8 +175,9 @@ jobs:
           # printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop\nusr/lib/gwhts/" > debian/install
           printf "override_dh_shlibdeps:\n\tdh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info" >> debian/rules
           # sed -i '3 i export LD_LIBRARY_PATH=/usr/lib/gwhts' debian/rules
+          echo "Packed ./usr/lib directory has: " && ls ./usr/lib
           echo "Updating LDFLAGS " && pwd
-          printf "\noverride_dh_auto_build:\n\tdh_auto_build -- LDFLAGS=\"\$$LDFLAGS -L./lib/skia/out/Release-x64  -L/usr/local/lib  -L/usr/lib -Wl,-rpath,./usr/lib \"\n" >> debian/rules
+          printf "\noverride_dh_auto_build:\n\tdh_auto_build -- LDFLAGS=\"\$$LDFLAGS -L./lib/skia/out/Release-x64  -L/usr/local/lib  -L/usr/lib -L./usr/lib -Wl,-rpath,./usr/lib \"\n" >> debian/rules
           
           dpkg-buildpackage
 
