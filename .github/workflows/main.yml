@@ -138,20 +138,13 @@ jobs:
           sudo mkdir -p /usr/lib/gwhts && sudo cp libhts.* /usr/lib/gwhts 
           sudo mkdir -p /usr/include/gwhts/htslib && sudo cp htslib/*.h /usr/include/gwhts/htslib
           
-          # && cp libhts.a ../lib && cp libhts.so* ../lib
-          
           cd ${BUILD_DIR}
           
-          pwd
-          ls
-          echo "---"
-          ls lib
-          
           sed -i '130 i \\t-mv gw usr/bin' Makefile
-          sed -i 's@-L/usr/local/lib@-L/usr/local/lib -L/usr/lib/gwhts@g' Makefile
+          #sed -i 's@-L/usr/local/lib@-L/usr/local/lib -L/usr/lib/gwhts@g' Makefile
           
           make prep
-          mkdir -p usr/bin # also can be done in makefile
+          mkdir -p usr/bin
           mkdir -p usr/lib/gwhts
           mkdir -p usr/include/gwhts
           mkdir -p usr/share/icons
@@ -160,59 +153,18 @@ jobs:
           cp deps/gw.desktop usr/share/applications/
           cp -rf /usr/lib/gwhts usr/lib/gwhts
           cp -rf /usr/include/gwhts usr/include/gwhts
-          
-          #BUILD_DIR=$(pwd)
-          
-          #mkdir -p usr/lib/gwhts
-          
-          #mkdir -p usr/share/icons
-          #mkdir -p usr/share/applications
-          #cp include/gw_icon.png usr/share/icons/
-          #cp deps/gw.desktop usr/share/applications/ 
-          
-          #git clone --depth 1 https://github.com/ebiggers/libdeflate.git
-          #cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
-          #sudo cp build/libdeflate.a /usr/local/lib && sudo cp libdeflate.h /usr/local/include
-          #echo "LIBDEFLATE BUILT" && pwd
-          #cd ${BUILD_DIR}
-          
-          #wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.17/htslib-1.17.tar.bz2
-          #tar -xvf htslib.tar.bz2
-          #mv htslib-1.17 htslib && rm htslib.tar.bz2 && cd htslib
-          #./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
-          #make -j4
-          #echo "HTSLIB BUILT" && pwd
-          #cp -rf htslib ${BUILD_DIR}/include
-          
-          #sudo mkdir -p /usr/lib/gwhts && sudo cp libhts.so* /usr/lib/gwhts  
-          
-          #cp libhts.so* ${BUILD_DIR}/usr/lib/gwhts
-          
-          #cd ${BUILD_DIR}
-          #echo "---"
-          #ls lib
-          
-          #sed -i '130 i \\t-mv gw usr/bin' Makefile
-          #make prep
 
       - name: package
         run: |
           
           dh_make --single --createorig --packagename gw_${version} --email clealk@cardiff.ac.uk --yes --native
-          
-          # cp deps/control debian/control
-          
           printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop\nusr/lib/gwhts/" > debian/install
           
-          # printf "override_dh_shlibdeps:\n\tdh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info" >> debian/rules
-          # sed -i '3 i export LD_LIBRARY_PATH=/usr/lib/gwhts' debian/rules
+          sed -i '/^Depends:/ { /libglfw3/!s/$/, libglfw3 (>= 3.3.8)/ }' debian/control
+
+          #export LDFLAGS="$LDFLAGS -L./lib/skia/out/Release-x64 -L/usr/local/lib -L/usr/lib -L./usr/lib/gwhts -Wl,-rpath,'$ORIGIN/./usr/lib/gwhts'"
           
-          export LDFLAGS="$LDFLAGS -L./lib/skia/out/Release-x64 -L/usr/local/lib -L/usr/lib -L./usr/lib/gwhts -Wl,-rpath,'$ORIGIN/./usr/lib/gwhts'"
-          
-          # export LDFLAGS="$LDFLAGS -L./lib/skia/out/Release-x64 -L/usr/local/lib -L/usr/lib -L./usr/lib/gwhts"
-          # export LDFLAGS="$LDFLAGS -L./lib/skia/out/Release-x64 -L/usr/local/lib -L/usr/lib -L./usr/lib -Wl,-rpath,'$ORIGIN/./usr/lib'"
-          # printf "\noverride_dh_auto_build:\n\tdh_auto_build -- LDFLAGS=\"\$$LDFLAGS -L./lib/skia/out/Release-x64  -L/usr/local/lib  -L/usr/lib -L./usr/lib -Wl,-rpath,'$ORIGIN/./usr/lib' \"\n" >> debian/rules
-          
+          export LDFLAGS="$LDFLAGS -L./lib/skia/out/Release-x64 -L/usr/local/lib -L/usr/lib -L./usr/lib/gwhts -Wl,-rpath,/usr/lib/gwhts/gwhts"
           dpkg-buildpackage
 
       - name: upload
