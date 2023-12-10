@@ -111,7 +111,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt-get install dh-make build-essential
+          sudo apt-get install dh-make build-essential debhelper dh-virtualenv
           sudo apt-get install devscripts fakeroot debootstrap pbuilder autotools-dev
           sudo apt install zlib1g-dev libbz2-dev liblzma-dev libncurses5-dev libncursesw5-dev libssl-dev 
           sudo apt install libgl1-mesa-dev libfontconfig-dev libcurl4-openssl-dev libglfw3-dev
