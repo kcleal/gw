@@ -154,6 +154,16 @@ def plot_samtools_cov(chrom, start, end, args, timef, threads=1):
     return t, m
 
 
+def plot_wally(chrom, start, end, args, timef, threads=1):
+    com = timef + " -o wallytime.txt {wally} -g {genome} -r {chrom}:{start}-{end} {bam}" \
+        .format(wally=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
+    run(com, shell=True)
+    line = open('wallytime.txt', 'r').readlines()[0].strip().split("\t")
+    t = float(line[0])
+    m = float(line[1])
+    return t, m
+
+
 def samtools_count(chrom, start, end, args, timef, threads):
     p = Popen(timef + f' -o samtoolstime.txt samtools view -@{threads} -c {args.bam} {chrom}:{start}-{end}', stdout=PIPE, stderr=PIPE, shell=True)
     out, err = p.communicate()
@@ -180,7 +190,7 @@ if __name__ == "__main__":
     parser.add_argument('bam')
     parser.add_argument('tool_path')
     parser.add_argument('tool_name', choices=['gw', 'igv', 'samplot', 'jbrowse2', 'bamsnap',
-                                              'samtools-coverage', 'genomeview'])
+                                              'samtools-coverage', 'genomeview', 'wally'])
     parser.add_argument('threads')
     parser.add_argument('extra_args')
     args = parser.parse_args()
@@ -232,7 +242,7 @@ if __name__ == "__main__":
 
     results = []
     progs = {'gw': plot_gw, 'igv': plot_igv, 'samplot': plot_samplot, 'jbrowse2': plot_jbrowse2, 'bamsnap': plot_bamsnap,
-             'samtools-coverage': plot_samtools_cov, 'genomeview': plot_genomeview}
+             'samtools-coverage': plot_samtools_cov, 'genomeview': plot_genomeview, 'wally': plot_wally}
     name = args.tool_name
     extra_args = args.extra_args
     threads = args.threads
@@ -330,6 +340,8 @@ if __name__ == "__main__":
         run('rm bamsnaptime.txt', shell=True)
     elif name == 'samtools-coverage':
         run('rm samtoolscovtime.txt', shell=True)
+    elif name == 'wally':
+        run('rm wallytime.txt', shell=True)
     else:
         run('rm gwtime.txt', shell=True)
     run('rm samtoolstime.txt', shell=True)
