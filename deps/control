@@ -1,13 +1,8 @@
-Source: gw
+Package: gw
 Section: bioinformatics
 Priority: optional
 Maintainer: "Kez Cleal" <clealk@cardiff.ac.uk>
-Build-Depends: debhelper-compat (= 13)
-Standards-Version: 4.6.0
 Homepage: https://github.com/kcleal/gw
-Rules-Requires-Root: no
-
-Package: gw
 Architecture: amd64
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: libbz2-1.0, libc6 (>= 2.35), libcurl4 (>= 7.18.0), libdeflate0 (>= 1.0), libegl1, libfontconfig1 (>= 2.12.6), libfreetype6 (>= 2.11.0), libgcc-s1 (>= 3.4), libgles2, libglfw3 (>= 3.3), liblzma5 (>= 5.1.1alpha+20120614), libssl3 (>= 3.0.0~~alpha1), libstdc++6 (>= 12), zlib1g (>= 1:1.1.4)
 Description: Genome browser and variant annotation package

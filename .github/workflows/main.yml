@@ -120,7 +120,6 @@ jobs:
         run: |
           
           BUILD_DIR=$(pwd)
-          ls
           
           git clone --depth 1 https://github.com/ebiggers/libdeflate.git
           cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
@@ -158,22 +157,14 @@ jobs:
         run: |
           
           dh_make --single --createorig --packagename gw_${version} --email clealk@cardiff.ac.uk --yes --native
-          
-          # cp deps/control debian/control
-          
           printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop\nusr/lib/gwhts/" > debian/install
           
           # printf "override_dh_shlibdeps:\n\tdh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info" >> debian/rules
           # sed -i '3 i export LD_LIBRARY_PATH=/usr/lib/gwhts' debian/rules
           
-          export LDFLAGS="$LDFLAGS -L./lib/skia/out/Release-x64 -L/usr/local/lib -L/usr/lib -L./usr/lib/gwhts -Wl,-rpath,'$ORIGIN/./usr/lib/gwhts'"
-          
-          # export LDFLAGS="$LDFLAGS -L./lib/skia/out/Release-x64 -L/usr/local/lib -L/usr/lib -L./usr/lib/gwhts"
-          # export LDFLAGS="$LDFLAGS -L./lib/skia/out/Release-x64 -L/usr/local/lib -L/usr/lib -L./usr/lib -Wl,-rpath,'$ORIGIN/./usr/lib'"
-          # printf "\noverride_dh_auto_build:\n\tdh_auto_build -- LDFLAGS=\"\$$LDFLAGS -L./lib/skia/out/Release-x64  -L/usr/local/lib  -L/usr/lib -L./usr/lib -Wl,-rpath,'$ORIGIN/./usr/lib' \"\n" >> debian/rules
-          
+          export LDFLAGS="$LDFLAGS -L./lib/skia/out/Release-x64 -L/usr/local/lib -L/usr/lib -L./usr/lib/gwhts -Wl,-rpath,'$ORIGIN/../lib/gwhts'"
+
           dpkg-buildpackage
-          
 
       - name: upload
         uses: actions/upload-artifact@v3
