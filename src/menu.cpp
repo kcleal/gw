@@ -784,8 +784,11 @@ namespace Menu {
         } else if (new_opt.value == "dark") {
             opts.theme = Themes::DarkTheme();
             opts.theme_str = "dark";
+        } else if (new_opt.value == "slate") {
+            opts.theme = Themes::SlateTheme();
+            opts.theme_str = "slate";
         } else {
-            std::cerr << termcolor::red << "Error:" << termcolor::reset << " theme must be 'igv' or 'dark'" << std::endl;
+            std::cerr << termcolor::red << "Error:" << termcolor::reset << " theme must be 'igv', 'dark' or 'slate'" << std::endl;
             return;
         }
         opts.myIni[new_opt.table][new_opt.name] = new_opt.value;

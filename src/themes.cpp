@@ -356,7 +356,7 @@ namespace Themes {
         theme_str = myIni["general"]["theme"];
         if (theme_str == "dark") {
             theme = Themes::DarkTheme();
-        } else if (theme_str == "rainbow") {
+        } else if (theme_str == "slate") {
             theme = Themes::SlateTheme();
         } else {
             theme = Themes::IgvTheme();
