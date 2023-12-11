@@ -38,7 +38,8 @@ import os
 import platform
 from collections import defaultdict
 
-PYTHON='/opt/homebrew/bin/python3.10'
+PYTHON='~/miniconda3/bin/python'
+
 
 def plot_gw(chrom, start, end, args, timef, threads, extra_args):
     com = timef + " -o gwtime.txt {gw} {genome} {extra_args} -t {threads} -b {bam} -r {chrom}:{start}-{end} --file images/gw.png --no-show -d 1500x1500"\
@@ -155,7 +156,7 @@ def plot_samtools_cov(chrom, start, end, args, timef, threads=1):
 
 
 def plot_wally(chrom, start, end, args, timef, threads=1):
-    com = timef + " -o wallytime.txt {wally} -g {genome} -r {chrom}:{start}-{end} {bam}" \
+    com = timef + " -o wallytime.txt {wally} region -g {genome} -r {chrom}:{start}-{end} {bam}" \
         .format(wally=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     run(com, shell=True)
     line = open('wallytime.txt', 'r').readlines()[0].strip().split("\t")
@@ -189,7 +190,7 @@ if __name__ == "__main__":
     parser.add_argument('ref_gaps')
     parser.add_argument('bam')
     parser.add_argument('tool_path')
-    parser.add_argument('tool_name', choices=['gw', 'igv', 'samplot', 'jbrowse2', 'bamsnap',
+    parser.add_argument('tool_name', choices=['gw', 'igv', 'samplot', 'jb2export', 'bamsnap',
                                               'samtools-coverage', 'genomeview', 'wally'])
     parser.add_argument('threads')
     parser.add_argument('extra_args')
@@ -214,9 +215,14 @@ if __name__ == "__main__":
                 if line[0] == "#":
                     continue
                 l = line.strip().split("\t")
-                chrom = l[0]
-                s = int(l[1])
-                e = int(l[2])
+                try:
+                    chrom = l[0]
+                    s = int(l[1])
+                    e = int(l[2])
+                except ValueError:  # might have index column
+                    chrom = l[1]
+                    s = int(l[2])
+                    e = int(l[3])
                 if have_pandas:
                     gaps[chrom].append(pd.Interval(s, e))
                 else:
@@ -241,7 +247,7 @@ if __name__ == "__main__":
                 fai[l[0]] = length
 
     results = []
-    progs = {'gw': plot_gw, 'igv': plot_igv, 'samplot': plot_samplot, 'jbrowse2': plot_jbrowse2, 'bamsnap': plot_bamsnap,
+    progs = {'gw': plot_gw, 'igv': plot_igv, 'samplot': plot_samplot, 'jb2export': plot_jbrowse2, 'bamsnap': plot_bamsnap,
              'samtools-coverage': plot_samtools_cov, 'genomeview': plot_genomeview, 'wally': plot_wally}
     name = args.tool_name
     extra_args = args.extra_args
