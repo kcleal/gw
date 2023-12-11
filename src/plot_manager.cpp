@@ -1056,8 +1056,13 @@ namespace Manager {
             hts_idx_t *index = indexes[i];
             for (int j=0; j<(int)regions.size(); ++j) {
                 Utils::Region *reg = &regions[j];
-                HGW::iterDraw(collections, idx, b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage,
-                              opts.low_mem, filters, opts, canvas, trackY, yScaling, fonts, refSpace);
+                if (opts.threads == 1) {
+                    HGW::iterDraw(collections, idx, b, hdr_ptr, index, reg, (bool) opts.max_coverage,
+                                  opts.low_mem, filters, opts, canvas, trackY, yScaling, fonts, refSpace);
+                } else {
+                    HGW::iterDrawParallel(collections, idx, b, hdr_ptr, index, opts.threads, reg, (bool) opts.max_coverage,
+                                  opts.low_mem, filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool);
+                }
                 idx += 1;
             }
         }

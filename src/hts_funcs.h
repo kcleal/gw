@@ -91,11 +91,17 @@ namespace HGW {
                                  bool coverage, bool low_mem,
                                  std::vector<Parse::Parser> &filters, BS::thread_pool &pool);
 
-    void iterDraw(std::vector<Segs::ReadCollection> &cols, int idx, htsFile *b, sam_hdr_t *hdr_ptr,
+    void iterDrawParallel(std::vector<Segs::ReadCollection> &cols, int idx, htsFile *b, sam_hdr_t *hdr_ptr,
                         hts_idx_t *index, int threads, Utils::Region *region,
                         bool coverage, bool low_mem,
                         std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
-                        float trackY, float yScaling, Themes::Fonts &fonts, float refSpace);
+                        float trackY, float yScaling, Themes::Fonts &fonts, float refSpace, BS::thread_pool &pool);
+
+    void iterDraw(std::vector< Segs::ReadCollection > &cols, int idx, htsFile *b, sam_hdr_t *hdr_ptr,
+                  hts_idx_t *index, Utils::Region *region,
+                  bool coverage, bool low_mem,
+                  std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
+                  float trackY, float yScaling, Themes::Fonts &fonts, float refSpace);
 
     void trimToRegion(Segs::ReadCollection &col, bool coverage, int snp_threshold);
 

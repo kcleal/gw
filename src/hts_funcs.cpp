@@ -135,6 +135,18 @@ namespace HGW {
         readQueue.erase(std::remove_if(readQueue.begin(), readQueue.end(), pred), readQueue.end());
     }
 
+    void applyFilters_noDelete(std::vector<Parse::Parser> &filters, std::vector<Segs::Align>& readQueue, const sam_hdr_t* hdr,
+                      int bamIdx, int regionIdx) {
+        for (auto &align: readQueue) {
+            for (auto &f: filters) {
+                bool passed = f.eval(align, hdr, bamIdx, regionIdx);
+                if (!passed) {
+                    align.y = -1;
+                }
+            }
+        }
+    }
+
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, int threads, Utils::Region *region,
                                  bool coverage, bool low_mem,
@@ -189,9 +201,86 @@ namespace HGW {
         col.collection_processed = false;
     }
 
+    void iterDrawParallel(std::vector< Segs::ReadCollection > &cols, int idx, htsFile *b, sam_hdr_t *hdr_ptr,
+                  hts_idx_t *index, int threads, Utils::Region *region,
+                  bool coverage, bool low_mem,
+                  std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
+                  float trackY, float yScaling, Themes::Fonts &fonts, float refSpace, BS::thread_pool &pool) {
+        const int BATCH = 500;
+        bam1_t *src;
+        hts_itr_t *iter_q;
+        Segs::ReadCollection &col = cols[idx];
+        int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
+        std::vector<Segs::Align>& readQueue = col.readQueue;
+        if (!readQueue.empty()) {
+            for (auto &item: readQueue) {
+                bam_destroy1(item.delegate);
+            }
+            readQueue.clear();
+        }
+        readQueue.reserve(BATCH);
+        for (int i=0; i < BATCH; ++i) {
+            readQueue.emplace_back(bam_init1());
+        }
+        iter_q = sam_itr_queryi(index, tid, region->start, region->end);
+        if (iter_q == nullptr) {
+            std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
+            std::terminate();
+        }
+        bool filter = !filters.empty();
+        int j = 0;
+        while (sam_itr_next(b, iter_q, readQueue[j].delegate) >= 0) {
+            src = readQueue[j].delegate;
+            if (src->core.flag & 4 || src->core.n_cigar == 0) {
+                continue;
+            }
+            j += 1;
+            if (j < BATCH) {
+                continue;
+            }
+
+            Segs::init_parallel(readQueue, threads, pool);
+            if (coverage) {
+                int l_arr = (int)col.covArr.size() - 1;
+                for (int i=0; i < BATCH; ++ i) {
+                    Segs::addToCovArray(col.covArr, readQueue[i], region->start, region->end, l_arr);
+                }
+            }
+            Segs::findY(col, readQueue, opts.link_op, opts, region, false);
+            if (filter) {
+                applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
+            }
+            Drawing::drawBams(opts, cols, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
+            for (int i=0; i < BATCH; ++ i) {
+                Segs::align_clear(&readQueue[i]);
+            }
+            j = 0;
+        }
+
+        if(j < BATCH){
+            readQueue.erase(readQueue.begin() + j);
+            if (!filters.empty()) {
+                applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
+            }
+            if (!readQueue.empty()) {
+                Segs::init_parallel(readQueue, threads, pool);
+                if (coverage) {
+                    int l_arr = (int)col.covArr.size() - 1;
+                    for (int i=0; i < BATCH; ++ i) {
+                        Segs::addToCovArray(col.covArr, readQueue[i], region->start, region->end, l_arr);
+                    }
+                }
+                Segs::findY(col, readQueue, opts.link_op, opts, region, false);
+                Drawing::drawBams(opts, cols, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
+                for (int i=0; i < BATCH; ++ i) {
+                    Segs::align_clear(&readQueue[i]);
+                }
+            }
+        }
+    }
 
     void iterDraw(std::vector< Segs::ReadCollection > &cols, int idx, htsFile *b, sam_hdr_t *hdr_ptr,
-                                 hts_idx_t *index, int threads, Utils::Region *region,
+                                 hts_idx_t *index, Utils::Region *region,
                                  bool coverage, bool low_mem,
                                  std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
                                  float trackY, float yScaling, Themes::Fonts &fonts, float refSpace) {
@@ -213,26 +302,24 @@ namespace HGW {
             std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
             std::terminate();
         }
-
+        bool filter = !filters.empty();
         while (sam_itr_next(b, iter_q, readQueue.back().delegate) >= 0) {
             src = readQueue.back().delegate;
             if (src->core.flag & 4 || src->core.n_cigar == 0) {
                 continue;
             }
-            if (!filters.empty()) {
-                applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
+            Segs::align_init(&readQueue.back());
+            if (coverage) {
+                int l_arr = (int)col.covArr.size() - 1;
+                Segs::addToCovArray(col.covArr, readQueue.back(), region->start, region->end, l_arr);
             }
-            if (!readQueue.empty()) {
-                Segs::align_init(&readQueue.back());
-                if (coverage) {
-                    int l_arr = (int)col.covArr.size() - 1;
-                    Segs::addToCovArray(col.covArr, readQueue.back(), region->start, region->end, l_arr);
+            Segs::findY(col, readQueue, opts.link_op, opts, region, false);
+            if (filter) {
+                applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
+            }
+            Drawing::drawBams(opts, cols, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
+            Segs::align_clear(&readQueue.back());
 
-                }
-                Segs::findY(col, readQueue, opts.link_op, opts, region, false);
-                Drawing::drawBams(opts, cols, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
-                Segs::align_clear(&readQueue.back());
-            }
         }
     }
 
