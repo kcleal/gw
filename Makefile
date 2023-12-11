@@ -76,7 +76,7 @@ prep:
     endif
 
 
-CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG
+CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O2 -DNDEBUG
 
 CPPFLAGS += -I./lib/libBigWig -I./include -I./src -I.
 

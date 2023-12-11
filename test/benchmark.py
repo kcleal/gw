@@ -126,13 +126,12 @@ def plot_genomeview(chrom, start, end, args, timef, threads=1):
         run("rm images/genomeview_image.png", shell=True)
 
     with open('genomeview_script.py', 'w') as s:
-        s.write(f"#!{PYTHON}\n")
         s.write("import genomeview\n")
         s.write(f"doc = genomeview.visualize_data(['{args.bam}'], '{chrom}', {start}, {end}, '{args.ref_genome}')\n")
         s.write("genomeview.save(doc, 'images/genomeview_image.svg')\n")
-    run('chmod +x genomeview_script.py', shell=True)
+    run('chmod +x ./genomeview_script.py', shell=True)
 
-    com = timef + " -o genomeviewtime.txt ./genomeview_script.py"
+    com = timef + f" -o genomeviewtime.txt {PYTHON} ./genomeview_script.py"
     run(com, shell=True)
     if os.path.exists("images/genomeview_image.svg") and os.path.getsize("images/genomeview_image.svg") > 0:
         line = open('genomeviewtime.txt', 'r').readlines()[0].strip().split("\t")
