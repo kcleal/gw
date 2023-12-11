@@ -114,7 +114,7 @@ jobs:
           sudo apt-get install dh-make build-essential debhelper dh-virtualenv
           sudo apt-get install devscripts fakeroot debootstrap pbuilder autotools-dev
           sudo apt install zlib1g-dev libbz2-dev liblzma-dev libncurses5-dev libncursesw5-dev libssl-dev 
-          sudo apt install libgl1-mesa-dev libfontconfig-dev libcurl4-openssl-dev libglfw3-dev
+          sudo apt install libgl1-mesa-dev libfontconfig-dev libcurl4-openssl-dev libglfw3 libglfw3-dev
 
       - name: build
         run: |
@@ -122,6 +122,7 @@ jobs:
           BUILD_DIR=$(pwd)
           
           mkdir -p usr/bin
+          mkdir -p usr/lib/x86_64-linux-gnu
           mkdir -p usr/lib/gwhts
           mkdir -p usr/include/gwhts
           mkdir -p usr/share/icons
@@ -129,6 +130,8 @@ jobs:
           
           sudo mkdir -p /usr/lib/gwhts
           sudo mkdir -p /usr/include/gwhts/htslib
+
+          sudo cp /usr/lib/x86_64-linux-gnu/libglfw* usr/lib/x86_64-linux-gnu/.
           
           git clone --depth 1 https://github.com/ebiggers/libdeflate.git
           cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
@@ -164,7 +167,7 @@ jobs:
         run: |
           
           dh_make --single --createorig --packagename gw_${version} --email clealk@cardiff.ac.uk --yes --native
-          printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop\nusr/lib/gwhts/" > debian/install
+          printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop\nusr/lib/gwhts/\nusr/lib/x86_64-linux-gnu/libglfw.so.3\nusr/lib/x86_64-linux-gnu/libglfw.so.3.3" > debian/install
           
           export LDFLAGS="$LDFLAGS -L./lib/skia/out/Release-x64 -L/usr/local/lib -L/usr/lib -L./usr/lib/gwhts -Wl,-rpath,'$ORIGIN/../lib/gwhts'"
           sed -i '/^Section/c\Section: Bioinformatics' debian/control
