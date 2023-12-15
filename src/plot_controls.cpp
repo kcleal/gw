@@ -1083,7 +1083,15 @@ namespace Manager {
                 currentVarTrack = &variantTracks[variantFileSelection];
                 if (split.size() == 1) {
                     if (mode == Show::SINGLE) {
-                        fname = Utils::makeFilenameFromRegions(regions);
+                        std::filesystem::path fname_path = Utils::makeFilenameFromRegions(regions);
+#if defined(_WIN32) || defined(_WIN64)
+                        const wchar_t* pc = fname_path.filename().c_str();
+                        std::wstring ws(pc);
+                        std::string p(ws.begin(), ws.end());
+                        fname = p;
+#else
+                        fname = fname_path.filename();
+#endif
                     } else if (currentVarTrack != nullptr) {
                         fname = "index_" + std::to_string(currentVarTrack->blockStart) + "_" +
                                 std::to_string(opts.number.x * opts.number.y) + ".png";
