@@ -108,7 +108,7 @@ namespace Menu {
         float control_box_h = 35;
         float y = v_gap;
         float x = v_gap;
-        float m_width = 26 * fonts.overlayWidth;
+        float m_width = 28 * fonts.overlayWidth;
         auto m_height = (float)(pad * 1.5);
         SkPaint bg;
         SkPaint menuBg;

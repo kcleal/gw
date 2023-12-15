@@ -42,6 +42,8 @@ namespace Term {
 
 	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver, int targetLevel, int trackIdx);
 
+    void printVariantFileInfo(Utils::Label *label, int index);
+
     void printOnlineLinks(std::vector<HGW::GwTrack> &tracks, Utils::Region &rgn, std::string &genome_tag);
 
     void updateRefGenomeSeq(Utils::Region *region, float xW, float xOffset, float xScaling);

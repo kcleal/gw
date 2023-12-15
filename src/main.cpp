@@ -505,11 +505,11 @@ int main(int argc, char *argv[]) {
             }
         } else if (program.is_used("--variants")) {  // plot variants as tiled images
 
-            std::vector<std::string> labels = Utils::split(iopts.labels, ',');
+            std::vector<std::string> labels = Utils::split_keep_empty_str(iopts.labels, ',');
             plotter.setLabelChoices(labels);
-
+            std::string img;
             if (program.is_used("--in-labels")) {
-                Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels, plotter.seenLabels);
+                Utils::openLabels(program.get<std::string>("--in-labels"), img, plotter.inputLabels, labels, plotter.seenLabels);
             }
             if (program.is_used("--out-labels")) {
                 plotter.setOutLabelFile(program.get<std::string>("--out-labels"));
@@ -517,7 +517,7 @@ int main(int argc, char *argv[]) {
             auto variant_paths = program.get<std::vector<std::string>>("--variants");
             for (auto &v : variant_paths) {
                 bool cacheStdin = (v == "-" || program.is_used("--out-vcf")); // todo remove caching when --out-vcf is used
-                plotter.addVariantTrack(v, iopts.start_index, cacheStdin);
+                plotter.addVariantTrack(v, iopts.start_index, cacheStdin, false);
             }
             plotter.mode = Manager::Show::TILED;
 
@@ -536,47 +536,49 @@ int main(int argc, char *argv[]) {
             if (img == ".") {
                 img += "/";
             }
-
-            plotter.addVariantTrack(img, iopts.start_index, false);
-            if (plotter.variantTracks.back().image_glob.size() == 1) {
-                plotter.opts.number.x = 1; plotter.opts.number.y = 1;
-            }
-
-
-            std::vector<std::string> labels = Utils::split(iopts.labels, ',');
+            std::vector<std::string> labels = Utils::split_keep_empty_str(iopts.labels, ',');
             plotter.setLabelChoices(labels);
 
+
+
             if (program.is_used("--in-labels")) {
-                Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels, plotter.seenLabels);
-                std::string emptylabel;
-                int index = 0;
-                for (auto &item : plotter.variantTracks.back().image_glob) {
-#if defined(_WIN32) || defined(_WIN64)
-                    const wchar_t* pc = item.filename().c_str();
-                    std::wstring ws(pc);
-                    std::string p(ws.begin(), ws.end());
-#else
-		            std::string p = item.filename();
-#endif
-		            if (Utils::endsWith(p, ".png")) {
-                        std::vector<std::string> m = Utils::split(p.erase(p.size() - 4), '~');
-                        try {
-//                            plotter.appendVariantSite(m[1], std::stoi(m[2]), m[3], std::stoi(m[4]), m[5], emptylabel, m[0]);
-                        } catch (...) {
-                            // append an empty variant, use the index at the id
-                            std::string stri = std::to_string(index);
-//                            plotter.appendVariantSite(emptylabel, 0, emptylabel, 0, stri, emptylabel, emptylabel);
-                        }
-                        index += 1;
-                    }
-                }
+//                std::cerr << " yup\n";
+                Utils::openLabels(program.get<std::string>("--in-labels"), img, plotter.inputLabels, labels, plotter.seenLabels);
+//                std::string emptylabel;
+//                std::cerr << " " << plotter.inputLabels.size() << std::endl;
+//                int index = 0;
+//                for (auto &item : plotter.variantTracks.back().image_glob) {
+//#if defined(_WIN32) || defined(_WIN64)
+//                    const wchar_t* pc = item.filename().c_str();
+//                    std::wstring ws(pc);
+//                    std::string p(ws.begin(), ws.end());
+//#else
+//		            std::string p = item.filename();
+//#endif
+//		            if (Utils::endsWith(p, ".png")) {
+//                        std::vector<std::string> m = Utils::split(p.erase(p.size() - 4), '~');
+//                        try {
+////                            plotter.appendVariantSite(m[1], std::stoi(m[2]), m[3], std::stoi(m[4]), m[5], emptylabel, m[0]);
+//                        } catch (...) {
+//                            // append an empty variant, use the index at the id
+//                            std::string stri = std::to_string(index);
+////                            plotter.appendVariantSite(emptylabel, 0, emptylabel, 0, stri, emptylabel, emptylabel);
+//                        }
+//                        index += 1;
+//                    }
+//                }
             }
             if (program.is_used("--out-labels")) {
                 plotter.setOutLabelFile(program.get<std::string>("--out-labels"));
             }
 
+            plotter.addVariantTrack(img, iopts.start_index, false, true);
+            if (plotter.variantTracks.back().image_glob.size() == 1) {
+                plotter.opts.number.x = 1; plotter.opts.number.y = 1;
+            }
+
             plotter.mode = Manager::Show::TILED;
-            std::cerr << ": got here\n";
+
             int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
@@ -663,11 +665,7 @@ int main(int argc, char *argv[]) {
                             Manager::imagePngToStdOut(img);
                         }
                     } else {
-                        fs::path fname = "GW~";
-                        for (auto &rgn: regions) {
-                            fname += rgn.chrom + "~" + std::to_string(rgn.start) + "~" + std::to_string(rgn.end) + "~";
-                        }
-                        fname += ".png";
+                        fs::path fname = Utils::makeFilenameFromRegions(regions);
                         fs::path out_path = outdir / fname;
                         Manager::imageToPng(img, out_path);
                     }
@@ -770,7 +768,6 @@ int main(int argc, char *argv[]) {
                     return -1;
                 }
                 iopts.theme.setAlphas();
-
                 auto vcf = HGW::VCFfile();
                 vcf.cacheStdin = false;
                 vcf.label_to_parse = iopts.parse_label.c_str();
@@ -779,21 +776,20 @@ int main(int argc, char *argv[]) {
 
                 bool writeLabel;
                 std::ofstream fLabels;
-
                 if (!iopts.parse_label.empty()) {
                     writeLabel = true;
                     fs::path file ("gw.parsed_labels.tsv");
                     fs::path full_path = dir / file;
                     std::string outname = full_path.string();
                     fLabels.open(full_path);
-                    fLabels << "#chrom\tpos\tvariant_ID\tlabel\tvar_type\tlabelled_date\n";
+                    fLabels << "#chrom\tpos\tvariant_ID\tlabel\tvar_type\tlabelled_date\tvariant_filename\n";
                 } else {
                     writeLabel = false;
                 }
 
                 vcf.open(v);
-
                 std::vector<Manager::GwPlot *> managers;
+                managers.reserve(iopts.threads);
                 for (int i = 0; i < iopts.threads; ++i) {
                     auto *m = new Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
                     m->opts.theme.setAlphas();
@@ -805,6 +801,17 @@ int main(int argc, char *argv[]) {
                 std::vector<Manager::VariantJob> jobs;
                 std::vector<std::string> empty_labels;
                 std::string dateStr;
+
+                std::string fileName;
+                std::filesystem::path fsp(vcf.path);
+#if defined(_WIN32) || defined(_WIN64)
+                const wchar_t* pc = fsp.filename().c_str();
+                std::wstring ws(pc);
+                std::string p(ws.begin(), ws.end());
+                fileName = p;
+#else
+                fileName = fsp.filename();
+#endif
                 while (true) {
                     vcf.next();
                     if (vcf.done) {
@@ -819,8 +826,8 @@ int main(int argc, char *argv[]) {
                     job.rid = vcf.rid;
                     jobs.push_back(job);
                     if (writeLabel) {
-                        Utils::Label l = Utils::makeLabel(vcf.chrom, vcf.start, vcf.label, empty_labels, vcf.rid, vcf.vartype, "", 0);
-                        Utils::labelToFile(fLabels, l, dateStr);
+                        Utils::Label l = Utils::makeLabel(vcf.chrom, vcf.start, vcf.label, empty_labels, vcf.rid, vcf.vartype, "", false, false);
+                        Utils::labelToFile(fLabels, l, dateStr, fileName);
                     }
                 }
                 // shuffling might help distribute high cov regions between jobs
@@ -863,7 +870,7 @@ int main(int argc, char *argv[]) {
         } else if (program.is_used("--variants") && program.is_used("--out-vcf") && program.is_used("--in-labels")) {
 
 //            auto v = program.get<std::string>("--variants");
-//            std::vector<std::string> labels = Utils::split(iopts.labels, ',');
+//            std::vector<std::string> labels = Utils::split_keep_empty_str(iopts.labels, ',');
 //            if (program.is_used("--in-labels")) {
 //                Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels, plotter.seenLabels);
 //            }
@@ -879,7 +886,7 @@ int main(int argc, char *argv[]) {
 //                if (plotter.inputLabels.contains(vcf.rid)) {
 //                    plotter.multiLabels.push_back(plotter.inputLabels[vcf.rid]);
 //                } else {
-//                    plotter.multiLabels.push_back(Utils::makeLabel(vcf.chrom, vcf.start, vcf.label, empty_labels, vcf.rid, vcf.vartype, "", 0));
+//                    plotter.multiLabels.push_back(Utils::makeLabel(vcf.chrom, vcf.start, vcf.label, empty_labels, vcf.rid, vcf.vartype, "", false, false));
 //                }
 //            }
 //            if (program.is_used("--out-vcf")) {

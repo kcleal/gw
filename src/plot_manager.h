@@ -129,9 +129,7 @@ namespace Manager {
 
         void setRasterSize(int width, int height);
 
-//        void setVariantFile(std::string &path, int startIndex, bool cacheStdin);
-
-        void addVariantTrack(std::string &path, int startIndex, bool cacheStdin);
+        void addVariantTrack(std::string &path, int startIndex, bool cacheStdin, bool useFullPath);
 
         void setOutLabelFile(const std::string &path);
 

@@ -194,9 +194,9 @@ namespace HGW {
                        std::shared_ptr<ankerl::unordered_dense::set<std::string>> t_seenLabels);
         ~GwVariantTrack();
         bool init;
-//        bool useVcf;
         TrackType type;
         bool *trackDone;
+//        bool image_name_valid;  // the region and variant id can be parsed from filename
         int mouseOverTileIndex;
         int blockStart;
         std::string path, fileName;
@@ -213,6 +213,7 @@ namespace HGW {
 
         void nextN(int number);
         void iterateToIndex(int index);
+        void appendImageLabels(int startIdx, int number);  // adds labels for use with IMAGES only
 
     private:
         void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label, std::string &vartype);

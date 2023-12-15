@@ -722,13 +722,6 @@ namespace Term {
 			}
 		}
         line.clear();
-//        auto s = std::to_string(pos + 1);
-//        int n = (int)s.length() - 3;
-//        int end = (pos + 1 >= 0) ? 0 : 1;
-//        while (n > end) {
-//            s.insert(n, ",");
-//            n -= 3;
-//        }
         std::string s = intToStringCommas(pos);
         line = "    Pos  " + s;
         if (term_space < (int)line.size()) {
@@ -789,26 +782,83 @@ namespace Term {
                         }
                     }
                     std::cout << std::endl;
-//                    Utils::Region tmp_region;
-//                    tmp_region.chrom = rgn->chrom;
-//                    tmp_region.start = rgn->start;
-//                    tmp_region.end = rgn->end;
-//                    track.fetch(&tmp_region);
-//                    std::cout << std::endl;
-//                    track.printTargetRecord(b.name, b.chrom, target);
-//                    if (!track.variantString.empty()) {
-//                        std::cout << track.variantString << std::endl;
-//                    }
                 } else {
                     break;
                 }
             }
         }
-
         if (!mouseOver) {
             std::cout << std::endl;
         }
 	}
+
+    void printVariantFileInfo(Utils::Label *label, int index) {
+        if (label->pos < 0) {
+            return;
+        }
+        Term::clearLine();
+        std::string v = "\rPos     ";
+
+        int term_space = Utils::get_terminal_width();
+        if (term_space < (int)v.size()) {
+            std::cout << std::flush; return;
+        }
+        std::cout << termcolor::bold << v << termcolor::reset;
+        term_space -= (int)v.size();
+
+        if (label->pos != -1) {
+            v = label->chrom + ":" + std::to_string(label->pos);
+            if (term_space < (int)v.size()) {
+                std::cout << std::flush; return;
+            }
+            std::cout << v;
+            term_space -= (int)v.size();
+        }
+        v = "    ID  ";
+        if (term_space < (int)v.size()) {
+            std::cout << std::flush; return;
+        }
+        std::cout << termcolor::bold << v << termcolor::reset;
+        term_space -= (int)v.size();
+
+        v = label->variantId;
+        if (term_space < (int)v.size()) {
+            std::cout << std::flush; return;
+        }
+        std::cout << v;
+        term_space -= (int)v.size();
+
+        v = "    Type  ";
+        if (term_space < (int)v.size()) {
+            std::cout << std::flush; return;
+        }
+        std::cout << termcolor::bold << v << termcolor::reset;
+        term_space -= (int)v.size();
+
+        if (!label->vartype.empty()) {
+            v = label->vartype;
+            if (term_space < (int)v.size()) {
+                std::cout << std::flush; return;
+            }
+            std::cout << v;
+            term_space -= (int)v.size();
+        }
+
+        v = "    Index  ";
+        if (term_space < (int)v.size()) {
+            std::cout << std::flush; return;
+        }
+        std::cout << termcolor::bold << v << termcolor::reset;
+        term_space -= (int)v.size();
+
+        v = std::to_string(index);
+        if (term_space < (int)v.size()) {
+            std::cout << std::flush; return;
+        }
+        std::cout << v;
+        term_space -= (int)v.size();
+        std::cout << std::flush;
+    }
 
     int check_url(const char *url) {
         CURL *curl;

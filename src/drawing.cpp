@@ -1200,7 +1200,6 @@ namespace Drawing {
     void
     drawLabel(const Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts,
               const ankerl::unordered_dense::set<std::string> &seenLabels, const std::vector<std::string> &srtLabels) {
-
         float pad = 2;
         std::string cur = label.current();
         if (cur.empty()) {
@@ -1216,7 +1215,6 @@ namespace Drawing {
         } else {
             idx = label.i + srtLabels.size();
         }
-
         float step, start;
         step = -1;
         start = 1;
@@ -1227,10 +1225,8 @@ namespace Drawing {
             step *= -1;
             step = step * 0.5;
         }
-
         SkRect bg;
         float x = rect.left() + pad;
-
         SkPaint p;
         int v;
         if (opts.theme.name == "igv") {

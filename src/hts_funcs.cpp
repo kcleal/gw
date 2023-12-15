@@ -113,7 +113,6 @@ namespace HGW {
             }
         }
         std::cerr << "Error: could not find suitable reference genome in .gw.ini. Try a local file?\n";
-        std::exit(-1);
     }
 
     void applyFilters(std::vector<Parse::Parser> &filters, std::vector<Segs::Align>& readQueue, const sam_hdr_t* hdr,
@@ -206,7 +205,7 @@ namespace HGW {
                   bool coverage, bool low_mem,
                   std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
                   float trackY, float yScaling, Themes::Fonts &fonts, float refSpace, BS::thread_pool &pool) {
-        const int BATCH = 500;
+        const int BATCH = 1500;
         bam1_t *src;
         hts_itr_t *iter_q;
         Segs::ReadCollection &col = cols[idx];
@@ -238,7 +237,6 @@ namespace HGW {
             if (j < BATCH) {
                 continue;
             }
-
             Segs::init_parallel(readQueue, threads, pool);
             if (coverage) {
                 int l_arr = (int)col.covArr.size() - 1;
@@ -257,8 +255,8 @@ namespace HGW {
             j = 0;
         }
 
-        if(j < BATCH){
-            readQueue.erase(readQueue.begin() + j);
+        if (j < BATCH) {
+            readQueue.erase(readQueue.begin() + j, readQueue.end());
             if (!filters.empty()) {
                 applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
             }
@@ -658,6 +656,7 @@ namespace HGW {
     }
 
     void VCFfile::next() {
+
         int res = bcf_read(fp, hdr, v);
         if (cacheStdin) {
             lines.push_back(bcf_dup(v));
@@ -782,7 +781,7 @@ namespace HGW {
                 }
                 break;
         }
-        if (!(*seenLabels).empty() && !seenLabels->contains(label)) {
+        if (seenLabels != nullptr && !(*seenLabels).empty() && !seenLabels->contains(label)) {
             seenLabels->insert(label);
         }
     }
@@ -1775,6 +1774,29 @@ namespace HGW {
         }
     }
 
+    // gets called when new image tiles are loaded, labels are parsed from filenames if possible
+    // variant id is either recorded in the filename, or else is the whole filename
+    void GwVariantTrack::appendImageLabels(int startIdx, int number) {
+        // rid is the file name for an image
+        for (int i=startIdx; i < startIdx + number; ++i) {
+            if (i < multiLabels.size()) {
+                continue;
+            }
+            if (i >= image_glob.size()) {
+                break;
+            }
+            std::vector<Utils::Region> rt;
+            Utils::FileNameInfo info = Utils::parseFilenameInfo(image_glob[i]);
+            std::string key = (info.rid.empty()) ? info.fileName : info.rid;
+            std::string label;
+            if (inputLabels->contains(key)) {
+                multiLabels.push_back((*inputLabels)[key]);
+            } else {
+                multiLabels.push_back(Utils::makeLabel(info.chrom, info.pos, label, labelChoices, key, info.varType, "", false, false));
+            }
+        }
+    }
+
     void GwVariantTrack::appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label, std::string &vartype) {
         long rlen = stop - start;
         std::vector<Utils::Region> v;
@@ -1804,7 +1826,7 @@ namespace HGW {
         if (inputLabels->contains(rid)) {
             multiLabels.push_back((*inputLabels)[rid]);
         } else {
-            multiLabels.push_back(Utils::makeLabel(chrom, start, label, labelChoices, rid, vartype, "", 0));
+            multiLabels.push_back(Utils::makeLabel(chrom, start, label, labelChoices, rid, vartype, "", false, false));
         }
     }
 

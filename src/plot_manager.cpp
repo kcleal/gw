@@ -262,20 +262,25 @@ namespace Manager {
         }
     }
 
-    void GwPlot::addVariantTrack(std::string &path, int startIndex, bool cacheStdin) {
-
-        std::filesystem::path fsp(path);
+    void GwPlot::addVariantTrack(std::string &path, int startIndex, bool cacheStdin, bool useFullPath) {
+        std::string variantFilename;
+        if (!useFullPath) {
+            std::filesystem::path fsp(path);
 #if defined(_WIN32) || defined(_WIN64)
-        const wchar_t* pc = fsp.filename().c_str();
+            const wchar_t* pc = fsp.filename().c_str();
         std::wstring ws(pc);
         std::string p(ws.begin(), ws.end());
-        std::string variantFilename = p;
+        variantFilename = p;
 #else
-        std::string variantFilename = fsp.filename();
+            variantFilename = fsp.filename();
 #endif
+        } else {
+            variantFilename = path;
+        }
 
         std::shared_ptr<ankerl::unordered_dense::map< std::string, Utils::Label>> inLabels = std::make_shared<ankerl::unordered_dense::map< std::string, Utils::Label>>(inputLabels[variantFilename]);
         std::shared_ptr<ankerl::unordered_dense::set<std::string>> sLabels = std::make_shared<ankerl::unordered_dense::set<std::string>>(seenLabels[variantFilename]);
+
         variantTracks.push_back(
                 HGW::GwVariantTrack(path, cacheStdin, &opts, startIndex,
                                     labelChoices,
@@ -292,24 +297,40 @@ namespace Manager {
         if (outLabelFile.empty()) {
             return;
         }
-        std::cout << "Saving labels to file: " << outLabelFile << std::endl;
+//        std::cout << "Saving labels to file: " << outLabelFile << std::endl;
         std::string dateStr = Utils::dateTime();
         std::ofstream f;
         f.open(outLabelFile);
         f << "#chrom\tpos\tvariant_ID\tlabel\tvar_type\tlabelled_date\tvariant_filename\n";
         for (auto &vf : variantTracks) {
-
-            std::filesystem::path fsp(vf.path);
+            std::string fileName;
+            if (vf.type != HGW::TrackType::IMAGES) {
+                std::filesystem::path fsp(vf.path);
 #if defined(_WIN32) || defined(_WIN64)
-            const wchar_t* pc = fsp.filename().c_str();
+                const wchar_t* pc = fsp.filename().c_str();
             std::wstring ws(pc);
             std::string p(ws.begin(), ws.end());
-            std::string fileName = p;
+            fileName = p;
 #else
-            std::string fileName = fsp.filename();
+                fileName = fsp.filename();
 #endif
-
-            Utils::saveLabels(vf.multiLabels, f, dateStr, fileName);
+            }
+            int i = 0;
+            for (auto &l : vf.multiLabels) {
+                if (vf.type == HGW::TrackType::IMAGES) {
+                    std::filesystem::path fsp(vf.image_glob[i]);
+#if defined(_WIN32) || defined(_WIN64)
+                    const wchar_t* pc = fsp.filename().c_str();
+            std::wstring ws(pc);
+            std::string p(ws.begin(), ws.end());
+            fileName = p;
+#else
+                    fileName = fsp.filename();
+#endif
+                }
+                Utils::saveLabels(l, f, dateStr, fileName);
+                i += 1;
+            }
         }
         f.close();
     }
@@ -891,14 +912,14 @@ namespace Manager {
                                           g_mutex.lock();
 
 #if defined(_WIN32)
-					  const wchar_t *outp = currentVarTrack->image_glob[i].c_str();
-					  std::wstring pw(outp);
-					  std::string outp_str(pw.begin(), pw.end());
-					  const char *fname = outp_str.c_str();
+                                          const wchar_t *outp = currentVarTrack->image_glob[i].c_str();
+                                          std::wstring pw(outp);
+                                          std::string outp_str(pw.begin(), pw.end());
+                                          const char *fname = outp_str.c_str();
 #else
-					  const char *fname = currentVarTrack->image_glob[i].c_str();
+                                          const char *fname = currentVarTrack->image_glob[i].c_str();
 #endif
-					  g_mutex.unlock();
+                                          g_mutex.unlock();
                                           data = SkData::MakeFromFileName(fname);
                                           if (!data)
                                               throw std::runtime_error("Error: file not found");
@@ -913,43 +934,15 @@ namespace Manager {
                                       }
                                   }
                               }).wait();
+
+        if (currentVarTrack->type == HGW::TrackType::IMAGES) { //multiLabels.size() < endIdx) {
+            currentVarTrack->appendImageLabels(bStart, bLen);
+        }
     }
 
     void GwPlot::drawTiles(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface) {
         currentVarTrack = &variantTracks[variantFileSelection];
         int bStart = currentVarTrack->blockStart;
-
-
-//        int bLen = opts.number.x * opts.number.y + 1;
-//        if (image_glob.empty()) {
-//            currentVarTrack->iterateToIndex(bStart + bLen);
-            // load some vcf regions and labels for drawing
-//            if (useVcf && !vcf.done && bStart + bLen > (int)multiRegions.size()) {
-//                for (int i=0; i < bLen; ++ i) {
-//                    vcf.next();
-//                    if (vcf.done) {
-//                        break;
-//                    }
-//                    appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype);
-//                }
-//            // load some bed or other variant track for drawing
-//            } else if (!useVcf && !variantTrack.done) {
-//                std::string empty_label = "";
-//                for (int i=0; i < bLen; ++ i) {
-//                    variantTrack.next();
-//                    if (variantTrack.done) {
-//                        break;
-//                    }
-//                    appendVariantSite(variantTrack.chrom, variantTrack.start, variantTrack.chrom, variantTrack.stop, variantTrack.rid, empty_label, variantTrack.vartype);
-//                }
-//            }
-//        } else {
-            // add empty labels for images (labels from --in-labels are loaded earlier)
-//            for (int i=bStart; i < bStart + bLen; i++) {
-//                const char *fname = image_glob[i].c_str();
-//                std::cout << fname << std::endl;
-//            }
-//        }
 
         setGlfwFrameBufferSize();
         setScaling();
@@ -957,9 +950,9 @@ namespace Manager {
         bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height, 15, 15, y_gap);
 
         if (currentVarTrack->image_glob.empty()) {
-            tileDrawingThread(canvas, sContext, sSurface);
+            tileDrawingThread(canvas, sContext, sSurface);  // draws images from variant file
         } else {
-            tileLoadingThread();
+            tileLoadingThread();  // loads static images in .png format
         }
 
         std::vector<std::string> srtLabels;
@@ -983,7 +976,22 @@ namespace Manager {
         for (auto &b : bboxes) {
             SkRect rect;
             if (imageCache.contains(i)) {
-                rect.setXYWH(b.xStart, b.yStart, b.width, b.height);
+                int w = imageCache[i]->width();
+                int h = imageCache[i]->height();
+                float ratio = (float)w / (float)h;
+                float box_ratio = (float)b.width / (float)b.height;
+                if (box_ratio > ratio) {
+                    // Box is wider than the image (relative to their heights)
+                    float newHeight = b.height;
+                    float newWidth = newHeight * ratio;
+                    rect.setXYWH(b.xStart, b.yStart, newWidth, newHeight);
+                } else {
+                    // Box is taller than the image (relative to their widths)
+                    float newWidth = b.width;
+                    float newHeight = newWidth / ratio;
+                    rect.setXYWH(b.xStart, b.yStart, newWidth, newHeight);
+                }
+
                 canvas->drawImageRect(imageCache[i], rect, sampOpts);
                 if (currentVarTrack->multiLabels.empty()) {
                     ++i; continue;
