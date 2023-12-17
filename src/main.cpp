@@ -224,8 +224,8 @@ int main(int argc, char *argv[]) {
 
     std::vector<std::string> bam_paths;
 
+    // check if bam/cram file provided as main argument
     auto genome = program.get<std::string>("genome");
-
     if (Utils::endsWith(genome, ".bam") || Utils::endsWith(genome, ".cram")) {
         HGW::guessRefGenomeFromBam(genome, iopts, bam_paths, regions);
         if (genome.empty()) {
@@ -284,14 +284,11 @@ int main(int argc, char *argv[]) {
     }
 
     if (program.is_used("-b")) {
-        if (!program.is_used("genome") && genome.empty()) {
-            std::cerr << "Error: please provide a reference genome if loading a bam file\n";
-            std::exit(1);
-        }
         auto bam_paths_temp = program.get<std::vector<std::string>>("-b");
         for (auto &item : bam_paths_temp) {
             if (std::filesystem::exists(item)) {
                 bam_paths.push_back(item);
+                std::cerr << item << std::endl;
             } else {
                 std::vector<std::filesystem::path> glob_paths = glob::glob(item);
 //#if defined(_WIN32) || defined(_WIN64)
@@ -302,6 +299,18 @@ int main(int argc, char *argv[]) {
                 for (auto &glob_item : glob_paths) {
                     bam_paths.push_back(glob_item.string());
                 }
+            }
+        }
+        if (!program.is_used("genome") && genome.empty() && !bam_paths.empty()) {
+            HGW::guessRefGenomeFromBam(genome, iopts, bam_paths, regions);
+            if (genome.empty()) {
+                std::exit(0);
+            }
+            if (iopts.myIni["genomes"].has(genome)) {
+                iopts.genome_tag = genome;
+                genome = iopts.myIni["genomes"][genome];
+            } else {
+                std::cerr << "Error: could not find a reference genome\n";
             }
         }
     }

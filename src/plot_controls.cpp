@@ -1011,67 +1011,71 @@ namespace Manager {
                 return true;
             }
         } else if (inputText == "v" || Utils::startsWith(inputText, "var") || Utils::startsWith(inputText, "v ")) {
-//            if (multiLabels.empty()) {
-//	            std::cerr << termcolor::red << "Error:" << termcolor::reset << " no variant file provided.\n";
-//                inputText = "";
-//                processed = true;
-//                redraw = false;
-//                return true;
-//            } else if (blockStart+mouseOverTileIndex >= (int)multiLabels.size() || mouseOverTileIndex == -1) {
-//                inputText = "";
-//                processed = true;
-//                redraw = false;
-//                return true;
-//            }
-//			std::vector<std::string> split = Utils::split(inputText, delim);
-//            Utils::Label &lbl = multiLabels[blockStart + mouseOverTileIndex];
-//            Term::clearLine();
-//			if (useVcf) {
-//				vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
-//				std::string variantStringCopy = vcf.variantString;
-//				vcf.get_samples();
-//				std::vector<std::string> sample_names_copy = vcf.sample_names;
-//                if (variantStringCopy.empty()) {
-//                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " could not parse vcf/bcf line";
-//                } else {
-//					int requests = (int)split.size();
-//					if (requests == 1) {
-//                        Term::clearLine();
-//                        std::cout << "\r" << variantStringCopy << std::endl;
-//					} else {
-//						std::string requestedVars;
-//						std::vector<std::string> vcfCols = Utils::split(variantStringCopy, '\t');
-//						for (int i = 1; i < requests; ++i) {
-//							std::string result;
-//                            try {
-//                                Parse::parse_vcf_split(result, vcfCols, split[i], sample_names_copy);
-//                            } catch (...) {
-//                                std::cerr << termcolor::red << "Error:" << termcolor::reset
-//                                          << " could not parse " << split[i] << std::endl;
-//                                break;
-//                            }
-//							if (i != requests-1) {
-//								requestedVars += split[i]+": "+result+"\t";
-//							} else {
-//								requestedVars += split[i]+": "+result;
-//							}
-//						}
-//                        if (!requestedVars.empty()) {
-//                            Term::clearLine();
-//                            std::cout << "\r" << requestedVars << std::endl;
-//                        }
-//					}
-//				}
-//                valid = true;
-//			} else {
-//				variantTrack.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
-//				if (variantTrack.variantString.empty()) {
-//                    Term::clearLine();
-//                    std::cout << "\r" << variantTrack.variantString << std::endl;
-//				} else {
-//                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " could not parse variant line";
-//                }
-//			}
+            if (variantTracks.empty()) {
+                inputText = "";
+                return true;
+            }
+            currentVarTrack = &variantTracks[variantFileSelection];
+            if (currentVarTrack->multiLabels.empty()) {
+	            std::cerr << termcolor::red << "Error:" << termcolor::reset << " no variant loaded\n";
+                inputText = "";
+                processed = true;
+                redraw = false;
+                return true;
+            } else if (currentVarTrack->blockStart+mouseOverTileIndex >= (int)currentVarTrack->multiLabels.size() || mouseOverTileIndex == -1) {
+                inputText = "";
+                processed = true;
+                redraw = false;
+                return true;
+            }
+			std::vector<std::string> split = Utils::split(inputText, delim);
+            Utils::Label &lbl = currentVarTrack->multiLabels[currentVarTrack->blockStart + mouseOverTileIndex];
+            Term::clearLine();
+			if (currentVarTrack->type == HGW::TrackType::VCF) {
+                currentVarTrack->vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+				std::string variantStringCopy = currentVarTrack->vcf.variantString;
+                currentVarTrack->vcf.get_samples();
+				std::vector<std::string> sample_names_copy = currentVarTrack->vcf.sample_names;
+                if (variantStringCopy.empty()) {
+                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " could not parse vcf/bcf line";
+                } else {
+					int requests = (int)split.size();
+					if (requests == 1) {
+                        Term::clearLine();
+                        std::cout << "\r" << variantStringCopy << std::endl;
+					} else {
+						std::string requestedVars;
+						std::vector<std::string> vcfCols = Utils::split(variantStringCopy, '\t');
+						for (int i = 1; i < requests; ++i) {
+							std::string result;
+                            try {
+                                Parse::parse_vcf_split(result, vcfCols, split[i], sample_names_copy);
+                            } catch (...) {
+                                std::cerr << termcolor::red << "Error:" << termcolor::reset << " could not parse " << split[i] << std::endl;
+                                break;
+                            }
+							if (i != requests-1) {
+								requestedVars += split[i]+": "+result+"\t";
+							} else {
+								requestedVars += split[i]+": "+result;
+							}
+						}
+                        if (!requestedVars.empty()) {
+                            Term::clearLine();
+                            std::cout << "\r" << requestedVars << std::endl;
+                        }
+					}
+				}
+                valid = true;
+			} else {
+                currentVarTrack->variantTrack.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
+				if (currentVarTrack->variantTrack.variantString.empty()) {
+                    Term::clearLine();
+                    std::cout << "\r" << currentVarTrack->variantTrack.variantString << std::endl;
+				} else {
+                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " could not parse variant line";
+                }
+			}
             valid = true;
 
 		} else if (inputText == "s" || Utils::startsWith(inputText, "snapshot") || Utils::startsWith(inputText, "s ")) {

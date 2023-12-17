@@ -80,10 +80,12 @@ namespace Manager {
         monitorScale = 1;
         fonts = Themes::Fonts();
         fonts.setTypeface(opt.font_str, opt.font_size);
-        fai = fai_load(reference.c_str());
-        if (fai == nullptr) {
-            std::cerr << termcolor::red << "Error:" << termcolor::reset << " reference genome could not be opened " << reference << std::endl;
-            std::exit(-1);
+        if (!reference.empty()) {
+            fai = fai_load(reference.c_str());
+            if (fai == nullptr) {
+                std::cerr << termcolor::red << "Error:" << termcolor::reset << " reference genome could not be opened " << reference << std::endl;
+                std::exit(-1);
+            }
         }
         for (auto &fn: bampaths) {
             htsFile* f = sam_open(fn.c_str(), "r");

@@ -128,6 +128,7 @@ namespace HGW {
         int start, stop;
         float value;  // for continuous data
         int fileIndex;
+        bool add_to_dict; // add to dict of interval tree in file has no index, or process in stream
 
         FType kind;
 
@@ -139,6 +140,9 @@ namespace HGW {
         bcf1_t *v;
         tbx_t *t;
         hts_itr_t *iter_q;
+
+        std::shared_ptr<std::ifstream> fpu;
+        std::string tp;
 
         int current_iter_index;
         int num_intervals;
@@ -153,11 +157,12 @@ namespace HGW {
         std::vector<Utils::TrackBlock>::iterator iter_blk;
 
         ankerl::unordered_dense::map< std::string, IITree<int, Utils::TrackBlock>> allBlocks;
-        std::vector<Utils::TrackBlock> overlappingBlocks;
+        std::vector<Utils::TrackBlock> overlappingBlocks, allBlocks_flat;
 
         Utils::TrackBlock block;
         bool done;
 		std::string variantString;
+
 
         void open(const std::string &p, bool add_to_dict);
         void close();

@@ -64,47 +64,56 @@ namespace HGW {
         return false;
     }
 
+    // takes an input bam (inputName) and sets the genome_tag in opts, puts inputName in bam_paths if bam_paths is empty,
+    // adds a region if one not provided
     void guessRefGenomeFromBam(std::string &inputName, Themes::IniOptions &opts, std::vector<std::string> &bam_paths, std::vector<Utils::Region> &regions) {
 
-        htsFile* f = sam_open(inputName.c_str(), "r");
+        std::string query_bam;
+        if (inputName.empty()) {
+            if (bam_paths.empty()) {
+                std::cerr << "Error: either a genome tag/file or a bam path must be provided\n";
+            }
+            query_bam = bam_paths[0];
+        } else {
+            query_bam = inputName;
+        }
+        htsFile* f = sam_open(query_bam.c_str(), "r");
         sam_hdr_t *hdr_ptr = sam_hdr_read(f);
-
         int online = 0;
         for (auto & refName : opts.myIni["genomes"]) {
             if (!Utils::startsWith(refName.second, "http")) {
                 GenomeJob j = GenomeJob(refName.first, refName.second);
                 guessGenomeJob(&j, hdr_ptr);
                 if (j.success) {
-                    bam_paths.push_back(inputName);
+                    if (bam_paths.empty()) {
+                        bam_paths.push_back(query_bam);
+                    }
                     inputName = j.refName;
                     if (regions.empty() && j.longest) {
                         regions.push_back(Utils::parseRegion(j.longestName));
                     }
-                    std::cerr << " yep " << refName.first << std::endl;
                     return;
                 }
             } else {
                 online += 1;
             }
         }
-
-
         BS::thread_pool pool;
         std::vector<GenomeJob> jobs;
         std::vector<std::future<bool>> genomeFutures;
         jobs.reserve(online);
-
         for (auto & refName : opts.myIni["genomes"]) {
             if (Utils::startsWith(refName.second, "http")) {
                 jobs.push_back(GenomeJob(refName.first, refName.second));
                 genomeFutures.push_back(pool.submit(guessGenomeJob, &jobs.back(), hdr_ptr));
             }
         }
-
         pool.wait_for_tasks();
         for (auto & j : jobs) {
             if (j.success) {
-                bam_paths.push_back(inputName);
+                if (bam_paths.empty()) {
+                    bam_paths.push_back(query_bam);
+                }
                 inputName = j.refName;
                 if (regions.empty() && j.longest) {
                     regions.push_back(Utils::parseRegion(j.longestName));
@@ -1041,6 +1050,7 @@ namespace HGW {
     void GwTrack::open(const std::string &p, bool add_to_dict=true) {
         fileIndex = 0;
         path = p;
+        this->add_to_dict = add_to_dict;
         if (Utils::endsWith(p, ".bed")) {
             kind = BED_NOI;
         } else if (Utils::endsWith(p, ".bed.gz")) {
@@ -1066,7 +1076,8 @@ namespace HGW {
         } else {
             kind = GW_LABEL;
         }
-
+        // if drawing image tiles, VCF/BCF files are opened with VCFfile class
+        // only tracks are processed here:
         if (kind == VCF_NOI) {
             fp = bcf_open(path.c_str(), "r");
             if (!fp) {
@@ -1084,7 +1095,7 @@ namespace HGW {
                 int res = bcf_read(fp, hdr, v);
                 if (res < -1) {
                     std::cerr << "Error: reading vcf resulted in error code " << res << std::endl;
-                    std::terminate();
+                    throw std::runtime_error("bcf_read error");
                 } else if (res == -1) {
                     done = true;
                     break;
@@ -1094,23 +1105,26 @@ namespace HGW {
                 allBlocks[b.chrom].add(b.start, b.end, b);
             }
         } else if (kind == BED_NOI || kind == GW_LABEL) {
-            std::fstream fpu;
-            fpu.open(p, std::ios::in);
-            if (!fpu.is_open()) {
+            fpu = std::make_shared<std::ifstream>();
+            fpu->open(p);
+            if (!fpu->is_open()) {
                 std::cerr << "Error: opening track file " << path << std::endl;
                 throw std::exception();
             }
-            std::string tp;
-            const char delim = '\t';
-            while (getline(fpu, tp)) {
+            if (!add_to_dict) {
+                return;
+            }
+            while (true) {
+                auto got_line = (bool)getline(*fpu, tp);
+                if (!got_line) {
+                    done = true;
+                    return;
+                }
+//            while (getline(*fpu, tp)) {
                 if (tp[0] == '#') {
                     continue;
                 }
-                std::vector<std::string> parts = Utils::split(tp, delim);
-//                if (parts.size() < 9) {
-//                    std::cerr << "Error: parsing file, not enough columns in line split by tab. n columns = "
-//                              << parts.size() << ", line was: " << tp << ", at file index " << count << std::endl;
-//                }
+                std::vector<std::string> parts = Utils::split(tp, '\t');
                 Utils::TrackBlock b;
                 b.line = tp;
                 b.chrom = parts[0];
@@ -1148,25 +1162,32 @@ namespace HGW {
                 throw std::exception();
             }
         } else if (kind == GFF3_NOI || kind == GTF_NOI) {
-            std::fstream fpu;
-            fpu.open(p, std::ios::in);
-            if (!fpu.is_open()) {
+            fpu = std::make_shared<std::ifstream>();
+            fpu->open(p);
+            if (!fpu->is_open()) {
                 std::cerr << "Error: opening track file " << path << std::endl;
                 throw std::exception();
             }
-            std::string tp;
-            const char delim = '\t';
+            if (!add_to_dict) {
+                return;
+            }
             int count = 0;
             std::vector<Utils::TrackBlock> track_blocks;
             ankerl::unordered_dense::map< std::string, int> name_to_track_block_idx;
 
-            while (getline(fpu, tp)) {
+            while (true) {
+                auto got_line = (bool)getline(*fpu, tp);
+                if (!got_line) {
+                    done = true;
+                    return;
+                }
+//            while (getline(*fpu, tp)) {
                 count += 1;
                 if (tp[0] == '#') {
                     continue;
                 }
                 Utils::TrackBlock b;
-                b.parts = Utils::split(tp, delim);
+                b.parts = Utils::split(tp, '\t');
                 if (b.parts.size() < 9) {
                     std::cerr << "Error: parsing file, not enough columns in line split by tab. n columns = "
                               << b.parts.size() << ", line was: " << tp << ", at file index " << count << std::endl;
@@ -1277,12 +1298,10 @@ namespace HGW {
     }
 
     void GwTrack::fetch(const Utils::Region *rgn) {
+        std::cerr << " collected " << (rgn == nullptr) <<  std::endl;
         if (kind > BCF_IDX) {  // non-indexed
             if (rgn == nullptr) {
-//                iter_blk = allBlocks_flat.begin();
-//                vals_end = allBlocks_flat.end();
-//                region_end = 2000000000;
-//                done = false;
+
             } else {
                 if (allBlocks.contains(rgn->chrom)) {
                     std::vector<size_t> a;
@@ -1355,22 +1374,64 @@ namespace HGW {
         if (done) {
             return;
         }
+
         if (kind > BCF_IDX) {  // non indexed cached VCF_NOI / BED_NOI / GFF3 (todo) / GW_LABEL / STDIN?
-            // first line of the region is cached here and resolved during drawing / mouse-clicks
-            if (iter_blk != vals_end) {
-                chrom = iter_blk->chrom;
-                start = iter_blk->start;
-                stop = iter_blk->end;
-                rid = iter_blk->name;
-                parent = iter_blk->parent;
-                vartype = iter_blk->vartype;
-                variantString = iter_blk->line;
-                parts = iter_blk->parts;
-                ++iter_blk;
-            } else {
-                done = true;
+            // add_to_dict==false, only BED and GW_LABEL files supported (iterate whole file)
+            if (!add_to_dict) {
+                // nullptr is an indication to iterate over everything
+                while (true) {
+                    auto got_line = (bool)getline(*fpu, tp);
+                    if (!got_line) {
+                        done = true;
+                        return;
+                    }
+                    if (tp[0] == '#') {
+                        continue;
+                    }
+                    std::vector<std::string> parts = Utils::split(tp, '\t');
+                    chrom = parts[0];
+                    chrom2 = chrom;
+                    start = std::stoi(parts[1]);
+                    if (kind == BED_NOI) {  // bed
+                        stop = std::stoi(parts[2]);
+                        if (parts.size() > 3) {
+                            rid = parts[3];
+                        } else {
+                            rid = std::to_string(fileIndex);
+                            fileIndex += 1;
+                        }
+                    } else { // assume gw_label file
+                        if (kind != GW_LABEL) {
+                            throw std::runtime_error("Only BED or GW_LABEL files supported");
+                        }
+                        stop = start + 1;
+                        rid = parts[2];
+                    }
+                    fileIndex += 1;
+                    break;
+                }
+                return;
+
+                return;
             }
-            return;
+            // Values fetched from interval tree
+            else {
+                if (iter_blk != vals_end) {
+                    chrom = iter_blk->chrom;
+                    start = iter_blk->start;
+                    stop = iter_blk->end;
+                    rid = iter_blk->name;
+                    parent = iter_blk->parent;
+                    vartype = iter_blk->vartype;
+                    variantString = iter_blk->line;
+                    parts = iter_blk->parts;
+                    ++iter_blk;
+                } else {
+                    done = true;
+                }
+                return;
+            }
+
         }
         // Indexed formats below:
         if (kind == BCF_IDX) {
@@ -1724,6 +1785,7 @@ namespace HGW {
             variantTrack.open(path, false);
             trackDone = &variantTrack.done;
             variantTrack.fetch(nullptr);  // initialize iterators
+            std::cerr << startIndex <<" YOO\n";
             if (startIndex > 0) {
                 nextN(startIndex);
             }
