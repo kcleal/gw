@@ -1,0 +1,50 @@
+---
+title: Windows
+layout: home
+parent: Install
+nav_order: 3
+---
+
+
+# Installing GW on Windows
+GW can be installed on Windows using MSYS2 or Windows Subsystem for Linux (WSL). 
+Below are the instructions for both methods.
+
+## Using MSYS2
+
+MSYS2 is a software distro and building platform for Windows. 
+Follow these steps to install GW using MSYS2:
+
+- Download and Install MSYS2:
+
+Visit the [MSYS2 website](https://www.msys2.org) and download the installer.
+Follow the installation instructions on the website to set up MSYS2 on your Windows system.
+
+- Install GW using install script:
+
+Download the GW installer script below:
+
+|  [GW Intel x86_64 Windows installer]()
+
+Run the downloaded visual-basic script by right-clicking and selecting Run as program.
+The script will insall GW and add a shortcut to GW in the Start Menu.
+
+Alternatively, GW can be installed by opening a ucrt64 shell from the Start Menu (installed when Msys2 is installed),
+and running the following command:
+
+```shell
+pacman -Sy mingw-w64-ucrt-x86_64-gw
+```
+
+## Using Windows Subsystem for Linux (WSL)
+
+If you prefer using a Linux environment on your Windows machine, you can use WSL:
+
+- Install WSL:
+
+Follow Microsoft’s [guide on installing WSL](https://learn.microsoft.com/en-us/windows/wsl/install).
+Choose a Linux distribution of your choice (like Ubuntu) from the Microsoft Store.
+- Install GW within WSL:
+
+Once WSL is set up with your chosen Linux distribution, open the WSL terminal.
+You can then follow the Linux installation instructions for GW (as provided in the Linux section of the documentation).

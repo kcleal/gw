@@ -55,7 +55,7 @@ namespace Term {
 		std::cout << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window to png e.g. 's', or 's view.png',\n                                 or vcf columns can be used 's {pos}_{info.SU}.png'\n";
         std::cout << termcolor::green << "soft-clips, sc                   " << termcolor::reset << "Toggle soft-clips\n";
         std::cout << termcolor::green << "tags                             " << termcolor::reset << "Print selected sam tags\n";
-        std::cout << termcolor::green << "theme            igv/dark        " << termcolor::reset << "Switch color theme e.g. 'theme dark'\n";
+        std::cout << termcolor::green << "theme            igv/dark/slate  " << termcolor::reset << "Switch color theme e.g. 'theme dark'\n";
         std::cout << termcolor::green << "tlen-y                           " << termcolor::reset << "Toggle --tlen-y option\n";
 //        std::cout << termcolor::green << "toggle           cov             " << termcolor::reset << "Toggle visibility of feature\n";
 //        std::cout << termcolor::green << "                 edges           " << termcolor::reset << "\n";
@@ -144,7 +144,7 @@ namespace Term {
         } else if (s == "log2-cov") {
             std::cout << "    Toggle log2-coverage.\n        The coverage track will be scaled by log2.\n\n";
         } else if (s == "mate") {
-            std::cout << "    Goto mate alignment.\n        Either moves the left-most view to the mate locus, or adds a new view of the mate locus.\n    Examples:\n        'mate', 'mate add'\n\n";
+            std::cout << "    Goto mate alignment.\n        Either moves the current view to the mate locus, or adds a new view of the mate locus.\n    Examples:\n        'mate', 'mate add'\n\n";
         } else if (s == "mismatches" || s == "mm") {
             std::cout << "    Toggle mismatches.\n        Mismatches with the reference genome are turned on or off.\n\n";
         } else if (s == "online") {
@@ -167,14 +167,14 @@ namespace Term {
                          "            snapshot {info.SU}.png           # parse SU from info field\n"
                          "            s {format[samp1].SU}.png         # samp1 sample, SU column from format field\n\n"
                          "        Valid fields are chrom, pos, id, ref, alt, qual, filter, info, format. Just to note,\n"
-                         "        you can press ENTER to repeat the last command, which can save typing this\n"
+                         "        you can press the repeat key (R) to repeat the last command, which can save typing this\n"
                          "        command over and over.\n\n";
         } else if (s == "soft-clips" || s == "sc") {
             std::cout << "    Toggle soft-clips.\n        Soft-clipped bases or hard-clips are turned on or off.\n\n";
         } else if (s == "tags") {
             std::cout << "    Print selected sam tags.\n        This will print all the tags of the selected read\n\n";
         } else if (s == "theme") {
-            std::cout << "    Switch the theme.\n        Currently 'igv' or 'dark' themes are supported.\n\n";
+            std::cout << "    Switch the theme.\n        Currently 'igv', 'dark' or 'slate' themes are supported.\n\n";
         } else if (s == "tlen-y") {
             std::cout << "    Toggle --tlen-y option.\n        The --tlen-y option scales reads by template length. Applies to paired-end reads only.\n\n";
         } else if (s == "var" || s == "v") {

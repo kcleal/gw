@@ -1298,7 +1298,6 @@ namespace HGW {
     }
 
     void GwTrack::fetch(const Utils::Region *rgn) {
-        std::cerr << " collected " << (rgn == nullptr) <<  std::endl;
         if (kind > BCF_IDX) {  // non-indexed
             if (rgn == nullptr) {
 
@@ -1388,7 +1387,8 @@ namespace HGW {
                     if (tp[0] == '#') {
                         continue;
                     }
-                    std::vector<std::string> parts = Utils::split(tp, '\t');
+                    std::cerr << tp << std::endl;
+                    std::vector<std::string> parts = Utils::split_keep_empty_str(tp, '\t');
                     chrom = parts[0];
                     chrom2 = chrom;
                     start = std::stoi(parts[1]);
@@ -1398,20 +1398,18 @@ namespace HGW {
                             rid = parts[3];
                         } else {
                             rid = std::to_string(fileIndex);
-                            fileIndex += 1;
                         }
                     } else { // assume gw_label file
                         if (kind != GW_LABEL) {
                             throw std::runtime_error("Only BED or GW_LABEL files supported");
                         }
+
                         stop = start + 1;
                         rid = parts[2];
                     }
                     fileIndex += 1;
                     break;
                 }
-                return;
-
                 return;
             }
             // Values fetched from interval tree
@@ -1785,7 +1783,6 @@ namespace HGW {
             variantTrack.open(path, false);
             trackDone = &variantTrack.done;
             variantTrack.fetch(nullptr);  // initialize iterators
-            std::cerr << startIndex <<" YOO\n";
             if (startIndex > 0) {
                 nextN(startIndex);
             }

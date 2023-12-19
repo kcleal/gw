@@ -1,0 +1,11 @@
+title: Install
+description: Installation instructions
+theme: just-the-docs
+
+logo: "/assets/images/gw_icon.png"
+favicon_ico: "/assets/images/gw_icon.ico"
+color_scheme: dark
+nav_order: 2
+has_children: true
+
+url: https://kcleal.github.io/install

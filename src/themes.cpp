@@ -225,7 +225,8 @@ namespace Themes {
         name = "dark";
         fcCoverage.setARGB(255, 95, 95, 105);
         fcTrack.setARGB(200, 227, 232, 255);
-        bgPaint.setARGB(255, 0, 0, 0);
+        bgPaint.setARGB(255, 10, 10, 20);
+//        bgPaint.setARGB(255, 0, 0, 0);
         fcNormal.setARGB(255, 90, 90, 95);
         fcDel.setARGB(255, 185, 25, 25);
         fcDup.setARGB(255, 24, 100, 198);
@@ -233,7 +234,9 @@ namespace Themes {
         fcInvR.setARGB(255, 49, 167, 0);
         fcTra.setARGB(255, 225, 185, 185);
         fcSoftClip.setARGB(255, 0, 128, 128);
-        fcA.setARGB(255, 105, 213, 92);
+        fcA.setARGB(255, 106, 186, 79);
+//        fcT.setARGB(255, 201, 49, 24);
+//        fcA.setARGB(255, 105, 213, 92);
         fcT.setARGB(255, 232, 55, 99);
         fcC.setARGB(255, 77, 125, 245);
         fcG.setARGB(255, 226, 132, 19);
