@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "gw_dev"]
   pull_request:
 
 jobs:
@@ -19,4 +19,4 @@ jobs:
           bundler-cache: true # runs 'bundle install' and caches installed gems automatically
           cache-version: 0 # Increment this number if you need to re-download cached gems
       - name: Build with Jekyll
-        run: bundle exec jekyll build
+        run: gem install bundler:2.3.26; bundle exec jekyll build
