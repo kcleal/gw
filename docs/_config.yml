@@ -6,6 +6,7 @@ logo: "/assets/images/gw_icon.png"
 favicon_ico: "/assets/images/gw_icon.ico"
 color_scheme: dark
 
+baseurl: "/gw"
 url: "https://kcleal.github.io"
 
 aux_links: # remove if you don't want this link to appear on your pages
