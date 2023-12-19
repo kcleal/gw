@@ -24,5 +24,5 @@ jobs:
         run: |
           cd docs
           bundle install
-      - name: Build with Jekyll
+      - name: Build with Jekyll ci.yml
         run: cd docs && bundle exec jekyll build
