@@ -47,9 +47,11 @@ jobs:
         run: |
           cd docs
           bundle install
-      - name: Build with Jekyll pages.yml
+      - name: Build with Jekyll
         # Outputs to the './_site' directory by default
-        run: | 
+        run: |
+          ls -a
+          pwd
           cd docs && bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
           ls
           pwd

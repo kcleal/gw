@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ["main", "gw_dev"]
+    branches: gw_dev #["main", "gw_dev"]
   pull_request:
 
 jobs:
@@ -24,5 +24,5 @@ jobs:
         run: |
           cd docs
           bundle install
-      - name: Build with Jekyll ci.yml
+      - name: Build with Jekyll
         run: cd docs && bundle exec jekyll build
