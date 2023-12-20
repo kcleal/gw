@@ -97,12 +97,14 @@ jobs:
           create-dmg 'gw.app' || true
           ls
           mv gw\ undefined.dmg gw_${version}_macos_intel.dmg
+          ls
+          pwd
 
       - name: upload
         uses: actions/upload-artifact@v3
         with:
           name: gw_macos_intel
-          path: /home/runner/work/gw/*.dmg
+          path: ./*.dmg
 
   deb-package:
     runs-on: ubuntu-22.04
