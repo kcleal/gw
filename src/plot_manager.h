@@ -131,6 +131,8 @@ namespace Manager {
 
         void addVariantTrack(std::string &path, int startIndex, bool cacheStdin, bool useFullPath);
 
+        void addFilter(std::string &filter_str);
+
         void setOutLabelFile(const std::string &path);
 
         void setLabelChoices(std::vector<std::string> & labels);

@@ -238,7 +238,7 @@ int main(int argc, char *argv[]) {
     if (iopts.myIni["genomes"].has(genome)) {
         iopts.genome_tag = genome;
         genome = iopts.myIni["genomes"][genome];
-    } else if (genome.empty() && !program.is_used("--images") && !iopts.ini_path.empty()) {
+    } else if (genome.empty() && !program.is_used("--images") && !iopts.ini_path.empty() && !program.is_used("--no-show")) {
         // prompt for genome
         print_banner();
         show_banner = false;
@@ -416,24 +416,6 @@ int main(int argc, char *argv[]) {
         iopts.start_index = program.get<int>("--start-index");
     }
 
-    /*
-     * / Gw start
-     */
-    Manager::GwPlot plotter = Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
-
-    if (program.is_used("--filter")) {
-        for (auto &s: Utils::split(program.get("--filter"), ';')) {
-            Parse::Parser p = Parse::Parser();
-            int rr = p.set_filter(s, plotter.bams.size(), plotter.regions.size());
-            if (rr > 0) {
-                plotter.filters.push_back(p);
-            } else {
-                std::cerr << "Error: --filter option not understood" << std::endl;
-                std::exit(-1);
-            }
-        }
-    }
-
     if (program.is_used("--images") && program.is_used("--variants")) {
         std::cerr << "Error: only --images or --variants possible, not both" << std::endl;
         std::exit(-1);
@@ -442,11 +424,27 @@ int main(int argc, char *argv[]) {
         std::exit(-1);
     }
 
+    std::vector<std::string> filters;
+    if (program.is_used("--filter")) {
+        Utils::split(program.get("--filter"), ';');
+    }
+
     if (!iopts.no_show) {  // plot something to screen
+
+        /*
+         * / Gw start
+         */
+        Manager::GwPlot plotter = Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
 
         if (show_banner) {
             print_banner();
         }
+
+        for (auto &s: filters) {
+            plotter.addFilter(s);
+        }
+
+
         // initialize display screen
         plotter.init(iopts.dimensions.x, iopts.dimensions.y);
         int fb_height, fb_width;
@@ -548,34 +546,8 @@ int main(int argc, char *argv[]) {
             std::vector<std::string> labels = Utils::split_keep_empty_str(iopts.labels, ',');
             plotter.setLabelChoices(labels);
 
-
-
             if (program.is_used("--in-labels")) {
-//                std::cerr << " yup\n";
                 Utils::openLabels(program.get<std::string>("--in-labels"), img, plotter.inputLabels, labels, plotter.seenLabels);
-//                std::string emptylabel;
-//                std::cerr << " " << plotter.inputLabels.size() << std::endl;
-//                int index = 0;
-//                for (auto &item : plotter.variantTracks.back().image_glob) {
-//#if defined(_WIN32) || defined(_WIN64)
-//                    const wchar_t* pc = item.filename().c_str();
-//                    std::wstring ws(pc);
-//                    std::string p(ws.begin(), ws.end());
-//#else
-//		            std::string p = item.filename();
-//#endif
-//		            if (Utils::endsWith(p, ".png")) {
-//                        std::vector<std::string> m = Utils::split(p.erase(p.size() - 4), '~');
-//                        try {
-////                            plotter.appendVariantSite(m[1], std::stoi(m[2]), m[3], std::stoi(m[4]), m[5], emptylabel, m[0]);
-//                        } catch (...) {
-//                            // append an empty variant, use the index at the id
-//                            std::string stri = std::to_string(index);
-////                            plotter.appendVariantSite(emptylabel, 0, emptylabel, 0, stri, emptylabel, emptylabel);
-//                        }
-//                        index += 1;
-//                    }
-//                }
             }
             if (program.is_used("--out-labels")) {
                 plotter.setOutLabelFile(program.get<std::string>("--out-labels"));
@@ -604,6 +576,11 @@ int main(int argc, char *argv[]) {
             if (program.is_used("--file") && program.is_used("--outdir")) {
                 std::cerr << "Error: provide --file or --outdir, not both\n";
                 std::exit(-1);
+            }
+            Manager::GwPlot plotter = Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
+
+            for (auto &s: filters) {
+                plotter.addFilter(s);
             }
 
             plotter.opts.theme.setAlphas();
@@ -691,6 +668,7 @@ int main(int argc, char *argv[]) {
                         return -1;
                     }
                     std::cerr << "Plotting chromosomes\n";
+
                     std::vector<Manager::GwPlot *> managers;
                     managers.reserve(iopts.threads);
                     for (int i = 0; i < iopts.threads; ++i) {
@@ -700,6 +678,10 @@ int main(int argc, char *argv[]) {
                         m->opts.threads = 1;
                         m->gap = 0;
                         m->regions.resize(1);
+
+                        for (auto &s: filters) {
+                            m->addFilter(s);
+                        }
                         managers.push_back(m);
                     }
 
@@ -804,6 +786,9 @@ int main(int argc, char *argv[]) {
                     m->opts.theme.setAlphas();
                     m->setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
                     m->opts.threads = 1;
+                    for (auto &s: filters) {
+                        m->addFilter(s);
+                    }
                     managers.push_back(m);
                 }
 
@@ -877,34 +862,23 @@ int main(int argc, char *argv[]) {
             }
 
         } else if (program.is_used("--variants") && program.is_used("--out-vcf") && program.is_used("--in-labels")) {
-
-//            auto v = program.get<std::string>("--variants");
-//            std::vector<std::string> labels = Utils::split_keep_empty_str(iopts.labels, ',');
-//            if (program.is_used("--in-labels")) {
-//                Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels, plotter.seenLabels);
-//            }
-//            plotter.setVariantFile(v, iopts.start_index, false);
-//            plotter.setLabelChoices(labels);
-//            plotter.mode = Manager::Show::TILED;
-//
-//            HGW::VCFfile &vcf = plotter.vcf;
-//            std::vector<std::string> empty_labels;
-//            while (true) {
-//                vcf.next();
-//                if (vcf.done) {break; }
-//                if (plotter.inputLabels.contains(vcf.rid)) {
-//                    plotter.multiLabels.push_back(plotter.inputLabels[vcf.rid]);
-//                } else {
-//                    plotter.multiLabels.push_back(Utils::makeLabel(vcf.chrom, vcf.start, vcf.label, empty_labels, vcf.rid, vcf.vartype, "", false, false));
-//                }
-//            }
-//            if (program.is_used("--out-vcf")) {
-//                HGW::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
-//            }
+            auto variant_paths = program.get<std::vector<std::string>>("--variants");
+            if (variant_paths.size() != 1) {
+                std::cerr << "Error: please supply a single --variants file at a time here\n";
+                std::exit(1);
+            }
+            std::string in_vcf = variant_paths[0];
+            std::string in_labels = program.get<std::string>("--in-labels");
+            std::string out_vcf = program.get<std::string>("--out-vcf");
+            if (program.is_used("--out-vcf")) {
+                HGW::saveVcf(in_vcf, out_vcf, in_labels);
+            }
         }
     }
-    if (!iopts.no_show)
+    if (!iopts.no_show) {
         std::cout << "\nGw finished\n";
-
+    } else {
+        std::cout << "Gw finished\n";
+    }
     return 0;
 };

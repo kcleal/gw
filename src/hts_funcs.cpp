@@ -173,7 +173,7 @@ namespace HGW {
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
             std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
-            std::terminate();
+            throw std::runtime_error("");
         }
 
         while (sam_itr_next(b, iter_q, readQueue.back().delegate) >= 0) {
@@ -233,7 +233,7 @@ namespace HGW {
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
             std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
-            std::terminate();
+            throw std::runtime_error("");
         }
         bool filter = !filters.empty();
         int j = 0;
@@ -307,7 +307,7 @@ namespace HGW {
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
             std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
-            std::terminate();
+            throw std::runtime_error("");
         }
         bool filter = !filters.empty();
         while (sam_itr_next(b, iter_q, readQueue.back().delegate) >= 0) {
@@ -452,7 +452,7 @@ namespace HGW {
             iter_q = sam_itr_queryi(index, tid, begin, end_r);
             if (iter_q == nullptr) {
                 std::cerr << "\nError: Null iterator when trying to fetch from HTS file in appendReadsAndCoverage (left) " << region->chrom << " " << region->start<< " " << end_r << " " << region->end << std::endl;
-                std::terminate();
+                throw std::runtime_error("");
             }
             newReads.emplace_back(Segs::Align(bam_init1()));
 
@@ -506,7 +506,7 @@ namespace HGW {
             }
             if (iter_q == nullptr) {
                 std::cerr << "\nError: Null iterator when trying to fetch from HTS file in appendReadsAndCoverage (!left) " << region->chrom << " " << lastPos << " " << region->end << std::endl;
-                std::terminate();
+                throw std::runtime_error("");
             }
             newReads.emplace_back(Segs::Align(bam_init1()));
 
@@ -594,6 +594,11 @@ namespace HGW {
         col.collection_processed = false;
     }
 
+    VCFfile::VCFfile() {
+        label_to_parse = nullptr;
+        cacheStdin = false;
+    }
+
     VCFfile::~VCFfile() {
         // Using these cause memory freeing issues?
 //        if (fp && !path.empty()) {
@@ -621,13 +626,14 @@ namespace HGW {
             kind = VCF_IDX;
             idx_t = tbx_index_load(path.c_str());
         }
-
         fp = bcf_open(f.c_str(), "r");
         hdr = bcf_hdr_read(fp);
 		samples_loaded = false;
         v = bcf_init1();
-
-        std::string l2p(label_to_parse);
+        std::string l2p;
+        if (label_to_parse != nullptr) {
+            l2p = label_to_parse;
+        }
         v->max_unpack = BCF_UN_INFO;
 		if (cacheStdin) {
 			v->max_unpack = BCF_UN_ALL;
@@ -649,8 +655,7 @@ namespace HGW {
                 ++id;
             }
             if (info_field_type == -1) {
-                std::cerr << "Error: could not find --parse-label in info" << std::endl;
-                std::terminate();
+                throw std::runtime_error("Error: could not find --parse-label in info");
             }
         } else if (l2p.find("filter") != std::string::npos) {
             parse = 6;
@@ -659,8 +664,7 @@ namespace HGW {
         } else if (l2p.find("id") != std::string::npos) {
             parse = 2;
         } else {
-            std::cerr << "Error: --label-to-parse was not understood, accepted fields are 'id / qual / filter / info.$NAME'";
-            std::terminate();
+            throw std::runtime_error("Error: --label-to-parse was not understood, accepted fields are 'id / qual / filter / info.$NAME'");
         }
     }
 
@@ -673,7 +677,7 @@ namespace HGW {
 
         if (res < -1) {
             std::cerr << "Error: reading vcf resulted in error code " << res << std::endl;
-            std::terminate();
+            throw std::runtime_error("");
         } else if (res == -1) {
             done = true;
         }
@@ -713,7 +717,7 @@ namespace HGW {
                     int resc = bcf_get_info_string(hdr,v,"CHR2",&strmem,&mem);
                     if (resc < 0) {
                         std::cerr << "Error: could not parse CHR2 field, error was " << resc << std::endl;
-                        std::terminate();
+                        throw std::runtime_error("");
                     }
                     chrom2 = strmem;
                 } else {
@@ -724,7 +728,7 @@ namespace HGW {
                     int resc = bcf_get_info_int32(hdr, v, "CHR2_POS", &intmem, &imem);
                     if (resc < 0) {
                         std::cerr << "Error: could not parse CHR2 field, error was " << resc << std::endl;
-                        std::terminate();
+                        throw std::runtime_error("");
                     }
                     stop = *intmem;
                 }
@@ -786,7 +790,7 @@ namespace HGW {
                 }
                 if (resw == -1) {
                     std::cerr << "Error: could not parse tag " << tag << " from info field" << std::endl;
-                    std::terminate();
+                    throw std::runtime_error("");
                 }
                 break;
         }
@@ -913,7 +917,6 @@ namespace HGW {
 			std::cerr << "\nError: Null iterator when trying to fetch from indexed bed file in print "
 			          << chrom
 			          << " " << pos << std::endl;
-			std::terminate();
 			return;
 		}
 		int res = tbx_itr_next(fp, idx_t, iter_q, &kstr);
@@ -1634,93 +1637,99 @@ namespace HGW {
         return false;
     }
 
-    void saveVcf(VCFfile &input_vcf, std::string path, std::vector<Utils::Label> multiLabels) {
-        std::cout << "\nSaving output vcf\n";
-        if (multiLabels.empty()) {
-            std::cerr << "Error: no labels detected\n";
-            return;
-        }
+    void saveVcf(std::string &input_vcf_path, std::string &output_vcf_path, std::string &labels_path) {
+        std::string variantFilename;
+        std::filesystem::path fsp(input_vcf_path);
+    #if defined(_WIN32) || defined(_WIN64)
+        const wchar_t* pc = fsp.filename().c_str();
+            std::wstring ws(pc);
+            std::string p(ws.begin(), ws.end());
+            variantFilename = p;
+    #else
+        variantFilename = fsp.filename();
+    #endif
 
-        ankerl::unordered_dense::map< std::string, Utils::Label> label_dict;
-        for (auto &l : multiLabels) {
-            label_dict[l.variantId] = l;
-        }
-
-        int res;
-
-        bcf_hdr_t *new_hdr = bcf_hdr_init("w");
-
-        new_hdr = bcf_hdr_merge(new_hdr, input_vcf.hdr);
-        if (bcf_hdr_sync(new_hdr) < 0) {
-            std::cerr << "bcf_hdr_sync(hdr2) after merge\n";
-            std::terminate();
-        }
-
-        const char *lg = "##source=GW>";
-        res = bcf_hdr_append(new_hdr, lg);
-        for (auto &l: multiLabels[0].labels) {
-            if (l != "PASS") {
-                std::string str = "##FILTER=<ID=" + l + ",Description=\"GW custom label\">";
-                res = bcf_hdr_append(new_hdr, str.c_str());
-                if (res < 0) {
-                    std::cerr << "bcf_hdr_append(new_hdr) failed\n";
-                    std::terminate();
+        ankerl::unordered_dense::map< std::string, std::vector<std::string>> label_dict;
+        ankerl::unordered_dense::set<std::string> seen_labels;
+        std::ifstream fs;
+        fs.open(labels_path);
+        std::string s;
+        while (std::getline(fs, s)) {
+            if (Utils::startsWith(s, "#")) {
+                continue;
+            }
+            std::vector<std::string> v = Utils::split_keep_empty_str(s, '\t');
+            if (variantFilename == v[6]) {
+                label_dict[v[2]] = v;
+                if (v[3] != "PASS") {
+                    seen_labels.insert(v[3]);
                 }
             }
         }
 
+        HGW::VCFfile input_vcf;
+        input_vcf.open(input_vcf_path);
+
+        // prepare new header
+        bcf_hdr_t *new_hdr = bcf_hdr_init("w");
+        new_hdr = bcf_hdr_merge(new_hdr, input_vcf.hdr);
+        if (bcf_hdr_sync(new_hdr) < 0) {
+            throw std::runtime_error("bcf_hdr_sync(hdr2) after merge");
+        }
+        const char *lg = "##source=GW";
+        if (bcf_hdr_append(new_hdr, lg) < 0) {
+            throw std::runtime_error("Error: Unable to write new header line");
+        }
+        for (auto &l: seen_labels) {
+            if (l != "PASS") {
+                std::string str = "##FILTER=<ID=" + l + ",Description=\"GW custom label\">";
+                if (bcf_hdr_append(new_hdr, str.c_str()) < 0) {
+                    throw std::runtime_error("bcf_hdr_append(new_hdr) failed");
+                }
+            }
+        }
         const char *l0 = "##INFO=<ID=GW_DATE,Number=1,Type=String,Description=\"Date of GW label\">";
         const char *l1 = "##INFO=<ID=GW_PREV,Number=1,Type=String,Description=\"Previous GW label\">";
-
         bcf_hdr_append(new_hdr, l0);
         bcf_hdr_append(new_hdr, l1);
 
-        htsFile *fp_out = bcf_open(path.c_str(), "w");
-        res = bcf_hdr_write(fp_out, new_hdr);
-        if (res < 0) {
-            std::cerr << "Error: Unable to write new header\n";
-            std::terminate();
+        htsFile *fp_out = bcf_open(output_vcf_path.c_str(), "w");
+        if (bcf_hdr_write(fp_out, new_hdr) < 0) {
+            throw std::runtime_error("Error: Unable to write new header");
         }
-        if (!input_vcf.lines.empty()) {
-            // todo loop over cached lines here
-        } else {
-            // reset to start of file
-            input_vcf.open(input_vcf.path);
-        }
+
         while (true) {
             input_vcf.next();
             if (input_vcf.done) {
                 break;
             }
             if (label_dict.contains(input_vcf.rid)) {
-                Utils::Label &l =  label_dict[input_vcf.rid];
+                std::vector<std::string> &label_parts =  label_dict[input_vcf.rid];
                 const char *prev_label = new_hdr->id[BCF_DT_ID][*input_vcf.v->d.flt].key;
-                int filter_id = bcf_hdr_id2int(new_hdr, BCF_DT_ID, l.current().c_str());
-                res = bcf_update_filter(new_hdr, input_vcf.v, &filter_id, 1);
-                if (res < 0) {
-                    std::cerr << "Error: Failed to update filter, id " << input_vcf.v->rid << std::endl;
+                std::string prev_label_str = prev_label;
+                if (prev_label_str != label_parts[3]) {
+                    int filter_id = bcf_hdr_id2int(new_hdr, BCF_DT_ID, label_parts[3].c_str());
+                    if (bcf_update_filter(new_hdr, input_vcf.v, &filter_id, 1) < 0) {
+                        std::cerr << "Error: Failed to update filter, id " << input_vcf.v->rid << std::endl;
+                    }
                 }
-                if (!l.savedDate.empty()) {
-                    res = bcf_update_info_string(new_hdr, input_vcf.v, "GW_PREV", prev_label);
-                    if (res < 0) {
+                if (!label_parts[5].empty()) {  // saveDate was set
+                    if (bcf_update_info_string(new_hdr, input_vcf.v, "GW_PREV", prev_label) < 0) {
                         std::cerr << "Error: Updating GW_PREV failed, id " << input_vcf.v->rid << std::endl;
                     }
-
-                    res = bcf_update_info_string(new_hdr, input_vcf.v, "GW_DATE", l.savedDate.c_str());
-                    if (res < 0) {
+                    if (bcf_update_info_string(new_hdr, input_vcf.v, "GW_DATE", label_parts[5].c_str()) < 0) {
                         std::cerr << "Error: Updating GW_DATE failed, id " << input_vcf.v->rid << std::endl;
                     }
                 }
-                res = bcf_write(fp_out, new_hdr, input_vcf.v);
-                if (res < 0) {
+                if (bcf_write(fp_out, new_hdr, input_vcf.v) < 0) {
                     std::cerr << "Error: Writing new vcf record failed, id " << input_vcf.v->rid << std::endl;
+                    throw std::runtime_error("");
                 }
 
             } else {
-                res = bcf_write(fp_out, new_hdr, input_vcf.v);
-                if (res < 0) {
+                if (bcf_write(fp_out, new_hdr, input_vcf.v) < 0) {
                     std::cerr << "Error: Writing new vcf record failed, id " << input_vcf.v->rid << std::endl;
-                    break;
+                    throw std::runtime_error("");
                 }
             }
         }

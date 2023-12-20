@@ -337,6 +337,15 @@ namespace Manager {
         f.close();
     }
 
+    void GwPlot::addFilter(std::string &filter_str) {
+        Parse::Parser p = Parse::Parser();
+        if (p.set_filter(filter_str, bams.size(), regions.size()) > 0) {
+            filters.push_back(p);
+        } else {
+            throw std::runtime_error("Error: --filter option not understood");
+        }
+    }
+
     void GwPlot::setLabelChoices(std::vector<std::string> &labels) {
         labelChoices = labels;
     }

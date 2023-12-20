@@ -57,7 +57,7 @@ namespace HGW {
     */
     class VCFfile {
     public:
-        VCFfile () = default;
+        VCFfile (); // = default;
         ~VCFfile();
         htsFile *fp;
         bcf_hdr_t *hdr;
@@ -180,7 +180,8 @@ namespace HGW {
 
     void collectTrackData(GwTrack &trk, std::vector<Utils::TrackBlock> &features);
 
-    void saveVcf(VCFfile &input_vcf, std::string path, std::vector<Utils::Label> multiLabels);
+//    void saveVcf(VCFfile &input_vcf, std::string path, std::vector<Utils::Label> multiLabels);
+    void saveVcf(std::string &input_vcf_path, std::string &output_vcf_path, std::string &labels_path);
 
 
     /*

@@ -27,12 +27,18 @@ in the bottom left-hand corner of image tiles.
 Other labels can be parsed from the VCF using the --parse-label option.
 For example, the `SU` tag can be parsed from the info column using:
 
-    gw hg38.fa -b your.bam -v variants.vcf --parse-label info.SU
+```shell
+gw hg38.fa -b your.bam -v variants.vcf --parse-label info.SU
+```
+    
 
 Image tiles can then be clicked-on using the mouse to modify the label,
 choosing between PASS/FAIL by default. To provide a list of alternate labels, use the `--labels` option:
 
-    gw hg38.fa -b your.bam -v variants.vcf --labels Yes,No,Maybe
+```shell
+gw hg38.fa -b your.bam -v variants.vcf --labels Yes,No,Maybe
+```
+    
 
 Now, when you left-click on a tiled image, you can cycle through this list.
 
@@ -41,7 +47,10 @@ This makes it straightforward to keep track of labelling progress between sessio
 Only variants that have been displayed to screen will be appended to the results in `--out-labels` file.
 The same file can be used for in and out labels, if desired:
 
-    gw hg38 -b your.bam -v variants.vcf --in-labels labels.tsv --out-labels labels.tsv
+```shell
+gw hg38 -b your.bam -v variants.vcf --in-labels labels.tsv --out-labels labels.tsv
+```
+    
 
 Labels are output as a tab-separated file with the following format:
 
@@ -60,7 +69,11 @@ GW can also write labels to a VCF file. We recommend using this feature to final
 the whole VCF file will be written to `--out-vcf`. The final label will appear in the 'filter' column in the vcf.
 Additionally, the date and previous filter label are kept in the info column under `GW_DATE`, `GW_PREV`:
 
-    gw hg38.fa -b your.bam -v variants.vcf --in-labels labels.tsv --out-vcf final_annotations.vcf
+```shell
+gw hg38.fa -v input_variants.vcf --in-labels labels.tsv \
+  --out-vcf output_variants.vcf
+```
+    
 
 Note, the `--in-labels` option is not required here, but could be used if labelling over multiple sessions, for example.
 Also, a GW window will still pop-up here, but this could be supressed using the `--no-show` option.
