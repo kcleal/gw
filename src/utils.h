@@ -8,7 +8,6 @@
 #include <string>
 #include <vector>
 #include "../include/unordered_dense.h"
-#include "../include/robin_hood.h"
 
 #include "htslib/faidx.h"
 
@@ -31,24 +30,51 @@ namespace Utils {
 
     std::vector<std::string> split(const std::string &s, char delim, std::vector<std::string> &elems);
 
+    std::vector<std::string> split_keep_empty_str(const std::string &s, const char delim);
+
     // https://stackoverflow.com/questions/1528298/get-path-of-executable
     std::string getExecutableDir();
 
     bool is_file_exist(std::string FileName);
 
-    struct TrackBlock {
-        std::string chrom, name, line, vartype;
+    class TrackBlock {
+    public:
+        std::string chrom, name, line, vartype, parent;
         int start, end;
+        int coding_start, coding_end;
         int strand;  // 0 is none, 1 forward, 2 reverse
-        std::vector<int> s;  // block starts and block ends for bed12
+        int level;
+        float value;
+        bool anyToDraw;
+        std::vector<std::string> parts;
+        std::vector<int> s;  // block starts and block ends for bed12/GFF
         std::vector<int> e;
+        std::vector<uint8_t> drawThickness;  // 0 no line, 1 is thin line, 2 fat line
+        TrackBlock() {
+            coding_start = -1;
+            coding_end = -1;
+            value = 0;
+            level = 0;
+        }
     };
 
-    struct Region {
+    class GFFTrackBlock {
+    public:
+        std::string chrom, name, line, vartype;
+        std::vector<std::string> parts;
+        int start, end;
+        int strand;  // 0 is none, 1 forward, 2 reverse
+    };
+
+    class Region {
+    public:
+//    struct Region {
         std::string chrom;
         int start, end;
         int markerPos, markerPosEnd;
         const char *refSeq;
+        std::vector<std::vector<Utils::TrackBlock>> featuresInView;  // one vector for each Track
+        std::vector<int> featureLevels;
         Region() {
             chrom = "";
             start = -1;
@@ -59,7 +85,17 @@ namespace Utils {
 
     Region parseRegion(std::string &r);
 
-    bool parseFilenameToMouseClick(std::filesystem::path &path, std::vector<Region> &regions, faidx_t* fai, int pad, int split_size);
+    bool parseFilenameToRegions(std::filesystem::path &path, std::vector<Region> &regions, faidx_t* fai, int pad, int split_size);
+
+    struct FileNameInfo {
+        std::string chrom, chrom2, rid, fileName, varType;
+        int pos, pos2;
+        bool valid;
+    };
+
+    std::filesystem::path makeFilenameFromRegions(std::vector<Utils::Region> &regions);
+
+    FileNameInfo parseFilenameInfo(std::filesystem::path &path);
 
     struct Dims {
         int x, y;
@@ -75,7 +111,7 @@ namespace Utils {
         float xStart, yStart, xEnd, yEnd, width, height;
     };
 
-    std::vector<BoundingBox> imageBoundingBoxes(Dims &dims, float wndowWidth, float windowHeight, float padX=15, float padY=15);
+    std::vector<BoundingBox> imageBoundingBoxes(Dims &dims, float wndowWidth, float windowHeight, float padX=15, float padY=15, float ySpace=0);
 
     class Label {
     public:
@@ -95,14 +131,17 @@ namespace Utils {
     std::string dateTime();
 
     Label makeLabel(std::string &chrom, int pos, std::string &parsed, std::vector<std::string> &inputLabels, std::string &variantId, std::string &vartype,
-                    std::string savedDate, bool clicked);
+                    std::string savedDate, bool clicked, bool add_empty_label);
 
-    void labelToFile(std::ofstream &f, Utils::Label &l, std::string &dateStr);
+    void labelToFile(std::ofstream &f, Utils::Label &l, std::string &dateStr, std::string &variantFileName);
 
-    void saveLabels(std::vector<Utils::Label> &multiLabels, std::string path);
+    void saveLabels(Utils::Label &l, std::ofstream &fileOut, std::string &dateStr, std::string &variantFileName);
 
-    void openLabels(std::string path, ankerl::unordered_dense::map< std::string, Utils::Label> &label_dict,
-                    std::vector<std::string> &inputLabels, robin_hood::unordered_set<std::string> &seenLabels);
+    void openLabels(std::string path, std::string &image_glob_path,
+                    ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::map< std::string, Utils::Label>> &label_dict,
+                    std::vector<std::string> &inputLabels,
+                    ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::set<std::string>> &seenLabels
+                    );
 
     std::string getSize(long num);
 

@@ -2,8 +2,8 @@
 
 #include <cstdint>
 #include <cstring>
-#include <vector>
 #include <deque>
+#include <future>
 #include <iostream>
 #include <vector>
 
@@ -11,7 +11,6 @@
 #include <unordered_map>
 
 #include "../include/BS_thread_pool.h"
-#include "../include/robin_hood.h"
 #include "../include/unordered_dense.h"
 #include "htslib/sam.h"
 
@@ -22,7 +21,8 @@
 namespace Segs {
 
     enum Pattern {
-        NORMAL,
+        u = 0,
+        NORMAL = 0,
         DEL,
         INV_F,
         INV_R,
@@ -57,11 +57,19 @@ namespace Segs {
     struct Align {
         bam1_t *delegate;
         int cov_start, cov_end, orient_pattern, left_soft_clip, right_soft_clip, y, edge_type;
-        uint32_t pos, reference_end, cigar_l;
+        uint32_t pos, reference_end;
         bool has_SA, initialized;
         std::vector<uint32_t> block_starts, block_ends;
         std::vector<InsItem> any_ins;
 //        std::vector<MMbase> mismatches;
+        Align(bam1_t *src) {
+            delegate = src;
+            initialized = false;
+        }
+    };
+
+    struct Mismatches {
+        uint32_t A, T, C, G;
     };
 
     typedef ankerl::unordered_dense::map< std::string, std::vector< Align* >> map_t;
@@ -71,27 +79,33 @@ namespace Segs {
        ReadCollection();
         ~ReadCollection() = default;
         int bamIdx, regionIdx, vScroll;
-        Utils::Region region;
+        int maxCoverage;
+        Utils::Region *region;
         std::vector<int> covArr;
         std::vector<int> levelsStart, levelsEnd;
+        std::vector<Mismatches> mmVector;
         std::vector<Align> readQueue;
         map_t linked;
         float xScaling, xOffset, yOffset, yPixels;
-        bool processed;
+        bool collection_processed;
 
         void clear();
     };
 
-    void align_init(Align *self);
+    void align_init(Align *self); // noexcept;
 
     void align_clear(Align *self);
 
-    void init_parallel(std::vector<Align> &aligns, int n);
+    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool);
 
     void resetCovStartEnd(ReadCollection &cl);
 
-    void addToCovArray(std::vector<int> &arr, Align &align, uint32_t begin, uint32_t end, uint32_t l_arr);
+    void addToCovArray(std::vector<int> &arr, const Align &align, const uint32_t begin, const uint32_t end, const uint32_t l_arr) noexcept;
 
     int findY(ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, Utils::Region *region, bool joinLeft);
+
+    void findMismatches(const Themes::IniOptions &opts, ReadCollection &collection);
+
+    int findTrackY(std::vector<Utils::TrackBlock> &features, bool expanded, const Utils::Region &rgn);
 
 }

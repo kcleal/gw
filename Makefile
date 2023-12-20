@@ -1,10 +1,11 @@
 TARGET = gw
 
-CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -O3 -DNDEBUG -pipe # -g
+.PHONY: default all debug clean
 
-CPPFLAGS += -I./include -I./src -I.
+default: $(TARGET)
 
-LDLIBS += -lskia -lm -ljpeg -lpng -lsvg -lhts -lfontconfig -lpthread
+all: default
+debug: default
 
 # set system
 PLATFORM=
@@ -52,9 +53,10 @@ ifneq ($(PLATFORM), "Windows")
     endif
 endif
 
-SKIA_LINK=
+SKIA_LINK=""
 ifeq ($(PLATFORM),"Linux")
-    SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip
+#    SKIA_LINK = https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia-m93-linux-Release-x64.tar.gz
+    #SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip
 endif
 ifeq ($(PLATFORM),"Darwin")
     SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-x64.zip
@@ -62,6 +64,25 @@ endif
 ifeq ($(PLATFORM),"Arm64")
     SKIA_LINK = https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia.zip
 endif
+
+# download skia binaries, set for non-Windows platforms
+prep:
+    ifneq ($(SKIA_LINK),"")
+		$(info "Downloading pre-build skia skia from: $(SKIA_LINK)")
+		cd lib/skia && wget -O skia.zip $(SKIA_LINK) && unzip -o skia.zip && rm skia.zip && cd ../../
+    endif
+    ifeq ($(PLATFORM),"Linux")
+		cd lib/skia && wget -O skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia-m93-linux-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../
+    endif
+
+
+CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG
+
+CPPFLAGS += -I./lib/libBigWig -I./include -I./src -I.
+
+LDLIBS += -lskia -lm -ljpeg -lpng -lsvg -lhts -lfontconfig -lpthread
+
+
 
 # set platform flags and libs
 ifeq ($(PLATFORM),"Linux")
@@ -73,52 +94,40 @@ ifeq ($(PLATFORM),"Linux")
     CPPFLAGS += -I/usr/local/include
     CXXFLAGS += -D LINUX -D __STDC_FORMAT_MACROS
     LDFLAGS += -L/usr/local/lib
-    LDLIBS += -lGL -lfreetype -lfontconfig -luuid -lglfw -lzlib -licu -ldl
+    # If installed from conda, glfw3 is named glfw, therefore if glfw3 is installed by another means use this:
+#     LDLIBS += -lGL -lfreetype -lfontconfig -luuid -lzlib -licu -ldl $(shell pkg-config --static --libs x11 xrandr xi xxf86vm glfw3)
+    LDLIBS += -lEGL -lGLESv2 -lfreetype -lfontconfig -luuid -lz -lcurl -licu -ldl -lglfw #$(shell pkg-config --static --libs x11 xrandr xi xxf86vm glfw3)
+#    LDLIBS += -lGL -lfreetype -lfontconfig -luuid -lz -lcurl -licu -ldl -lglfw
 
 else ifeq ($(PLATFORM),"Darwin")
     CPPFLAGS += -I/usr/local/include
     CXXFLAGS += -D OSX -stdlib=libc++ -arch x86_64 -fvisibility=hidden -mmacosx-version-min=10.15 -Wno-deprecated-declarations
     LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=10.15 -L/usr/local/lib
-    LDLIBS += -lglfw -lzlib -licu -ldl
+    LDLIBS += -lglfw -lzlib -lcurl -licu -ldl
 
 else ifeq ($(PLATFORM),"Arm64")
     CPPFLAGS += -I/usr/local/include
     CXXFLAGS += -D OSX -stdlib=libc++ -arch arm64 -fvisibility=hidden -mmacosx-version-min=10.15 -Wno-deprecated-declarations
     LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=10.15 -L/usr/local/lib
-    LDLIBS += -lglfw -lzlib -licu -ldl
+    LDLIBS += -lglfw -lzlib -lcurl -licu -ldl
 
 else ifeq ($(PLATFORM),"Windows")
     CXXFLAGS += -D WIN32
     CPPFLAGS += $(shell pkgconf -cflags skia) $(shell ncursesw6-config --cflags)
     LDLIBS += $(shell pkgconf -libs skia)
-    LDLIBS += -lharfbuzz-subset -lglfw3
+    LDLIBS += -lharfbuzz-subset -lglfw3 -lcurl
 endif
 
-.PHONY: default all debug clean
-
-default: $(TARGET)
-
-all: default
-debug: default
 
 OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
+OBJECTS += $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
 
-# download link for skia binaries, set for non-Windows platforms
-prep:
-    ifneq ($SKIA_LINK,"")
-		$(info "Downloading pre-build skia skia from: $(SKIA_LINK)")
-		cd lib/skia && wget -O skia.zip $(SKIA_LINK) && unzip -o skia.zip && rm skia.zip && cd ../../
-    endif
 
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) -g $(CPPFLAGS) -c $< -o $@
-
-#.PRECIOUS: $(TARGET) $(OBJECTS)
-
+debug: LDFLAGS+=-fsanitize=address -fsanitize=undefined
 
 $(TARGET): $(OBJECTS)
 	$(CXX) -g $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $@
 
 clean:
-	-rm -f *.o ./src/*.o ./src/*.o.tmp
+	-rm -f *.o ./src/*.o ./src/*.o.tmp ./lib/libBigWig/*.o
 	-rm -f $(TARGET)

@@ -236,21 +236,36 @@ namespace Segs {
 //        }
 //    }
 
-    void align_init(Align *self) {
-//        auto start = std::chrono::high_resolution_clock::now();
+    constexpr uint32_t PP_RR_MR = 50;
 
+    constexpr std::array<Pattern, 49> posFirst = {INV_F, u, u, u, u, u, u, u,
+                                                  u, u, u, u, u, u, u, u,
+                                                  DUP, u, u, u, u, u, u, u,
+                                                  u, u, u, u, u, u, u, u,
+                                                  DEL, u, u, u, u, u, u, u,
+                                                  u, u, u, u, u, u, u, u,
+                                                  INV_R};
+    constexpr std::array<Pattern, 49> mateFirst = {INV_R, u, u, u, u, u, u, u,
+                                                  u, u, u, u, u, u, u, u,
+                                                  DEL, u, u, u, u, u, u, u,
+                                                  u, u, u, u, u, u, u, u,
+                                                  DUP, u, u, u, u, u, u, u,
+                                                  u, u, u, u, u, u, u, u,
+                                                  INV_F};
+
+    void align_init(Align *self) { //noexcept {
+//        auto start = std::chrono::high_resolution_clock::now();
         bam1_t *src = self->delegate;
 
         self->pos = src->core.pos;
         self->reference_end = bam_endpos(src);  // reference_end - already checked for 0 length cigar and mapped
-        self->cov_start = self->pos;
-        self->cov_end = self->reference_end;
+        self->cov_start = (int)self->pos;
+        self->cov_end = (int)self->reference_end;
 
         uint32_t pos, l, cigar_l, op, k;
         uint32_t *cigar_p;
 
         cigar_l = src->core.n_cigar;
-        self->cigar_l = cigar_l;
 
         pos = src->core.pos;
         cigar_p = bam_get_cigar(src);
@@ -260,11 +275,26 @@ namespace Segs {
 
         uint32_t last_op = 0;
 
+        self->any_ins.reserve(cigar_l);
+        self->block_starts.reserve(cigar_l);
+        self->block_ends.reserve(cigar_l);
+
         for (k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
 
             switch (op) {
+                case BAM_CMATCH: case BAM_CEQUAL: case BAM_CDIFF:
+                    if (last_op == BAM_CINS) {
+                        if (!self->block_ends.empty() ) {
+                            self->block_ends.back() = pos + l;
+                        }
+                    } else {
+                        self->block_starts.push_back(pos);
+                        self->block_ends.push_back(pos + l);
+                    }
+                    pos += l;
+                    break;
                 case BAM_CINS:
                     self->any_ins.push_back({pos, l});
                     break;
@@ -280,30 +310,15 @@ namespace Segs {
                         self->right_soft_clip = (int)l;
                     }
                     break;
-                case BAM_CHARD_CLIP: case BAM_CPAD: case BAM_CBACK:
-                    break;  // do something for these?
+//                case BAM_CHARD_CLIP: case BAM_CPAD: case BAM_CBACK:
+//                    break;  // do something for these?
                 default:  // Match case --> MATCH, EQUAL, DIFF
-                    if (last_op == 1) {
-                        if (!self->block_ends.empty() ) {
-                            self->block_ends.back() = pos + l;
-                        }
-                    } else {
-                        self->block_starts.push_back(pos);
-                        self->block_ends.push_back(pos + l);
-                    }
-                    pos += l;
                     break;
             }
             last_op = op;
         }
 
         uint32_t flag = src->core.flag;
-
-        if (flag & 16) {  // reverse strand
-            self->cov_start -= 1;   // pad between alignments
-        } else {
-            self->cov_end += 1;
-        }
 
         if (bam_aux_get(self->delegate, "SA") != nullptr) {
             self->has_SA = true;
@@ -313,41 +328,17 @@ namespace Segs {
 
         self->y = -1;
 
-        int ptrn = NORMAL;
-        constexpr uint32_t PP_RR_MR = 50;  // proper-pair, read-reverse, mate-reverse flags
-        if (flag & 1 && !(flag & 12)) {  // proper-pair, not (unmapped, mate-unmapped)
-            if (src->core.tid == src->core.mtid) {
-
-                uint32_t info = flag & PP_RR_MR;
-
-                if (self->pos <= src->core.mpos) {
-                    if (info == 0) {
-                        ptrn = INV_F;
-                    } else if (info == 16) {
-                        ptrn = DUP;
-                    } else if (info == 32) {
-                        ptrn = DEL;
-                    } else if (info == 48) {
-                        ptrn = INV_R;
-                    }
-                } else {
-                    if (info == 16) {
-                        ptrn = DEL;
-                    } else if (info == 48) {
-                        ptrn = INV_F;
-                    } else if (info == 0) {
-                        ptrn = INV_R;
-                    } else if (info == 32) {
-                        ptrn = DUP;
-                    }
-                }
-
+          // proper-pair, read-reverse, mate-reverse flags
+        if (src->core.tid != src->core.mtid) {
+            self->orient_pattern = TRA;
+        } else {
+            uint32_t info = flag & PP_RR_MR;
+            if (self->pos <= src->core.mpos) {
+                self->orient_pattern = posFirst[info];
             } else {
-                ptrn = TRA;
+                self->orient_pattern = mateFirst[info];
             }
         }
-        self->orient_pattern = ptrn;
-
         if (flag & 2048 || self->has_SA) {
             self->edge_type = 2;  // "SPLIT"
         } else if (flag & 8) {
@@ -355,9 +346,7 @@ namespace Segs {
         } else {
             self->edge_type = 1;  // "NORMAL"
         }
-
         self->initialized = true;
-
 //        auto stop = std::chrono::high_resolution_clock::now();
 //        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
     }
@@ -368,13 +357,12 @@ namespace Segs {
         self->any_ins.clear();
     }
 
-    void init_parallel(std::vector<Align> &aligns, int n) { //const char *refSeq, int begin, int rlen) {
+    void init_parallel(std::vector<Align> &aligns, int n,  BS::thread_pool &pool) {
         if (n == 1) {
             for (auto &aln : aligns) {
                 align_init(&aln);
             }
         } else {
-            BS::thread_pool pool(n);
             pool.parallelize_loop(0, aligns.size(),
                                   [&aligns](const int a, const int b) {
                                       for (int i = a; i < b; ++i)
@@ -386,6 +374,7 @@ namespace Segs {
 
     ReadCollection::ReadCollection() {
         vScroll = 0;
+        collection_processed = false;
     }
 
     void ReadCollection::clear() {
@@ -393,7 +382,7 @@ namespace Segs {
         std::fill(levelsEnd.begin(), levelsEnd.end(), 0);
         std::fill(covArr.begin(), covArr.end(), 0);
         linked.clear();
-        processed = false;
+        collection_processed = false;
         for (auto &item: readQueue) {
             bam_destroy1(item.delegate);
         }
@@ -412,15 +401,17 @@ namespace Segs {
         }
     }
 
-    void addToCovArray(std::vector<int> &arr, Align &align, uint32_t begin, uint32_t end, uint32_t l_arr) {
+    void addToCovArray(std::vector<int> &arr, const Align &align, const uint32_t begin, const uint32_t end, const uint32_t l_arr) noexcept {
         size_t n_blocks = align.block_starts.size();
         for (size_t idx=0; idx < n_blocks; ++idx) {
             uint32_t block_s = align.block_starts[idx];
             if (block_s >= end) { break; }
             uint32_t block_e = align.block_ends[idx];
             if (block_e < begin) { continue; }
-            uint32_t s = (block_s >= begin) ? block_s - begin : 0;
-            uint32_t e = (block_e < end) ? block_e - begin : l_arr;
+//            uint32_t s = (block_s >= begin) ? block_s - begin : 0;
+//            uint32_t e = (block_e < end) ? block_e - begin : l_arr;
+            uint32_t s = std::max(block_s, begin) - begin;
+            uint32_t e = std::min(block_e, end) - begin;
             arr[s] += 1;
             arr[e] -= 1;
         }
@@ -464,13 +455,13 @@ namespace Segs {
             }
 
             // set all aligns with same name to have the same start and end coverage locations
-            for (auto const& keyVal : lm) {
+            for (auto const &keyVal : lm) {
                 const std::vector<Align *> &ind = keyVal.second;
                 int size = (int)ind.size();
                 if (size > 1) {
                     uint32_t cs = ind.front()->cov_start;
                     uint32_t ce = ind.back()->cov_end;
-                    for (auto const j : ind) {
+                    for (auto const &j : ind) {
                         j->cov_start = cs;
                         j->cov_end = ce;
                     }
@@ -501,7 +492,7 @@ namespace Segs {
             le.resize(opts.ylim + vScroll, 0);
         }
 
-        int qLen = (int)rQ.size();  // assume no overflow
+        int qLen = (int)rQ.size();
         int stopCondition, move, si;
         int memLen = (int)ls.size();
 
@@ -574,4 +565,173 @@ namespace Segs {
         return samMaxY;
     }
 
+    void findMismatches(const Themes::IniOptions &opts, ReadCollection &collection) {
+
+        std::vector<Segs::Mismatches> &mm_array = collection.mmVector;
+        const Utils::Region *region = collection.region;
+        int regionLen = region->end - region->start;
+        if (opts.max_coverage == 0 || regionLen > opts.snp_threshold) {
+            return;
+        }
+        const char *refSeq = region->refSeq;
+        if (refSeq == nullptr) {
+            return;
+        }
+        for (const auto &align: collection.readQueue) {
+            if (align.y != -1) {
+                continue;
+            }
+            uint32_t r_pos = align.pos;
+            uint32_t cigar_l = align.delegate->core.n_cigar;
+            uint8_t *ptr_seq = bam_get_seq(align.delegate);
+            uint32_t *cigar_p = bam_get_cigar(align.delegate);
+            int r_idx;
+            uint32_t idx = 0;
+
+            uint32_t rlen = region->end - region->start;
+            auto rbegin = (uint32_t) region->start;
+            auto rend = (uint32_t) region->end;
+            uint32_t op, l;
+            for (uint32_t k = 0; k < cigar_l; k++) {
+                op = cigar_p[k] & BAM_CIGAR_MASK;
+                l = cigar_p[k] >> BAM_CIGAR_SHIFT;
+
+                switch (op) {
+                    case BAM_CSOFT_CLIP:
+                    case BAM_CINS:
+                        idx += l;
+                        break;
+
+                    case BAM_CDEL:
+                    case BAM_CREF_SKIP:
+                        r_pos += l;
+                        break;
+
+                    case BAM_CHARD_CLIP:
+                    case BAM_CEQUAL:
+                        // Nothing to do here, just continue in the loop
+                        break;
+                    case BAM_CDIFF:
+                        for (uint32_t i = 0; i < l; ++i) {
+                            if (r_pos >= rbegin && r_pos < rend) {
+                                char bam_base = bam_seqi(ptr_seq, idx);
+                                switch (bam_base) {
+                                    case 1:
+                                        mm_array[r_pos - rbegin].A += 1;
+                                        break;
+                                    case 2:
+                                        mm_array[r_pos - rbegin].C += 1;
+                                        break;
+                                    case 4:
+                                        mm_array[r_pos - rbegin].G += 1;
+                                        break;
+                                    case 8:
+                                        mm_array[r_pos - rbegin].T += 1;
+                                        break;
+                                    default:
+                                        break;
+                                }
+                            }
+                            idx += 1;
+                            r_pos += 1;
+                        }
+                        break;
+
+                    default:
+                        for (uint32_t i = 0; i < l; ++i) {
+                            r_idx = (int) r_pos - region->start;
+                            if (r_idx < 0) {
+                                idx += 1;
+                                r_pos += 1;
+                                continue;
+                            }
+                            if (r_idx >= (int)rlen) {
+                                break;
+                            }
+
+                            char ref_base;
+                            switch (refSeq[r_idx]) {
+                                case 'A':
+                                case 'a':
+                                    ref_base = 1;
+                                    break;
+                                case 'C':
+                                case 'c':
+                                    ref_base = 2;
+                                    break;
+                                case 'G':
+                                case 'g':
+                                    ref_base = 4;
+                                    break;
+                                case 'T':
+                                case 't':
+                                    ref_base = 8;
+                                    break;
+                                case 'N':
+                                default:
+                                    ref_base = 15;
+                                    break;
+                            }
+
+                            char bam_base = bam_seqi(ptr_seq, idx);
+                            if (bam_base != ref_base) {
+                                switch (bam_base) {
+                                    case 1:
+                                        mm_array[r_pos - rbegin].A += 1;
+                                        break;
+                                    case 2:
+                                        mm_array[r_pos - rbegin].C += 1;
+                                        break;
+                                    case 4:
+                                        mm_array[r_pos - rbegin].G += 1;
+                                        break;
+                                    case 8:
+                                        mm_array[r_pos - rbegin].T += 1;
+                                        break;
+                                    default:
+                                        break;
+                                }
+                            }
+                            idx += 1;
+                            r_pos += 1;
+                        }
+                        break;
+                }
+            }
+        }
+    }
+
+
+    struct TrackRange {
+        int start, end;
+    };
+
+    int findTrackY(std::vector<Utils::TrackBlock> &features, bool expanded, const Utils::Region &rgn) {
+        if (!expanded || features.empty()) {
+            return 1;
+        }
+        std::vector<TrackRange> levels;
+        levels.reserve(100);
+        for (auto &b : features) {
+            if (!b.anyToDraw) {
+                b.level = -1;
+                continue;
+            }
+            size_t memLen = levels.size();
+            size_t i = 0;
+            for (; i < memLen; ++i) {
+                if (b.start > levels[i].end) {
+                    levels[i].end = b.end + 5;
+                    b.level = (int)i;
+                    break;
+                }
+            }
+            if (i == memLen) {
+                levels.emplace_back() = {b.start, b.end + 5};
+                b.level = memLen;
+            }
+        }
+        assert (levels.size() >= 1);
+        return (int)levels.size();
+    }
 }

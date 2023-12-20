@@ -13,6 +13,7 @@
 #include "hts_funcs.h"
 #include "plot_manager.h"
 #include "segments.h"
+#include "../include/unordered_dense.h"
 #include "../include/termcolor.h"
 #include "term_out.h"
 #include "themes.h"
@@ -33,11 +34,17 @@ namespace Term {
 
     void printKeyFromValue(int v);
 
-    void printRefSeq(float x, std::vector<Segs::ReadCollection> &collections);
+    std::string intToStringCommas(int pos);
+
+    void printRefSeq(Utils::Region *region, float x, float xOffset, float xScaling);
 
 	void printCoverage(int pos, Segs::ReadCollection &cl);
 
-	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver);
+	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver, int targetLevel, int trackIdx);
 
-    void updateRefGenomeSeq(float xW, std::vector<Segs::ReadCollection> &collections);
+    void printVariantFileInfo(Utils::Label *label, int index);
+
+    void printOnlineLinks(std::vector<HGW::GwTrack> &tracks, Utils::Region &rgn, std::string &genome_tag);
+
+    void updateRefGenomeSeq(Utils::Region *region, float xW, float xOffset, float xScaling);
 }

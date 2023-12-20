@@ -1,7 +1,9 @@
 
+#include <array>
 #include <chrono>
 #include <cstdlib>
 #include <deque>
+#include <filesystem>
 #include <mutex>
 #include <string>
 #include <cstdio>
@@ -9,6 +11,9 @@
 
 #ifdef __APPLE__
     #include <OpenGL/gl.h>
+#elif defined(__linux__)
+    #include <GL/gl.h>
+    #include <GL/glx.h>
 #endif
 
 #include "htslib/faidx.h"
@@ -25,8 +30,10 @@
 #include "include/core/SkSurface.h"
 #include "include/core/SkDocument.h"
 
+#include "../include/unordered_dense.h"
 #include "drawing.h"
 #include "plot_manager.h"
+#include "menu.h"
 #include "segments.h"
 #include "../include/termcolor.h"
 #include "themes.h"
@@ -70,10 +77,17 @@ namespace Manager {
         drawLine = false;
         captureText = false;
         drawToBackWindow = false;
-        useVcf = false;
+        textFromSettings = false;
         monitorScale = 1;
         fonts = Themes::Fonts();
-        fai = fai_load(reference.c_str());
+        fonts.setTypeface(opt.font_str, opt.font_size);
+        if (!reference.empty()) {
+            fai = fai_load(reference.c_str());
+            if (fai == nullptr) {
+                std::cerr << termcolor::red << "Error:" << termcolor::reset << " reference genome could not be opened " << reference << std::endl;
+                std::exit(-1);
+            }
+        }
         for (auto &fn: bampaths) {
             htsFile* f = sam_open(fn.c_str(), "r");
             hts_set_fai_filename(f, reference.c_str());
@@ -84,22 +98,40 @@ namespace Manager {
             hts_idx_t* idx = sam_index_load(f, fn.c_str());
             indexes.push_back(idx);
         }
-        tracks.resize(track_paths.size());
-        int i = 0;
-        for (auto &tp: track_paths) {
-            tracks[i].open(tp, true);
-            i += 1;
+
+        if (!opts.genome_tag.empty() && !opts.ini_path.empty() && opts.myIni["tracks"].has(opts.genome_tag)) {
+            std::vector<std::string> track_paths_temp = Utils::split(opts.myIni["tracks"][opts.genome_tag], ',');
+            tracks.reserve(track_paths.size() + track_paths_temp.size());
+            for (const auto &trk_item : track_paths_temp) {
+                if (!Utils::is_file_exist(trk_item)) {
+                    std::cerr << "Warning: track file does not exists - " << trk_item << std::endl;
+                } else {
+                    tracks.push_back(HGW::GwTrack());
+                    tracks.back().genome_tag = opts.genome_tag;
+                    tracks.back().open(trk_item, true);
+                }
+            }
+        } else {
+            tracks.reserve(track_paths.size());
+        }
+        for (const auto &tp: track_paths) {
+            tracks.push_back(HGW::GwTrack());
+            tracks.back().open(tp, true);
         }
         samMaxY = 0;
         yScaling = 0;
-        covY = 0; totalCovY = 0; totalTabixY = 0; tabixY = 0;
-        captureText = shiftPress = ctrlPress = processText = false;
-        xDrag = xOri = -1000000;
-        lastX = -1;
+        covY = totalCovY = totalTabixY = tabixY = 0;
+        captureText = shiftPress = ctrlPress = processText = tabBorderPress = false;
+        xDrag = xOri = yDrag = yOri = -1000000;
+        lastX = lastY = -1;
         commandIndex = 0;
-        blockStart = 0;
         regionSelection = 0;
+        variantFileSelection = 0;
+        commandToolTipIndex = -1;
         mode = Show::SINGLE;
+        if (opts.threads > 1) {
+            pool.reset(opts.threads);
+        }
     }
 
     GwPlot::~GwPlot() {
@@ -122,21 +154,48 @@ namespace Manager {
         fai_destroy(fai);
     }
 
+    void ErrorCallback(int, const char* err_str) {
+        std::cout << "GLFW Error: " << err_str << std::endl;
+    }
+
     void GwPlot::init(int width, int height) {
+
+        glfwSetErrorCallback(ErrorCallback);
 
         if (!glfwInit()) {
             std::cerr<<"ERROR: could not initialize GLFW3"<<std::endl;
             std::terminate();
         }
 
-//         glfwWindowHint(GLFW_STENCIL_BITS, 8);
+//        GLFWmonitor* primary = glfwGetPrimaryMonitor();
+//        const GLFWvidmode* mode = glfwGetVideoMode(primary);
+//
+//        glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+//        glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+//        glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+//        glfwWindowHint(GLFW_STENCIL_BITS, 8);
+//        glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+
+//        std::cerr << "Width: " << mode->width << " Height: " << mode->height << " redBits: " << mode->redBits << " greenBits: " << mode->greenBits << " blueBits: " << mode->blueBits << " refreshRate: " << mode->refreshRate << std::endl;
+//         Turn this off for non-remote connections?
+//        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
+//        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+//        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+//        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+//        glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+
 
         window = glfwCreateWindow(width, height, "GW", NULL, NULL);
 
+        if (!window) {
+            glfwTerminate();
+            std::cerr << "ERROR: glfwCreateWindow failed\n";
+            std::exit(-1);
+        }
         #if defined(_WIN32) || defined(_WIN64)
             GLFWimage iconimage;
             getWindowIconImage(&iconimage);
-	    glfwSetWindowIcon(window, 1, &iconimage);
+	          glfwSetWindowIcon(window, 1, &iconimage);
         #endif
 
 
@@ -179,9 +238,7 @@ namespace Manager {
             std::terminate();
         }
         glfwMakeContextCurrent(window);
-
         setGlfwFrameBufferSize();
-
     }
 
     void GwPlot::initBack(int width, int height) {
@@ -189,7 +246,7 @@ namespace Manager {
             std::cerr<<"ERROR: could not initialize GLFW3"<<std::endl;
             std::terminate();
         }
-//        glfwWindowHint(GLFW_STENCIL_BITS, 8);
+
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
         backWindow = glfwCreateWindow(width, height, "GW", NULL, NULL);
         if (!backWindow) {
@@ -214,71 +271,31 @@ namespace Manager {
         }
     }
 
-    void GwPlot::setVariantFile(std::string &path, int startIndex, bool cacheStdin) {
-        if (cacheStdin || Utils::endsWith(path, ".vcf") ||
-            Utils::endsWith(path, ".vcf.gz") ||
-            Utils::endsWith(path, ".bcf")) {
-            variantTrack.done = true;
-			useVcf = true;
-            mouseOverTileIndex = -1;
-            vcf.seenLabels = &seenLabels;
-            vcf.cacheStdin = cacheStdin;
-            vcf.label_to_parse = opts.parse_label.c_str();
-            vcf.open(path);  // todo some error checking needed?
-            if (startIndex > 0) {
-                int bLen = opts.number.x * opts.number.y;
-                bool done = false;
-                while (!done) {
-                    if (vcf.done) {
-                        done = true;
-                    } else {
-                        for (int i=0; i < bLen; ++ i) {
-                            if (vcf.done) {
-                                done = true;
-                                break;
-                            }
-                            vcf.next();
-                            appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype);
-                        }
-                        if (blockStart + bLen > startIndex) {
-                            done = true;
-                        } else if (!done) {
-                            blockStart += bLen;
-                        }
-                    }
-                }
-            }
-        } else {  // bed file or labels file, or some other tsv
-			useVcf = false;
-            vcf.done = true;
-            variantTrack.open(path, false);
-            variantTrack.fetch(nullptr);  // initialize iterators
-            if (startIndex > 0) {
-                int bLen = opts.number.x * opts.number.y;
-                bool done = false;
-                while (!done) {
-                    if (variantTrack.done) {
-                        done = true;
-                    } else {
-                        for (int i=0; i < bLen; ++ i) {
-                            if (variantTrack.done) {
-                                done = true;
-                                break;
-                            }
-                            variantTrack.next();
-                            std::string label = "";
-                            appendVariantSite(variantTrack.chrom, variantTrack.start, variantTrack.chrom2,
-                                              variantTrack.stop, variantTrack.rid, label, variantTrack.vartype);
-                        }
-                        if (blockStart + bLen > startIndex) {
-                            done = true;
-                        } else if (!done) {
-                            blockStart += bLen;
-                        }
-                    }
-                }
-            }
+    void GwPlot::addVariantTrack(std::string &path, int startIndex, bool cacheStdin, bool useFullPath) {
+        std::string variantFilename;
+        if (!useFullPath) {
+            std::filesystem::path fsp(path);
+#if defined(_WIN32) || defined(_WIN64)
+            const wchar_t* pc = fsp.filename().c_str();
+        std::wstring ws(pc);
+        std::string p(ws.begin(), ws.end());
+        variantFilename = p;
+#else
+            variantFilename = fsp.filename();
+#endif
+        } else {
+            variantFilename = path;
         }
+
+        std::shared_ptr<ankerl::unordered_dense::map< std::string, Utils::Label>> inLabels = std::make_shared<ankerl::unordered_dense::map< std::string, Utils::Label>>(inputLabels[variantFilename]);
+        std::shared_ptr<ankerl::unordered_dense::set<std::string>> sLabels = std::make_shared<ankerl::unordered_dense::set<std::string>>(seenLabels[variantFilename]);
+
+        variantTracks.push_back(
+                HGW::GwVariantTrack(path, cacheStdin, &opts, startIndex,
+                                    labelChoices,
+                                    inLabels,
+                                    sLabels)
+        );
     }
 
     void GwPlot::setOutLabelFile(const std::string &path) {
@@ -286,7 +303,54 @@ namespace Manager {
     }
 
     void GwPlot::saveLabels() {
-        if (!outLabelFile.empty()) Utils::saveLabels(multiLabels, outLabelFile);
+        if (outLabelFile.empty()) {
+            return;
+        }
+//        std::cout << "Saving labels to file: " << outLabelFile << std::endl;
+        std::string dateStr = Utils::dateTime();
+        std::ofstream f;
+        f.open(outLabelFile);
+        f << "#chrom\tpos\tvariant_ID\tlabel\tvar_type\tlabelled_date\tvariant_filename\n";
+        for (auto &vf : variantTracks) {
+            std::string fileName;
+            if (vf.type != HGW::TrackType::IMAGES) {
+                std::filesystem::path fsp(vf.path);
+#if defined(_WIN32) || defined(_WIN64)
+                const wchar_t* pc = fsp.filename().c_str();
+            std::wstring ws(pc);
+            std::string p(ws.begin(), ws.end());
+            fileName = p;
+#else
+                fileName = fsp.filename();
+#endif
+            }
+            int i = 0;
+            for (auto &l : vf.multiLabels) {
+                if (vf.type == HGW::TrackType::IMAGES) {
+                    std::filesystem::path fsp(vf.image_glob[i]);
+#if defined(_WIN32) || defined(_WIN64)
+                    const wchar_t* pc = fsp.filename().c_str();
+            std::wstring ws(pc);
+            std::string p(ws.begin(), ws.end());
+            fileName = p;
+#else
+                    fileName = fsp.filename();
+#endif
+                }
+                Utils::saveLabels(l, f, dateStr, fileName);
+                i += 1;
+            }
+        }
+        f.close();
+    }
+
+    void GwPlot::addFilter(std::string &filter_str) {
+        Parse::Parser p = Parse::Parser();
+        if (p.set_filter(filter_str, bams.size(), regions.size()) > 0) {
+            filters.push_back(p);
+        } else {
+            throw std::runtime_error("Error: --filter option not understood");
+        }
     }
 
     void GwPlot::setLabelChoices(std::vector<std::string> &labels) {
@@ -304,6 +368,9 @@ namespace Manager {
             regions[0].end = stop + opts.pad;
             regions[0].markerPos = start;
             regions[0].markerPosEnd = stop;
+            if (opts.tlen_yscale) {
+                opts.max_tlen = stop - start;
+            }
         } else {
             regions.resize(2);
             regions[0].chrom = chrom;
@@ -316,47 +383,17 @@ namespace Manager {
             regions[1].end = stop + opts.pad;
             regions[1].markerPos = stop;
             regions[1].markerPosEnd = stop;
-        }
-    }
-
-    void GwPlot::appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label, std::string &vartype) {
-        this->clearCollections();
-        long rlen = stop - start;
-        std::vector<Utils::Region> v;
-        bool isTrans = chrom != chrom2;
-        if (!isTrans && rlen <= opts.split_view_size) {
-            Utils::Region r;
-            v.resize(1);
-            v[0].chrom = chrom;
-            v[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
-            v[0].end = stop + opts.pad;
-            v[0].markerPos = start;
-            v[0].markerPosEnd = stop;
-        } else {
-            v.resize(2);
-            v[0].chrom = chrom;
-            v[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
-            v[0].end = start + opts.pad;
-            v[0].markerPos = start;
-            v[0].markerPosEnd = start;
-            v[1].chrom = chrom2;
-            v[1].start = (1 > stop - opts.pad) ? 1 : stop - opts.pad;
-            v[1].end = stop + opts.pad;
-            v[1].markerPos = stop;
-            v[1].markerPosEnd = stop;
-        }
-        multiRegions.push_back(v);
-        if (inputLabels.contains(rid)) {
-            multiLabels.push_back(inputLabels[rid]);
-        } else {
-            multiLabels.push_back(Utils::makeLabel(chrom, start, label, labelChoices, rid, vartype, "", 0));
+            if (opts.tlen_yscale) {
+                opts.max_tlen = 1500;
+            }
         }
     }
 
     int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay) {
-
         std::cerr << "Type ':help' or ':h' for more info\n";
 
+//        std::cout << "\e[3;0;0t" << std::endl;
+        vCursor = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
         setGlfwFrameBufferSize();
         fetchRefSeqs();
         opts.theme.setAlphas();
@@ -364,10 +401,11 @@ namespace Manager {
         if (mode == Show::SINGLE) {
             printRegionInfo();
         } else {
-            blockStart = 0;
             mouseOverTileIndex = 0;
             bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
-            std::cerr << termcolor::green << "Index     " << termcolor::reset << blockStart << std::endl;
+
+            std::cout << termcolor::magenta << "File    " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
+
         }
         bool wasResized = false;
         std::chrono::high_resolution_clock::time_point autoSaveTimer = std::chrono::high_resolution_clock::now();
@@ -382,12 +420,12 @@ namespace Manager {
             if (redraw) {
                 if (mode == Show::SINGLE) {
                     drawScreen(sSurface->getCanvas(), sContext, sSurface);
-                } else {
+                } else if (mode == Show::TILED) {
                     drawTiles(sSurface->getCanvas(), sContext, sSurface);
+                    printIndexInfo();
                 }
             }
-
-            drawOverlay(sSurface->getCanvas(), sContext);
+            drawOverlay(sSurface->getCanvas(), sContext, sSurface);
 
             if (resizeTriggered && std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - resizeTimer) > 100ms) {
                 imageCache.clear();
@@ -451,9 +489,6 @@ namespace Manager {
             for (auto & a : cl.readQueue) {
                 bam_destroy1(a.delegate);
             }
-//            if (cl.region.refSeq != nullptr) {
-//                delete cl.region.refSeq;
-//            }
         }
         collections.clear();
     }
@@ -476,6 +511,7 @@ namespace Manager {
                     }
                     cl.readQueue.clear();
                     cl.covArr.clear();
+                    cl.mmVector.clear();
                     cl.levelsStart.clear();
                     cl.levelsEnd.clear();
                     cl.linked.clear();
@@ -491,11 +527,18 @@ namespace Manager {
                     Utils::Region *reg = &regions[j];
                     collections[idx].bamIdx = i;
                     collections[idx].regionIdx = j;
-                    collections[idx].region = regions[j];
+                    collections[idx].region = &regions[j];
                     if (opts.max_coverage) {
                         collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
+                        if (opts.snp_threshold > reg->end - reg->start) {
+                            collections[idx].mmVector.resize(reg->end - reg->start + 1);
+                            Segs::Mismatches empty_mm = {0, 0, 0, 0};
+                            std::fill(collections[idx].mmVector.begin(), collections[idx].mmVector.end(), empty_mm);
+                        } else if (!collections[idx].mmVector.empty()) {
+                            collections[idx].mmVector.clear();
+                        }
                     }
-                    HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage, opts.low_mem, filters);
+                    HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage, opts.low_mem, filters, pool);
                     int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts, reg, false);
                     if (maxY > samMaxY) {
                         samMaxY = maxY;
@@ -509,7 +552,7 @@ namespace Manager {
                 for (int j=0; j<(int)regions.size(); ++j) {
                     collections[idx].bamIdx = -1;
                     collections[idx].regionIdx = j;
-                    collections[idx].region = regions[j];
+                    collections[idx].region = &regions[j];
                     idx += 1;
                 }
             }
@@ -530,18 +573,20 @@ namespace Manager {
             monitorScale = 1;
             glfwGetFramebufferSize(backWindow, &fb_width, &fb_height);
         }
-        gap = 10 * monitorScale;
+        gap = std::fmax(5, fb_height * 0.01 * monitorScale);
     }
 
     void GwPlot::setRasterSize(int width, int height) {
         monitorScale = 1;
         fb_width = width;
         fb_height = height;
-        gap = 10;
+        gap = std::fmax(5, fb_height * 0.01 * monitorScale);
     }
 
     void GwPlot::setScaling() {  // sets z_scaling, y_scaling trackY and regionWidth
-        refSpace = (float)(fb_height * 0.02); // slider space is the same
+        fonts.setOverlayHeight(monitorScale);
+        refSpace =  fonts.overlayHeight * 1.25;
+        sliderSpace = std::fmax((float)(fb_height * 0.0175), 10*monitorScale); //refSpace + (gap * 0.5); // + gap + gap;
         auto fbh = (float) fb_height;
         auto fbw = (float) fb_width;
         if (bams.empty()) {
@@ -554,22 +599,17 @@ namespace Manager {
         } else {
             totalCovY = 0; covY = 0;
         }
-        float gap2 = gap*2;
-
         if (tracks.empty()) {
             totalTabixY = 0; tabixY = 0;
         } else {
-            totalTabixY = fbh * ((float)0.07 * (float)tracks.size());
-            if (totalTabixY > (float)0.15 * fbh) {
-                totalTabixY = (float)0.15 * fbh;
-            }
+            totalTabixY = (fbh - refSpace - sliderSpace) * (float)opts.tab_track_height;
             tabixY = totalTabixY / (float)tracks.size();
         }
         if (nbams > 0) {
-            trackY = (fbh - totalCovY - totalTabixY - gap2 - refSpace ) / nbams;
-            yScaling = ((fbh - totalCovY - totalTabixY - gap2 - refSpace ) / (float)samMaxY) / nbams;
-            // scale to pixel boundary
-            yScaling = (samMaxY < 80) ? (float)(int)yScaling : yScaling;
+            trackY = (fbh - totalCovY - totalTabixY - refSpace - sliderSpace) / nbams;
+            yScaling = ((fbh - totalCovY - totalTabixY - refSpace - sliderSpace - (gap * nbams)) / (float)samMaxY) / nbams;
+            // try to scale to pixel boundary
+//            yScaling = (samMaxY < 80) ? (float)(int)yScaling : yScaling;
         } else {
             trackY = 0;
             yScaling = 0;
@@ -577,9 +617,8 @@ namespace Manager {
         fonts.setFontSize(yScaling, monitorScale);
         regionWidth = fbw / (float)regions.size();
         bamHeight = covY + trackY;
-
         for (auto &cl: collections) {
-            cl.xScaling = (float)((regionWidth - gap2) / ((double)(cl.region.end - cl.region.start)));
+            cl.xScaling = (float)((regionWidth - gap - gap) / ((double)(cl.region->end - cl.region->start)));
             cl.xOffset = (regionWidth * (float)cl.regionIdx) + gap;
             cl.yOffset = (float)cl.bamIdx * bamHeight + covY + refSpace;
             cl.yPixels = trackY + covY;
@@ -595,16 +634,17 @@ namespace Manager {
         } else {
             processBam();
             setScaling();
+            Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
+            Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
+            Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
+            Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
+            Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
+
             if (opts.max_coverage) {
                 Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
             }
-            Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
-            Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
-            Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY);
-            Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
-            Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
         }
-        imageCacheQueue.emplace_back(std::make_pair(frameId, sSurface->makeImageSnapshot()));
+        imageCacheQueue.emplace_back(frameId, sSurface->makeImageSnapshot());
         sContext->flush();
         glfwSwapBuffers(window);
         redraw = false;
@@ -619,23 +659,33 @@ namespace Manager {
         } else {
             runDrawNoBuffer(canvas);
         }
-        imageCacheQueue.emplace_back(std::make_pair(frameId, sSurface->makeImageSnapshot()));
+        imageCacheQueue.emplace_back(frameId, sSurface->makeImageSnapshot());
         sContext->flush();
         glfwSwapBuffers(window);
         redraw = false;
     }
 
-
-    void GwPlot::drawOverlay(SkCanvas* canvas, GrDirectContext* sContext) {
+    void GwPlot::drawOverlay(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface) {
         if (!imageCacheQueue.empty()) {
             while (imageCacheQueue.front().first != frameId) {
                 imageCacheQueue.pop_front();
             }
             canvas->drawImage(imageCacheQueue.back().second, 0, 0);
         }
-        if (regionSelectionTriggered && regions.size() > 1) {
+        if (mode == Show::SETTINGS) {
+            if (!imageCacheQueue.empty()) {
+                while (imageCacheQueue.front().first != frameId) {
+                    imageCacheQueue.pop_front();
+                }
+                canvas->drawImage(imageCacheQueue.back().second, 0, 0);
+                SkPaint bg = opts.theme.bgPaint;
+                bg.setAlpha(220);
+                canvas->drawPaint(bg);
+            }
+            Menu::drawMenu(sSurface->getCanvas(), sContext, sSurface, opts, fonts, monitorScale, fb_width, fb_height, inputText, charIndex);
+        } else if (regionSelectionTriggered && regions.size() > 1) {
             SkRect rect{};
-            float step = fb_width / regions.size();
+            float step = (float)fb_width / (float)regions.size();
             if (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - regionTimer) > 500ms) {
                 regionSelectionTriggered = false;
             }
@@ -647,56 +697,214 @@ namespace Manager {
             box.setAntiAlias(true);
             box.setStyle(SkPaint::kStroke_Style);
             rect.setXYWH((float)regionSelection * step + gap, y + gap, step - gap - gap, height);
-            canvas->drawRoundRect(rect, 5, 5, box);
+            canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, box);
         }
-        if (drawLine) {
-	        double xposm, yposm;
-	        glfwGetCursorPos(window, &xposm, &yposm);
-	        int windowW, windowH;  // convert screen coords to frame buffer coords
-	        glfwGetWindowSize(window, &windowW, &windowH);
-	        if (fb_width > windowW) {
-		        xposm *= (float) fb_width / (float) windowW;
-	        }
-			SkPath path;
+
+        if (mode == Show::TILED && variantTracks.size() > 1) {
+            float tile_box_w = std::fmin(100 * monitorScale, (fb_width - (variantTracks.size() * gap + 1)) / variantTracks.size());
+            SkPaint box{};
+            SkRect rect{};
+            box = opts.theme.ecSelected;
+            box.setStyle(SkPaint::kStroke_Style);
+            float x_val = gap;
+            float h = fb_height * 0.01;
+            float y_val;
+            for (int i=0; i < (int)variantTracks.size(); ++i) {
+                if (i == variantFileSelection) {
+                    box = opts.theme.fcDup;
+                    y_val = 0;
+                } else {
+                    box = opts.theme.fcCoverage;
+                    box.setStyle(SkPaint::kStrokeAndFill_Style);
+                    y_val = -h / 2;
+                }
+                rect.setXYWH(x_val, y_val, tile_box_w, h);
+                canvas->drawRect(rect,  box);
+                x_val += tile_box_w + gap;
+            }
+        }
+
+        double xposm, yposm;
+        glfwGetCursorPos(window, &xposm, &yposm);
+        int windowW, windowH;  // convert screen coords to frame buffer coords
+        glfwGetWindowSize(window, &windowW, &windowH);
+        if (fb_width > windowW) {
+            xposm *= (float) fb_width / (float) windowW;
+            yposm *= (float) fb_height / (float) windowH;
+        }
+        float half_h = (float)fb_height / 2;
+        bool tool_popup = (xposm > 0 && xposm <= 60 && yposm >= half_h - 150 && yposm <= half_h + 150 && (xDrag == -1000000 || xDrag == 0) && (yDrag == -1000000 || yDrag == 0));
+        if (tool_popup) {
+            SkRect rect{};
+            SkPaint pop_paint = opts.theme.bgPaint;
+            pop_paint.setStrokeWidth(monitorScale);
+            pop_paint.setStyle(SkPaint::kStrokeAndFill_Style);
+            pop_paint.setAntiAlias(true);
+            pop_paint.setAlpha(255);
+            rect.setXYWH(0, half_h - 55, 60, 110);
+            canvas->drawRoundRect(rect, 10, 10, pop_paint);
+
+            SkPaint cog_paint = opts.theme.lcBright;
+            cog_paint.setAntiAlias(true);
+            cog_paint.setStrokeWidth(6);
+            cog_paint.setStyle(SkPaint::kStrokeAndFill_Style);
+            canvas->drawCircle(30, half_h - 25, 10, cog_paint);
+
+            SkPath path;
+            path.moveTo(30, half_h - 45);
+            path.lineTo(30, half_h - 5);
+            canvas->drawPath(path, cog_paint);
+            path.moveTo(10, half_h - 25);
+            path.lineTo(50, half_h - 25);
+            canvas->drawPath(path, cog_paint);
+            path.moveTo(16, half_h - 39);
+            path.lineTo(44, half_h - 11);
+            canvas->drawPath(path, cog_paint);
+            path.moveTo(16, half_h - 11);
+            path.lineTo(44, half_h - 39);
+            canvas->drawPath(path, cog_paint);
+            canvas->drawCircle(30, half_h - 25, 5, pop_paint);
+
+            rect.setXYWH(15, half_h + 15, 30, 30);
+            cog_paint.setStrokeWidth(monitorScale);
+            cog_paint.setStyle(SkPaint::kStroke_Style);
+            canvas->drawRoundRect(rect, 7, 7, cog_paint);
+
+        } else if (drawLine && mode != SETTINGS) {
+            SkPath path;
             path.moveTo(xposm, 0);
             path.lineTo(xposm, fb_height);
             canvas->drawPath(path, opts.theme.lcJoins);
         }
-        if (captureText) {
+
+        bool variantFile_info = mode == TILED && variantTracks.size() > 1 && yposm < fb_height * 0.02;
+        if (variantFile_info) {
+            float tile_box_w = std::fmin(100 * monitorScale, (fb_width - (variantTracks.size() * gap + 1)) / variantTracks.size());
+            float x_val = gap;
+            float h = fonts.overlayHeight / 2;
+            SkRect rect{};
+            for (int i=0; i < (int)variantTracks.size(); ++i) {
+                if (x_val - gap <= xposm && x_val + tile_box_w >= xposm) {
+                    std::string &fname = variantTracks[i].path;
+                    rect.setXYWH(x_val, h, fname.size() * fonts.overlayWidth + gap + gap, fonts.overlayHeight*2);
+                    canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale,opts.theme.bgPaint);
+                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(fname.c_str(), fonts.overlay);
+                    canvas->drawTextBlob(blob, x_val + gap, h + (fonts.overlayHeight * 1.3), opts.theme.tcDel);
+                    rect.setXYWH(x_val, 0, tile_box_w, fb_width * 0.005);
+                    canvas->drawRect(rect,  opts.theme.fcDup);
+                }
+                x_val += tile_box_w + gap;
+            }
+        }
+
+        if (captureText && !opts.editing_underway) {
             fonts.setFontSize(yScaling, monitorScale);
             SkRect rect{};
-            float height_f = fonts.overlayHeight * 1.5;
+            float height_f = fonts.overlayHeight * 2;
             float x = 50;
             float w = fb_width - 100;
             if (x < w) {
                 float y = fb_height - (fb_height * 0.025);
                 float y2 = fb_height - (height_f * 2.25);
                 float yy = (y2 < y) ? y2 : y;
+                float to_cursor_width = fonts.overlay.measureText(inputText.substr(0, charIndex).c_str(), charIndex, SkTextEncoding::kUTF8);
                 SkPaint box{};
                 box.setColor(SK_ColorGRAY);
                 box.setStrokeWidth(monitorScale);
                 box.setAntiAlias(true);
                 box.setStyle(SkPaint::kStroke_Style);
                 rect.setXYWH(x, yy, w, height_f);
-                canvas->drawRoundRect(rect, 5, 5, opts.theme.bgPaint);
-                canvas->drawRoundRect(rect, 5, 5, box);
-                std::string sText = inputText.substr(0, charIndex) + "|" + inputText.substr(charIndex, inputText.size());
-                sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(sText.c_str(), fonts.overlay);
-                canvas->drawTextBlob(blob, x + 12, yy + fonts.overlayHeight, opts.theme.tcDel);
+                canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, opts.theme.bgPaint);
+                canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, box);
+                SkPath path;
+                path.moveTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 0.3));
+                path.lineTo(x + 14 + to_cursor_width, yy + fonts.overlayHeight * 1.5);
+                canvas->drawPath(path, opts.theme.lcBright);
+                if (!inputText.empty()) {
+                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(inputText.c_str(), fonts.overlay);
+                    canvas->drawTextBlob(blob, x + 14, yy + (fonts.overlayHeight * 1.3), opts.theme.tcDel);
+                }
+                if (mode != SETTINGS && (commandToolTipIndex != -1 || !inputText.empty())) {
+                    float pad = fonts.overlayHeight * 0.3;
+                    if (inputText.empty() && yy - (Menu::commandToolTip.size() * (fonts.overlayHeight+ pad)) < covY) {
+                        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(Menu::commandToolTip[commandToolTipIndex], fonts.overlay);
+                        SkPaint grey;
+                        grey.setColor(SK_ColorGRAY);
+                        canvas->drawTextBlob(blob, x + 14 + fonts.overlayWidth + fonts.overlayWidth, yy + (fonts.overlayHeight * 1.3), grey);
+                    }
+
+                    yy -= pad + pad;
+                    SkPaint tip_paint = opts.theme.lcBright;
+                    tip_paint.setAntiAlias(true);
+                    for (const auto &cmd : Menu::commandToolTip) {
+                        std::string cmd_s = cmd;
+                        if (!inputText.empty() && !Utils::startsWith(cmd_s, inputText)) {
+                            continue;
+                        }
+                        if (cmd_s == inputText) {
+                            break;
+                        }
+                        rect.setXYWH(x, yy - fonts.overlayHeight - pad, fonts.overlayWidth * 18, fonts.overlayHeight + pad + pad);
+                        canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, opts.theme.bgPaint);
+                        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(cmd, fonts.overlay);
+                        canvas->drawTextBlob(blob, x + (fonts.overlayWidth * 3), yy, opts.theme.tcDel);
+                        tip_paint.setStyle(SkPaint::kStrokeAndFill_Style);
+                        if (commandToolTipIndex >= 0 && Menu::commandToolTip[commandToolTipIndex] == cmd) {
+                            canvas->drawCircle(x + (fonts.overlayWidth), yy - (fonts.overlayHeight*0.5), 3, tip_paint);
+                        }
+                        tip_paint.setStyle(SkPaint::kStroke_Style);
+                        int cs_val = Menu::getCommandSwitchValue(opts, cmd_s, drawLine);
+                        if (cs_val == 1) {
+                            path.reset();
+                            path.moveTo(x + (2.*fonts.overlayWidth), yy - (fonts.overlayHeight*0.25));
+                            path.lineTo(x + (2.25*fonts.overlayWidth), yy);
+                            path.lineTo(x + (2.75*fonts.overlayWidth), yy - (fonts.overlayHeight*0.75));
+                            canvas->drawPath(path, tip_paint);
+                        }
+                        yy -= fonts.overlayHeight + pad;
+                        if (yy < covY) {
+                            break;
+                        }
+                    }
+                }
             }
+        }
+        bool current_view_is_images = (!variantTracks.empty() && variantTracks[variantFileSelection].type == HGW::TrackType::IMAGES);
+        if (bams.empty() && !current_view_is_images) {
+            std::string dd_msg = "Drag-and-drop bam or cram files here";
+            float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
+            float txt_start = ((float)fb_width / 2) - (msg_width / 2);
+            sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(dd_msg.c_str(), fonts.overlay);
+            SkPaint tcMenu;
+            tcMenu.setARGB(255, 100, 100, 100);
+            tcMenu.setStyle(SkPaint::kStrokeAndFill_Style);
+            tcMenu.setAntiAlias(true);
+            canvas->drawTextBlob(blob.get(), txt_start, (float)fb_height / 2, tcMenu);
+        } else if (regions.empty() && !current_view_is_images) {
+            std::string dd_msg = "Type e.g. '/chr1' to add a region, or drag-and-drop a vcf file here";
+            float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
+            float txt_start = ((float)fb_width / 2) - (msg_width / 2);
+            sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(dd_msg.c_str(), fonts.overlay);
+            SkPaint tcMenu;
+            tcMenu.setARGB(255, 100, 100, 100);
+            tcMenu.setStyle(SkPaint::kStrokeAndFill_Style);
+            tcMenu.setAntiAlias(true);
+            canvas->drawTextBlob(blob.get(), txt_start, (float)fb_height / 2, tcMenu);
         }
         sContext->flush();
         glfwSwapBuffers(window);
     }
 
-    void GwPlot::tileDrawingThread(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
-        int bStart = blockStart;
+    void GwPlot::tileDrawingThread(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface) {
+        currentVarTrack = &variantTracks[variantFileSelection];
+        int bStart = currentVarTrack->blockStart;
         int bLen = (int)opts.number.x * (int)opts.number.y;
         int endIdx = bStart + bLen;
+        currentVarTrack->iterateToIndex(endIdx);
         for (int i=bStart; i<endIdx; ++i) {
             bool c = imageCache.contains(i);
-            if (!c && i < (int)multiRegions.size() && !bams.empty()) {
-                regions = multiRegions[i];
+            if (!c && i < (int)currentVarTrack->multiRegions.size() && !bams.empty()) {
+                regions = currentVarTrack->multiRegions[i];
                 runDraw(canvas);
                 sk_sp<SkImage> img(sSurface->makeImageSnapshot());
                 imageCache[i] = img;
@@ -706,11 +914,11 @@ namespace Manager {
     }
 
     void GwPlot::tileLoadingThread() {
-        int bStart = blockStart;
+        currentVarTrack = &variantTracks[variantFileSelection];
+        int bStart = currentVarTrack->blockStart;
         int bLen = (int)opts.number.x * (int)opts.number.y;
         int endIdx = bStart + bLen;
-        BS::thread_pool pool(opts.threads);
-        int n_images = (int)image_glob.size();
+        int n_images = (int)currentVarTrack->image_glob.size();
         pool.parallelize_loop(bStart, endIdx,
                               [&](const int a, const int b) {
                                   for (int i=a; i<b; ++i) {
@@ -722,14 +930,14 @@ namespace Manager {
                                           g_mutex.lock();
 
 #if defined(_WIN32)
-					  const wchar_t* outp = image_glob[i].c_str();
-					  std::wstring pw(outp);
-					  std::string outp_str(pw.begin(), pw.end());
-					  const char *fname = outp_str.c_str();
+                                          const wchar_t *outp = currentVarTrack->image_glob[i].c_str();
+                                          std::wstring pw(outp);
+                                          std::string outp_str(pw.begin(), pw.end());
+                                          const char *fname = outp_str.c_str();
 #else
-					  const char *fname = image_glob[i].c_str();
+                                          const char *fname = currentVarTrack->image_glob[i].c_str();
 #endif
-					  g_mutex.unlock();
+                                          g_mutex.unlock();
                                           data = SkData::MakeFromFileName(fname);
                                           if (!data)
                                               throw std::runtime_error("Error: file not found");
@@ -744,56 +952,30 @@ namespace Manager {
                                       }
                                   }
                               }).wait();
+
+        if (currentVarTrack->type == HGW::TrackType::IMAGES) { //multiLabels.size() < endIdx) {
+            currentVarTrack->appendImageLabels(bStart, bLen);
+        }
     }
 
-    void GwPlot::drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
-        int bStart = blockStart;
-        int bLen = opts.number.x * opts.number.y + 1;
-        if (image_glob.empty()) {
-            // load some vcf regions and labels for drawing
-            if (useVcf && !vcf.done && bStart + bLen > (int)multiRegions.size()) {
-                for (int i=0; i < bLen; ++ i) {
-                    vcf.next();
-                    if (vcf.done) {
-                        break;
-                    }
-                    appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype);
-                }
-            // load some bed or other variant track for drawing
-            } else if (!useVcf && !variantTrack.done) {
-                std::string empty_label = "";
-                for (int i=0; i < bLen; ++ i) {
-                    variantTrack.next();
-                    if (variantTrack.done) {
-                        break;
-                    }
-                    appendVariantSite(variantTrack.chrom, variantTrack.start, variantTrack.chrom, variantTrack.stop, variantTrack.rid, empty_label, variantTrack.vartype);
-                }
-            }
-        } else {
-            // add empty labels for images (labels from --in-labels are loaded earlier)
-//            for (int i=bStart; i < bStart + bLen; i++) {
-//                const char *fname = image_glob[i].c_str();
-//                std::cout << fname << std::endl;
-//            }
-        }
+    void GwPlot::drawTiles(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface) {
+        currentVarTrack = &variantTracks[variantFileSelection];
+        int bStart = currentVarTrack->blockStart;
 
         setGlfwFrameBufferSize();
         setScaling();
-        bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height);
-        SkSamplingOptions sampOpts = SkSamplingOptions();
+        float y_gap = (variantTracks.size() <= 1) ? 0 : (10 * monitorScale);
+        bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height, 15, 15, y_gap);
 
-        if (image_glob.empty()) {
-            tileDrawingThread(canvas, sContext, sSurface);
+        if (currentVarTrack->image_glob.empty()) {
+            tileDrawingThread(canvas, sContext, sSurface);  // draws images from variant file
         } else {
-            tileLoadingThread();
+            tileLoadingThread();  // loads static images in .png format
         }
 
-        int i = bStart;
-        canvas->drawPaint(opts.theme.bgPaint);
-
         std::vector<std::string> srtLabels;
-        for (auto &itm: seenLabels) {
+        std::string &fileName = variantTracks[variantFileSelection].fileName;
+        for (auto &itm: seenLabels[fileName]) {
             srtLabels.push_back(itm);
         }
         std::sort(srtLabels.begin(), srtLabels.end());
@@ -805,23 +987,41 @@ namespace Manager {
         if (pivot != srtLabels.end()) {
             std::rotate(srtLabels.begin(), pivot, pivot + 1);
         }
+
+        canvas->drawPaint(opts.theme.bgPaint);
+        SkSamplingOptions sampOpts = SkSamplingOptions();
+        int i = bStart;
         for (auto &b : bboxes) {
             SkRect rect;
             if (imageCache.contains(i)) {
-                rect.setXYWH(b.xStart, b.yStart, b.width, b.height);
+                int w = imageCache[i]->width();
+                int h = imageCache[i]->height();
+                float ratio = (float)w / (float)h;
+                float box_ratio = (float)b.width / (float)b.height;
+                if (box_ratio > ratio) {
+                    // Box is wider than the image (relative to their heights)
+                    float newHeight = b.height;
+                    float newWidth = newHeight * ratio;
+                    rect.setXYWH(b.xStart, b.yStart, newWidth, newHeight);
+                } else {
+                    // Box is taller than the image (relative to their widths)
+                    float newWidth = b.width;
+                    float newHeight = newWidth / ratio;
+                    rect.setXYWH(b.xStart, b.yStart, newWidth, newHeight);
+                }
+
                 canvas->drawImageRect(imageCache[i], rect, sampOpts);
+                if (currentVarTrack->multiLabels.empty()) {
+                    ++i; continue;
+                }
                 if (i - bStart != mouseOverTileIndex) {
-                    if (!multiLabels.empty()) {
-                        multiLabels[i].mouseOver = false;
-                    }
+                    currentVarTrack->multiLabels[i].mouseOver = false;
                 }
-                if (!multiLabels.empty()) {
-                    Drawing::drawLabel(opts, canvas, rect, multiLabels[i], fonts, seenLabels, srtLabels);
-                }
+                Drawing::drawLabel(opts, canvas, rect, currentVarTrack->multiLabels[i], fonts, seenLabels[fileName], srtLabels);
             }
             ++i;
         }
-        imageCacheQueue.emplace_back(std::make_pair(frameId, sSurface->makeImageSnapshot()));
+        imageCacheQueue.emplace_back(frameId, sSurface->makeImageSnapshot());
         sContext->flush();
         glfwSwapBuffers(window);
         redraw = false;
@@ -837,7 +1037,7 @@ namespace Manager {
         }
         Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY);
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
     }
 
@@ -845,7 +1045,9 @@ namespace Manager {
         if (bams.empty()) {
             return;
         }
+//        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
         fetchRefSeqs();
+
         // This is a subset of processBam function:
         samMaxY = opts.ylim;
         collections.resize(bams.size() * regions.size());
@@ -853,17 +1055,26 @@ namespace Manager {
         for (int i=0; i<(int)bams.size(); ++i) {
             for (int j=0; j<(int)regions.size(); ++j) {
                 Utils::Region *reg = &regions[j];
-                collections[idx].bamIdx = i;
-                collections[idx].regionIdx = j;
-                collections[idx].region = regions[j];
+                Segs::ReadCollection &col = collections[idx];
+                col.bamIdx = i;
+                col.regionIdx = j;
+                col.region = reg;
                 if (opts.max_coverage) {
-                    collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
+                    col.covArr.resize(reg->end - reg->start + 1, 0);
+                    if (opts.snp_threshold > reg->end - reg->start) {
+                        col.mmVector.resize(reg->end - reg->start + 1);
+                        Segs::Mismatches empty_mm = {0, 0, 0, 0};
+                        std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
+                    } else if (!col.mmVector.empty()) {
+                        col.mmVector.clear();
+                    }
                 }
                 idx += 1;
             }
         }
         setScaling();
         canvas->drawPaint(opts.theme.bgPaint);
+
         idx = 0;
         for (int i=0; i<(int)bams.size(); ++i) {
             htsFile* b = bams[i];
@@ -871,8 +1082,13 @@ namespace Manager {
             hts_idx_t *index = indexes[i];
             for (int j=0; j<(int)regions.size(); ++j) {
                 Utils::Region *reg = &regions[j];
-                HGW::iterDraw(collections, idx, b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage,
-                                    opts.low_mem, filters, opts, canvas, trackY, yScaling, fonts, refSpace);
+                if (opts.threads == 1) {
+                    HGW::iterDraw(collections, idx, b, hdr_ptr, index, reg, (bool) opts.max_coverage,
+                                  opts.low_mem, filters, opts, canvas, trackY, yScaling, fonts, refSpace);
+                } else {
+                    HGW::iterDrawParallel(collections, idx, b, hdr_ptr, index, opts.threads, reg, (bool) opts.max_coverage,
+                                  opts.low_mem, filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool);
+                }
                 idx += 1;
             }
         }
@@ -880,7 +1096,7 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY);
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
     }
 

@@ -39,15 +39,27 @@
 #include "include/core/SkFont.h"
 #include "include/core/SkTextBlob.h"
 
-#include "../include/robin_hood.h"
 #include "../include/argparse.h"
 #include "glob.h"
+#define MINI_CASE_SENSITIVE
 #include "../include/ini.h"
 #include "utils.h"
 
 
 namespace Themes {
 
+    enum MenuTable {
+        MAIN,
+        GENOMES,
+        TRACKS,
+        GENERAL,
+        VIEW_THRESHOLDS,
+        NAVIGATION,
+        INTERACTION,
+        LABELLING,
+        SHIFT_KEYMAP,
+        CONTROLS,
+    };
 
     constexpr float base_qual_alpha[11] = {51, 51, 51, 51, 51, 128, 128, 128, 128, 128, 255};
 
@@ -60,7 +72,7 @@ namespace Themes {
         // face colours
         SkPaint bgPaint, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip, \
                 fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack;
-        SkPaint fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0, fcSoftClip0;
+        SkPaint fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0, fcSoftClip0, fcBigWig;
 
         std::vector<SkPaint> mate_fc;
         std::vector<SkPaint> mate_fc0;
@@ -100,19 +112,29 @@ namespace Themes {
             ~DarkTheme() = default;
     };
 
+    class SlateTheme: public BaseTheme {
+    public:
+        SlateTheme();
+        ~SlateTheme() = default;
+    };
+
     class IniOptions {
     public:
         IniOptions();
         ~IniOptions() {};
 
         mINI::INIStructure myIni;
+        ankerl::unordered_dense::map<int, std::string> shift_keymap;
         BaseTheme theme;
         Utils::Dims dimensions, number;
-        std::string theme_str, fmt, parse_label, labels, link, dimensions_str, number_str, ini_path, outdir;
-        std::string editor;
+        std::string genome_tag;
+        std::string theme_str, font_str, parse_label, labels, link, dimensions_str, number_str, ini_path, outdir;
+        std::string menu_level, control_level, previous_level;
+        MenuTable menu_table;
+        bool editing_underway;
         int canvas_width, canvas_height;
         int indel_length, ylim, split_view_size, threads, pad, link_op, max_coverage, max_tlen;
-        bool no_show, log2_cov, tlen_yscale, low_mem;
+        bool no_show, log2_cov, tlen_yscale, low_mem, expand_tracks, vcf_as_tracks;
         float scroll_speed, tab_track_height;
         int scroll_right;
         int scroll_left;
@@ -127,21 +149,23 @@ namespace Themes {
         int print_screen;
         int delete_labels;
         int enter_interactive_mode;
+        int repeat_command;
         int start_index;
         int soft_clip_threshold, small_indel_threshold, snp_threshold;
         int edge_highlights;
+        int font_size;
 
-        robin_hood::unordered_map<std::string, std::string> references;
-        robin_hood::unordered_map<std::string, std::vector<std::string>> tracks;
+        bool readIni();
+        static std::filesystem::path writeDefaultIni(std::filesystem::path &homedir, std::filesystem::path &home_config, std::filesystem::path &gwIni);
+        void getOptionsFromIni();
 
-        void readIni();
     };
 
     class Fonts {
     public:
         Fonts();
         ~Fonts() = default;
-
+        int fontTypefaceSize;
         float fontSize, fontHeight, fontMaxSize, overlayWidth, overlayHeight;
         SkRect rect;
         SkPath path;
@@ -149,6 +173,8 @@ namespace Themes {
         SkFont fonty, overlay;
         float textWidths[10];  // text size is scaled between 10 values to try and fill a read
 
+        void setTypeface(std::string &fontStr, int size);
+        void setOverlayHeight(float yScale);
         void setFontSize(float yScaling, float yScale);
     };
 

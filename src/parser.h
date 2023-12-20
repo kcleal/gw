@@ -2,6 +2,8 @@
 // Created by Kez Cleal on 11/11/2022.
 //
 
+#pragma once
+
 #include <functional>
 #include <string>
 #include <vector>
@@ -10,9 +12,8 @@
 #include <htslib/sam.h>
 
 #include "segments.h"
-#include "../include/robin_hood.h"
+#include "../include/unordered_dense.h"
 
-#pragma once
 
 namespace Parse {
 
@@ -79,9 +80,8 @@ namespace Parse {
 
         bool orBlock;
         std::string filter_str;
-
-        robin_hood::unordered_map< std::string, Property> opMap;
-        robin_hood::unordered_map< Property, std::string> permit;
+        ankerl::unordered_dense::map< std::string, Property> opMap;
+        ankerl::unordered_dense::map< Property, std::string> permit;
         std::vector<Eval> evaluations_block;
         std::vector< std::vector<int> > targetIndexes;
 
@@ -91,8 +91,6 @@ namespace Parse {
     private:
         int prep_evaluations(std::vector<Eval> &results, std::vector<std::string> &tokens);
         int split_into_or(std::string &f, std::vector<Eval> &results, int nBams, int nRegions);
-
-
     };
 
     void countExpression(std::vector<Segs::ReadCollection> &collections, std::string &str, std::vector<sam_hdr_t*> hdrs,

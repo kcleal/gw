@@ -7,13 +7,13 @@
 #include <iomanip>
 #include <iostream>
 #include <iterator>
+#include <memory>
 #include <cmath>
 #include <cstring>
 #include <ctime>
 #include <stdexcept>
 #include <sstream>
 #include <string>
-#include <curses.h>
 
 #include "../include/unordered_dense.h"
 #include "utils.h"
@@ -146,6 +146,18 @@ namespace Utils {
         return elems;
     }
 
+    std::unique_ptr<std::vector<std::string>> split_keep_empty(const std::string &s, const char delim) {
+        std::unique_ptr<std::vector<std::string>> elems = std::make_unique<std::vector<std::string>>();
+        split(s, delim, std::back_inserter(*elems));
+        return elems;
+    }
+
+    std::vector<std::string> split_keep_empty_str(const std::string &s, const char delim) {
+        std::vector<std::string> elems;
+        split(s, delim, std::back_inserter(elems));
+        return elems;
+    }
+
     void strToRegion(Region *r, std::string &s, const char delim) {
         size_t start = 0;
         size_t end = s.find(delim);
@@ -193,7 +205,16 @@ namespace Utils {
         return reg;
     }
 
-    bool parseFilenameToMouseClick(std::filesystem::path &path, std::vector<Region> &regions, faidx_t* fai, int pad=500, int split_size=20000) {
+    std::filesystem::path makeFilenameFromRegions(std::vector<Utils::Region> &regions) {
+        std::filesystem::path fname = "GW~";
+        for (auto &rgn: regions) {
+            fname += rgn.chrom + "~" + std::to_string(rgn.start) + "~" + std::to_string(rgn.end) + "~";
+        }
+        fname += ".png";
+        return fname;
+    }
+
+    bool parseFilenameToRegions(std::filesystem::path &path, std::vector<Region> &regions, faidx_t* fai, int pad=500, int split_size=20000) {
 
 #if defined(_WIN32) || defined(_WIN64)
         const wchar_t* pc = path.filename().c_str();
@@ -205,7 +226,7 @@ namespace Utils {
         size_t l = fn.find_last_of('.');
         fn = fn.substr(0, l);
         if (fn.back() != '~') {  // variant image
-            size_t p = fn.find("~");
+            size_t p = fn.find('~');
             if (p == 0) {
                 return false;
             }
@@ -245,7 +266,7 @@ namespace Utils {
                 }
             }
         } else {
-            size_t p = fn.find("GW~");  // single region image
+            size_t p = fn.find("GW~");  // single image
             if (p != std::string::npos) {
                 p += 3;
                 std::vector<std::string> parts = split(fn.substr(p, fn.size()), '~');
@@ -254,16 +275,16 @@ namespace Utils {
                     Utils::Region N;
                     int start, end;
                     try {
-                        start = std::stoi(parts[1]);
+                        start = std::stoi(parts[i+1]);
                     } catch (...) {
                         return false;
                     }
                     try {
-                        end = std::stoi(parts[2]);
+                        end = std::stoi(parts[i+2]);
                     } catch (...) {
                         return false;
                     }
-                    N.chrom = parts[0];
+                    N.chrom = parts[i];
                     N.start = start;
                     N.end = end;
                     N.markerPos = -1;
@@ -280,13 +301,67 @@ namespace Utils {
             if (rgn.chrom.empty()) {
                 return false;
             }
-            if (faidx_has_seq(fai, rgn.chrom.c_str()) <= 0) {
+            if (fai != nullptr && faidx_has_seq(fai, rgn.chrom.c_str()) <= 0) {
                 std::cerr << "Error: could not find " << rgn.chrom << " in fasta index\n";
                 return false;
             }
         }
         return true;
     }
+
+    // These are the name formats supported. If the filename has multiple regions encoded, then the first region is
+    // returned in the results
+    // 1. fname = varType + "~" + chrom + "~" + start + "~" + chrom2 + "~" + stop + "~" + rid + ".png";
+    // 2. fname = "GW~" + chrom + "~" + start + "~" + end + "~.png";
+    FileNameInfo parseFilenameInfo(std::filesystem::path &path) {
+        FileNameInfo r;
+        r.valid = false;
+        r.pos = -1;
+        r.pos2 = -1;
+#if defined(_WIN32) || defined(_WIN64)
+        const wchar_t* pc = path.filename().c_str();
+		std::wstring ws(pc);
+        std::string fn(ws.begin(), ws.end());
+#else
+        std::string fn = path.filename();
+#endif
+        r.fileName = fn;
+        fn = fn.substr(0, fn.find_last_of('.'));
+        std::vector<std::string> parts = split(fn, '~');
+        if (parts.size() < 4) {
+            return r;
+        }
+        int start, end;
+        if (fn.back() == '~') {  // variant image, case 2.
+            try {
+                start = std::stoi(parts[2]);
+                end = std::stoi(parts[3]);
+            } catch (...) {
+                return r;
+            }
+            r.valid = true;
+            r.chrom = parts[1];
+            r.pos = start;
+            r.chrom2 = parts[1];
+            r.pos2 = end;
+        } else {
+            try {
+                start = std::stoi(parts[2]);
+                end = std::stoi(parts[4]);
+            } catch (...) {
+                return r;
+            }
+            r.valid = true;
+            r.chrom = parts[1];
+            r.pos = start;
+            r.chrom2 = parts[3];
+            r.pos2 = end;
+            r.varType = parts[0];
+            r.rid = parts[5];
+        }
+        return r;
+    }
+
 
     Dims parseDimensions(std::string &s) {
         Dims d = {0, 0};
@@ -314,9 +389,9 @@ namespace Utils {
     }
 
     std::vector<BoundingBox>
-    imageBoundingBoxes(Dims &dims, float windowWidth, float windowHeight, float padX, float padY) {
+    imageBoundingBoxes(Dims &dims, float windowWidth, float windowHeight, float padX, float padY, float ySpace) {
         float w = windowWidth / dims.x;
-        float h = windowHeight / dims.y;
+        float h = (windowHeight - ySpace) / dims.y;
         std::vector<BoundingBox> bboxes;
         bboxes.resize(dims.x * dims.y);
         int i = 0;
@@ -324,7 +399,7 @@ namespace Utils {
             for (int y = 0; y < dims.y; ++y) {
                 BoundingBox &b = bboxes[i];
                 b.xStart = (w * (float) x) + padX;
-                b.yStart = (h * (float) y) + padY;
+                b.yStart = (h * (float) y) + padY + ySpace;
                 b.xEnd = b.xStart + w - padX;
                 b.yEnd = b.yStart + h - padY;
                 b.width = w - padX * 2;
@@ -336,7 +411,7 @@ namespace Utils {
     }
 
     Label makeLabel(std::string &chrom, int pos, std::string &parsed, std::vector<std::string> &inputLabels, std::string &variantId, std::string &vartype,
-                    std::string savedDate, bool clicked) {
+                    std::string savedDate, bool clicked, bool add_empty_label=false) {
         Label l;
         l.chrom = chrom;
         l.pos = pos;
@@ -348,6 +423,10 @@ namespace Utils {
         l.clicked = clicked;
         l.mouseOver = false;
         l.contains_parsed_label = false;
+        l.labels.reserve(inputLabels.size() + (int)add_empty_label);
+        if (add_empty_label) {
+            l.labels.emplace_back("");
+        }
         bool add_parsed = true;
         int i = 0;
         for (auto &v : inputLabels) {
@@ -360,10 +439,10 @@ namespace Utils {
             }
             i += 1;
         }
-        if (!parsed.empty() && add_parsed) {
+        if (add_parsed) {
             l.labels.push_back(parsed);
-            l.i = i;
-            l.ori_i = i;
+            l.i = (int)l.labels.size() - 1;
+            l.ori_i = (int)l.labels.size() - 1;
             l.contains_parsed_label = true;
         }
         return l;
@@ -379,6 +458,9 @@ namespace Utils {
     }
 
     std::string & Label::current() {
+        if (labels.empty()) {
+            throw std::runtime_error("Label::current tried to use an empty label list");
+        }
         return labels[i];
     }
 
@@ -391,46 +473,54 @@ namespace Utils {
         return str;
     }
 
-    void labelToFile(std::ofstream &f, Utils::Label &l, std::string &dateStr) {
+    void labelToFile(std::ofstream &f, Utils::Label &l, std::string &dateStr, std::string &variantFileName) {
         f << l.chrom << "\t" << l.pos << "\t" << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" <<
-        (((l.contains_parsed_label && l.i == l.ori_i) || (!l.contains_parsed_label && l.i > 0)) ? l.savedDate : dateStr) << std::endl;
+        (((l.contains_parsed_label && l.i == l.ori_i) || (!l.contains_parsed_label && l.i > 0)) ? l.savedDate : dateStr) <<
+        "\t" << variantFileName <<
+        std::endl;
     }
 
-    void saveLabels(std::vector<Utils::Label> &multiLabels, std::string path) {
-        std::string str = dateTime();
-        std::ofstream f;
-        f.open (path);
-        f << "#chrom\tpos\tvariant_ID\tlabel\tvar_type\tlabelled_date\n";
-        for (auto &l : multiLabels) {
-            f << l.chrom << "\t" << l.pos << "\t" << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" <<
-            (((l.contains_parsed_label && l.i == l.ori_i) || (!l.contains_parsed_label && l.i > 0)) ? l.savedDate : str) << std::endl;
-        }
-        f.close();
+    void saveLabels(Utils::Label &l, std::ofstream &fileOut, std::string &dateStr, std::string &variantFileName) {
+        fileOut << l.chrom << "\t" << l.pos << "\t" << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" <<
+        (((l.contains_parsed_label && l.i == l.ori_i) || (!l.contains_parsed_label && l.i > 0)) ? l.savedDate : dateStr) <<
+        "\t" << variantFileName <<
+        std::endl;
     }
 
-    void openLabels(std::string path, ankerl::unordered_dense::map< std::string, Utils::Label> &label_dict,
-                    std::vector<std::string> &inputLabels, robin_hood::unordered_set<std::string> &seenLabels) {
+    void openLabels(std::string path, std::string &image_glob_path,
+                    ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::map< std::string, Utils::Label>> &label_dict,
+                    std::vector<std::string> &inputLabels,
+                    ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::set<std::string>> &seenLabels
+                    ) {
         std::ifstream f;
         std::string s;
-        std::string savedDate;
+        std::string savedDate, variantFilename;
         f.open(path);
         int idx = 0;
         while (std::getline(f, s)) {
             if (idx > 0) {
-                std::vector<std::string> v = split(s, '\t');
-                bool clicked = !v[5].empty();
-                int pos = std::stoi(v[1]);
-                if (v.size() == 5) {
+                std::unique_ptr<std::vector<std::string>> v = split_keep_empty(s, '\t');
+                bool clicked = !v->at(5).empty();
+                int pos = std::stoi(v->at(1));
+                if (v->size() == 5) {
                     savedDate = "";
                 } else {
-                    savedDate = v[5];
+                    savedDate = v->at(5);
                 }
-                if (!seenLabels.contains(v[3])) {
-                    seenLabels.insert(v[3]);
+
+                if (image_glob_path.empty()) {
+                    variantFilename = v->at(6);
+                } else {
+                    variantFilename = image_glob_path;
                 }
-                Label l = makeLabel(v[0], pos, v[3], inputLabels, v[2], v[4], savedDate, clicked);
-                std::string key = v[2];
-                label_dict[key] = l;
+                if (!seenLabels[variantFilename].contains(v->at(3))) {
+                    seenLabels[variantFilename].insert(v->at(3));
+                }
+                Label l = makeLabel(v->at(0), pos, v->at(3), inputLabels, v->at(2), v->at(4), savedDate, clicked);
+
+                std::string key;
+                key = v->at(2);
+                label_dict[variantFilename][key] = l;
             }
             idx += 1;
         }

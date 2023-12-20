@@ -17,18 +17,21 @@
 #include "htslib/tbx.h"
 
 #include <chrono>
+#include <future>
 #include <filesystem>
 #include <GLFW/glfw3.h>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "../include/unordered_dense.h"
 #include "../include/BS_thread_pool.h"
 #include "drawing.h"
 #include "glfw_keys.h"
 #include "hts_funcs.h"
+#include "menu.h"
 #include "parser.h"
-#include "../include/robin_hood.h"
 #include "utils.h"
 #include "segments.h"
 #include "themes.h"
@@ -51,7 +54,8 @@ namespace Manager {
 
     enum Show {
         SINGLE,
-        TILED
+        TILED,
+        SETTINGS
     };
 
     class HiddenWindow {
@@ -63,7 +67,7 @@ namespace Manager {
     };
 
     /*
-     * Deals with managing genomic data
+     * Deals with managing all data and plotting
      */
     class GwPlot {
     public:
@@ -74,6 +78,7 @@ namespace Manager {
         int fb_width, fb_height;
         float monitorScale, gap;
         int samMaxY;
+        int regionSelection, variantFileSelection;
         bool drawToBackWindow;
 
         std::string reference;
@@ -83,31 +88,26 @@ namespace Manager {
         std::vector<sam_hdr_t* > headers;
         std::vector<hts_idx_t* > indexes;
 
-        std::vector<HGW::GwTrack> tracks;
+        std::vector<HGW::GwTrack> tracks;  // tracks that are plotted at the bottom of screen
         std::string outLabelFile;
 
         std::vector<Utils::Region> regions;
-        std::vector<std::vector<Utils::Region>> multiRegions;  // used for creating tiled regions
 
-        std::vector<std::string> labelChoices;
-        std::vector<Utils::Label> multiLabels;  // used for labelling tiles
+        std::vector<std::string> labelChoices;  // enumeration of labels to use
 
-        std::vector<std::filesystem::path> image_glob;
+        std::vector<Segs::ReadCollection> collections;  // stores alignments
 
-        std::vector<Segs::ReadCollection> collections;
+        std::vector<HGW::GwVariantTrack> variantTracks; // make image tiles from these
 
         std::vector<Parse::Parser> filters;
 
-		bool useVcf;  // indicated which of the below files to use
-        HGW::VCFfile vcf;  // These two are input files for generating tiled images
-        HGW::GwTrack variantTrack;
-
         ankerl::unordered_dense::map< int, sk_sp<SkImage>> imageCache;
-        ankerl::unordered_dense::map< std::string, Utils::Label> inputLabels;
-//        std::deque<sk_sp<SkImage>> imageCacheQueue;
-        std::deque< std::pair<long, sk_sp<SkImage> > > imageCacheQueue;
 
-        robin_hood::unordered_set<std::string> seenLabels;
+        // keys are variantFilename and variantId
+        ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::map< std::string, Utils::Label>> inputLabels;
+        ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::set<std::string>> seenLabels;
+
+        std::deque< std::pair<long, sk_sp<SkImage> > > imageCacheQueue;
 
         Themes::IniOptions opts;
         Themes::Fonts fonts;
@@ -117,6 +117,7 @@ namespace Manager {
         GLFWwindow* backWindow;
 
         Show mode;
+        Show last_mode;
 
         std::string selectedAlign;
 
@@ -128,7 +129,9 @@ namespace Manager {
 
         void setRasterSize(int width, int height);
 
-        void setVariantFile(std::string &path, int startIndex, bool cacheStdin);
+        void addVariantTrack(std::string &path, int startIndex, bool cacheStdin, bool useFullPath);
+
+        void addFilter(std::string &filter_str);
 
         void setOutLabelFile(const std::string &path);
 
@@ -148,7 +151,7 @@ namespace Manager {
 
         void setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop);
 
-        void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string & rid, std::string &label, std::string &vartype);
+//        void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string & rid, std::string &label, std::string &vartype);
 
         int startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay);
 
@@ -170,7 +173,9 @@ namespace Manager {
 
         sk_sp<SkImage> makeImage();
 
-        void printRegionInfo();
+        void printIndexInfo();
+
+        int printRegionInfo();
 
 
     private:
@@ -180,6 +185,7 @@ namespace Manager {
         bool drawLine;
         bool resizeTriggered;
         bool regionSelectionTriggered;
+        bool textFromSettings;
         std::chrono::high_resolution_clock::time_point resizeTimer, regionTimer;
 
         std::string inputText;
@@ -187,44 +193,54 @@ namespace Manager {
         std::string cursorGenomePos;
 
         bool captureText, shiftPress, ctrlPress, processText;
+        bool tabBorderPress;
         std::vector< std::string > commandHistory;
         int commandIndex, charIndex;
         int mouseOverTileIndex;
 
-        float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace;
+        float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace, sliderSpace;
 
-        double xDrag, xOri, lastX;
+        double xDrag, xOri, lastX, yDrag, yOri, lastY;
 
         float yScaling;
 
-        int blockStart, blockLen, regionSelection;
+        GLFWcursor* vCursor;
+        GLFWcursor* normalCursor;
 
         Utils::Region clicked;
         int clickedIdx;
+        int commandToolTipIndex;
+
+        HGW::GwVariantTrack *currentVarTrack;
 
         std::vector<Utils::BoundingBox> bboxes;
+
+        BS::thread_pool pool;
 
         void drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
         void drawScreenNoBuffer(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
-        void drawOverlay(SkCanvas* canvas, GrDirectContext* sContext);
+        void drawOverlay(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
         void tileDrawingThread(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
         void tileLoadingThread();
 
-        void drawTiles(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
+        void drawTiles(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface);
 
         int registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
 
         bool commandProcessed();
 
+        void updateSettings();
+
         int getCollectionIdx(float x, float y);
 
         void highlightQname();
 
-        void updateCursorGenomePos(Segs::ReadCollection &cl, float xPos);
+        void updateCursorGenomePos(float xOffset, float xScaling, float xPos, Utils::Region *region, int bamIdx);
+        //void updateCursorGenomePos(Segs::ReadCollection &cl, float xPos);
 
         void updateSlider(float xPos);
 

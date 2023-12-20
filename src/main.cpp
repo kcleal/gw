@@ -9,20 +9,24 @@
 #include <string>
 #include "argparse.h"
 #include "../include/BS_thread_pool.h"
-#include "../include/strnatcmp.h"
+//#include "../include/strnatcmp.h"
 #include "glob.h"
 #include "hts_funcs.h"
 #include "parser.h"
 #include "plot_manager.h"
 #include "themes.h"
 #include "utils.h"
+
+#include "GLFW/glfw3.h"
+
 #ifdef __APPLE__
     #include <OpenGL/gl.h>
+//    #include <GL/glx.h>
 #elif defined(__linux__)
     #include <GL/gl.h>
     #include <GL/glx.h>
 #endif
-#include "GLFW/glfw3.h"
+
 #define SK_GL
 #include "include/gpu/GrBackendSurface.h"
 #include "include/gpu/GrDirectContext.h"
@@ -38,15 +42,38 @@ SkSurface *sSurface = nullptr;
 std::mutex mtx;
 
 
+void print_banner() {
+#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
+    std::cout << "\n"
+                     "  __________      __ \n"
+ " /  _____/  \\    /  \\\n"
+ "/   \\  __\\   \\/\\/   /\n"
+ "\\    \\_\\  \\        / \n"
+ " \\______  /\\__/\\  /  \n"
+ "        \\/      \\/  " << std::endl;
+#else
+    std::cout << "\n"
+                 "█▀▀ █ █ █\n"
+                 "█▄█ ▀▄▀▄▀" << std::endl;
+#endif
+}
+
+
 int main(int argc, char *argv[]) {
 
+//    std::chrono::high_resolution_clock::time_point timer_point = std::chrono::high_resolution_clock::now();
+
     Themes::IniOptions iopts;
-    iopts.readIni();
+    bool success = iopts.readIni();
+    if (!success) {
+
+    }
+
     static const std::vector<std::string> img_fmt = { "png", "pdf" };
-    static const std::vector<std::string> img_themes = { "igv", "dark" };
+    static const std::vector<std::string> img_themes = { "igv", "dark", "slate" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
-    argparse::ArgumentParser program("gw", "0.8.3");
+    argparse::ArgumentParser program("gw", "0.9.0");
 
     program.add_argument("genome")
             .default_value(std::string{""}).append()
@@ -85,18 +112,18 @@ int main(int argc, char *argv[]) {
             .default_value(iopts.theme_str)
             .action([](const std::string& value) {
                 if (std::find(img_themes.begin(), img_themes.end(), value) != img_themes.end()) { return value;}
-                std::cerr << "Error: --theme not in {igv, dark}" << std::endl;
+                std::cerr << "Error: --theme not in {igv, dark, slate}" << std::endl;
                 abort();
-            }).help("Image theme igv|dark");
+            }).help("Image theme igv|dark|slate");
     program.add_argument("--fmt")
-            .default_value(iopts.fmt)
+            .default_value("png")
             .action([](const std::string& value) {
                 if (std::find(img_fmt.begin(), img_fmt.end(), value) != img_fmt.end()) { return value;}
                 return std::string{ "png" };
             }).help("Output file format");
     program.add_argument("--track")
             .default_value(std::string{""}).append()
-            .help("Track to display at bottom of window BED/VCF. Repeat for multiple files stacked vertically");
+            .help("Track to display at bottom of window BED/VCF/GFF3/GTF/BEGBID/BIGWIG. Repeat for multiple files stacked vertically");
     program.add_argument("--parse-label")
             .default_value(iopts.parse_label).append()
             .help("Label to parse from vcf file (used with -v) e.g. 'filter' or 'info.SU' or 'qual'");
@@ -171,9 +198,7 @@ int main(int argc, char *argv[]) {
     program.add_argument("--config")
             .default_value(false).implicit_value(true)
             .help("Display path of loaded .gw.ini config");
-    program.add_argument("--use-raster")
-            .default_value(false).implicit_value(true)
-            .help("Use raster backend for plotting images (applies to --no-show only)");
+
     // check input for errors and merge input options with IniOptions
     try {
         program.parse_args(argc, argv);
@@ -188,16 +213,39 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    auto genome = program.get<std::string>("genome");
+    std::vector<Utils::Region> regions;
+    if (program.is_used("-r")) {
+        std::vector<std::string> regions_str;
+        regions_str = program.get<std::vector<std::string>>("-r");
+        for (size_t i=0; i < regions_str.size(); i++){
+            regions.push_back(Utils::parseRegion(regions_str[i]));
+        }
+    }
 
-    if (iopts.references.find(genome) != iopts.references.end()) {
-        genome = iopts.references[genome];
-    } else if (genome.empty() && !program.is_used("--images") && !iopts.ini_path.empty()) {
+    std::vector<std::string> bam_paths;
+
+    // check if bam/cram file provided as main argument
+    auto genome = program.get<std::string>("genome");
+    if (Utils::endsWith(genome, ".bam") || Utils::endsWith(genome, ".cram")) {
+        HGW::guessRefGenomeFromBam(genome, iopts, bam_paths, regions);
+        if (genome.empty()) {
+            std::exit(0);
+        }
+    }
+
+    bool show_banner = true;
+
+    if (iopts.myIni["genomes"].has(genome)) {
+        iopts.genome_tag = genome;
+        genome = iopts.myIni["genomes"][genome];
+    } else if (genome.empty() && !program.is_used("--images") && !iopts.ini_path.empty() && !program.is_used("--no-show")) {
         // prompt for genome
+        print_banner();
+        show_banner = false;
         std::cerr << "\n Reference genomes listed in " << iopts.ini_path << std::endl << std::endl;
         int i = 0;
         std::vector<std::string> vals;
-        for (auto &rg: iopts.references) {
+        for (auto &rg: iopts.myIni["genomes"]) {
             std::cerr << "   " << i << ": " << rg.first << "     " << rg.second << std::endl;
             vals.push_back(rg.second);
             i += 1;
@@ -210,49 +258,60 @@ int main(int argc, char *argv[]) {
         int user_i;
         std::cin >> user_i;
         std::cerr << std::endl;
-        assert (user_i >= 0 && user_i < vals.size());
+        assert (user_i >= 0 && (int)user_i < vals.size());
         try {
             genome = vals[user_i];
         } catch (...) {
             std::cerr << "Something went wrong\n";
-            std::terminate();
+            std::exit(-1);
         }
         assert (Utils::is_file_exist(genome));
+        iopts.genome_tag = genome;
 
     } else if (!genome.empty() && !Utils::is_file_exist(genome)) {
-        std::cerr << "Warning: Genome is not a local file" << std::endl;
+        std::cerr << "Loading remote genome" << std::endl;
     }
 
-    std::vector<std::string> bam_paths;
-    if (program.is_used("-b")) {
-        if (!program.is_used("genome") && genome.empty()) {
-            std::cerr << "Error: please provide a reference genome if loading a bam file\n";
-            std::exit(1);
+    std::vector<std::string> tracks;
+    if (program.is_used("--track")) {
+        tracks = program.get<std::vector<std::string>>("--track");
+        for (auto &trk: tracks){
+            if (!Utils::is_file_exist(trk)) {
+                std::cerr << "Error: track file does not exists - " << trk << std::endl;
+                std::exit(-1);
+            }
         }
+    }
+
+    if (program.is_used("-b")) {
         auto bam_paths_temp = program.get<std::vector<std::string>>("-b");
         for (auto &item : bam_paths_temp) {
             if (std::filesystem::exists(item)) {
                 bam_paths.push_back(item);
+                std::cerr << item << std::endl;
             } else {
                 std::vector<std::filesystem::path> glob_paths = glob::glob(item);
-#if defined(_WIN32) || defined(_WIN64)
-                std::sort(glob_paths.begin(), glob_paths.end());
-#else
-                std::sort(glob_paths.begin(), glob_paths.end(), compareNat);
-#endif
+//#if defined(_WIN32) || defined(_WIN64)
+//                std::sort(glob_paths.begin(), glob_paths.end());
+//#else
+//                std::sort(glob_paths.begin(), glob_paths.end(), compareNat);
+//#endif
                 for (auto &glob_item : glob_paths) {
                     bam_paths.push_back(glob_item.string());
                 }
             }
         }
-    }
-
-    std::vector<Utils::Region> regions;
-    if (program.is_used("-r")) {
-        std::vector<std::string> regions_str;
-        regions_str = program.get<std::vector<std::string>>("-r");
-        for (size_t i=0; i < regions_str.size(); i++){
-            regions.push_back(Utils::parseRegion(regions_str[i]));
+        if (!program.is_used("genome") && genome.empty() && !bam_paths.empty()) {
+            HGW::guessRefGenomeFromBam(genome, iopts, bam_paths, regions);
+            if (genome.empty()) {
+                std::exit(0);
+            }
+            if (iopts.myIni["genomes"].has(genome)) {
+                iopts.genome_tag = genome;
+                genome = iopts.myIni["genomes"][genome];
+            } else {
+                std::cerr << "Error: could not find a reference genome\n";
+            }
         }
     }
 
@@ -269,10 +328,18 @@ int main(int argc, char *argv[]) {
         iopts.no_show = program.get<bool>("-n");
     }
 
-    if (program.is_used("--theme") && program.get<std::string>("--theme") == "igv") {
-        iopts.theme = Themes::IgvTheme();
-        iopts.theme_str = "igv";
-    } else {  // defaults to igv theme
+    if (program.is_used("--theme")) {
+        iopts.theme_str = program.get<std::string>("--theme");
+        if (iopts.theme_str == "dark") {
+            iopts.theme = Themes::DarkTheme();
+        } else if (iopts.theme_str == "igv") {
+            iopts.theme = Themes::IgvTheme();
+        } else if (iopts.theme_str == "slate") {
+            iopts.theme = Themes::SlateTheme();
+        } else {
+            std::cerr << "Error: unknown theme " << iopts.theme_str << std::endl;
+            std::exit(-1);
+        }
     }
 
     if (program.is_used("--dims")) {
@@ -283,18 +350,6 @@ int main(int argc, char *argv[]) {
     if (program.is_used("-u")) {
         auto d = program.get<std::string>("-u");
         iopts.number = Utils::parseDimensions(d);
-    }
-
-    std::vector<std::string> tracks;
-    if (program.is_used("--track")) {
-        tracks = program.get<std::vector<std::string>>("--track");
-        for (auto &trk: tracks){
-            if (!Utils::is_file_exist(trk)) {
-                std::cerr << "Error: track file does not exists - " << trk << std::endl;
-                std::abort();
-            }
-            iopts.tracks[genome].push_back(trk);
-        }
     }
 
     if (program.is_used("--indel-length")) {
@@ -311,7 +366,7 @@ int main(int argc, char *argv[]) {
             iopts.link_op = 2;
         } else {
             std::cerr << "Link type not known [none/sv/all]\n";
-            std::terminate();
+            std::exit(-1);
         }
     }
 
@@ -361,24 +416,6 @@ int main(int argc, char *argv[]) {
         iopts.start_index = program.get<int>("--start-index");
     }
 
-    /*
-     * / Gw start
-     */
-    Manager::GwPlot plotter = Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
-
-    if (program.is_used("--filter")) {
-        for (auto &s: Utils::split(program.get("--filter"), ';')) {
-            Parse::Parser p = Parse::Parser();
-            int rr = p.set_filter(s, plotter.bams.size(), plotter.regions.size());
-            if (rr > 0) {
-                plotter.filters.push_back(p);
-            } else {
-                std::cerr << "Error: --filter option not understood" << std::endl;
-                std::exit(-1);
-            }
-        }
-    }
-
     if (program.is_used("--images") && program.is_used("--variants")) {
         std::cerr << "Error: only --images or --variants possible, not both" << std::endl;
         std::exit(-1);
@@ -387,52 +424,48 @@ int main(int argc, char *argv[]) {
         std::exit(-1);
     }
 
+    std::vector<std::string> filters;
+    if (program.is_used("--filter")) {
+        filters = Utils::split(program.get("--filter"), ';');
+    }
+
     if (!iopts.no_show) {  // plot something to screen
-#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
-        std::cout << "\n"
-                     "  __________      __ \n"
- " /  _____/  \\    /  \\\n"
- "/   \\  __\\   \\/\\/   /\n"
- "\\    \\_\\  \\        / \n"
- " \\______  /\\__/\\  /  \n"
- "        \\/      \\/  " << std::endl;
-#else
-        std::cout << "\n"
-                     "█▀▀ █ █ █\n"
-                     "█▄█ ▀▄▀▄▀" << std::endl;
-#endif
+
+        /*
+         * / Gw start
+         */
+        Manager::GwPlot plotter = Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
+
+        if (show_banner) {
+            print_banner();
+        }
+
+        for (auto &s: filters) {
+            plotter.addFilter(s);
+        }
+
+
         // initialize display screen
         plotter.init(iopts.dimensions.x, iopts.dimensions.y);
-
         int fb_height, fb_width;
         glfwGetFramebufferSize(plotter.window, &fb_width, &fb_height);
-
         sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
-
         if (!interface || !interface->validate()) {
 		    std::cerr << "Error: skia GrGLInterface was not valid" << std::endl;
-            GLint param;
             if (!interface) {
                 std::cerr << "    GrGLMakeNativeInterface() returned nullptr" << std::endl;
                 std::cerr << "    GrGLInterface probably missing some GL functions" << std::endl;
             } else {
                 std::cerr << "    fStandard was " << interface->fStandard << std::endl;
             }
-            std::cerr << "    Details of the glfw framebuffer were as follow:\n";
-            glGetIntegerv(GL_RED_BITS, &param); std::cerr << "    GL_RED_BITS " << param << std::endl;
-            glGetIntegerv(GL_GREEN_BITS, &param); std::cerr << "    GL_GREEN_BITS " << param << std::endl;
-            glGetIntegerv(GL_BLUE_BITS, &param); std::cerr << "    GL_BLUE_BITS " << param << std::endl;
-            glGetIntegerv(GL_ALPHA_BITS, &param); std::cerr << "    GL_ALPHA_BITS " << param << std::endl;
-            glGetIntegerv(GL_DEPTH_BITS, &param); std::cerr << "    GL_DEPTH_BITS " << param << std::endl;
-            glGetIntegerv(GL_STENCIL_BITS, &param); std::cerr << "    GL_STENCIL_BITS " << param << std::endl;
             std::cerr << "GL error code: " << glGetError() << std::endl;
-            std::terminate();
+            std::exit(-1);
         }
 
         sContext = GrDirectContext::MakeGL(interface).release();
         if (!sContext) {
             std::cerr << "Error: could not create skia context using MakeGL\n";
-            std::terminate();
+            std::exit(-1);
         }
 
         GrGLFramebufferInfo framebufferInfo;
@@ -447,7 +480,7 @@ int main(int argc, char *argv[]) {
             if (!backendRenderTarget.isValid()) {
                 std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
                 glfwTerminate();
-                std::terminate();
+                std::exit(-1);
             }
             sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
                                                               backendRenderTarget,
@@ -467,7 +500,7 @@ int main(int argc, char *argv[]) {
         }
         if (!valid) {
             std::cerr << "ERROR: could not create a valid frame buffer\n";
-            std::terminate();
+            std::exit(-1);
         }
 
         // start UI here
@@ -475,34 +508,34 @@ int main(int argc, char *argv[]) {
             int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));  // plot regions
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
-                std::terminate();
+                std::exit(-1);
             }
         } else if (program.is_used("--variants")) {  // plot variants as tiled images
 
-            auto v = program.get<std::string>("--variants");
-            std::vector<std::string> labels = Utils::split(iopts.labels, ',');
+            std::vector<std::string> labels = Utils::split_keep_empty_str(iopts.labels, ',');
             plotter.setLabelChoices(labels);
-
-            bool cacheStdin = (v == "-" || program.is_used("--out-vcf"));
-
+            std::string img;
             if (program.is_used("--in-labels")) {
-                Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels, plotter.seenLabels);
+                Utils::openLabels(program.get<std::string>("--in-labels"), img, plotter.inputLabels, labels, plotter.seenLabels);
             }
             if (program.is_used("--out-labels")) {
                 plotter.setOutLabelFile(program.get<std::string>("--out-labels"));
             }
-
-            plotter.setVariantFile(v, iopts.start_index, cacheStdin);
+            auto variant_paths = program.get<std::vector<std::string>>("--variants");
+            for (auto &v : variant_paths) {
+                bool cacheStdin = (v == "-" || program.is_used("--out-vcf")); // todo remove caching when --out-vcf is used
+                plotter.addVariantTrack(v, iopts.start_index, cacheStdin, false);
+            }
             plotter.mode = Manager::Show::TILED;
 
             int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
-                std::terminate();
+                std::exit(-1);
             }
-
+            // todo set out folder if multiple vcfs used
             if (program.is_used("--out-vcf")) {
-                HGW::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
+//                HGW::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
             }
         } else if (program.is_used("--images")) {
 
@@ -510,46 +543,19 @@ int main(int argc, char *argv[]) {
             if (img == ".") {
                 img += "/";
             }
-            std::vector<std::filesystem::path> paths = glob::glob(img);
-#if defined(_WIN32) || defined(_WIN64)
-            std::sort(paths.begin(), paths.end());
-#else
-            std::sort(paths.begin(), paths.end(), compareNat);
-#endif
-            plotter.image_glob = paths;
-            if (plotter.image_glob.size() == 1) {
-                plotter.opts.number.x = 1; plotter.opts.number.y = 1;
-            }
-            std::vector<std::string> labels = Utils::split(iopts.labels, ',');
+            std::vector<std::string> labels = Utils::split_keep_empty_str(iopts.labels, ',');
             plotter.setLabelChoices(labels);
 
             if (program.is_used("--in-labels")) {
-                Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels, plotter.seenLabels);
-                std::string emptylabel;
-                int index = 0;
-                for (auto &item : plotter.image_glob) {
-#if defined(_WIN32) || defined(_WIN64)
-			const wchar_t* pc = item.filename().c_str();
-			std::wstring ws(pc);
-			std::string p(ws.begin(), ws.end());
-#else
-		    std::string p = item.filename();
-#endif
-		    if (Utils::endsWith(p, ".png")) {
-                        std::vector<std::string> m = Utils::split(p.erase(p.size() - 4), '~');
-                        try {
-                            plotter.appendVariantSite(m[1], std::stoi(m[2]), m[3], std::stoi(m[4]), m[5], emptylabel, m[0]);
-                        } catch (...) {
-                            // append an empty variant, use the index at the id
-                            std::string stri = std::to_string(index);
-                            plotter.appendVariantSite(emptylabel, 0, emptylabel, 0, stri, emptylabel, emptylabel);
-                        }
-                        index += 1;
-                    }
-                }
+                Utils::openLabels(program.get<std::string>("--in-labels"), img, plotter.inputLabels, labels, plotter.seenLabels);
             }
             if (program.is_used("--out-labels")) {
                 plotter.setOutLabelFile(program.get<std::string>("--out-labels"));
+            }
+
+            plotter.addVariantTrack(img, iopts.start_index, false, true);
+            if (plotter.variantTracks.back().image_glob.size() == 1) {
+                plotter.opts.number.x = 1; plotter.opts.number.y = 1;
             }
 
             plotter.mode = Manager::Show::TILED;
@@ -557,11 +563,11 @@ int main(int argc, char *argv[]) {
             int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
-                std::terminate();
+                std::exit(-1);
             }
         }
 
-    // save plot to file, use GPU if single image, or --use-raster backend otherwise. If no regions are
+    // save plot to file. If no regions are
     // provided, but --outdir is present then the whole genome is plotted using raster backend
     } else {
 
@@ -570,6 +576,11 @@ int main(int argc, char *argv[]) {
             if (program.is_used("--file") && program.is_used("--outdir")) {
                 std::cerr << "Error: provide --file or --outdir, not both\n";
                 std::exit(-1);
+            }
+            Manager::GwPlot plotter = Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
+
+            for (auto &s: filters) {
+                plotter.addFilter(s);
             }
 
             plotter.opts.theme.setAlphas();
@@ -592,71 +603,45 @@ int main(int argc, char *argv[]) {
                         std::cerr << "Error: please provide an output directory using --outdir, or direct to --file\n";
                         std::exit(-1);
                     }
-                    fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" + std::to_string(regions[0].end) + ".pdf";
+                    fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" +
+                            std::to_string(regions[0].end) + ".pdf";
                     out_path = outdir / fname;
                 }
 
 #if defined(_WIN32) || defined(_WIN64)
                 const wchar_t* outp = out_path.c_str();
-		std::wstring pw(outp);
-		std::string outp_str(pw.begin(), pw.end());
-		SkFILEWStream out(outp_str.c_str());
+        std::wstring pw(outp);
+        std::string outp_str(pw.begin(), pw.end());
+        SkFILEWStream out(outp_str.c_str());
 #else
                 SkFILEWStream out(out_path.c_str());
 #endif
                 SkDynamicMemoryWStream buffer;
 
                 auto pdfDocument = SkPDF::MakeDocument(&buffer);
-                SkCanvas* pageCanvas = pdfDocument->beginPage(iopts.dimensions.x,iopts.dimensions.y);
+                SkCanvas *pageCanvas = pdfDocument->beginPage(iopts.dimensions.x, iopts.dimensions.y);
                 plotter.fb_width = iopts.dimensions.x;
                 plotter.fb_height = iopts.dimensions.y;
                 plotter.runDraw(pageCanvas);
                 pdfDocument->close();
                 buffer.writeToStream(&out);
-
-            // Plot a png image, either of target region (GPU/raster) or whole chromosome (raster)
             } else {
+
+                // Plot a png image, either of target region or whole chromosome
                 sk_sp<SkImage> img;
                 if (!regions.empty()) {  // plot target regions
-                    if (!program.is_used("--use-raster")) {
-                        plotter.initBack(iopts.dimensions.x, iopts.dimensions.y);
-                        int fb_height, fb_width;
-                        glfwGetFramebufferSize(plotter.backWindow, &fb_width, &fb_height);
-                        sContext = GrDirectContext::MakeGL(nullptr).release();
-                        GrGLFramebufferInfo framebufferInfo;
-                        framebufferInfo.fFBOID = 0;
-                        framebufferInfo.fFormat = GL_RGBA8;
-                        GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
-                        if (!backendRenderTarget.isValid()) {
-                            std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
-                            glfwTerminate();
-                            std::terminate();
-                        }
-                        sSurface = SkSurface::MakeFromBackendRenderTarget(sContext, backendRenderTarget,kBottomLeft_GrSurfaceOrigin,kRGBA_8888_SkColorType,  nullptr, nullptr).release();
-                        if (!sSurface) {
-                            std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
-                            sContext->releaseResourcesAndAbandonContext();
-                            std::terminate();
-                        }
-                        SkCanvas *canvas = sSurface->getCanvas();
-                        if (iopts.link_op == 0) {
-                            plotter.runDrawNoBuffer(canvas);
-                        } else {
-                            plotter.runDraw(canvas);
-                        }
-                        img = sSurface->makeImageSnapshot();
+                    plotter.setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
+                    plotter.gap = 0;
+                    sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
+                                                                                    iopts.dimensions.y);
+                    SkCanvas *canvas = rasterSurface->getCanvas();
+                    if (iopts.link_op == 0) {
+                        plotter.runDrawNoBuffer(canvas);
                     } else {
-                        plotter.setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
-                        plotter.gap = 0;
-                        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
-                        SkCanvas *canvas = rasterSurface->getCanvas();
-                        if (iopts.link_op == 0) {
-                            plotter.runDrawNoBuffer(canvas);
-                        } else {
-                            plotter.runDraw(canvas);
-                        }
-                        img = rasterSurface->makeImageSnapshot();
+                        plotter.runDraw(canvas);
                     }
+                    img = rasterSurface->makeImageSnapshot();
+
                     if (outdir.empty()) {
                         std::string fpath;
                         if (program.is_used("--file")) {
@@ -666,16 +651,14 @@ int main(int argc, char *argv[]) {
                             Manager::imagePngToStdOut(img);
                         }
                     } else {
-                        fs::path fname = "GW~";
-                        for (auto &rgn : regions) {
-                            fname += rgn.chrom + "~" + std::to_string(rgn.start) + "~" + std::to_string(rgn.end) + "~";
-                        }
-                        fname += ".png";
+                        fs::path fname = Utils::makeFilenameFromRegions(regions);
                         fs::path out_path = outdir / fname;
                         Manager::imageToPng(img, out_path);
                     }
+                    return 0;
 
                 } else {  // chromosome plot
+
                     if (program.is_used("--file")) {
                         std::cerr << "Error: --file option not supported without --region";
                         return -1;
@@ -685,7 +668,9 @@ int main(int argc, char *argv[]) {
                         return -1;
                     }
                     std::cerr << "Plotting chromosomes\n";
+
                     std::vector<Manager::GwPlot *> managers;
+                    managers.reserve(iopts.threads);
                     for (int i = 0; i < iopts.threads; ++i) {
                         auto *m = new Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
                         m->opts.theme.setAlphas();
@@ -693,12 +678,16 @@ int main(int argc, char *argv[]) {
                         m->opts.threads = 1;
                         m->gap = 0;
                         m->regions.resize(1);
+
+                        for (auto &s: filters) {
+                            m->addFilter(s);
+                        }
                         managers.push_back(m);
                     }
 
-                    std::vector< std::vector<Utils::Region> > jobs(iopts.threads);
+                    std::vector<std::vector<Utils::Region> > jobs(iopts.threads);
                     int part = 0;
-                    for (int i=0; i < faidx_nseq(managers[0]->fai); ++i) {
+                    for (int i = 0; i < faidx_nseq(managers[0]->fai); ++i) {
                         const char *chrom = faidx_iseq(managers[0]->fai, i);
                         int seq_len = faidx_seq_len(managers[0]->fai, chrom);
                         Utils::Region N;
@@ -706,10 +695,10 @@ int main(int argc, char *argv[]) {
                         N.start = 1;
                         N.end = seq_len;
                         jobs[part].push_back(N);
-                        part = (part == (int)jobs.size() - 1) ? 0 : part + 1;
+                        part = (part == (int) jobs.size() - 1) ? 0 : part + 1;
                     }
 
-                    int ts = std::min(iopts.threads, (int)jobs.size());
+                    int ts = std::min(iopts.threads, (int) jobs.size());
                     BS::thread_pool pool(ts);
                     int block = 0;
                     pool.parallelize_loop(0, jobs.size(),
@@ -720,29 +709,32 @@ int main(int argc, char *argv[]) {
                                               mtx.unlock();
                                               Manager::GwPlot *plt = managers[this_block];
                                               std::vector<Utils::Region> &all_regions = jobs[this_block];
-                                              sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
+                                              sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(
+                                                      iopts.dimensions.x, iopts.dimensions.y);
                                               SkCanvas *canvas = rasterSurface->getCanvas();
-                                              for (auto &rgn : all_regions) {
+                                              for (auto &rgn: all_regions) {
                                                   plt->collections.clear();
                                                   delete plt->regions[0].refSeq;
                                                   plt->regions[0].chrom = rgn.chrom;
                                                   plt->regions[0].start = rgn.start;
                                                   plt->regions[0].end = rgn.end;
                                                   if (iopts.link_op == 0) {
-                                                      plotter.runDrawNoBuffer(canvas);
+                                                      plt->runDrawNoBuffer(canvas);
                                                   } else {
-                                                      plotter.runDraw(canvas);
+                                                      plt->runDraw(canvas);
                                                   }
                                                   sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
-                                                  fs::path fname = "GW~" + plt->regions[0].chrom + "~" + std::to_string(plt->regions[0].start) + "~" + std::to_string(plt->regions[0].end) + "~.png";
+                                                  fs::path fname = "GW~" + plt->regions[0].chrom + "~" +
+                                                                   std::to_string(plt->regions[0].start) + "~" +
+                                                                   std::to_string(plt->regions[0].end) + "~.png";
                                                   fs::path out_path = outdir / fname;
                                                   Manager::imageToPng(img, out_path);
                                               }
                                           })
                             .wait();
 
-                    for (auto &itm : managers) {
-                        delete(itm);
+                    for (auto &itm: managers) {
+                        delete (itm);
                     }
                 }
             }
@@ -752,8 +744,13 @@ int main(int argc, char *argv[]) {
                 std::cerr << "Error: please provide an output directory using --outdir\n";
                 std::exit(-1);
             }
+            auto variant_paths = program.get<std::vector<std::string>>("--variants");
+            if (variant_paths.size() >1) {
+                std::cerr << "Error: only a single --variant file can be used with these options\n";
+                std::exit(-1);
+            }
 
-            auto v = program.get<std::string>("--variants");
+            std::string &v = variant_paths[0];
 
             if (Utils::endsWith(v, "vcf") || Utils::endsWith(v, "vcf.gz") || Utils::endsWith(v, "bcf")) {
 
@@ -762,7 +759,6 @@ int main(int argc, char *argv[]) {
                     return -1;
                 }
                 iopts.theme.setAlphas();
-
                 auto vcf = HGW::VCFfile();
                 vcf.cacheStdin = false;
                 vcf.label_to_parse = iopts.parse_label.c_str();
@@ -771,32 +767,45 @@ int main(int argc, char *argv[]) {
 
                 bool writeLabel;
                 std::ofstream fLabels;
-
                 if (!iopts.parse_label.empty()) {
                     writeLabel = true;
                     fs::path file ("gw.parsed_labels.tsv");
                     fs::path full_path = dir / file;
                     std::string outname = full_path.string();
                     fLabels.open(full_path);
-                    fLabels << "#chrom\tpos\tvariant_ID\tlabel\tvar_type\tlabelled_date\n";
+                    fLabels << "#chrom\tpos\tvariant_ID\tlabel\tvar_type\tlabelled_date\tvariant_filename\n";
                 } else {
                     writeLabel = false;
                 }
 
                 vcf.open(v);
-
                 std::vector<Manager::GwPlot *> managers;
+                managers.reserve(iopts.threads);
                 for (int i = 0; i < iopts.threads; ++i) {
                     auto *m = new Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
                     m->opts.theme.setAlphas();
                     m->setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
                     m->opts.threads = 1;
+                    for (auto &s: filters) {
+                        m->addFilter(s);
+                    }
                     managers.push_back(m);
                 }
 
                 std::vector<Manager::VariantJob> jobs;
                 std::vector<std::string> empty_labels;
                 std::string dateStr;
+
+                std::string fileName;
+                std::filesystem::path fsp(vcf.path);
+#if defined(_WIN32) || defined(_WIN64)
+                const wchar_t* pc = fsp.filename().c_str();
+                std::wstring ws(pc);
+                std::string p(ws.begin(), ws.end());
+                fileName = p;
+#else
+                fileName = fsp.filename();
+#endif
                 while (true) {
                     vcf.next();
                     if (vcf.done) {
@@ -811,8 +820,8 @@ int main(int argc, char *argv[]) {
                     job.rid = vcf.rid;
                     jobs.push_back(job);
                     if (writeLabel) {
-                        Utils::Label l = Utils::makeLabel(vcf.chrom, vcf.start, vcf.label, empty_labels, vcf.rid, vcf.vartype, "", 0);
-                        Utils::labelToFile(fLabels, l, dateStr);
+                        Utils::Label l = Utils::makeLabel(vcf.chrom, vcf.start, vcf.label, empty_labels, vcf.rid, vcf.vartype, "", false, false);
+                        Utils::labelToFile(fLabels, l, dateStr, fileName);
                     }
                 }
                 // shuffling might help distribute high cov regions between jobs
@@ -853,33 +862,23 @@ int main(int argc, char *argv[]) {
             }
 
         } else if (program.is_used("--variants") && program.is_used("--out-vcf") && program.is_used("--in-labels")) {
-
-            auto v = program.get<std::string>("--variants");
-            std::vector<std::string> labels = Utils::split(iopts.labels, ',');
-            if (program.is_used("--in-labels")) {
-                Utils::openLabels(program.get<std::string>("--in-labels"), plotter.inputLabels, labels, plotter.seenLabels);
+            auto variant_paths = program.get<std::vector<std::string>>("--variants");
+            if (variant_paths.size() != 1) {
+                std::cerr << "Error: please supply a single --variants file at a time here\n";
+                std::exit(1);
             }
-            plotter.setVariantFile(v, iopts.start_index, false);
-            plotter.setLabelChoices(labels);
-            plotter.mode = Manager::Show::TILED;
-
-            HGW::VCFfile &vcf = plotter.vcf;
-            std::vector<std::string> empty_labels;
-            while (true) {
-                vcf.next();
-                if (vcf.done) {break; }
-                if (plotter.inputLabels.contains(vcf.rid)) {
-                    plotter.multiLabels.push_back(plotter.inputLabels[vcf.rid]);
-                } else {
-                    plotter.multiLabels.push_back(Utils::makeLabel(vcf.chrom, vcf.start, vcf.label, empty_labels, vcf.rid, vcf.vartype, "", 0));
-                }
-            }
+            std::string in_vcf = variant_paths[0];
+            std::string in_labels = program.get<std::string>("--in-labels");
+            std::string out_vcf = program.get<std::string>("--out-vcf");
             if (program.is_used("--out-vcf")) {
-                HGW::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
+                HGW::saveVcf(in_vcf, out_vcf, in_labels);
             }
         }
     }
-    if (!iopts.no_show)
+    if (!iopts.no_show) {
         std::cout << "\nGw finished\n";
+    } else {
+        std::cout << "Gw finished\n";
+    }
     return 0;
 };

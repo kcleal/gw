@@ -1,6 +1,4 @@
-./gw
-./src/*.o
-./.*
+
 /gw
 /src/segments.o
 /src/plot_manager.o
@@ -17,6 +15,7 @@
 /src/glfw_keys.o
 /src/plot_controls.o
 /src/*.cpp.*.*
+/lib/skia/include/
 /lib/skia/third_party/
 /lib/skia/include/
 /lib/skia/modules/
@@ -27,3 +26,10 @@
 /src/term_out.o
 /test/test.fa.fai
 /lbl.txt
+/src/menu.o
+
+/lib/libBigWig/bwRead.o
+/lib/libBigWig/bwStats.o
+/lib/libBigWig/bwValues.o
+/lib/libBigWig/bwWrite.o
+/lib/libBigWig/io.o

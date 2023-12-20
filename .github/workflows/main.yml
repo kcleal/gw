@@ -4,30 +4,179 @@ on:
   push:
   pull_request:
 
+env:
+  version: 0.9.0
+
 jobs:
   mingw:
-    strategy:
-      fail-fast: false
-      matrix:
-        sys: [clang64, ucrt64]
-    name: ${{ matrix.sys }}
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
+   strategy:
+     fail-fast: false
+     matrix:
+       sys: [clang64, ucrt64]
+   name: ${{ matrix.sys }}
+   runs-on: windows-latest
+   defaults:
+     run:
+       shell: msys2 {0}
+   steps:
+     - uses: actions/checkout@v3
+     - uses: msys2/setup-msys2@v2
+       with:
+         msystem: ${{ matrix.sys }}
+         update: true
+         install: make
+         pacboy: toolchain:p glfw:p skia:p htslib:p freeglut:p glew:p ncurses:p fontconfig:p dlfcn:p libpng:p
+     - name: build
+       run: |
+         make
+     - name: upload
+       uses: actions/upload-artifact@v3
+       with:
+         name: mingw-${{ matrix.sys }}
+         path: ${{ github.workspace }}/*.exe
+
+  macos-intel:
+    runs-on: macos-12
     steps:
       - uses: actions/checkout@v3
-      - uses: msys2/setup-msys2@v2
-        with:
-          msystem: ${{ matrix.sys }}
-          update: true
-          install: make
-          pacboy: toolchain:p glfw:p skia:p htslib:p freeglut:p glew:p ncurses:p fontconfig:p dlfcn:p libpng:p
-      - name: build
+      - name: Install dependencies
         run: |
+          brew install graphicsmagick dylibbundler glfw fontconfig
+          # npm broken for python3.12 so use this as work around
+          brew list | grep python@
+          # brew unlink python@3.12
+          shopt -s expand_aliases
+          alias python=$(brew --prefix)/bin/python3.11
+          alias python3=$(brew --prefix)/bin/python3.11
+
+          sudo rm -rf /Library/Frameworks/Python.framework/Versions/3.12
+          sudo rm -f /usr/local/bin/python3
+          sudo rm -f /Library/Frameworks/Python.framework/Versions/Current/bin/python
+
+          which python && python --version
+          which python3 && python --version
+          python -m pip install packaging
+          python3 -m pip install packaging
+
+          npm install --global create-dmg
+
+      - name: package
+        run: |
+          make prep
+
+          osacompile -o gw.app deps/gw_applescript_prog.txt
+          cp deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
+
+          git clone --depth 1 https://github.com/ebiggers/libdeflate.git
+          cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
+          cp build/libdeflate.a /usr/local/lib && cp libdeflate.h /usr/local/include && cd ../
+
+          wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.18/htslib-1.18.tar.bz2
+          tar -xvf htslib.tar.bz2 && mv htslib-* htslib && rm htslib.tar.bz2 && cd htslib
+          ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
+          make && make install && cd ../
+
+          echo "BUILDING GW"
           make
+          mv gw ./gw.app/Contents/MacOS
+          rm -rf include lib src Makefile
+
+          dylibbundler -od -b -x ./gw.app/Contents/MacOS/gw -d ./gw.app/Contents/libs/ -p @executable_path/../libs/
+
+          echo "VALIDATION"
+          otool -L gw.app/Contents/MacOS/gw
+          echo ""
+
+          echo "CODE SIGNING"
+          ls -l
+          sudo chown -R $(whoami) ./gw.app
+          chmod -R a+rw ./gw.app
+          codesign --remove-signature ./gw.app
+          codesign --force --deep -s - gw.app -v
+          codesign --verify -vvvv gw.app
+          create-dmg 'gw.app' || true
+          ls
+          mv gw\ undefined.dmg gw_${version}_macos_intel.dmg
+
       - name: upload
         uses: actions/upload-artifact@v3
         with:
-          name: mingw-${{ matrix.sys }}
-          path: ${{ github.workspace }}/*.exe
+          name: gw_macos_intel
+          path: /home/runner/work/gw/*.dmg
+
+  deb-package:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt-get install dh-make build-essential debhelper dh-virtualenv
+          sudo apt-get install devscripts fakeroot debootstrap pbuilder autotools-dev
+          sudo apt install zlib1g-dev libbz2-dev liblzma-dev libncurses5-dev libncursesw5-dev libssl-dev 
+          sudo apt install libgl1-mesa-dev libfontconfig-dev libcurl4-openssl-dev libglfw3 libglfw3-dev
+
+      - name: build
+        run: |
+          
+          BUILD_DIR=$(pwd)
+          
+          mkdir -p usr/bin
+          mkdir -p usr/lib/x86_64-linux-gnu
+          mkdir -p usr/lib/gwhts
+          mkdir -p usr/include/gwhts
+          mkdir -p usr/share/icons
+          mkdir -p usr/share/applications
+          
+          sudo mkdir -p /usr/lib/gwhts
+          sudo mkdir -p /usr/include/gwhts/htslib
+
+          sudo cp /usr/lib/x86_64-linux-gnu/libglfw* usr/lib/x86_64-linux-gnu/.
+          
+          git clone --depth 1 https://github.com/ebiggers/libdeflate.git
+          cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
+          sudo cp build/libdeflate.a /usr/local/lib && sudo cp libdeflate.h /usr/local/include
+          echo "LIBDEFLATE BUILT" && pwd
+          cd ${BUILD_DIR}
+          
+          wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.17/htslib-1.17.tar.bz2
+          tar -xvf htslib.tar.bz2
+          mv htslib-1.17 htslib && rm htslib.tar.bz2 && cd htslib
+          ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
+          make -j3
+          echo "HTSLIB BUILT" && pwd
+          cp -rf htslib ../include
+          sudo cp libhts.* /usr/lib/gwhts 
+          sudo cp htslib/*.h /usr/include/gwhts/htslib
+          cp libhts.* ${BUILD_DIR}/usr/lib/gwhts
+          
+          cd ${BUILD_DIR}
+          
+          sed -i '130 i \\t-mv gw usr/bin' Makefile
+          sed -i 's@-L/usr/local/lib@-L/usr/local/lib -L/usr/lib/gwhts@g' Makefile
+          
+          make prep
+          
+          cp include/gw_icon.png usr/share/icons/
+          cp deps/gw.desktop usr/share/applications/
+          
+          #cp -rf /usr/lib/gwhts usr/lib/gwhts
+          #cp -rf /usr/include/gwhts usr/include/gwhts
+
+      - name: package
+        run: |
+          
+          dh_make --single --createorig --packagename gw_${version} --email clealk@cardiff.ac.uk --yes --native
+          printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop\nusr/lib/gwhts/\nusr/lib/x86_64-linux-gnu/libglfw.so.3\nusr/lib/x86_64-linux-gnu/libglfw.so.3.3" > debian/install
+          
+          export LDFLAGS="$LDFLAGS -L./lib/skia/out/Release-x64 -L/usr/local/lib -L/usr/lib -L./usr/lib/gwhts -Wl,-rpath,'$ORIGIN/../lib/gwhts'"
+          sed -i '/^Section/c\Section: Bioinformatics' debian/control
+          sed -i '/^Homepage/c\Homepage: https://github.com/kcleal/gw' debian/control
+          sed -i '/^Description/c\Description: Genome browser and variant annotation' debian/control
+          dpkg-buildpackage
+
+      - name: upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: debian-package
+          path: /home/runner/work/gw/*.deb
