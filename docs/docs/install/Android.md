@@ -15,7 +15,7 @@ Installation involves adding a Linux desktop environment (DE) to your device, so
 
 ## Prerequisites
 
-- [Termux](https://f-droid.org/en/packages/com.termux/>)  - a terminal emulator. Get this from the `fdroid <https://f-droid.org/en/>`_ repository
+- [Termux](https://f-droid.org/en/packages/com.termux/>)  - a terminal emulator. Get this from the [fdroid repository](https://f-droid.org/en/)
 - [VNC Viewer](https://play.google.com/store/apps/details?id=com.realvnc.viewer.android&hl=en_GB&gl=US/>)  - this is the screen sharing tool for your Linux DE
 
 ## Installation
