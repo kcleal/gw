@@ -8,7 +8,7 @@ name: Deploy Jekyll site to Pages
 
 on:
   push:
-    branches: ["main", "gw_dev"]
+    branches: gw_dev #["main", "gw_dev"]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -37,6 +37,7 @@ jobs:
           ruby-version: '3.1' # Not needed with a .ruby-version file
           bundler-cache: false # runs 'bundle install' and caches installed gems automatically
           cache-version: 0 # Increment this number if you need to re-download cached gems
+          ref: ${{ github.ref }}
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v3
