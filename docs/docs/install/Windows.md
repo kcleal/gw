@@ -27,7 +27,7 @@ Download the GW installer script below:
 |  [GW Intel x86_64 Windows installer]()
 
 Run the downloaded visual-basic script by double-clicking, or right-clicking and selecting Run as program.
-The script will install GW, add a shortcut to GW in the Start Menu, and put GW on your PATH. This means GW
+The script will install GW, add a shortcut to GW in the Start Menu and put GW on your PATH. This means GW
 will be accessible from the Start Menu as well as ucrt64 terminal, command prompt and powershell.
 
 Alternatively, GW can be installed by opening a ucrt64 shell after MYSYS2 installation,
