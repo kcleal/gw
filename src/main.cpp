@@ -426,7 +426,7 @@ int main(int argc, char *argv[]) {
 
     std::vector<std::string> filters;
     if (program.is_used("--filter")) {
-        Utils::split(program.get("--filter"), ';');
+        filters = Utils::split(program.get("--filter"), ';');
     }
 
     if (!iopts.no_show) {  // plot something to screen
