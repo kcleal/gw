@@ -70,10 +70,8 @@ the whole VCF file will be written to `--out-vcf`. The final label will appear i
 Additionally, the date and previous filter label are kept in the info column under `GW_DATE`, `GW_PREV`:
 
 ```shell
-gw hg38.fa -v input_variants.vcf --in-labels labels.tsv \
-  --out-vcf output_variants.vcf
+gw -v input_variants.vcf --in-labels labels.tsv --out-vcf output_variants.vcf
 ```
-    
 
 Note, the `--in-labels` option is not required here, but could be used if labelling over multiple sessions, for example.
 Also, a GW window will still pop-up here, but this could be supressed using the `--no-show` option.
