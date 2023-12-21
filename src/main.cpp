@@ -540,7 +540,7 @@ int main(int argc, char *argv[]) {
             }
             auto variant_paths = program.get<std::vector<std::string>>("--variants");
             for (auto &v : variant_paths) {
-                bool cacheStdin = (v == "-" || program.is_used("--out-vcf")); // todo remove caching when --out-vcf is used
+                bool cacheStdin = (v == "-");
                 plotter.addVariantTrack(v, iopts.start_index, cacheStdin, false);
             }
             plotter.mode = Manager::Show::TILED;
@@ -550,10 +550,9 @@ int main(int argc, char *argv[]) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
                 std::exit(-1);
             }
-            // todo set out folder if multiple vcfs used
-            if (program.is_used("--out-vcf")) {
+//            if (program.is_used("--out-vcf")) {
 //                HGW::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
-            }
+//            }
         } else if (program.is_used("--images")) {
 
             auto img = program.get<std::string>("-i");

@@ -1319,7 +1319,7 @@ namespace HGW {
                     }
                     done = false;
                     overlappingBlocks.resize(a.size());
-                    for (size_t i = 0; i < a.size(); ++i) {
+                    for (size_t i = 0; i < (int)a.size(); ++i) {
                         overlappingBlocks[i] = allBlocks[rgn->chrom].data(a[i]);
                     }
                     iter_blk = overlappingBlocks.begin();
@@ -1847,10 +1847,10 @@ namespace HGW {
     void GwVariantTrack::appendImageLabels(int startIdx, int number) {
         // rid is the file name for an image
         for (int i=startIdx; i < startIdx + number; ++i) {
-            if (i < multiLabels.size()) {
+            if (i < (int)multiLabels.size()) {
                 continue;
             }
-            if (i >= image_glob.size()) {
+            if (i >= (int)image_glob.size()) {
                 break;
             }
             std::vector<Utils::Region> rt;
