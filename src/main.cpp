@@ -10,7 +10,6 @@
 #include "argparse.h"
 #include "../include/BS_thread_pool.h"
 #include "../include/strnatcmp.h"
-#include "../include/version.h"
 //#include "../include/termcolor.h"
 #include "glob.h"
 #include "hts_funcs.h"
@@ -75,7 +74,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> img_themes = { "igv", "dark", "slate" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
-    argparse::ArgumentParser program("gw", version_str);
+    argparse::ArgumentParser program("gw", "0.9.0");
 
     program.add_argument("genome")
             .default_value(std::string{""}).append()
