@@ -9,7 +9,8 @@
 #include <string>
 #include "argparse.h"
 #include "../include/BS_thread_pool.h"
-#include "../include/termcolor.h"
+#include "../include/strnatcmp.h"
+//#include "../include/termcolor.h"
 #include "glob.h"
 #include "hts_funcs.h"
 #include "parser.h"
@@ -271,7 +272,7 @@ int main(int argc, char *argv[]) {
             std::cerr << "No genomes listed, finishing\n";
             std::exit(0);
         }
-        std::cout << termcolor::bold << "\n Enter number: " << termcolor::reset << std::flush;
+        std::cout << "\n Enter number: " << std::flush;
         int user_i;
         std::cin >> user_i;
         std::cerr << std::endl;
