@@ -10,8 +10,8 @@ nav_order: 1
 To install GW as a desktop application (Intel or Apple silicone), use one of the
 links below, or head over to GitHub [Releases page](https://github.com/kcleal/gw/releases).
 
-|  [GW Intel x86_64 mac dmg installer]((https://github.com/kcleal/gw/releases/latest/download/gw-macos-intel.dmg))
-|  [GW Apple arm64 mac dmg installer](https://github.com/kcleal/gw/releases/latest/download/gw-macos-arm.dmg)
+|  [GW Intel x86_64 mac dmg installer]((https://github.com/kcleal/gw/releases/download/v0.9.0/gw_macos_intel.dmg))
+|  [GW Apple arm64 mac dmg installer](https://github.com/kcleal/gw/releases/download/v0.9.0/gw-macos-arm.dmg)
 
 GW can be copied to your bin directory to make it available as a command-line tool:
 ```shell
