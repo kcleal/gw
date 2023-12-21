@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: gw_dev #["main", "gw_dev"]
+    branches: ["main", "gw_dev"]
   pull_request:
 
 jobs:
