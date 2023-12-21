@@ -35,6 +35,7 @@
 #include "../include/ini.h"
 #include "../include/unordered_dense.h"
 #include "../include/termcolor.h"
+#include "../include/version.h"
 #include "themes.h"
 #include "utils.h"
 #include "menu.h"
@@ -282,7 +283,10 @@ namespace Menu {
         // write tool tip
         std::string tip;
         if (opts.control_level.empty()) {
-            if (opts.menu_table == Themes::MenuTable::MAIN) { tip = opts.ini_path; }
+            if (opts.menu_table == Themes::MenuTable::MAIN) {
+                std::string vstr = version_str;
+                tip = opts.ini_path + "  v" + vstr;
+            }
             else if (opts.menu_table == Themes::MenuTable::GENOMES) { tip = "Use ENTER key to select genome, or RIGHT_ARROW key to edit path"; }
             else if (opts.menu_table == Themes::MenuTable::SHIFT_KEYMAP) { tip = "Change characters selected when using shift+key"; }
             else if (opts.menu_level == "theme") { tip = "Change the theme to one of [dark, igv, slate]"; }

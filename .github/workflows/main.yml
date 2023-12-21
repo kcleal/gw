@@ -96,7 +96,7 @@ jobs:
           codesign --verify -vvvv gw.app
           create-dmg 'gw.app' || true
           ls
-          mv gw\ undefined.dmg gw_${version}_macos_intel.dmg
+          mv gw\ undefined.dmg gw_macos_intel.dmg
           ls
           pwd
 
