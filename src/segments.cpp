@@ -328,17 +328,21 @@ namespace Segs {
 
         self->y = -1;
 
-          // proper-pair, read-reverse, mate-reverse flags
-        if (src->core.tid != src->core.mtid) {
-            self->orient_pattern = TRA;
-        } else {
-            uint32_t info = flag & PP_RR_MR;
-            if (self->pos <= src->core.mpos) {
-                self->orient_pattern = posFirst[info];
+        if (flag & 1) {  // paired-end
+            if (src->core.tid != src->core.mtid) {
+                self->orient_pattern = TRA;
             } else {
-                self->orient_pattern = mateFirst[info];
+                uint32_t info = flag & PP_RR_MR;  // PP_RR_MR = proper-pair, read-reverse, mate-reverse flags
+                if (self->pos <= src->core.mpos) {
+                    self->orient_pattern = posFirst[info];
+                } else {
+                    self->orient_pattern = mateFirst[info];
+                }
             }
+        } else { // single-end
+            self->orient_pattern = Segs::Pattern::NORMAL;
         }
+
         if (flag & 2048 || self->has_SA) {
             self->edge_type = 2;  // "SPLIT"
         } else if (flag & 8) {

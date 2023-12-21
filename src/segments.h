@@ -23,19 +23,19 @@ namespace Segs {
     enum Pattern {
         u = 0,
         NORMAL = 0,
-        DEL,
-        INV_F,
-        INV_R,
-        DUP,
-        TRA,
+        DEL = 1,
+        INV_F = 2,
+        INV_R = 3,
+        DUP = 4,
+        TRA = 5,
     };
 
-    typedef int64_t hts_pos_t;
+//    typedef int64_t hts_pos_t;
 
     struct InsItem {
         uint32_t pos, length;
     };
-
+//
 //    struct QueueItem {
 //        uint32_t c_s_idx, l;
 //    };
@@ -61,7 +61,6 @@ namespace Segs {
         bool has_SA, initialized;
         std::vector<uint32_t> block_starts, block_ends;
         std::vector<InsItem> any_ins;
-//        std::vector<MMbase> mismatches;
         Align(bam1_t *src) {
             delegate = src;
             initialized = false;

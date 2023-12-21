@@ -639,7 +639,6 @@ namespace Manager {
             Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
             Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
             Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
-
             if (opts.max_coverage) {
                 Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
             }

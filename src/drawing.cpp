@@ -722,6 +722,7 @@ namespace Drawing {
                 if (Y == -1) {
                     continue;
                 }
+
                 int mapq = a.delegate->core.qual;
                 float yScaledOffset = (Y * yScaling) + yOffset;
                 chooseFacecolors(mapq, a, faceColor, theme);
@@ -742,6 +743,7 @@ namespace Drawing {
                 int lastEnd = 1215752191;
                 int starti;
                 bool line_only;
+
                 for (size_t idx = 0; idx < nBlocks; ++idx) {
                     starti = (int) a.block_starts[idx];
                     if (idx > 0) {

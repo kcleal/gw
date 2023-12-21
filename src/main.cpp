@@ -9,7 +9,7 @@
 #include <string>
 #include "argparse.h"
 #include "../include/BS_thread_pool.h"
-//#include "../include/strnatcmp.h"
+#include "../include/termcolor.h"
 #include "glob.h"
 #include "hts_funcs.h"
 #include "parser.h"
@@ -242,11 +242,28 @@ int main(int argc, char *argv[]) {
         // prompt for genome
         print_banner();
         show_banner = false;
-        std::cerr << "\n Reference genomes listed in " << iopts.ini_path << std::endl << std::endl;
+        std::cout << "\n Reference genomes listed in " << iopts.ini_path << std::endl << std::endl;
+        std::string online = "https://github.com/kcleal/ref_genomes/releases/download/v0.1.0";
+        std::cout << " ▀ " << online << std::endl << std::endl;
         int i = 0;
+        int tag_wd = 11;
         std::vector<std::string> vals;
+        std::cout << "  Number │ Genome-tag │ Path \n";
+        std::cout << "  ───────┼────────────┼─────────────────────────────────────────────" << std::endl;
         for (auto &rg: iopts.myIni["genomes"]) {
-            std::cerr << "   " << i << ": " << rg.first << "     " << rg.second << std::endl;
+            std::string tag = rg.first;
+            std::string g_path = rg.second;
+            std::cout << "    " << i << ((i < 10) ? "    " : "   ")  << "│ " << tag;
+            for (int j=0; j < tag_wd - (int)tag.size(); ++j) {
+                std::cout << " ";
+            }
+            std::cout << "│  ";
+            if (g_path.find(online) != std::string::npos) {
+                g_path.erase(g_path.find(online), online.size());
+                std::cout << "▀ " << g_path << std::endl;
+            } else {
+                std::cout << g_path << std::endl;
+            }
             vals.push_back(rg.second);
             i += 1;
         }
@@ -254,7 +271,7 @@ int main(int argc, char *argv[]) {
             std::cerr << "No genomes listed, finishing\n";
             std::exit(0);
         }
-        std::cerr << "\n Enter number: " << std::flush;
+        std::cout << termcolor::bold << "\n Enter number: " << termcolor::reset << std::flush;
         int user_i;
         std::cin >> user_i;
         std::cerr << std::endl;
