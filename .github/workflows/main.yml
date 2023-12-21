@@ -126,6 +126,7 @@ jobs:
           mkdir -p usr/lib/gwhts
           mkdir -p usr/include/gwhts
           mkdir -p usr/share/icons
+          mkdir -p usr/share/icons/hicolor/512x512/apps/
           mkdir -p usr/share/applications
           
           sudo mkdir -p /usr/lib/gwhts
@@ -158,10 +159,8 @@ jobs:
           make prep
           
           cp include/gw_icon.png usr/share/icons/
+          cp include/gw_icon.png usr/share/icons/hicolor/512x512/apps/
           cp deps/gw.desktop usr/share/applications/
-          
-          #cp -rf /usr/lib/gwhts usr/lib/gwhts
-          #cp -rf /usr/include/gwhts usr/include/gwhts
 
       - name: package
         run: |
@@ -172,7 +171,12 @@ jobs:
           export LDFLAGS="$LDFLAGS -L./lib/skia/out/Release-x64 -L/usr/local/lib -L/usr/lib -L./usr/lib/gwhts -Wl,-rpath,'$ORIGIN/../lib/gwhts'"
           sed -i '/^Section/c\Section: Bioinformatics' debian/control
           sed -i '/^Homepage/c\Homepage: https://github.com/kcleal/gw' debian/control
-          sed -i '/^Description/c\Description: Genome browser and variant annotation' debian/control
+          sed -i '/^Description/c\Description: Genome browser and variant annotation\n ' debian/control
+          sed -i '/<insert long/d' debian/control
+          
+          printf "Conflicts: libglfw (< 3.3)\n" > debian/control
+          printf "Replaces: libglfw (< 3.3)\n" > debian/control
+          
           dpkg-buildpackage
 
       - name: upload
