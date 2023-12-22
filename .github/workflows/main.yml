@@ -177,8 +177,8 @@ jobs:
           sed -i '/^Description/c\Description: Genome browser and variant annotation' debian/control
           sed -i '/<insert long/d' debian/control
           
-          printf "Conflicts: libglfw (< 3.3)\n" >> debian/control
-          printf "Replaces: libglfw (< 3.3)\n" >> debian/control
+#          printf "Conflicts: libglfw (< 3.3)\n" >> debian/control
+#          printf "Replaces: libglfw (< 3.3)\n" >> debian/control
           
           dpkg-buildpackage
 
