@@ -1132,10 +1132,10 @@ namespace Manager {
                     fname = nameFormat;
                     Utils::trim(fname);
                 }
-                fs::path outdir = opts.outdir;
-                fs::path fname_path(fname);
-                fs::path out_path = outdir / fname_path;
-                if (!fs::exists(out_path.parent_path()) && !out_path.parent_path().empty()) {
+                std::filesystem::path outdir = opts.outdir;
+                std::filesystem::path fname_path(fname);
+                std::filesystem::path out_path = outdir / fname_path;
+                if (!std::filesystem::exists(out_path.parent_path()) && !out_path.parent_path().empty()) {
                     std::cerr << termcolor::red << "Error:" << termcolor::reset << " path not found " << out_path.parent_path() << std::endl;
                 } else {
                     if (!imageCacheQueue.empty()) {

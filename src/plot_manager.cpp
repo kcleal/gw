@@ -1099,7 +1099,7 @@ namespace Manager {
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
     }
 
-    void imageToPng(sk_sp<SkImage> &img, fs::path &path) {
+    void imageToPng(sk_sp<SkImage> &img, std::filesystem::path &path) {
         if (!img) { return; }
         sk_sp<SkData> png(img->encodeToData());
         if (!png) { return; }

@@ -11,7 +11,7 @@
 #include "../include/BS_thread_pool.h"
 #include "../include/strnatcmp.h"
 //#include "../include/termcolor.h"
-#include "glob.h"
+#include "../include/glob_cpp.hpp"
 #include "hts_funcs.h"
 #include "parser.h"
 #include "plot_manager.h"
@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> img_themes = { "igv", "dark", "slate" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
-    argparse::ArgumentParser program("gw", "0.9.0");
+    argparse::ArgumentParser program("gw", "0.9.1");
 
     program.add_argument("genome")
             .default_value(std::string{""}).append()
@@ -308,7 +308,7 @@ int main(int argc, char *argv[]) {
                 bam_paths.push_back(item);
                 std::cerr << item << std::endl;
             } else {
-                std::vector<std::filesystem::path> glob_paths = glob::glob(item);
+                std::vector<std::filesystem::path> glob_paths = glob_cpp::glob(item);
 //#if defined(_WIN32) || defined(_WIN64)
 //                std::sort(glob_paths.begin(), glob_paths.end());
 //#else
@@ -609,8 +609,8 @@ int main(int argc, char *argv[]) {
                     std::exit(-1);
                 }
 
-                fs::path fname;
-                fs::path out_path;
+                std::filesystem::path fname;
+                std::filesystem::path out_path;
 
                 if (program.is_used("--file")) {
                     fname = program.get<std::string>("--file");
@@ -668,8 +668,8 @@ int main(int argc, char *argv[]) {
                             Manager::imagePngToStdOut(img);
                         }
                     } else {
-                        fs::path fname = Utils::makeFilenameFromRegions(regions);
-                        fs::path out_path = outdir / fname;
+                        std::filesystem::path fname = Utils::makeFilenameFromRegions(regions);
+                        std::filesystem::path out_path = outdir / fname;
                         Manager::imageToPng(img, out_path);
                     }
                     return 0;
@@ -741,10 +741,10 @@ int main(int argc, char *argv[]) {
                                                       plt->runDraw(canvas);
                                                   }
                                                   sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
-                                                  fs::path fname = "GW~" + plt->regions[0].chrom + "~" +
+                                                  std::filesystem::path fname = "GW~" + plt->regions[0].chrom + "~" +
                                                                    std::to_string(plt->regions[0].start) + "~" +
                                                                    std::to_string(plt->regions[0].end) + "~.png";
-                                                  fs::path out_path = outdir / fname;
+                                                  std::filesystem::path out_path = outdir / fname;
                                                   Manager::imageToPng(img, out_path);
                                               }
                                           })
@@ -780,14 +780,14 @@ int main(int argc, char *argv[]) {
                 vcf.cacheStdin = false;
                 vcf.label_to_parse = iopts.parse_label.c_str();
 
-                fs::path dir(outdir);
+                std::filesystem::path dir(outdir);
 
                 bool writeLabel;
                 std::ofstream fLabels;
                 if (!iopts.parse_label.empty()) {
                     writeLabel = true;
-                    fs::path file ("gw.parsed_labels.tsv");
-                    fs::path full_path = dir / file;
+                    std::filesystem::path file ("gw.parsed_labels.tsv");
+                    std::filesystem::path full_path = dir / file;
                     std::string outname = full_path.string();
                     fLabels.open(full_path);
                     fLabels << "#chrom\tpos\tvariant_ID\tlabel\tvar_type\tlabelled_date\tvariant_filename\n";
@@ -864,8 +864,8 @@ int main(int argc, char *argv[]) {
                                                     plt->runDraw(canvas);
                                                 }
                                                 sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
-                                                fs::path fname = job.varType + "~" + job.chrom + "~" + std::to_string(job.start) + "~" + job.chrom2 + "~" + std::to_string(job.stop) + "~" + job.rid + ".png";
-                                                fs::path full_path = outdir / fname;
+                                                std::filesystem::path fname = job.varType + "~" + job.chrom + "~" + std::to_string(job.start) + "~" + job.chrom2 + "~" + std::to_string(job.stop) + "~" + job.rid + ".png";
+                                                std::filesystem::path full_path = outdir / fname;
                                                 Manager::imageToPng(img, full_path);
                                           }
                                       })

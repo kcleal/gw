@@ -283,7 +283,7 @@ namespace Menu {
         std::string tip;
         if (opts.control_level.empty()) {
             if (opts.menu_table == Themes::MenuTable::MAIN) {
-                tip = opts.ini_path + "  v0.9.0";
+                tip = opts.ini_path + "  v0.9.1";
             }
             else if (opts.menu_table == Themes::MenuTable::GENOMES) { tip = "Use ENTER key to select genome, or RIGHT_ARROW key to edit path"; }
             else if (opts.menu_table == Themes::MenuTable::SHIFT_KEYMAP) { tip = "Change characters selected when using shift+key"; }

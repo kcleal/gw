@@ -5,7 +5,7 @@ on:
   pull_request:
 
 env:
-  version: 0.9.0
+  version: 0.9.1
 
 jobs:
   mingw:
@@ -164,8 +164,6 @@ jobs:
           cp include/gw_icon.png usr/share/icons/hicolor/512x512/apps/
           cp deps/gw.desktop usr/share/applications/
           
-          #cp -rf /usr/lib/gwhts usr/lib/gwhts
-          #cp -rf /usr/include/gwhts usr/include/gwhts
 
       - name: package
         run: |

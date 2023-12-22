@@ -54,8 +54,13 @@ ifneq ($(PLATFORM), "Windows")
 endif
 
 SKIA_LINK=""
+USE_GL ?= ""  # Else use EGL backend for Linux only
 ifeq ($(PLATFORM),"Linux")
-#    SKIA_LINK = https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia-m93-linux-Release-x64.tar.gz
+    ifeq ($(USE_GL),"")
+        SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip
+    else
+        SKIA_LINK = https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia-m93-linux-Release-x64.tar.gz
+    endif
     #SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip
 endif
 ifeq ($(PLATFORM),"Darwin")
@@ -71,9 +76,14 @@ prep:
 		$(info "Downloading pre-build skia skia from: $(SKIA_LINK)")
 		cd lib/skia && wget -O skia.zip $(SKIA_LINK) && unzip -o skia.zip && rm skia.zip && cd ../../
     endif
-    ifeq ($(PLATFORM),"Linux")
-		cd lib/skia && wget -O skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia-m93-linux-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../
-    endif
+#    ifeq ($(PLATFORM),"Linux")
+#        cd lib/skia && wget -O skia.tar.gz $(SKIA_LINK) && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../
+#		ifneq ($(USE_GL),"")
+#
+#    	else
+#			cd lib/skia && wget -O skia.tar.gz $(SKIA_LINK) && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../
+#		endif
+#    endif
 
 
 CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG
