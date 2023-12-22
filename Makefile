@@ -113,6 +113,7 @@ ifeq ($(PLATFORM),"Linux")
         LDLIBS += -lGL
     else
         LDLIBS += -lEGL -lGLESv2
+    endif
     LDLIBS += -lfreetype -lfontconfig -luuid -lz -lcurl -licu -ldl -lglfw
 
 else ifeq ($(PLATFORM),"Darwin")
