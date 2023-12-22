@@ -117,7 +117,6 @@ jobs:
           sudo apt-get install devscripts fakeroot debootstrap pbuilder autotools-dev
           sudo apt install zlib1g-dev libbz2-dev liblzma-dev libncurses5-dev libncursesw5-dev libssl-dev 
           sudo apt install libgl1-mesa-dev libfontconfig-dev libcurl4-openssl-dev libglfw3 libglfw3-dev
-
       - name: build
         run: |
           
@@ -133,7 +132,6 @@ jobs:
           
           sudo mkdir -p /usr/lib/gwhts
           sudo mkdir -p /usr/include/gwhts/htslib
-
           sudo cp /usr/lib/x86_64-linux-gnu/libglfw* usr/lib/x86_64-linux-gnu/.
           
           git clone --depth 1 https://github.com/ebiggers/libdeflate.git
@@ -164,7 +162,8 @@ jobs:
           cp include/gw_icon.png usr/share/icons/hicolor/512x512/apps/
           cp deps/gw.desktop usr/share/applications/
           
-
+          #cp -rf /usr/lib/gwhts usr/lib/gwhts
+          #cp -rf /usr/include/gwhts usr/include/gwhts
       - name: package
         run: |
           
@@ -177,8 +176,10 @@ jobs:
           sed -i '/^Description/c\Description: Genome browser and variant annotation' debian/control
           sed -i '/<insert long/d' debian/control
           
+          printf "Conflicts: libglfw (< 3.3)\n" >> debian/control
+          printf "Replaces: libglfw (< 3.3)\n" >> debian/control
+          
           dpkg-buildpackage
-
       - name: upload
         uses: actions/upload-artifact@v3
         with:
