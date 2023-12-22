@@ -1,6 +1,7 @@
 //
 // Created by Kez Cleal on 25/07/2022.
 //
+#include <cassert>
 #include <algorithm>
 #include <filesystem>
 #include <htslib/faidx.h>

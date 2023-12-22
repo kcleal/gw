@@ -1,4 +1,4 @@
-
+#include <cassert>
 #include <chrono>
 #include <algorithm>
 #include <vector>
@@ -735,7 +735,7 @@ namespace Segs {
                 b.level = memLen;
             }
         }
-        assert (levels.size() >= 1);
+//        assert (levels.size() >= 1);
         return (int)levels.size();
     }
 }
