@@ -55,36 +55,34 @@ endif
 
 SKIA_LINK=""
 USE_GL ?= ""  # Else use EGL backend for Linux only
-#ifeq ($(PLATFORM),"Linux")
-#    ifeq ($(USE_GL),"")
-#        SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip
-#    else
-#        SKIA_LINK = https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia-m93-linux-Release-x64.tar.gz
-#    endif
-    #SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip
-#endif
+
 ifeq ($(PLATFORM),"Darwin")
     SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-x64.zip
 endif
 ifeq ($(PLATFORM),"Arm64")
     SKIA_LINK = https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia.zip
 endif
+ifeq ($(PLATFORM),"Linux")
+    ifeq ($(USE_GL),"1")
+        SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip
+    else
+        SKIA_LINK = https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia-m93-linux-Release-x64.tar.gz
+    endif
+endif
 
 # download skia binaries, set for non-Windows platforms
 prep:
-    ifneq ($(SKIA_LINK),"")
-		$(info "Downloading pre-build skia skia from: $(SKIA_LINK)")
-		cd lib/skia && wget -O skia.zip $(SKIA_LINK) && unzip -o skia.zip && rm skia.zip && cd ../../
-    endif
-    ifeq ($(PLATFORM),"Linux")
-		ifeq ($(USE_GL),"1")
-			SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip
-			cd lib/skia && wget -O skia.zip $(SKIA_LINK) && unzip -o skia.zip && rm skia.zip && cd ../../
-		else
-			SKIA_LINK = https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia-m93-linux-Release-x64.tar.gz
-			cd lib/skia && wget -O skia.tar.gz $(SKIA_LINK) && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../
-		endif
-    endif
+	@if [ -n "$(SKIA_LINK)" ]; then \
+		echo "Downloading pre-built skia from: $(SKIA_LINK)"; \
+		cd lib/skia && wget -O skia.zip "$(SKIA_LINK)" && unzip -o skia.zip && rm skia.zip && cd ../../; \
+	fi
+	@if [ "$(PLATFORM)" = "Linux" ] && [ "$(USE_GL)" = "1" ]; then \
+		echo "Downloading pre-built skia for Linux with GL: $(SKIA_LINK)"; \
+		cd lib/skia && wget -O skia.zip "$(SKIA_LINK)" && unzip -o skia.zip && rm skia.zip && cd ../../; \
+	elif [ "$(PLATFORM)" = "Linux" ]; then \
+		echo "Downloading pre-built skia for Linux: $(SKIA_LINK)"; \
+		cd lib/skia && wget -O skia.tar.gz "$(SKIA_LINK)" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
+	fi
 
 
 CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG
