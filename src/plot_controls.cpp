@@ -2152,7 +2152,7 @@ namespace Manager {
 ////                            currentVarTrack->blockStart += nmb;
 ////                        }
                         if (currentVarTrack->type == HGW::TrackType::IMAGES ) {
-                            if (currentVarTrack->blockStart + nmb > currentVarTrack->(int)image_glob.size() - nmb) {
+                            if (currentVarTrack->blockStart + nmb > (int)currentVarTrack->image_glob.size() - nmb) {
                                 return;
                             }
                         } else if (*currentVarTrack->trackDone) {
