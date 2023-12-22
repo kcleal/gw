@@ -7,8 +7,8 @@ nav_order: 2
 
 # Installing GW on Linux x86_64 Systems
 
-To install GW as a desktop application on debian systems (Intel only),
-click the download links below, or head over to GitHub [Releases page](https://github.com/kcleal/gw/releases).
+For best performance, install GW as a desktop application on (Intel debian systems only), or build from source.
+Use the installer below, or head over to the GitHub [Releases page](https://github.com/kcleal/gw/releases).
 
 |  [GW Intel x86_64 debian installer](https://github.com/kcleal/gw/releases/download/v0.9.1/gw_0.9.1_amd64.deb)
 
