@@ -11,7 +11,7 @@ For best performance, install GW as a desktop application (Intel or Apple silico
 installers below, or head over to the GitHub [Releases page](https://github.com/kcleal/gw/releases).
 
 |  [GW Intel x86_64 mac dmg installer](https://github.com/kcleal/gw/releases/download/v0.9.1/gw_macos_intel.dmg)
-|  [GW Apple arm64 mac dmg installer](https://github.com/kcleal/gw/releases/download/v0.9.0/gw-macos-arm.dmg)
+|  [GW Apple arm64 mac dmg installer](https://github.com/kcleal/gw/releases/download/v0.9.1/gw-macos-arm.dmg)
 
 GW can be copied to your bin directory to make it available as a command-line tool:
 ```shell
