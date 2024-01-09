@@ -1,6 +1,7 @@
 //
 // Created by Kez Cleal on 25/07/2022.
 //
+#include <cassert>
 #include <algorithm>
 #include <filesystem>
 #include <htslib/faidx.h>
@@ -9,8 +10,9 @@
 #include <string>
 #include "argparse.h"
 #include "../include/BS_thread_pool.h"
-//#include "../include/strnatcmp.h"
-#include "glob.h"
+#include "../include/strnatcmp.h"
+//#include "../include/termcolor.h"
+#include "../include/glob_cpp.hpp"
 #include "hts_funcs.h"
 #include "parser.h"
 #include "plot_manager.h"
@@ -73,7 +75,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> img_themes = { "igv", "dark", "slate" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
-    argparse::ArgumentParser program("gw", "0.9.0");
+    argparse::ArgumentParser program("gw", "0.9.1");
 
     program.add_argument("genome")
             .default_value(std::string{""}).append()
@@ -242,11 +244,28 @@ int main(int argc, char *argv[]) {
         // prompt for genome
         print_banner();
         show_banner = false;
-        std::cerr << "\n Reference genomes listed in " << iopts.ini_path << std::endl << std::endl;
+        std::cout << "\n Reference genomes listed in " << iopts.ini_path << std::endl << std::endl;
+        std::string online = "https://github.com/kcleal/ref_genomes/releases/download/v0.1.0";
+        std::cout << " ▀ " << online << std::endl << std::endl;
         int i = 0;
+        int tag_wd = 11;
         std::vector<std::string> vals;
+        std::cout << "  Number │ Genome-tag │ Path \n";
+        std::cout << "  ───────┼────────────┼─────────────────────────────────────────────" << std::endl;
         for (auto &rg: iopts.myIni["genomes"]) {
-            std::cerr << "   " << i << ": " << rg.first << "     " << rg.second << std::endl;
+            std::string tag = rg.first;
+            std::string g_path = rg.second;
+            std::cout << "    " << i << ((i < 10) ? "    " : "   ")  << "│ " << tag;
+            for (int j=0; j < tag_wd - (int)tag.size(); ++j) {
+                std::cout << " ";
+            }
+            std::cout << "│  ";
+            if (g_path.find(online) != std::string::npos) {
+                g_path.erase(g_path.find(online), online.size());
+                std::cout << "▀ " << g_path << std::endl;
+            } else {
+                std::cout << g_path << std::endl;
+            }
             vals.push_back(rg.second);
             i += 1;
         }
@@ -254,7 +273,7 @@ int main(int argc, char *argv[]) {
             std::cerr << "No genomes listed, finishing\n";
             std::exit(0);
         }
-        std::cerr << "\n Enter number: " << std::flush;
+        std::cout << "\n Enter number: " << std::flush;
         int user_i;
         std::cin >> user_i;
         std::cerr << std::endl;
@@ -290,7 +309,7 @@ int main(int argc, char *argv[]) {
                 bam_paths.push_back(item);
                 std::cerr << item << std::endl;
             } else {
-                std::vector<std::filesystem::path> glob_paths = glob::glob(item);
+                std::vector<std::filesystem::path> glob_paths = glob_cpp::glob(item);
 //#if defined(_WIN32) || defined(_WIN64)
 //                std::sort(glob_paths.begin(), glob_paths.end());
 //#else
@@ -523,7 +542,7 @@ int main(int argc, char *argv[]) {
             }
             auto variant_paths = program.get<std::vector<std::string>>("--variants");
             for (auto &v : variant_paths) {
-                bool cacheStdin = (v == "-" || program.is_used("--out-vcf")); // todo remove caching when --out-vcf is used
+                bool cacheStdin = (v == "-");
                 plotter.addVariantTrack(v, iopts.start_index, cacheStdin, false);
             }
             plotter.mode = Manager::Show::TILED;
@@ -533,10 +552,9 @@ int main(int argc, char *argv[]) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
                 std::exit(-1);
             }
-            // todo set out folder if multiple vcfs used
-            if (program.is_used("--out-vcf")) {
+//            if (program.is_used("--out-vcf")) {
 //                HGW::saveVcf(plotter.vcf, program.get<std::string>("--out-vcf"), plotter.multiLabels);
-            }
+//            }
         } else if (program.is_used("--images")) {
 
             auto img = program.get<std::string>("-i");
@@ -592,8 +610,8 @@ int main(int argc, char *argv[]) {
                     std::exit(-1);
                 }
 
-                fs::path fname;
-                fs::path out_path;
+                std::filesystem::path fname;
+                std::filesystem::path out_path;
 
                 if (program.is_used("--file")) {
                     fname = program.get<std::string>("--file");
@@ -651,8 +669,8 @@ int main(int argc, char *argv[]) {
                             Manager::imagePngToStdOut(img);
                         }
                     } else {
-                        fs::path fname = Utils::makeFilenameFromRegions(regions);
-                        fs::path out_path = outdir / fname;
+                        std::filesystem::path fname = Utils::makeFilenameFromRegions(regions);
+                        std::filesystem::path out_path = outdir / fname;
                         Manager::imageToPng(img, out_path);
                     }
                     return 0;
@@ -724,10 +742,10 @@ int main(int argc, char *argv[]) {
                                                       plt->runDraw(canvas);
                                                   }
                                                   sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
-                                                  fs::path fname = "GW~" + plt->regions[0].chrom + "~" +
+                                                  std::filesystem::path fname = "GW~" + plt->regions[0].chrom + "~" +
                                                                    std::to_string(plt->regions[0].start) + "~" +
                                                                    std::to_string(plt->regions[0].end) + "~.png";
-                                                  fs::path out_path = outdir / fname;
+                                                  std::filesystem::path out_path = outdir / fname;
                                                   Manager::imageToPng(img, out_path);
                                               }
                                           })
@@ -763,14 +781,14 @@ int main(int argc, char *argv[]) {
                 vcf.cacheStdin = false;
                 vcf.label_to_parse = iopts.parse_label.c_str();
 
-                fs::path dir(outdir);
+                std::filesystem::path dir(outdir);
 
                 bool writeLabel;
                 std::ofstream fLabels;
                 if (!iopts.parse_label.empty()) {
                     writeLabel = true;
-                    fs::path file ("gw.parsed_labels.tsv");
-                    fs::path full_path = dir / file;
+                    std::filesystem::path file ("gw.parsed_labels.tsv");
+                    std::filesystem::path full_path = dir / file;
                     std::string outname = full_path.string();
                     fLabels.open(full_path);
                     fLabels << "#chrom\tpos\tvariant_ID\tlabel\tvar_type\tlabelled_date\tvariant_filename\n";
@@ -847,8 +865,8 @@ int main(int argc, char *argv[]) {
                                                     plt->runDraw(canvas);
                                                 }
                                                 sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
-                                                fs::path fname = job.varType + "~" + job.chrom + "~" + std::to_string(job.start) + "~" + job.chrom2 + "~" + std::to_string(job.stop) + "~" + job.rid + ".png";
-                                                fs::path full_path = outdir / fname;
+                                                std::filesystem::path fname = job.varType + "~" + job.chrom + "~" + std::to_string(job.start) + "~" + job.chrom2 + "~" + std::to_string(job.stop) + "~" + job.rid + ".png";
+                                                std::filesystem::path full_path = outdir / fname;
                                                 Manager::imageToPng(img, full_path);
                                           }
                                       })

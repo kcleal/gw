@@ -7,12 +7,20 @@ nav_order: 3
 # Quick Start
 
 ## Desktop Application:
-Open the GW application and drag-and-drop data files into the window. Next,
-navigate to a region using the command box by typing, for example `/chr1`.
+When you start GW for the first time you will see a prompt with a list of online reference genomes - select an
+appropriate genome tag from the list by typing in a number. You can update this list from the main menu 
+when GW has loaded.
 
-GW also supports opening a bam file by right-clicking and selecting GW from the
-list of programs. In order for this to work, a matching reference genome is
-needed in the GW configuration file, see the Config section for more details.
+Once a reference genome has been loaded, drag-and-drop data files such as bam or bed's into the graphical window. The command box 
+can be accessed by pressing the forward-slash key `/`, or by clicking on the bubble towards the left-hand-side of the
+screen. Navigate to a region by typing, for example `/chr2`.
+
+For further help on command usage, see the help menu by typing `/help`, or for detailed manuals type `/man COMMAND`, where
+COMMAND is the name of the command in question. More information is available in the [Commands section
+of the User Guide](https://kcleal.github.io/gw/docs/guide/Commands.html).
+
+GW also supports opening a bam file by double-clicking. In order for this to work, a matching reference genome is
+needed in the GW configuration file, see the [Settings section](https://kcleal.github.io/gw/docs/guide/Settings.html) for more details.
 
 
 ## Command line:

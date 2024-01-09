@@ -260,10 +260,10 @@ namespace Themes {
 
     SlateTheme::SlateTheme() {
         name = "slate";
-        fcCoverage.setARGB(255, 93, 92, 99);
+        fcCoverage.setARGB(255, 103, 102, 109);
         fcTrack.setARGB(200, 227, 232, 255);
         bgPaint.setARGB(255, 45, 45, 48);
-        fcNormal.setARGB(255, 83, 82, 89);
+        fcNormal.setARGB(255, 93, 92, 99);
         fcDel.setARGB(255, 185, 25, 25);
 //        fcIns.setARGB(255, 225, 235, 245);
         fcIns.setARGB(255, 128, 91, 240);

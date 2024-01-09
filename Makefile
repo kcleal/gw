@@ -54,26 +54,23 @@ ifneq ($(PLATFORM), "Windows")
 endif
 
 SKIA_LINK=""
-ifeq ($(PLATFORM),"Linux")
-#    SKIA_LINK = https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia-m93-linux-Release-x64.tar.gz
-    #SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip
-endif
-ifeq ($(PLATFORM),"Darwin")
-    SKIA_LINK = https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-x64.zip
-endif
-ifeq ($(PLATFORM),"Arm64")
-    SKIA_LINK = https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia.zip
-endif
+USE_GL ?= ""  # Else use EGL backend for Linux only
 
-# download skia binaries, set for non-Windows platforms
 prep:
-    ifneq ($(SKIA_LINK),"")
-		$(info "Downloading pre-build skia skia from: $(SKIA_LINK)")
-		cd lib/skia && wget -O skia.zip $(SKIA_LINK) && unzip -o skia.zip && rm skia.zip && cd ../../
-    endif
-    ifeq ($(PLATFORM),"Linux")
-		cd lib/skia && wget -O skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia-m93-linux-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../
-    endif
+	@if [ "$(PLATFORM)" = "Darwin" ]; then \
+		SKIA_LINK=""; \
+		echo "Downloading pre-built skia for MacOS-Intel"; \
+		cd lib/skia && wget -O skia.zip "https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-x64.zip" && unzip -o skia.zip && rm skia.zip && cd ../../; \
+	elif [ "$(PLATFORM)" = "Arm64" ]; then \
+      	echo "Downloading pre-built skia for MacOS-Arm64"; \
+      	cd lib/skia && wget -O skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia.zip" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
+	elif [ "$(PLATFORM)" = "Linux" ] && [ "$(USE_GL)" = "1" ]; then \
+		echo "Downloading pre-built skia for Linux with GL"; \
+		cd lib/skia && wget -O skia.zip "https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip" && unzip -o skia.zip && rm skia.zip && cd ../../; \
+	elif [ "$(PLATFORM)" = "Linux" ]; then \
+		echo "Downloading pre-built skia for Linux with EGL"; \
+		cd lib/skia && wget -O skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia-m93-linux-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
+	fi
 
 
 CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG
@@ -96,8 +93,14 @@ ifeq ($(PLATFORM),"Linux")
     LDFLAGS += -L/usr/local/lib
     # If installed from conda, glfw3 is named glfw, therefore if glfw3 is installed by another means use this:
 #     LDLIBS += -lGL -lfreetype -lfontconfig -luuid -lzlib -licu -ldl $(shell pkg-config --static --libs x11 xrandr xi xxf86vm glfw3)
-    LDLIBS += -lEGL -lGLESv2 -lfreetype -lfontconfig -luuid -lz -lcurl -licu -ldl -lglfw #$(shell pkg-config --static --libs x11 xrandr xi xxf86vm glfw3)
+#    LDLIBS += -lEGL -lGLESv2 -lfreetype -lfontconfig -luuid -lz -lcurl -licu -ldl -lglfw #$(shell pkg-config --static --libs x11 xrandr xi xxf86vm glfw3)
 #    LDLIBS += -lGL -lfreetype -lfontconfig -luuid -lz -lcurl -licu -ldl -lglfw
+    ifeq ($(USE_GL),"1")
+        LDLIBS += -lGL
+    else
+        LDLIBS += -lEGL -lGLESv2
+    endif
+    LDLIBS += -lfreetype -lfontconfig -luuid -lz -lcurl -licu -ldl -lglfw
 
 else ifeq ($(PLATFORM),"Darwin")
     CPPFLAGS += -I/usr/local/include
@@ -127,6 +130,7 @@ debug: LDFLAGS+=-fsanitize=address -fsanitize=undefined
 
 $(TARGET): $(OBJECTS)
 	$(CXX) -g $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $@
+
 
 clean:
 	-rm -f *.o ./src/*.o ./src/*.o.tmp ./lib/libBigWig/*.o

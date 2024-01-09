@@ -17,6 +17,7 @@
 #include "../include/BS_thread_pool.h"
 #include "../include/termcolor.h"
 #include "../lib/libBigWig/bigWig.h"
+#include "../include/glob_cpp.hpp"
 #include "drawing.h"
 #include "segments.h"
 #include "themes.h"
@@ -59,7 +60,6 @@ namespace HGW {
                 break;
             }
             j->success = true;
-            return true;
         }
         return false;
     }
@@ -90,6 +90,7 @@ namespace HGW {
                     }
                     inputName = j.refName;
                     if (regions.empty() && j.longest) {
+                        std::cerr << j.longestName << std::endl;
                         regions.push_back(Utils::parseRegion(j.longestName));
                     }
                     return;
@@ -1775,7 +1776,7 @@ namespace HGW {
             }
         } else if (Utils::endsWith(path, ".png") || Utils::endsWith(path, ".png'") || Utils::endsWith(path, ".png\"")) {
             type = IMAGES;
-            image_glob = glob::glob(path);
+            image_glob = glob_cpp::glob(path);
 //#if defined(_WIN32) || defined(_WIN64)
 //            std::sort(paths.begin(), paths.end());
 //#else
@@ -1847,10 +1848,10 @@ namespace HGW {
     void GwVariantTrack::appendImageLabels(int startIdx, int number) {
         // rid is the file name for an image
         for (int i=startIdx; i < startIdx + number; ++i) {
-            if (i < multiLabels.size()) {
+            if (i < (int)multiLabels.size()) {
                 continue;
             }
-            if (i >= image_glob.size()) {
+            if (i >= (int)image_glob.size()) {
                 break;
             }
             std::vector<Utils::Region> rt;
