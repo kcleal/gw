@@ -445,11 +445,9 @@ namespace Drawing {
         const uint32_t rend = region->end;
         uint32_t idx = 0, op, l;
         float p, precalculated_xOffset_mmPosOffset = xOffset + mmPosOffset; // Precalculate this sum
-
         for (uint32_t k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
-
             switch (op) {
                 case BAM_CMATCH:
                     for (uint32_t i = 0; i < l; ++i) {
@@ -495,7 +493,7 @@ namespace Drawing {
                             rect.setXYWH(p + precalculated_xOffset_mmPosOffset, yScaledOffset, width, pH);
                             canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]);
                             if (!collection_processed) {
-                                assert (rlen < mm_array.size());
+//                                assert (rlen < mm_array.size());
                                 auto &mismatch = mm_array[r_pos - rbegin]; // Reduce redundant calculations
                                 switch (bam_base) {
                                     case 1:
@@ -527,13 +525,11 @@ namespace Drawing {
                 case BAM_CREF_SKIP:
                     r_pos += l;
                     break;
-//                default:
                 case BAM_CDIFF:
-                    for (uint32_t i = 0; i < l; ++i) { // fixed from ++l to ++i
+                    for (uint32_t i = 0; i < l; ++i) {
                         if (r_pos >= rbegin && r_pos < rend) {
                             char bam_base = bam_seqi(ptr_seq, idx);
                             p = (r_pos - rbegin) * xScaling;
-                            //uint32_t colorIdx = (l_qseq == 0) ? 10 : std::min((int)ptr_qual[idx], 10); // Avoid multiple comparisons
                             uint32_t colorIdx = (l_qseq == 0) ? 10 : (ptr_qual[idx] > 10) ? 10 : ptr_qual[idx];
                             rect.setXYWH(p + precalculated_xOffset_mmPosOffset, yScaledOffset, width, pH);
                             canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]);
@@ -560,7 +556,12 @@ namespace Drawing {
                         r_pos += 1;
                     }
                     break;
+                default:
+//                case BAM_CEQUAL:
+                    idx += l;
+                    r_pos += l;
 //                default:
+//                    std::cerr << op << " unhandle\n";
 //                    break;
             }
         }
@@ -722,6 +723,7 @@ namespace Drawing {
                 if (Y == -1) {
                     continue;
                 }
+
                 int mapq = a.delegate->core.qual;
                 float yScaledOffset = (Y * yScaling) + yOffset;
                 chooseFacecolors(mapq, a, faceColor, theme);
@@ -742,6 +744,7 @@ namespace Drawing {
                 int lastEnd = 1215752191;
                 int starti;
                 bool line_only;
+
                 for (size_t idx = 0; idx < nBlocks; ++idx) {
                     starti = (int) a.block_starts[idx];
                     if (idx > 0) {

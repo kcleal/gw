@@ -8,6 +8,7 @@
 
 
 namespace DefaultIni {
+
     std::string defaultIniString() {
         return "# GW ini file\n"
                "# -----------\n"

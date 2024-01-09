@@ -1132,10 +1132,10 @@ namespace Manager {
                     fname = nameFormat;
                     Utils::trim(fname);
                 }
-                fs::path outdir = opts.outdir;
-                fs::path fname_path(fname);
-                fs::path out_path = outdir / fname_path;
-                if (!fs::exists(out_path.parent_path()) && !out_path.parent_path().empty()) {
+                std::filesystem::path outdir = opts.outdir;
+                std::filesystem::path fname_path(fname);
+                std::filesystem::path out_path = outdir / fname_path;
+                if (!std::filesystem::exists(out_path.parent_path()) && !out_path.parent_path().empty()) {
                     std::cerr << termcolor::red << "Error:" << termcolor::reset << " path not found " << out_path.parent_path() << std::endl;
                 } else {
                     if (!imageCacheQueue.empty()) {
@@ -1625,7 +1625,7 @@ namespace Manager {
                     redraw = true;
                 } else if (key >= GLFW_KEY_1 && key <= GLFW_KEY_9 && mouseOverTileIndex >= 0) {
                     int num_idx = key - (int)GLFW_KEY_1;
-                    if (currentVarTrack->multiLabels.empty() || currentVarTrack->blockStart + mouseOverTileIndex > currentVarTrack->multiLabels.size()) {
+                    if (currentVarTrack->multiLabels.empty() || currentVarTrack->blockStart + mouseOverTileIndex > (int)currentVarTrack->multiLabels.size()) {
                         return;
                     }
                     Utils::Label &lbl = currentVarTrack->multiLabels[currentVarTrack->blockStart + mouseOverTileIndex];
@@ -2152,7 +2152,7 @@ namespace Manager {
 ////                            currentVarTrack->blockStart += nmb;
 ////                        }
                         if (currentVarTrack->type == HGW::TrackType::IMAGES ) {
-                            if (currentVarTrack->blockStart + nmb > currentVarTrack->image_glob.size() - nmb) {
+                            if (currentVarTrack->blockStart + nmb > (int)currentVarTrack->image_glob.size() - nmb) {
                                 return;
                             }
                         } else if (*currentVarTrack->trackDone) {

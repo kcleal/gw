@@ -2,6 +2,7 @@
 // Created by Kez Cleal on 07/12/2022.
 // Collection of terminal printing functions
 //
+#include <cassert>
 #include <filesystem>
 #include <htslib/sam.h>
 #include <string>

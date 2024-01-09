@@ -40,7 +40,7 @@
 #include "include/core/SkTextBlob.h"
 
 #include "../include/argparse.h"
-#include "glob.h"
+#include "../include/glob_cpp.hpp"
 #define MINI_CASE_SENSITIVE
 #include "../include/ini.h"
 #include "utils.h"

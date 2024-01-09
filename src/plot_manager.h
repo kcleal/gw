@@ -246,13 +246,13 @@ namespace Manager {
 
     };
 
-    void imageToPng(sk_sp<SkImage> &img, fs::path &outdir);
+    void imageToPng(sk_sp<SkImage> &img, std::filesystem::path &outdir);
 
     void imagePngToStdOut(sk_sp<SkImage> &img);
 
     void imagePngToFile(sk_sp<SkImage> &img, std::string path);
 
-    void imageToPdf(sk_sp<SkImage> &img, fs::path &outdir);
+    void imageToPdf(sk_sp<SkImage> &img, std::filesystem::path &outdir);
 
     struct VariantJob {
         std::string chrom;

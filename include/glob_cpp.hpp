@@ -8,10 +8,11 @@
 #include <regex>
 #include <string>
 #include <vector>
-namespace fs = std::filesystem;
 
-namespace glob {
 
+namespace glob_cpp {
+
+//    namespace fs = std::filesystem;
     namespace {
 
         static inline
@@ -133,15 +134,15 @@ namespace glob {
         }
 
         static inline
-        bool fnmatch(const fs::path &name, const std::string &pattern) {
+        bool fnmatch(const std::filesystem::path &name, const std::string &pattern) {
             return std::regex_match(name.string(), compile_pattern(pattern));
         }
 
         static inline
-        std::vector<fs::path> filter(const std::vector<fs::path> &names,
+        std::vector<std::filesystem::path> filter(const std::vector<std::filesystem::path> &names,
                                      const std::string &pattern) {
             // std::cout << "Pattern: " << pattern << "\n";
-            std::vector<fs::path> result;
+            std::vector<std::filesystem::path> result;
             for (auto &name : names) {
                 // std::cout << "Checking for " << name.string() << "\n";
                 if (fnmatch(name, pattern)) {
@@ -152,7 +153,7 @@ namespace glob {
         }
 
         static inline
-        fs::path expand_tilde(fs::path path) {
+        std::filesystem::path expand_tilde(std::filesystem::path path) {
             if (path.empty()) return path;
 #ifdef _WIN32
             char* home;
@@ -168,7 +169,7 @@ namespace glob {
             std::string s = path.string();
             if (s[0] == '~') {
                 s = std::string(home) + s.substr(1, s.size() - 1);
-                return fs::path(s);
+                return std::filesystem::path(s);
             } else {
                 return path;
             }
@@ -189,24 +190,24 @@ namespace glob {
         bool is_recursive(const std::string &pattern) { return pattern == "**"; }
 
         static inline
-        std::vector<fs::path> iter_directory(const fs::path &dirname, bool dironly) {
-            std::vector<fs::path> result;
+        std::vector<std::filesystem::path> iter_directory(const std::filesystem::path &dirname, bool dironly) {
+            std::vector<std::filesystem::path> result;
 
             auto current_directory = dirname;
             if (current_directory.empty()) {
-                current_directory = fs::current_path();
+                current_directory = std::filesystem::current_path();
             }
 
-            if (fs::exists(current_directory)) {
+            if (std::filesystem::exists(current_directory)) {
                 try {
-                    for (auto &entry : fs::directory_iterator(
-                            current_directory, fs::directory_options::follow_directory_symlink |
-                                               fs::directory_options::skip_permission_denied)) {
+                    for (auto &entry : std::filesystem::directory_iterator(
+                            current_directory, std::filesystem::directory_options::follow_directory_symlink |
+                                               std::filesystem::directory_options::skip_permission_denied)) {
                         if (!dironly || entry.is_directory()) {
                             if (dirname.is_absolute()) {
                                 result.push_back(entry.path());
                             } else {
-                                result.push_back(fs::relative(entry.path()));
+                                result.push_back(std::filesystem::relative(entry.path()));
                             }
                         }
                     }
@@ -221,8 +222,8 @@ namespace glob {
 
 // Recursively yields relative pathnames inside a literal directory.
         static inline
-        std::vector<fs::path> rlistdir(const fs::path &dirname, bool dironly) {
-            std::vector<fs::path> result;
+        std::vector<std::filesystem::path> rlistdir(const std::filesystem::path &dirname, bool dironly) {
+            std::vector<std::filesystem::path> result;
             auto names = iter_directory(dirname, dironly);
             for (auto &x : names) {
                 if (!is_hidden(x.string())) {
@@ -238,10 +239,10 @@ namespace glob {
 // This helper function recursively yields relative pathnames inside a literal
 // directory.
         static inline
-        std::vector<fs::path> glob2(const fs::path &dirname, [[maybe_unused]] const std::string &pattern,
+        std::vector<std::filesystem::path> glob2(const std::filesystem::path &dirname, [[maybe_unused]] const std::string &pattern,
                                     bool dironly) {
             // std::cout << "In glob2\n";
-            std::vector<fs::path> result;
+            std::vector<std::filesystem::path> result;
             assert(is_recursive(pattern));
             for (auto &dir : rlistdir(dirname, dironly)) {
                 result.push_back(dir);
@@ -253,17 +254,17 @@ namespace glob {
 // They return a list of basenames.  _glob1 accepts a pattern while _glob0
 // takes a literal basename (so it only has to check for its existence).
         static inline
-        std::vector<fs::path> glob1(const fs::path &dirname, const std::string &pattern,
+        std::vector<std::filesystem::path> glob1(const std::filesystem::path &dirname, const std::string &pattern,
                                     bool dironly) {
             // std::cout << "In glob1\n";
             auto names = iter_directory(dirname, dironly);
-            std::vector<fs::path> filtered_names;
+            std::vector<std::filesystem::path> filtered_names;
             for (auto &n : names) {
                 if (!is_hidden(n.string())) {
                     filtered_names.push_back(n.filename());
                     // if (n.is_relative()) {
                     //   // std::cout << "Filtered (Relative): " << n << "\n";
-                    //   filtered_names.push_back(fs::relative(n));
+                    //   filtered_names.push_back(std::filesystem::relative(n));
                     // } else {
                     //   // std::cout << "Filtered (Absolute): " << n << "\n";
                     //   filtered_names.push_back(n.filename());
@@ -274,17 +275,17 @@ namespace glob {
         }
 
         static inline
-        std::vector<fs::path> glob0(const fs::path &dirname, const fs::path &basename,
+        std::vector<std::filesystem::path> glob0(const std::filesystem::path &dirname, const std::filesystem::path &basename,
                                     bool /*dironly*/) {
             // std::cout << "In glob0\n";
-            std::vector<fs::path> result;
+            std::vector<std::filesystem::path> result;
             if (basename.empty()) {
                 // 'q*x/' should match only directories.
-                if (fs::is_directory(dirname)) {
+                if (std::filesystem::is_directory(dirname)) {
                     result = {basename};
                 }
             } else {
-                if (fs::exists(dirname / basename)) {
+                if (std::filesystem::exists(dirname / basename)) {
                     result = {basename};
                 }
             }
@@ -292,11 +293,11 @@ namespace glob {
         }
 
         static inline
-        std::vector<fs::path> glob(const std::string &pathname, bool recursive = false,
+        std::vector<std::filesystem::path> glob(const std::string &pathname, bool recursive = false,
                                    bool dironly = false) {
-            std::vector<fs::path> result;
+            std::vector<std::filesystem::path> result;
 
-            auto path = fs::path(pathname);
+            auto path = std::filesystem::path(pathname);
 
             if (pathname[0] == '~') {
                 // expand tilde
@@ -309,12 +310,12 @@ namespace glob {
             if (!has_magic(pathname)) {
                 assert(!dironly);
                 if (!basename.empty()) {
-                    if (fs::exists(path)) {
+                    if (std::filesystem::exists(path)) {
                         result.push_back(path);
                     }
                 } else {
                     // Patterns ending with a slash should match only directories
-                    if (fs::is_directory(dirname)) {
+                    if (std::filesystem::is_directory(dirname)) {
                         result.push_back(path);
                     }
                 }
@@ -329,14 +330,14 @@ namespace glob {
                 }
             }
 
-            std::vector<fs::path> dirs;
-            if (dirname != fs::path(pathname) && has_magic(dirname.string())) {
+            std::vector<std::filesystem::path> dirs;
+            if (dirname != std::filesystem::path(pathname) && has_magic(dirname.string())) {
                 dirs = glob(dirname.string(), recursive, true);
             } else {
                 dirs = {dirname};
             }
 
-            std::function<std::vector<fs::path>(const fs::path &, const std::string &, bool)>
+            std::function<std::vector<std::filesystem::path>(const std::filesystem::path &, const std::string &, bool)>
                     glob_in_dir;
             if (has_magic(basename.string())) {
                 if (recursive && is_recursive(basename.string())) {
@@ -350,7 +351,7 @@ namespace glob {
 
             for (auto &d : dirs) {
                 for (auto &name : glob_in_dir(d, basename.string(), dironly)) {
-                    fs::path subresult = name;
+                    std::filesystem::path subresult = name;
                     if (name.parent_path().empty()) {
                         subresult = d / name;
                     }
@@ -364,12 +365,12 @@ namespace glob {
     } // namespace end
 
     static inline
-    std::vector<fs::path> glob(const std::string &pathname) {
+    std::vector<std::filesystem::path> glob(const std::string &pathname) {
         return glob(pathname, false);
     }
 
     static inline
-    std::vector<fs::path> rglob(const std::string &pathname) {
+    std::vector<std::filesystem::path> rglob(const std::string &pathname) {
         return glob(pathname, true);
     }
 
