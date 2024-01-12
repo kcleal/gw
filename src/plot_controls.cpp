@@ -477,6 +477,7 @@ namespace Manager {
             valid = true;
             imageCache.clear();
             filters.clear();
+            target_qname = "";
             for (auto &cl: collections) { cl.vScroll = 0; }
         } else if (inputText == "link" || inputText == "link all") {
             opts.link_op = 2;
@@ -527,7 +528,6 @@ namespace Manager {
         } else if (Utils::startsWith(inputText, "filter ")) {
             std::string str = inputText;
             str.erase(0, 7);
-            filters.clear();
             for (auto &s: Utils::split(str, ';')) {
                 Parse::Parser p = Parse::Parser();
                 int rr = p.set_filter(s, (int)bams.size(), (int)regions.size());
@@ -1147,6 +1147,13 @@ namespace Manager {
                 valid = true;
             }
         } else if (Utils::startsWith(inputText, "online")) {
+            if (regions.empty()) {
+                std::cerr << termcolor::red << "Error:" << termcolor::reset << " please navigate to a region first" << std::endl;
+                redraw = false;
+                processed = true;
+                inputText = "";
+                return false;
+            }
             std::vector<std::string> split = Utils::split(inputText, delim);
             std::string genome_tag;
             if (opts.genome_tag.empty() && split.size() >= 2) {
@@ -1906,7 +1913,7 @@ namespace Manager {
                         float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[trackIdx]);
                         float y = fb_height - totalTabixY - refSpace;  // start of tracks on canvas
                         int featureLevel = (int)(yW - y - (trackIdx * stepY)) / step_track;
-                        Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx);
+                        Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx, target_qname, &target_pos);
                     }
                 }
                 clickedIdx = -1;
@@ -2428,7 +2435,7 @@ namespace Manager {
                         float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[targetIndex]);
                         float y = fb_height - totalTabixY - refSpace;  // start of tracks on canvas
                         int featureLevel = (int)(yPos_fb - y - (targetIndex * stepY)) / step_track;
-			            Term::printTrack(relX, targetTrack, &regions[tIdx], true, featureLevel, targetIndex);
+			            Term::printTrack(relX, targetTrack, &regions[tIdx], true, featureLevel, targetIndex, target_qname, &target_pos);
 		            }
 	            }
                 if (rs < 0) { // print reference info

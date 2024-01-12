@@ -11,7 +11,6 @@
 #include "argparse.h"
 #include "../include/BS_thread_pool.h"
 #include "../include/strnatcmp.h"
-//#include "../include/termcolor.h"
 #include "../include/glob_cpp.hpp"
 #include "hts_funcs.h"
 #include "parser.h"
@@ -23,7 +22,6 @@
 
 #ifdef __APPLE__
     #include <OpenGL/gl.h>
-//    #include <GL/glx.h>
 #elif defined(__linux__)
     #include <GL/gl.h>
     #include <GL/glx.h>
@@ -75,7 +73,8 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> img_themes = { "igv", "dark", "slate" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
-    argparse::ArgumentParser program("gw", "0.9.1");
+    // note to developer - update version in workflows/main.yml, menu.cpp and deps/gw.desktop
+    argparse::ArgumentParser program("gw", "0.9.2");
 
     program.add_argument("genome")
             .default_value(std::string{""}).append()

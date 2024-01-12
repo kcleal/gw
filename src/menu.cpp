@@ -283,7 +283,7 @@ namespace Menu {
         std::string tip;
         if (opts.control_level.empty()) {
             if (opts.menu_table == Themes::MenuTable::MAIN) {
-                tip = opts.ini_path + "  v0.9.1";
+                tip = opts.ini_path + "  v0.9.2";
             }
             else if (opts.menu_table == Themes::MenuTable::GENOMES) { tip = "Use ENTER key to select genome, or RIGHT_ARROW key to edit path"; }
             else if (opts.menu_table == Themes::MenuTable::SHIFT_KEYMAP) { tip = "Change characters selected when using shift+key"; }
@@ -321,6 +321,8 @@ namespace Menu {
             else if (opts.menu_level == "delete_labels") { tip = "Keyboard key to switch to the interactive alignment-view mode"; }
             else if (opts.menu_level == "font") { tip = "Change the font"; }
             else if (opts.menu_level == "font_size") { tip = "Change the font size"; }
+            else if (opts.menu_level == "variant_distance") { tip = "For VCF/BCF tracks, ignore variants with start and end further than this distance"; }
+            else if (opts.menu_level == "sv_arcs") { tip = "Draw arcs instead of blocks for VCF/BCF track files"; }
 
         } else {
             if (opts.control_level == "close") { tip = "Close settings"; }
@@ -672,13 +674,13 @@ namespace Menu {
 
     Option optionFromStr(std::string &name, Themes::MenuTable mt, std::string &value) {
         std::unordered_map<std::string, OptionKind> option_map;
-        for (const auto& v : {"indel_length", "ylim", "split_view_size", "threads", "pad", "soft_clip", "small_indel", "snp", "edge_highlights", "font_size"}) {
+        for (const auto& v : {"indel_length", "ylim", "split_view_size", "threads", "pad", "soft_clip", "small_indel", "snp", "edge_highlights", "font_size", "variant_distance"}) {
             option_map[v] = Int;
         }
         for (const auto& v : {"scroll_speed", "tabix_track_height"}) {
             option_map[v] = Float;
         }
-        for (const auto& v : {"coverage", "log2_cov", "expand_tracks", "vcf_as_tracks"}) {
+        for (const auto& v : {"coverage", "log2_cov", "expand_tracks", "vcf_as_tracks", "sv_arcs"}) {
             option_map[v] = Bool;
         }
         for (const auto& v : {"scroll_right", "scroll_left", "zoom_out", "zoom_in", "scroll_down", "scroll_up", "cycle_link_mode", "print_screen", "find_alignments", "delete_labels", "enter_interactive_mode"}) {
@@ -717,6 +719,7 @@ namespace Menu {
             else if (new_opt.name == "snp") { opts.snp_threshold = std::max(1, v); }
             else if (new_opt.name == "edge_highlights") { opts.edge_highlights = std::max(1, v); }
             else if (new_opt.name == "font_size") { opts.font_size = std::max(1, v); }
+            else if (new_opt.name == "variant_distance") { opts.variant_distance = std::max(1, v); }
             else { return; }
             opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
         }
@@ -750,6 +753,7 @@ namespace Menu {
         else if (new_opt.name == "expand_tracks") { opts.expand_tracks = v; }
         else if (new_opt.name == "vcf_as_tracks") { opts.vcf_as_tracks = v; }
         else if (new_opt.name == "coverage") { opts.max_coverage = (v) ? 1410065408 : 0; }
+        else if (new_opt.name == "sv_arcs") { opts.sv_arcs = v; }
         else { return; }
         opts.myIni[new_opt.table][new_opt.name] = (v) ? "true" : "false";
     }

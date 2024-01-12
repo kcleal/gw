@@ -5,7 +5,7 @@ on:
   pull_request:
 
 env:
-  version: 0.9.1
+  version: 0.9.2
 
 jobs:
   mingw:
@@ -172,7 +172,7 @@ jobs:
           sed -i '/^Section/c\Section: Bioinformatics' debian/control
           sed -i '/^Homepage/c\Homepage: https://github.com/kcleal/gw' debian/control
 
-          sed -i '/^Description/c\Description: Genome browser and variant annotation\n' debian/control
+          sed -i '/^Description/c\Description: Genome browser and variant annotation' debian/control
           sed -i '/<insert long/d' debian/control
           
           printf "Conflicts: libglfw (< 3.3)\n" >> debian/control

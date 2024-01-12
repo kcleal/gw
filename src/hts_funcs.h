@@ -126,11 +126,13 @@ namespace HGW {
         std::string path, genome_tag;
         std::string chrom, chrom2, rid, vartype, parent;
         int start, stop;
+        int fetch_start, fetch_end;
+        int *variant_distance;
         float value;  // for continuous data
         int fileIndex;
         bool add_to_dict; // add to dict of interval tree in file has no index, or process in stream
 
-        FType kind;
+        FType kind;  // VCF_IDX,BED_NOI etc
 
         htsFile *fp;
         tbx_t *idx_t;

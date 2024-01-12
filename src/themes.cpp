@@ -77,7 +77,8 @@ namespace Themes {
         ecMateUnmapped.setStyle(SkPaint::kStroke_Style);
         ecMateUnmapped.setStrokeWidth(1);
 
-        fcIns.setARGB(255, 156, 85, 201);
+        fcIns.setARGB(255, 178, 77, 255);
+
 
         lwMateUnmapped = 0.5;
         lwSplit = 0.5;
@@ -188,28 +189,28 @@ namespace Themes {
 
     IgvTheme::IgvTheme() {
         name = "igv";
-        fcCoverage.setARGB(255, 175, 175, 175);
+        fcCoverage.setARGB(255, 195, 195, 195);
         fcTrack.setARGB(200, 0, 0, 0);
         bgPaint.setARGB(255, 255, 255, 255);
-        fcNormal.setARGB(255, 182, 182, 182);
-        fcDel.setARGB(255, 180, 15, 40);
-        fcDup.setARGB(255, 30, 144, 255);
-        fcInvF.setARGB(255, 46, 139, 0);
-        fcInvR.setARGB(255, 46, 139, 7);
+        fcNormal.setARGB(255, 202, 202, 202);
+        fcDel.setARGB(255, 225, 19, 67);
+        fcDup.setARGB(255, 0, 54, 205);
+        fcInvF.setARGB(255, 0, 199, 50);
+        fcInvR.setARGB(255, 0, 199, 50);
         fcTra.setARGB(255, 255, 105, 180);
         fcSoftClip.setARGB(255, 0, 128, 128);
-        fcA.setARGB(255, 0, 215, 127);
+        fcA.setARGB(255, 109, 230, 64);
 //        fcT.setARGB(255, 215, 0, 0);
-        fcT.setARGB(255, 232, 55, 99);
-        fcC.setARGB(255, 20, 20, 205);
-        fcG.setARGB(255, 205, 133, 63);
+        fcT.setARGB(255, 255, 0, 107);
+        fcC.setARGB(255, 66, 127, 255);
+        fcG.setARGB(255, 235, 150, 23);
         fcN.setARGB(255, 128, 128, 128);
-        lcJoins.setARGB(255, 30, 30, 30);
-        lcLightJoins.setARGB(255, 120, 120, 120);
-        lcLabel.setARGB(255, 0, 0, 0);
+        lcJoins.setARGB(255, 80, 80, 80);
+        lcLightJoins.setARGB(255, 140, 140, 140);
+        lcLabel.setARGB(255, 80, 80, 80);
         lcBright.setColor(SK_ColorBLACK);
-        tcDel.setARGB(255, 0, 0, 0);
-        tcLabels.setARGB(255, 0, 0, 0);
+        tcDel.setARGB(255, 80, 80, 80);
+        tcLabels.setARGB(255, 80, 80, 80);
         tcIns.setARGB(255, 255, 255, 255);
         tcBackground.setARGB(255, 255, 255, 255);
         marker_paint.setARGB(255, 0, 0, 0);
@@ -320,6 +321,7 @@ namespace Themes {
         small_indel_threshold = 100000;
         snp_threshold = 1000000;
         edge_highlights = 100000;
+        variant_distance = 100000;
 
         max_coverage = 10000000;
         max_tlen = 2000;
@@ -331,6 +333,7 @@ namespace Themes {
         low_mem = false;
         expand_tracks = false;
         vcf_as_tracks = false;
+        sv_arcs=true;
 
         scroll_speed = 0.15;
         tab_track_height = 0.05;
@@ -398,11 +401,17 @@ namespace Themes {
         if (myIni["general"].has("expand_tracks")) {
             expand_tracks = myIni["general"]["expand_tracks"] == "true";
         }
+        if (myIni["general"].has("sv_arcs")) {
+            sv_arcs = myIni["general"]["sv_arcs"] == "true";
+        }
 
         soft_clip_threshold = std::stoi(myIni["view_thresholds"]["soft_clip"]);
         small_indel_threshold = std::stoi(myIni["view_thresholds"]["small_indel"]);
         snp_threshold = std::stoi(myIni["view_thresholds"]["snp"]);
         edge_highlights = std::stoi(myIni["view_thresholds"]["edge_highlights"]);
+        if (myIni["view_thresholds"].has("variant_distance")) {
+            variant_distance = std::stoi(myIni["view_thresholds"]["variant_distance"]);
+        }
 
         scroll_right = key_table[myIni["navigation"]["scroll_right"]];
         scroll_left = key_table[myIni["navigation"]["scroll_left"]];

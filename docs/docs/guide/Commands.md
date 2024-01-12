@@ -134,7 +134,7 @@ For example, here are some useful expressions:
 
 Here are a list of '{property}' values you can use:
 
-    maps, flag, ~flag, name, tlen, abs-tlen, rnext, pos, ref-end, pnext, seq, seq-len,
+    mapq, flag, ~flag, rname, tlen, abs-tlen, rnext, pos, ref-end, pnext, seq, seq-len, tid, mid,
     RG, BC, BX, RX, LB, MD, MI, PU, SA, MC, NM, CM, FI, HO, MQ, SM, TC, UQ, AS
 
 These can be combined with '{operator}' values:
@@ -153,6 +153,7 @@ Expressions can be chained together providing all expressions are 'AND' or 'OR' 
 
 Finally, you can apply filters to specific panels using array indexing notation:
 
+    filter mapq > 0 [0]      # First column 0 (when one bam is loaded)
     filter mapq > 0 [:, 0]   # All rows, column 0 (all bams, first region only)
     filter mapq > 0 [0, :]   # Row 0, all columns (the first bam only, all regions)
     filter mapq > 0 [1, -1]  # Row 1, last column

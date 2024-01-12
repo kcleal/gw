@@ -109,6 +109,7 @@ namespace Manager {
                     tracks.push_back(HGW::GwTrack());
                     tracks.back().genome_tag = opts.genome_tag;
                     tracks.back().open(trk_item, true);
+                    tracks.back().variant_distance = &opts.variant_distance;
                 }
             }
         } else {
@@ -117,6 +118,7 @@ namespace Manager {
         for (const auto &tp: track_paths) {
             tracks.push_back(HGW::GwTrack());
             tracks.back().open(tp, true);
+            tracks.back().variant_distance = &opts.variant_distance;
         }
         samMaxY = 0;
         yScaling = 0;
@@ -637,7 +639,7 @@ namespace Manager {
             Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
             Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
             Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
-            Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
+            Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
             Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
             if (opts.max_coverage) {
                 Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
@@ -1037,7 +1039,7 @@ namespace Manager {
         Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
-        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
+        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
     }
 
     void GwPlot::runDrawNoBuffer(SkCanvas *canvas) {
@@ -1096,7 +1098,7 @@ namespace Manager {
         }
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
-        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
+        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
     }
 
     void imageToPng(sk_sp<SkImage> &img, std::filesystem::path &path) {

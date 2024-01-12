@@ -1025,7 +1025,12 @@ namespace HGW {
     }
 
     void GwTrack::parseVcfRecord() {
+//        bcf_unpack(v, BCF_UN_INFO);
+        kstring_t kstr = {0,0,0};
         bcf_unpack(v, BCF_UN_INFO);
+        vcf_format(hdr, v, &kstr);
+        variantString = kstr.s;
+
         chrom = bcf_hdr_id2name(hdr, v->rid);
         start = (int)v->pos;
         stop = (int)start + v->rlen;
@@ -1319,6 +1324,8 @@ namespace HGW {
                         return;
                     }
                     done = false;
+                    fetch_start = rgn->start;
+                    fetch_end = rgn->end;
                     overlappingBlocks.resize(a.size());
                     for (size_t i = 0; i < a.size(); ++i) {
                         overlappingBlocks[i] = allBlocks[rgn->chrom].data(a[i]);
@@ -1345,6 +1352,8 @@ namespace HGW {
                         done = true;
                     } else {
                         done = false;
+                        fetch_start = rgn->start;
+                        fetch_end = rgn->end;
                     }
                 }
             } else if (kind == BCF_IDX) {
@@ -1354,6 +1363,8 @@ namespace HGW {
                     done = true;
                 } else {
                     done = false;
+                    fetch_start = rgn->start;
+                    fetch_end = rgn->end;
                 }
             } else if (kind == BIGWIG) {
                 bigWig_intervals = bwGetValues(bigWig_fp, rgn->chrom.c_str(), (uint32_t)std::max(1, rgn->start - 100000), (uint32_t)rgn->end + 100000, 0);
@@ -1418,18 +1429,25 @@ namespace HGW {
             }
             // Values fetched from interval tree
             else {
-                if (iter_blk != vals_end) {
-                    chrom = iter_blk->chrom;
-                    start = iter_blk->start;
-                    stop = iter_blk->end;
-                    rid = iter_blk->name;
-                    parent = iter_blk->parent;
-                    vartype = iter_blk->vartype;
-                    variantString = iter_blk->line;
-                    parts = iter_blk->parts;
-                    ++iter_blk;
-                } else {
-                    done = true;
+                while (true) {
+                    if (iter_blk != vals_end) {
+                        chrom = iter_blk->chrom;
+                        start = iter_blk->start;
+                        stop = iter_blk->end;
+                        rid = iter_blk->name;
+                        parent = iter_blk->parent;
+                        vartype = iter_blk->vartype;
+                        variantString = iter_blk->line;
+                        parts = iter_blk->parts;
+                        ++iter_blk;
+                        if (kind == VCF_NOI && (start < fetch_start - *variant_distance && stop > fetch_end + *variant_distance)) {
+                            continue;
+                        }
+                        break;
+                    } else {
+                        done = true;
+                        break;
+                    }
                 }
                 return;
             }
@@ -1437,16 +1455,52 @@ namespace HGW {
         }
         // Indexed formats below:
         if (kind == BCF_IDX) {
-            res = bcf_itr_next(fp, iter_q, v);
-            if (res < 0) {
-                if (res < -1) {
-                    std::cerr << "Error: iterating bcf file returned " << res << std::endl;
+            while (true) {
+                res = bcf_itr_next(fp, iter_q, v);
+                if (res < 0) {
+                    if (res < -1) {
+                        std::cerr << "Error: iterating bcf file returned " << res << std::endl;
+                    }
+                    done = true;
+                    return;
                 }
+                parseVcfRecord();
+                if (start < fetch_start - *variant_distance && stop > fetch_end + *variant_distance) {
+                    continue;
+                }
+                break;
+            }
+        } else if (kind == VCF_IDX) {
+            if (iter_q == nullptr) {
                 done = true;
                 return;
             }
-            parseVcfRecord();
-        } else if (kind == BED_IDX || kind == VCF_IDX || kind == GFF3_IDX || kind == GTF_IDX) {
+            kstring_t str = {0,0, nullptr};
+            while (true) {
+                res = tbx_itr_next(fp, idx_t, iter_q, &str);
+                if (res < 0) {
+                    if (res < -1) {
+                        std::cerr << "Error: iterating returned code: " << res << " from file: " << path  << std::endl;
+                    }
+                    done = true;
+                    return;
+                }
+                res = vcf_parse(&str, hdr, v);
+                if (res < 0) {
+                    if (res < -1) {
+                        std::cerr << "Error: iterating returned code: " << res << " from file: " << path  << std::endl;
+                    }
+                    done = true;
+                    return;
+                }
+                parseVcfRecord();
+                if (start < fetch_start - *variant_distance && stop > fetch_end + *variant_distance) {
+                    continue;
+                }
+                break;
+            }
+
+        } else if (kind == BED_IDX || kind == GFF3_IDX || kind == GTF_IDX) {
             kstring_t str = {0,0, nullptr};
             if (iter_q != nullptr) {
                 res = tbx_itr_next(fp, idx_t, iter_q, &str);
@@ -1510,16 +1564,6 @@ namespace HGW {
                         }
                     }
                 }
-            } else {  // VCF_IDX
-                res = vcf_parse(&str, hdr, v);
-                if (res < 0) {
-                    if (res < -1) {
-                        std::cerr << "Error: iterating returned code: " << res << " from file: " << path  << std::endl;
-                    }
-                    done = true;
-                    return;
-                }
-                parseVcfRecord();
             }
         } else if (kind == BIGBED) {
             if (current_iter_index == num_intervals) {
@@ -1988,6 +2032,7 @@ namespace HGW {
         }
     }
     void collectTrackData(HGW::GwTrack &trk, std::vector<Utils::TrackBlock> &features) {
+        bool isVCF = trk.kind == HGW::VCF_NOI || trk.kind == HGW::BCF_IDX || trk.kind == HGW::VCF_IDX;
         while (true) {
             trk.next();
             if (trk.done) {
@@ -2010,6 +2055,9 @@ namespace HGW {
             b->anyToDraw = true;
             if (trk.parts.size() >= 5) {
                 b->strand = (trk.parts[5] == "+") ? 1 : (trk.parts[5] == "-") ? -1 : 0;
+            }
+            if (isVCF) {
+                b->vartype = trk.vartype;
             }
             if (trk.kind == BIGBED) {
                 if (trk.parts[2] == "-") {

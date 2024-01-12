@@ -192,6 +192,8 @@ namespace Manager {
         std::string target_qname;
         std::string cursorGenomePos;
 
+        int target_pos;
+
         bool captureText, shiftPress, ctrlPress, processText;
         bool tabBorderPress;
         std::vector< std::string > commandHistory;

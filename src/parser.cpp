@@ -28,6 +28,8 @@ namespace Parse {
         opMap["abs-tlen"] = ABS_TLEN;
         opMap["rname"] = RNAME;
         opMap["rnext"] = RNEXT;
+        opMap["tid"] = TID;
+        opMap["mid"] = MID;
         opMap["pos"] = POS;
         opMap["ref-end"] = REF_END;
         opMap["pnext"] = PNEXT;
@@ -96,6 +98,8 @@ namespace Parse {
         permit[PNEXT] = numeric_like;
         permit[RNAME] = string_like;
         permit[RNEXT] = string_like;
+        permit[TID] = numeric_like;
+        permit[MID] = numeric_like;
         permit[SEQ] = string_like;
         permit[SEQ_LEN] = numeric_like;
         permit[CIGAR] = string_like;
@@ -495,6 +499,12 @@ namespace Parse {
                     case RNEXT:
                         char_ptr = sam_hdr_tid2name(hdr, aln.delegate->core.mtid);
                         str_val = char_ptr;
+                        break;
+                    case TID:
+                        int_val = aln.delegate->core.tid;
+                        break;
+                    case MID:
+                        int_val = aln.delegate->core.mtid;
                         break;
                     case RG:
                         getStrTag("RG", str_val, aln);
