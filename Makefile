@@ -59,16 +59,16 @@ USE_GL ?= ""  # Else use EGL backend for Linux only
 prep:
 	@if [ "$(PLATFORM)" = "Darwin" ]; then \
 		SKIA_LINK=""; \
-		echo "Downloading pre-built skia for MacOS-Intel"; \
+		echo "Downloading pre-built skia for MacOS-Intel"; mkdir -p lib/skia; \
 		cd lib/skia && wget -O skia.zip "https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-x64.zip" && unzip -o skia.zip && rm skia.zip && cd ../../; \
 	elif [ "$(PLATFORM)" = "Arm64" ]; then \
-      	echo "Downloading pre-built skia for MacOS-Arm64"; \
+      	echo "Downloading pre-built skia for MacOS-Arm64"; mkdir -p lib/skia; \
       	cd lib/skia && wget -O skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia.zip" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	elif [ "$(PLATFORM)" = "Linux" ] && [ "$(USE_GL)" = "1" ]; then \
-		echo "Downloading pre-built skia for Linux with GL"; \
+		echo "Downloading pre-built skia for Linux with GL"; mkdir -p lib/skia; \
 		cd lib/skia && wget -O skia.zip "https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip" && unzip -o skia.zip && rm skia.zip && cd ../../; \
 	elif [ "$(PLATFORM)" = "Linux" ]; then \
-		echo "Downloading pre-built skia for Linux with EGL"; \
+		echo "Downloading pre-built skia for Linux with EGL"; mkdir -p lib/skia; \
 		cd lib/skia && wget -O skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia-m93-linux-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	fi
 
