@@ -35,6 +35,11 @@
 #include "include/core/SkSurface.h"
 #include "include/core/SkDocument.h"
 #include "include/docs/SkPDFDocument.h"
+#include "include/core/SkStream.h"
+#include "include/core/SkPictureRecorder.h"
+#include "include/core/SkPicture.h"
+#include "include/svg/SkSVGCanvas.h"
+
 
 // skia context has to be managed from global space to work
 GrDirectContext *sContext = nullptr;
@@ -69,7 +74,7 @@ int main(int argc, char *argv[]) {
 
     }
 
-    static const std::vector<std::string> img_fmt = { "png", "pdf" };
+    static const std::vector<std::string> img_fmt = { "png", "pdf", "svg" };
     static const std::vector<std::string> img_themes = { "igv", "dark", "slate" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
@@ -602,10 +607,10 @@ int main(int argc, char *argv[]) {
 
             plotter.opts.theme.setAlphas();
 
-            if (program.is_used("--fmt") && program.get<std::string>("--fmt") == "pdf") {
-
+            if (program.is_used("--fmt") && (program.get<std::string>("--fmt") == "pdf" || program.get<std::string>("--fmt") == "svg" )) {
+                std::string format_str = program.get<std::string>("--fmt");
                 if (regions.empty()) {
-                    std::cerr << "Error: --fmt pdf is only supported by providing a --region\n";
+                    std::cerr << "Error: --fmt is only supported by providing a --region\n";
                     std::exit(-1);
                 }
 
@@ -621,7 +626,7 @@ int main(int argc, char *argv[]) {
                         std::exit(-1);
                     }
                     fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" +
-                            std::to_string(regions[0].end) + ".pdf";
+                            std::to_string(regions[0].end) + "." + format_str;
                     out_path = outdir / fname;
                 }
 
@@ -635,13 +640,28 @@ int main(int argc, char *argv[]) {
 #endif
                 SkDynamicMemoryWStream buffer;
 
-                auto pdfDocument = SkPDF::MakeDocument(&buffer);
-                SkCanvas *pageCanvas = pdfDocument->beginPage(iopts.dimensions.x, iopts.dimensions.y);
-                plotter.fb_width = iopts.dimensions.x;
-                plotter.fb_height = iopts.dimensions.y;
-                plotter.runDraw(pageCanvas);
-                pdfDocument->close();
-                buffer.writeToStream(&out);
+                if (format_str == "pdf") {
+                    auto pdfDocument = SkPDF::MakeDocument(&buffer);
+                    SkCanvas *pageCanvas = pdfDocument->beginPage(iopts.dimensions.x, iopts.dimensions.y);
+                    plotter.fb_width = iopts.dimensions.x;
+                    plotter.fb_height = iopts.dimensions.y;
+                    plotter.runDraw(pageCanvas);
+                    pdfDocument->close();
+                    buffer.writeToStream(&out);
+                } else {
+                    plotter.fb_width = iopts.dimensions.x;
+                    plotter.fb_height = iopts.dimensions.y;
+                    SkPictureRecorder recorder;
+                    SkCanvas* canvas = recorder.beginRecording(SkRect::MakeWH(iopts.dimensions.x, iopts.dimensions.y));
+                    plotter.runDraw(canvas);
+                    sk_sp<SkPicture> picture = recorder.finishRecordingAsPicture();
+                    std::unique_ptr<SkCanvas> svgCanvas = SkSVGCanvas::Make(SkRect::MakeWH(iopts.dimensions.x, iopts.dimensions.y), &out);
+                    if (svgCanvas) {
+                        picture->playback(svgCanvas.get());
+                        svgCanvas->flush();
+                    };
+                }
+
             } else {
 
                 // Plot a png image, either of target region or whole chromosome
