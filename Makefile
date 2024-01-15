@@ -121,10 +121,8 @@ else ifeq ($(PLATFORM),"Windows")
     LDLIBS += -lharfbuzz-subset -lglfw3 -lcurl
 endif
 
-
 OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 OBJECTS += $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
-
 
 debug:
     CXXFLAGS+=-g
