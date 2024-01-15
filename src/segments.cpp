@@ -572,26 +572,34 @@ namespace Segs {
     void findMismatches(const Themes::IniOptions &opts, ReadCollection &collection) {
 
         std::vector<Segs::Mismatches> &mm_array = collection.mmVector;
+        size_t mm_array_len = mm_array.size();
         const Utils::Region *region = collection.region;
+        if (region == nullptr) {
+            return;
+        }
         int regionLen = region->end - region->start;
         if (opts.max_coverage == 0 || regionLen > opts.snp_threshold) {
             return;
         }
+
         const char *refSeq = region->refSeq;
         if (refSeq == nullptr) {
             return;
         }
         for (const auto &align: collection.readQueue) {
-            if (align.y != -1) {
+            if (align.y != -1 || align.delegate == nullptr) {
                 continue;
             }
             uint32_t r_pos = align.pos;
             uint32_t cigar_l = align.delegate->core.n_cigar;
             uint8_t *ptr_seq = bam_get_seq(align.delegate);
             uint32_t *cigar_p = bam_get_cigar(align.delegate);
+            if (cigar_l == 0 || ptr_seq == nullptr || cigar_p == nullptr) {
+                continue;
+            }
             int r_idx;
             uint32_t idx = 0;
-
+            uint32_t qseq_len = align.delegate->core.l_qseq;
             uint32_t rlen = region->end - region->start;
             auto rbegin = (uint32_t) region->start;
             auto rend = (uint32_t) region->end;
@@ -599,7 +607,9 @@ namespace Segs {
             for (uint32_t k = 0; k < cigar_l; k++) {
                 op = cigar_p[k] & BAM_CIGAR_MASK;
                 l = cigar_p[k] >> BAM_CIGAR_SHIFT;
-
+                if (idx >= qseq_len) {  // shouldn't happen
+                    break;
+                }
                 switch (op) {
                     case BAM_CSOFT_CLIP:
                     case BAM_CINS:
@@ -617,7 +627,7 @@ namespace Segs {
                         break;
                     case BAM_CDIFF:
                         for (uint32_t i = 0; i < l; ++i) {
-                            if (r_pos >= rbegin && r_pos < rend) {
+                            if (r_pos >= rbegin && r_pos < rend && r_pos - rbegin < mm_array_len) {
                                 char bam_base = bam_seqi(ptr_seq, idx);
                                 switch (bam_base) {
                                     case 1:
@@ -650,6 +660,9 @@ namespace Segs {
                                 continue;
                             }
                             if (r_idx >= (int)rlen) {
+                                break;
+                            }
+                            if (r_pos - rbegin >= mm_array_len) {
                                 break;
                             }
 

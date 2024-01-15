@@ -126,7 +126,9 @@ OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 OBJECTS += $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
 
 
-debug: LDFLAGS+=-fsanitize=address -fsanitize=undefined
+debug:
+    CXXFLAGS+=-g
+    LDFLAGS+=-fsanitize=address -fsanitize=undefined
 
 $(TARGET): $(OBJECTS)
 	$(CXX) -g $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $@
