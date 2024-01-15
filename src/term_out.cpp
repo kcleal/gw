@@ -740,7 +740,7 @@ namespace Term {
 		int target = (int)((float)(rgn->end - rgn->start) * x) + rgn->start;
 		std::filesystem::path p = track.path;
         bool isGFF = (track.kind == HGW::FType::GFF3_NOI || track.kind == HGW::FType::GFF3_IDX || track.kind == HGW::FType::GTF_NOI || track.kind == HGW::FType::GTF_IDX );
-        if (trackIdx >= rgn->featuresInView.size()) {
+        if (trackIdx >= (int)rgn->featuresInView.size()) {
             return;
         }
         bool same_pos, same_name = false;

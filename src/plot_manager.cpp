@@ -609,7 +609,11 @@ namespace Manager {
         }
         if (nbams > 0) {
             trackY = (fbh - totalCovY - totalTabixY - refSpace - sliderSpace) / nbams;
-            yScaling = ((fbh - totalCovY - totalTabixY - refSpace - sliderSpace - (gap * nbams)) / (float)samMaxY) / nbams;
+
+            yScaling = ( (fbh - totalCovY - totalTabixY - refSpace - sliderSpace - (gap * nbams)) / (float)samMaxY) / nbams;
+            if (yScaling > 3 * monitorScale) {
+                yScaling = (int)yScaling;
+            }
             // try to scale to pixel boundary
 //            yScaling = (samMaxY < 80) ? (float)(int)yScaling : yScaling;
         } else {

@@ -302,7 +302,7 @@ namespace Drawing {
                     faceColor = theme.fcDup0;
                     break;
                 case Segs::TRA:
-                    faceColor = theme.mate_fc0[(a.delegate->core.tid + a.delegate->core.mtid) % 48];
+                    faceColor = theme.mate_fc0[(a.delegate->core.tid + ((a.delegate->core.mtid >= 0) ?  a.delegate->core.mtid : 0)) % 48];
                     break;
             }
         } else {
@@ -323,7 +323,7 @@ namespace Drawing {
                     faceColor = theme.fcDup;
                     break;
                 case Segs::TRA:
-                    faceColor = theme.mate_fc[a.delegate->core.mtid % 48];
+                    faceColor = theme.mate_fc[(a.delegate->core.tid + ((a.delegate->core.mtid >= 0) ?  a.delegate->core.mtid : 0)) % 48];
                     break;
             }
         }
@@ -607,7 +607,7 @@ namespace Drawing {
                           const Themes::Fonts &fonts,
                           int regionBegin, size_t idx, int Y, int regionLen, int starti, int lastEndi,
                           float regionPixels, float xScaling, float yScaling, float xOffset, float yOffset,
-                          float textDrop, std::vector<TextItem> &text) {
+                          float textDrop, std::vector<TextItem> &text, bool indelTextFits) {
 
         int isize = starti - lastEndi;
         int lastEnd = lastEndi - regionBegin;
@@ -623,7 +623,7 @@ namespace Drawing {
         float yh = ((float) Y + (float) polygonHeight * (float) 0.5) * yScaling + yOffset;
 
         if (isize >= opts.indel_length) {
-            if (regionLen < 500000) { // line and text
+            if (regionLen < 500000 && indelTextFits) { // line and text
                 std::sprintf(indelChars, "%d", isize);
                 size_t sl = strlen(indelChars);
                 float textW = fonts.textWidths[sl - 1];
@@ -709,6 +709,7 @@ namespace Drawing {
                 if (Y == -1) {
                     continue;
                 }
+                bool indelTextFits = fonts.overlayHeight * 0.7 < yScaling;
 
                 int mapq = a.delegate->core.qual;
                 float yScaledOffset = (Y * yScaling) + yOffset;
@@ -766,7 +767,7 @@ namespace Drawing {
                         drawDeletionLine(a, canvas, path, opts, fonts,
                                          regionBegin, idx, Y, regionLen, starti, lastEnd,
                                          regionPixels, xScaling, yScaling, xOffset, yOffset,
-                                         textDrop, text_del);
+                                         textDrop, text_del, indelTextFits);
                     }
                 }
 
@@ -838,7 +839,7 @@ namespace Drawing {
                             size_t sl = strlen(indelChars);
                             textW = fonts.textWidths[sl - 1];
                             if (ins.length > (uint32_t) opts.indel_length) {
-                                if (regionLen < 500000) {  // line and text
+                                if (regionLen < 500000 && indelTextFits) {  // line and text
                                     drawIns(canvas, Y, p, yScaling, xOffset, yOffset, textW, theme.insS,
                                             theme.fcIns, path, rect);
 
