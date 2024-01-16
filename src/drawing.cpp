@@ -72,7 +72,7 @@ namespace Drawing {
                 Segs::findMismatches(opts, cl);
             }
 
-            float tot, mean, n;
+            double tot, mean, n;
             const std::vector<int> &covArr_r = cl.covArr;
             std::vector<float> c;
             c.resize(cl.covArr.size());
@@ -442,6 +442,7 @@ namespace Drawing {
             collection_processed = true;
             return;
         }
+        size_t mm_array_len = mm_array.size();
 
         uint32_t r_pos = align.pos;
         uint32_t cigar_l = align.delegate->core.n_cigar;
@@ -449,9 +450,13 @@ namespace Drawing {
         uint32_t *cigar_p = bam_get_cigar(align.delegate);
         auto *ptr_qual = bam_get_qual(align.delegate);
 
+        if (cigar_l == 0 || ptr_seq == nullptr || cigar_p == nullptr) {
+            return;
+        }
+
         if (!region->refSeq) return;
         const char *refSeq = region->refSeq;
-
+        uint32_t qseq_len = align.delegate->core.l_qseq;
         const uint32_t rlen = region->end - region->start;
         const uint32_t rbegin = region->start;
         const uint32_t rend = region->end;
@@ -460,6 +465,9 @@ namespace Drawing {
         for (uint32_t k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
+            if (idx >= qseq_len) {  // shouldn't happen
+                break;
+            }
             switch (op) {
                 case BAM_CMATCH:
                     for (uint32_t i = 0; i < l; ++i) {
@@ -470,6 +478,9 @@ namespace Drawing {
                             continue;
                         }
                         if (r_idx >= (int) rlen) {
+                            break;
+                        }
+                        if (r_pos - rbegin >= mm_array_len) {
                             break;
                         }
 
@@ -539,7 +550,7 @@ namespace Drawing {
                     break;
                 case BAM_CDIFF:
                     for (uint32_t i = 0; i < l; ++i) {
-                        if (r_pos >= rbegin && r_pos < rend) {
+                        if (r_pos >= rbegin && r_pos < rend && r_pos - rbegin < mm_array_len) {
                             char bam_base = bam_seqi(ptr_seq, idx);
                             p = (r_pos - rbegin) * xScaling;
                             uint32_t colorIdx = (l_qseq == 0) ? 10 : (ptr_qual[idx] > 10) ? 10 : ptr_qual[idx];
@@ -1679,7 +1690,7 @@ namespace Drawing {
                 trackIdx += 1;
                 padY += stepY;
 
-                if (fonts.overlayHeight * nLevels < stepY) {
+                if (fonts.overlayHeight * nLevels * 2 < stepY) {
                     for (const auto&t: text) {
                         canvas->drawTextBlob(t.text, t.x, t.y, opts.theme.tcDel);
                     }
@@ -1697,14 +1708,19 @@ namespace Drawing {
                            const faidx_t *fai, std::vector<sam_hdr_t *> &headers, size_t nRegions, float fb_width,
                            float fb_height, float monitorScale) {
         SkPaint paint, line;
-        if (opts.theme_str == "slate") {
-            paint.setARGB(255, 160, 160, 165);
+//        paint.setARGB(255, 110, 120, 165);
+
+        if (opts.theme_str == "igv") {
+            paint.setARGB(255, 87, 95, 107);
+//            paint.setARGB(255, 160, 160, 165);
         } else {
-            paint.setColor(SK_ColorRED);
+            paint.setARGB(255, 149, 149, 163);
+//            paint.setColor(SK_ColorRED);
         }
-        paint.setStrokeWidth(3);
+        paint.setStrokeWidth(2);
         paint.setStyle(SkPaint::kStroke_Style);
-        line.setColor((opts.theme_str == "dark") ? SK_ColorWHITE : SK_ColorBLACK);
+//        line.setColor((opts.theme_str == "dark") ? SK_ColorGRAY : SK_ColorBLACK);
+        line.setColor((opts.theme_str == "dark") ? SK_ColorGRAY : SK_ColorBLACK);
         line.setStrokeWidth(monitorScale);
         line.setStyle(SkPaint::kStroke_Style);
         SkRect rect{};
