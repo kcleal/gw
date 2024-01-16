@@ -1360,24 +1360,24 @@ namespace Drawing {
         if (!vartype.empty()) {
             if (vartype == "DEL") {
                 if (addArc) {
-                    arcColour = opts.theme.fcDel;
+                    arcColour = opts.theme.fcT;
                 } else {
-                    faceColour = opts.theme.fcDel;
+                    faceColour = opts.theme.fcT;
                     faceColour.setAlpha(150);
                 }
 
             } else if (vartype == "DUP") {
                 if (addArc) {
-                    arcColour = opts.theme.fcDup;
+                    arcColour = opts.theme.fcC;
                 } else {
-                    faceColour = opts.theme.fcDup;
+                    faceColour = opts.theme.fcC;
                     faceColour.setAlpha(150);
                 }
             } else if (vartype == "INV") {
                 if (addArc) {
-                    arcColour = opts.theme.fcInvF;
+                    arcColour = opts.theme.fcA;
                 } else {
-                    faceColour = opts.theme.fcInvF;
+                    faceColour = opts.theme.fcA;
                     faceColour.setAlpha(150);
                 }
 //            } else if (vartype == "TRA" || vartype == "BND") {

@@ -9,8 +9,12 @@
 #include <iterator>
 #include <regex>
 #include <vector>
-#include <curl/curl.h>
-#include <curl/easy.h>
+
+#if !defined(__EMSCRIPTEN__)
+    #include <curl/curl.h>
+    #include <curl/easy.h>
+#endif
+
 #include "htslib/hts.h"
 #include "drawing.h"
 #include "hts_funcs.h"
@@ -889,6 +893,7 @@ namespace Term {
     }
 
     int check_url(const char *url) {
+# if !defined(__EMSCRIPTEN__)
         CURL *curl;
         CURLcode response;
         curl = curl_easy_init();
@@ -897,6 +902,9 @@ namespace Term {
         response = curl_easy_perform(curl);
         curl_easy_cleanup(curl);
         return (response == CURLE_OK) ? 1 : 0;
+#else
+        return 1;
+#endif
     }
 
     void replaceRegionInLink(std::regex &chrom_pattern, std::regex &start_pattern, std::regex &end_pattern, std::string &link, std::string &chrom, int start, int end) {

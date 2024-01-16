@@ -592,10 +592,12 @@ namespace Utils {
         struct winsize w;
         ioctl(fileno(stdout), TIOCGWINSZ, &w);
         int width = (int)(w.ws_col);
-#else
+#elif !defined(__EMSCRIPTEN__)
         struct winsize termDim;
         ioctl(0, TIOCGWINSZ, &termDim); // Grab terminal dimensions
         int width = termDim.ws_col;
+#else
+        int width = 80;
 #endif
         width = (width > 1000 || width <= 0) ? 80 : width;
         return width;  // when reading from stdin width ends up being >1000 or 0? not sure about this fix
