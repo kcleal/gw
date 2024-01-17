@@ -251,7 +251,7 @@ int main(int argc, char *argv[]) {
         std::cout << "\n Reference genomes listed in " << iopts.ini_path << std::endl << std::endl;
         std::string online = "https://github.com/kcleal/ref_genomes/releases/download/v0.1.0";
 #if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
-        const char *block_char = "*"
+        const char *block_char = "*";
 #else
         const char *block_char = "▀";
 #endif
