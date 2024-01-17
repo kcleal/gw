@@ -938,33 +938,6 @@ namespace Drawing {
                     }
                 }
             }
-
-            // draw markers
-            if (cl.region->markerPos != -1) {
-                float rp = refSpace + 6 + (cl.bamIdx * cl.yPixels);
-                float xp = refSpace * 0.3;
-                float markerP = (xScaling * (float) (cl.region->markerPos - cl.region->start)) + cl.xOffset;
-                if (markerP > cl.xOffset && markerP < regionPixels - cl.xOffset) {
-                    path.reset();
-                    path.moveTo(markerP, rp);
-                    path.lineTo(markerP - xp, rp);
-                    path.lineTo(markerP, rp + refSpace);
-                    path.lineTo(markerP + xp, rp);
-                    path.lineTo(markerP, rp);
-                    canvas->drawPath(path, theme.marker_paint);
-                }
-                float markerP2 = (xScaling * (float) (cl.region->markerPosEnd - cl.region->start)) + cl.xOffset;
-                if (markerP2 > cl.xOffset && markerP2 < (regionPixels + cl.xOffset)) {
-                    path.reset();
-                    path.moveTo(markerP2, rp);
-                    path.lineTo(markerP2 - xp, rp);
-                    path.lineTo(markerP2, rp + refSpace);
-                    path.lineTo(markerP2 + xp, rp);
-                    path.lineTo(markerP2, rp);
-                    canvas->drawPath(path, theme.marker_paint);
-                }
-            }
-
             // draw text last
             for (const auto &t : text_del) {
                 canvas->drawTextBlob(t.text.get(), t.x, t.y, theme.tcDel);
@@ -974,6 +947,34 @@ namespace Drawing {
             }
 
             canvas->restore();
+
+            // draw markers
+            if (cl.region->markerPos != -1) {
+                float rp = refSpace + 6 + (cl.bamIdx * cl.yPixels);
+                float xp = refSpace * 0.2;
+                float markerP = (xScaling * (float) (cl.region->markerPos - cl.region->start)) + cl.xOffset;
+                if (markerP > cl.xOffset && markerP < regionPixels - cl.xOffset) {
+                    path.reset();
+                    path.moveTo(markerP, rp);
+                    path.lineTo(markerP - xp, rp);
+                    path.lineTo(markerP, rp + (refSpace*0.7));
+                    path.lineTo(markerP + xp, rp);
+                    path.lineTo(markerP, rp);
+                    canvas->drawPath(path, theme.marker_paint);
+                }
+                float markerP2 = (xScaling * (float) (cl.region->markerPosEnd - cl.region->start)) + cl.xOffset;
+                if (markerP2 > cl.xOffset && markerP2 < (regionPixels + cl.xOffset)) {
+                    path.reset();
+                    path.moveTo(markerP2, rp);
+                    path.lineTo(markerP2 - xp, rp);
+                    path.lineTo(markerP2, rp + (refSpace*0.7));
+                    path.lineTo(markerP2 + xp, rp);
+                    path.lineTo(markerP2, rp);
+                    canvas->drawPath(path, theme.marker_paint);
+                }
+            }
+
+
 
 //            cl.collection_processed = true;
         }
