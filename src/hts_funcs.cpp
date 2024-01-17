@@ -1188,9 +1188,8 @@ namespace HGW {
                 auto got_line = (bool)getline(*fpu, tp);
                 if (!got_line) {
                     done = true;
-                    return;
+                    break;
                 }
-//            while (getline(*fpu, tp)) {
                 count += 1;
                 if (tp[0] == '#') {
                     continue;
@@ -1237,6 +1236,7 @@ namespace HGW {
                 }
                 allBlocks[b.chrom].add(b.start, b.end, b);
             }
+
         } else if (kind == BED_IDX) {
             fp = hts_open(p.c_str(), "r");
             if (!fp) {
@@ -1314,7 +1314,7 @@ namespace HGW {
                 if (allBlocks.contains(rgn->chrom)) {
                     std::vector<size_t> a;
                     if (kind == GFF3_NOI || kind == GTF_NOI) {
-                        allBlocks[rgn->chrom].overlap(rgn->start - 100000, rgn->end + 100000, a);
+                        allBlocks[rgn->chrom].overlap(std::max(1, rgn->start - 100000), rgn->end + 100000, a);
                     } else {
                         allBlocks[rgn->chrom].overlap(rgn->start, rgn->end, a);
                     }
