@@ -250,23 +250,44 @@ int main(int argc, char *argv[]) {
         show_banner = false;
         std::cout << "\n Reference genomes listed in " << iopts.ini_path << std::endl << std::endl;
         std::string online = "https://github.com/kcleal/ref_genomes/releases/download/v0.1.0";
-        std::cout << " ▀ " << online << std::endl << std::endl;
+#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
+        const char *block_char = "*"
+#else
+        const char *block_char = "▀";
+#endif
+        std::cout << " " << block_char << " " << online << std::endl << std::endl;
         int i = 0;
         int tag_wd = 11;
         std::vector<std::string> vals;
+
+#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
+        std::cout << "  Number | Genome-tag | Path \n";
+        std::cout << "  -------|------------|----------------------------------------------" << std::endl;
+#else
         std::cout << "  Number │ Genome-tag │ Path \n";
         std::cout << "  ───────┼────────────┼─────────────────────────────────────────────" << std::endl;
+#endif
         for (auto &rg: iopts.myIni["genomes"]) {
             std::string tag = rg.first;
             std::string g_path = rg.second;
+#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
+            std::cout << "    " << i << ((i < 10) ? "    " : "   ")  << "| " << tag;
+#else
             std::cout << "    " << i << ((i < 10) ? "    " : "   ")  << "│ " << tag;
+#endif
+
             for (int j=0; j < tag_wd - (int)tag.size(); ++j) {
                 std::cout << " ";
             }
+#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
+            std::cout << "|  ";
+#else
             std::cout << "│  ";
+#endif
+
             if (g_path.find(online) != std::string::npos) {
                 g_path.erase(g_path.find(online), online.size());
-                std::cout << "▀ " << g_path << std::endl;
+                std::cout << block_char << " " << g_path << std::endl;
             } else {
                 std::cout << g_path << std::endl;
             }
