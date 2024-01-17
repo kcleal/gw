@@ -705,8 +705,10 @@ namespace Drawing {
                 pH = trackY / (float) opts.ylim;
                 yScaling *= 0.95;
             }
-            if (pH > 10) {  // scale to pixel boundary
+            if (pH > 8) {  // scale to pixel boundary
                 pH = (float) (int) pH;
+            } else if (opts.tlen_yscale) {
+                pH = std::fmax(pH, 8);
             }
 
             std::vector<Segs::Mismatches> &mm_vector = cl.mmVector;
@@ -974,8 +976,6 @@ namespace Drawing {
                 }
             }
 
-
-
 //            cl.collection_processed = true;
         }
 
@@ -986,6 +986,7 @@ namespace Drawing {
                 if (!rc.linked.empty()) {
                     const Segs::map_t &lm = rc.linked;
                     SkPaint paint;
+                    float offsety = (yScaling * 0.5) + rc.yOffset;
                     for (auto const &keyVal: lm) {
                         const std::vector<Segs::Align *> &ind = keyVal.second;
                         int size = (int) ind.size();
@@ -1012,7 +1013,9 @@ namespace Drawing {
                                 x_b += rc.xOffset;
                                 x_a = (x_a > max_x) ? max_x : x_a;
                                 x_b = (x_b > max_x) ? max_x : x_b;
-                                float y = ((float) segA->y * yScaling) + ((polygonHeight / 2) * yScaling) + rc.yOffset;
+                                // float yScaledOffset = (Y * yScaling) + yOffset;
+//                                float y = ((float) segA->y * yScaling) + ((polygonHeight / 2) * yScaling) + rc.yOffset;
+                                float y = ((float) segA->y * yScaling) + offsety;
 
                                 switch (segA->orient_pattern) {
                                     case Segs::DEL:
