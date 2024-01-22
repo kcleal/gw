@@ -594,8 +594,14 @@ namespace Manager {
         } else if (Utils::startsWith(inputText, "ylim")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             try {
-                opts.ylim = std::stoi(split.back());
-                samMaxY = opts.ylim;
+                if (!opts.tlen_yscale) {
+                    opts.ylim = std::stoi(split.back());
+                    samMaxY = opts.ylim;
+                } else {
+                    opts.max_tlen = std::stoi(split.back());
+                    samMaxY = opts.max_tlen;
+                }
+
                 imageCache.clear();
                 HGW::refreshLinked(collections, opts, &samMaxY);
                 processed = true;
@@ -895,23 +901,38 @@ namespace Manager {
                 error_report(reason);
             }
         }
-        else if (Utils::startsWith(inputText, "tlen-y")) {
-            valid = true;
-            std::vector<std::string> split = Utils::split(inputText, delim);
-            if (split.size() == 2) {
-                try {
-                    opts.max_tlen = std::stoi(split.back());
-                    opts.tlen_yscale = true;
-                } catch (...) {
-                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " 'tlen-y NUMBER' not understood\n";
-                    return true;
-                }
+        else if (inputText == "tlen-y") {
+            if (!opts.tlen_yscale) {
+                opts.max_tlen = 2000;
+                opts.ylim = 2000;
+                samMaxY = 2000;
             } else {
-                opts.tlen_yscale = !(opts.tlen_yscale);
-                if (!opts.tlen_yscale) {
-                    samMaxY = opts.ylim;
-                }
+                opts.ylim = 60;
+                samMaxY = 60;
             }
+            opts.tlen_yscale = !opts.tlen_yscale;
+            std::cerr << opts.max_tlen << std::endl;
+            valid = true;
+//            samMaxY = opts.ylim;
+            //opts.max_tlen = samMaxY;
+//        }
+//        else if (Utils::startsWith(inputText, "tlen-y")) {
+//            valid = true;
+//            std::vector<std::string> split = Utils::split(inputText, delim);
+//            if (split.size() == 2) {
+//                try {
+//                    opts.max_tlen = std::stoi(split.back());
+//                    opts.tlen_yscale = true;
+//                } catch (...) {
+//                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " 'tlen-y NUMBER' not understood\n";
+//                    return true;
+//                }
+//            } else {
+//                opts.tlen_yscale = !(opts.tlen_yscale);
+//                if (!opts.tlen_yscale) {
+//                    samMaxY = opts.ylim;
+//                }
+//            }
         } else if (Utils::startsWith(inputText, "goto")) {
             std::vector<std::string> split = Utils::split(inputText, delim_q);
             if (split.size() == 1) {
@@ -1957,7 +1978,7 @@ namespace Manager {
                 int level = 0;
                 int slop = 0;
                 if (!opts.tlen_yscale) {
-                    level = (int) ((yW - (float) cl.yOffset) / ((trackY-(gap/2)) / (float)(cl.levelsStart.size() - cl.vScroll )));
+                    level = (int)((yW - (float) cl.yOffset) / yScaling);
                     if (level < 0) {  // print coverage info (mousePos functions already prints out cov info to console)
                         std::cout << std::endl;
                         return;
@@ -1966,10 +1987,11 @@ namespace Manager {
                         level += cl.vScroll + 1;
                     }
                 } else {
-                    int max_bound = (opts.max_tlen) + (cl.vScroll * 100);
-                    level = (int) ((yW - (float) cl.yOffset) / (trackY / (float)(max_bound)));
-                    slop = (int)((trackY / (float)opts.ylim) * 2);
-                    slop = (slop <= 0) ? 5 : slop;
+                    int max_bound = opts.max_tlen;
+                    level = (int) ((yW - (float) cl.yOffset) / (((trackY - gap) * 0.95) / (float)(max_bound)));
+                    slop = (int)(max_bound * 0.025);
+                    slop = (slop <= 0) ? 25 : slop;
+                    std::cerr << level << std::endl;
                 }
                 std::vector<Segs::Align>::iterator bnd;
                 bnd = std::lower_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
@@ -2128,9 +2150,6 @@ namespace Manager {
                     yDrag = DRAG_UNSET;
                     return;
                 }
-//                if (regions.empty()) {
-//                    return;
-//                }
 
                 bool variantFile_click = variantTracks.size() > 1 && yW < fb_height * 0.02;
                 if (variantFile_click) {
@@ -2265,7 +2284,10 @@ namespace Manager {
 
         double xPos_fb = xPos;
         double yPos_fb = yPos;
+        double xPosOri_fb = xOri;
+        double yPosOri_fb = yOri;
         convertScreenCoordsToFrameBufferCoords(wind, &xPos_fb, &yPos_fb, fb_width, fb_height);
+        convertScreenCoordsToFrameBufferCoords(wind, &xPosOri_fb, &yPosOri_fb, fb_width, fb_height);
         // register popup toolbar
         if (captureText && mode != SETTINGS && xPos_fb < (50 + fonts.overlayWidth * 20)) {
             int tip_lb = 0;
@@ -2311,7 +2333,6 @@ namespace Manager {
         }
 
         if (state == GLFW_PRESS) {
-
             xDrag = xPos - xOri;  // still in window co-ords not frame buffer co-ords
             yDrag = yPos - yOri;
             if (std::abs(xDrag) > 5 || std::abs(yDrag) > 5) {
@@ -2322,7 +2343,8 @@ namespace Manager {
                 if (regions.empty()) {
                     return;
                 }
-                if (yPos_fb >= (fb_height - sliderSpace - gap)) {
+
+                if (yPos_fb >= (fb_height - sliderSpace - gap) && yPosOri_fb >= (fb_height - sliderSpace - gap)) {
                     updateSlider((float) xPos_fb);
                     yDrag = DRAG_UNSET;
                     xDrag = DRAG_UNSET;
@@ -2387,10 +2409,24 @@ namespace Manager {
                     }
 
                     if (std::fabs(yDrag) > std::fabs(xDrag) && std::fabs(yDrag) > 1) {
-                        float travel_y = yDrag / ((float) ((windowH * (1 - opts.tab_track_height)) / (float)bams.size()) / (float) cl.levelsStart.size());
+                        float travel_y;
+                        if (!opts.tlen_yscale) {
+                            travel_y = yDrag /
+                                         ((float) ((windowH * (1 - opts.tab_track_height)) / (float) bams.size()) /
+                                          (float) cl.levelsStart.size());
+                        } else {
+                            travel_y = yDrag /
+                                       ((float) ((windowH * (1 - opts.tab_track_height)) / (float) bams.size()) /
+                                        (float) opts.max_tlen);
+                        }
                         if (std::fabs(travel_y) > 1) {
-                            cl.vScroll -= (int) travel_y;
-                            cl.vScroll = (cl.vScroll <= 0) ? 0 : cl.vScroll;
+                            if (opts.tlen_yscale) {
+                                opts.max_tlen -= (int)travel_y;
+                                opts.ylim -= (int)travel_y;
+                            } else {
+                                cl.vScroll -= (int) travel_y;
+                                cl.vScroll = (cl.vScroll <= 0) ? 0 : cl.vScroll;
+                            }
 
                             cl.levelsStart.clear();
                             cl.levelsEnd.clear();

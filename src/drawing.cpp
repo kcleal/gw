@@ -354,13 +354,6 @@ namespace Drawing {
                              SkPath &path, const float slop, bool edged, SkPaint &edgeColor) {
         start *= xScaling;
         width *= xScaling;
-//        if (start < 0) {
-//            width += start;
-//            start = 0;
-//        }
-//        if (start + width > maxX) {
-//            width = maxX - start;
-//        }
         path.reset();
         path.moveTo(start + xOffset, yScaledOffset);
         path.lineTo(start - slop + xOffset, yScaledOffset + (polygonH * 0.5));
@@ -701,6 +694,9 @@ namespace Drawing {
             bool drawEdges = regionLen < opts.edge_highlights;
 
             float pH = yScaling * polygonHeight;
+            canvas->save();
+            canvas->clipRect({xOffset, yOffset, (float)regionLen * xScaling + xOffset, yOffset + trackY}, false);
+
             if (opts.tlen_yscale) {
                 pH = trackY / (float) opts.ylim;
                 yScaling *= 0.95;
@@ -712,9 +708,6 @@ namespace Drawing {
             }
 
             std::vector<Segs::Mismatches> &mm_vector = cl.mmVector;
-
-            canvas->save();
-            canvas->clipRect({xOffset, yOffset, (float)regionLen * xScaling + xOffset, yOffset + (float)opts.ylim * yScaling}, false);
 
             for (const auto &a: cl.readQueue) {
 

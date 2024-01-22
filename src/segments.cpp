@@ -474,7 +474,7 @@ namespace Segs {
         }
 
         if (opts.tlen_yscale) {
-            int max_bound = (opts.max_tlen) + (vScroll * 100);
+            int max_bound = opts.max_tlen; //(opts.max_tlen) + (vScroll * 100);
             samMaxY = max_bound;
             for (auto &aln : rQ) {
                 int tlen = (int)std::abs(aln.delegate->core.isize);
@@ -482,7 +482,6 @@ namespace Segs {
                     aln.y = tlen;
                 } else {
                     aln.y = max_bound;
-                    samMaxY = max_bound;
                 }
             }
             return samMaxY;

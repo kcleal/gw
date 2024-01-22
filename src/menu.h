@@ -53,7 +53,7 @@ namespace Menu {
                                                             "refresh", "online", "mismatches", "mate", "mate add", "log2-cov", "low-mem", "link", "line", "insertions", "indel-length",
                                                             "grid", "find", "filter", "expand-tracks", "edges", "cov",  "count", "add"};
 
-    constexpr std::array<const char*, 15> exec = {"cov", "count", "edges", "expand-tracks", "insertions", "line", "low-mem", "log2-cov", "mate", "mate add", "mismatches", "tags", "soft-clips", "sam", "refresh"};
+    constexpr std::array<const char*, 16> exec = {"cov", "count", "edges", "expand-tracks", "insertions", "line", "low-mem", "log2-cov", "mate", "mate add", "mismatches", "tags", "soft-clips", "sam", "refresh", "tlen-y"};
 
     int getCommandSwitchValue(Themes::IniOptions &opts, std::string &cmd_s, bool &drawLine);
 
