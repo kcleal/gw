@@ -132,7 +132,7 @@ For example, here are some useful expressions:
     filter flag & 2048
     filter seq contains TTAGGG
 
-Here are a list of '{property}' values you can use:
+Here are a list of '{property}' values you can use, consult the SAM specification for more details on the meaning of these:
 
     mapq, flag, ~flag, rname, tlen, abs-tlen, rnext, pos, ref-end, pnext, seq, seq-len, tid, mid,
     RG, BC, BX, RX, LB, MD, MI, PU, SA, MC, NM, CM, FI, HO, MQ, SM, TC, UQ, AS
@@ -141,15 +141,24 @@ These can be combined with '{operator}' values:
 
     &, ==, !=, >, <, >=, <=, eq, ne, gt, lt, ge, le, contains, omit
 
-Bitwise flags can also be applied with named values:
+Bitwise flags can also be applied with named values, including:
 
-    paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary,
+    paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary, qcfail,
     dup, supplementary
+
+These can be used as a shorthand for filtering with the `flag &` and `~flag &` properties and operators. For example, to filter for
+proper-pair alignments you can use:
+
+    filter proper-pair
+
+This is a shorthand for `filter flag & proper-pair`. For the inverse (keeping discordant reads only), you can use:
+
+    filter ~proper-pair
 
 Expressions can be chained together providing all expressions are 'AND' or 'OR' blocks:
 
     filter mapq >= 20 and mapq < 30
-    filter mapq >= 20 or flag & supplementary
+    filter mapq >= 20 or supplementary
 
 Finally, you can apply filters to specific panels using array indexing notation:
 
@@ -162,11 +171,11 @@ Here are a list of some example filtering commands:
 
     filter mapq >= 20             # only reads with mapping quality >= 20 will be shown
     filter flag & 2048            # only supplementary alignments are shown
-    filter flag & supplementary   # same as above
-    filter ~flag & supplementary  # supplementary reads will be removed
+    filter supplementary   # same as above
+    filter ~supplementary  # supplementary reads will be removed
     filter seq contains TTAGGG    # Only reads with TTAGGG kmer will be shown
     filter seq omit AAAAAA        # Reads with this kmer will be removed
-    filter mapq > 30 and ~flag & duplicate  #  also removes duplicate reads
+    filter mapq > 30 and ~duplicate  #  also removes duplicate reads
     filter mapq > 10 or seq-len > 100; ~flag & duplicate  # multiple commands
 
 

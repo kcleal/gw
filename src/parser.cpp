@@ -244,8 +244,17 @@ namespace Parse {
             token = std::regex_replace(s, std::regex("^ +| +$|( ) +"), "$1");
             auto output = Utils::split(token, ' ');
             if (output.size() != 3) {
-                std::cerr << "Expression not understood, length 3 required: " << token << std::endl;
-                return -1;
+                if (output.size() == 1) {
+                    if (output[0].at(0) != '~') {
+                        output = {"flag", "&", output[0]};
+                    } else {
+                        output[0].erase(0, 1);
+                        output = {"~flag", "&", output[0]};
+                    }
+                } else {
+                    std::cerr << "Expression not understood, need three components as {property} {operator} {value}, or a named value for flag. Found: " << token << std::endl;
+                    return -1;
+                }
             }
             allTokens.push_back(output);
 
@@ -256,19 +265,38 @@ namespace Parse {
                 token = std::regex_replace(token, std::regex("^ +| +$|( ) +"), "$1");
                 auto output = Utils::split(token, ' ');
                 if (output.size() != 3) {
-                    std::cerr << "Expression not understood, length 3 required: " << token << std::endl;
-                    return -1;
+                    if (output.size() == 1) {
+                        if (output[0].at(0) != '~') {
+                            output = {"flag", "&", output[0]};
+                        } else {
+                            output[0].erase(0, 1);
+                            output = {"~flag", "&", output[0]};
+                        }
+                    } else {
+                        std::cerr << "Expression not understood, need three components as {property} {operator} {value}, or a named value for flag. Found: " << token << std::endl;
+                        return -1;
+                    }
                 }
                 allTokens.push_back(output);
                 start = end + delim.length();
                 end = s.find(delim, start);
             }
+
             token = s.substr(start, end - start);
             token = std::regex_replace(token, std::regex("^ +| +$|( ) +"), "$1");
             auto output = Utils::split(token, ' ');
             if (output.size() != 3) {
-                std::cerr << "Expression not understood, length 3 required: " << token << std::endl;
-                return -1;
+                if (output.size() == 1) {
+                    if (output[0].at(0) != '~') {
+                        output = {"flag", "&", output[0]};
+                    } else {
+                        output[0].erase(0, 1);
+                        output = {"~flag", "&", output[0]};
+                    }
+                } else {
+                    std::cerr << "Expression not understood, need three components as {property} {operator} {value}, or a named value for flag. Found: " << token << std::endl;
+                    return -1;
+                }
             }
             allTokens.push_back(output);
 
@@ -307,8 +335,35 @@ namespace Parse {
             try {
                 e.ival = std::stoi(output.back());
             } catch (...) {
-                std::cerr << "Right-hand side operation not an integer: " << output[2] << std::endl;
-                return -1;
+                if (output.back() == "paired") {
+                    e.ival = Property::PAIRED;
+                } else if (output.back() == "proper-pair") {
+                    e.ival = Property::PROPER_PAIR;
+                } else if (output.back() == "unmapped") {
+                    e.ival = Property::UNMAP;
+                } else if (output.back() == "munmap") {
+                    e.ival = Property::MUNMAP;
+                } else if (output.back() == "reverse") {
+                    e.ival = Property::REVERSE;
+                } else if (output.back() == "mreverse") {
+                    e.ival = Property::MREVERSE;
+                } else if (output.back() == "read1") {
+                    e.ival = Property::READ1;
+                } else if (output.back() == "read2") {
+                    e.ival = Property::READ2;
+                } else if (output.back() == "secondary") {
+                    e.ival = Property::SECONDARY;
+                } else if (output.back() == "qcfail") {
+                    e.ival = Property::QCFAIL;
+                } else if (output.back() == "dup") {
+                    e.ival = Property::DUP;
+                } else if (output.back() == "supplementary") {
+                    e.ival = Property::SUPPLEMENTARY;
+                } else {
+                    std::cerr << "Right-hand side value must be an integer or named-value: " << output[2] << std::endl;
+                    std::cerr << "Named values can be one of: paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary, qcfail, dup, supplementary\n";
+                    return -1;
+                }
             }
         } else if (lhs >= 4000) {
             e.property = lhs;
