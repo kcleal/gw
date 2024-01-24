@@ -29,7 +29,7 @@ namespace Parse {
         READ2 = 128,
         SECONDARY = 256,
         QCFAIL = 512,
-        DUP = 1024,
+        DUPLICATE = 1024,
         SUPPLEMENTARY = 2048,
 
         // int values
@@ -44,6 +44,14 @@ namespace Parse {
         SEQ_LEN = 3008,
         NM = 3009, CM = 3010, FI = 3011, HO = 3012, MQ = 3013, SM = 3014, TC = 3015, UQ = 3016, AS = 3017,
         TID = 3018, MID = 3019,
+
+        // Patterns
+        PATTERN = 3500,
+        DEL = 3501,
+        INV_F = 3502,
+        INV_R = 3503,
+        DUP = 3504,
+        TRA = 3505,
 
         // str values
         QNAME = 4000,

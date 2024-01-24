@@ -84,8 +84,15 @@ namespace Parse {
         opMap["read2"] = READ2;
         opMap["secondary"] = SECONDARY;
         opMap["qcfail"] = QCFAIL;
-        opMap["dup"] = DUP;
+        opMap["duplicate"] = DUPLICATE;
         opMap["supplementary"] = SUPPLEMENTARY;
+
+        opMap["del"] = Property::DEL;
+        opMap["inv_f"] = Property::INV_F;
+        opMap["inv_r"] = Property::INV_R;
+        opMap["dup"] = Property::DUP;
+        opMap["tra"] = Property::TRA;
+        opMap["pattern"] = Property::PATTERN;
 
         permit[MAPQ] = numeric_like;
         permit[FLAG] = "&";
@@ -124,6 +131,9 @@ namespace Parse {
         permit[TC] = numeric_like;
         permit[UQ] = numeric_like;
         permit[AS] = numeric_like;
+
+        permit[PATTERN] = string_like;
+
     }
 
     int parse_indexing(std::string &s, int nBams, int nRegions, std::vector< std::vector<int> > &v) {
@@ -335,7 +345,17 @@ namespace Parse {
             try {
                 e.ival = std::stoi(output.back());
             } catch (...) {
-                if (output.back() == "paired") {
+                if (output.back() == "del") {
+                    e.ival = Segs::Pattern::DEL;
+                } else if (output.back() == "inv_f") {
+                    e.ival = Segs::Pattern::INV_F;
+                } else if (output.back() == "inv_r") {
+                    e.ival = Segs::Pattern::INV_R;
+                } else if (output.back() == "dup") {
+                    e.ival = Segs::Pattern::DUP;
+                } else if (output.back() == "tra") {
+                    e.ival = Segs::Pattern::TRA;
+                } else if (output.back() == "paired") {
                     e.ival = Property::PAIRED;
                 } else if (output.back() == "proper-pair") {
                     e.ival = Property::PROPER_PAIR;
@@ -355,8 +375,8 @@ namespace Parse {
                     e.ival = Property::SECONDARY;
                 } else if (output.back() == "qcfail") {
                     e.ival = Property::QCFAIL;
-                } else if (output.back() == "dup") {
-                    e.ival = Property::DUP;
+                } else if (output.back() == "duplicate") {
+                    e.ival = Property::DUPLICATE;
                 } else if (output.back() == "supplementary") {
                     e.ival = Property::SUPPLEMENTARY;
                 } else {
@@ -372,37 +392,6 @@ namespace Parse {
         } else {
             std::cerr << "Left-hand side operation not available: " << output[0] << std::endl; return -1;
         }
-
-//        if (lhs == MAPQ || lhs == SEQ_LEN || lhs == TLEN || lhs == ABS_TLEN) {
-//            e.property = lhs;
-//            e.op = mid;
-//            try {
-//                e.ival = std::stoi(output.back());
-//            } catch (...) {
-//                std::cerr << "Right-hand side operation not an integer: " << output[2] << std::endl;
-//                return -1;
-//            }
-//        } else if (lhs == FLAG || lhs == NFLAG) {
-//            e.property = lhs;
-//            e.op = mid;
-//            try {
-//                e.ival = std::stoi(output.back());
-//            } catch (...) {
-//                if (opMap.contains(output.back())) {
-//                    e.ival = opMap[output.back()];
-//                } else {
-//                    std::cerr << "Right-hand side operation not understood: " << output[2] << std::endl;
-//                    return -1;
-//                }
-//            }
-//        } else if (lhs == SEQ || lhs == QNAME || lhs == RNEXT) {
-//            e.property = lhs;
-//            e.op = mid;
-//            e.sval = output.back();
-//        } else {
-//            std::cerr << "Left-hand side operation not available: " << output[0] << std::endl; return -1;
-//        }
-
         evaluations.push_back(e);
         return 1;
     }
@@ -518,6 +507,9 @@ namespace Parse {
                 bool this_result = false;
                 const char *char_ptr;
                 switch (e.property) {
+                    case PATTERN:
+                        int_val = aln.orient_pattern;
+                        break;
                     case MAPQ:
                         int_val = aln.delegate->core.qual;
                         break;

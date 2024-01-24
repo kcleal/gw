@@ -134,7 +134,7 @@ For example, here are some useful expressions:
 
 Here are a list of '{property}' values you can use, consult the SAM specification for more details on the meaning of these:
 
-    mapq, flag, ~flag, rname, tlen, abs-tlen, rnext, pos, ref-end, pnext, seq, seq-len, tid, mid,
+    pattern, mapq, flag, ~flag, rname, tlen, abs-tlen, rnext, pos, ref-end, pnext, seq, seq-len, tid, mid,
     RG, BC, BX, RX, LB, MD, MI, PU, SA, MC, NM, CM, FI, HO, MQ, SM, TC, UQ, AS
 
 These can be combined with '{operator}' values:
@@ -144,9 +144,9 @@ These can be combined with '{operator}' values:
 Bitwise flags can also be applied with named values, including:
 
     paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary, qcfail,
-    dup, supplementary
+    duplicate, supplementary
 
-These can be used as a shorthand for filtering with the `flag &` and `~flag &` properties and operators. For example, to filter for
+These can be used as a shorthand for filtering with the `flag &` and `~flag &` properties + operators. For example, to filter for
 proper-pair alignments you can use:
 
     filter proper-pair
@@ -155,10 +155,24 @@ This is a shorthand for `filter flag & proper-pair`. For the inverse (keeping di
 
     filter ~proper-pair
 
+
+The `pattern` property can accept the values:
+
+    filter pattern == del    # deletion pattern
+    filter pattern == dup    # duplication pattern
+    filter pattern == inv_f  # invertion-forward pattern
+    filter pattern == inv_r  # inversion-reverse pattern
+    filter pattern == tra    # translocation pattern
+
 Expressions can be chained together providing all expressions are 'AND' or 'OR' blocks:
 
     filter mapq >= 20 and mapq < 30
     filter mapq >= 20 or supplementary
+
+Multiple filters can be applied by typing in the filter command several times, or by separating filter blocks using
+the semicolon:
+
+    filter pattern == del or pattern == dup; mapq >= 30 
 
 Finally, you can apply filters to specific panels using array indexing notation:
 

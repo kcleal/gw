@@ -1009,6 +1009,7 @@ namespace Manager {
                 valid = false;
             }
         } else if (Utils::startsWith(inputText, "add") && mode != TILED)  {
+
             if (mode != SINGLE) { mode = SINGLE; }
             std::vector<std::string> split = Utils::split(inputText, delim_q);
             if (split.size() == 1) {
@@ -1017,15 +1018,25 @@ namespace Manager {
             if (split.size() > 1) {
                 for (int i=1; i < (int)split.size(); ++i) {
                     try {
-                        regions.push_back(Utils::parseRegion(split[1]));
-                        fetchRefSeq(regions.back());
+                        Utils::Region dummy_region = Utils::parseRegion(split[1]);
+                        int res = faidx_has_seq(fai, dummy_region.chrom.c_str());
+                        if (res <= 0) {
+                            valid = false;
+                            reason = GENERIC;
+                            if (inputText == "add mate") {
+                                std::cerr << "Did you mean to use the 'mate add' function instead?\n";
+                            }
+                        } else {
+                            regions.push_back(dummy_region);
+                            fetchRefSeq(regions.back());
+                            valid = true;
+                        }
                     } catch (...) {
                         std::cerr << termcolor::red << "Error parsing :add" << termcolor::reset;
                         inputText = "";
                         return true;
                     }
                 }
-                valid = true;
             } else {
                 std::cerr << termcolor::red << "Error:" << termcolor::reset << " expected a Region e.g. chr1:1-20000\n";
                 inputText = "";
