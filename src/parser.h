@@ -29,7 +29,7 @@ namespace Parse {
         READ2 = 128,
         SECONDARY = 256,
         QCFAIL = 512,
-        DUPLICATE = 1024,
+        FLAG_DUPLICATE = 1024,
         SUPPLEMENTARY = 2048,
 
         // int values

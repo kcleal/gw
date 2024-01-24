@@ -84,7 +84,7 @@ namespace Parse {
         opMap["read2"] = READ2;
         opMap["secondary"] = SECONDARY;
         opMap["qcfail"] = QCFAIL;
-        opMap["duplicate"] = DUPLICATE;
+        opMap["duplicate"] = FLAG_DUPLICATE;
         opMap["supplementary"] = SUPPLEMENTARY;
 
         opMap["del"] = Property::DEL;
@@ -376,7 +376,7 @@ namespace Parse {
                 } else if (output.back() == "qcfail") {
                     e.ival = Property::QCFAIL;
                 } else if (output.back() == "duplicate") {
-                    e.ival = Property::DUPLICATE;
+                    e.ival = Property::FLAG_DUPLICATE;
                 } else if (output.back() == "supplementary") {
                     e.ival = Property::SUPPLEMENTARY;
                 } else {
