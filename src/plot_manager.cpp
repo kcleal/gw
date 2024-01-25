@@ -422,7 +422,12 @@ namespace Manager {
             }
             if (redraw) {
                 if (mode == Show::SINGLE) {
-                    drawScreen(sSurface->getCanvas(), sContext, sSurface);
+                    if (opts.low_mem) {
+                        drawScreenNoBuffer(sSurface->getCanvas(),  sContext, sSurface);
+                    } else {
+                        drawScreen(sSurface->getCanvas(), sContext, sSurface);
+                    }
+
                 } else if (mode == Show::TILED) {
                     drawTiles(sSurface->getCanvas(), sContext, sSurface);
                     printIndexInfo();
@@ -541,7 +546,7 @@ namespace Manager {
                             collections[idx].mmVector.clear();
                         }
                     }
-                    HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage, opts.low_mem, filters, pool);
+                    HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage, filters, pool);
                     int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts, reg, false);
                     if (maxY > samMaxY) {
                         samMaxY = maxY;
@@ -629,6 +634,27 @@ namespace Manager {
             cl.xOffset = (regionWidth * (float)cl.regionIdx) + gap;
             cl.yOffset = (float)cl.bamIdx * bamHeight + covY + refSpace;
             cl.yPixels = trackY + covY;
+
+            cl.regionLen = cl.region->end - cl.region->start;
+            cl.regionPixels = cl.regionLen * cl.xScaling;
+
+            cl.plotSoftClipAsBlock = cl.regionLen > opts.soft_clip_threshold;
+            cl.plotPointedPolygons = cl.regionLen < 50000;
+            cl.drawEdges = cl.regionLen < opts.edge_highlights;
+        }
+
+        pointSlop = (tan(0.42) * (yScaling * 0.5));  // radians
+        textDrop = (yScaling - fonts.fontHeight) * 0.5;
+        // constexpr float polygonHeight = 0.85;
+        pH = yScaling * 0.85;
+        if (opts.tlen_yscale) {
+            pH = trackY / (float) opts.ylim;
+            yScaling *= 0.95;
+        }
+        if (pH > 8) {  // scale to pixel boundary
+            pH = (float) (int) pH;
+        } else if (opts.tlen_yscale) {
+            pH = std::fmax(pH, 8);
         }
     }
 
@@ -638,10 +664,13 @@ namespace Manager {
         setGlfwFrameBufferSize();
         if (regions.empty()) {
             setScaling();
+
         } else {
             processBam();
             setScaling();
-            Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
+            for (auto &cl: collections) {
+                Drawing::drawCollection(opts, cl, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+            }
             Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
             Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
             Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
@@ -663,7 +692,7 @@ namespace Manager {
         if (regions.empty()) {
             setScaling();
         } else {
-            runDrawNoBuffer(canvas);
+            runDrawNoBuffer(canvas, sContext);
         }
         imageCacheQueue.emplace_back(frameId, sSurface->makeImageSnapshot());
         sContext->flush();
@@ -1041,13 +1070,15 @@ namespace Manager {
         if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
-        Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
+        for (auto &cl: collections) {
+            Drawing::drawCollection(opts, cl, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+        }
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
     }
 
-    void GwPlot::runDrawNoBuffer(SkCanvas *canvas) {
+    void GwPlot::runDrawNoBuffer(SkCanvas *canvas, GrDirectContext* sContext) {
         if (bams.empty()) {
             return;
         }
@@ -1063,6 +1094,9 @@ namespace Manager {
                 Utils::Region *reg = &regions[j];
                 Segs::ReadCollection &col = collections[idx];
                 col.bamIdx = i;
+                if (!col.levelsStart.empty()) {
+                    col.clear();
+                }
                 col.regionIdx = j;
                 col.region = reg;
                 if (opts.max_coverage) {
@@ -1090,10 +1124,10 @@ namespace Manager {
                 Utils::Region *reg = &regions[j];
                 if (opts.threads == 1) {
                     HGW::iterDraw(collections, idx, b, hdr_ptr, index, reg, (bool) opts.max_coverage,
-                                  opts.low_mem, filters, opts, canvas, trackY, yScaling, fonts, refSpace);
+                                  filters, opts, canvas, trackY, yScaling, fonts, refSpace, sContext, pointSlop, textDrop, pH);
                 } else {
                     HGW::iterDrawParallel(collections, idx, b, hdr_ptr, index, opts.threads, reg, (bool) opts.max_coverage,
-                                  opts.low_mem, filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool);
+                                  filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool, sContext, pointSlop, textDrop, pH);
                 }
                 idx += 1;
             }
@@ -1104,6 +1138,7 @@ namespace Manager {
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
+        Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
     }
 
     void imageToPng(sk_sp<SkImage> &img, std::filesystem::path &path) {

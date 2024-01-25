@@ -78,7 +78,7 @@ namespace Segs {
        ReadCollection();
         ~ReadCollection() = default;
         int bamIdx, regionIdx, vScroll;
-        int maxCoverage;
+        int maxCoverage, regionLen;
         Utils::Region *region;
         std::vector<int> covArr;
         std::vector<int> levelsStart, levelsEnd;
@@ -86,7 +86,13 @@ namespace Segs {
         std::vector<Align> readQueue;
         map_t linked;
         float xScaling, xOffset, yOffset, yPixels;
+        float regionPixels;
+
         bool collection_processed;
+        bool skip;
+        bool plotSoftClipAsBlock;
+        bool plotPointedPolygons;
+        bool drawEdges;
 
         void clear();
     };

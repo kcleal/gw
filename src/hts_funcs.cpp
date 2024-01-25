@@ -150,7 +150,7 @@ namespace HGW {
             for (auto &f: filters) {
                 bool passed = f.eval(align, hdr, bamIdx, regionIdx);
                 if (!passed) {
-                    align.y = -1;
+                    align.y = -2;
                 }
             }
         }
@@ -158,8 +158,7 @@ namespace HGW {
 
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, int threads, Utils::Region *region,
-                                 bool coverage, bool low_mem,
-                                 std::vector<Parse::Parser> &filters, BS::thread_pool &pool) {
+                                 bool coverage, std::vector<Parse::Parser> &filters, BS::thread_pool &pool) {
         bam1_t *src;
         hts_itr_t *iter_q;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
@@ -183,11 +182,6 @@ namespace HGW {
                 continue;
             }
             readQueue.emplace_back(bam_init1());
-            if (low_mem) {
-                size_t new_len = (src->core.n_cigar << 2 ) + src->core.l_qname + ((src->core.l_qseq + 1) >> 1);
-                src->data = (uint8_t*)realloc(src->data, new_len);
-                src->l_data = (int)new_len;
-            }
         }
         src = readQueue.back().delegate;
         if (src->core.flag & 4 || src->core.n_cigar == 0) {
@@ -212,9 +206,10 @@ namespace HGW {
 
     void iterDrawParallel(std::vector< Segs::ReadCollection > &cols, int idx, htsFile *b, sam_hdr_t *hdr_ptr,
                   hts_idx_t *index, int threads, Utils::Region *region,
-                  bool coverage, bool low_mem,
+                  bool coverage,
                   std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
-                  float trackY, float yScaling, Themes::Fonts &fonts, float refSpace, BS::thread_pool &pool) {
+                  float trackY, float yScaling, Themes::Fonts &fonts, float refSpace, BS::thread_pool &pool,
+                  GrDirectContext* sContext, float pointSlop, float textDrop, float pH) {
         const int BATCH = 1500;
         bam1_t *src;
         hts_itr_t *iter_q;
@@ -248,38 +243,51 @@ namespace HGW {
                 continue;
             }
             Segs::init_parallel(readQueue, threads, pool);
-            if (coverage) {
-                int l_arr = (int)col.covArr.size() - 1;
-                for (int i=0; i < BATCH; ++ i) {
-                    Segs::addToCovArray(col.covArr, readQueue[i], region->start, region->end, l_arr);
-                }
-            }
-            Segs::findY(col, readQueue, opts.link_op, opts, region, false);
             if (filter) {
                 applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
             }
-            Drawing::drawBams(opts, cols, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
+            if (coverage) {
+                int l_arr = (int)col.covArr.size() - 1;
+                for (int i=0; i < BATCH; ++ i) {
+                    if (readQueue[i].y != -2) {
+                        Segs::addToCovArray(col.covArr, readQueue[i], region->start, region->end, l_arr);
+                    }
+                }
+            }
+
+            Segs::findY(col, readQueue, opts.link_op, opts, region, false);
+
+//            Drawing::drawBams(opts, cols, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+
+            Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+
             for (int i=0; i < BATCH; ++ i) {
                 Segs::align_clear(&readQueue[i]);
             }
             j = 0;
+            if (sContext != nullptr) {
+                sContext->flush();
+            }
         }
 
         if (j < BATCH) {
             readQueue.erase(readQueue.begin() + j, readQueue.end());
-            if (!filters.empty()) {
-                applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
-            }
             if (!readQueue.empty()) {
                 Segs::init_parallel(readQueue, threads, pool);
+                if (!filters.empty()) {
+                    applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
+                }
                 if (coverage) {
                     int l_arr = (int)col.covArr.size() - 1;
                     for (int i=0; i < BATCH; ++ i) {
-                        Segs::addToCovArray(col.covArr, readQueue[i], region->start, region->end, l_arr);
+                        if (readQueue[i].y != -2) {
+                            Segs::addToCovArray(col.covArr, readQueue[i], region->start, region->end, l_arr);
+                        }
                     }
                 }
                 Segs::findY(col, readQueue, opts.link_op, opts, region, false);
-                Drawing::drawBams(opts, cols, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
+//                Drawing::drawBams(opts, cols, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+                Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
                 for (int i=0; i < BATCH; ++ i) {
                     Segs::align_clear(&readQueue[i]);
                 }
@@ -289,9 +297,11 @@ namespace HGW {
 
     void iterDraw(std::vector< Segs::ReadCollection > &cols, int idx, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, Utils::Region *region,
-                                 bool coverage, bool low_mem,
+                                 bool coverage,
                                  std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
-                                 float trackY, float yScaling, Themes::Fonts &fonts, float refSpace) {
+                                 float trackY, float yScaling, Themes::Fonts &fonts, float refSpace,
+                                 GrDirectContext* sContext,
+                                 float pointSlop, float textDrop, float pH) {
 
         bam1_t *src;
         hts_itr_t *iter_q;
@@ -317,17 +327,23 @@ namespace HGW {
                 continue;
             }
             Segs::align_init(&readQueue.back());
+            if (filter) {
+                applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
+                if (readQueue.back().y == -2) {
+                    Segs::align_clear(&readQueue.back());
+                    continue;
+                }
+            }
             if (coverage) {
                 int l_arr = (int)col.covArr.size() - 1;
                 Segs::addToCovArray(col.covArr, readQueue.back(), region->start, region->end, l_arr);
             }
             Segs::findY(col, readQueue, opts.link_op, opts, region, false);
-            if (filter) {
-                applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
-            }
-            Drawing::drawBams(opts, cols, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
-            Segs::align_clear(&readQueue.back());
+//            Drawing::drawBams(opts, cols, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
 
+            Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+
+            Segs::align_clear(&readQueue.back());
         }
     }
 
@@ -466,11 +482,6 @@ namespace HGW {
                     break;
                 }
                 newReads.emplace_back(Segs::Align(bam_init1()));
-                if (opts.low_mem) {
-                    size_t new_len = (src->core.n_cigar << 2 ) + src->core.l_qname + ((src->core.l_qseq + 1) >> 1);
-                    src->data = (uint8_t*)realloc(src->data, new_len);
-                    src->l_data = (int)new_len;
-                }
             }
             src = newReads.back().delegate;
             if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos >= lastPos) {
@@ -520,11 +531,6 @@ namespace HGW {
                     break;
                 }
                 newReads.emplace_back(Segs::Align(bam_init1()));
-                if (opts.low_mem) {
-                    size_t new_len = (src->core.n_cigar << 2 ) + src->core.l_qname + ((src->core.l_qseq + 1) >> 1);
-                    src->data = (uint8_t*)realloc(src->data, new_len);
-                    src->l_data = (int)new_len;
-                }
             }
             src = newReads.back().delegate;
             if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos <= lastPos || src->core.pos > region->end) {

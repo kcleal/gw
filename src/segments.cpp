@@ -326,7 +326,7 @@ namespace Segs {
             self->has_SA = false;
         }
 
-        self->y = -1;
+        self->y = -1;  // -1 has no level, -2 means initialized but filtered
 
         if (flag & 1) {  // paired-end
             if (src->core.tid != src->core.mtid) {
@@ -379,6 +379,7 @@ namespace Segs {
     ReadCollection::ReadCollection() {
         vScroll = 0;
         collection_processed = false;
+        skip = false;
     }
 
     void ReadCollection::clear() {
@@ -454,7 +455,9 @@ namespace Segs {
 
             if (opts.link_op > 0) {
                 for (auto &v: rc.readQueue) {  // y value will be reset
-                    v.y = -1;
+                    if (v.y != -2) {
+                        v.y = -1;
+                    }
                 }
             }
 
@@ -513,6 +516,10 @@ namespace Segs {
 
         while (si != stopCondition) {
             si += move;
+            if (q_ptr->y == -2) {
+                q_ptr += move;
+                continue;
+            }
             if (linkType > 0) {
                 qname = bam_get_qname(q_ptr->delegate);
                 if (linkedSeen.find(qname) != linkedSeen.end()) {
@@ -586,7 +593,7 @@ namespace Segs {
             return;
         }
         for (const auto &align: collection.readQueue) {
-            if (align.y != -1 || align.delegate == nullptr) {
+            if (align.y >= 0 || align.delegate == nullptr) {
                 continue;
             }
             uint32_t r_pos = align.pos;

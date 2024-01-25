@@ -88,20 +88,22 @@ namespace HGW {
 
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, int threads, Utils::Region *region,
-                                 bool coverage, bool low_mem,
+                                 bool coverage,
                                  std::vector<Parse::Parser> &filters, BS::thread_pool &pool);
 
     void iterDrawParallel(std::vector<Segs::ReadCollection> &cols, int idx, htsFile *b, sam_hdr_t *hdr_ptr,
                         hts_idx_t *index, int threads, Utils::Region *region,
-                        bool coverage, bool low_mem,
+                        bool coverage,
                         std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
-                        float trackY, float yScaling, Themes::Fonts &fonts, float refSpace, BS::thread_pool &pool);
+                        float trackY, float yScaling, Themes::Fonts &fonts, float refSpace, BS::thread_pool &pool,
+                        GrDirectContext* sContext, float pointSlop, float textDrop, float pH);
 
     void iterDraw(std::vector< Segs::ReadCollection > &cols, int idx, htsFile *b, sam_hdr_t *hdr_ptr,
                   hts_idx_t *index, Utils::Region *region,
-                  bool coverage, bool low_mem,
+                  bool coverage,
                   std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
-                  float trackY, float yScaling, Themes::Fonts &fonts, float refSpace);
+                  float trackY, float yScaling, Themes::Fonts &fonts, float refSpace,
+                  GrDirectContext* sContext, float pointSlop, float textDrop, float pH);
 
     void trimToRegion(Segs::ReadCollection &col, bool coverage, int snp_threshold);
 

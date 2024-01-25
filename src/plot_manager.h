@@ -169,7 +169,7 @@ namespace Manager {
 
         void runDraw(SkCanvas *canvas);
 
-        void runDrawNoBuffer(SkCanvas *canvas);
+        void runDrawNoBuffer(SkCanvas *canvas, GrDirectContext* sContext);
 
         sk_sp<SkImage> makeImage();
 
@@ -201,6 +201,8 @@ namespace Manager {
         int mouseOverTileIndex;
 
         float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace, sliderSpace;
+
+        float pointSlop, textDrop, pH;
 
         double xDrag, xOri, lastX, yDrag, yOri, lastY;
 

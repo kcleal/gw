@@ -1475,7 +1475,7 @@ namespace Manager {
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
                             cl.region = &regions[regionSelection];
-                            if (!bams.empty()) {
+                            if (!bams.empty() && !opts.low_mem) {
                                 HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                             indexes[cl.bamIdx], opts, (bool)opts.max_coverage, false,
                                                             &samMaxY, filters, pool);
@@ -1500,7 +1500,7 @@ namespace Manager {
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
                             cl.region = &regions[regionSelection];
-                            if (!bams.empty()) {
+                            if (!bams.empty() && !opts.low_mem) {
                                 HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                             indexes[cl.bamIdx], opts, (bool)opts.max_coverage, true,
                                                             &samMaxY, filters, pool);
@@ -1525,7 +1525,7 @@ namespace Manager {
                         if (cl.regionIdx == regionSelection) {
                             cl.region = &regions[regionSelection];
                             cl.collection_processed = false;
-                            if (!bams.empty()) {
+                            if (!bams.empty() && !opts.low_mem) {
                                 HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                                             opts, false, true,  &samMaxY, filters, pool);
                                 HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
@@ -1566,7 +1566,7 @@ namespace Manager {
                             if (cl.regionIdx == regionSelection) {
                                 cl.region = &regions[regionSelection];
                                 cl.collection_processed = false;
-                                if (!bams.empty()) {
+                                if (!bams.empty() && !opts.low_mem) {
                                     HGW::trimToRegion(cl, opts.max_coverage, opts.snp_threshold);
                                 }
                             }
