@@ -48,7 +48,6 @@ namespace Drawing {
         std::vector<sk_sp<SkTextBlob> > text_ins;
         std::vector<float> textX, textY;
         std::vector<float> textX_ins, textY_ins;
-
         const float covY = covYh * 0.95;
         const float covY_f = covY * 0.3;
         int last_bamIdx = 0;
