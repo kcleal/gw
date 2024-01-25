@@ -48,9 +48,10 @@ df['total_mem'] = df['RSS']
 df['start_mem'] = [min_memory[k] for k in df['name']]
 df = df[df['region size (bp)'] != 2]
 
+df = df[~((df['name'] == 'bamsnap') & (df['region size (bp)'] > 200000)) ]
 su = []
-for idx, grp in df.groupby(['name', 'region size (bp)']):
-    su.append({'name': idx[0],
+for idx, grp in df.groupby(['name', 'region size (bp)', 'threads']):
+    su.append({'name': idx[0] if idx[2] == 1 else f'{idx[0]} -t{idx[2]}',
                'region size (bp)': idx[1],
                'samtools': samtools[idx[1]],
                'total_time': grp['total_time'].mean(),
@@ -61,26 +62,32 @@ for idx, grp in df.groupby(['name', 'region size (bp)']):
                'relative_time': grp['total_time'].mean() / gw_times[idx[1]],
                "relative_mem": grp['total_mem'].mean() / gw_mem[idx[1]]})
 
-df2 = pd.DataFrame.from_records(su).round(3)
+df2 = pd.DataFrame.from_records(su)
 gw_render_times = {k: t for k, t in zip(df2[df2['name'] == 'gw']['region size (bp)'],
                                         df2[df2['name'] == 'gw']['render'])}
-df2['relative_render_time'] = [k / gw_render_times[s] for k, s in zip(df2['render'], df2['region size (bp)'])]
+print('render time', gw_render_times)
+
+# 0.005 is the limit of /sr/bin/time
+df2['relative_render_time'] = [k / gw_render_times[s] if gw_render_times[s] > 0 else -1 for k, s in zip(df2['render'], df2['region size (bp)'])]
 df2 = df2[['name', 'region size (bp)', 'samtools', 'total_time', 'relative_time',
            'start_time', 'render', 'relative_render_time', 'total_mem', 'start_mem', 'relative_mem']]
-print(df2.to_markdown())
-with open(f'benchmark.{tag}.md', 'w') as b:
-    b.write(df2.to_markdown())
 
-order = {'gw': 0, 'igv': 1, 'jb2export': 2, 'samplot': 3, 'wally': 4, 'bamsnap': 5, 'genomeview': 6}
+order = {'gw': 0, 'gw -t4': 0.5, 'igv': 1, 'igv -t4': 1.5, 'jb2export': 2, 'samplot': 3, 'wally': 4, 'bamsnap': 5, 'genomeview': 6}
 df2['srt'] = [order[k] for k in df2['name']]
-df2.sort_values('srt', inplace=True)
+df2.sort_values(['srt', 'name'], inplace=True)
+
+print(df2.round(3).to_markdown())
+with open(f'benchmark.{tag}.md', 'w') as b:
+    b.write(df2.round(3).to_markdown())
+
+
 custom_params = {"axes.spines.right": False, "axes.spines.top": False}
 sns.set_theme(style="ticks", rc=custom_params)
 
-for item in ['total_time', 'relative_time', 'render', 'relative_render_time', 'start_time', 'total_mem', 'start_mem', 'relative_mem']:
+for item in ['total_time', 'relative_time', 'render', 'relative_render_time', 'total_mem', 'relative_mem']:
     g = sns.catplot(data=df2,
                      palette="tab10", x='region size (bp)', y=item, hue='name',
-                     kind='point')
+                     kind='point', alpha=0.6)
 
     g.ax.set_xlabel("Region size (bp)", fontsize=14)
     label = list(item.replace('_', ' '))
@@ -91,6 +98,7 @@ for item in ['total_time', 'relative_time', 'render', 'relative_render_time', 's
     g.set_xticklabels(rotation=30)
     plt.subplots_adjust(left=0.15)
     plt.subplots_adjust(bottom=0.25)
+    plt.grid(True, which="major", ls="-", c='gray', alpha=0.2)
     labels = [item.get_text() for item in g.ax.get_xticklabels()]
     labels = ["{:,}".format(int(l)) for l in labels]
     g.ax.set_xticklabels(labels)
@@ -98,76 +106,4 @@ for item in ['total_time', 'relative_time', 'render', 'relative_render_time', 's
     plt.close()
 # plt.show()
 
-quit()
 
-
-
-fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(7, 6))
-fig.subplots_adjust(bottom=0.15, hspace=0.8)
-
-idx = 0
-for size, grp in df2.groupby('region size (bp)'):
-    ax = sns.barplot(y='name', x='relative_time', data=grp,
-                     color='royalblue', ax=axes[idx], errorbar=('ci', 95), linewidth=0, err_kws={'linewidth': 1})
-    # ax2 = sns.barplot(y='name', x='relative_time', data=grp,
-    #                   color='lightsteelblue', ax=axes[idx], errorbar=('ci', 95), linewidth=0, err_kws={'linewidth': 1})
-
-    sns.despine(left=True, bottom=True)
-    ax.grid(axis='x')
-    if size == 2000:
-        ax.set_title('2 kb')
-    elif size == 20_000:
-        ax.set_title('20 kb')
-    elif size == 200_000:
-        ax.set_title('200 kb')
-    elif size == 2_000_000:
-        ax.set_title('2 Mb')
-    if idx == 3:
-        ax.set_xlabel('Time (s)')
-    else:
-        ax.set_xlabel('')
-    ax.set_ylabel('')
-    ax.set_xscale('log')
-    idx += 1
-
-b_patch = mpatches.Patch(color='royalblue', label='Total')
-b2_patch = mpatches.Patch(color='lightsteelblue', label='Start')
-plt.legend(loc='lower center', ncol=2, handles=[b_patch, b2_patch], bbox_to_anchor=(0.5, -1.2),
-           prop={'size': 10})
-plt.savefig(f'time.{tag}.png')
-plt.show()
-plt.close()
-
-exit()
-
-fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(7, 6))
-fig.subplots_adjust(bottom=0.15, hspace=0.8)
-idx = 0
-for size, grp in df.groupby('region size (bp)'):
-    ax = sns.barplot(y='name', x='total_mem', data=grp,
-                     color='firebrick', ax=axes[idx], errorbar=('ci', 95), linewidth=0, err_kws={'linewidth': 1})
-    ax2 = sns.barplot(y='name', x='start_mem', data=grp,
-                     color='rosybrown', ax=axes[idx], errorbar=('ci', 95), linewidth=0, err_kws={'linewidth': 1})
-    sns.despine(left=True, bottom=True)
-    ax.grid(axis='x')
-    if size == 2000:
-        ax.set_title('2 kb')
-    elif size == 20_000:
-        ax.set_title('20 kb')
-    elif size == 200_000:
-        ax.set_title('200 kb')
-    elif size == 2_000_000:
-        ax.set_title('2 Mb')
-    if idx == 3:
-        ax.set_xlabel('Resident set size (GB)')
-    else:
-        ax.set_xlabel('')
-    ax.set_ylabel('')
-    idx += 1
-b_patch = mpatches.Patch(color='firebrick', label='Total')
-b2_patch = mpatches.Patch(color='rosybrown', label='Start')
-plt.legend(loc='lower center', ncol=2, handles=[b_patch, b2_patch], bbox_to_anchor=(0.5, -1.2),
-           prop={'size': 10})
-plt.savefig(f'memory.{tag}.png')
-plt.show()
-plt.close()
