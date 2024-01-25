@@ -5,8 +5,10 @@ The script has been tested on Ubuntu and Mac.
 
 Benchmark Requirements
 ----------------------
+hyperfine
+
 gw v0.9.0
-IGV v2.16.0
+IGV v2.17.0
 Jbrowse2 v2.4.0
 samplot v1.3
 bamsnap v0.2.19
@@ -18,7 +20,7 @@ gnu-time, install using 'brew install gnu-time'
 example usage
 -------------
 python3 --help
-python3 benchmark_time.py $HG19 NA12878.bam ../gw gw 1 ''
+python3 benchmark.py $HG19 NA12878.bam ../gw gw 1 ''
 
 
 Output
@@ -38,35 +40,49 @@ import os
 import platform
 from collections import defaultdict
 
-PYTHON='~/miniconda3/bin/python'
+PYTHON = '~/miniconda3/bin/python'
+HYPERFINE_ONLY = False  # only relevant for gw
 
 
 def plot_gw(chrom, start, end, args, timef, threads, extra_args):
-    com = timef + " -o gwtime.txt {gw} {genome} {extra_args} -t {threads} -b {bam} -r {chrom}:{start}-{end} --file images/gw.png --no-show -d 1500x1500"\
+    t, m = -1, -1
+    if not HYPERFINE_ONLY:
+        com = timef + " -o gwtime.txt {gw} {genome} {extra_args} -t {threads} -b {bam} -r {chrom}:{start}-{end} --file images/gw.png --no-show -d 1500x1500"\
+            .format(gw=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end, extra_args=extra_args, threads=threads)
+        run(com, shell=True)
+        line = open('gwtime.txt', 'r').readlines()[0].strip().split("\t")
+        m = float(line[1])
+
+    com = "hyperfine -w 3 -r 3 --export-csv ./gwtime.txt '{gw} {genome} {extra_args} -t {threads} -b {bam} -r {chrom}:{start}-{end} --file images/gw.png --no-show -d 1500x1500'" \
         .format(gw=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end, extra_args=extra_args, threads=threads)
     run(com, shell=True)
-    line = open('gwtime.txt', 'r').readlines()[0].strip().split("\t")
-    t = float(line[0])
-    m = float(line[1])
+    line = open('gwtime.txt', 'r').readlines()[1].strip().split(",")
+    t = float(line[1])
+
     return t, m
 
 
 def plot_igv(chrom, start, end, args, timef, threads):
+    t, m = -1, -1
     # Configure igv max visibility range to 250000000
     # also remove hg19.json from ~/igv/genomes
-    # To set single thread mode add this to igv.args
+    # To set single thread mode this is added to igv.args
     # -XX:ActiveProcessorCount=1
     igv_path = os.path.dirname(args.tool_path)
     # Mac path could be at
-    # igv_path = "/Applications/IGV_2.16.0.app/Contents/Java"
+    # igv_path = "/Applications/IGV_2.17.0.app/Contents/Java"
     with open(igv_path + "/igv.args", "r") as f:
         lines = f.readlines()
+    seen = False
     with open(igv_path + "/igv.args", "w") as f:
         for line in lines:
             if 'ActiveProcessorCount' in line:
                 f.write(f'-XX:ActiveProcessorCount={threads}')
+                seen = True
                 continue
             f.write(line)
+        if not seen:
+            f.write(f'-XX:ActiveProcessorCount={threads}')
     v = """new
 genome {genome}
 load {bam}
@@ -76,52 +92,83 @@ snapshot igv.png
 exit""".format(genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     with open("igv_batch.bat", "w") as b:
         b.write(v)
+
     com = timef + " -o igvtime.txt {igv} --batch igv_batch.bat".format(igv=args.tool_path)
     run(com, shell=True)
     line = open('igvtime.txt', 'r').readlines()[0].strip().split("\t")
-    t = float(line[0])
     m = float(line[1])
+
+    com = "hyperfine -w 0 -r 1 --export-csv ./igvtime.txt '{igv} --batch igv_batch.bat'" \
+        .format(igv=args.tool_path)
+    run(com, shell=True)
+    line = open('igvtime.txt', 'r').readlines()[1].strip().split(",")
+    t = float(line[1])
+
     return t, m
 
 
 def plot_jbrowse2(chrom, start, end, args, timef, threads=1):
+    t, m = -1, -1
+
     com = "export NODE_OPTIONS=--max_old_space_size=320000; " + timef + " -o jbrowse2time.txt  {jb2export} --fasta {genome} --bam {bam} force:true --loc {chrom}:{start}-{end} --out images/jb2_image.svg" \
         .format(jb2export=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     run(com, shell=True)
     line = open('jbrowse2time.txt', 'r').readlines()[0].strip().split("\t")
-    t = float(line[0])
     m = float(line[1])
+
+    com = "hyperfine -w 0 -r 1 --export-csv ./jbrowse2time.txt 'export NODE_OPTIONS=--max_old_space_size=320000; {jb2export} --fasta {genome} --bam {bam} force:true --loc {chrom}:{start}-{end} --out images/jb2_image.svg'" \
+        .format(jb2export=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
+    run(com, shell=True)
+    line = open('jbrowse2time.txt', 'r').readlines()[1].strip().split(",")
+    t = float(line[1])
+
     return t, m
 
 
 def plot_samplot(chrom, start, end, args, timef, threads=1):
+    t, m = -1, -1
+
     com = timef + " -o samplottime.txt {samplot} plot -r {genome} -b {bam} -c {chrom} -s {start} -e {end} -o images/samplot_image.png -W 5 -H 5" \
         .format(samplot=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     run(com, shell=True)
     line = open('samplottime.txt', 'r').readlines()[0].strip().split("\t")
-    t = float(line[0])
     m = float(line[1])
+
+    com = "hyperfine -w 0 -r 1 --export-csv samplottime.txt '{samplot} plot -r {genome} -b {bam} -c {chrom} -s {start} -e {end} -o images/samplot_image.png -W 5 -H 5'" \
+        .format(samplot=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
+    run(com, shell=True)
+    line = open('samplottime.txt', 'r').readlines()[1].strip().split(",")
+    t = float(line[1])
+
     return t, m
 
 
 def plot_bamsnap(chrom, start, end, args, timef, threads=1):
+    t, m = -1, -1
     if os.path.exists("images/bamsnap_image.png"):
         run("rm images/bamsnap_image.png", shell=True)
+
     com = timef + " -o bamsnaptime.txt {bamsnap} -bam {bam} -pos {chrom}:{start}-{end} -out images/bamsnap_image.png" \
         .format(bamsnap=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     run(com, shell=True)
     if os.path.exists("images/bamsnap_image.png"):
         line = open('bamsnaptime.txt', 'r').readlines()[0].strip().split("\t")
-        t = float(line[0])
         m = float(line[1])
     else:
         print("\n---> Benchmark error: no output for bamsnap\n")
-        t = 0
-        m = 0
+        return t, m
+
+    com = "hyperfine -w 0 -r 1 --export-csv bamsnaptime.txt '{bamsnap} -bam {bam} -pos {chrom}:{start}-{end} -out images/bamsnap_image.png'" \
+        .format(bamsnap=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
+    run(com, shell=True)
+    line = open('bamsnaptime.txt', 'r').readlines()[1].strip().split(",")
+    t = float(line[1])
+
     return t, m
 
 
 def plot_genomeview(chrom, start, end, args, timef, threads=1):
+    t, m = -1, -1
     if os.path.exists("images/genomeview_image.png"):
         run("rm images/genomeview_image.png", shell=True)
 
@@ -131,45 +178,51 @@ def plot_genomeview(chrom, start, end, args, timef, threads=1):
         s.write("genomeview.save(doc, 'images/genomeview_image.svg')\n")
     run('chmod +x ./genomeview_script.py', shell=True)
 
+
     com = timef + f" -o genomeviewtime.txt {PYTHON} ./genomeview_script.py"
     run(com, shell=True)
     if os.path.exists("images/genomeview_image.svg") and os.path.getsize("images/genomeview_image.svg") > 0:
         line = open('genomeviewtime.txt', 'r').readlines()[0].strip().split("\t")
-        t = float(line[0])
         m = float(line[1])
     else:
         print("\n---> Benchmark error: no output for genomeview\n")
-        t = 0
-        m = 0
-    return t, m
+        return t, m
 
-
-def plot_samtools_cov(chrom, start, end, args, timef, threads=1):
-    com = timef + " -o samtoolscovtime.txt {samtools} coverage -r {chrom}:{start}-{end} {bam} > /dev/null" \
-        .format(samtools=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
+    com = "hyperfine -w 0 -r 1 --export-csv genomeviewtime.txt '{PYTHON} ./genomeview_script.py'" \
+        .format(PYTHON=PYTHON)
     run(com, shell=True)
-    line = open('samtoolscovtime.txt', 'r').readlines()[0].strip().split("\t")
-    t = float(line[0])
-    m = float(line[1])
+    line = open('genomeviewtime.txt', 'r').readlines()[1].strip().split(",")
+    t = float(line[1])
+
     return t, m
 
 
 def plot_wally(chrom, start, end, args, timef, threads=1):
+    t, m = -1, -1
     com = timef + " -o wallytime.txt {wally} region -g {genome} -r {chrom}:{start}-{end} {bam}" \
         .format(wally=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
     run(com, shell=True)
     line = open('wallytime.txt', 'r').readlines()[0].strip().split("\t")
-    t = float(line[0])
     m = float(line[1])
+
+    com = "hyperfine -w 0 -r 1 --export-csv wallytime.txt '{wally} region -g {genome} -r {chrom}:{start}-{end} {bam}'" \
+        .format(wally=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
+    run(com, shell=True)
+    line = open('wallytime.txt', 'r').readlines()[1].strip().split(",")
+    t = float(line[1])
     return t, m
 
 
 def samtools_count(chrom, start, end, args, timef, threads):
-    p = Popen(timef + f' -o samtoolstime.txt samtools view -@{threads} -c {args.bam} {chrom}:{start}-{end}', stdout=PIPE, stderr=PIPE, shell=True)
+    p = Popen(f'samtools view -@{threads} -c {args.bam} {chrom}:{start}-{end}', stdout=PIPE, stderr=PIPE, shell=True)
     out, err = p.communicate()
     reads = int(out.decode('ascii').strip())
-    line = open('samtoolstime.txt', 'r').readlines()[0].strip().split("\t")
-    t = float(line[0])
+
+    com = "hyperfine -w 2 -r 1 --export-csv samtoolstime.txt 'samtools view -@{threads} -c {bam} {chrom}:{start}-{end}'" \
+        .format(threads=threads, bam=args.bam, chrom=chrom, start=start, end=end)
+    run(com, shell=True)
+    line = open('samtoolstime.txt', 'r').readlines()[1].strip().split(",")
+    t = float(line[1])
     return t, reads
 
 
@@ -190,12 +243,12 @@ if __name__ == "__main__":
     parser.add_argument('bam')
     parser.add_argument('tool_path')
     parser.add_argument('tool_name', choices=['gw', 'igv', 'samplot', 'jb2export', 'bamsnap',
-                                              'samtools-coverage', 'genomeview', 'wally'])
+                                              'genomeview', 'wally'])
     parser.add_argument('threads')
     parser.add_argument('extra_args')
     args = parser.parse_args()
 
-    random.seed(1)
+    random.seed(0)
 
     run("mkdir -p images", shell=True)
 
@@ -235,7 +288,7 @@ if __name__ == "__main__":
                     20_000,
                     200_000,
                     2_000_000
-                    ][::-1]
+                    ]#[::-1]
     max_size = 20_000_000
     fai = {}
     with open(args.ref_genome + ".fai", "r") as fin:
@@ -247,7 +300,7 @@ if __name__ == "__main__":
 
     results = []
     progs = {'gw': plot_gw, 'igv': plot_igv, 'samplot': plot_samplot, 'jb2export': plot_jbrowse2, 'bamsnap': plot_bamsnap,
-             'samtools-coverage': plot_samtools_cov, 'genomeview': plot_genomeview, 'wally': plot_wally}
+             'genomeview': plot_genomeview, 'wally': plot_wally}
     name = args.tool_name
     extra_args = args.extra_args
     threads = args.threads
@@ -265,9 +318,10 @@ if __name__ == "__main__":
         start = None
         end = None
         reads = 0
-        while N < 20:
+        while N < 19:
             chrom = chroms[c]
             good = False
+            st_t = 0
             for j in range(10):  # 10 tried to find an interval without overlapping a gap
                 pos = random.randint(half_size, fai[chrom] - half_size)
                 start = pos - half_size
@@ -284,13 +338,12 @@ if __name__ == "__main__":
                             break
                     if not good:
                         continue
-                # sanity check for any reads. also helps trigger os hdd buffering making benchmarking more stable
                 st_t, reads = samtools_count(chrom, start, end, args, timef, threads)
                 if reads > 0:
                     good = True
                     break
 
-            if not good:
+            if not good or not st_t:
                 c += 1
                 continue
             N += 1
@@ -302,13 +355,11 @@ if __name__ == "__main__":
 
             print('Region:', chrom, start, end, 'n_reads:', reads)
 
-            # run samtools again to prime disk buffering
-            _, _ = samtools_count(chrom, start, end, args, timef, threads)
             if name == "gw":
                 avg_time, maxRSS = prog(chrom, start, end, args, timef, threads, extra_args)
             else:
                 avg_time, maxRSS = prog(chrom, start, end, args, timef, threads)
-            st_t, reads = samtools_count(chrom, start, end, args, timef, threads)
+            print('TIME', avg_time, 'MEMORY', maxRSS)
 
             results.append({'name': name, 'region': f'{chrom}:{start}-{end}', 'time (s)': avg_time,
                             'region size (bp)': end - start, 'RSS': maxRSS,
@@ -343,10 +394,10 @@ if __name__ == "__main__":
         run('rm jbrowse2time.txt', shell=True)
     elif name == 'bamsnap':
         run('rm bamsnaptime.txt', shell=True)
-    elif name == 'samtools-coverage':
-        run('rm samtoolscovtime.txt', shell=True)
     elif name == 'wally':
         run('rm wallytime.txt', shell=True)
+    elif name == 'genomeview':
+        run('rm genomeviewtime.txt', shell=True)
     else:
         run('rm gwtime.txt', shell=True)
     run('rm samtoolstime.txt', shell=True)
