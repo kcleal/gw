@@ -135,7 +135,7 @@ namespace Themes {
 
 //            lcBright.setStyle(SkPaint::kStrokeAndFill_Style);
         lcBright.setStyle(SkPaint::kStroke_Style);
-        lcBright.setStrokeWidth(1);
+        lcBright.setStrokeWidth(2);
         lcBright.setAntiAlias(true);
 
         insF = fcIns;

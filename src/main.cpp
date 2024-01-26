@@ -694,7 +694,7 @@ int main(int argc, char *argv[]) {
                                                                                     iopts.dimensions.y);
                     SkCanvas *canvas = rasterSurface->getCanvas();
                     if (iopts.link_op == 0) {
-                        plotter.runDrawNoBuffer(canvas, nullptr);
+                        plotter.runDrawNoBuffer(canvas);
                     } else {
                         plotter.runDraw(canvas);
                     }
@@ -777,7 +777,7 @@ int main(int argc, char *argv[]) {
                                                   plt->regions[0].start = rgn.start;
                                                   plt->regions[0].end = rgn.end;
                                                   if (iopts.link_op == 0) {
-                                                      plt->runDrawNoBuffer(canvas, nullptr);
+                                                      plt->runDrawNoBuffer(canvas);
                                                   } else {
                                                       plt->runDraw(canvas);
                                                   }
@@ -900,7 +900,7 @@ int main(int argc, char *argv[]) {
                                                 Manager::VariantJob job = jobs[i];
                                                 plt->setVariantSite(job.chrom, job.start, job.chrom2, job.stop);
                                                 if (plt->opts.low_mem && plt->opts.link_op == 0) {
-                                                    plt->runDrawNoBuffer(canvas, nullptr);
+                                                    plt->runDrawNoBuffer(canvas);
                                                 } else {
                                                     plt->runDraw(canvas);
                                                 }

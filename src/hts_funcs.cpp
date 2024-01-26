@@ -204,16 +204,28 @@ namespace HGW {
         col.collection_processed = false;
     }
 
-    void iterDrawParallel(std::vector< Segs::ReadCollection > &cols, int idx, htsFile *b, sam_hdr_t *hdr_ptr,
-                  hts_idx_t *index, int threads, Utils::Region *region,
-                  bool coverage,
-                  std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
-                  float trackY, float yScaling, Themes::Fonts &fonts, float refSpace, BS::thread_pool &pool,
-                  GrDirectContext* sContext, float pointSlop, float textDrop, float pH) {
+
+    void iterDrawParallel(Segs::ReadCollection &col,
+                          htsFile *b,
+                          sam_hdr_t *hdr_ptr,
+                          hts_idx_t *index,
+                          int threads,
+                          Utils::Region *region,
+                          bool coverage,
+                          std::vector<Parse::Parser> &filters,
+                          Themes::IniOptions &opts,
+                          SkCanvas *canvas,
+                          float trackY,
+                          float yScaling,
+                          Themes::Fonts &fonts,
+                          float refSpace,
+                          BS::thread_pool &pool,
+                          float pointSlop,
+                          float textDrop,
+                          float pH) {
         const int BATCH = 1500;
         bam1_t *src;
         hts_itr_t *iter_q;
-        Segs::ReadCollection &col = cols[idx];
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         std::vector<Segs::Align>& readQueue = col.readQueue;
         if (!readQueue.empty()) {
@@ -254,20 +266,13 @@ namespace HGW {
                     }
                 }
             }
-
             Segs::findY(col, readQueue, opts.link_op, opts, region, false);
-
-//            Drawing::drawBams(opts, cols, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
-
             Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
 
             for (int i=0; i < BATCH; ++ i) {
                 Segs::align_clear(&readQueue[i]);
             }
             j = 0;
-            if (sContext != nullptr) {
-                sContext->flush();
-            }
         }
 
         if (j < BATCH) {
@@ -286,7 +291,6 @@ namespace HGW {
                     }
                 }
                 Segs::findY(col, readQueue, opts.link_op, opts, region, false);
-//                Drawing::drawBams(opts, cols, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
                 Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
                 for (int i=0; i < BATCH; ++ i) {
                     Segs::align_clear(&readQueue[i]);
@@ -295,17 +299,16 @@ namespace HGW {
         }
     }
 
-    void iterDraw(std::vector< Segs::ReadCollection > &cols, int idx, htsFile *b, sam_hdr_t *hdr_ptr,
-                                 hts_idx_t *index, Utils::Region *region,
-                                 bool coverage,
-                                 std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
-                                 float trackY, float yScaling, Themes::Fonts &fonts, float refSpace,
-                                 GrDirectContext* sContext,
-                                 float pointSlop, float textDrop, float pH) {
+    void iterDraw(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
+                  hts_idx_t *index, Utils::Region *region,
+                  bool coverage,
+                  std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
+                  float trackY, float yScaling, Themes::Fonts &fonts, float refSpace,
+                  float pointSlop, float textDrop, float pH) {
 
         bam1_t *src;
         hts_itr_t *iter_q;
-        Segs::ReadCollection &col = cols[idx];
+//        Segs::ReadCollection &col = cols[idx];
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         std::vector<Segs::Align>& readQueue = col.readQueue;
         if (!readQueue.empty()) {
@@ -339,8 +342,6 @@ namespace HGW {
                 Segs::addToCovArray(col.covArr, readQueue.back(), region->start, region->end, l_arr);
             }
             Segs::findY(col, readQueue, opts.link_op, opts, region, false);
-//            Drawing::drawBams(opts, cols, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
-
             Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
 
             Segs::align_clear(&readQueue.back());

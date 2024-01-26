@@ -456,7 +456,11 @@ namespace Manager {
         processText = false; // all command text will be processed below
 
         if (inputText == "q" || inputText == "quit") {
-            throw CloseException();
+            triggerClose = true;
+            redraw = false;
+            processed = true;
+            return false;
+//            throw CloseException();
         } else if (inputText == ":" || inputText == "/") {
             inputText = "";
             return true;
@@ -1476,6 +1480,7 @@ namespace Manager {
                         if (cl.regionIdx == regionSelection) {
                             cl.region = &regions[regionSelection];
                             if (!bams.empty() && !opts.low_mem) {
+                                cl.skip = false;
                                 HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                             indexes[cl.bamIdx], opts, (bool)opts.max_coverage, false,
                                                             &samMaxY, filters, pool);
@@ -1501,6 +1506,7 @@ namespace Manager {
                         if (cl.regionIdx == regionSelection) {
                             cl.region = &regions[regionSelection];
                             if (!bams.empty() && !opts.low_mem) {
+                                cl.skip = false;
                                 HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                             indexes[cl.bamIdx], opts, (bool)opts.max_coverage, true,
                                                             &samMaxY, filters, pool);
@@ -1526,6 +1532,7 @@ namespace Manager {
                             cl.region = &regions[regionSelection];
                             cl.collection_processed = false;
                             if (!bams.empty() && !opts.low_mem) {
+                                cl.skip = false;
                                 HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                                             opts, false, true,  &samMaxY, filters, pool);
                                 HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
@@ -1564,11 +1571,17 @@ namespace Manager {
                         fetchRefSeq(region);
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
+                                if (cl.regionLen >= opts.snp_threshold * 2 && region.end - region.start < opts.snp_threshold * 2) {
+                                    cl.clear();
+                                    HGW::collectReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts.threads, &region, (bool)opts.max_coverage, filters, pool);
+                                } else {
+                                    if (!bams.empty()) {
+                                        HGW::trimToRegion(cl, opts.max_coverage, opts.snp_threshold);
+                                    }
+                                }
+                                cl.skip = false;
                                 cl.region = &regions[regionSelection];
                                 cl.collection_processed = false;
-                                if (!bams.empty() && !opts.low_mem) {
-                                    HGW::trimToRegion(cl, opts.max_coverage, opts.snp_threshold);
-                                }
                             }
                         }
                         processed = true;
@@ -2015,6 +2028,7 @@ namespace Manager {
                             Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_mem);
                             redraw = true;
                             processed = true;
+                            cl.skip = false;
                             break;
                         }
                     } else {
@@ -2024,6 +2038,7 @@ namespace Manager {
                             Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_mem);
                             redraw = true;
                             processed = true;
+                            cl.skip = false;
                         }
                     }
                     --bnd;
@@ -2065,6 +2080,7 @@ namespace Manager {
                         for (auto &col : collections) {
                             if (col.regionIdx == regionSelection) {
                                 col.region = &regions[regionSelection];
+                                col.skip = false;
                                 HGW::appendReadsAndCoverage(col, bams[col.bamIdx], headers[col.bamIdx],
                                                             indexes[col.bamIdx], opts, (bool) opts.max_coverage,
                                                             lt_last, &samMaxY, filters, pool);
@@ -2398,6 +2414,7 @@ namespace Manager {
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
                             if (!bams.empty()) {
+                                cl.skip = false;
                                 HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                             indexes[cl.bamIdx], opts, (bool)opts.max_coverage, !lt_last,
                                                             &samMaxY, filters, pool);

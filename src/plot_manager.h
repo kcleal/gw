@@ -116,6 +116,8 @@ namespace Manager {
         GLFWwindow* window;
         GLFWwindow* backWindow;
 
+        sk_sp<SkSurface> rasterSurface;
+
         Show mode;
         Show last_mode;
 
@@ -169,7 +171,7 @@ namespace Manager {
 
         void runDraw(SkCanvas *canvas);
 
-        void runDrawNoBuffer(SkCanvas *canvas, GrDirectContext* sContext);
+        void runDrawNoBuffer(SkCanvas *canvas);
 
         sk_sp<SkImage> makeImage();
 
@@ -186,6 +188,7 @@ namespace Manager {
         bool resizeTriggered;
         bool regionSelectionTriggered;
         bool textFromSettings;
+        bool triggerClose;
         std::chrono::high_resolution_clock::time_point resizeTimer, regionTimer;
 
         std::string inputText;
@@ -207,6 +210,8 @@ namespace Manager {
         double xDrag, xOri, lastX, yDrag, yOri, lastY;
 
         float yScaling;
+
+        std::vector<char> pixelMemory;
 
         GLFWcursor* vCursor;
         GLFWcursor* normalCursor;

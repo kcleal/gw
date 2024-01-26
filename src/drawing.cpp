@@ -719,12 +719,20 @@ namespace Drawing {
 
         std::vector<Segs::Mismatches> &mm_vector = cl.mmVector;
 
+        cl.skip = true;
+
+//        int counter = 0;
         for (const auto &a: cl.readQueue) {
 
             int Y = a.y;
             if (Y < 0) {
                 continue;
             }
+//            counter += 1;
+//            if (counter > 10000) {
+//                canvas->flush();
+//                counter = 0;
+//            }
             bool indelTextFits = fonts.overlayHeight * 0.7 < yScaling;
 
             int mapq = a.delegate->core.qual;
@@ -953,35 +961,6 @@ namespace Drawing {
         }
 
 //        canvas->restore();
-
-        // draw markers
-//        if (cl.region->markerPos != -1) {
-//            float rp = refSpace + 6 + (cl.bamIdx * cl.yPixels);
-//            float xp = refSpace * 0.2;
-//            float markerP = (xScaling * (float) (cl.region->markerPos - cl.region->start)) + cl.xOffset;
-//            if (markerP > cl.xOffset && markerP < regionPixels - cl.xOffset) {
-//                path.reset();
-//                path.moveTo(markerP, rp);
-//                path.lineTo(markerP - xp, rp);
-//                path.lineTo(markerP, rp + (refSpace*0.7));
-//                path.lineTo(markerP + xp, rp);
-//                path.lineTo(markerP, rp);
-//                canvas->drawPath(path, theme.marker_paint);
-//            }
-//            float markerP2 = (xScaling * (float) (cl.region->markerPosEnd - cl.region->start)) + cl.xOffset;
-//            if (markerP2 > cl.xOffset && markerP2 < (regionPixels + cl.xOffset)) {
-//                path.reset();
-//                path.moveTo(markerP2, rp);
-//                path.lineTo(markerP2 - xp, rp);
-//                path.lineTo(markerP2, rp + (refSpace*0.7));
-//                path.lineTo(markerP2 + xp, rp);
-//                path.lineTo(markerP2, rp);
-//                canvas->drawPath(path, theme.marker_paint);
-//            }
-//        }
-
-//            cl.collection_processed = true;
-
 
         // draw connecting lines between linked alignments
         if (linkOp > 0) {
