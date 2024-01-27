@@ -248,14 +248,6 @@ This will change how alignments are linked, options are 'none', 'sv', 'all'. Lin
 links between alignments that have either a discordant flag, or have a supplementary mapping.
 <br>
 
-- ## low-mem
-
-Toggle low-mem mode.
-
-This will discard all base-quality information and sam tags from newly loaded alignments. Use this
-option if you wish to display large regions and you have memory concerns. Memory consumption can be reduced
-by up to half.
-<br>
 
 - ## log2-cov
 
