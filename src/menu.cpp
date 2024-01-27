@@ -305,6 +305,7 @@ namespace Menu {
             else if (opts.menu_level == "small_indel") { tip = "The distance in base-pairs when small indels become visible"; }
             else if (opts.menu_level == "snp") { tip = "The distance in base-pairs when snps become visible"; }
             else if (opts.menu_level == "edge_highlights") { tip = "The distance in base-pairs when edge-highlights become visible"; }
+            else if (opts.menu_level == "low_memory") { tip = "The distance in base-pairs when using low-memory mode (reads are not buffered)"; }
             else if (opts.menu_level == "scroll_right") { tip = "Keyboard key to use for scrolling right"; }
             else if (opts.menu_level == "scroll_left") { tip = "Keyboard key to use for scrolling left"; }
             else if (opts.menu_level == "scroll_down") { tip = "Keyboard key to use for scrolling down"; }
@@ -884,8 +885,8 @@ namespace Menu {
             return (int)(opts.log2_cov);
         } else if (cmd_s == "expand-tracks") {
             return (int)(opts.expand_tracks);
-        } else if (cmd_s == "low-mem") {
-            return (int)(opts.low_mem);
+//        } else if (cmd_s == "low-mem") {
+//            return (int)(opts.low_mem);
         } else if (cmd_s == "line") {
             return (int)drawLine;
         } else if (cmd_s == "insertions") {

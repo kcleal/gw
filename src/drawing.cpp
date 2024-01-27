@@ -54,7 +54,10 @@ namespace Drawing {
         float yOffsetAll = refSpace;
 
         for (auto &cl: collections) {
-
+            if (cl.skipDrawingReads && cl.skipDrawingCoverage) {
+                continue;
+            }
+            cl.skipDrawingCoverage = true;
             if (cl.region->markerPos != -1) {
                 float rp = refSpace + 6 + (cl.bamIdx * cl.yPixels);
                 float xp = refSpace * 0.2;
@@ -719,7 +722,7 @@ namespace Drawing {
 
         std::vector<Segs::Mismatches> &mm_vector = cl.mmVector;
 
-        cl.skip = true;
+        cl.skipDrawingReads = true;
 
 //        int counter = 0;
         for (const auto &a: cl.readQueue) {

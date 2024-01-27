@@ -134,7 +134,7 @@ namespace Themes {
         bool editing_underway;
         int canvas_width, canvas_height;
         int indel_length, ylim, split_view_size, threads, pad, link_op, max_coverage, max_tlen;
-        bool no_show, log2_cov, tlen_yscale, low_mem, expand_tracks, vcf_as_tracks, sv_arcs;
+        bool no_show, log2_cov, tlen_yscale, expand_tracks, vcf_as_tracks, sv_arcs;
         float scroll_speed, tab_track_height;
         int scroll_right;
         int scroll_left;
@@ -151,7 +151,7 @@ namespace Themes {
         int enter_interactive_mode;
         int repeat_command;
         int start_index;
-        int soft_clip_threshold, small_indel_threshold, snp_threshold, variant_distance;
+        int soft_clip_threshold, small_indel_threshold, snp_threshold, variant_distance, low_memory;
         int edge_highlights;
         int font_size;
 

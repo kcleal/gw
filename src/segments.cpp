@@ -379,7 +379,8 @@ namespace Segs {
     ReadCollection::ReadCollection() {
         vScroll = 0;
         collection_processed = false;
-        skip = false;
+        skipDrawingReads = false;
+        skipDrawingCoverage = false;
     }
 
     void ReadCollection::clear() {

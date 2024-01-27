@@ -453,9 +453,9 @@ int main(int argc, char *argv[]) {
     if (program.is_used("--no-soft-clips")) {
         iopts.soft_clip_threshold = 0;
     }
-    if (program.is_used("--low-mem")) {
-        iopts.low_mem = true;
-    }
+//    if (program.is_used("--low-mem")) {
+//        iopts.low_mem = true;
+//    }
     if (program.is_used("--start-index")) {
         iopts.start_index = program.get<int>("--start-index");
     }
@@ -899,11 +899,12 @@ int main(int argc, char *argv[]) {
                                             for (int i = a; i < b; ++i) {
                                                 Manager::VariantJob job = jobs[i];
                                                 plt->setVariantSite(job.chrom, job.start, job.chrom2, job.stop);
-                                                if (plt->opts.low_mem && plt->opts.link_op == 0) {
-                                                    plt->runDrawNoBuffer(canvas);
-                                                } else {
-                                                    plt->runDraw(canvas);
-                                                }
+                                                plt->runDrawNoBuffer(canvas);
+//                                                if (plt->opts.low_memory && plt->opts.link_op == 0) {
+//                                                    plt->runDrawNoBuffer(canvas);
+//                                                } else {
+//                                                    plt->runDraw(canvas);
+//                                                }
                                                 sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
                                                 std::filesystem::path fname = job.varType + "~" + job.chrom + "~" + std::to_string(job.start) + "~" + job.chrom2 + "~" + std::to_string(job.stop) + "~" + job.rid + ".png";
                                                 std::filesystem::path full_path = outdir / fname;

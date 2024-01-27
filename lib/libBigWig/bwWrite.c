@@ -954,13 +954,13 @@ uint32_t updateInterval(bigWigFile_t *fp, bwZoomBuffer_t *buffer, double *sum, d
         }
     }
 
-    //If we move to a new interval then skip iterating over a bunch of obviously non-overlapping intervals
+    //If we move to a new interval then skipDrawingReads iterating over a bunch of obviously non-overlapping intervals
     if(offset && p2[8*offset+2] == 0) {
         p2[8*offset] = tid;
         p2[8*offset+1] = start;
         if(start+size < end) p2[8*offset+2] = start+size;
         else p2[8*offset+2] = end;
-        //nextPos(fp, size, p2+8*offset, tid); //We can actually skip uncovered intervals
+        //nextPos(fp, size, p2+8*offset, tid); //We can actually skipDrawingReads uncovered intervals
     }
 
     //Add a new entry

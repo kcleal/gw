@@ -89,7 +89,8 @@ namespace Segs {
         float regionPixels;
 
         bool collection_processed;
-        bool skip;
+        bool skipDrawingReads;
+        bool skipDrawingCoverage;
         bool plotSoftClipAsBlock;
         bool plotPointedPolygons;
         bool drawEdges;

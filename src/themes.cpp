@@ -322,6 +322,7 @@ namespace Themes {
         snp_threshold = 1000000;
         edge_highlights = 100000;
         variant_distance = 100000;
+        low_memory = 1500000;
 
         max_coverage = 10000000;
         max_tlen = 2000;
@@ -330,7 +331,7 @@ namespace Themes {
         no_show = false;
         log2_cov = false;
         tlen_yscale = false;
-        low_mem = false;
+//        low_mem = false;
         expand_tracks = false;
         vcf_as_tracks = false;
         sv_arcs=true;
@@ -411,6 +412,9 @@ namespace Themes {
         edge_highlights = std::stoi(myIni["view_thresholds"]["edge_highlights"]);
         if (myIni["view_thresholds"].has("variant_distance")) {
             variant_distance = std::stoi(myIni["view_thresholds"]["variant_distance"]);
+        }
+        if (myIni["view_thresholds"].has("low_memory")) {
+            low_memory = std::stoi(myIni["view_thresholds"]["low_memory"]);
         }
 
         scroll_right = key_table[myIni["navigation"]["scroll_right"]];

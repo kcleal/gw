@@ -56,6 +56,7 @@ namespace DefaultIni {
                "snp=500000\n"
                "edge_highlights=100000\n"
                "variant_distance=100000\n"
+               "low_memory=1500000\n"
                "\n"
                "[navigation]\n"
                "scroll_right=RIGHT\n"

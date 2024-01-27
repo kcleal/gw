@@ -116,7 +116,7 @@ static int strnatcmp0(nat_char const *a, nat_char const *b, int fold_case){
     while (1) {
         ca = a[ai]; cb = b[bi];
 
-        /* skip over leading spaces or zeros */
+        /* skipDrawingReads over leading spaces or zeros */
         while (nat_isspace(ca))
             ca = a[++ai];
 

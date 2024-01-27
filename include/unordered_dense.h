@@ -371,7 +371,7 @@ namespace ankerl::unordered_dense {
         namespace bucket_type {
 
             struct standard {
-                static constexpr uint32_t dist_inc = 1U << 8U;             // skip 1 byte fingerprint
+                static constexpr uint32_t dist_inc = 1U << 8U;             // skipDrawingReads 1 byte fingerprint
                 static constexpr uint32_t fingerprint_mask = dist_inc - 1; // mask for 1 byte of fingerprint
 
                 uint32_t m_dist_and_fingerprint; // upper 3 byte: distance to original bucket. lower byte: fingerprint from hash
@@ -379,7 +379,7 @@ namespace ankerl::unordered_dense {
             };
 
             ANKERL_UNORDERED_DENSE_PACK(struct big {
-                                            static constexpr uint32_t dist_inc = 1U << 8U;             // skip 1 byte fingerprint
+                                            static constexpr uint32_t dist_inc = 1U << 8U;             // skipDrawingReads 1 byte fingerprint
                                             static constexpr uint32_t fingerprint_mask = dist_inc - 1; // mask for 1 byte of fingerprint
 
                                             uint32_t m_dist_and_fingerprint; // upper 3 byte: distance to original bucket. lower byte: fingerprint from hash

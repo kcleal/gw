@@ -542,7 +542,8 @@ namespace Manager {
                     cl.levelsStart.clear();
                     cl.levelsEnd.clear();
                     cl.linked.clear();
-                    cl.skip = false;
+                    cl.skipDrawingReads = false;
+                    cl.skipDrawingCoverage = false;
                 }
             }
 
@@ -553,7 +554,7 @@ namespace Manager {
 
                 for (int j=0; j<(int)regions.size(); ++j) {
                     Utils::Region *reg = &regions[j];
-                    if (collections[idx].skip) {
+                    if (collections[idx].skipDrawingReads) {
                         continue;
                     }
                     collections[idx].bamIdx = i;
@@ -569,7 +570,7 @@ namespace Manager {
                             collections[idx].mmVector.clear();
                         }
                     }
-                    if (reg->end - reg->start < opts.snp_threshold * 2) {
+                    if (reg->end - reg->start < opts.low_memory) {
                         HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage, filters, pool);
                         int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts, reg, false);
                         if (maxY > samMaxY) {
@@ -703,16 +704,16 @@ namespace Manager {
         } else {
             processBam();
             setScaling();
+
             for (auto &cl: collections) {
 
                 canvasR->save();
-                canvasR->clipRect({cl.xOffset, cl.yOffset, (float)cl.regionLen * cl.xScaling + cl.xOffset, cl.yOffset + trackY}, false);
+                canvasR->clipRect({cl.xOffset, cl.yOffset - covY, (float)cl.regionLen * cl.xScaling + cl.xOffset, cl.yOffset + trackY + covY}, false);
 
-                if (cl.skip && !imageCacheQueue.empty()) {
+                if (cl.skipDrawingReads && !imageCacheQueue.empty()) {
                     canvasR->drawImage(imageCacheQueue.back().second, 0, 0);
                 } else {
-                    if (cl.regionLen > opts.snp_threshold * 2) {  // low memory mode will be used
-//                        std::cerr << " low mem mode!\n";
+                    if (cl.regionLen >= opts.low_memory) {  // low memory mode will be used
                         cl.clear();
                         if (opts.threads == 1) {
                             HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], &regions[cl.regionIdx], (bool) opts.max_coverage,
@@ -728,13 +729,14 @@ namespace Manager {
                 canvasR->restore();
 
             }
+            if (opts.max_coverage) {
+                Drawing::drawCoverage(opts, collections, canvasR, fonts, covY, refSpace);
+            }
             Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, refSpace, (float)regions.size(), gap);
             Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
             Drawing::drawTracks(opts, fb_width, fb_height, canvasR, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
             Drawing::drawChromLocation(opts, collections, canvasR, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
-            if (opts.max_coverage) {
-                Drawing::drawCoverage(opts, collections, canvasR, fonts, covY, refSpace);
-            }
+
         }
 
         imageCacheQueue.emplace_back(frameId, rasterSurface->makeImageSnapshot());
@@ -1142,11 +1144,11 @@ namespace Manager {
         processBam();
         setScaling();
         canvas->drawPaint(opts.theme.bgPaint);
-        if (opts.max_coverage) {
-            Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
-        }
         for (auto &cl: collections) {
             Drawing::drawCollection(opts, cl, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+        }
+        if (opts.max_coverage) {
+            Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
@@ -1155,7 +1157,7 @@ namespace Manager {
 
     void GwPlot::runDrawNoBuffer(SkCanvas *canvas) {
 
-        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
+//        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
 
         if (bams.empty()) {
             return;
@@ -1213,12 +1215,13 @@ namespace Manager {
         if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
+
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
         Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
 
-        std::cerr << " time runDrawNoBuffer " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
+//        std::cerr << " time runDrawNoBuffer " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
 
     void imageToPng(sk_sp<SkImage> &img, std::filesystem::path &path) {
