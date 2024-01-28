@@ -708,24 +708,40 @@ namespace Manager {
             for (auto &cl: collections) {
 
                 canvasR->save();
-                canvasR->clipRect({cl.xOffset, cl.yOffset - covY, (float)cl.regionLen * cl.xScaling + cl.xOffset, cl.yOffset + trackY + covY}, false);
 
-                if (cl.skipDrawingReads && !imageCacheQueue.empty()) {
-                    canvasR->drawImage(imageCacheQueue.back().second, 0, 0);
-                } else {
-                    if (cl.regionLen >= opts.low_memory) {  // low memory mode will be used
-                        cl.clear();
-                        if (opts.threads == 1) {
-                            HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], &regions[cl.regionIdx], (bool) opts.max_coverage,
-                                          filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pointSlop, textDrop, pH);
-                        } else {
-                            HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
-                                                  filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pool, pointSlop, textDrop, pH);
-                        }
+                // Copy some of the image from the last frame
+                if ((cl.skipDrawingCoverage || cl.skipDrawingReads) && !imageCacheQueue.empty()) {
+                    if (cl.skipDrawingCoverage) {
+                        canvasR->clipRect({cl.xOffset, cl.yOffset - covY, (float)cl.regionLen * cl.xScaling + cl.xOffset, cl.yOffset + covY}, false);
+                        canvasR->drawImage(imageCacheQueue.back().second, 0, 0);
+                        canvasR->restore();
+                        canvasR->save();
+                        canvasR->clipRect({cl.xOffset, cl.yOffset, (float)cl.regionLen * cl.xScaling + cl.xOffset, cl.yOffset + trackY}, false);
                     } else {
-                        Drawing::drawCollection(opts, cl, canvasR, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+                        canvasR->clipRect({cl.xOffset, cl.yOffset - covY, (float)cl.regionLen * cl.xScaling + cl.xOffset, cl.yOffset + covY}, false);
+                        canvasR->drawImage(imageCacheQueue.back().second, 0, 0);
+                        canvasR->restore();
+                        canvasR->save();
+                        canvasR->clipRect({cl.xOffset, cl.yOffset - covY, (float)cl.regionLen * cl.xScaling + cl.xOffset, cl.yOffset + covY}, false);
                     }
+                } else {  // whole frame
+                    canvasR->clipRect({cl.xOffset, cl.yOffset - covY, (float)cl.regionLen * cl.xScaling + cl.xOffset, cl.yOffset + trackY + covY}, false);
                 }
+                canvasR->drawPaint(opts.theme.bgPaint);
+
+                if (cl.regionLen >= opts.low_memory) {  // low memory mode will be used
+                    cl.clear();
+                    if (opts.threads == 1) {
+                        HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], &regions[cl.regionIdx], (bool) opts.max_coverage,
+                                      filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pointSlop, textDrop, pH);
+                    } else {
+                        HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
+                                              filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pool, pointSlop, textDrop, pH);
+                    }
+                } else {
+                    Drawing::drawCollection(opts, cl, canvasR, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+                }
+
                 canvasR->restore();
 
             }

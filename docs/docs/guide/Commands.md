@@ -355,6 +355,11 @@ Soft-clipped bases or hard-clips are turned on or off.
 - ## tags
 
 This will print all the tags of the selected read (select a read with the mouse first).
+
+Alternatively supply a list of tags to print out:
+
+    tags NM RG    
+
 <br>
 
 - ## theme

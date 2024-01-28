@@ -420,6 +420,8 @@ namespace Manager {
             for (auto &a: cl.readQueue) {
                 if (bam_get_qname(a.delegate) == target_qname) {
                     a.edge_type = 4;
+                    cl.skipDrawingReads = false;
+                    cl.skipDrawingCoverage = false;
                 }
             }
         }
@@ -555,9 +557,13 @@ namespace Manager {
             processed = true;
             inputText = "";
             return true;
-        } else if (inputText =="tags"){
+        } else if (Utils::startsWith(inputText, "tags")) {
             valid = true;
             if (!selectedAlign.empty()) {
+                std::string str = inputText;
+                str.erase(0, 4);
+                std::vector<std::string> splitTags = Utils::split(str, delim);
+
                 std::vector<std::string> split = Utils::split(selectedAlign, '\t');
                 if (split.size() > 11) {
                     Term::clearLine();
@@ -566,8 +572,17 @@ namespace Manager {
                     for (auto &s : split) {
                         if (i > 11) {
                             std::string t = s.substr(0, s.find(':'));
-                            std::string rest = s.substr(s.find(':'), s.size());
-                            std::cout << termcolor::green << t << termcolor::reset << rest << "\t";
+                            if (splitTags.empty()) {
+                                std::string rest = s.substr(s.find(':'), s.size());
+                                std::cout << termcolor::green << t << termcolor::reset << rest << "\t";
+                            } else {
+                                for (auto &target : splitTags) {
+                                    if (target == t) {
+                                        std::string rest = s.substr(s.find(':'), s.size());
+                                        std::cout << termcolor::green << t << termcolor::reset << rest << "\t";
+                                    }
+                                }
+                            }
                         }
                         i += 1;
                     }
@@ -647,6 +662,10 @@ namespace Manager {
             opts.snp_threshold = (opts.snp_threshold == 0) ? std::stoi(opts.myIni["view_thresholds"]["snp"]) : 0;
             if (mode == SINGLE) {
                 processed = true;
+                for (auto &cl : collections) {
+                    cl.skipDrawingReads = false;
+                    cl.skipDrawingCoverage = false;
+                }
             } else {
                 processed = false;
             }
@@ -658,6 +677,10 @@ namespace Manager {
             opts.edge_highlights = (opts.edge_highlights == 0) ? std::stoi(opts.myIni["view_thresholds"]["edge_highlights"]) : 0;
             if (mode == SINGLE) {
                 processed = true;
+                for (auto & cl: collections) {
+                    cl.skipDrawingReads = false;
+                    cl.skipDrawingCoverage = true;
+                }
             } else {
                 processed = false;
             }
@@ -778,7 +801,12 @@ namespace Manager {
                 return true;
             }
             else if (split.size() == 1) {
-                opts.max_coverage = (opts.max_coverage) ? 0 : 10000000;
+                if (opts.max_coverage == 0) {
+                    opts.max_coverage = 10000000;
+                } else {
+                    opts.max_coverage = 0;
+                }
+
             } else {
                 try {
                     opts.max_coverage = std::stoi(split.back());
@@ -788,18 +816,14 @@ namespace Manager {
                 }
             }
             opts.max_coverage = std::max(0, opts.max_coverage);
-            if (opts.max_coverage == 0) {
-                for (auto &cl : collections) {
-                    cl.mmVector.clear();
-                    cl.collection_processed = true;
-                }
+
+            for (auto &cl : collections) {
+                cl.skipDrawingReads = false;
+                cl.skipDrawingCoverage = false;
             }
             redraw = true;
-            if (mode == SINGLE) {
-                processed = true;
-            } else {
-                processed = false;
-            }
+            processed = false;
+
             inputText = "";
             imageCache.clear();
             return true;
@@ -809,6 +833,10 @@ namespace Manager {
             redraw = true;
             if (mode == SINGLE) {
                 processed = true;
+                for (auto &cl : collections) {
+                    cl.skipDrawingReads = false;
+                    cl.skipDrawingCoverage = false;
+                }
             } else {
                 processed = false;
             }
@@ -1633,11 +1661,13 @@ namespace Manager {
                     regionTimer = std::chrono::high_resolution_clock::now();
                 } else if (key == opts.scroll_down) {
                     for (auto &cl : collections) {
-                        if (cl.regionIdx == regionSelection) {  // should be possible to vScroll without needing findY for all reads, but complicated to implement
+                        if (cl.regionIdx == regionSelection) {
                             cl.vScroll += 2;
                             cl.levelsStart.clear();
                             cl.levelsEnd.clear();
                             cl.linked.clear();
+                            cl.skipDrawingReads = false;
+                            cl.skipDrawingCoverage = false;
                             for (auto &itm: cl.readQueue) { itm.y = -1; }
                             int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, cl.region,  false);
                             samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
@@ -1656,6 +1686,8 @@ namespace Manager {
                             cl.levelsStart.clear();
                             cl.levelsEnd.clear();
                             cl.linked.clear();
+                            cl.skipDrawingReads = false;
+                            cl.skipDrawingCoverage = false;
                             for (auto &itm: cl.readQueue) { itm.y = -1; }
                             int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, cl.region, false);
                             samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;

@@ -456,10 +456,6 @@ namespace Term {
         } else {
             oss << "*" << d << "*" << d;
         }
-        if (low_mem) {
-            sam = oss.str();
-            return;
-        }
 
         uint8_t *s = bam_get_aux(r->delegate);
         uint8_t *end = r->delegate->data + r->delegate->l_data;
