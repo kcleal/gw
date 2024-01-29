@@ -1837,6 +1837,7 @@ namespace HGW {
 //            std::sort(image_glob.begin(), image_glob.end(), SI::natural::sort);
 //            SI::natural::sort(image_glob);
 //#endif
+
             if (image_glob.empty()) {
                 std::cerr << "Warning: no images found with pattern: " << path << std::endl;
             }
