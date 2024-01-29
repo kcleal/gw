@@ -18,6 +18,7 @@
 #include "../include/termcolor.h"
 #include "../lib/libBigWig/bigWig.h"
 #include "../include/glob_cpp.hpp"
+#include "../include/natsort.hpp"
 #include "drawing.h"
 #include "segments.h"
 #include "themes.h"
@@ -1832,7 +1833,9 @@ namespace HGW {
 //#if defined(_WIN32) || defined(_WIN64)
 //            std::sort(paths.begin(), paths.end());
 //#else
-//            std::sort(image_glob.begin(), image_glob.end(), compareNat);
+//            std::sort(image_glob.begin(), image_glob.end(), glob_cpp::compareNat);
+//            std::sort(image_glob.begin(), image_glob.end(), SI::natural::sort);
+//            SI::natural::sort(image_glob);
 //#endif
             if (image_glob.empty()) {
                 std::cerr << "Warning: no images found with pattern: " << path << std::endl;

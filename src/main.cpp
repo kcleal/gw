@@ -10,7 +10,7 @@
 #include <string>
 #include "argparse.h"
 #include "../include/BS_thread_pool.h"
-#include "../include/strnatcmp.h"
+//#include "../include/natsort.hpp"
 #include "../include/glob_cpp.hpp"
 #include "hts_funcs.h"
 #include "parser.h"
@@ -160,6 +160,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("--cov")
             .default_value(iopts.ylim).append().scan<'i', int>()
             .help("Maximum y limit of coverage track");
+    program.add_argument("--min-chrom-size")
+            .default_value(10000000).append().scan<'i', int>()
+            .help("Minimum chromosome size for chromosome-scale images");
     program.add_argument("--no-insertions")
             .default_value(false).implicit_value(true)
             .help("Insertions below --indel-length are not shown");
@@ -745,9 +748,13 @@ int main(int argc, char *argv[]) {
 
                     std::vector<std::vector<Utils::Region> > jobs(iopts.threads);
                     int part = 0;
+                    int min_chrom_size = program.get<int>("--min-chrom-size");
                     for (int i = 0; i < faidx_nseq(managers[0]->fai); ++i) {
                         const char *chrom = faidx_iseq(managers[0]->fai, i);
                         int seq_len = faidx_seq_len(managers[0]->fai, chrom);
+                        if (seq_len < min_chrom_size) {
+                            continue;
+                        }
                         Utils::Region N;
                         N.chrom = chrom;
                         N.start = 1;
