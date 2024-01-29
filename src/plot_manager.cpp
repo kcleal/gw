@@ -673,7 +673,7 @@ namespace Manager {
         }
 
         pointSlop = (tan(0.42) * (yScaling * 0.5));  // radians
-        textDrop = (yScaling - fonts.fontHeight) * 0.5;
+        textDrop = std::fmax(0, (yScaling - fonts.fontHeight) * 0.5);
 
         pH = yScaling * 0.85;  // polygonHeight
         if (opts.tlen_yscale) {

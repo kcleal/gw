@@ -403,13 +403,6 @@ namespace Drawing {
                               bool edged, SkPaint &edgeColor) {
         start *= xScaling;
         width *= xScaling;
-//        if (start < 0) {
-//            width += start;
-//            start = 0;
-//        }
-//        if (start + width > maxX) {
-//            width = maxX - start;
-//        }
         path.reset();
         path.moveTo(start + xOffset, yScaledOffset);
         path.lineTo(start + xOffset, yScaledOffset + polygonH);
@@ -433,23 +426,20 @@ namespace Drawing {
 
     void drawIns(SkCanvas *canvas, float y0, float start, float yScaling, float xOffset,
                  float yOffset, float textW, const SkPaint &sidesColor, const SkPaint &faceColor, SkPath &path,
-                 SkRect &rect) {
-
+                 SkRect &rect, float pH, float pH_05, float pH_95) {
         float x = start + xOffset;
         float y = y0 * yScaling;
-        float ph = polygonHeight * yScaling;
         float overhang = textW * 0.125;
         float text_half = textW * 0.5;
-        rect.setXYWH(x - text_half - 2, y + yOffset, textW + 2, ph);
+        rect.setXYWH(x - text_half - 2, y + yOffset, textW + 2, pH);
         canvas->drawRect(rect, faceColor);
-
         path.reset();
-        path.moveTo(x - text_half - overhang, yOffset + y + ph * 0.05);
-        path.lineTo(x + text_half + overhang, yOffset + y + ph * 0.05);
-        path.moveTo(x - text_half - overhang, yOffset + y + ph * 0.95);
-        path.lineTo(x + text_half + overhang, yOffset + y + ph * 0.95);
+        path.moveTo(x - text_half - overhang, yOffset + y + pH_05);
+        path.lineTo(x + text_half + overhang, yOffset + y + pH_05);
+        path.moveTo(x - text_half - overhang, yOffset + y + pH_95);
+        path.lineTo(x + text_half + overhang, yOffset + y + pH_95);
         path.moveTo(x, yOffset + y);
-        path.lineTo(x, yOffset + y + ph);
+        path.lineTo(x, yOffset + y + pH);
         canvas->drawPath(path, sidesColor);
     }
 
@@ -667,7 +657,7 @@ namespace Drawing {
                     textBegin = regionPixels - textW;
                     textEnd = regionPixels;
                 }
-                text.emplace_back() = {SkTextBlob::MakeFromString(indelChars, fonts.fonty),
+                text.emplace_back() = {SkTextBlob::MakeFromString(indelChars, fonts.overlay),
                                        textBegin + xOffset,
                                        ((float) Y + polygonHeight) * yScaling - textDrop + yOffset};
 
@@ -703,7 +693,6 @@ namespace Drawing {
 
         std::vector<TextItem> text_ins, text_del;
 
-
         int regionBegin = cl.region->start;
         int regionEnd = cl.region->end;
         int regionLen = regionEnd - regionBegin;
@@ -717,25 +706,20 @@ namespace Drawing {
         bool plotPointedPolygons = cl.plotPointedPolygons; // regionLen < 50000;
         bool drawEdges = cl.drawEdges; //regionLen < opts.edge_highlights;
 
-//        canvas->save();
-//        canvas->clipRect({xOffset, yOffset, (float)regionLen * xScaling + xOffset, yOffset + trackY}, false);
-
         std::vector<Segs::Mismatches> &mm_vector = cl.mmVector;
 
         cl.skipDrawingReads = true;
 
-//        int counter = 0;
+        float pH_05 = pH * 0.05;
+        float pH_95 = pH * 0.95;
+
         for (const auto &a: cl.readQueue) {
 
             int Y = a.y;
             if (Y < 0) {
                 continue;
             }
-//            counter += 1;
-//            if (counter > 10000) {
-//                canvas->flush();
-//                counter = 0;
-//            }
+
             bool indelTextFits = fonts.overlayHeight * 0.7 < yScaling;
 
             int mapq = a.delegate->core.qual;
@@ -868,19 +852,18 @@ namespace Drawing {
                         if (ins.length > (uint32_t) opts.indel_length) {
                             if (regionLen < 500000 && indelTextFits) {  // line and text
                                 drawIns(canvas, Y, p, yScaling, xOffset, yOffset, textW, theme.insS,
-                                        theme.fcIns, path, rect);
-
-                                text_ins.emplace_back() = {SkTextBlob::MakeFromString(indelChars, fonts.fonty),
+                                        theme.fcIns, path, rect, pH, pH_05, pH_95);
+                                text_ins.emplace_back() = {SkTextBlob::MakeFromString(indelChars, fonts.overlay),
                                                            (float)(p - (textW * 0.5) + xOffset - 2),
                                                            ((Y + polygonHeight) * yScaling) + yOffset - textDrop};
 
                             } else {  // line only
                                 drawIns(canvas, Y, p, yScaling, xOffset, yOffset, xScaling, theme.insS,
-                                        theme.fcIns, path, rect);
+                                        theme.fcIns, path, rect, pH, pH_05, pH_95);
                             }
                         } else if (regionLen < 100000 && regionLen < opts.small_indel_threshold) {  // line only
                             drawIns(canvas, Y, p, yScaling, xOffset, yOffset, xScaling, theme.insS,
-                                    theme.fcIns, path, rect);
+                                    theme.fcIns, path, rect, pH, pH_05, pH_95);
                         }
                     }
                 }

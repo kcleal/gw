@@ -565,7 +565,7 @@ namespace Themes {
             fonty.setSize(font_size);
             fonty.getBounds(glyphs, 1, bounds, pnt);
             height = bounds[0].height();
-            if (height < maxHeight*0.8) {
+            if (height < maxHeight*1.9) {
                 was_set = true;
                 break;
             }
