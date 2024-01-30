@@ -88,10 +88,16 @@ with open(f'benchmark.{tag}.md', 'w') as b:
 custom_params = {"axes.spines.right": False, "axes.spines.top": False}
 sns.set_theme(style="ticks", rc=custom_params)
 
+palette = sns.color_palette('tab10', n_colors=8)
+colors = {}
+for clr, name in zip(palette, ('gw', 'gw -t4', 'igv', 'igv -t4', 'jb2export', 'samplot', 'bamsnap', 'genomeview')):
+    colors[name] = clr
+
+#
 for item in ['total_time', 'relative_time', 'render', 'relative_render_time', 'total_mem', 'relative_mem']:
     g = sns.catplot(data=df2,
-                     palette="tab10", x='region size (bp)', y=item, hue='name',
-                     kind='point', alpha=0.6)
+                    x='region size (bp)', y=item, hue='name',
+                    kind='point', alpha=0.6, palette=colors)
 
     g.ax.set_xlabel("Region size (bp)", fontsize=14)
     label = list(item.replace('_', ' '))
