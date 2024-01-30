@@ -279,7 +279,9 @@ namespace Manager {
 
     void GwPlot::fetchRefSeqs() {
         for (auto &rgn : regions) {
-            fetchRefSeq(rgn);
+            if (rgn.end - rgn.start < opts.snp_threshold) {
+                fetchRefSeq(rgn);
+            }
         }
     }
 
@@ -731,6 +733,9 @@ namespace Manager {
 
                 if (cl.regionLen >= opts.low_memory) {  // low memory mode will be used
                     cl.clear();
+//                    HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], &regions[cl.regionIdx], (bool) opts.max_coverage,
+//                                  filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pointSlop, textDrop, pH);
+
                     if (opts.threads == 1) {
                         HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], &regions[cl.regionIdx], (bool) opts.max_coverage,
                                       filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pointSlop, textDrop, pH);

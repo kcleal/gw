@@ -205,6 +205,130 @@ namespace HGW {
         col.collection_processed = false;
     }
 
+    // WIP, still running in to segfaults strlen? Not sure what is causing it
+
+//    void iterDrawParallel(Segs::ReadCollection &col,
+//                          htsFile *b,
+//                          sam_hdr_t *hdr_ptr,
+//                          hts_idx_t *index,
+//                          int threads,
+//                          Utils::Region *region,
+//                          bool coverage,
+//                          std::vector<Parse::Parser> &filters,
+//                          Themes::IniOptions &opts,
+//                          SkCanvas *canvas,
+//                          float trackY,
+//                          float yScaling,
+//                          Themes::Fonts &fonts,
+//                          float refSpace,
+//                          BS::thread_pool &pool,
+//                          float pointSlop,
+//                          float textDrop,
+//                          float pH) {
+//
+//        int step = (region->end - region->start) / threads;
+//        std::vector<Utils::Region> tmpRegions;
+//        tmpRegions.resize(threads);
+//        int start = region->start;
+//        int end = start + step;
+//
+//        std::vector<htsFile* > bams;
+//        std::vector<sam_hdr_t* > headers;
+//        std::vector<hts_idx_t* > indexes;
+////        std::vector<sk_sp<SkSurface>> surfaces;
+////        std::vector<SkCanvas*> canvases;
+//
+//        bams.reserve(threads);
+//        headers.reserve(threads);
+//        indexes.reserve(threads);
+////        surfaces.reserve(threads);
+////        canvases.reserve(threads);
+//        for (int i=0; i < threads; ++i) {
+//            // todo monitorScale
+//
+////            surfaces.emplace_back(SkSurface::MakeRasterN32Premul(opts.dimensions.x * 2, opts.dimensions.y * 2));
+////            canvases.push_back(surfaces[i]->getCanvas());
+//
+//            htsFile* f = sam_open("HG002.bam", "r");
+////            hts_set_fai_filename(f, "/Users/sbi8kc2/Documents/data/db/hg19/ucsc.hg19.fa");
+//            hts_set_threads(f, 1);
+//            bams.push_back(f);
+//            sam_hdr_t *hdr_ptr = sam_hdr_read(f);
+//            headers.push_back(hdr_ptr);
+//            hts_idx_t* idx = sam_index_load(f, "HG002.bam");
+//            indexes.push_back(idx);
+//
+//            tmpRegions[i].chrom = col.region->chrom;
+//            tmpRegions[i].start = start;
+//            tmpRegions[i].end = end;
+//            start += step;
+//            end += step;
+//        }
+//
+//        std::vector<Segs::ReadCollection> collections;
+//        collections.resize(threads);
+//        std::vector<std::future<void>> jobs;
+//        float offset = 0;
+//
+//        std::vector<sk_sp<SkImage>> images;
+//        images.resize(threads);
+//
+//        for (int idx=0; idx < threads; ++idx) {
+//            collections[idx] = col;
+//            Segs::ReadCollection &tCol = collections[idx];
+//            tCol.readQueue.clear();
+//            tCol.xOffset += offset;
+//            offset += 300;
+//            tCol.region = &tmpRegions[idx];
+//            if (opts.max_coverage) {
+//                tCol.covArr.resize(tmpRegions[idx].end - tmpRegions[idx].start, 0);
+//                if (opts.snp_threshold > tmpRegions[idx].end - tmpRegions[idx].start) {
+//                    // todo not allowed
+////                    std::cerr << " ERROR \n";
+//                }
+//            }
+//            std::future<void> my_future = pool.submit(
+//                    [&]
+//                    {
+//                        sk_sp<SkSurface> surface = SkSurface::MakeRasterN32Premul(opts.dimensions.x * 2, opts.dimensions.y * 2);
+//                        SkCanvas * canv = surface->getCanvas();
+//
+//                        iterDraw(tCol, bams[idx], headers[idx],
+//                                          indexes[idx], &tmpRegions[idx],
+//                                          coverage,
+//                                          filters, opts, canv,
+//                                          trackY, yScaling, fonts, refSpace,
+//                                          pointSlop, textDrop, pH);
+//
+//                        canv->flush();
+//                        surface->flush();
+////                        images[idx] = surface->makeImageSnapshot();
+////                        Manager::imageToPng(images[idx], "test.png");
+//
+//                    });
+////            my_future.get();
+//            jobs.push_back(std::move(my_future));
+//        }
+//        for (auto &f: jobs) {
+//            f.get();
+//        }
+//        for (auto &im : images) {
+//            canvas->drawImage(im, 0, 0);
+//        }
+//
+//        for (auto &bm : bams) {
+//            hts_close(bm);
+//        }
+//        for (auto &hd: headers) {
+//            bam_hdr_destroy(hd);
+//        }
+//        for (auto &idx: indexes) {
+//            hts_idx_destroy(idx);
+//        }
+//        std::cerr << " got here\n";
+//
+//    }
+
 
     void iterDrawParallel(Segs::ReadCollection &col,
                           htsFile *b,
@@ -306,10 +430,12 @@ namespace HGW {
                   std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
                   float trackY, float yScaling, Themes::Fonts &fonts, float refSpace,
                   float pointSlop, float textDrop, float pH) {
+//        if (region->end == 0) {
+//            return;
+//        }
 
         bam1_t *src;
         hts_itr_t *iter_q;
-//        Segs::ReadCollection &col = cols[idx];
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         std::vector<Segs::Align>& readQueue = col.readQueue;
         if (!readQueue.empty()) {
@@ -344,7 +470,6 @@ namespace HGW {
             }
             Segs::findY(col, readQueue, opts.link_op, opts, region, false);
             Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
-
             Segs::align_clear(&readQueue.back());
         }
     }

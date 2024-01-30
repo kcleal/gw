@@ -213,6 +213,8 @@ namespace Manager {
 
         std::vector<char> pixelMemory;
 
+//        std::vector<std::vector<char>> extraPixelArrays;  // one for each thread
+
         GLFWcursor* vCursor;
         GLFWcursor* normalCursor;
 
