@@ -526,7 +526,6 @@ namespace Drawing {
                             rect.setXYWH(p + precalculated_xOffset_mmPosOffset, yScaledOffset, width, pH);
                             canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]);
                             if (!collection_processed) {
-//                                assert (rlen < mm_array.size());
                                 auto &mismatch = mm_array[r_pos - rbegin]; // Reduce redundant calculations
                                 switch (bam_base) {
                                     case 1:

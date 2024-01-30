@@ -8,6 +8,7 @@ Usage
 -----
 
 python3 plot.py '*1.benchmark.csv' threads_1
+python3 plot.py '*.benchmark.csv' threads_1_or_4
 """
 import pandas as pd
 import seaborn as sns
@@ -32,10 +33,10 @@ print(df.columns)
 gw_times = {}
 gw_mem = {}
 samtools = {}
-for idx, grp in df[df['name'] == 'gw'].groupby('region size (bp)'):
+for idx, grp in df[(df['name'] == 'gw') & (df['threads'] == 1)].groupby('region size (bp)'):
     gw_times[idx] = grp['time (s)'].mean()
     gw_mem[idx] = grp['RSS'].mean()
-for idx, grp in df.groupby('region size (bp)'):
+for idx, grp in df.groupby(['region size (bp)', 'threads']):
     samtools[idx] = grp['samtools_count (s)'].mean()
 
 print(gw_times)
@@ -49,11 +50,13 @@ df['start_mem'] = [min_memory[k] for k in df['name']]
 df = df[df['region size (bp)'] != 2]
 
 df = df[~((df['name'] == 'bamsnap') & (df['region size (bp)'] > 200000)) ]
+df = df[df['total_time'] != -1]
+
 su = []
 for idx, grp in df.groupby(['name', 'region size (bp)', 'threads']):
     su.append({'name': idx[0] if idx[2] == 1 else f'{idx[0]} -t{idx[2]}',
                'region size (bp)': idx[1],
-               'samtools': samtools[idx[1]],
+               'samtools': samtools[(idx[1], idx[2])],
                'total_time': grp['total_time'].mean(),
                'start_time': grp['start_time'].mean(),
                'render': grp['total_time'].mean() - grp['start_time'].mean(),
@@ -75,10 +78,11 @@ df2 = df2[['name', 'region size (bp)', 'samtools', 'total_time', 'relative_time'
 order = {'gw': 0, 'gw -t4': 0.5, 'igv': 1, 'igv -t4': 1.5, 'jb2export': 2, 'samplot': 3, 'wally': 4, 'bamsnap': 5, 'genomeview': 6}
 df2['srt'] = [order[k] for k in df2['name']]
 df2.sort_values(['srt', 'name'], inplace=True)
+del df2['srt']
 
-print(df2.round(3).to_markdown())
+print(df2.round(3).to_markdown(index=False))
 with open(f'benchmark.{tag}.md', 'w') as b:
-    b.write(df2.round(3).to_markdown())
+    b.write(df2.round(3).to_markdown(index=False))
 
 
 custom_params = {"axes.spines.right": False, "axes.spines.top": False}
