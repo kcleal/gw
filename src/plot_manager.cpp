@@ -874,34 +874,34 @@ namespace Manager {
             pop_paint.setStyle(SkPaint::kStrokeAndFill_Style);
             pop_paint.setAntiAlias(true);
             pop_paint.setAlpha(255);
-            rect.setXYWH(0, half_h - 55, 60, 110);
-            canvas->drawRoundRect(rect, 10, 10, pop_paint);
+            rect.setXYWH(0, half_h - 22.5 * monitorScale, 30 * monitorScale, 55 * monitorScale);
+            canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, pop_paint);
 
             SkPaint cog_paint = opts.theme.lcBright;
             cog_paint.setAntiAlias(true);
             cog_paint.setStrokeWidth(6);
             cog_paint.setStyle(SkPaint::kStrokeAndFill_Style);
-            canvas->drawCircle(30, half_h - 25, 10, cog_paint);
+            canvas->drawCircle(15 * monitorScale, half_h - 12.5 * monitorScale, 5 * monitorScale, cog_paint);
 
             SkPath path;
-            path.moveTo(30, half_h - 45);
-            path.lineTo(30, half_h - 5);
+            path.moveTo(15 * monitorScale, half_h - (22.5 * monitorScale));
+            path.lineTo(15 * monitorScale, half_h - (2.5 * monitorScale));
             canvas->drawPath(path, cog_paint);
-            path.moveTo(10, half_h - 25);
-            path.lineTo(50, half_h - 25);
+            path.moveTo(5 * monitorScale, half_h - 12.5 * monitorScale);
+            path.lineTo((25 * monitorScale), half_h - 12.5 * monitorScale);
             canvas->drawPath(path, cog_paint);
-            path.moveTo(16, half_h - 39);
-            path.lineTo(44, half_h - 11);
+            path.moveTo(8 * monitorScale, half_h - (19.5 * monitorScale));
+            path.lineTo(22 * monitorScale, half_h - (5.5 * monitorScale));
             canvas->drawPath(path, cog_paint);
-            path.moveTo(16, half_h - 11);
-            path.lineTo(44, half_h - 39);
+            path.moveTo(8 * monitorScale, half_h - (5.5 * monitorScale));
+            path.lineTo(22 * monitorScale, half_h - (19.5 * monitorScale));
             canvas->drawPath(path, cog_paint);
-            canvas->drawCircle(30, half_h - 25, 5, pop_paint);
+            canvas->drawCircle(15 * monitorScale, half_h - 12.5 * monitorScale, 2.5 * monitorScale, pop_paint);
 
-            rect.setXYWH(15, half_h + 15, 30, 30);
+            rect.setXYWH(7.5 * monitorScale, half_h + 7.5 * monitorScale, 15 * monitorScale, 15 * monitorScale);
             cog_paint.setStrokeWidth(monitorScale);
             cog_paint.setStyle(SkPaint::kStroke_Style);
-            canvas->drawRoundRect(rect, 7, 7, cog_paint);
+            canvas->drawRoundRect(rect, 3.5 * monitorScale, 3.5 * monitorScale, cog_paint);
 
         } else if (drawLine && mode != SETTINGS) {
             SkPath path;

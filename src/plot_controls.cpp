@@ -1780,14 +1780,15 @@ namespace Manager {
                 std::vector<std::string> labels = Utils::split(opts.labels, ',');
                 setLabelChoices(labels);
                 mouseOverTileIndex = 0;
-                bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
+                bboxes = Utils::imageBoundingBoxes(opts.number, (float) fb_width, (float) fb_height);
                 imageCache.clear();
                 addVariantTrack(pth, opts.start_index, false, false);
-                variantFileSelection = (int)variantTracks.size() - 1;
+                variantFileSelection = (int) variantTracks.size() - 1;
                 currentVarTrack = &variantTracks[variantFileSelection];
                 currentVarTrack->blockStart = 0;
                 mode = Manager::Show::TILED;
-                std::cout << termcolor::magenta << "\nFile        " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
+                std::cout << termcolor::magenta << "\nFile        " << termcolor::reset
+                          << variantTracks[variantFileSelection].path << "\n";
             } else {
                 tracks.push_back(HGW::GwTrack());
                 try {
