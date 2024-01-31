@@ -731,11 +731,10 @@ namespace Manager {
                 }
                 canvasR->drawPaint(opts.theme.bgPaint);
 
-                if (cl.regionLen >= opts.low_memory) {  // low memory mode will be used
+                if (cl.regionLen >= opts.low_memory && !bams.empty()) {  // low memory mode will be used
                     cl.clear();
 //                    HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], &regions[cl.regionIdx], (bool) opts.max_coverage,
 //                                  filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pointSlop, textDrop, pH);
-
                     if (opts.threads == 1) {
                         HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], &regions[cl.regionIdx], (bool) opts.max_coverage,
                                       filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pointSlop, textDrop, pH);
@@ -1004,6 +1003,7 @@ namespace Manager {
         }
         bool current_view_is_images = (!variantTracks.empty() && variantTracks[variantFileSelection].type == HGW::TrackType::IMAGES);
         if (bams.empty() && !current_view_is_images) {
+            float trackBoundary = fb_height - totalTabixY - refSpace;
             std::string dd_msg = "Drag-and-drop bam or cram files here";
             float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
             float txt_start = ((float)fb_width / 2) - (msg_width / 2);
@@ -1012,7 +1012,9 @@ namespace Manager {
             tcMenu.setARGB(255, 100, 100, 100);
             tcMenu.setStyle(SkPaint::kStrokeAndFill_Style);
             tcMenu.setAntiAlias(true);
-            canvas->drawTextBlob(blob.get(), txt_start, (float)fb_height / 2, tcMenu);
+            if (trackBoundary > (float)fb_height / 2) {
+                canvas->drawTextBlob(blob.get(), txt_start, (float)fb_height / 2, tcMenu);
+            }
         } else if (regions.empty() && !current_view_is_images) {
             std::string dd_msg = "Type e.g. '/chr1' to add a region, or drag-and-drop a vcf file here";
             float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);

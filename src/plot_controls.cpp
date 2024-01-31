@@ -3,6 +3,7 @@
 //
 #include <array>
 #include <cmath>
+#include <cstdlib>
 #include <iomanip>
 #include <iterator>
 #include <cstdlib>
@@ -1499,7 +1500,9 @@ namespace Manager {
                 Utils::Region &region = regions[regionSelection];
                 if (key == opts.scroll_right) {
                     int shift = (int)(((float)region.end - (float)region.start) * opts.scroll_speed);
-                    delete region.refSeq;
+                    if (region.refSeq != nullptr) {
+                        delete region.refSeq;
+                    }
                     region.start = region.start + shift;
                     region.end = region.end + shift;
                     fetchRefSeq(region);
@@ -1519,6 +1522,9 @@ namespace Manager {
                                     processed = false;
                                     redraw = true;
                                 }
+                            } else {
+                                processed = false;
+                                redraw = true;
                             }
                         }
                     }
@@ -1530,7 +1536,9 @@ namespace Manager {
                     if (shift == 0) {
                         return;
                     }
-                    delete region.refSeq;
+                    if (region.refSeq != nullptr) {
+                        delete region.refSeq;
+                    }
                     region.start = region.start - shift;
                     region.end = region.end - shift;
                     fetchRefSeq(region);
@@ -1551,6 +1559,9 @@ namespace Manager {
                                     processed = false;
                                     redraw = true;
                                 }
+                            } else {
+                                processed = false;
+                                redraw = true;
                             }
                         }
                     }
@@ -1562,7 +1573,9 @@ namespace Manager {
                     if (shift == 0) {
                         return;
                     }
-                    delete region.refSeq;
+                    if (region.refSeq != nullptr) {
+                        delete region.refSeq;
+                    }
                     region.start = region.start - shift_left;
                     region.end = region.end + shift;
                     fetchRefSeq(region);
@@ -1599,6 +1612,9 @@ namespace Manager {
                                     processed = false;
                                     redraw = true;
                                 }
+                            } else {
+                                processed = false;
+                                redraw = true;
                             }
                         }
                     }
@@ -1610,13 +1626,15 @@ namespace Manager {
                 } else if (key == opts.zoom_in) {
                     if (region.end - region.start > 50) {
                         int shift = (int)(((float)region.end - (float)region.start) * opts.scroll_speed);
-                        delete region.refSeq;
+                        if (region.refSeq != nullptr) {
+                            delete region.refSeq;
+                        }
                         region.start = region.start + shift;
                         region.end = region.end - shift;
                         fetchRefSeq(region);
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
-                                if (cl.regionLen >= opts.low_memory && region.end - region.start < opts.low_memory) {
+                                if (!bams.empty() && cl.regionLen >= opts.low_memory && region.end - region.start < opts.low_memory) {
                                     cl.clear();
                                     HGW::collectReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts.threads, &region, (bool)opts.max_coverage, filters, pool);
                                     int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, &region, false);
@@ -1634,8 +1652,11 @@ namespace Manager {
                                 cl.collection_processed = false;
                             }
                         }
-                        processed = true;
-                        redraw = true;
+                        if (bams.empty()) {
+                            processed = false;
+                            redraw = true;
+                        }
+
                         if (opts.link_op != 0) {
                             HGW::refreshLinked(collections, opts, &samMaxY);
                         }
@@ -2058,7 +2079,7 @@ namespace Manager {
                 int slop = 0;
                 if (!opts.tlen_yscale) {
                     level = (int)((yW - (float) cl.yOffset) / yScaling);
-                    if (level < 0) {  // print coverage info (mousePos functions already prints out cov info to console)
+                    if (level < 0) {  // print coverage info (mouse Pos functions already prints out cov info to console)
                         std::cout << std::endl;
                         return;
                     }
@@ -2436,7 +2457,7 @@ namespace Manager {
                     return;
                 }
                 if (!tracks.empty()) {
-                    float trackBoundary = totalCovY + refSpace + (trackY*(float)headers.size());
+                    float trackBoundary = fb_height - totalTabixY - refSpace;
                     if (tabBorderPress || (std::fabs(yPos_fb - trackBoundary) < 5 * monitorScale && xDrag < 5 && yDrag < 5)) {
                         if (yPos_fb <= refSpace + totalCovY + 10) {
                             return;

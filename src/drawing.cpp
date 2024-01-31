@@ -1359,13 +1359,6 @@ namespace Drawing {
                     faceColour = opts.theme.fcA;
                     faceColour.setAlpha(150);
                 }
-//            } else if (vartype == "TRA" || vartype == "BND") {
-//                if (addArc) {
-//                    arcColour = opts.theme.fcTra;
-//                } else {
-//                    faceColour = opts.theme.fcTra;
-//                    faceColour.setAlpha(150);
-//                }
             } else {
                 addArc = false;
             }
@@ -1411,7 +1404,6 @@ namespace Drawing {
             SkPath arc;
             arc.moveTo(x + padX, y + padY);
             arc.lineTo(x + padX, y + h + padY);
-
             arc.moveTo(virtual_left, leftY);
             if (closeRight || closeLeft) {
                 arcTop = y + h + padY + h;
@@ -1436,6 +1428,7 @@ namespace Drawing {
             path.lineTo(x + padX, y + h + padY);
             canvas->drawPath(path, opts.theme.lcLightJoins);
         }
+
         if (!add_text) {
             return;
         }
@@ -1462,9 +1455,6 @@ namespace Drawing {
         }
         *labelsEnd = leftPoint + estimatedTextWidth;
         rect.fLeft = leftPoint;
-//        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(rid.c_str(), fonts.overlay);
-//        canvas->drawTextBlob(blob, rect.left(), rect.bottom() + fonts.overlayHeight, opts.theme.tcDel);
-
         text.emplace_back() = {SkTextBlob::MakeFromString(rid.c_str(), fonts.overlay),
                                rect.left(),
                                rect.bottom() + fonts.overlayHeight};
@@ -1477,7 +1467,7 @@ namespace Drawing {
                               float gap, Utils::TrackBlock &trk, bool any_text, const Utils::Region &rgn, SkRect &rect,
                               SkPath &path, SkPath &path2, float padX, float padY, float stepX, float stepY,
                               float y, float h, float h2, float h4, float gap2, float xScaling, float t, int nLevels,
-                              float *labelsEnd, std::vector<TextItem> &text) {
+                              float *labelsEnd, std::vector<TextItem> &text, bool vline) {
 
         int target = (int) trk.s.size();
         int stranded = trk.strand;
@@ -1496,7 +1486,7 @@ namespace Drawing {
             if (e < rgn.start) {
                 continue;
             }
-            bool add_line = (i == 0);  // vertical line at start of interval
+            bool add_line = (i == 0 && vline);  // vertical line at start of interval
             uint8_t thickness = trk.drawThickness[i];
 
             if (thickness && s < rgn.end && e > rgn.start) {
@@ -1585,6 +1575,7 @@ namespace Drawing {
 
         for (auto &rgn: regions) {
             bool any_text = true;
+            bool add_line = ((rgn.end - rgn.start) < opts.soft_clip_threshold);
             float xScaling = (stepX - gap2) / (float) (rgn.end - rgn.start);
             float padY = gap;
             int trackIdx = 0;
@@ -1646,19 +1637,18 @@ namespace Drawing {
                                              fonts, gap,
                                              f, any_text, rgn, rect, path, path2, padX, padY_track, stepX, step_track,
                                              y, h, h2, h4, gap2,
-                                             xScaling, t, nLevels, fLevelEnd, text);
+                                             xScaling, t, nLevels, fLevelEnd, text, add_line);
 
                     } else {
                         drawTrackBlock(f.start, f.end, f.name, rgn, rect, path, padX, padY_track, y, h, stepX, stepY,
                                        gap, gap2,
-                                       xScaling, t, opts, canvas, fonts, any_text, true, true, false, fLevelEnd, f.vartype, monitorScale,
+                                       xScaling, t, opts, canvas, fonts, any_text, true, add_line, false, fLevelEnd, f.vartype, monitorScale,
                                        text, opts.sv_arcs);
                     }
                 }
                 trackIdx += 1;
                 padY += stepY;
-
-                if (fonts.overlayHeight * nLevels * 2 < stepY) {
+                if (fonts.overlayHeight * nLevels * 2 < stepY && features.size() < 500) {
                     for (const auto&t: text) {
                         canvas->drawTextBlob(t.text, t.x, t.y, opts.theme.tcDel);
                     }
