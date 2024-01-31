@@ -10,7 +10,9 @@ nav_order: 2
 For best performance, install GW as a desktop application on (Intel debian systems only), or build from source.
 Use the installer below, or head over to the GitHub [Releases page](https://github.com/kcleal/gw/releases).
 
-|  [GW Intel x86_64 debian installer](https://github.com/kcleal/gw/releases/download/v0.9.2/gw_0.9.2_amd64.deb)
+
+[GW Intel x86_64 debian installer](https://github.com/kcleal/gw/releases/download/v0.9.3/gw_0.9.3_amd64.deb)
+
 
 
 GW is also available for Linux x86_64 systems as a command-line tool and can be installed using Conda.

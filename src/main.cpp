@@ -78,8 +78,8 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> img_themes = { "igv", "dark", "slate" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
-    // note to developer - update version in workflows/main.yml, menu.cpp and deps/gw.desktop
-    argparse::ArgumentParser program("gw", "0.9.2");
+    // note to developer - update version in workflows/main.yml, menu.cpp and deps/gw.desktop, and installers .md in docs
+    argparse::ArgumentParser program("gw", "0.9.3");
 
     program.add_argument("genome")
             .default_value(std::string{""}).append()
