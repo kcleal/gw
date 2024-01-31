@@ -12,6 +12,7 @@ installers below, or head over to the GitHub [Releases page](https://github.com/
 
 
 [GW Intel x86_64 mac dmg installer](https://github.com/kcleal/gw/releases/download/v0.9.3/gw_macos_intel.dmg)
+
 [GW Apple arm64 mac dmg installer](https://github.com/kcleal/gw/releases/download/v0.9.3/gw-macos-arm.dmg)
 
 
