@@ -1784,7 +1784,6 @@ namespace Manager {
 
         for (int i=0; i < count; ++ i) {
             std::string pth = *paths;
-            std::cerr << " load vcf as track " << opts.vcf_as_tracks << " " << (!opts.vcf_as_tracks && (Utils::endsWith(pth, ".vcf.gz") || Utils::endsWith(pth, ".vcf") || Utils::endsWith(pth, ".bcf"))) << std::endl;
             if (Utils::endsWith(pth, ".bam") || Utils::endsWith(pth, ".cram")) {
                 good = true;
                 std::cout << termcolor::magenta << "\nAlignments  " << termcolor::reset << pth << "\n";

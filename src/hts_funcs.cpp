@@ -1261,9 +1261,8 @@ namespace HGW {
                 auto got_line = (bool)getline(*fpu, tp);
                 if (!got_line) {
                     done = true;
-                    return;
+                    break;
                 }
-//            while (getline(*fpu, tp)) {
                 if (tp[0] == '#') {
                     continue;
                 }
