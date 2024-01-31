@@ -40,7 +40,7 @@ namespace Term {
 
 	void printCoverage(int pos, Segs::ReadCollection &cl);
 
-	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver, int targetLevel, int trackIdx);
+	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver, int targetLevel, int trackIdx, std::string &target_name, int *target_pos);
 
     void printVariantFileInfo(Utils::Label *label, int index);
 

@@ -109,6 +109,7 @@ namespace Manager {
                     tracks.push_back(HGW::GwTrack());
                     tracks.back().genome_tag = opts.genome_tag;
                     tracks.back().open(trk_item, true);
+                    tracks.back().variant_distance = &opts.variant_distance;
                 }
             }
         } else {
@@ -117,6 +118,7 @@ namespace Manager {
         for (const auto &tp: track_paths) {
             tracks.push_back(HGW::GwTrack());
             tracks.back().open(tp, true);
+            tracks.back().variant_distance = &opts.variant_distance;
         }
         samMaxY = 0;
         yScaling = 0;
@@ -132,6 +134,7 @@ namespace Manager {
         if (opts.threads > 1) {
             pool.reset(opts.threads);
         }
+        triggerClose = false;
     }
 
     GwPlot::~GwPlot() {
@@ -183,8 +186,9 @@ namespace Manager {
 //        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 //        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
 //        glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
-
-
+#ifndef __APPLE__
+        glfwWindowHint(GLFW_CONTEXT_CREATION_API , GLFW_EGL_CONTEXT_API);
+#endif
         window = glfwCreateWindow(width, height, "GW", NULL, NULL);
 
         if (!window) {
@@ -239,6 +243,14 @@ namespace Manager {
         }
         glfwMakeContextCurrent(window);
         setGlfwFrameBufferSize();
+
+        SkImageInfo info = SkImageInfo::MakeN32Premul(opts.dimensions.x * monitorScale, opts.dimensions.y * monitorScale);
+        size_t rowBytes = info.minRowBytes();
+        size_t size = info.computeByteSize(rowBytes);
+        pixelMemory.resize(size);
+        rasterSurface = SkSurface::MakeRasterDirect(
+                info, &pixelMemory[0], rowBytes);
+
     }
 
     void GwPlot::initBack(int width, int height) {
@@ -267,7 +279,9 @@ namespace Manager {
 
     void GwPlot::fetchRefSeqs() {
         for (auto &rgn : regions) {
-            fetchRefSeq(rgn);
+            if (rgn.end - rgn.start < opts.snp_threshold) {
+                fetchRefSeq(rgn);
+            }
         }
     }
 
@@ -392,9 +406,10 @@ namespace Manager {
     int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay) {
         std::cerr << "Type ':help' or ':h' for more info\n";
 
-//        std::cout << "\e[3;0;0t" << std::endl;
         vCursor = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
         setGlfwFrameBufferSize();
+//        rasterSurface = SkSurface::MakeRasterN32Premul(opts.dimensions.x, opts.dimensions.y);
+
         fetchRefSeqs();
         opts.theme.setAlphas();
         GLFWwindow * wind = this->window;
@@ -403,14 +418,14 @@ namespace Manager {
         } else {
             mouseOverTileIndex = 0;
             bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
-
             std::cout << termcolor::magenta << "File    " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
 
         }
         bool wasResized = false;
+
         std::chrono::high_resolution_clock::time_point autoSaveTimer = std::chrono::high_resolution_clock::now();
         while (true) {
-            if (glfwWindowShouldClose(wind)) {
+            if (glfwWindowShouldClose(wind) || triggerClose) {
                 break;
             }
             glfwWaitEvents();
@@ -419,7 +434,12 @@ namespace Manager {
             }
             if (redraw) {
                 if (mode == Show::SINGLE) {
+//                    if (opts.low_mem) {
+//                        drawScreenNoBuffer(sSurface->getCanvas(),  sContext, sSurface);
+//                    } else {
                     drawScreen(sSurface->getCanvas(), sContext, sSurface);
+//                    }
+
                 } else if (mode == Show::TILED) {
                     drawTiles(sSurface->getCanvas(), sContext, sSurface);
                     printIndexInfo();
@@ -465,6 +485,14 @@ namespace Manager {
                     std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
                     std::terminate();
                 }
+
+                SkImageInfo info = SkImageInfo::MakeN32Premul(opts.dimensions.x * monitorScale, opts.dimensions.y * monitorScale);
+                size_t rowBytes = info.minRowBytes();
+                size_t size = info.computeByteSize(rowBytes);
+                pixelMemory.resize(size);
+                rasterSurface = SkSurface::MakeRasterDirect(
+                        info, &pixelMemory[0], rowBytes);
+
                 resizeTimer = std::chrono::high_resolution_clock::now();
 
             }
@@ -472,6 +500,7 @@ namespace Manager {
                 saveLabels();
                 autoSaveTimer = std::chrono::high_resolution_clock::now();
             }
+
         }
         saveLabels();
         if (wasResized) {
@@ -515,6 +544,8 @@ namespace Manager {
                     cl.levelsStart.clear();
                     cl.levelsEnd.clear();
                     cl.linked.clear();
+                    cl.skipDrawingReads = false;
+                    cl.skipDrawingCoverage = false;
                 }
             }
 
@@ -525,6 +556,9 @@ namespace Manager {
 
                 for (int j=0; j<(int)regions.size(); ++j) {
                     Utils::Region *reg = &regions[j];
+                    if (collections[idx].skipDrawingReads) {
+                        continue;
+                    }
                     collections[idx].bamIdx = i;
                     collections[idx].regionIdx = j;
                     collections[idx].region = &regions[j];
@@ -538,11 +572,16 @@ namespace Manager {
                             collections[idx].mmVector.clear();
                         }
                     }
-                    HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage, opts.low_mem, filters, pool);
-                    int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts, reg, false);
-                    if (maxY > samMaxY) {
-                        samMaxY = maxY;
+                    if (reg->end - reg->start < opts.low_memory) {
+                        HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage, filters, pool);
+                        int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts, reg, false);
+                        if (maxY > samMaxY) {
+                            samMaxY = maxY;
+                        }
+                    } else {
+                        samMaxY = opts.ylim;
                     }
+
                     idx += 1;
                 }
             }
@@ -607,7 +646,11 @@ namespace Manager {
         }
         if (nbams > 0) {
             trackY = (fbh - totalCovY - totalTabixY - refSpace - sliderSpace) / nbams;
-            yScaling = ((fbh - totalCovY - totalTabixY - refSpace - sliderSpace - (gap * nbams)) / (float)samMaxY) / nbams;
+
+            yScaling = ( (fbh - totalCovY - totalTabixY - refSpace - sliderSpace - (gap * nbams)) / (float)samMaxY) / nbams;
+            if (yScaling > 3 * monitorScale) {
+                yScaling = (int)yScaling;
+            }
             // try to scale to pixel boundary
 //            yScaling = (samMaxY < 80) ? (float)(int)yScaling : yScaling;
         } else {
@@ -622,46 +665,136 @@ namespace Manager {
             cl.xOffset = (regionWidth * (float)cl.regionIdx) + gap;
             cl.yOffset = (float)cl.bamIdx * bamHeight + covY + refSpace;
             cl.yPixels = trackY + covY;
+
+            cl.regionLen = cl.region->end - cl.region->start;
+            cl.regionPixels = cl.regionLen * cl.xScaling;
+
+            cl.plotSoftClipAsBlock = cl.regionLen > opts.soft_clip_threshold;
+            cl.plotPointedPolygons = cl.regionLen < 50000;
+            cl.drawEdges = cl.regionLen < opts.edge_highlights;
+        }
+
+        pointSlop = (tan(0.42) * (yScaling * 0.5));  // radians
+        textDrop = std::fmax(0, (yScaling - fonts.fontHeight) * 0.5);
+
+        pH = yScaling * 0.85;  // polygonHeight
+        if (opts.tlen_yscale) {
+            pH = trackY / (float) opts.ylim;
+            yScaling *= 0.95;
+        }
+        if (pH > 8) {  // scale to pixel boundary
+            pH = (float) (int) pH;
+        } else if (opts.tlen_yscale) {
+            pH = std::fmax(pH, 8);
         }
     }
 
     void GwPlot::drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
+
+//        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
+
+        SkCanvas *canvasR = rasterSurface->getCanvas();
+
         canvas->drawPaint(opts.theme.bgPaint);
+        canvasR->drawPaint(opts.theme.bgPaint);
+
         frameId += 1;
         setGlfwFrameBufferSize();
         if (regions.empty()) {
             setScaling();
+
         } else {
             processBam();
             setScaling();
-            Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
-            Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
-            Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
-            Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
-            Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
-            if (opts.max_coverage) {
-                Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
+
+            for (auto &cl: collections) {
+
+                canvasR->save();
+
+                // Copy some of the image from the last frame
+                if ((cl.skipDrawingCoverage || cl.skipDrawingReads) && !imageCacheQueue.empty()) {
+                    if (cl.skipDrawingCoverage) {
+                        canvasR->clipRect({cl.xOffset, cl.yOffset - covY, (float)cl.regionLen * cl.xScaling + cl.xOffset, cl.yOffset + covY}, false);
+                        canvasR->drawImage(imageCacheQueue.back().second, 0, 0);
+                        canvasR->restore();
+                        canvasR->save();
+                        canvasR->clipRect({cl.xOffset, cl.yOffset, (float)cl.regionLen * cl.xScaling + cl.xOffset, cl.yOffset + trackY}, false);
+                    } else {
+                        canvasR->clipRect({cl.xOffset, cl.yOffset - covY, (float)cl.regionLen * cl.xScaling + cl.xOffset, cl.yOffset + covY}, false);
+                        canvasR->drawImage(imageCacheQueue.back().second, 0, 0);
+                        canvasR->restore();
+                        canvasR->save();
+                        canvasR->clipRect({cl.xOffset, cl.yOffset - covY, (float)cl.regionLen * cl.xScaling + cl.xOffset, cl.yOffset + covY}, false);
+                    }
+                } else {  // whole frame
+                    canvasR->clipRect({cl.xOffset, cl.yOffset - covY, (float)cl.regionLen * cl.xScaling + cl.xOffset, cl.yOffset + trackY + covY}, false);
+                }
+                canvasR->drawPaint(opts.theme.bgPaint);
+
+                if (cl.regionLen >= opts.low_memory && !bams.empty()) {  // low memory mode will be used
+                    cl.clear();
+//                    HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], &regions[cl.regionIdx], (bool) opts.max_coverage,
+//                                  filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pointSlop, textDrop, pH);
+                    if (opts.threads == 1) {
+                        HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], &regions[cl.regionIdx], (bool) opts.max_coverage,
+                                      filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pointSlop, textDrop, pH);
+                    } else {
+                        HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
+                                              filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pool, pointSlop, textDrop, pH);
+                    }
+                } else {
+                    Drawing::drawCollection(opts, cl, canvasR, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+                }
+
+                canvasR->restore();
+
             }
+            if (opts.max_coverage) {
+                Drawing::drawCoverage(opts, collections, canvasR, fonts, covY, refSpace);
+            }
+            Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, refSpace, (float)regions.size(), gap);
+            Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
+            Drawing::drawTracks(opts, fb_width, fb_height, canvasR, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
+            Drawing::drawChromLocation(opts, collections, canvasR, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
+
         }
-        imageCacheQueue.emplace_back(frameId, sSurface->makeImageSnapshot());
+
+        imageCacheQueue.emplace_back(frameId, rasterSurface->makeImageSnapshot());
+        canvas->drawImage(imageCacheQueue.back().second, 0, 0);
+
         sContext->flush();
         glfwSwapBuffers(window);
         redraw = false;
+//        std::cerr << " time " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
 
     void GwPlot::drawScreenNoBuffer(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
+
+//        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
+
+        SkCanvas* canvasR = rasterSurface->getCanvas();
+
         canvas->drawPaint(opts.theme.bgPaint);
+        canvasR->drawPaint(opts.theme.bgPaint);
+
         frameId += 1;
-        setGlfwFrameBufferSize();
+//        setGlfwFrameBufferSize();
         if (regions.empty()) {
             setScaling();
         } else {
-            runDrawNoBuffer(canvas);
+//            runDrawNoBuffer(canvas, sContext);
+            runDrawNoBuffer(canvasR);
         }
-        imageCacheQueue.emplace_back(frameId, sSurface->makeImageSnapshot());
+//        imageCacheQueue.emplace_back(frameId, sSurface->makeImageSnapshot());
+        imageCacheQueue.emplace_back(frameId, rasterSurface->makeImageSnapshot());
+
+        canvas->drawImage(imageCacheQueue.back().second, 0, 0);
+
         sContext->flush();
         glfwSwapBuffers(window);
         redraw = false;
+
+//        std::cerr << " time nobuffer " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
 
     void GwPlot::drawOverlay(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface) {
@@ -740,34 +873,34 @@ namespace Manager {
             pop_paint.setStyle(SkPaint::kStrokeAndFill_Style);
             pop_paint.setAntiAlias(true);
             pop_paint.setAlpha(255);
-            rect.setXYWH(0, half_h - 55, 60, 110);
-            canvas->drawRoundRect(rect, 10, 10, pop_paint);
+            rect.setXYWH(0, half_h - 22.5 * monitorScale, 30 * monitorScale, 55 * monitorScale);
+            canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, pop_paint);
 
             SkPaint cog_paint = opts.theme.lcBright;
             cog_paint.setAntiAlias(true);
             cog_paint.setStrokeWidth(6);
             cog_paint.setStyle(SkPaint::kStrokeAndFill_Style);
-            canvas->drawCircle(30, half_h - 25, 10, cog_paint);
+            canvas->drawCircle(15 * monitorScale, half_h - 12.5 * monitorScale, 5 * monitorScale, cog_paint);
 
             SkPath path;
-            path.moveTo(30, half_h - 45);
-            path.lineTo(30, half_h - 5);
+            path.moveTo(15 * monitorScale, half_h - (22.5 * monitorScale));
+            path.lineTo(15 * monitorScale, half_h - (2.5 * monitorScale));
             canvas->drawPath(path, cog_paint);
-            path.moveTo(10, half_h - 25);
-            path.lineTo(50, half_h - 25);
+            path.moveTo(5 * monitorScale, half_h - 12.5 * monitorScale);
+            path.lineTo((25 * monitorScale), half_h - 12.5 * monitorScale);
             canvas->drawPath(path, cog_paint);
-            path.moveTo(16, half_h - 39);
-            path.lineTo(44, half_h - 11);
+            path.moveTo(8 * monitorScale, half_h - (19.5 * monitorScale));
+            path.lineTo(22 * monitorScale, half_h - (5.5 * monitorScale));
             canvas->drawPath(path, cog_paint);
-            path.moveTo(16, half_h - 11);
-            path.lineTo(44, half_h - 39);
+            path.moveTo(8 * monitorScale, half_h - (5.5 * monitorScale));
+            path.lineTo(22 * monitorScale, half_h - (19.5 * monitorScale));
             canvas->drawPath(path, cog_paint);
-            canvas->drawCircle(30, half_h - 25, 5, pop_paint);
+            canvas->drawCircle(15 * monitorScale, half_h - 12.5 * monitorScale, 2.5 * monitorScale, pop_paint);
 
-            rect.setXYWH(15, half_h + 15, 30, 30);
+            rect.setXYWH(7.5 * monitorScale, half_h + 7.5 * monitorScale, 15 * monitorScale, 15 * monitorScale);
             cog_paint.setStrokeWidth(monitorScale);
             cog_paint.setStyle(SkPaint::kStroke_Style);
-            canvas->drawRoundRect(rect, 7, 7, cog_paint);
+            canvas->drawRoundRect(rect, 3.5 * monitorScale, 3.5 * monitorScale, cog_paint);
 
         } else if (drawLine && mode != SETTINGS) {
             SkPath path;
@@ -870,6 +1003,7 @@ namespace Manager {
         }
         bool current_view_is_images = (!variantTracks.empty() && variantTracks[variantFileSelection].type == HGW::TrackType::IMAGES);
         if (bams.empty() && !current_view_is_images) {
+            float trackBoundary = fb_height - totalTabixY - refSpace;
             std::string dd_msg = "Drag-and-drop bam or cram files here";
             float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
             float txt_start = ((float)fb_width / 2) - (msg_width / 2);
@@ -878,7 +1012,9 @@ namespace Manager {
             tcMenu.setARGB(255, 100, 100, 100);
             tcMenu.setStyle(SkPaint::kStrokeAndFill_Style);
             tcMenu.setAntiAlias(true);
-            canvas->drawTextBlob(blob.get(), txt_start, (float)fb_height / 2, tcMenu);
+            if (trackBoundary > (float)fb_height / 2) {
+                canvas->drawTextBlob(blob.get(), txt_start, (float)fb_height / 2, tcMenu);
+            }
         } else if (regions.empty() && !current_view_is_images) {
             std::string dd_msg = "Type e.g. '/chr1' to add a region, or drag-and-drop a vcf file here";
             float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
@@ -1031,16 +1167,21 @@ namespace Manager {
         processBam();
         setScaling();
         canvas->drawPaint(opts.theme.bgPaint);
+        for (auto &cl: collections) {
+            Drawing::drawCollection(opts, cl, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+        }
         if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
-        Drawing::drawBams(opts, collections, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
-        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
+        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
     }
 
     void GwPlot::runDrawNoBuffer(SkCanvas *canvas) {
+
+//        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
+
         if (bams.empty()) {
             return;
         }
@@ -1056,6 +1197,9 @@ namespace Manager {
                 Utils::Region *reg = &regions[j];
                 Segs::ReadCollection &col = collections[idx];
                 col.bamIdx = i;
+                if (!col.levelsStart.empty()) {
+                    col.clear();
+                }
                 col.regionIdx = j;
                 col.region = reg;
                 if (opts.max_coverage) {
@@ -1082,11 +1226,11 @@ namespace Manager {
             for (int j=0; j<(int)regions.size(); ++j) {
                 Utils::Region *reg = &regions[j];
                 if (opts.threads == 1) {
-                    HGW::iterDraw(collections, idx, b, hdr_ptr, index, reg, (bool) opts.max_coverage,
-                                  opts.low_mem, filters, opts, canvas, trackY, yScaling, fonts, refSpace);
+                    HGW::iterDraw(collections[idx], b, hdr_ptr, index, reg, (bool) opts.max_coverage,
+                                  filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop, textDrop, pH);
                 } else {
-                    HGW::iterDrawParallel(collections, idx, b, hdr_ptr, index, opts.threads, reg, (bool) opts.max_coverage,
-                                  opts.low_mem, filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool);
+                    HGW::iterDrawParallel(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool) opts.max_coverage,
+                                  filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool, pointSlop, textDrop, pH);
                 }
                 idx += 1;
             }
@@ -1094,9 +1238,13 @@ namespace Manager {
         if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
+
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
-        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap);
+        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
+        Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
+
+//        std::cerr << " time runDrawNoBuffer " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
 
     void imageToPng(sk_sp<SkImage> &img, std::filesystem::path &path) {

@@ -28,6 +28,8 @@ namespace Parse {
         opMap["abs-tlen"] = ABS_TLEN;
         opMap["rname"] = RNAME;
         opMap["rnext"] = RNEXT;
+        opMap["tid"] = TID;
+        opMap["mid"] = MID;
         opMap["pos"] = POS;
         opMap["ref-end"] = REF_END;
         opMap["pnext"] = PNEXT;
@@ -82,8 +84,15 @@ namespace Parse {
         opMap["read2"] = READ2;
         opMap["secondary"] = SECONDARY;
         opMap["qcfail"] = QCFAIL;
-        opMap["dup"] = DUP;
+        opMap["duplicate"] = FLAG_DUPLICATE;
         opMap["supplementary"] = SUPPLEMENTARY;
+
+        opMap["del"] = Property::DEL;
+        opMap["inv_f"] = Property::INV_F;
+        opMap["inv_r"] = Property::INV_R;
+        opMap["dup"] = Property::DUP;
+        opMap["tra"] = Property::TRA;
+        opMap["pattern"] = Property::PATTERN;
 
         permit[MAPQ] = numeric_like;
         permit[FLAG] = "&";
@@ -96,6 +105,8 @@ namespace Parse {
         permit[PNEXT] = numeric_like;
         permit[RNAME] = string_like;
         permit[RNEXT] = string_like;
+        permit[TID] = numeric_like;
+        permit[MID] = numeric_like;
         permit[SEQ] = string_like;
         permit[SEQ_LEN] = numeric_like;
         permit[CIGAR] = string_like;
@@ -120,6 +131,9 @@ namespace Parse {
         permit[TC] = numeric_like;
         permit[UQ] = numeric_like;
         permit[AS] = numeric_like;
+
+        permit[PATTERN] = string_like;
+
     }
 
     int parse_indexing(std::string &s, int nBams, int nRegions, std::vector< std::vector<int> > &v) {
@@ -240,8 +254,17 @@ namespace Parse {
             token = std::regex_replace(s, std::regex("^ +| +$|( ) +"), "$1");
             auto output = Utils::split(token, ' ');
             if (output.size() != 3) {
-                std::cerr << "Expression not understood, length 3 required: " << token << std::endl;
-                return -1;
+                if (output.size() == 1) {
+                    if (output[0].at(0) != '~') {
+                        output = {"flag", "&", output[0]};
+                    } else {
+                        output[0].erase(0, 1);
+                        output = {"~flag", "&", output[0]};
+                    }
+                } else {
+                    std::cerr << "Expression not understood, need three components as {property} {operator} {value}, or a named value for flag. Found: " << token << std::endl;
+                    return -1;
+                }
             }
             allTokens.push_back(output);
 
@@ -252,19 +275,38 @@ namespace Parse {
                 token = std::regex_replace(token, std::regex("^ +| +$|( ) +"), "$1");
                 auto output = Utils::split(token, ' ');
                 if (output.size() != 3) {
-                    std::cerr << "Expression not understood, length 3 required: " << token << std::endl;
-                    return -1;
+                    if (output.size() == 1) {
+                        if (output[0].at(0) != '~') {
+                            output = {"flag", "&", output[0]};
+                        } else {
+                            output[0].erase(0, 1);
+                            output = {"~flag", "&", output[0]};
+                        }
+                    } else {
+                        std::cerr << "Expression not understood, need three components as {property} {operator} {value}, or a named value for flag. Found: " << token << std::endl;
+                        return -1;
+                    }
                 }
                 allTokens.push_back(output);
                 start = end + delim.length();
                 end = s.find(delim, start);
             }
+
             token = s.substr(start, end - start);
             token = std::regex_replace(token, std::regex("^ +| +$|( ) +"), "$1");
             auto output = Utils::split(token, ' ');
             if (output.size() != 3) {
-                std::cerr << "Expression not understood, length 3 required: " << token << std::endl;
-                return -1;
+                if (output.size() == 1) {
+                    if (output[0].at(0) != '~') {
+                        output = {"flag", "&", output[0]};
+                    } else {
+                        output[0].erase(0, 1);
+                        output = {"~flag", "&", output[0]};
+                    }
+                } else {
+                    std::cerr << "Expression not understood, need three components as {property} {operator} {value}, or a named value for flag. Found: " << token << std::endl;
+                    return -1;
+                }
             }
             allTokens.push_back(output);
 
@@ -303,8 +345,45 @@ namespace Parse {
             try {
                 e.ival = std::stoi(output.back());
             } catch (...) {
-                std::cerr << "Right-hand side operation not an integer: " << output[2] << std::endl;
-                return -1;
+                if (output.back() == "del") {
+                    e.ival = Segs::Pattern::DEL;
+                } else if (output.back() == "inv_f") {
+                    e.ival = Segs::Pattern::INV_F;
+                } else if (output.back() == "inv_r") {
+                    e.ival = Segs::Pattern::INV_R;
+                } else if (output.back() == "dup") {
+                    e.ival = Segs::Pattern::DUP;
+                } else if (output.back() == "tra") {
+                    e.ival = Segs::Pattern::TRA;
+                } else if (output.back() == "paired") {
+                    e.ival = Property::PAIRED;
+                } else if (output.back() == "proper-pair") {
+                    e.ival = Property::PROPER_PAIR;
+                } else if (output.back() == "unmapped") {
+                    e.ival = Property::UNMAP;
+                } else if (output.back() == "munmap") {
+                    e.ival = Property::MUNMAP;
+                } else if (output.back() == "reverse") {
+                    e.ival = Property::REVERSE;
+                } else if (output.back() == "mreverse") {
+                    e.ival = Property::MREVERSE;
+                } else if (output.back() == "read1") {
+                    e.ival = Property::READ1;
+                } else if (output.back() == "read2") {
+                    e.ival = Property::READ2;
+                } else if (output.back() == "secondary") {
+                    e.ival = Property::SECONDARY;
+                } else if (output.back() == "qcfail") {
+                    e.ival = Property::QCFAIL;
+                } else if (output.back() == "duplicate") {
+                    e.ival = Property::FLAG_DUPLICATE;
+                } else if (output.back() == "supplementary") {
+                    e.ival = Property::SUPPLEMENTARY;
+                } else {
+                    std::cerr << "Right-hand side value must be an integer or named-value: " << output[2] << std::endl;
+                    std::cerr << "Named values can be one of: paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary, qcfail, dup, supplementary\n";
+                    return -1;
+                }
             }
         } else if (lhs >= 4000) {
             e.property = lhs;
@@ -313,37 +392,6 @@ namespace Parse {
         } else {
             std::cerr << "Left-hand side operation not available: " << output[0] << std::endl; return -1;
         }
-
-//        if (lhs == MAPQ || lhs == SEQ_LEN || lhs == TLEN || lhs == ABS_TLEN) {
-//            e.property = lhs;
-//            e.op = mid;
-//            try {
-//                e.ival = std::stoi(output.back());
-//            } catch (...) {
-//                std::cerr << "Right-hand side operation not an integer: " << output[2] << std::endl;
-//                return -1;
-//            }
-//        } else if (lhs == FLAG || lhs == NFLAG) {
-//            e.property = lhs;
-//            e.op = mid;
-//            try {
-//                e.ival = std::stoi(output.back());
-//            } catch (...) {
-//                if (opMap.contains(output.back())) {
-//                    e.ival = opMap[output.back()];
-//                } else {
-//                    std::cerr << "Right-hand side operation not understood: " << output[2] << std::endl;
-//                    return -1;
-//                }
-//            }
-//        } else if (lhs == SEQ || lhs == QNAME || lhs == RNEXT) {
-//            e.property = lhs;
-//            e.op = mid;
-//            e.sval = output.back();
-//        } else {
-//            std::cerr << "Left-hand side operation not available: " << output[0] << std::endl; return -1;
-//        }
-
         evaluations.push_back(e);
         return 1;
     }
@@ -459,6 +507,9 @@ namespace Parse {
                 bool this_result = false;
                 const char *char_ptr;
                 switch (e.property) {
+                    case PATTERN:
+                        int_val = aln.orient_pattern;
+                        break;
                     case MAPQ:
                         int_val = aln.delegate->core.qual;
                         break;
@@ -495,6 +546,12 @@ namespace Parse {
                     case RNEXT:
                         char_ptr = sam_hdr_tid2name(hdr, aln.delegate->core.mtid);
                         str_val = char_ptr;
+                        break;
+                    case TID:
+                        int_val = aln.delegate->core.tid;
+                        break;
+                    case MID:
+                        int_val = aln.delegate->core.mtid;
                         break;
                     case RG:
                         getStrTag("RG", str_val, aln);

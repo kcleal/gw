@@ -116,6 +116,8 @@ namespace Manager {
         GLFWwindow* window;
         GLFWwindow* backWindow;
 
+        sk_sp<SkSurface> rasterSurface;
+
         Show mode;
         Show last_mode;
 
@@ -186,11 +188,14 @@ namespace Manager {
         bool resizeTriggered;
         bool regionSelectionTriggered;
         bool textFromSettings;
+        bool triggerClose;
         std::chrono::high_resolution_clock::time_point resizeTimer, regionTimer;
 
         std::string inputText;
         std::string target_qname;
         std::string cursorGenomePos;
+
+        int target_pos;
 
         bool captureText, shiftPress, ctrlPress, processText;
         bool tabBorderPress;
@@ -200,9 +205,15 @@ namespace Manager {
 
         float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace, sliderSpace;
 
+        float pointSlop, textDrop, pH;
+
         double xDrag, xOri, lastX, yDrag, yOri, lastY;
 
         float yScaling;
+
+        std::vector<char> pixelMemory;
+
+//        std::vector<std::vector<char>> extraPixelArrays;  // one for each thread
 
         GLFWcursor* vCursor;
         GLFWcursor* normalCursor;

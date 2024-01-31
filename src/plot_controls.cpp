@@ -3,6 +3,7 @@
 //
 #include <array>
 #include <cmath>
+#include <cstdlib>
 #include <iomanip>
 #include <iterator>
 #include <cstdlib>
@@ -420,6 +421,8 @@ namespace Manager {
             for (auto &a: cl.readQueue) {
                 if (bam_get_qname(a.delegate) == target_qname) {
                     a.edge_type = 4;
+                    cl.skipDrawingReads = false;
+                    cl.skipDrawingCoverage = false;
                 }
             }
         }
@@ -456,7 +459,11 @@ namespace Manager {
         processText = false; // all command text will be processed below
 
         if (inputText == "q" || inputText == "quit") {
-            throw CloseException();
+            triggerClose = true;
+            redraw = false;
+            processed = true;
+            return false;
+//            throw CloseException();
         } else if (inputText == ":" || inputText == "/") {
             inputText = "";
             return true;
@@ -477,6 +484,7 @@ namespace Manager {
             valid = true;
             imageCache.clear();
             filters.clear();
+            target_qname = "";
             for (auto &cl: collections) { cl.vScroll = 0; }
         } else if (inputText == "link" || inputText == "link all") {
             opts.link_op = 2;
@@ -527,7 +535,6 @@ namespace Manager {
         } else if (Utils::startsWith(inputText, "filter ")) {
             std::string str = inputText;
             str.erase(0, 7);
-            filters.clear();
             for (auto &s: Utils::split(str, ';')) {
                 Parse::Parser p = Parse::Parser();
                 int rr = p.set_filter(s, (int)bams.size(), (int)regions.size());
@@ -551,9 +558,13 @@ namespace Manager {
             processed = true;
             inputText = "";
             return true;
-        } else if (inputText =="tags"){
+        } else if (Utils::startsWith(inputText, "tags")) {
             valid = true;
             if (!selectedAlign.empty()) {
+                std::string str = inputText;
+                str.erase(0, 4);
+                std::vector<std::string> splitTags = Utils::split(str, delim);
+
                 std::vector<std::string> split = Utils::split(selectedAlign, '\t');
                 if (split.size() > 11) {
                     Term::clearLine();
@@ -562,8 +573,17 @@ namespace Manager {
                     for (auto &s : split) {
                         if (i > 11) {
                             std::string t = s.substr(0, s.find(':'));
-                            std::string rest = s.substr(s.find(':'), s.size());
-                            std::cout << termcolor::green << t << termcolor::reset << rest << "\t";
+                            if (splitTags.empty()) {
+                                std::string rest = s.substr(s.find(':'), s.size());
+                                std::cout << termcolor::green << t << termcolor::reset << rest << "\t";
+                            } else {
+                                for (auto &target : splitTags) {
+                                    if (target == t) {
+                                        std::string rest = s.substr(s.find(':'), s.size());
+                                        std::cout << termcolor::green << t << termcolor::reset << rest << "\t";
+                                    }
+                                }
+                            }
                         }
                         i += 1;
                     }
@@ -594,8 +614,14 @@ namespace Manager {
         } else if (Utils::startsWith(inputText, "ylim")) {
             std::vector<std::string> split = Utils::split(inputText, delim);
             try {
-                opts.ylim = std::stoi(split.back());
-                samMaxY = opts.ylim;
+                if (!opts.tlen_yscale) {
+                    opts.ylim = std::stoi(split.back());
+                    samMaxY = opts.ylim;
+                } else {
+                    opts.max_tlen = std::stoi(split.back());
+                    samMaxY = opts.max_tlen;
+                }
+
                 imageCache.clear();
                 HGW::refreshLinked(collections, opts, &samMaxY);
                 processed = true;
@@ -637,6 +663,10 @@ namespace Manager {
             opts.snp_threshold = (opts.snp_threshold == 0) ? std::stoi(opts.myIni["view_thresholds"]["snp"]) : 0;
             if (mode == SINGLE) {
                 processed = true;
+                for (auto &cl : collections) {
+                    cl.skipDrawingReads = false;
+                    cl.skipDrawingCoverage = false;
+                }
             } else {
                 processed = false;
             }
@@ -648,6 +678,10 @@ namespace Manager {
             opts.edge_highlights = (opts.edge_highlights == 0) ? std::stoi(opts.myIni["view_thresholds"]["edge_highlights"]) : 0;
             if (mode == SINGLE) {
                 processed = true;
+                for (auto & cl: collections) {
+                    cl.skipDrawingReads = false;
+                    cl.skipDrawingCoverage = true;
+                }
             } else {
                 processed = false;
             }
@@ -768,7 +802,12 @@ namespace Manager {
                 return true;
             }
             else if (split.size() == 1) {
-                opts.max_coverage = (opts.max_coverage) ? 0 : 10000000;
+                if (opts.max_coverage == 0) {
+                    opts.max_coverage = 10000000;
+                } else {
+                    opts.max_coverage = 0;
+                }
+
             } else {
                 try {
                     opts.max_coverage = std::stoi(split.back());
@@ -778,18 +817,14 @@ namespace Manager {
                 }
             }
             opts.max_coverage = std::max(0, opts.max_coverage);
-            if (opts.max_coverage == 0) {
-                for (auto &cl : collections) {
-                    cl.mmVector.clear();
-                    cl.collection_processed = true;
-                }
+
+            for (auto &cl : collections) {
+                cl.skipDrawingReads = false;
+                cl.skipDrawingCoverage = false;
             }
             redraw = true;
-            if (mode == SINGLE) {
-                processed = true;
-            } else {
-                processed = false;
-            }
+            processed = false;
+
             inputText = "";
             imageCache.clear();
             return true;
@@ -799,6 +834,10 @@ namespace Manager {
             redraw = true;
             if (mode == SINGLE) {
                 processed = true;
+                for (auto &cl : collections) {
+                    cl.skipDrawingReads = false;
+                    cl.skipDrawingCoverage = false;
+                }
             } else {
                 processed = false;
             }
@@ -817,17 +856,17 @@ namespace Manager {
             inputText = "";
             imageCache.clear();
             return true;
-        } else if (inputText == "low-mem") {
-            opts.low_mem = !(opts.low_mem);
-            redraw = false;
-            if (mode == SINGLE) {
-                processed = true;
-            } else {
-                processed = false;
-            }
-            inputText = "";
-            std::cout << "Low memory mode " << ((opts.low_mem) ? "on" : "off") << std::endl;
-            return true;
+//        } else if (inputText == "low-mem") {
+//            opts.low_mem = !(opts.low_mem);
+//            redraw = false;
+//            if (mode == SINGLE) {
+//                processed = true;
+//            } else {
+//                processed = false;
+//            }
+//            inputText = "";
+//            std::cout << "Low memory mode " << ((opts.low_mem) ? "on" : "off") << std::endl;
+//            return true;
         } else if (Utils::startsWith(inputText, "mate")) {
             std::string mate;
             Utils::parseMateLocation(selectedAlign, mate, target_qname);
@@ -895,23 +934,38 @@ namespace Manager {
                 error_report(reason);
             }
         }
-        else if (Utils::startsWith(inputText, "tlen-y")) {
-            valid = true;
-            std::vector<std::string> split = Utils::split(inputText, delim);
-            if (split.size() == 2) {
-                try {
-                    opts.max_tlen = std::stoi(split.back());
-                    opts.tlen_yscale = true;
-                } catch (...) {
-                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " 'tlen-y NUMBER' not understood\n";
-                    return true;
-                }
+        else if (inputText == "tlen-y") {
+            if (!opts.tlen_yscale) {
+                opts.max_tlen = 2000;
+                opts.ylim = 2000;
+                samMaxY = 2000;
             } else {
-                opts.tlen_yscale = !(opts.tlen_yscale);
-                if (!opts.tlen_yscale) {
-                    samMaxY = opts.ylim;
-                }
+                opts.ylim = 60;
+                samMaxY = 60;
             }
+            opts.tlen_yscale = !opts.tlen_yscale;
+            std::cerr << opts.max_tlen << std::endl;
+            valid = true;
+//            samMaxY = opts.ylim;
+            //opts.max_tlen = samMaxY;
+//        }
+//        else if (Utils::startsWith(inputText, "tlen-y")) {
+//            valid = true;
+//            std::vector<std::string> split = Utils::split(inputText, delim);
+//            if (split.size() == 2) {
+//                try {
+//                    opts.max_tlen = std::stoi(split.back());
+//                    opts.tlen_yscale = true;
+//                } catch (...) {
+//                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " 'tlen-y NUMBER' not understood\n";
+//                    return true;
+//                }
+//            } else {
+//                opts.tlen_yscale = !(opts.tlen_yscale);
+//                if (!opts.tlen_yscale) {
+//                    samMaxY = opts.ylim;
+//                }
+//            }
         } else if (Utils::startsWith(inputText, "goto")) {
             std::vector<std::string> split = Utils::split(inputText, delim_q);
             if (split.size() == 1) {
@@ -988,6 +1042,7 @@ namespace Manager {
                 valid = false;
             }
         } else if (Utils::startsWith(inputText, "add") && mode != TILED)  {
+
             if (mode != SINGLE) { mode = SINGLE; }
             std::vector<std::string> split = Utils::split(inputText, delim_q);
             if (split.size() == 1) {
@@ -996,15 +1051,25 @@ namespace Manager {
             if (split.size() > 1) {
                 for (int i=1; i < (int)split.size(); ++i) {
                     try {
-                        regions.push_back(Utils::parseRegion(split[1]));
-                        fetchRefSeq(regions.back());
+                        Utils::Region dummy_region = Utils::parseRegion(split[1]);
+                        int res = faidx_has_seq(fai, dummy_region.chrom.c_str());
+                        if (res <= 0) {
+                            valid = false;
+                            reason = GENERIC;
+                            if (inputText == "add mate") {
+                                std::cerr << "Did you mean to use the 'mate add' function instead?\n";
+                            }
+                        } else {
+                            regions.push_back(dummy_region);
+                            fetchRefSeq(regions.back());
+                            valid = true;
+                        }
                     } catch (...) {
                         std::cerr << termcolor::red << "Error parsing :add" << termcolor::reset;
                         inputText = "";
                         return true;
                     }
                 }
-                valid = true;
             } else {
                 std::cerr << termcolor::red << "Error:" << termcolor::reset << " expected a Region e.g. chr1:1-20000\n";
                 inputText = "";
@@ -1147,6 +1212,13 @@ namespace Manager {
                 valid = true;
             }
         } else if (Utils::startsWith(inputText, "online")) {
+            if (regions.empty()) {
+                std::cerr << termcolor::red << "Error:" << termcolor::reset << " please navigate to a region first" << std::endl;
+                redraw = false;
+                processed = true;
+                inputText = "";
+                return false;
+            }
             std::vector<std::string> split = Utils::split(inputText, delim);
             std::string genome_tag;
             if (opts.genome_tag.empty() && split.size() >= 2) {
@@ -1428,24 +1500,34 @@ namespace Manager {
                 Utils::Region &region = regions[regionSelection];
                 if (key == opts.scroll_right) {
                     int shift = (int)(((float)region.end - (float)region.start) * opts.scroll_speed);
-                    delete region.refSeq;
+                    if (region.refSeq != nullptr) {
+                        delete region.refSeq;
+                    }
                     region.start = region.start + shift;
                     region.end = region.end + shift;
                     fetchRefSeq(region);
-
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
                             cl.region = &regions[regionSelection];
                             if (!bams.empty()) {
-                                HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
-                                                            indexes[cl.bamIdx], opts, (bool)opts.max_coverage, false,
-                                                            &samMaxY, filters, pool);
-
+                                cl.skipDrawingReads = false;
+                                cl.skipDrawingCoverage = false;
+                                if (cl.regionLen < opts.low_memory) {
+                                    HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
+                                                                indexes[cl.bamIdx], opts, (bool)opts.max_coverage, false,
+                                                                &samMaxY, filters, pool);
+                                    processed = true;
+                                    redraw = true;
+                                } else {
+                                    processed = false;
+                                    redraw = true;
+                                }
+                            } else {
+                                processed = false;
+                                redraw = true;
                             }
                         }
                     }
-                    processed = true;
-                    redraw = true;
                     printRegionInfo();
 
                 } else if (key == opts.scroll_left) {
@@ -1454,7 +1536,9 @@ namespace Manager {
                     if (shift == 0) {
                         return;
                     }
-                    delete region.refSeq;
+                    if (region.refSeq != nullptr) {
+                        delete region.refSeq;
+                    }
                     region.start = region.start - shift;
                     region.end = region.end - shift;
                     fetchRefSeq(region);
@@ -1462,14 +1546,25 @@ namespace Manager {
                         if (cl.regionIdx == regionSelection) {
                             cl.region = &regions[regionSelection];
                             if (!bams.empty()) {
-                                HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
-                                                            indexes[cl.bamIdx], opts, (bool)opts.max_coverage, true,
-                                                            &samMaxY, filters, pool);
+                                cl.skipDrawingReads = false;
+                                cl.skipDrawingCoverage = false;
+                                if (cl.regionLen < opts.low_memory) {
+                                    HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
+                                                                indexes[cl.bamIdx], opts, (bool) opts.max_coverage,
+                                                                true,
+                                                                &samMaxY, filters, pool);
+                                    processed = true;
+                                    redraw = true;
+                                } else {
+                                    processed = false;
+                                    redraw = true;
+                                }
+                            } else {
+                                processed = false;
+                                redraw = true;
                             }
                         }
                     }
-                    processed = true;
-                    redraw = true;
                     printRegionInfo();
 
                 } else if (key == opts.zoom_out) {
@@ -1478,7 +1573,9 @@ namespace Manager {
                     if (shift == 0) {
                         return;
                     }
-                    delete region.refSeq;
+                    if (region.refSeq != nullptr) {
+                        delete region.refSeq;
+                    }
                     region.start = region.start - shift_left;
                     region.end = region.end + shift;
                     fetchRefSeq(region);
@@ -1487,53 +1584,79 @@ namespace Manager {
                             cl.region = &regions[regionSelection];
                             cl.collection_processed = false;
                             if (!bams.empty()) {
-                                HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                                            opts, false, true,  &samMaxY, filters, pool);
-                                HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                                            opts, false, false, &samMaxY, filters, pool);
-                                if (opts.max_coverage) {  // re process coverage for all reads
-                                    cl.covArr.resize(cl.region->end - cl.region->start + 1);
-                                    std::fill(cl.covArr.begin(), cl.covArr.end(), 0);
-                                    int l_arr = (int) cl.covArr.size() - 1;
-                                    for (auto &i: cl.readQueue) {
-                                        Segs::addToCovArray(cl.covArr, i, cl.region->start, cl.region->end, l_arr);
+                                cl.skipDrawingReads = false;
+                                cl.skipDrawingCoverage = false;
+                                if (cl.regionLen < opts.low_memory && region.end - region.start < opts.low_memory) {
+                                    HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                                                opts, false, true,  &samMaxY, filters, pool);
+                                    HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                                                opts, false, false, &samMaxY, filters, pool);
+                                    if (opts.max_coverage) {  // re process coverage for all reads
+                                        cl.covArr.resize(cl.region->end - cl.region->start + 1);
+                                        std::fill(cl.covArr.begin(), cl.covArr.end(), 0);
+                                        int l_arr = (int) cl.covArr.size() - 1;
+                                        for (auto &i: cl.readQueue) {
+                                            Segs::addToCovArray(cl.covArr, i, cl.region->start, cl.region->end, l_arr);
+                                        }
+                                        if (opts.snp_threshold > cl.region->end - cl.region->start) {
+                                            cl.mmVector.resize(cl.region->end - cl.region->start + 1);
+                                            Segs::Mismatches empty_mm = {0, 0, 0, 0};
+                                            std::fill(cl.mmVector.begin(), cl.mmVector.end(), empty_mm);
+                                        } else {
+                                            cl.mmVector.clear();
+                                        }
                                     }
-                                    if (opts.snp_threshold > cl.region->end - cl.region->start) {
-                                        cl.mmVector.resize(cl.region->end - cl.region->start + 1);
-                                        Segs::Mismatches empty_mm = {0, 0, 0, 0};
-                                        std::fill(cl.mmVector.begin(), cl.mmVector.end(), empty_mm);
-                                    } else {
-                                        cl.mmVector.clear();
-                                    }
+                                    processed = true;
+                                    redraw = true;
+                                } else {
+                                    processed = false;
+                                    redraw = true;
                                 }
+                            } else {
+                                processed = false;
+                                redraw = true;
                             }
                         }
                     }
                     if (opts.link_op != 0) {
                         HGW::refreshLinked(collections, opts, &samMaxY);
                     }
-                    processed = true;
-                    redraw = true;
                     printRegionInfo();
 
                 } else if (key == opts.zoom_in) {
                     if (region.end - region.start > 50) {
                         int shift = (int)(((float)region.end - (float)region.start) * opts.scroll_speed);
-                        delete region.refSeq;
+                        if (region.refSeq != nullptr) {
+                            delete region.refSeq;
+                        }
                         region.start = region.start + shift;
                         region.end = region.end - shift;
                         fetchRefSeq(region);
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
+                                if (!bams.empty() && cl.regionLen >= opts.low_memory && region.end - region.start < opts.low_memory) {
+                                    cl.clear();
+                                    HGW::collectReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts.threads, &region, (bool)opts.max_coverage, filters, pool);
+                                    int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, &region, false);
+                                    if (maxY > samMaxY) {
+                                        samMaxY = maxY;
+                                    }
+                                } else {
+                                    if (!bams.empty()) {
+                                        HGW::trimToRegion(cl, opts.max_coverage, opts.snp_threshold);
+                                    }
+                                }
+                                cl.skipDrawingReads = false;
+                                cl.skipDrawingCoverage = false;
                                 cl.region = &regions[regionSelection];
                                 cl.collection_processed = false;
-                                if (!bams.empty()) {
-                                    HGW::trimToRegion(cl, opts.max_coverage, opts.snp_threshold);
-                                }
                             }
                         }
-                        processed = true;
-                        redraw = true;
+                        if (bams.empty()) {
+                            processed = false;
+                            redraw = true;
+                        }
+
                         if (opts.link_op != 0) {
                             HGW::refreshLinked(collections, opts, &samMaxY);
                         }
@@ -1559,11 +1682,13 @@ namespace Manager {
                     regionTimer = std::chrono::high_resolution_clock::now();
                 } else if (key == opts.scroll_down) {
                     for (auto &cl : collections) {
-                        if (cl.regionIdx == regionSelection) {  // should be possible to vScroll without needing findY for all reads, but complicated to implement
+                        if (cl.regionIdx == regionSelection) {
                             cl.vScroll += 2;
                             cl.levelsStart.clear();
                             cl.levelsEnd.clear();
                             cl.linked.clear();
+                            cl.skipDrawingReads = false;
+                            cl.skipDrawingCoverage = false;
                             for (auto &itm: cl.readQueue) { itm.y = -1; }
                             int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, cl.region,  false);
                             samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
@@ -1582,6 +1707,8 @@ namespace Manager {
                             cl.levelsStart.clear();
                             cl.levelsEnd.clear();
                             cl.linked.clear();
+                            cl.skipDrawingReads = false;
+                            cl.skipDrawingCoverage = false;
                             for (auto &itm: cl.readQueue) { itm.y = -1; }
                             int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, cl.region, false);
                             samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
@@ -1657,7 +1784,6 @@ namespace Manager {
 
         for (int i=0; i < count; ++ i) {
             std::string pth = *paths;
-            std::cerr << " load vcf as track " << opts.vcf_as_tracks << " " << (!opts.vcf_as_tracks && (Utils::endsWith(pth, ".vcf.gz") || Utils::endsWith(pth, ".vcf") || Utils::endsWith(pth, ".bcf"))) << std::endl;
             if (Utils::endsWith(pth, ".bam") || Utils::endsWith(pth, ".cram")) {
                 good = true;
                 std::cout << termcolor::magenta << "\nAlignments  " << termcolor::reset << pth << "\n";
@@ -1674,14 +1800,15 @@ namespace Manager {
                 std::vector<std::string> labels = Utils::split(opts.labels, ',');
                 setLabelChoices(labels);
                 mouseOverTileIndex = 0;
-                bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
+                bboxes = Utils::imageBoundingBoxes(opts.number, (float) fb_width, (float) fb_height);
                 imageCache.clear();
                 addVariantTrack(pth, opts.start_index, false, false);
-                variantFileSelection = (int)variantTracks.size() - 1;
+                variantFileSelection = (int) variantTracks.size() - 1;
                 currentVarTrack = &variantTracks[variantFileSelection];
                 currentVarTrack->blockStart = 0;
                 mode = Manager::Show::TILED;
-                std::cout << termcolor::magenta << "\nFile        " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
+                std::cout << termcolor::magenta << "\nFile        " << termcolor::reset
+                          << variantTracks[variantFileSelection].path << "\n";
             } else {
                 tracks.push_back(HGW::GwTrack());
                 try {
@@ -1906,7 +2033,7 @@ namespace Manager {
                         float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[trackIdx]);
                         float y = fb_height - totalTabixY - refSpace;  // start of tracks on canvas
                         int featureLevel = (int)(yW - y - (trackIdx * stepY)) / step_track;
-                        Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx);
+                        Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx, target_qname, &target_pos);
                     }
                 }
                 clickedIdx = -1;
@@ -1950,8 +2077,8 @@ namespace Manager {
                 int level = 0;
                 int slop = 0;
                 if (!opts.tlen_yscale) {
-                    level = (int) ((yW - (float) cl.yOffset) / ((trackY-(gap/2)) / (float)(cl.levelsStart.size() - cl.vScroll )));
-                    if (level < 0) {  // print coverage info (mousePos functions already prints out cov info to console)
+                    level = (int)((yW - (float) cl.yOffset) / yScaling);
+                    if (level < 0) {  // print coverage info (mouse Pos functions already prints out cov info to console)
                         std::cout << std::endl;
                         return;
                     }
@@ -1959,10 +2086,11 @@ namespace Manager {
                         level += cl.vScroll + 1;
                     }
                 } else {
-                    int max_bound = (opts.max_tlen) + (cl.vScroll * 100);
-                    level = (int) ((yW - (float) cl.yOffset) / (trackY / (float)(max_bound)));
-                    slop = (int)((trackY / (float)opts.ylim) * 2);
-                    slop = (slop <= 0) ? 5 : slop;
+                    int max_bound = opts.max_tlen;
+                    level = (int) ((yW - (float) cl.yOffset) / (((trackY - gap) * 0.95) / (float)(max_bound)));
+                    slop = (int)(max_bound * 0.025);
+                    slop = (slop <= 0) ? 25 : slop;
+                    std::cerr << level << std::endl;
                 }
                 std::vector<Segs::Align>::iterator bnd;
                 bnd = std::lower_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
@@ -1972,18 +2100,22 @@ namespace Manager {
                         if (bnd->y == level && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
                             bnd->edge_type = 4;
                             target_qname = bam_get_qname(bnd->delegate);
-                            Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_mem);
+                            Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_memory);
                             redraw = true;
                             processed = true;
+                            cl.skipDrawingReads = false;
+                            cl.skipDrawingCoverage = true;
                             break;
                         }
                     } else {
                         if ((bnd->y >= level - slop && bnd->y < level) && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
                             bnd->edge_type = 4;
                             target_qname = bam_get_qname(bnd->delegate);
-                            Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_mem);
+                            Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_memory);
                             redraw = true;
                             processed = true;
+                            cl.skipDrawingReads = false;
+                            cl.skipDrawingCoverage = true;
                         }
                     }
                     --bnd;
@@ -2025,6 +2157,8 @@ namespace Manager {
                         for (auto &col : collections) {
                             if (col.regionIdx == regionSelection) {
                                 col.region = &regions[regionSelection];
+                                col.skipDrawingReads = false;
+                                col.skipDrawingCoverage = false;
                                 HGW::appendReadsAndCoverage(col, bams[col.bamIdx], headers[col.bamIdx],
                                                             indexes[col.bamIdx], opts, (bool) opts.max_coverage,
                                                             lt_last, &samMaxY, filters, pool);
@@ -2121,9 +2255,6 @@ namespace Manager {
                     yDrag = DRAG_UNSET;
                     return;
                 }
-//                if (regions.empty()) {
-//                    return;
-//                }
 
                 bool variantFile_click = variantTracks.size() > 1 && yW < fb_height * 0.02;
                 if (variantFile_click) {
@@ -2258,7 +2389,10 @@ namespace Manager {
 
         double xPos_fb = xPos;
         double yPos_fb = yPos;
+        double xPosOri_fb = xOri;
+        double yPosOri_fb = yOri;
         convertScreenCoordsToFrameBufferCoords(wind, &xPos_fb, &yPos_fb, fb_width, fb_height);
+        convertScreenCoordsToFrameBufferCoords(wind, &xPosOri_fb, &yPosOri_fb, fb_width, fb_height);
         // register popup toolbar
         if (captureText && mode != SETTINGS && xPos_fb < (50 + fonts.overlayWidth * 20)) {
             int tip_lb = 0;
@@ -2304,7 +2438,6 @@ namespace Manager {
         }
 
         if (state == GLFW_PRESS) {
-
             xDrag = xPos - xOri;  // still in window co-ords not frame buffer co-ords
             yDrag = yPos - yOri;
             if (std::abs(xDrag) > 5 || std::abs(yDrag) > 5) {
@@ -2315,14 +2448,15 @@ namespace Manager {
                 if (regions.empty()) {
                     return;
                 }
-                if (yPos_fb >= (fb_height - sliderSpace - gap)) {
+
+                if (yPos_fb >= (fb_height - sliderSpace - gap) && yPosOri_fb >= (fb_height - sliderSpace - gap)) {
                     updateSlider((float) xPos_fb);
                     yDrag = DRAG_UNSET;
                     xDrag = DRAG_UNSET;
                     return;
                 }
                 if (!tracks.empty()) {
-                    float trackBoundary = totalCovY + refSpace + (trackY*(float)headers.size());
+                    float trackBoundary = fb_height - totalTabixY - refSpace;
                     if (tabBorderPress || (std::fabs(yPos_fb - trackBoundary) < 5 * monitorScale && xDrag < 5 && yDrag < 5)) {
                         if (yPos_fb <= refSpace + totalCovY + 10) {
                             return;
@@ -2358,6 +2492,8 @@ namespace Manager {
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
                             if (!bams.empty()) {
+                                cl.skipDrawingReads = false;
+                                cl.skipDrawingCoverage = false;
                                 HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                             indexes[cl.bamIdx], opts, (bool)opts.max_coverage, !lt_last,
                                                             &samMaxY, filters, pool);
@@ -2380,10 +2516,24 @@ namespace Manager {
                     }
 
                     if (std::fabs(yDrag) > std::fabs(xDrag) && std::fabs(yDrag) > 1) {
-                        float travel_y = yDrag / ((float) ((windowH * (1 - opts.tab_track_height)) / (float)bams.size()) / (float) cl.levelsStart.size());
+                        float travel_y;
+                        if (!opts.tlen_yscale) {
+                            travel_y = yDrag /
+                                         ((float) ((windowH * (1 - opts.tab_track_height)) / (float) bams.size()) /
+                                          (float) cl.levelsStart.size());
+                        } else {
+                            travel_y = yDrag /
+                                       ((float) ((windowH * (1 - opts.tab_track_height)) / (float) bams.size()) /
+                                        (float) opts.max_tlen);
+                        }
                         if (std::fabs(travel_y) > 1) {
-                            cl.vScroll -= (int) travel_y;
-                            cl.vScroll = (cl.vScroll <= 0) ? 0 : cl.vScroll;
+                            if (opts.tlen_yscale) {
+                                opts.max_tlen -= (int)travel_y;
+                                opts.ylim -= (int)travel_y;
+                            } else {
+                                cl.vScroll -= (int) travel_y;
+                                cl.vScroll = (cl.vScroll <= 0) ? 0 : cl.vScroll;
+                            }
 
                             cl.levelsStart.clear();
                             cl.levelsEnd.clear();
@@ -2428,7 +2578,7 @@ namespace Manager {
                         float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[targetIndex]);
                         float y = fb_height - totalTabixY - refSpace;  // start of tracks on canvas
                         int featureLevel = (int)(yPos_fb - y - (targetIndex * stepY)) / step_track;
-			            Term::printTrack(relX, targetTrack, &regions[tIdx], true, featureLevel, targetIndex);
+			            Term::printTrack(relX, targetTrack, &regions[tIdx], true, featureLevel, targetIndex, target_qname, &target_pos);
 		            }
 	            }
                 if (rs < 0) { // print reference info

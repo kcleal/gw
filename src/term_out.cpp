@@ -9,8 +9,12 @@
 #include <iterator>
 #include <regex>
 #include <vector>
-#include <curl/curl.h>
-#include <curl/easy.h>
+
+#if !defined(__EMSCRIPTEN__)
+    #include <curl/curl.h>
+    #include <curl/easy.h>
+#endif
+
 #include "htslib/hts.h"
 #include "drawing.h"
 #include "hts_funcs.h"
@@ -452,10 +456,6 @@ namespace Term {
         } else {
             oss << "*" << d << "*" << d;
         }
-        if (low_mem) {
-            sam = oss.str();
-            return;
-        }
 
         uint8_t *s = bam_get_aux(r->delegate);
         uint8_t *end = r->delegate->data + r->delegate->l_data;
@@ -733,24 +733,50 @@ namespace Term {
 		std::cout << std::flush;
 	}
 
-	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver, int targetLevel, int trackIdx) {
+	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver, int targetLevel, int trackIdx, std::string &target_name, int *target_pos) {
+        if (rgn == nullptr) {
+            return;
+        }
 		int target = (int)((float)(rgn->end - rgn->start) * x) + rgn->start;
 		std::filesystem::path p = track.path;
         bool isGFF = (track.kind == HGW::FType::GFF3_NOI || track.kind == HGW::FType::GFF3_IDX || track.kind == HGW::FType::GTF_NOI || track.kind == HGW::FType::GTF_IDX );
-        for (auto &b : rgn->featuresInView[trackIdx]) {
+        if (trackIdx >= (int)rgn->featuresInView.size()) {
+            return;
+        }
+        bool same_pos, same_name = false;
+        for (auto &b : rgn->featuresInView.at(trackIdx)) {
             if (b.start <= target && b.end >= target && b.level == targetLevel) {
                 clearLine();
+                if (target_name == b.name) {
+                    same_name = true;
+                } else {
+                    target_name = b.start;
+                }
+                if (*target_pos == b.start) {
+                    same_pos = true;
+                } else {
+                    *target_pos = b.start;
+                }
+
                 std::cout << "\r" << termcolor::bold << p.filename().string() << termcolor::reset << "    " << \
                     termcolor::cyan << b.chrom << ":" << b.start << "-" << b.end << termcolor::reset;
+
                 if (!b.parent.empty()) {
                     std::cout << termcolor::bold << "    Parent  " << termcolor::reset << b.parent;
                 } else if (!b.name.empty()) {
                     std::cout << termcolor::bold << "    ID  " << termcolor::reset << b.name;
+                    target_name = b.name;
                 }
                 if (!b.vartype.empty()) {
                     std::cout << termcolor::bold << "    Type  " << termcolor::reset << b.vartype;
                 }
                 std::cout << std::flush;
+
+                if (same_name && same_pos && !mouseOver && !b.line.empty()) {
+                    std::cout << "\n" << b.line << std::endl;
+                    return;
+                }
+
                 if (!mouseOver) {
                     std::cout << std::endl;
                     std::vector<std::string> &parts = b.parts;
@@ -788,6 +814,7 @@ namespace Term {
                 }
             }
         }
+
         if (!mouseOver) {
             std::cout << std::endl;
         }
@@ -862,6 +889,7 @@ namespace Term {
     }
 
     int check_url(const char *url) {
+# if !defined(__EMSCRIPTEN__)
         CURL *curl;
         CURLcode response;
         curl = curl_easy_init();
@@ -870,6 +898,9 @@ namespace Term {
         response = curl_easy_perform(curl);
         curl_easy_cleanup(curl);
         return (response == CURLE_OK) ? 1 : 0;
+#else
+        return 1;
+#endif
     }
 
     void replaceRegionInLink(std::regex &chrom_pattern, std::regex &start_pattern, std::regex &end_pattern, std::string &link, std::string &chrom, int start, int end) {

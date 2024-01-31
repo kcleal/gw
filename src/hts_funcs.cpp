@@ -18,6 +18,7 @@
 #include "../include/termcolor.h"
 #include "../lib/libBigWig/bigWig.h"
 #include "../include/glob_cpp.hpp"
+#include "../include/natsort.hpp"
 #include "drawing.h"
 #include "segments.h"
 #include "themes.h"
@@ -150,7 +151,7 @@ namespace HGW {
             for (auto &f: filters) {
                 bool passed = f.eval(align, hdr, bamIdx, regionIdx);
                 if (!passed) {
-                    align.y = -1;
+                    align.y = -2;
                 }
             }
         }
@@ -158,8 +159,7 @@ namespace HGW {
 
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, int threads, Utils::Region *region,
-                                 bool coverage, bool low_mem,
-                                 std::vector<Parse::Parser> &filters, BS::thread_pool &pool) {
+                                 bool coverage, std::vector<Parse::Parser> &filters, BS::thread_pool &pool) {
         bam1_t *src;
         hts_itr_t *iter_q;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
@@ -183,11 +183,6 @@ namespace HGW {
                 continue;
             }
             readQueue.emplace_back(bam_init1());
-            if (low_mem) {
-                size_t new_len = (src->core.n_cigar << 2 ) + src->core.l_qname + ((src->core.l_qseq + 1) >> 1);
-                src->data = (uint8_t*)realloc(src->data, new_len);
-                src->l_data = (int)new_len;
-            }
         }
         src = readQueue.back().delegate;
         if (src->core.flag & 4 || src->core.n_cigar == 0) {
@@ -210,15 +205,152 @@ namespace HGW {
         col.collection_processed = false;
     }
 
-    void iterDrawParallel(std::vector< Segs::ReadCollection > &cols, int idx, htsFile *b, sam_hdr_t *hdr_ptr,
-                  hts_idx_t *index, int threads, Utils::Region *region,
-                  bool coverage, bool low_mem,
-                  std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
-                  float trackY, float yScaling, Themes::Fonts &fonts, float refSpace, BS::thread_pool &pool) {
+    // WIP, still running in to segfaults strlen? Not sure what is causing it
+
+//    void iterDrawParallel(Segs::ReadCollection &col,
+//                          htsFile *b,
+//                          sam_hdr_t *hdr_ptr,
+//                          hts_idx_t *index,
+//                          int threads,
+//                          Utils::Region *region,
+//                          bool coverage,
+//                          std::vector<Parse::Parser> &filters,
+//                          Themes::IniOptions &opts,
+//                          SkCanvas *canvas,
+//                          float trackY,
+//                          float yScaling,
+//                          Themes::Fonts &fonts,
+//                          float refSpace,
+//                          BS::thread_pool &pool,
+//                          float pointSlop,
+//                          float textDrop,
+//                          float pH) {
+//
+//        int step = (region->end - region->start) / threads;
+//        std::vector<Utils::Region> tmpRegions;
+//        tmpRegions.resize(threads);
+//        int start = region->start;
+//        int end = start + step;
+//
+//        std::vector<htsFile* > bams;
+//        std::vector<sam_hdr_t* > headers;
+//        std::vector<hts_idx_t* > indexes;
+////        std::vector<sk_sp<SkSurface>> surfaces;
+////        std::vector<SkCanvas*> canvases;
+//
+//        bams.reserve(threads);
+//        headers.reserve(threads);
+//        indexes.reserve(threads);
+////        surfaces.reserve(threads);
+////        canvases.reserve(threads);
+//        for (int i=0; i < threads; ++i) {
+//            // todo monitorScale
+//
+////            surfaces.emplace_back(SkSurface::MakeRasterN32Premul(opts.dimensions.x * 2, opts.dimensions.y * 2));
+////            canvases.push_back(surfaces[i]->getCanvas());
+//
+//            htsFile* f = sam_open("HG002.bam", "r");
+////            hts_set_fai_filename(f, "/Users/sbi8kc2/Documents/data/db/hg19/ucsc.hg19.fa");
+//            hts_set_threads(f, 1);
+//            bams.push_back(f);
+//            sam_hdr_t *hdr_ptr = sam_hdr_read(f);
+//            headers.push_back(hdr_ptr);
+//            hts_idx_t* idx = sam_index_load(f, "HG002.bam");
+//            indexes.push_back(idx);
+//
+//            tmpRegions[i].chrom = col.region->chrom;
+//            tmpRegions[i].start = start;
+//            tmpRegions[i].end = end;
+//            start += step;
+//            end += step;
+//        }
+//
+//        std::vector<Segs::ReadCollection> collections;
+//        collections.resize(threads);
+//        std::vector<std::future<void>> jobs;
+//        float offset = 0;
+//
+//        std::vector<sk_sp<SkImage>> images;
+//        images.resize(threads);
+//
+//        for (int idx=0; idx < threads; ++idx) {
+//            collections[idx] = col;
+//            Segs::ReadCollection &tCol = collections[idx];
+//            tCol.readQueue.clear();
+//            tCol.xOffset += offset;
+//            offset += 300;
+//            tCol.region = &tmpRegions[idx];
+//            if (opts.max_coverage) {
+//                tCol.covArr.resize(tmpRegions[idx].end - tmpRegions[idx].start, 0);
+//                if (opts.snp_threshold > tmpRegions[idx].end - tmpRegions[idx].start) {
+//                    // todo not allowed
+////                    std::cerr << " ERROR \n";
+//                }
+//            }
+//            std::future<void> my_future = pool.submit(
+//                    [&]
+//                    {
+//                        sk_sp<SkSurface> surface = SkSurface::MakeRasterN32Premul(opts.dimensions.x * 2, opts.dimensions.y * 2);
+//                        SkCanvas * canv = surface->getCanvas();
+//
+//                        iterDraw(tCol, bams[idx], headers[idx],
+//                                          indexes[idx], &tmpRegions[idx],
+//                                          coverage,
+//                                          filters, opts, canv,
+//                                          trackY, yScaling, fonts, refSpace,
+//                                          pointSlop, textDrop, pH);
+//
+//                        canv->flush();
+//                        surface->flush();
+////                        images[idx] = surface->makeImageSnapshot();
+////                        Manager::imageToPng(images[idx], "test.png");
+//
+//                    });
+////            my_future.get();
+//            jobs.push_back(std::move(my_future));
+//        }
+//        for (auto &f: jobs) {
+//            f.get();
+//        }
+//        for (auto &im : images) {
+//            canvas->drawImage(im, 0, 0);
+//        }
+//
+//        for (auto &bm : bams) {
+//            hts_close(bm);
+//        }
+//        for (auto &hd: headers) {
+//            bam_hdr_destroy(hd);
+//        }
+//        for (auto &idx: indexes) {
+//            hts_idx_destroy(idx);
+//        }
+//        std::cerr << " got here\n";
+//
+//    }
+
+
+    void iterDrawParallel(Segs::ReadCollection &col,
+                          htsFile *b,
+                          sam_hdr_t *hdr_ptr,
+                          hts_idx_t *index,
+                          int threads,
+                          Utils::Region *region,
+                          bool coverage,
+                          std::vector<Parse::Parser> &filters,
+                          Themes::IniOptions &opts,
+                          SkCanvas *canvas,
+                          float trackY,
+                          float yScaling,
+                          Themes::Fonts &fonts,
+                          float refSpace,
+                          BS::thread_pool &pool,
+                          float pointSlop,
+                          float textDrop,
+                          float pH) {
         const int BATCH = 1500;
         bam1_t *src;
         hts_itr_t *iter_q;
-        Segs::ReadCollection &col = cols[idx];
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         std::vector<Segs::Align>& readQueue = col.readQueue;
         if (!readQueue.empty()) {
@@ -248,17 +380,20 @@ namespace HGW {
                 continue;
             }
             Segs::init_parallel(readQueue, threads, pool);
-            if (coverage) {
-                int l_arr = (int)col.covArr.size() - 1;
-                for (int i=0; i < BATCH; ++ i) {
-                    Segs::addToCovArray(col.covArr, readQueue[i], region->start, region->end, l_arr);
-                }
-            }
-            Segs::findY(col, readQueue, opts.link_op, opts, region, false);
             if (filter) {
                 applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
             }
-            Drawing::drawBams(opts, cols, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
+            if (coverage) {
+                int l_arr = (int)col.covArr.size() - 1;
+                for (int i=0; i < BATCH; ++ i) {
+                    if (readQueue[i].y != -2) {
+                        Segs::addToCovArray(col.covArr, readQueue[i], region->start, region->end, l_arr);
+                    }
+                }
+            }
+            Segs::findY(col, readQueue, opts.link_op, opts, region, false);
+            Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+
             for (int i=0; i < BATCH; ++ i) {
                 Segs::align_clear(&readQueue[i]);
             }
@@ -267,19 +402,21 @@ namespace HGW {
 
         if (j < BATCH) {
             readQueue.erase(readQueue.begin() + j, readQueue.end());
-            if (!filters.empty()) {
-                applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
-            }
             if (!readQueue.empty()) {
                 Segs::init_parallel(readQueue, threads, pool);
+                if (!filters.empty()) {
+                    applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
+                }
                 if (coverage) {
                     int l_arr = (int)col.covArr.size() - 1;
                     for (int i=0; i < BATCH; ++ i) {
-                        Segs::addToCovArray(col.covArr, readQueue[i], region->start, region->end, l_arr);
+                        if (readQueue[i].y != -2) {
+                            Segs::addToCovArray(col.covArr, readQueue[i], region->start, region->end, l_arr);
+                        }
                     }
                 }
                 Segs::findY(col, readQueue, opts.link_op, opts, region, false);
-                Drawing::drawBams(opts, cols, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
+                Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
                 for (int i=0; i < BATCH; ++ i) {
                     Segs::align_clear(&readQueue[i]);
                 }
@@ -287,15 +424,18 @@ namespace HGW {
         }
     }
 
-    void iterDraw(std::vector< Segs::ReadCollection > &cols, int idx, htsFile *b, sam_hdr_t *hdr_ptr,
-                                 hts_idx_t *index, Utils::Region *region,
-                                 bool coverage, bool low_mem,
-                                 std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
-                                 float trackY, float yScaling, Themes::Fonts &fonts, float refSpace) {
+    void iterDraw(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
+                  hts_idx_t *index, Utils::Region *region,
+                  bool coverage,
+                  std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
+                  float trackY, float yScaling, Themes::Fonts &fonts, float refSpace,
+                  float pointSlop, float textDrop, float pH) {
+//        if (region->end == 0) {
+//            return;
+//        }
 
         bam1_t *src;
         hts_itr_t *iter_q;
-        Segs::ReadCollection &col = cols[idx];
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         std::vector<Segs::Align>& readQueue = col.readQueue;
         if (!readQueue.empty()) {
@@ -317,17 +457,20 @@ namespace HGW {
                 continue;
             }
             Segs::align_init(&readQueue.back());
+            if (filter) {
+                applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
+                if (readQueue.back().y == -2) {
+                    Segs::align_clear(&readQueue.back());
+                    continue;
+                }
+            }
             if (coverage) {
                 int l_arr = (int)col.covArr.size() - 1;
                 Segs::addToCovArray(col.covArr, readQueue.back(), region->start, region->end, l_arr);
             }
             Segs::findY(col, readQueue, opts.link_op, opts, region, false);
-            if (filter) {
-                applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
-            }
-            Drawing::drawBams(opts, cols, canvas, trackY, yScaling, fonts, opts.link_op, refSpace);
+            Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
             Segs::align_clear(&readQueue.back());
-
         }
     }
 
@@ -383,6 +526,7 @@ namespace HGW {
         cl.levelsStart.clear();
         cl.levelsEnd.clear();
         cl.linked.clear();
+        cl.skipDrawingReads = false;
         for (auto &itm: cl.readQueue) { itm.y = -1; }
         int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, cl.region, false);
         *samMaxY = (maxY > *samMaxY || opts.tlen_yscale) ? maxY : *samMaxY;
@@ -466,11 +610,6 @@ namespace HGW {
                     break;
                 }
                 newReads.emplace_back(Segs::Align(bam_init1()));
-                if (opts.low_mem) {
-                    size_t new_len = (src->core.n_cigar << 2 ) + src->core.l_qname + ((src->core.l_qseq + 1) >> 1);
-                    src->data = (uint8_t*)realloc(src->data, new_len);
-                    src->l_data = (int)new_len;
-                }
             }
             src = newReads.back().delegate;
             if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos >= lastPos) {
@@ -520,11 +659,6 @@ namespace HGW {
                     break;
                 }
                 newReads.emplace_back(Segs::Align(bam_init1()));
-                if (opts.low_mem) {
-                    size_t new_len = (src->core.n_cigar << 2 ) + src->core.l_qname + ((src->core.l_qseq + 1) >> 1);
-                    src->data = (uint8_t*)realloc(src->data, new_len);
-                    src->l_data = (int)new_len;
-                }
             }
             src = newReads.back().delegate;
             if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos <= lastPos || src->core.pos > region->end) {
@@ -1025,7 +1159,12 @@ namespace HGW {
     }
 
     void GwTrack::parseVcfRecord() {
+//        bcf_unpack(v, BCF_UN_INFO);
+        kstring_t kstr = {0,0,0};
         bcf_unpack(v, BCF_UN_INFO);
+        vcf_format(hdr, v, &kstr);
+        variantString = kstr.s;
+
         chrom = bcf_hdr_id2name(hdr, v->rid);
         start = (int)v->pos;
         stop = (int)start + v->rlen;
@@ -1122,9 +1261,8 @@ namespace HGW {
                 auto got_line = (bool)getline(*fpu, tp);
                 if (!got_line) {
                     done = true;
-                    return;
+                    break;
                 }
-//            while (getline(*fpu, tp)) {
                 if (tp[0] == '#') {
                     continue;
                 }
@@ -1183,9 +1321,8 @@ namespace HGW {
                 auto got_line = (bool)getline(*fpu, tp);
                 if (!got_line) {
                     done = true;
-                    return;
+                    break;
                 }
-//            while (getline(*fpu, tp)) {
                 count += 1;
                 if (tp[0] == '#') {
                     continue;
@@ -1232,6 +1369,7 @@ namespace HGW {
                 }
                 allBlocks[b.chrom].add(b.start, b.end, b);
             }
+
         } else if (kind == BED_IDX) {
             fp = hts_open(p.c_str(), "r");
             if (!fp) {
@@ -1309,7 +1447,7 @@ namespace HGW {
                 if (allBlocks.contains(rgn->chrom)) {
                     std::vector<size_t> a;
                     if (kind == GFF3_NOI || kind == GTF_NOI) {
-                        allBlocks[rgn->chrom].overlap(rgn->start - 100000, rgn->end + 100000, a);
+                        allBlocks[rgn->chrom].overlap(std::max(1, rgn->start - 100000), rgn->end + 100000, a);
                     } else {
                         allBlocks[rgn->chrom].overlap(rgn->start, rgn->end, a);
                     }
@@ -1319,6 +1457,8 @@ namespace HGW {
                         return;
                     }
                     done = false;
+                    fetch_start = rgn->start;
+                    fetch_end = rgn->end;
                     overlappingBlocks.resize(a.size());
                     for (size_t i = 0; i < a.size(); ++i) {
                         overlappingBlocks[i] = allBlocks[rgn->chrom].data(a[i]);
@@ -1345,6 +1485,8 @@ namespace HGW {
                         done = true;
                     } else {
                         done = false;
+                        fetch_start = rgn->start;
+                        fetch_end = rgn->end;
                     }
                 }
             } else if (kind == BCF_IDX) {
@@ -1354,6 +1496,8 @@ namespace HGW {
                     done = true;
                 } else {
                     done = false;
+                    fetch_start = rgn->start;
+                    fetch_end = rgn->end;
                 }
             } else if (kind == BIGWIG) {
                 bigWig_intervals = bwGetValues(bigWig_fp, rgn->chrom.c_str(), (uint32_t)std::max(1, rgn->start - 100000), (uint32_t)rgn->end + 100000, 0);
@@ -1418,18 +1562,25 @@ namespace HGW {
             }
             // Values fetched from interval tree
             else {
-                if (iter_blk != vals_end) {
-                    chrom = iter_blk->chrom;
-                    start = iter_blk->start;
-                    stop = iter_blk->end;
-                    rid = iter_blk->name;
-                    parent = iter_blk->parent;
-                    vartype = iter_blk->vartype;
-                    variantString = iter_blk->line;
-                    parts = iter_blk->parts;
-                    ++iter_blk;
-                } else {
-                    done = true;
+                while (true) {
+                    if (iter_blk != vals_end) {
+                        chrom = iter_blk->chrom;
+                        start = iter_blk->start;
+                        stop = iter_blk->end;
+                        rid = iter_blk->name;
+                        parent = iter_blk->parent;
+                        vartype = iter_blk->vartype;
+                        variantString = iter_blk->line;
+                        parts = iter_blk->parts;
+                        ++iter_blk;
+                        if (kind == VCF_NOI && (start < fetch_start - *variant_distance && stop > fetch_end + *variant_distance)) {
+                            continue;
+                        }
+                        break;
+                    } else {
+                        done = true;
+                        break;
+                    }
                 }
                 return;
             }
@@ -1437,16 +1588,52 @@ namespace HGW {
         }
         // Indexed formats below:
         if (kind == BCF_IDX) {
-            res = bcf_itr_next(fp, iter_q, v);
-            if (res < 0) {
-                if (res < -1) {
-                    std::cerr << "Error: iterating bcf file returned " << res << std::endl;
+            while (true) {
+                res = bcf_itr_next(fp, iter_q, v);
+                if (res < 0) {
+                    if (res < -1) {
+                        std::cerr << "Error: iterating bcf file returned " << res << std::endl;
+                    }
+                    done = true;
+                    return;
                 }
+                parseVcfRecord();
+                if (start < fetch_start - *variant_distance && stop > fetch_end + *variant_distance) {
+                    continue;
+                }
+                break;
+            }
+        } else if (kind == VCF_IDX) {
+            if (iter_q == nullptr) {
                 done = true;
                 return;
             }
-            parseVcfRecord();
-        } else if (kind == BED_IDX || kind == VCF_IDX || kind == GFF3_IDX || kind == GTF_IDX) {
+            kstring_t str = {0,0, nullptr};
+            while (true) {
+                res = tbx_itr_next(fp, idx_t, iter_q, &str);
+                if (res < 0) {
+                    if (res < -1) {
+                        std::cerr << "Error: iterating returned code: " << res << " from file: " << path  << std::endl;
+                    }
+                    done = true;
+                    return;
+                }
+                res = vcf_parse(&str, hdr, v);
+                if (res < 0) {
+                    if (res < -1) {
+                        std::cerr << "Error: iterating returned code: " << res << " from file: " << path  << std::endl;
+                    }
+                    done = true;
+                    return;
+                }
+                parseVcfRecord();
+                if (start < fetch_start - *variant_distance && stop > fetch_end + *variant_distance) {
+                    continue;
+                }
+                break;
+            }
+
+        } else if (kind == BED_IDX || kind == GFF3_IDX || kind == GTF_IDX) {
             kstring_t str = {0,0, nullptr};
             if (iter_q != nullptr) {
                 res = tbx_itr_next(fp, idx_t, iter_q, &str);
@@ -1510,16 +1697,6 @@ namespace HGW {
                         }
                     }
                 }
-            } else {  // VCF_IDX
-                res = vcf_parse(&str, hdr, v);
-                if (res < 0) {
-                    if (res < -1) {
-                        std::cerr << "Error: iterating returned code: " << res << " from file: " << path  << std::endl;
-                    }
-                    done = true;
-                    return;
-                }
-                parseVcfRecord();
             }
         } else if (kind == BIGBED) {
             if (current_iter_index == num_intervals) {
@@ -1780,8 +1957,11 @@ namespace HGW {
 //#if defined(_WIN32) || defined(_WIN64)
 //            std::sort(paths.begin(), paths.end());
 //#else
-//            std::sort(image_glob.begin(), image_glob.end(), compareNat);
+//            std::sort(image_glob.begin(), image_glob.end(), glob_cpp::compareNat);
+//            std::sort(image_glob.begin(), image_glob.end(), SI::natural::sort);
+//            SI::natural::sort(image_glob);
 //#endif
+
             if (image_glob.empty()) {
                 std::cerr << "Warning: no images found with pattern: " << path << std::endl;
             }
@@ -1988,6 +2168,7 @@ namespace HGW {
         }
     }
     void collectTrackData(HGW::GwTrack &trk, std::vector<Utils::TrackBlock> &features) {
+        bool isVCF = trk.kind == HGW::VCF_NOI || trk.kind == HGW::BCF_IDX || trk.kind == HGW::VCF_IDX;
         while (true) {
             trk.next();
             if (trk.done) {
@@ -2010,6 +2191,9 @@ namespace HGW {
             b->anyToDraw = true;
             if (trk.parts.size() >= 5) {
                 b->strand = (trk.parts[5] == "+") ? 1 : (trk.parts[5] == "-") ? -1 : 0;
+            }
+            if (isVCF) {
+                b->vartype = trk.vartype;
             }
             if (trk.kind == BIGBED) {
                 if (trk.parts[2] == "-") {

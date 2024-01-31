@@ -10,8 +10,7 @@
 #include <string>
 #include "argparse.h"
 #include "../include/BS_thread_pool.h"
-#include "../include/strnatcmp.h"
-//#include "../include/termcolor.h"
+//#include "../include/natsort.hpp"
 #include "../include/glob_cpp.hpp"
 #include "hts_funcs.h"
 #include "parser.h"
@@ -23,7 +22,6 @@
 
 #ifdef __APPLE__
     #include <OpenGL/gl.h>
-//    #include <GL/glx.h>
 #elif defined(__linux__)
     #include <GL/gl.h>
     #include <GL/glx.h>
@@ -37,6 +35,11 @@
 #include "include/core/SkSurface.h"
 #include "include/core/SkDocument.h"
 #include "include/docs/SkPDFDocument.h"
+#include "include/core/SkStream.h"
+#include "include/core/SkPictureRecorder.h"
+#include "include/core/SkPicture.h"
+#include "include/svg/SkSVGCanvas.h"
+
 
 // skia context has to be managed from global space to work
 GrDirectContext *sContext = nullptr;
@@ -71,11 +74,12 @@ int main(int argc, char *argv[]) {
 
     }
 
-    static const std::vector<std::string> img_fmt = { "png", "pdf" };
+    static const std::vector<std::string> img_fmt = { "png", "pdf", "svg" };
     static const std::vector<std::string> img_themes = { "igv", "dark", "slate" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
-    argparse::ArgumentParser program("gw", "0.9.1");
+    // note to developer - update version in workflows/main.yml, menu.cpp and deps/gw.desktop
+    argparse::ArgumentParser program("gw", "0.9.2");
 
     program.add_argument("genome")
             .default_value(std::string{""}).append()
@@ -156,6 +160,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("--cov")
             .default_value(iopts.ylim).append().scan<'i', int>()
             .help("Maximum y limit of coverage track");
+    program.add_argument("--min-chrom-size")
+            .default_value(10000000).append().scan<'i', int>()
+            .help("Minimum chromosome size for chromosome-scale images");
     program.add_argument("--no-insertions")
             .default_value(false).implicit_value(true)
             .help("Insertions below --indel-length are not shown");
@@ -246,23 +253,44 @@ int main(int argc, char *argv[]) {
         show_banner = false;
         std::cout << "\n Reference genomes listed in " << iopts.ini_path << std::endl << std::endl;
         std::string online = "https://github.com/kcleal/ref_genomes/releases/download/v0.1.0";
-        std::cout << " ▀ " << online << std::endl << std::endl;
+#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
+        const char *block_char = "*";
+#else
+        const char *block_char = "▀";
+#endif
+        std::cout << " " << block_char << " " << online << std::endl << std::endl;
         int i = 0;
         int tag_wd = 11;
         std::vector<std::string> vals;
+
+#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
+        std::cout << "  Number | Genome-tag | Path \n";
+        std::cout << "  -------|------------|----------------------------------------------" << std::endl;
+#else
         std::cout << "  Number │ Genome-tag │ Path \n";
         std::cout << "  ───────┼────────────┼─────────────────────────────────────────────" << std::endl;
+#endif
         for (auto &rg: iopts.myIni["genomes"]) {
             std::string tag = rg.first;
             std::string g_path = rg.second;
+#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
+            std::cout << "    " << i << ((i < 10) ? "    " : "   ")  << "| " << tag;
+#else
             std::cout << "    " << i << ((i < 10) ? "    " : "   ")  << "│ " << tag;
+#endif
+
             for (int j=0; j < tag_wd - (int)tag.size(); ++j) {
                 std::cout << " ";
             }
+#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
+            std::cout << "|  ";
+#else
             std::cout << "│  ";
+#endif
+
             if (g_path.find(online) != std::string::npos) {
                 g_path.erase(g_path.find(online), online.size());
-                std::cout << "▀ " << g_path << std::endl;
+                std::cout << block_char << " " << g_path << std::endl;
             } else {
                 std::cout << g_path << std::endl;
             }
@@ -428,9 +456,9 @@ int main(int argc, char *argv[]) {
     if (program.is_used("--no-soft-clips")) {
         iopts.soft_clip_threshold = 0;
     }
-    if (program.is_used("--low-mem")) {
-        iopts.low_mem = true;
-    }
+//    if (program.is_used("--low-mem")) {
+//        iopts.low_mem = true;
+//    }
     if (program.is_used("--start-index")) {
         iopts.start_index = program.get<int>("--start-index");
     }
@@ -603,10 +631,10 @@ int main(int argc, char *argv[]) {
 
             plotter.opts.theme.setAlphas();
 
-            if (program.is_used("--fmt") && program.get<std::string>("--fmt") == "pdf") {
-
+            if (program.is_used("--fmt") && (program.get<std::string>("--fmt") == "pdf" || program.get<std::string>("--fmt") == "svg" )) {
+                std::string format_str = program.get<std::string>("--fmt");
                 if (regions.empty()) {
-                    std::cerr << "Error: --fmt pdf is only supported by providing a --region\n";
+                    std::cerr << "Error: --fmt is only supported by providing a --region\n";
                     std::exit(-1);
                 }
 
@@ -622,7 +650,7 @@ int main(int argc, char *argv[]) {
                         std::exit(-1);
                     }
                     fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" +
-                            std::to_string(regions[0].end) + ".pdf";
+                            std::to_string(regions[0].end) + "." + format_str;
                     out_path = outdir / fname;
                 }
 
@@ -636,13 +664,28 @@ int main(int argc, char *argv[]) {
 #endif
                 SkDynamicMemoryWStream buffer;
 
-                auto pdfDocument = SkPDF::MakeDocument(&buffer);
-                SkCanvas *pageCanvas = pdfDocument->beginPage(iopts.dimensions.x, iopts.dimensions.y);
-                plotter.fb_width = iopts.dimensions.x;
-                plotter.fb_height = iopts.dimensions.y;
-                plotter.runDraw(pageCanvas);
-                pdfDocument->close();
-                buffer.writeToStream(&out);
+                if (format_str == "pdf") {
+                    auto pdfDocument = SkPDF::MakeDocument(&buffer);
+                    SkCanvas *pageCanvas = pdfDocument->beginPage(iopts.dimensions.x, iopts.dimensions.y);
+                    plotter.fb_width = iopts.dimensions.x;
+                    plotter.fb_height = iopts.dimensions.y;
+                    plotter.runDraw(pageCanvas);
+                    pdfDocument->close();
+                    buffer.writeToStream(&out);
+                } else {
+                    plotter.fb_width = iopts.dimensions.x;
+                    plotter.fb_height = iopts.dimensions.y;
+                    SkPictureRecorder recorder;
+                    SkCanvas* canvas = recorder.beginRecording(SkRect::MakeWH(iopts.dimensions.x, iopts.dimensions.y));
+                    plotter.runDraw(canvas);
+                    sk_sp<SkPicture> picture = recorder.finishRecordingAsPicture();
+                    std::unique_ptr<SkCanvas> svgCanvas = SkSVGCanvas::Make(SkRect::MakeWH(iopts.dimensions.x, iopts.dimensions.y), &out);
+                    if (svgCanvas) {
+                        picture->playback(svgCanvas.get());
+                        svgCanvas->flush();
+                    };
+                }
+
             } else {
 
                 // Plot a png image, either of target region or whole chromosome
@@ -705,9 +748,13 @@ int main(int argc, char *argv[]) {
 
                     std::vector<std::vector<Utils::Region> > jobs(iopts.threads);
                     int part = 0;
+                    int min_chrom_size = program.get<int>("--min-chrom-size");
                     for (int i = 0; i < faidx_nseq(managers[0]->fai); ++i) {
                         const char *chrom = faidx_iseq(managers[0]->fai, i);
                         int seq_len = faidx_seq_len(managers[0]->fai, chrom);
+                        if (seq_len < min_chrom_size) {
+                            continue;
+                        }
                         Utils::Region N;
                         N.chrom = chrom;
                         N.start = 1;
@@ -859,11 +906,12 @@ int main(int argc, char *argv[]) {
                                             for (int i = a; i < b; ++i) {
                                                 Manager::VariantJob job = jobs[i];
                                                 plt->setVariantSite(job.chrom, job.start, job.chrom2, job.stop);
-                                                if (plt->opts.low_mem && plt->opts.link_op == 0) {
-                                                    plt->runDrawNoBuffer(canvas);
-                                                } else {
-                                                    plt->runDraw(canvas);
-                                                }
+                                                plt->runDrawNoBuffer(canvas);
+//                                                if (plt->opts.low_memory && plt->opts.link_op == 0) {
+//                                                    plt->runDrawNoBuffer(canvas);
+//                                                } else {
+//                                                    plt->runDraw(canvas);
+//                                                }
                                                 sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
                                                 std::filesystem::path fname = job.varType + "~" + job.chrom + "~" + std::to_string(job.start) + "~" + job.chrom2 + "~" + std::to_string(job.stop) + "~" + job.rid + ".png";
                                                 std::filesystem::path full_path = outdir / fname;

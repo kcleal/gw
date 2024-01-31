@@ -954,7 +954,7 @@ uint32_t updateInterval(bigWigFile_t *fp, bwZoomBuffer_t *buffer, double *sum, d
         }
     }
 
-    //If we move to a new interval then skip iterating over a bunch of obviously non-overlapping intervals
+    //If we move to a new interval then skipiterating over a bunch of obviously non-overlapping intervals
     if(offset && p2[8*offset+2] == 0) {
         p2[8*offset] = tid;
         p2[8*offset+1] = start;

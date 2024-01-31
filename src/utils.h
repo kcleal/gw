@@ -68,7 +68,6 @@ namespace Utils {
 
     class Region {
     public:
-//    struct Region {
         std::string chrom;
         int start, end;
         int markerPos, markerPosEnd;

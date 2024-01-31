@@ -8,6 +8,7 @@
 #include <regex>
 #include <string>
 #include <vector>
+#include "natsort.hpp"
 
 
 namespace glob_cpp {
@@ -271,7 +272,25 @@ namespace glob_cpp {
                     // }
                 }
             }
-            return filter(filtered_names, pattern);
+            std::vector<std::filesystem::path> result = filter(filtered_names, pattern);
+
+            std::vector<std::string> strings_tmp;
+            strings_tmp.reserve(result.size()); // Reserve memory for efficiency
+            for (const auto& path : result) {
+                strings_tmp.push_back(path.string()); // Convert each path to string and add to the vector
+            }
+
+            SI::natural::sort(strings_tmp);
+
+            std::vector<std::filesystem::path> paths_tmp;
+            paths_tmp.reserve(strings_tmp.size()); // Reserve memory for efficiency
+
+            for (const auto& str : strings_tmp) {
+                paths_tmp.emplace_back(str); // Convert each string to a path and add to the vector
+            }
+
+//            return filter(filtered_names, pattern);
+            return paths_tmp;
         }
 
         static inline
@@ -319,6 +338,7 @@ namespace glob_cpp {
                         result.push_back(path);
                     }
                 }
+
                 return result;
             }
 
@@ -394,18 +414,6 @@ namespace glob_cpp {
             }
         }
         return result;
-    }
-
-    static inline
-    std::vector<std::filesystem::path>
-    glob(const std::initializer_list<std::string> &pathnames) {
-        return glob(std::vector<std::string>(pathnames));
-    }
-
-    static inline
-    std::vector<std::filesystem::path>
-    rglob(const std::initializer_list<std::string> &pathnames) {
-        return rglob(std::vector<std::string>(pathnames));
     }
 
 } // namespace glob

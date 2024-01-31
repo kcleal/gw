@@ -33,8 +33,8 @@ namespace Drawing {
     void drawCoverage(const Themes::IniOptions &opts, std::vector<Segs::ReadCollection> &collections,
                       SkCanvas *canvas, const Themes::Fonts &fonts, float covY, float refSpace);
 
-    void drawBams(const Themes::IniOptions &opts, std::vector<Segs::ReadCollection> &collections, SkCanvas* canvas,
-                  float trackY, float yScaling, const Themes::Fonts &fonts, int linkOp, float refSpace);
+    void drawCollection(const Themes::IniOptions &opts, Segs::ReadCollection &cl, SkCanvas* canvas,
+                  float trackY, float yScaling, const Themes::Fonts &fonts, int linkOp, float refSpace, float pointSlop, float textDrop, float pH);
 
     void drawRef(const Themes::IniOptions &opts, std::vector<Utils::Region> &regions, int fb_width,
                  SkCanvas *canvas, const Themes::Fonts &fonts, float refSpace, float nRegions, float gap);
@@ -47,7 +47,7 @@ namespace Drawing {
 
     void drawTracks(Themes::IniOptions &opts, float fb_width, float fb_height,
                     SkCanvas *canvas, float totalTabixY, float tabixY, std::vector<HGW::GwTrack> &tracks,
-                    std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, float gap);
+                    std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, float gap, float monitorScale);
 
     void drawChromLocation(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections, SkCanvas* canvas,
                            const faidx_t* fai, std::vector<sam_hdr_t* > &headers, size_t nRegions, float fb_width, float fb_height, float monitorScale);

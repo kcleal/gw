@@ -1,9 +1,8 @@
-#!/bin/bash
 [Desktop Entry]
 Encoding=UTF-8
-Version=0.9
+Version=0.9.2
 Type=Application
 Terminal=true
-Exec=bash -e "/usr/bin/gw"
+Exec=bash -c "/usr/bin/gw"
 Name=gw
 Icon=/usr/share/icons/gw_icon.png

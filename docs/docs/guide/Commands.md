@@ -132,27 +132,51 @@ For example, here are some useful expressions:
     filter flag & 2048
     filter seq contains TTAGGG
 
-Here are a list of '{property}' values you can use:
+Here are a list of '{property}' values you can use, consult the SAM specification for more details on the meaning of these:
 
-    maps, flag, ~flag, name, tlen, abs-tlen, rnext, pos, ref-end, pnext, seq, seq-len,
+    pattern, mapq, flag, ~flag, rname, tlen, abs-tlen, rnext, pos, ref-end, pnext, seq, seq-len, tid, mid,
     RG, BC, BX, RX, LB, MD, MI, PU, SA, MC, NM, CM, FI, HO, MQ, SM, TC, UQ, AS
 
 These can be combined with '{operator}' values:
 
     &, ==, !=, >, <, >=, <=, eq, ne, gt, lt, ge, le, contains, omit
 
-Bitwise flags can also be applied with named values:
+Bitwise flags can also be applied with named values, including:
 
-    paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary,
-    dup, supplementary
+    paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary, qcfail,
+    duplicate, supplementary
+
+These can be used as a shorthand for filtering with the `flag &` and `~flag &` properties + operators. For example, to filter for
+proper-pair alignments you can use:
+
+    filter proper-pair
+
+This is a shorthand for `filter flag & proper-pair`. For the inverse (keeping discordant reads only), you can use:
+
+    filter ~proper-pair
+
+
+The `pattern` property can accept the values:
+
+    filter pattern == del    # deletion pattern
+    filter pattern == dup    # duplication pattern
+    filter pattern == inv_f  # invertion-forward pattern
+    filter pattern == inv_r  # inversion-reverse pattern
+    filter pattern == tra    # translocation pattern
 
 Expressions can be chained together providing all expressions are 'AND' or 'OR' blocks:
 
     filter mapq >= 20 and mapq < 30
-    filter mapq >= 20 or flag & supplementary
+    filter mapq >= 20 or supplementary
+
+Multiple filters can be applied by typing in the filter command several times, or by separating filter blocks using
+the semicolon:
+
+    filter pattern == del or pattern == dup; mapq >= 30 
 
 Finally, you can apply filters to specific panels using array indexing notation:
 
+    filter mapq > 0 [0]      # First column 0 (when one bam is loaded)
     filter mapq > 0 [:, 0]   # All rows, column 0 (all bams, first region only)
     filter mapq > 0 [0, :]   # Row 0, all columns (the first bam only, all regions)
     filter mapq > 0 [1, -1]  # Row 1, last column
@@ -161,11 +185,11 @@ Here are a list of some example filtering commands:
 
     filter mapq >= 20             # only reads with mapping quality >= 20 will be shown
     filter flag & 2048            # only supplementary alignments are shown
-    filter flag & supplementary   # same as above
-    filter ~flag & supplementary  # supplementary reads will be removed
+    filter supplementary   # same as above
+    filter ~supplementary  # supplementary reads will be removed
     filter seq contains TTAGGG    # Only reads with TTAGGG kmer will be shown
     filter seq omit AAAAAA        # Reads with this kmer will be removed
-    filter mapq > 30 and ~flag & duplicate  #  also removes duplicate reads
+    filter mapq > 30 and ~duplicate  #  also removes duplicate reads
     filter mapq > 10 or seq-len > 100; ~flag & duplicate  # multiple commands
 
 
@@ -224,14 +248,6 @@ This will change how alignments are linked, options are 'none', 'sv', 'all'. Lin
 links between alignments that have either a discordant flag, or have a supplementary mapping.
 <br>
 
-- ## low-mem
-
-Toggle low-mem mode.
-
-This will discard all base-quality information and sam tags from newly loaded alignments. Use this
-option if you wish to display large regions and you have memory concerns. Memory consumption can be reduced
-by up to half.
-<br>
 
 - ## log2-cov
 
@@ -339,6 +355,11 @@ Soft-clipped bases or hard-clips are turned on or off.
 - ## tags
 
 This will print all the tags of the selected read (select a read with the mouse first).
+
+Alternatively supply a list of tags to print out:
+
+    tags NM RG    
+
 <br>
 
 - ## theme
