@@ -1655,6 +1655,9 @@ namespace Manager {
                         if (bams.empty()) {
                             processed = false;
                             redraw = true;
+                        } else {
+                            processed = true;
+                            redraw = true;
                         }
 
                         if (opts.link_op != 0) {

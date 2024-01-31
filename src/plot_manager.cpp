@@ -873,7 +873,7 @@ namespace Manager {
             pop_paint.setStyle(SkPaint::kStrokeAndFill_Style);
             pop_paint.setAntiAlias(true);
             pop_paint.setAlpha(255);
-            rect.setXYWH(0, half_h - 22.5 * monitorScale, 30 * monitorScale, 55 * monitorScale);
+            rect.setXYWH(-10, half_h - 35 * monitorScale, 30 * monitorScale + 10, 70 * monitorScale);
             canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, pop_paint);
 
             SkPaint cog_paint = opts.theme.lcBright;
