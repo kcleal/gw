@@ -7,7 +7,7 @@ Benchmark Requirements
 ----------------------
 hyperfine
 
-gw v0.9.0
+gw v0.9.2
 IGV v2.17.0
 Jbrowse2 v2.4.0
 samplot v1.3
@@ -197,22 +197,6 @@ def plot_genomeview(chrom, start, end, args, timef, threads=1):
     return t, m
 
 
-def plot_wally(chrom, start, end, args, timef, threads=1):
-    t, m = -1, -1
-    com = timef + " -o wallytime.txt {wally} region -g {genome} -r {chrom}:{start}-{end} {bam}" \
-        .format(wally=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
-    run(com, shell=True)
-    line = open('wallytime.txt', 'r').readlines()[0].strip().split("\t")
-    m = float(line[1])
-
-    com = "hyperfine -w 0 -r 1 --export-csv wallytime.txt '{wally} region -g {genome} -r {chrom}:{start}-{end} {bam}'" \
-        .format(wally=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
-    run(com, shell=True)
-    line = open('wallytime.txt', 'r').readlines()[1].strip().split(",")
-    t = float(line[1])
-    return t, m
-
-
 def samtools_count(chrom, start, end, args, timef, threads):
     p = Popen(f'samtools view -@{threads} -c {args.bam} {chrom}:{start}-{end}', stdout=PIPE, stderr=PIPE, shell=True)
     out, err = p.communicate()
@@ -243,7 +227,7 @@ if __name__ == "__main__":
     parser.add_argument('bam')
     parser.add_argument('tool_path')
     parser.add_argument('tool_name', choices=['gw', 'igv', 'samplot', 'jb2export', 'bamsnap',
-                                              'genomeview', 'wally'])
+                                              'genomeview'])
     parser.add_argument('threads')
     parser.add_argument('extra_args')
     args = parser.parse_args()
@@ -300,7 +284,7 @@ if __name__ == "__main__":
 
     results = []
     progs = {'gw': plot_gw, 'igv': plot_igv, 'samplot': plot_samplot, 'jb2export': plot_jbrowse2, 'bamsnap': plot_bamsnap,
-             'genomeview': plot_genomeview, 'wally': plot_wally}
+             'genomeview': plot_genomeview}
     name = args.tool_name
     extra_args = args.extra_args
     threads = args.threads
@@ -394,8 +378,6 @@ if __name__ == "__main__":
         run('rm jbrowse2time.txt', shell=True)
     elif name == 'bamsnap':
         run('rm bamsnaptime.txt', shell=True)
-    elif name == 'wally':
-        run('rm wallytime.txt', shell=True)
     elif name == 'genomeview':
         run('rm genomeviewtime.txt', shell=True)
     else:
