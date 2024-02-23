@@ -27,8 +27,6 @@ Download the GW installer script below:
 
 [GW Intel x86_64 Windows installer](https://github.com/kcleal/gw/releases/download/v0.9.3/gw-windows-installer.vbs)
 
-[GW Intel x86_64 Windows installer](https://github.com/kcleal/gw/releases/download/v0.9.2/gw-windows-installer.vbs)
-
 
 Run the downloaded visual-basic script by double-clicking, or right-clicking and selecting Run as program.
 The script will install GW, add a shortcut to GW in the Start Menu and put GW on your PATH. This means GW

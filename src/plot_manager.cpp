@@ -878,7 +878,7 @@ namespace Manager {
 
             SkPaint cog_paint = opts.theme.lcBright;
             cog_paint.setAntiAlias(true);
-            cog_paint.setStrokeWidth(6);
+            cog_paint.setStrokeWidth(3 * monitorScale);
             cog_paint.setStyle(SkPaint::kStrokeAndFill_Style);
             canvas->drawCircle(15 * monitorScale, half_h - 12.5 * monitorScale, 5 * monitorScale, cog_paint);
 

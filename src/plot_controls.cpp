@@ -1816,6 +1816,7 @@ namespace Manager {
                 tracks.push_back(HGW::GwTrack());
                 try {
                     tracks.back().open(pth, true);
+                    tracks.back().variant_distance = &opts.variant_distance;
                     std::cout << termcolor::magenta << "\nTrack       " << termcolor::reset << pth << "\n";
                 } catch (...) {
                     tracks.pop_back();
