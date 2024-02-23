@@ -44,6 +44,7 @@
 #define MINI_CASE_SENSITIVE
 #include "../include/ini.h"
 #include "utils.h"
+#include "../include/export_definitions.h"
 
 
 namespace Themes {
@@ -118,7 +119,7 @@ namespace Themes {
         ~SlateTheme() = default;
     };
 
-    class IniOptions {
+    class EXPORT IniOptions {
     public:
         IniOptions();
         ~IniOptions() {};
