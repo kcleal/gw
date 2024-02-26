@@ -64,7 +64,19 @@ namespace Themes {
 
     constexpr float base_qual_alpha[11] = {51, 51, 51, 51, 51, 128, 128, 128, 128, 128, 255};
 
-    class BaseTheme {
+    /*
+    bg - background, fc - face color, ec - edge color, lc - line color, tc - text color
+    if an item has 0 at the end this is the color when mapq == 0
+    */
+    enum GwPaint {
+        bgPaint, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip,
+        fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack, fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0,
+        fcSoftClip0, fcBigWig, mate_fc, mate_fc0, ecMateUnmapped, ecSplit, ecSelected,
+        lcJoins, lcCoverage, lcLightJoins, insF, insS, lcLabel, lcBright, tcDel, tcIns, tcLabels, tcBackground,
+        marker_paint
+    };
+
+    class EXPORT BaseTheme {
     public:
         BaseTheme();
         ~BaseTheme() = default;
@@ -98,6 +110,7 @@ namespace Themes {
         std::array<std::array<SkPaint, 11>, 16> BasePaints;
 
         void setAlphas();
+        void setPaintARGB(int paint_enum, int alpha, int red, int green, int blue);
 
     };
 
@@ -159,6 +172,7 @@ namespace Themes {
         bool readIni();
         static std::filesystem::path writeDefaultIni(std::filesystem::path &homedir, std::filesystem::path &home_config, std::filesystem::path &gwIni);
         void getOptionsFromIni();
+        void setTheme(std::string &theme_str);
 
     };
 

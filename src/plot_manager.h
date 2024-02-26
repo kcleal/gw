@@ -35,6 +35,7 @@
 #include "utils.h"
 #include "segments.h"
 #include "themes.h"
+#include "export_definitions.h"
 
 #define SK_GL
 #include "include/gpu/GrBackendSurface.h"
@@ -69,7 +70,7 @@ namespace Manager {
     /*
      * Deals with managing all data and plotting
      */
-    class GwPlot {
+    class EXPORT GwPlot {
     public:
         GwPlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opts, std::vector<Utils::Region> &regions,
                std::vector<std::string> &track_paths);
@@ -80,6 +81,8 @@ namespace Manager {
         int samMaxY;
         int regionSelection, variantFileSelection;
         bool drawToBackWindow;
+
+        std::vector<char> pixelMemory;
 
         std::string reference;
 
@@ -131,6 +134,12 @@ namespace Manager {
 
         void setRasterSize(int width, int height);
 
+        int makeRasterSurface();
+
+        void rasterToPng(const char* path);
+
+        void addBam(std::string &bam_path);
+
         void addVariantTrack(std::string &path, int startIndex, bool cacheStdin, bool useFullPath);
 
         void addFilter(std::string &filter_str);
@@ -153,8 +162,6 @@ namespace Manager {
 
         void setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop);
 
-//        void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string & rid, std::string &label, std::string &vartype);
-
         int startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay);
 
         void keyPress(GLFWwindow* window, int key, int scancode, int action, int mods);
@@ -169,9 +176,11 @@ namespace Manager {
 
         void pathDrop(GLFWwindow* window, int count, const char** paths);
 
-        void runDraw(SkCanvas *canvas);
+        void runDraw();
 
-        void runDrawNoBuffer(SkCanvas *canvas);
+        void runDrawOnCanvas(SkCanvas *canvas);
+
+        void runDrawNoBuffer();
 
         sk_sp<SkImage> makeImage();
 
@@ -211,8 +220,6 @@ namespace Manager {
 
         float yScaling;
 
-        std::vector<char> pixelMemory;
-
 //        std::vector<std::vector<char>> extraPixelArrays;  // one for each thread
 
         GLFWcursor* vCursor;
@@ -232,7 +239,7 @@ namespace Manager {
 
         void drawScreenNoBuffer(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
-        void drawOverlay(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
+        void drawOverlay(SkCanvas* canvas);
 
         void tileDrawingThread(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
@@ -251,7 +258,6 @@ namespace Manager {
         void highlightQname();
 
         void updateCursorGenomePos(float xOffset, float xScaling, float xPos, Utils::Region *region, int bamIdx);
-        //void updateCursorGenomePos(Segs::ReadCollection &cl, float xPos);
 
         void updateSlider(float xPos);
 

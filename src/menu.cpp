@@ -99,7 +99,7 @@ namespace Menu {
         else { return Themes::MenuTable::MAIN; }
     }
 
-    void drawMenu(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface, Themes::IniOptions &opts, Themes::Fonts &fonts, float monitorScale, float fb_width, float fb_height,
+    void drawMenu(SkCanvas *canvas, Themes::IniOptions &opts, Themes::Fonts &fonts, float monitorScale, float fb_width, float fb_height,
                   std::string inputText, int charIndex) {
         SkRect rect;
         SkPath path;

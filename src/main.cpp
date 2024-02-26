@@ -413,7 +413,7 @@ int main(int argc, char *argv[]) {
             iopts.link_op = 2;
         } else {
             std::cerr << "Link type not known [none/sv/all]\n";
-            std::exit(-1);
+            std::exit(-1);std::cerr << " 52 \n";
         }
     }
 
@@ -669,7 +669,7 @@ int main(int argc, char *argv[]) {
                     SkCanvas *pageCanvas = pdfDocument->beginPage(iopts.dimensions.x, iopts.dimensions.y);
                     plotter.fb_width = iopts.dimensions.x;
                     plotter.fb_height = iopts.dimensions.y;
-                    plotter.runDraw(pageCanvas);
+                    plotter.runDrawOnCanvas(pageCanvas);
                     pdfDocument->close();
                     buffer.writeToStream(&out);
                 } else {
@@ -677,7 +677,7 @@ int main(int argc, char *argv[]) {
                     plotter.fb_height = iopts.dimensions.y;
                     SkPictureRecorder recorder;
                     SkCanvas* canvas = recorder.beginRecording(SkRect::MakeWH(iopts.dimensions.x, iopts.dimensions.y));
-                    plotter.runDraw(canvas);
+                    plotter.runDrawOnCanvas(canvas);
                     sk_sp<SkPicture> picture = recorder.finishRecordingAsPicture();
                     std::unique_ptr<SkCanvas> svgCanvas = SkSVGCanvas::Make(SkRect::MakeWH(iopts.dimensions.x, iopts.dimensions.y), &out);
                     if (svgCanvas) {
@@ -693,15 +693,16 @@ int main(int argc, char *argv[]) {
                 if (!regions.empty()) {  // plot target regions
                     plotter.setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
                     plotter.gap = 0;
-                    sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
-                                                                                    iopts.dimensions.y);
-                    SkCanvas *canvas = rasterSurface->getCanvas();
+                    plotter.makeRasterSurface();
+//                    sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
+//                                                                                    iopts.dimensions.y);
+//                    SkCanvas *canvas = rasterSurface->getCanvas();
                     if (iopts.link_op == 0) {
-                        plotter.runDrawNoBuffer(canvas);
+                        plotter.runDrawNoBuffer();
                     } else {
-                        plotter.runDraw(canvas);
+                        plotter.runDraw();
                     }
-                    img = rasterSurface->makeImageSnapshot();
+                    img = plotter.rasterSurface->makeImageSnapshot();
 
                     if (outdir.empty()) {
                         std::string fpath;
@@ -773,10 +774,11 @@ int main(int argc, char *argv[]) {
                                               block += 1;
                                               mtx.unlock();
                                               Manager::GwPlot *plt = managers[this_block];
+                                              plt->makeRasterSurface();
                                               std::vector<Utils::Region> &all_regions = jobs[this_block];
-                                              sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(
-                                                      iopts.dimensions.x, iopts.dimensions.y);
-                                              SkCanvas *canvas = rasterSurface->getCanvas();
+//                                              sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(
+//                                                      iopts.dimensions.x, iopts.dimensions.y);
+//                                              SkCanvas *canvas = rasterSurface->getCanvas();
                                               for (auto &rgn: all_regions) {
                                                   plt->collections.clear();
                                                   delete plt->regions[0].refSeq;
@@ -784,11 +786,11 @@ int main(int argc, char *argv[]) {
                                                   plt->regions[0].start = rgn.start;
                                                   plt->regions[0].end = rgn.end;
                                                   if (iopts.link_op == 0) {
-                                                      plt->runDrawNoBuffer(canvas);
+                                                      plt->runDrawNoBuffer();
                                                   } else {
-                                                      plt->runDraw(canvas);
+                                                      plt->runDraw();
                                                   }
-                                                  sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
+                                                  sk_sp<SkImage> img(plt->rasterSurface->makeImageSnapshot());
                                                   std::filesystem::path fname = "GW~" + plt->regions[0].chrom + "~" +
                                                                    std::to_string(plt->regions[0].start) + "~" +
                                                                    std::to_string(plt->regions[0].end) + "~.png";
@@ -901,18 +903,19 @@ int main(int argc, char *argv[]) {
                                             block += 1;
                                             mtx.unlock();
                                             Manager::GwPlot *plt = managers[this_block];
-                                            sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
-                                            SkCanvas *canvas = rasterSurface->getCanvas();
+                                            plt->makeRasterSurface();
+//                                            sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
+//                                            SkCanvas *canvas = rasterSurface->getCanvas();
                                             for (int i = a; i < b; ++i) {
                                                 Manager::VariantJob job = jobs[i];
                                                 plt->setVariantSite(job.chrom, job.start, job.chrom2, job.stop);
-                                                plt->runDrawNoBuffer(canvas);
+                                                plt->runDrawNoBuffer();
 //                                                if (plt->opts.low_memory && plt->opts.link_op == 0) {
 //                                                    plt->runDrawNoBuffer(canvas);
 //                                                } else {
 //                                                    plt->runDraw(canvas);
 //                                                }
-                                                sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
+                                                sk_sp<SkImage> img(plt->rasterSurface->makeImageSnapshot());
                                                 std::filesystem::path fname = job.varType + "~" + job.chrom + "~" + std::to_string(job.start) + "~" + job.chrom2 + "~" + std::to_string(job.stop) + "~" + job.rid + ".png";
                                                 std::filesystem::path full_path = outdir / fname;
                                                 Manager::imageToPng(img, full_path);

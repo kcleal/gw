@@ -11,7 +11,7 @@
 
 namespace Themes {
 
-    BaseTheme::BaseTheme() {
+    EXPORT BaseTheme::BaseTheme() {
 
         fcCoverage.setStyle(SkPaint::kStrokeAndFill_Style);
         fcCoverage.setStrokeWidth(0);
@@ -187,6 +187,51 @@ namespace Themes {
         }
     }
 
+    void BaseTheme::setPaintARGB(int paint_enum, int a, int r, int g, int b) {
+        switch (paint_enum) {
+            case GwPaint::bgPaint: this->bgPaint.setARGB(a, r, g, b); break;
+            case GwPaint::fcNormal: this->fcNormal.setARGB(a, r, g, b); break;
+            case GwPaint::fcDel: this->fcDel.setARGB(a, r, g, b); break;
+            case GwPaint::fcDup: this->fcDup.setARGB(a, r, g, b); break;
+            case GwPaint::fcInvF: this->fcInvF.setARGB(a, r, g, b); break;
+            case GwPaint::fcInvR: this->fcInvR.setARGB(a, r, g, b); break;
+            case GwPaint::fcTra: this->fcTra.setARGB(a, r, g, b); break;
+            case GwPaint::fcIns: this->fcIns.setARGB(a, r, g, b); break;
+            case GwPaint::fcSoftClip: this->fcSoftClip.setARGB(a, r, g, b); break;
+            case GwPaint::fcA: this->fcA.setARGB(a, r, g, b); break;
+            case GwPaint::fcT: this->fcT.setARGB(a, r, g, b); break;
+            case GwPaint::fcC: this->fcC.setARGB(a, r, g, b); break;
+            case GwPaint::fcG: this->fcG.setARGB(a, r, g, b); break;
+            case GwPaint::fcN: this->fcN.setARGB(a, r, g, b); break;
+            case GwPaint::fcCoverage: this->fcCoverage.setARGB(a, r, g, b); break;
+            case GwPaint::fcTrack: this->fcTrack.setARGB(a, r, g, b); break;
+            case GwPaint::fcNormal0: this->fcNormal0.setARGB(a, r, g, b); break;
+            case GwPaint::fcDel0: this->fcDel0.setARGB(a, r, g, b); break;
+            case GwPaint::fcDup0: this->fcDup0.setARGB(a, r, g, b); break;
+            case GwPaint::fcInvF0: this->fcInvF0.setARGB(a, r, g, b); break;
+            case GwPaint::fcInvR0: this->fcInvR0.setARGB(a, r, g, b); break;
+            case GwPaint::fcTra0: this->fcTra0.setARGB(a, r, g, b); break;
+            case GwPaint::fcSoftClip0: this->fcSoftClip0.setARGB(a, r, g, b); break;
+            case GwPaint::fcBigWig: this->fcBigWig.setARGB(a, r, g, b); break;
+            case GwPaint::ecMateUnmapped: this->ecMateUnmapped.setARGB(a, r, g, b); break;
+            case GwPaint::ecSplit: this->ecSplit.setARGB(a, r, g, b); break;
+            case GwPaint::ecSelected: this->ecSelected.setARGB(a, r, g, b); break;
+            case GwPaint::lcJoins: this->lcJoins.setARGB(a, r, g, b); break;
+            case GwPaint::lcCoverage: this->lcCoverage.setARGB(a, r, g, b); break;
+            case GwPaint::lcLightJoins: this->lcLightJoins.setARGB(a, r, g, b); break;
+            case GwPaint::insF: this->insF.setARGB(a, r, g, b); break;
+            case GwPaint::insS: this->insS.setARGB(a, r, g, b); break;
+            case GwPaint::lcLabel: this->lcLabel.setARGB(a, r, g, b); break;
+            case GwPaint::lcBright: this->lcBright.setARGB(a, r, g, b); break;
+            case GwPaint::tcDel: this->tcDel.setARGB(a, r, g, b); break;
+            case GwPaint::tcIns: this->tcIns.setARGB(a, r, g, b); break;
+            case GwPaint::tcLabels: this->tcLabels.setARGB(a, r, g, b); break;
+            case GwPaint::tcBackground: this->tcBackground.setARGB(a, r, g, b); break;
+            case GwPaint::marker_paint: this->marker_paint.setARGB(a, r, g, b); break;
+            default: break;
+        }
+    }
+
     IgvTheme::IgvTheme() {
         name = "igv";
         fcCoverage.setARGB(255, 195, 195, 195);
@@ -354,6 +399,18 @@ namespace Themes {
         repeat_command=GLFW_KEY_R;
     }
 
+    void IniOptions::setTheme(std::string &theme_str) {
+        if (theme_str == "slate") {
+            this->theme_str = theme_str; theme = SlateTheme();
+        } else if (theme_str == "igv") {
+            this->theme_str = theme_str; theme = IgvTheme();
+        } else if (theme_str == "dark") {
+            this->theme_str = theme_str; theme = DarkTheme();
+        } else {
+            std::cerr << "theme_str must be slate, igv, or dark\n";
+        }
+    }
+
     void IniOptions::getOptionsFromIni() {
 
         ankerl::unordered_dense::map<std::string, int> key_table;
@@ -481,12 +538,12 @@ namespace Themes {
 
     bool IniOptions::readIni() {
 
-# if defined(_WIN32) || defined(_WIN64)
-    const char *homedrive_c = std::getenv("HOMEDRIVE");
-	const char *homepath_c = std::getenv("HOMEPATH");
-    std::string homedrive(homedrive_c ? homedrive_c : "");
-	std::string homepath(homepath_c ? homepath_c : "");
-	std::string home = homedrive + homepath;
+#if defined(_WIN32) || defined(_WIN64)
+        const char *homedrive_c = std::getenv("HOMEDRIVE");
+        const char *homepath_c = std::getenv("HOMEPATH");
+        std::string homedrive(homedrive_c ? homedrive_c : "");
+        std::string homepath(homepath_c ? homepath_c : "");
+        std::string home = homedrive + homepath;
 #else
         struct passwd *pw = getpwuid(getuid());
         std::string home(pw->pw_dir);

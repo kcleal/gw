@@ -78,6 +78,8 @@ namespace Utils {
             chrom = "";
             start = -1;
             end = -1;
+            markerPos = -1;
+            markerPosEnd = -1;
             refSeq = nullptr;
         }
     };
