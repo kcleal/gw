@@ -4,14 +4,8 @@
 
 #pragma once
 
-#if defined _WIN32 || defined __CYGWIN__
-    #ifdef BUILDING_LIBGW
-        #define EXPORT __declspec(dllexport)
-    #else
-        #define EXPORT __declspec(dllimport)
-    #endif
-#else
-    #if __GNUC__ >= 4
+#if defined(__GNUC__) && __GNUC__ >= 4
+    #if BUILDING_LIBGW
         #define EXPORT __attribute__ ((visibility ("default")))
     #else
         #define EXPORT
