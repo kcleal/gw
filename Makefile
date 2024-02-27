@@ -139,9 +139,6 @@ clean:
 
 
 SHARED_TARGET = libgw.so
-ifeq ($(PLATFORM),"Darwin")
-    SHARED_TARGET = libgw/libgw.dylib
-endif
 
 shared: CXXFLAGS += -fPIC
 shared: $(OBJECTS)
