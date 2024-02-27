@@ -33,3 +33,5 @@
 /lib/libBigWig/bwValues.o
 /lib/libBigWig/bwWrite.o
 /lib/libBigWig/io.o
+/libgw/
+libgw.so

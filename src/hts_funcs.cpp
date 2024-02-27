@@ -433,7 +433,6 @@ namespace HGW {
 //        if (region->end == 0) {
 //            return;
 //        }
-
         bam1_t *src;
         hts_itr_t *iter_q;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());

@@ -63,7 +63,7 @@ namespace Manager {
 
     }
 
-    GwPlot::GwPlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opt, std::vector<Utils::Region> &regions,
+    EXPORT GwPlot::GwPlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opt, std::vector<Utils::Region> &regions,
                    std::vector<std::string> &track_paths) {
         this->reference = reference;
         this->bam_paths = bampaths;
@@ -161,6 +161,16 @@ namespace Manager {
         std::cout << "GLFW Error: " << err_str << std::endl;
     }
 
+    int GwPlot::makeRasterSurface() {
+        SkImageInfo info = SkImageInfo::MakeN32Premul(opts.dimensions.x * monitorScale, opts.dimensions.y * monitorScale);
+        size_t rowBytes = info.minRowBytes();
+        size_t size = info.computeByteSize(rowBytes);
+        this->pixelMemory.resize(size);
+        this->rasterSurface = SkSurface::MakeRasterDirect(
+            info, &pixelMemory[0], rowBytes);
+        return pixelMemory.size();
+    }
+
     void GwPlot::init(int width, int height) {
 
         glfwSetErrorCallback(ErrorCallback);
@@ -244,12 +254,7 @@ namespace Manager {
         glfwMakeContextCurrent(window);
         setGlfwFrameBufferSize();
 
-        SkImageInfo info = SkImageInfo::MakeN32Premul(opts.dimensions.x * monitorScale, opts.dimensions.y * monitorScale);
-        size_t rowBytes = info.minRowBytes();
-        size_t size = info.computeByteSize(rowBytes);
-        pixelMemory.resize(size);
-        rasterSurface = SkSurface::MakeRasterDirect(
-                info, &pixelMemory[0], rowBytes);
+        makeRasterSurface();
 
     }
 
@@ -283,6 +288,17 @@ namespace Manager {
                 fetchRefSeq(rgn);
             }
         }
+    }
+
+    void GwPlot::addBam(std::string &bam_path) {
+        htsFile* f = sam_open(bam_path.c_str(), "r");
+        hts_set_fai_filename(f, reference.c_str());
+        hts_set_threads(f, opts.threads);
+        bams.push_back(f);
+        sam_hdr_t *hdr_ptr = sam_hdr_read(f);
+        headers.push_back(hdr_ptr);
+        hts_idx_t* idx = sam_index_load(f, bam_path.c_str());
+        indexes.push_back(idx);
     }
 
     void GwPlot::addVariantTrack(std::string &path, int startIndex, bool cacheStdin, bool useFullPath) {
@@ -445,7 +461,9 @@ namespace Manager {
                     printIndexInfo();
                 }
             }
-            drawOverlay(sSurface->getCanvas(), sContext, sSurface);
+            drawOverlay(sSurface->getCanvas());
+            sContext->flush();
+            glfwSwapBuffers(window);
 
             if (resizeTriggered && std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - resizeTimer) > 100ms) {
                 imageCache.clear();
@@ -769,35 +787,21 @@ namespace Manager {
     }
 
     void GwPlot::drawScreenNoBuffer(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
-
-//        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
-
-        SkCanvas* canvasR = rasterSurface->getCanvas();
-
         canvas->drawPaint(opts.theme.bgPaint);
-        canvasR->drawPaint(opts.theme.bgPaint);
-
         frameId += 1;
-//        setGlfwFrameBufferSize();
         if (regions.empty()) {
             setScaling();
         } else {
-//            runDrawNoBuffer(canvas, sContext);
-            runDrawNoBuffer(canvasR);
+            runDrawNoBuffer();
         }
-//        imageCacheQueue.emplace_back(frameId, sSurface->makeImageSnapshot());
         imageCacheQueue.emplace_back(frameId, rasterSurface->makeImageSnapshot());
-
         canvas->drawImage(imageCacheQueue.back().second, 0, 0);
-
         sContext->flush();
         glfwSwapBuffers(window);
         redraw = false;
-
-//        std::cerr << " time nobuffer " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
 
-    void GwPlot::drawOverlay(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface) {
+    void GwPlot::drawOverlay(SkCanvas *canvas) {
         if (!imageCacheQueue.empty()) {
             while (imageCacheQueue.front().first != frameId) {
                 imageCacheQueue.pop_front();
@@ -814,7 +818,7 @@ namespace Manager {
                 bg.setAlpha(220);
                 canvas->drawPaint(bg);
             }
-            Menu::drawMenu(sSurface->getCanvas(), sContext, sSurface, opts, fonts, monitorScale, fb_width, fb_height, inputText, charIndex);
+            Menu::drawMenu(canvas, opts, fonts, monitorScale, fb_width, fb_height, inputText, charIndex);
         } else if (regionSelectionTriggered && regions.size() > 1) {
             SkRect rect{};
             float step = (float)fb_width / (float)regions.size();
@@ -1026,8 +1030,6 @@ namespace Manager {
             tcMenu.setAntiAlias(true);
             canvas->drawTextBlob(blob.get(), txt_start, (float)fb_height / 2, tcMenu);
         }
-        sContext->flush();
-        glfwSwapBuffers(window);
     }
 
     void GwPlot::tileDrawingThread(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface) {
@@ -1040,7 +1042,7 @@ namespace Manager {
             bool c = imageCache.contains(i);
             if (!c && i < (int)currentVarTrack->multiRegions.size() && !bams.empty()) {
                 regions = currentVarTrack->multiRegions[i];
-                runDraw(canvas);
+                runDraw();
                 sk_sp<SkImage> img(sSurface->makeImageSnapshot());
                 imageCache[i] = img;
                 sContext->flush();
@@ -1162,7 +1164,7 @@ namespace Manager {
         redraw = false;
     }
 
-    void GwPlot::runDraw(SkCanvas *canvas) {
+    void GwPlot::runDrawOnCanvas(SkCanvas *canvas) {
         fetchRefSeqs();
         processBam();
         setScaling();
@@ -1178,14 +1180,20 @@ namespace Manager {
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
     }
 
-    void GwPlot::runDrawNoBuffer(SkCanvas *canvas) {
+    void GwPlot::runDraw() {
+        runDrawOnCanvas(rasterSurface->getCanvas());
+    }
+
+    void GwPlot::runDrawNoBuffer() {
 
 //        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
 
         if (bams.empty()) {
             return;
         }
-//        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
+        SkCanvas* canvas = rasterSurface->getCanvas();
+        canvas->drawPaint(opts.theme.bgPaint);
+
         fetchRefSeqs();
 
         // This is a subset of processBam function:
@@ -1196,6 +1204,7 @@ namespace Manager {
             for (int j=0; j<(int)regions.size(); ++j) {
                 Utils::Region *reg = &regions[j];
                 Segs::ReadCollection &col = collections[idx];
+                col.skipDrawingCoverage = false;
                 col.bamIdx = i;
                 if (!col.levelsStart.empty()) {
                     col.clear();
@@ -1216,8 +1225,7 @@ namespace Manager {
             }
         }
         setScaling();
-        canvas->drawPaint(opts.theme.bgPaint);
-
+//        canvas->drawPaint(opts.theme.bgPaint);
         idx = 0;
         for (int i=0; i<(int)bams.size(); ++i) {
             htsFile* b = bams[i];
@@ -1243,8 +1251,24 @@ namespace Manager {
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
         Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
-
 //        std::cerr << " time runDrawNoBuffer " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
+    }
+
+    sk_sp<SkImage> GwPlot::makeImage() {
+        makeRasterSurface();
+        runDraw();
+        sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
+        return img;
+    }
+
+    void GwPlot::rasterToPng(const char* path) {
+        sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
+        if (!img) { return; }
+        sk_sp<SkData> png(img->encodeToData());
+        if (!png) { return; }
+        FILE* fout = fopen(path, "w");
+        fwrite(png->data(), 1, png->size(), fout);
+        fclose(fout);
     }
 
     void imageToPng(sk_sp<SkImage> &img, std::filesystem::path &path) {
@@ -1290,13 +1314,5 @@ namespace Manager {
         fclose(fout);
     }
 
-    sk_sp<SkImage> GwPlot::makeImage() {
-        setScaling();
-        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(fb_width, fb_height);
-        SkCanvas *canvas = rasterSurface->getCanvas();
-        runDraw(canvas);
-        sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
-        return img;
-    }
 }
 

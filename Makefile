@@ -135,10 +135,10 @@ $(TARGET): $(OBJECTS)
 clean:
 	-rm -f *.o ./src/*.o ./src/*.o.tmp ./lib/libBigWig/*.o
 	-rm -f $(TARGET)
-	-rm -rf libgw
+	-rm -rf libgw*
 
 
-SHARED_TARGET = libgw/libgw.so
+SHARED_TARGET = libgw.so
 ifeq ($(PLATFORM),"Darwin")
     SHARED_TARGET = libgw/libgw.dylib
 endif
@@ -147,5 +147,5 @@ shared: CXXFLAGS += -fPIC
 shared: $(OBJECTS)
 	-mkdir -p libgw/include
 	-cp src/*.h libgw/include
-	-cp include/*.h libgw/include
-	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -shared -o $(SHARED_TARGET)
+	-cp include/*.h* libgw/include
+	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -shared -DBUILDING_LIBGW -o $(SHARED_TARGET)

@@ -17,8 +17,9 @@
 #include "parser.h"
 #include "../include/IITree.h"
 #include "../include/unordered_dense.h"
-#include "../lib/libBigWig/bigWig.h"
-//#include "../include/strnatcmp.h"
+#include "bigWig.h"
+//#include "../lib/libBigWig/bigWig.h"
+
 #include "../include/glob_cpp.hpp"
 #include "segments.h"
 #include "themes.h"

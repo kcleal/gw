@@ -687,7 +687,6 @@ namespace Drawing {
 
         SkRect rect;
         SkPath path;
-
         const Themes::BaseTheme &theme = opts.theme;
 
         std::vector<TextItem> text_ins, text_del;
@@ -711,16 +710,12 @@ namespace Drawing {
 
         float pH_05 = pH * 0.05;
         float pH_95 = pH * 0.95;
-
         for (const auto &a: cl.readQueue) {
-
             int Y = a.y;
             if (Y < 0) {
                 continue;
             }
-
             bool indelTextFits = fonts.overlayHeight * 0.7 < yScaling;
-
             int mapq = a.delegate->core.qual;
             float yScaledOffset = (Y * yScaling) + yOffset;
             chooseFacecolors(mapq, a, faceColor, theme);
@@ -741,7 +736,6 @@ namespace Drawing {
             int lastEnd = 1215752191;
             int starti;
             bool line_only;
-
             for (size_t idx = 0; idx < nBlocks; ++idx) {
                 starti = (int) a.block_starts[idx];
                 if (idx > 0) {
@@ -780,7 +774,6 @@ namespace Drawing {
                                      textDrop, text_del, indelTextFits);
                 }
             }
-
             // add soft-clip blocks
             int start = (int) a.pos - regionBegin;
             int end = (int) a.reference_end - regionBegin;
