@@ -138,11 +138,23 @@ clean:
 	-rm -rf libgw*
 
 
-SHARED_TARGET = libgw.so
+UNAME_S := $(shell uname -s)
+
+
+ifeq ($(UNAME_S),Linux)
+    SHARED_TARGET = libgw.so
+endif
+ifeq ($(UNAME_S),Darwin)
+    SHARED_TARGET = libgw.dylib
+endif
 
 shared: CXXFLAGS += -fPIC
 shared: $(OBJECTS)
 	-mkdir -p libgw/include
 	-cp src/*.h libgw/include
 	-cp include/*.h* libgw/include
+ifeq ($(UNAME_S),Darwin)
+	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -dynamiclib -DBUILDING_LIBGW -o $(SHARED_TARGET)
+else
 	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -shared -DBUILDING_LIBGW -o $(SHARED_TARGET)
+endif
