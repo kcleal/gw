@@ -82,6 +82,9 @@ namespace Manager {
         int regionSelection, variantFileSelection;
         bool drawToBackWindow;
 
+        bool redraw;
+        bool processed;
+
         std::vector<char> pixelMemory;
 
         std::string reference;
@@ -191,8 +194,6 @@ namespace Manager {
 
     private:
         long frameId;
-        bool redraw;
-        bool processed;
         bool drawLine;
         bool resizeTriggered;
         bool regionSelectionTriggered;

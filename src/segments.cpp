@@ -414,8 +414,6 @@ namespace Segs {
             if (block_s >= end) { break; }
             uint32_t block_e = align.block_ends[idx];
             if (block_e < begin) { continue; }
-//            uint32_t s = (block_s >= begin) ? block_s - begin : 0;
-//            uint32_t e = (block_e < end) ? block_e - begin : l_arr;
             uint32_t s = std::max(block_s, begin) - begin;
             uint32_t e = std::min(block_e, end) - begin;
             arr[s] += 1;

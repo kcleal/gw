@@ -1204,6 +1204,7 @@ namespace Manager {
             for (int j=0; j<(int)regions.size(); ++j) {
                 Utils::Region *reg = &regions[j];
                 Segs::ReadCollection &col = collections[idx];
+                col.skipDrawingCoverage = false;
                 col.bamIdx = i;
                 if (!col.levelsStart.empty()) {
                     col.clear();
@@ -1224,7 +1225,7 @@ namespace Manager {
             }
         }
         setScaling();
-        canvas->drawPaint(opts.theme.bgPaint);
+//        canvas->drawPaint(opts.theme.bgPaint);
         idx = 0;
         for (int i=0; i<(int)bams.size(); ++i) {
             htsFile* b = bams[i];
@@ -1242,7 +1243,6 @@ namespace Manager {
                 idx += 1;
             }
         }
-
         if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }
