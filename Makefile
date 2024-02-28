@@ -9,10 +9,10 @@ debug: default
 
 # set system
 PLATFORM=
+UNAME_S := $(shell uname -s)
 ifeq ($(OS),Windows_NT)  # assume we are using msys2-ucrt64 env
     PLATFORM = "Windows"
 else
-    UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Linux)
         PLATFORM = "Linux"
     else ifeq ($(UNAME_S),Darwin)
@@ -138,8 +138,6 @@ clean:
 	-rm -rf libgw*
 
 
-UNAME_S := $(shell uname -s)
-
 
 ifeq ($(UNAME_S),Linux)
     SHARED_TARGET = libgw.so
@@ -148,11 +146,12 @@ ifeq ($(UNAME_S),Darwin)
     SHARED_TARGET = libgw.dylib
 endif
 
-shared: CXXFLAGS += -fPIC
+shared: CXXFLAGS += -fPIC -DBUILDING_LIBGW
 shared: $(OBJECTS)
 	-mkdir -p libgw/include
 	-cp src/*.h libgw/include
 	-cp include/*.h* libgw/include
+
 ifeq ($(UNAME_S),Darwin)
 	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -dynamiclib -DBUILDING_LIBGW -o $(SHARED_TARGET)
 else

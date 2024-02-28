@@ -39,12 +39,12 @@
 #include "include/core/SkFont.h"
 #include "include/core/SkTextBlob.h"
 
-#include "../include/argparse.h"
-#include "../include/glob_cpp.hpp"
+#include "argparse.h"
+#include "glob_cpp.hpp"
 #define MINI_CASE_SENSITIVE
-#include "../include/ini.h"
+#include "ini.h"
 #include "utils.h"
-#include "../include/export_definitions.h"
+#include "export_definitions.h"
 
 
 namespace Themes {

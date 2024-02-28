@@ -5,8 +5,8 @@
 #include "menu.h"
 #include "themes.h"
 #include "glfw_keys.h"
-#include "../include/defaultIni.hpp"
-#include "../include/unordered_dense.h"
+#include "defaultIni.hpp"
+#include "unordered_dense.h"
 
 
 namespace Themes {
@@ -340,7 +340,7 @@ namespace Themes {
         ecSplit.setStrokeWidth(1);
     }
 
-    IniOptions::IniOptions() {
+    EXPORT IniOptions::IniOptions() {
         menu_level = "";
         menu_table = MAIN;
         theme_str = "dark";

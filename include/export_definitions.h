@@ -10,4 +10,7 @@
     #else
         #define EXPORT
     #endif
+#else
+    #error "__GNUC__ not defined or version is less than 4"
 #endif
+
