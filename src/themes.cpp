@@ -12,6 +12,7 @@
 namespace Themes {
 
     EXPORT BaseTheme::BaseTheme() {
+//    BaseTheme::BaseTheme() {
 
         fcCoverage.setStyle(SkPaint::kStrokeAndFill_Style);
         fcCoverage.setStrokeWidth(0);
@@ -340,7 +341,8 @@ namespace Themes {
         ecSplit.setStrokeWidth(1);
     }
 
-    EXPORT IniOptions::IniOptions() {
+//    EXPORT IniOptions::IniOptions() {
+    IniOptions::IniOptions() {
         menu_level = "";
         menu_table = MAIN;
         theme_str = "dark";

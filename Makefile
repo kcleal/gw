@@ -75,11 +75,11 @@ prep:
 
 CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG
 
-CPPFLAGS += -I./lib/libBigWig -I./include -I./src -I.
+LIBGW_INCLUDE=
+shared: LIBGW_INCLUDE=-I./libgw
+CPPFLAGS += -I./lib/libBigWig -I./include -I. $(LIBGW_INCLUDE) -I./src
 
 LDLIBS += -lskia -lm -ljpeg -lpng -lsvg -lhts -lfontconfig -lpthread
-
-
 
 # set platform flags and libs
 ifeq ($(PLATFORM),"Linux")
@@ -104,13 +104,13 @@ ifeq ($(PLATFORM),"Linux")
 
 else ifeq ($(PLATFORM),"Darwin")
     CPPFLAGS += -I/usr/local/include
-    CXXFLAGS += -D OSX -stdlib=libc++ -arch x86_64 -fvisibility=hidden -mmacosx-version-min=10.15 -Wno-deprecated-declarations
+    CXXFLAGS += -D OSX -stdlib=libc++ -arch x86_64 -fvisibility=hidden -mmacosx-version-min=11 -Wno-deprecated-declarations
     LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=10.15 -L/usr/local/lib
     LDLIBS += -lglfw -lzlib -lcurl -licu -ldl
 
 else ifeq ($(PLATFORM),"Arm64")
     CPPFLAGS += -I/usr/local/include
-    CXXFLAGS += -D OSX -stdlib=libc++ -arch arm64 -fvisibility=hidden -mmacosx-version-min=10.15 -Wno-deprecated-declarations
+    CXXFLAGS += -D OSX -stdlib=libc++ -arch arm64 -fvisibility=hidden -mmacosx-version-min=11 -Wno-deprecated-declarations
     LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=10.15 -L/usr/local/lib
     LDLIBS += -lglfw -lzlib -lcurl -licu -ldl
 
@@ -135,7 +135,7 @@ $(TARGET): $(OBJECTS)
 clean:
 	-rm -f *.o ./src/*.o ./src/*.o.tmp ./lib/libBigWig/*.o
 	-rm -f $(TARGET)
-	-rm -rf libgw*
+	-rm -rf libgw.*
 
 
 
@@ -147,10 +147,13 @@ ifeq ($(UNAME_S),Darwin)
 endif
 
 shared: CXXFLAGS += -fPIC -DBUILDING_LIBGW
+
 shared: $(OBJECTS)
 	-mkdir -p libgw/include
 	-cp src/*.h libgw/include
 	-cp include/*.h* libgw/include
+	-cp lib/libBigWig/*.h libgw/include
+	-cp -rf lib/skia/include libgw/include
 
 ifeq ($(UNAME_S),Darwin)
 	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -dynamiclib -DBUILDING_LIBGW -o $(SHARED_TARGET)

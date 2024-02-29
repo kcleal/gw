@@ -77,6 +77,7 @@ namespace Themes {
     };
 
     class EXPORT BaseTheme {
+//    class BaseTheme {
     public:
         BaseTheme();
         ~BaseTheme() = default;
@@ -132,7 +133,8 @@ namespace Themes {
         ~SlateTheme() = default;
     };
 
-    class EXPORT IniOptions {
+//    class EXPORT IniOptions {
+    class IniOptions {
     public:
         IniOptions();
         ~IniOptions() {};
