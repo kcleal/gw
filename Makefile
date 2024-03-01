@@ -155,10 +155,10 @@ ifeq ($(UNAME_S),Darwin)
 else
 	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -shared -DBUILDING_LIBGW -o $(SHARED_TARGET)
 endif
-	-mkdir -p libgw/include
-	-cp src/*.h libgw/include
-	-cp include/*.h* libgw/include
-	-cp lib/libBigWig/*.h libgw/include
-	-cp -rf lib/skia/include libgw/include
-	-cp $(SKIA_PATH)/libskia.a libgw
-	-mv $(SHARED_TARGET) libgw
+	-mkdir -p lib/libgw/include lib/libgw/out
+	-cp $(SKIA_PATH)/libskia.a lib/libgw/out
+	-cp src/*.h lib/libgw/include
+	-cp include/*.h* lib/libgw/include
+	-mv $(SHARED_TARGET) lib/libgw/out
+
+

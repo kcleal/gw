@@ -1,8 +1,8 @@
 
 CXXFLAGS += -std=c++17 -DOSX -stdlib=libc++ -arch arm64 -mmacosx-version-min=11
-CPPFLAGS += -I../ -I../include
+CPPFLAGS += -I../include -I../../skia/ -I../../libBigWig
 LDFLAGS += -L../out -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices
-LDLIBS += -lskia -lgwplot
+LDLIBS += -lskia -lgw
 CXX=clang++
 
 
@@ -18,7 +18,7 @@ SOURCES=$(wildcard *.cpp)
 
 hello: $(OBJECTS)
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -g $(SOURCES) $(LDFLAGS) $(LDLIBS) -o $@
-	-install_name_tool -change libgwplot.dylib @loader_path/../out/libgwplot.dylib hello
+	-install_name_tool -change libgw.dylib @loader_path/../out/libgw.dylib hello
 
 clean:
 	-rm -rf *.o ./*.o ./*.dSYM
