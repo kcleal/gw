@@ -19,7 +19,7 @@
 #include "plot_manager.h"
 #include "menu.h"
 #include "segments.h"
-#include "../include/termcolor.h"
+#include "termcolor.h"
 #include "term_out.h"
 #include "themes.h"
 

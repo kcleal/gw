@@ -9,9 +9,9 @@
 #include <mutex>
 #include <string>
 #include "argparse.h"
-#include "../include/BS_thread_pool.h"
+#include "BS_thread_pool.h"
 //#include "../include/natsort.hpp"
-#include "../include/glob_cpp.hpp"
+#include "glob_cpp.hpp"
 #include "hts_funcs.h"
 #include "parser.h"
 #include "plot_manager.h"

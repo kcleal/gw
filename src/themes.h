@@ -77,7 +77,6 @@ namespace Themes {
     };
 
     class EXPORT BaseTheme {
-//    class BaseTheme {
     public:
         BaseTheme();
         ~BaseTheme() = default;
@@ -115,26 +114,25 @@ namespace Themes {
 
     };
 
-    class IgvTheme: public BaseTheme {
+    class EXPORT IgvTheme: public BaseTheme {
         public:
             IgvTheme();
             ~IgvTheme() = default;
     };
 
-    class DarkTheme: public BaseTheme {
+    class EXPORT DarkTheme: public BaseTheme {
         public:
             DarkTheme();
             ~DarkTheme() = default;
     };
 
-    class SlateTheme: public BaseTheme {
+    class EXPORT SlateTheme: public BaseTheme {
     public:
         SlateTheme();
         ~SlateTheme() = default;
     };
 
-//    class EXPORT IniOptions {
-    class IniOptions {
+    class EXPORT IniOptions {
     public:
         IniOptions();
         ~IniOptions() {};
@@ -178,7 +176,7 @@ namespace Themes {
 
     };
 
-    class Fonts {
+    class EXPORT Fonts {
     public:
         Fonts();
         ~Fonts() = default;

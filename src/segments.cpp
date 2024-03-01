@@ -376,7 +376,7 @@ namespace Segs {
         }
     }
 
-    ReadCollection::ReadCollection() {
+    EXPORT ReadCollection::ReadCollection() {
         vScroll = 0;
         collection_processed = false;
         skipDrawingReads = false;

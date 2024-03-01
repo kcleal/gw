@@ -19,8 +19,8 @@
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkSurface.h"
 
-#include "../include/BS_thread_pool.h"
-#include "../include/unordered_dense.h"
+#include "BS_thread_pool.h"
+#include "ankerl_unordered_dense.h"
 #include "hts_funcs.h"
 
 #include "utils.h"

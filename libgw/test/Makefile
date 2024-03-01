@@ -1,8 +1,8 @@
 
 CXXFLAGS += -std=c++17 -DOSX -stdlib=libc++ -arch arm64 -mmacosx-version-min=10.15
-CPPFLAGS += -I./include
+CPPFLAGS += -I../ -I../include
 LDFLAGS += -L../ -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices
-LDLIBS += -lgw
+LDLIBS += -lskia -lgw
 CXX=clang++
 
 

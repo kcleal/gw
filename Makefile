@@ -37,21 +37,23 @@ ifdef HTSLIB
 endif
 
 SKIA ?= ""
+SKIA_PATH=""
 ifneq ($(PLATFORM), "Windows")
     ifneq ($(SKIA),"")
         CPPFLAGS += -I$(SKIA)
-        LDFLAGS += -L $(wildcard $(SKIA)/out/Rel*)
+        SKIA_PATH = $(wildcard $(SKIA)/out/Rel*)
     else ifeq ($(PLATFORM),"Darwin")
         CPPFLAGS += -I./lib/skia
-        LDFLAGS += -L./lib/skia/out/Release-x64
+        SKIA_PATH = ./lib/skia/out/Release-x64
     else ifeq ($(PLATFORM),"Arm64")
         CPPFLAGS += -I./lib/skia
-        LDFLAGS += -L./lib/skia/out/Release-arm64
+        SKIA_PATH = ./lib/skia/out/Release-arm64
     else
     	CPPFLAGS += -I./lib/skia
-        LDFLAGS += -L./lib/skia/out/Release-x64
+        SKIA_PATH = ./lib/skia/out/Release-x64
     endif
 endif
+LDFLAGS += -L$(SKIA_PATH)
 
 SKIA_LINK=""
 USE_GL ?= ""  # Else use EGL backend for Linux only
@@ -81,8 +83,7 @@ CPPFLAGS += -I./lib/libBigWig -I./include -I. $(LIBGW_INCLUDE) -I./src
 
 LDLIBS += -lskia -lm -ljpeg -lpng -lsvg -lhts -lfontconfig -lpthread
 
-# set platform flags and libs
-ifeq ($(PLATFORM),"Linux")
+ifeq ($(PLATFORM),"Linux")  # set platform flags and libs
     ifeq (${XDG_SESSION_TYPE},"wayland")  # wayland is untested!
         LDLIBS += -lwayland-client
     else
@@ -124,7 +125,6 @@ endif
 OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 OBJECTS += $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
 
-
 debug: CXXFLAGS += -g
 debug: LDFLAGS += -fsanitize=address -fsanitize=undefined
 
@@ -140,10 +140,10 @@ clean:
 
 
 ifeq ($(UNAME_S),Linux)
-    SHARED_TARGET = libgw.so
+    SHARED_TARGET = libgw/libgw.so
 endif
 ifeq ($(UNAME_S),Darwin)
-    SHARED_TARGET = libgw.dylib
+    SHARED_TARGET = libgw/libgw.dylib
 endif
 
 shared: CXXFLAGS += -fPIC -DBUILDING_LIBGW
@@ -154,6 +154,7 @@ shared: $(OBJECTS)
 	-cp include/*.h* libgw/include
 	-cp lib/libBigWig/*.h libgw/include
 	-cp -rf lib/skia/include libgw/include
+	-cp $(SKIA_PATH)/libskia.a libgw
 
 ifeq ($(UNAME_S),Darwin)
 	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -dynamiclib -DBUILDING_LIBGW -o $(SHARED_TARGET)

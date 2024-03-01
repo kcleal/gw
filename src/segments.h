@@ -10,17 +10,18 @@
 #include <deque>
 #include <unordered_map>
 
-#include "../include/BS_thread_pool.h"
-#include "../include/unordered_dense.h"
+#include "BS_thread_pool.h"
+#include "ankerl_unordered_dense.h"
 #include "htslib/sam.h"
 
+#include "export_definitions.h"
 #include "themes.h"
 #include "utils.h"
 
 
 namespace Segs {
 
-    enum Pattern {
+    EXPORT enum Pattern {
         u = 0,
         NORMAL = 0,
         DEL = 1,
@@ -32,7 +33,7 @@ namespace Segs {
 
 //    typedef int64_t hts_pos_t;
 
-    struct InsItem {
+    EXPORT struct InsItem {
         uint32_t pos, length;
     };
 //
@@ -54,7 +55,7 @@ namespace Segs {
 //
 //    void get_mismatched_bases(std::vector<MMbase> &result, const char *md_tag, uint32_t r_pos, uint32_t ct_l, uint32_t *cigar_p);
 
-    struct Align {
+    EXPORT struct Align {
         bam1_t *delegate;
         int cov_start, cov_end, orient_pattern, left_soft_clip, right_soft_clip, y, edge_type;
         uint32_t pos, reference_end;
@@ -67,13 +68,13 @@ namespace Segs {
         }
     };
 
-    struct Mismatches {
+    EXPORT struct Mismatches {
         uint32_t A, T, C, G;
     };
 
     typedef ankerl::unordered_dense::map< std::string, std::vector< Align* >> map_t;
 
-    class ReadCollection {
+    class EXPORT ReadCollection {
     public:
        ReadCollection();
         ~ReadCollection() = default;

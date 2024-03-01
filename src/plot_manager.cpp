@@ -30,14 +30,14 @@
 #include "include/core/SkSurface.h"
 #include "include/core/SkDocument.h"
 
-#include "../include/unordered_dense.h"
+#include "ankerl_unordered_dense.h"
 #include "drawing.h"
 #include "plot_manager.h"
 #include "menu.h"
 #include "segments.h"
-#include "../include/termcolor.h"
+#include "termcolor.h"
 #include "themes.h"
-#include "../include/window_icon.h"
+#include "window_icon.h"
 
 
 using namespace std::literals;

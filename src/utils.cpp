@@ -15,7 +15,7 @@
 #include <sstream>
 #include <string>
 
-#include "../include/unordered_dense.h"
+#include "ankerl_unordered_dense.h"
 #include "utils.h"
 
 #include "htslib/faidx.h"
@@ -175,7 +175,7 @@ namespace Utils {
         }
     }
 
-    Region parseRegion(std::string &s) {
+    EXPORT Region parseRegion(std::string &s) {
         Region reg;
         std::string s2;
         if (s.find(":") != std::string::npos) {
@@ -363,7 +363,7 @@ namespace Utils {
     }
 
 
-    Dims parseDimensions(std::string &s) {
+    EXPORT Dims parseDimensions(std::string &s) {
         Dims d = {0, 0};
         int start = 0;
         int end = (int)s.find('x');

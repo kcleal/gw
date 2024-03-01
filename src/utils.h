@@ -7,8 +7,8 @@
 #include <filesystem>
 #include <string>
 #include <vector>
-#include "../include/unordered_dense.h"
-
+#include "ankerl_unordered_dense.h"
+#include "export_definitions.h"
 #include "htslib/faidx.h"
 
 #if defined(_WIN32)
@@ -37,7 +37,7 @@ namespace Utils {
 
     bool is_file_exist(std::string FileName);
 
-    class TrackBlock {
+    class EXPORT TrackBlock {
     public:
         std::string chrom, name, line, vartype, parent;
         int start, end;
@@ -58,7 +58,7 @@ namespace Utils {
         }
     };
 
-    class GFFTrackBlock {
+    class EXPORT GFFTrackBlock {
     public:
         std::string chrom, name, line, vartype;
         std::vector<std::string> parts;
@@ -66,7 +66,7 @@ namespace Utils {
         int strand;  // 0 is none, 1 forward, 2 reverse
     };
 
-    class Region {
+    class EXPORT Region {
     public:
         std::string chrom;
         int start, end;
@@ -84,7 +84,7 @@ namespace Utils {
         }
     };
 
-    Region parseRegion(std::string &r);
+    EXPORT Region parseRegion(std::string &r);
 
     bool parseFilenameToRegions(std::filesystem::path &path, std::vector<Region> &regions, faidx_t* fai, int pad, int split_size);
 
@@ -98,11 +98,11 @@ namespace Utils {
 
     FileNameInfo parseFilenameInfo(std::filesystem::path &path);
 
-    struct Dims {
+    EXPORT struct Dims {
         int x, y;
     };
 
-    Dims parseDimensions(std::string &s);
+    EXPORT Dims parseDimensions(std::string &s);
 
     int intervalOverlap(int start1, int end1, int start2, int end2);
 
@@ -114,7 +114,7 @@ namespace Utils {
 
     std::vector<BoundingBox> imageBoundingBoxes(Dims &dims, float wndowWidth, float windowHeight, float padX=15, float padY=15, float ySpace=0);
 
-    class Label {
+    class EXPORT Label {
     public:
         Label() = default;
         ~Label() = default;

@@ -6,13 +6,12 @@
 #include "themes.h"
 #include "glfw_keys.h"
 #include "defaultIni.hpp"
-#include "unordered_dense.h"
+#include "ankerl_unordered_dense.h"
 
 
 namespace Themes {
 
     EXPORT BaseTheme::BaseTheme() {
-//    BaseTheme::BaseTheme() {
 
         fcCoverage.setStyle(SkPaint::kStrokeAndFill_Style);
         fcCoverage.setStrokeWidth(0);
@@ -233,7 +232,7 @@ namespace Themes {
         }
     }
 
-    IgvTheme::IgvTheme() {
+    EXPORT IgvTheme::IgvTheme() {
         name = "igv";
         fcCoverage.setARGB(255, 195, 195, 195);
         fcTrack.setARGB(200, 0, 0, 0);
@@ -268,7 +267,7 @@ namespace Themes {
         ecSplit.setStrokeWidth(1);
     }
 
-    DarkTheme::DarkTheme() {
+    EXPORT DarkTheme::DarkTheme() {
         name = "dark";
         fcCoverage.setARGB(255, 95, 95, 105);
         fcTrack.setARGB(200, 227, 232, 255);
@@ -305,7 +304,7 @@ namespace Themes {
         ecSplit.setStrokeWidth(1);
     }
 
-    SlateTheme::SlateTheme() {
+    EXPORT SlateTheme::SlateTheme() {
         name = "slate";
         fcCoverage.setARGB(255, 103, 102, 109);
         fcTrack.setARGB(200, 227, 232, 255);
@@ -341,8 +340,7 @@ namespace Themes {
         ecSplit.setStrokeWidth(1);
     }
 
-//    EXPORT IniOptions::IniOptions() {
-    IniOptions::IniOptions() {
+    EXPORT IniOptions::IniOptions() {
         menu_level = "";
         menu_table = MAIN;
         theme_str = "dark";
@@ -583,7 +581,7 @@ namespace Themes {
 
     const SkGlyphID glyphs[1] = {100};
 
-    Fonts::Fonts() {
+    EXPORT Fonts::Fonts() {
         rect = SkRect::MakeEmpty();
         path = SkPath();
         fontMaxSize = 35; // in pixels

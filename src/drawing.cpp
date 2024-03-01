@@ -21,8 +21,8 @@
 #include "include/core/SkTextBlob.h"
 
 #include "htslib/sam.h"
-#include "../include/BS_thread_pool.h"
-#include "../include/unordered_dense.h"
+#include "BS_thread_pool.h"
+#include "ankerl_unordered_dense.h"
 #include "hts_funcs.h"
 #include "drawing.h"
 
