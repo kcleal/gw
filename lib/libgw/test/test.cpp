@@ -3,7 +3,7 @@
 //
 
 #include <iostream>
-#include "libgw.hpp"
+#include "libgwplot.hpp"
 
 int main(int argc, char *argv[]) {
     Themes::BaseTheme t;
