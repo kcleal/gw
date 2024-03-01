@@ -98,7 +98,7 @@ namespace Utils {
 
     FileNameInfo parseFilenameInfo(std::filesystem::path &path);
 
-    EXPORT struct Dims {
+    struct EXPORT Dims {
         int x, y;
     };
 

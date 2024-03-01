@@ -21,7 +21,7 @@
 
 namespace Segs {
 
-    EXPORT enum Pattern {
+    enum EXPORT Pattern {
         u = 0,
         NORMAL = 0,
         DEL = 1,
@@ -33,7 +33,7 @@ namespace Segs {
 
 //    typedef int64_t hts_pos_t;
 
-    EXPORT struct InsItem {
+    struct EXPORT InsItem {
         uint32_t pos, length;
     };
 //
@@ -55,7 +55,7 @@ namespace Segs {
 //
 //    void get_mismatched_bases(std::vector<MMbase> &result, const char *md_tag, uint32_t r_pos, uint32_t ct_l, uint32_t *cigar_p);
 
-    EXPORT struct Align {
+    struct EXPORT Align {
         bam1_t *delegate;
         int cov_start, cov_end, orient_pattern, left_soft_clip, right_soft_clip, y, edge_type;
         uint32_t pos, reference_end;
@@ -68,7 +68,7 @@ namespace Segs {
         }
     };
 
-    EXPORT struct Mismatches {
+    struct EXPORT Mismatches {
         uint32_t A, T, C, G;
     };
 

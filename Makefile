@@ -140,24 +140,25 @@ clean:
 
 
 ifeq ($(UNAME_S),Linux)
-    SHARED_TARGET = libgw/libgw.so
+    SHARED_TARGET = libgw.so
 endif
 ifeq ($(UNAME_S),Darwin)
-    SHARED_TARGET = libgw/libgw.dylib
+    SHARED_TARGET = libgw.dylib
 endif
 
 shared: CXXFLAGS += -fPIC -DBUILDING_LIBGW
 
 shared: $(OBJECTS)
-	-mkdir -p libgw/include
-	-cp src/*.h libgw/include
-	-cp include/*.h* libgw/include
-	-cp lib/libBigWig/*.h libgw/include
-	-cp -rf lib/skia/include libgw/include
-	-cp $(SKIA_PATH)/libskia.a libgw
 
 ifeq ($(UNAME_S),Darwin)
 	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -dynamiclib -DBUILDING_LIBGW -o $(SHARED_TARGET)
 else
 	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -shared -DBUILDING_LIBGW -o $(SHARED_TARGET)
 endif
+	-mkdir -p libgw/include
+	-cp src/*.h libgw/include
+	-cp include/*.h* libgw/include
+	-cp lib/libBigWig/*.h libgw/include
+	-cp -rf lib/skia/include libgw/include
+	-cp $(SKIA_PATH)/libskia.a libgw
+	-mv $(SHARED_TARGET) libgw
