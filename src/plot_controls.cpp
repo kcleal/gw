@@ -416,6 +416,64 @@ namespace Manager {
         return key;
     }
 
+    void GwPlot::removeBam(int index) {
+        if (index >= (int) bams.size()) {
+            std::cerr << termcolor::red << "Error:" << termcolor::reset << " bam index is out of range. Use 0-based indexing\n";
+            return;
+        }
+        collections.erase(std::remove_if(collections.begin(), collections.end(), [&index](const auto &col) {
+            return col.bamIdx == index;
+        }), collections.end());
+        bams.erase(bams.begin() + index, bams.begin() + index + 1);
+        indexes.erase(indexes.begin() + index, indexes.begin() + index + 1);
+        headers.erase(headers.begin() + index, headers.begin() + index + 1);
+        processed = false;
+        redraw = true;
+        inputText = "";
+        imageCache.clear();
+    }
+
+    void GwPlot::removeTrack(int index) {
+        if (index >= (int)tracks.size()) {
+            std::cerr << termcolor::red << "Error:" << termcolor::reset << " track index is out of range. Use 0-based indexing\n";
+            return;
+        }
+        for (auto &rgn : regions) {
+            rgn.featuresInView.clear();
+            rgn.featureLevels.clear();
+        }
+        tracks[index].close();
+        tracks.erase(tracks.begin() + index, tracks.begin() + index + 1);
+        for (auto &trk: tracks) {
+            trk.open(trk.path, true);
+        }
+        processed = false;
+        redraw = true;
+        inputText = "";
+        imageCache.clear();
+    }
+
+    void GwPlot::removeRegion(int index) {
+        regionSelection = 0;
+        if (!regions.empty() && index < (int)regions.size()) {
+            if (regions.size() == 1 && index == 0) {
+                regions.clear();
+            } else {
+                regions.erase(regions.begin() + index);
+            }
+        } else {
+            std::cerr << termcolor::red << "Error:" << termcolor::reset << " region index is out of range. Use 0-based indexing\n";
+            return;
+        }
+        collections.erase(std::remove_if(collections.begin(), collections.end(), [&index](const auto col) {
+            return col.regionIdx == index;
+        }), collections.end());
+        processed = false;
+        redraw = true;
+        inputText = "";
+        imageCache.clear();
+    }
+
     void GwPlot::highlightQname() { // todo make this more efficient
         for (auto &cl : collections) {
             for (auto &a: cl.readQueue) {
@@ -712,21 +770,7 @@ namespace Manager {
                     inputText = "";
                     return true;
                 }
-                if (ind >= (int) bams.size()) {
-                    std::cerr << termcolor::red << "Error:" << termcolor::reset
-                              << " bam index is out of range. Use 0-based indexing\n";
-                    return true;
-                }
-                collections.erase(std::remove_if(collections.begin(), collections.end(), [&ind](const auto &col) {
-                    return col.bamIdx == ind;
-                }), collections.end());
-                bams.erase(bams.begin() + ind, bams.begin() + ind + 1);
-                indexes.erase(indexes.begin() + ind, indexes.begin() + ind + 1);
-                headers.erase(headers.begin() + ind, headers.begin() + ind + 1);
-                processed = false;
-                redraw = true;
-                inputText = "";
-                imageCache.clear();
+                removeBam(ind);
                 return true;
             } else if (Utils::startsWith(split.back(), "track")) {
                 split.back().erase(0, 5);
@@ -737,23 +781,7 @@ namespace Manager {
                     inputText = "";
                     return true;
                 }
-                if (ind >= (int)tracks.size()) {
-                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " track index is out of range. Use 0-based indexing\n";
-                    return true;
-                }
-                for (auto &rgn : regions) {
-                    rgn.featuresInView.clear();
-                    rgn.featureLevels.clear();
-                }
-                tracks[ind].close();
-                tracks.erase(tracks.begin() + ind, tracks.begin() + ind + 1);
-                for (auto &trk: tracks) {
-                    trk.open(trk.path, true);
-                }
-                processed = false;
-                redraw = true;
-                inputText = "";
-                imageCache.clear();
+                removeTrack(ind);
                 return true;
             } else {
                 try {
@@ -763,24 +791,7 @@ namespace Manager {
                     inputText = "";
                     return true;
                 }
-                regionSelection = 0;
-                if (!regions.empty() && ind < (int)regions.size()) {
-                    if (regions.size() == 1 && ind == 0) {
-                        regions.clear();
-                    } else {
-                        regions.erase(regions.begin() + ind);
-                    }
-                } else {
-                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " region index is out of range. Use 0-based indexing\n";
-                    return true;
-                }
-                collections.erase(std::remove_if(collections.begin(), collections.end(), [&ind](const auto col) {
-                    return col.regionIdx == ind;
-                }), collections.end());
-                processed = false;
-                redraw = true;
-                inputText = "";
-                imageCache.clear();
+                removeRegion(ind);
                 return true;
             }
 
@@ -1782,51 +1793,59 @@ namespace Manager {
         }
     }
 
-    void GwPlot::pathDrop(GLFWwindow* wind, int count, const char** paths) {
+    void GwPlot::addTrack(std::string &path, bool print_message=true) {
         bool good = false;
-
-        for (int i=0; i < count; ++ i) {
-            std::string pth = *paths;
-            if (Utils::endsWith(pth, ".bam") || Utils::endsWith(pth, ".cram")) {
-                good = true;
-                std::cout << termcolor::magenta << "\nAlignments  " << termcolor::reset << pth << "\n";
-                bam_paths.push_back(pth);
-                htsFile* f = sam_open(pth.c_str(), "r");
-                hts_set_threads(f, opts.threads);
-                bams.push_back(f);
-                sam_hdr_t *hdr_ptr = sam_hdr_read(f);
-                headers.push_back(hdr_ptr);
-                hts_idx_t* idx = sam_index_load(f, pth.c_str());
-                indexes.push_back(idx);
-            } else if (!opts.vcf_as_tracks && (Utils::endsWith(pth, ".vcf.gz") || Utils::endsWith(pth, ".vcf") || Utils::endsWith(pth, ".bcf"))) {
-                good = true;
-                std::vector<std::string> labels = Utils::split(opts.labels, ',');
-                setLabelChoices(labels);
-                mouseOverTileIndex = 0;
-                bboxes = Utils::imageBoundingBoxes(opts.number, (float) fb_width, (float) fb_height);
-                imageCache.clear();
-                addVariantTrack(pth, opts.start_index, false, false);
-                variantFileSelection = (int) variantTracks.size() - 1;
-                currentVarTrack = &variantTracks[variantFileSelection];
-                currentVarTrack->blockStart = 0;
-                mode = Manager::Show::TILED;
+        if (Utils::endsWith(path, ".bam") || Utils::endsWith(path, ".cram")) {
+            good = true;
+            if (print_message) {
+                std::cout << termcolor::magenta << "\nAlignments  " << termcolor::reset << path << "\n";
+            }
+            bam_paths.push_back(path);
+            htsFile* f = sam_open(path.c_str(), "r");
+            hts_set_threads(f, opts.threads);
+            bams.push_back(f);
+            sam_hdr_t *hdr_ptr = sam_hdr_read(f);
+            headers.push_back(hdr_ptr);
+            hts_idx_t* idx = sam_index_load(f, path.c_str());
+            indexes.push_back(idx);
+        } else if (!opts.vcf_as_tracks && (Utils::endsWith(path, ".vcf.gz") || Utils::endsWith(path, ".vcf") || Utils::endsWith(path, ".bcf"))) {
+            good = true;
+            std::vector<std::string> labels = Utils::split(opts.labels, ',');
+            setLabelChoices(labels);
+            mouseOverTileIndex = 0;
+            bboxes = Utils::imageBoundingBoxes(opts.number, (float) fb_width, (float) fb_height);
+            imageCache.clear();
+            addVariantTrack(path, opts.start_index, false, false);
+            variantFileSelection = (int) variantTracks.size() - 1;
+            currentVarTrack = &variantTracks[variantFileSelection];
+            currentVarTrack->blockStart = 0;
+            mode = Manager::Show::TILED;
+            if (print_message) {
                 std::cout << termcolor::magenta << "\nFile        " << termcolor::reset
                           << variantTracks[variantFileSelection].path << "\n";
-            } else {
-                tracks.push_back(HGW::GwTrack());
-                try {
-                    tracks.back().open(pth, true);
-                    tracks.back().variant_distance = &opts.variant_distance;
-                    std::cout << termcolor::magenta << "\nTrack       " << termcolor::reset << pth << "\n";
-                } catch (...) {
-                    tracks.pop_back();
-                }
             }
-            ++paths;
+        } else {
+            tracks.push_back(HGW::GwTrack());
+            try {
+                tracks.back().open(path, true);
+                tracks.back().variant_distance = &opts.variant_distance;
+                if (print_message) {
+                    std::cout << termcolor::magenta << "\nTrack       " << termcolor::reset << path << "\n";
+                }
+            } catch (...) {
+                tracks.pop_back();
+            }
         }
         if (good) {
             processed = false;
             redraw = true;
+        }
+    }
+
+    void GwPlot::pathDrop(GLFWwindow* wind, int count, const char** paths) {
+        for (int i=0; i < count; ++ i) {
+            std::string pth = *paths;
+            addTrack(pth);
         }
     }
 

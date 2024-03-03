@@ -145,6 +145,14 @@ namespace Manager {
 
         void addBam(std::string &bam_path);
 
+        void removeBam(int index);
+
+        void addTrack(std::string &path, bool print_message);
+
+        void removeTrack(int index);
+
+        void removeRegion(int index);
+
         void addVariantTrack(std::string &path, int startIndex, bool cacheStdin, bool useFullPath);
 
         void addFilter(std::string &filter_str);
