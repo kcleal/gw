@@ -521,7 +521,6 @@ namespace Manager {
             redraw = false;
             processed = true;
             return false;
-//            throw CloseException();
         } else if (inputText == ":" || inputText == "/") {
             inputText = "";
             return true;
@@ -867,17 +866,6 @@ namespace Manager {
             inputText = "";
             imageCache.clear();
             return true;
-//        } else if (inputText == "low-mem") {
-//            opts.low_mem = !(opts.low_mem);
-//            redraw = false;
-//            if (mode == SINGLE) {
-//                processed = true;
-//            } else {
-//                processed = false;
-//            }
-//            inputText = "";
-//            std::cout << "Low memory mode " << ((opts.low_mem) ? "on" : "off") << std::endl;
-//            return true;
         } else if (Utils::startsWith(inputText, "mate")) {
             std::string mate;
             Utils::parseMateLocation(selectedAlign, mate, target_qname);
@@ -957,26 +945,6 @@ namespace Manager {
             opts.tlen_yscale = !opts.tlen_yscale;
             std::cerr << opts.max_tlen << std::endl;
             valid = true;
-//            samMaxY = opts.ylim;
-            //opts.max_tlen = samMaxY;
-//        }
-//        else if (Utils::startsWith(inputText, "tlen-y")) {
-//            valid = true;
-//            std::vector<std::string> split = Utils::split(inputText, delim);
-//            if (split.size() == 2) {
-//                try {
-//                    opts.max_tlen = std::stoi(split.back());
-//                    opts.tlen_yscale = true;
-//                } catch (...) {
-//                    std::cerr << termcolor::red << "Error:" << termcolor::reset << " 'tlen-y NUMBER' not understood\n";
-//                    return true;
-//                }
-//            } else {
-//                opts.tlen_yscale = !(opts.tlen_yscale);
-//                if (!opts.tlen_yscale) {
-//                    samMaxY = opts.ylim;
-//                }
-//            }
         } else if (Utils::startsWith(inputText, "goto")) {
             std::vector<std::string> split = Utils::split(inputText, delim_q);
             if (split.size() == 1) {
