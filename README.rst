@@ -32,6 +32,8 @@ Check out the `documentation here. <https://kcleal.github.io/gw/>`_
 Please visit the `install section of the documentation <https://kcleal.github.io/gw/docs/install/Install.html>`_ for more details,
 or download one of the binaries from the Releases page.
 
+TLDR: ``conda install -c bioconda -c conda-forge gw``
+
 
 🚀 Quick Start
 ==============
