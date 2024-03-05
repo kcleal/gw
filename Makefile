@@ -147,7 +147,7 @@ ifeq ($(UNAME_S),Darwin)
 endif
 
 shared: CXXFLAGS += -fPIC -DBUILDING_LIBGW
-
+shared: CFLAGS += -fPIC
 shared: $(OBJECTS)
 
 ifeq ($(UNAME_S),Darwin)
