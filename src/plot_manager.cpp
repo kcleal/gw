@@ -217,32 +217,32 @@ namespace Manager {
         glfwSetWindowUserPointer(window, this);
 
         auto func_key = [](GLFWwindow* w, int k, int s, int a, int m){
-            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->keyPress(w, k, s, a, m);
+            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->keyPress(k, s, a, m);
         };
         glfwSetKeyCallback(window, func_key);
 
         auto func_drop = [](GLFWwindow* w, int c, const char**paths){
-            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->pathDrop(w, c, paths);
+            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->pathDrop(c, paths);
         };
         glfwSetDropCallback(window, func_drop);
 
         auto func_mouse = [](GLFWwindow* w, int b, int a, int m){
-            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->mouseButton(w, b, a, m);
+            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->mouseButton(b, a, m);
         };
         glfwSetMouseButtonCallback(window, func_mouse);
 
         auto func_pos = [](GLFWwindow* w, double x, double y){
-            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->mousePos(w, x, y);
+            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->mousePos(x, y);
         };
         glfwSetCursorPosCallback(window, func_pos);
 
         auto func_scroll = [](GLFWwindow* w, double x, double y){
-            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->scrollGesture(w, x, y);
+            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->scrollGesture(x, y);
         };
         glfwSetScrollCallback(window, func_scroll);
 
         auto func_resize = [](GLFWwindow* w, int x, int y){
-            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->windowResize(w, x, y);
+            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->windowResize(x, y);
         };
         glfwSetWindowSizeCallback(window, func_resize);
 

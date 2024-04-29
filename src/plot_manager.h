@@ -177,17 +177,17 @@ namespace Manager {
 
         int startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay);
 
-        void keyPress(GLFWwindow* window, int key, int scancode, int action, int mods);
+        void keyPress(int key, int scancode, int action, int mods);
 
-        void mouseButton(GLFWwindow* wind, int button, int action, int mods);
+        void mouseButton(int button, int action, int mods);
 
-        void mousePos(GLFWwindow* wind, double x, double y);
+        void mousePos(double x, double y);
 
-        void scrollGesture(GLFWwindow* wind, double xoffset, double yoffset);
+        void scrollGesture(double xoffset, double yoffset);
 
-        void windowResize(GLFWwindow* wind, int x, int y);
+        void windowResize(int x, int y);
 
-        void pathDrop(GLFWwindow* window, int count, const char** paths);
+        void pathDrop(int count, const char** paths);
 
         void runDraw();
 

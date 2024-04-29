@@ -1429,7 +1429,7 @@ namespace Manager {
         }
     }
 
-    void GwPlot::keyPress(GLFWwindow *wind, int key, int scancode, int action, int mods) {
+    void GwPlot::keyPress(int key, int scancode, int action, int mods) {
         // Decide if the key is part of a user input command (inputText) or a request to process a command / refresh screen
         // Of note, mouseButton events may be translated into keyPress events and processed here
         // For example, clicking on a commands from the menu pop-up will translate into a keyPress ENTER and
@@ -1444,7 +1444,7 @@ namespace Manager {
                 return;
             }
         } catch (CloseException & mce) {
-            glfwSetWindowShouldClose(wind, GLFW_TRUE);
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
         }
         // key events concerning the menu are handled here
         if (mode != Show::SETTINGS && key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
@@ -1810,7 +1810,7 @@ namespace Manager {
         }
     }
 
-    void GwPlot::pathDrop(GLFWwindow* wind, int count, const char** paths) {
+    void GwPlot::pathDrop(int count, const char** paths) {
         for (int i=0; i < count; ++ i) {
             std::string pth = *paths;
             addTrack(pth);
@@ -1903,7 +1903,8 @@ namespace Manager {
         }
     }
 
-    void GwPlot::mouseButton(GLFWwindow* wind, int button, int action, int mods) {
+    void GwPlot::mouseButton(int button, int action, int mods) {
+        GLFWwindow* wind = window;
         double x, y;
         glfwGetCursorPos(window, &x, &y);
 
@@ -1958,7 +1959,7 @@ namespace Manager {
             double yPos_fb = y;
             convertScreenCoordsToFrameBufferCoords(wind, &xPos_fb, &yPos_fb, fb_width, fb_height);
             if (xPos_fb > 50 && xPos_fb < 50 + fonts.overlayWidth * 20 && action == GLFW_RELEASE) {
-                keyPress(wind, GLFW_KEY_ENTER, 0, GLFW_PRESS, 0);
+                keyPress(GLFW_KEY_ENTER, 0, GLFW_PRESS, 0);
                 return;
             }
             return;
@@ -2362,7 +2363,8 @@ namespace Manager {
         }
     }
 
-    void GwPlot::mousePos(GLFWwindow* wind, double xPos, double yPos) {
+    void GwPlot::mousePos(double xPos, double yPos) {
+        GLFWwindow* wind = window;
         int windX, windY;
         glfwGetWindowSize(wind, &windX, &windY);
         if (yPos < 0 || xPos < 0 || xPos > windX || yPos > windY) {
@@ -2638,31 +2640,31 @@ namespace Manager {
         }
     }
 
-    void GwPlot::scrollGesture(GLFWwindow* wind, double xoffset, double yoffset) {
+    void GwPlot::scrollGesture(double xoffset, double yoffset) {
         if (mode == Manager::SINGLE) {
             if (std::fabs(yoffset) > std::fabs(xoffset) && 0.1 < std::fabs(yoffset)) {
                 if (yoffset < 0) {
-                    keyPress(wind, opts.zoom_out, 0, GLFW_PRESS, 0);
+                    keyPress(opts.zoom_out, 0, GLFW_PRESS, 0);
                 } else {
-                    keyPress(wind, opts.zoom_in, 0, GLFW_PRESS, 0);
+                    keyPress(opts.zoom_in, 0, GLFW_PRESS, 0);
                 }
             } else if (std::fabs(xoffset) > std::fabs(yoffset) && 0.1 < std::fabs(xoffset)) {
                 if (xoffset < 0) {
-                    keyPress(wind, opts.scroll_right, 0, GLFW_PRESS, 0);
+                    keyPress(opts.scroll_right, 0, GLFW_PRESS, 0);
                 } else {
-                    keyPress(wind, opts.scroll_left, 0, GLFW_PRESS, 0);
+                    keyPress(opts.scroll_left, 0, GLFW_PRESS, 0);
                 }
             }
         } else if (std::fabs(yoffset) > std::fabs(xoffset) && 0.1 < std::fabs(yoffset)) {
             if (yoffset < 0) {
-                keyPress(wind, opts.scroll_right, 0, GLFW_PRESS, 0);
+                keyPress(opts.scroll_right, 0, GLFW_PRESS, 0);
             } else {
-                keyPress(wind, opts.scroll_left, 0, GLFW_PRESS, 0);
+                keyPress(opts.scroll_left, 0, GLFW_PRESS, 0);
             }
         }
     }
 
-    void GwPlot::windowResize(GLFWwindow* wind, int x, int y) {
+    void GwPlot::windowResize(int x, int y) {
         resizeTriggered = true;
         resizeTimer = std::chrono::high_resolution_clock::now();
         glfwGetFramebufferSize(window, &fb_width, &fb_height);
