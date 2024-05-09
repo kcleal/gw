@@ -12,7 +12,7 @@ jobs:
    strategy:
      fail-fast: false
      matrix:
-       sys: [clang64, ucrt64]
+       sys: [ucrt64]  # clang64,
    name: ${{ matrix.sys }}
    runs-on: windows-latest
    defaults:
@@ -140,9 +140,9 @@ jobs:
           echo "LIBDEFLATE BUILT" && pwd
           cd ${BUILD_DIR}
           
-          wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.17/htslib-1.17.tar.bz2
+          wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.20/htslib-1.20.tar.bz2
           tar -xvf htslib.tar.bz2
-          mv htslib-1.17 htslib && rm htslib.tar.bz2 && cd htslib
+          mv htslib-1.20 htslib && rm htslib.tar.bz2 && cd htslib
           ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
           make -j3
           echo "HTSLIB BUILT" && pwd

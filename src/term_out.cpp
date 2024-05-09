@@ -47,7 +47,6 @@ namespace Term {
         std::cout << termcolor::green << "insertions, ins                  " << termcolor::reset << "Toggle insertions\n";
         std::cout << termcolor::green << "line                             " << termcolor::reset << "Toggle mouse position vertical line\n";
         std::cout << termcolor::green << "link             none/sv/all     " << termcolor::reset << "Switch read-linking 'link all'\n";
-        std::cout << termcolor::green << "low-mem                          " << termcolor::reset << "Toggle low-mem mode\n";
         std::cout << termcolor::green << "log2-cov                         " << termcolor::reset << "Toggle scale coverage by log2\n";
         std::cout << termcolor::green << "mate             add?            " << termcolor::reset << "Use 'mate' to navigate to mate-pair, or 'mate add' \n                                 to add a new region with mate \n";
         std::cout << termcolor::green << "mismatches, mm                   " << termcolor::reset << "Toggle mismatches\n";
@@ -55,7 +54,7 @@ namespace Term {
         std::cout << termcolor::green << "quit, q          -               " << termcolor::reset << "Quit GW\n";
         std::cout << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
         std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. 'rm 1'. To remove a bam \n                                 use the bam index 'rm bam1', or track 'rm track1'\n";
-        std::cout << termcolor::green << "sam                              " << termcolor::reset << "Print selected read in sam format'\n";
+        std::cout << termcolor::green << "sam                              " << termcolor::reset << "Print selected read in sam format\n";
         std::cout << termcolor::green << "settings                         " << termcolor::reset << "Open the settings menu'\n";
 		std::cout << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window to png e.g. 's', or 's view.png',\n                                 or vcf columns can be used 's {pos}_{info.SU}.png'\n";
         std::cout << termcolor::green << "soft-clips, sc                   " << termcolor::reset << "Toggle soft-clips\n";
@@ -66,7 +65,6 @@ namespace Term {
 //        std::cout << termcolor::green << "                 edges           " << termcolor::reset << "\n";
 //        std::cout << termcolor::green << "                 insertions, ins " << termcolor::reset << "\n";
 //        std::cout << termcolor::green << "                 line            " << termcolor::reset << "\n";
-//        std::cout << termcolor::green << "                 low-mem         " << termcolor::reset << "\n";
 //        std::cout << termcolor::green << "                 log2-cov        " << termcolor::reset << "\n";
 //        std::cout << termcolor::green << "                 mismatches, mm  " << termcolor::reset << "\n";
 //        std::cout << termcolor::green << "                 soft-clip, sc   " << termcolor::reset << "\n";
@@ -144,8 +142,6 @@ namespace Term {
             std::cout << "    Toggle line.\n        A vertical line will turn on/off.\n\n";
         } else if (s == "link" || s == "l") {
             std::cout << "    Link alignments.\n        This will change how alignments are linked, options are 'none', 'sv', 'all'.\n    Examples:\n        'link sv', 'link all'\n\n";
-        } else if (s == "low-mem") {
-            std::cout << "    Toggle low-mem mode.\n        This will discard all base-quality information and sam tags from newly loaded alignments.\n\n";
         } else if (s == "log2-cov") {
             std::cout << "    Toggle log2-coverage.\n        The coverage track will be scaled by log2.\n\n";
         } else if (s == "mate") {
