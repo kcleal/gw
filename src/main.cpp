@@ -40,6 +40,9 @@
 #include "include/core/SkPicture.h"
 #include "include/svg/SkSVGCanvas.h"
 
+#ifdef __EMSCRIPTEN__
+    #include <emscripten.h>
+#endif
 
 // skia context has to be managed from global space to work
 GrDirectContext *sContext = nullptr;

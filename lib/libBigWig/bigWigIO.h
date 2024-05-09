@@ -1,6 +1,9 @@
 #ifndef LIBBIGWIG_IO_H
 #define LIBBIGWIG_IO_H
 
+#ifdef __EMSCRIPTEN__
+#define NOCURL
+#endif
 #ifndef NOCURL
 #include <curl/curl.h>
 #else

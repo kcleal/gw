@@ -102,7 +102,7 @@ namespace Utils {
         int x, y;
     };
 
-    EXPORT Dims parseDimensions(std::string &s);
+    EXPORT_FUNCTION Dims parseDimensions(std::string &s);
 
     int intervalOverlap(int start1, int end1, int start2, int end2);
 
