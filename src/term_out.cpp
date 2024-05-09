@@ -156,6 +156,15 @@ namespace Term {
             std::cout << "    Remove a region, bam or track.\n        Remove a region, bam or track by index. To remove a bam or track add a 'bam' or 'track' prefix.\n    Examples:\n        'rm 0', 'rm bam1', 'rm track2'\n\n";
         } else if (s == "sam") {
             std::cout << "    Print the sam format of the read.\n        First select a read using the mouse then type ':sam'.\n\n";
+        } else if (s == "save") {
+            std::cout << "    Save reads, snapshot or session to file.\n"
+                         "        The filepath extension you use will determine the output file type.\n"
+                         "    Examples:\n"
+                         "        'save reads.bam'    # Save all visible reads to reads.bam file. Any filters are applied.\n"
+                         "        'save reads.cram'   # Reads saved in cram format, the loaded reference genome to configure\n"
+                         "        'save reads.sam'    # Reads saved in sam format (human readable)\n"
+                         "        'save view.png'     # The current view is saved to view.png. Same functionality as 'snapshot' command\n"
+                         "        'save session.xml'  # The current session will be saved, allowing this session to be revisited\n\n";
 		} else if (s == "snapshot" || s == "s") {
             std::cout << "    Save an image of the screen.\n"
                          "        Saves current window. If no name is provided, the image name will be 'chrom_start_end.png', \n"

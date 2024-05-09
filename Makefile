@@ -76,7 +76,7 @@ prep:
 		cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia-m93-linux-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	fi
 
-CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG
+CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG -g
 LIBGW_INCLUDE=
 shared: LIBGW_INCLUDE=-I./libgw
 CPPFLAGS += -I./lib/libBigWig -I./include -I. $(LIBGW_INCLUDE) -I./src
@@ -125,11 +125,11 @@ endif
 OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 OBJECTS += $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
 
-debug: CXXFLAGS += -g
+
 debug: LDFLAGS += -fsanitize=address -fsanitize=undefined
 
 $(TARGET): $(OBJECTS)  # line 131
-	$(CXX) -g $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $@
+	$(CXX) $(CXXFLAGS) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $@
 
 
 clean:
