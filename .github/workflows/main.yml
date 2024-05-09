@@ -165,7 +165,6 @@ jobs:
 
       - name: package
         run: |
-          LDLIBS += -lhts -L/usr/lib/gwhts
           dh_make --single --createorig --packagename gw_${version} --email clealk@cardiff.ac.uk --yes --native
           
           printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop\nusr/lib/gwhts/\nusr/lib/x86_64-linux-gnu/libglfw.so.3\nusr/lib/x86_64-linux-gnu/libglfw.so.3.3" > debian/install
