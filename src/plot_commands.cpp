@@ -83,6 +83,62 @@ namespace Commands {
         return false;
     }
 
+    bool insertions(Plot p) {
+        p->opts.small_indel_threshold = (p->opts.small_indel_threshold == 0) ? std::stoi(p->opts.myIni["view_thresholds"]["small_indel"]) : 0;
+        if (p->mode == Manager::Show::SINGLE) {
+            p->processed = true;
+        } else {
+            p->processed = false;
+        }
+        p->redraw = true;
+        p->imageCache.clear();
+        return false;
+    }
+
+    bool mismatches(Plot p) {
+        p->opts.snp_threshold = (p->opts.snp_threshold == 0) ? std::stoi(p->opts.myIni["view_thresholds"]["snp"]) : 0;
+        if (p->mode == Manager::Show::SINGLE) {
+            p->processed = true;
+            for (auto &cl : p->collections) {
+                cl.skipDrawingReads = false;
+                cl.skipDrawingCoverage = false;
+            }
+        } else {
+            p->processed = false;
+        }
+        p->redraw = true;
+        p->imageCache.clear();
+        return true;
+    }
+
+    bool edges(Plot p) {
+        p->opts.edge_highlights = (p->opts.edge_highlights == 0) ? std::stoi(p->opts.myIni["view_thresholds"]["edge_highlights"]) : 0;
+        if (p->mode == Manager::Show::SINGLE) {
+            p->processed = true;
+            for (auto & cl: p->collections) {
+                cl.skipDrawingReads = false;
+                cl.skipDrawingCoverage = true;
+            }
+        } else {
+            p->processed = false;
+        }
+        p->redraw = true;
+        p->imageCache.clear();
+        return true;
+    }
+
+    bool soft_clips(Plot p) {
+        p->opts.soft_clip_threshold = (p->opts.soft_clip_threshold == 0) ? std::stoi(p->opts.myIni["view_thresholds"]["soft_clip"]) : 0;
+        if (p->mode == Manager::Show::SINGLE) {
+            p->processed = true;
+        } else {
+            p->processed = false;
+        }
+        p->redraw = true;
+        p->imageCache.clear();
+        return true;
+    }
+
     bool link(Plot p, std::string& command, std::vector<std::string>& parts) {
         bool relink = false;
         if (command == "link" || command == "link all") {
@@ -212,6 +268,96 @@ namespace Commands {
         return false;
     }
 
+    bool indelLength(Plot p, std::vector<std::string> parts) {
+        int indel_length = p->opts.indel_length;
+        try {
+            indel_length = std::stoi(parts.back());
+        } catch (...) {
+            std::cerr << termcolor::red << "Error:" << termcolor::reset << " indel-length invalid value\n";
+            return false;
+        }
+        p->opts.indel_length = indel_length;
+        if (p->mode == Manager::Show::SINGLE) {
+            p->processed = true;
+        } else {
+            p->processed = false;
+        }
+        p->redraw = true;
+        p->imageCache.clear();
+        return false;
+    }
+
+    bool remove(Plot p, std::vector<std::string> parts) {
+        int ind = 0;
+        if (Utils::startsWith(parts.back(), "bam")) {
+            parts.back().erase(0, 3);
+            try {
+                ind = std::stoi(parts.back());
+            } catch (...) {
+                std::cerr << termcolor::red << "Error:" << termcolor::reset << " bam index not understood\n";
+                return false;
+            }
+            p->removeBam(ind);
+        } else if (Utils::startsWith(parts.back(), "track")) {
+            parts.back().erase(0, 5);
+            try {
+                ind = std::stoi(parts.back());
+            } catch (...) {
+                std::cerr << termcolor::red << "Error:" << termcolor::reset << " track index not understood\n";
+                return false;
+            }
+            p->removeTrack(ind);
+        } else {
+            try {
+                ind = std::stoi(parts.back());
+            } catch (...) {
+                std::cerr << termcolor::red << "Error:" << termcolor::reset << " region index not understood\n";
+                return false;
+            }
+            p->removeRegion(ind);
+        }
+        bool clear_filters = false; // removing a region can invalidate indexes so remove them
+        for (auto &f : p->filters) {
+            if (!f.targetIndexes.empty()) {
+                clear_filters = true;
+                break;
+            }
+        }
+        if (clear_filters) {
+            p->filters.clear();
+        }
+        return false;
+    }
+
+    bool cov(Plot p, std::vector<std::string> parts) {
+        if (parts.size() > 2) {
+            std::cerr << termcolor::red << "Error:" << termcolor::reset << " cov must be either 'cov' to toggle coverage or 'cov NUMBER' to set max coverage\n";
+            return false;
+        } else if (parts.size() == 1) {
+            if (p->opts.max_coverage == 0) {
+                p->opts.max_coverage = 10000000;
+            } else {
+                p->opts.max_coverage = 0;
+            }
+        } else {
+            try {
+                p->opts.max_coverage = std::stoi(parts.back());
+            } catch (...) {
+                std::cerr << termcolor::red << "Error:" << termcolor::reset << " 'cov NUMBER' not understood\n";
+                return false;
+            }
+        }
+        for (auto &cl : p->collections) {
+            cl.skipDrawingReads = false;
+            cl.skipDrawingCoverage = false;
+        }
+        p->opts.max_coverage = std::max(0, p->opts.max_coverage);
+        p->redraw = true;
+        p->processed = false;
+        p->imageCache.clear();
+        return false;
+    }
+
     // Command functions can access these parameters only
     #define PARAMS [](Commands::Plot p, std::string& command, std::vector<std::string>& parts) -> bool
 
@@ -231,6 +377,12 @@ namespace Commands {
                 {"line",     PARAMS { return line(p); }},
                 {"settings", PARAMS { return settings(p); }},
                 {"sam",      PARAMS { return sam(p); }},
+                {"ins",      PARAMS { return insertions(p); }},
+                {"insertions",  PARAMS { return insertions(p); }},
+                {"mm",       PARAMS { return mismatches(p); }},
+                {"mismatches",  PARAMS { return mismatches(p); }},
+                {"edges",    PARAMS { return edges(p); }},
+                {"soft_clips",  PARAMS { return soft_clips(p); }},
                 {"help",     PARAMS { return getHelp(p, command, parts); }},
                 {"man",      PARAMS { return getHelp(p, command, parts); }},
                 {"link",     PARAMS { return link(p, command, parts); }},
@@ -240,6 +392,9 @@ namespace Commands {
                 {"f",        PARAMS { return findRead(p, parts); }},
                 {"find",     PARAMS { return findRead(p, parts); }},
                 {"ylim",     PARAMS { return setYlim(p, parts); }},
+                {"indel-length", PARAMS { return indelLength(p, parts); }},
+                {"remove",   PARAMS { return remove(p, parts); }},
+                {"cov",      PARAMS { return cov(p, parts); }},
 
 
         };
