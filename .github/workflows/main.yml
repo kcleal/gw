@@ -178,7 +178,7 @@ jobs:
           printf "Conflicts: libglfw3 (<< 3.3)\nReplaces: libglfw3\n" >> debian/control
           
           # Override dh_shlibdeps to include /usr/lib/gwhts
-          printf '#!/usr/bin/make -f\n%%:\ndh $$@\noverride_dh_shlibdeps:\ndh_shlibdeps -l/usr/lib/gwhts\n' > debian/rules
+          printf '#!/usr/bin/make -f\n%%:\n\tdh $@\n\toverride_dh_shlibdeps:\n\tdh_shlibdeps -l/usr/lib/gwhts\n' > debian/rules
           chmod +x debian/rules
           
           dpkg-buildpackage -us -uc
