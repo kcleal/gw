@@ -17,6 +17,7 @@
 #include "hts_funcs.h"
 #include "parser.h"
 #include "plot_manager.h"
+#include "plot_commands.h"
 #include "menu.h"
 #include "segments.h"
 #include "termcolor.h"
@@ -516,6 +517,11 @@ namespace Manager {
         }
         processText = false; // all command text will be processed below
 
+        bool success = Commands::run_command_map(this, inputText);
+        if (!success) {
+            return false;
+        }
+
         if (inputText == "q" || inputText == "quit") {
             triggerClose = true;
             redraw = false;
@@ -567,8 +573,7 @@ namespace Manager {
             processed = true;
             inputText = "";
             return true;
-        }
-        else if (inputText == "line") {
+        } else if (inputText == "line") {
             drawLine = !drawLine;
             redraw = false;
             processed = true;
@@ -605,7 +610,6 @@ namespace Manager {
             }
             imageCache.clear();
             valid = true;
-
         } else if (inputText =="sam") {
             valid = true;
             if (!selectedAlign.empty()) {

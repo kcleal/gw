@@ -81,7 +81,7 @@ namespace Manager {
         int samMaxY;
         int regionSelection, variantFileSelection;
         bool drawToBackWindow;
-
+        bool triggerClose;
         bool redraw;
         bool processed;
 
@@ -210,7 +210,7 @@ namespace Manager {
         bool resizeTriggered;
         bool regionSelectionTriggered;
         bool textFromSettings;
-        bool triggerClose;
+
         std::chrono::high_resolution_clock::time_point resizeTimer, regionTimer;
 
         std::string target_qname;
