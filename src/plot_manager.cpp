@@ -420,7 +420,7 @@ namespace Manager {
     }
 
     int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay) {
-        std::cerr << "Type ':help' or ':h' for more info\n";
+        std::cerr << "Type ':help' for more info\n";
 
         vCursor = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
         setGlfwFrameBufferSize();
@@ -665,12 +665,10 @@ namespace Manager {
         if (nbams > 0) {
             trackY = (fbh - totalCovY - totalTabixY - refSpace - sliderSpace) / nbams;
 
-            yScaling = ( (fbh - totalCovY - totalTabixY - refSpace - sliderSpace - (gap * nbams)) / (float)samMaxY) / nbams;
+            yScaling = ( (fbh - totalCovY - totalTabixY - refSpace - sliderSpace - (gap * nbams)) / (double)samMaxY) / nbams;
             if (yScaling > 3 * monitorScale) {
                 yScaling = (int)yScaling;
             }
-            // try to scale to pixel boundary
-//            yScaling = (samMaxY < 80) ? (float)(int)yScaling : yScaling;
         } else {
             trackY = 0;
             yScaling = 0;
@@ -695,7 +693,12 @@ namespace Manager {
         pointSlop = (tan(0.42) * (yScaling * 0.5));  // radians
         textDrop = std::fmax(0, (yScaling - fonts.fontHeight) * 0.5);
 
-        pH = yScaling * 0.85;  // polygonHeight
+        if (yScaling > 3) {
+            pH = yScaling * 0.85;  // polygonHeight
+        } else {
+            pH = yScaling;
+        }
+
         if (opts.tlen_yscale) {
             pH = trackY / (float) opts.ylim;
             yScaling *= 0.95;

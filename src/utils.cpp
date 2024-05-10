@@ -186,8 +186,9 @@ namespace Utils {
             Utils::strToRegion(&reg, s, ',');
         } else if (s.find("\t") != std::string::npos) {
             Utils::strToRegion(&reg, s, '\t');
-        } else if (s.find("_") != std::string::npos) {
-            Utils::strToRegion(&reg, s, '_');
+//        }
+//        else if (s.find("_") != std::string::npos) {
+//            Utils::strToRegion(&reg, s, '_');
         } else if (s.find(" ") != std::string::npos) {
             Utils::strToRegion(&reg, s, ' ');
         } else {

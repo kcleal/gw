@@ -84,12 +84,15 @@ namespace Manager {
         bool triggerClose;
         bool redraw;
         bool processed;
+        bool drawLine;
 
         std::vector<char> pixelMemory;
 
         std::string reference;
 
         std::string inputText;
+
+        std::string target_qname;
 
         std::vector<std::string> bam_paths;
         std::vector<htsFile* > bams;
@@ -203,17 +206,17 @@ namespace Manager {
 
         bool commandProcessed();
 
+        void highlightQname();
+
 
     private:
         long frameId;
-        bool drawLine;
         bool resizeTriggered;
         bool regionSelectionTriggered;
         bool textFromSettings;
 
         std::chrono::high_resolution_clock::time_point resizeTimer, regionTimer;
 
-        std::string target_qname;
         std::string cursorGenomePos;
 
         int target_pos;
@@ -226,11 +229,11 @@ namespace Manager {
 
         float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace, sliderSpace;
 
-        float pointSlop, textDrop, pH;
+        double pointSlop, textDrop, pH;
 
         double xDrag, xOri, lastX, yDrag, yOri, lastY;
 
-        float yScaling;
+        double yScaling;
 
 //        std::vector<std::vector<char>> extraPixelArrays;  // one for each thread
 
@@ -264,8 +267,6 @@ namespace Manager {
         void updateSettings();
 
         int getCollectionIdx(float x, float y);
-
-        void highlightQname();
 
         void updateCursorGenomePos(float xOffset, float xScaling, float xPos, Utils::Region *region, int bamIdx);
 
