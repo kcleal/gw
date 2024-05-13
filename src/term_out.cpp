@@ -28,87 +28,81 @@
 
 namespace Term {
 
-    void help(Themes::IniOptions &opts) {
-        std::cout << termcolor::italic << "\n* Enter a command by selecting the GW window (not the terminal) and type '/' or ':' plus [COMMAND]' *\n" << termcolor::reset;
-        std::cout << termcolor::italic << "\n* For a detailed manual type ':man [COMMAND]' *\n" << termcolor::reset;
-        std::cout << termcolor::underline << "\nCommand          Modifier        Description                                            \n" << termcolor::reset;
-        std::cout << termcolor::green << "[locus]                          " << termcolor::reset << "e.g. 'chr1' or 'chr1:1-20000'\n";
-        std::cout << termcolor::green << "add              region(s)       " << termcolor::reset << "Add one or more regions e.g. 'add chr1:1-20000'\n";
-//        std::cout << termcolor::green << "config                           " << termcolor::reset << "Opens .gw.ini config in a text editor\n";
-        std::cout << termcolor::green << "count            expression?     " << termcolor::reset << "Count reads. See filter for example expressions'\n";
-        std::cout << termcolor::green << "cov              value?          " << termcolor::reset << "Change max coverage value. Use 'cov' to toggle coverage\n";
-        std::cout << termcolor::green << "edges                            " << termcolor::reset << "Toggle edges\n";
-        std::cout << termcolor::green << "expand-track                     " << termcolor::reset << "Toggle showing expanded tracks\n";
-        std::cout << termcolor::green << "filter           expression      " << termcolor::reset << "Examples 'filter mapq > 0', 'filter ~flag & secondary'\n                                 'filter mapq >= 30 or seq-len > 100'\n";
-        std::cout << termcolor::green << "find, f          qname?          " << termcolor::reset << "To find other alignments from selected read use 'find'\n                                 Or use 'find [QNAME]' to find target read'\n";
-        std::cout << termcolor::green << "goto             loci/feature    " << termcolor::reset << "e.g. 'goto chr1:1-20000'. 'goto hTERT' \n";
-        std::cout << termcolor::green << "grid             width x height  " << termcolor::reset << "Set the grid size for --variant images 'grid 8x8' \n";
-        std::cout << termcolor::green << "indel-length     int             " << termcolor::reset << "Label indels >= length\n";
-        std::cout << termcolor::green << "insertions, ins                  " << termcolor::reset << "Toggle insertions\n";
-        std::cout << termcolor::green << "line                             " << termcolor::reset << "Toggle mouse position vertical line\n";
-        std::cout << termcolor::green << "link             none/sv/all     " << termcolor::reset << "Switch read-linking 'link all'\n";
-        std::cout << termcolor::green << "log2-cov                         " << termcolor::reset << "Toggle scale coverage by log2\n";
-        std::cout << termcolor::green << "mate             add?            " << termcolor::reset << "Use 'mate' to navigate to mate-pair, or 'mate add' \n                                 to add a new region with mate \n";
-        std::cout << termcolor::green << "mismatches, mm                   " << termcolor::reset << "Toggle mismatches\n";
-        std::cout << termcolor::green << "online                           " << termcolor::reset << "Show links to online genome browsers\n";
-        std::cout << termcolor::green << "quit, q          -               " << termcolor::reset << "Quit GW\n";
-        std::cout << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
-        std::cout << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. 'rm 1'. To remove a bam \n                                 use the bam index 'rm bam1', or track 'rm track1'\n";
-        std::cout << termcolor::green << "sam                              " << termcolor::reset << "Print selected read in sam format\n";
-        std::cout << termcolor::green << "settings                         " << termcolor::reset << "Open the settings menu'\n";
-		std::cout << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window to png e.g. 's', or 's view.png',\n                                 or vcf columns can be used 's {pos}_{info.SU}.png'\n";
-        std::cout << termcolor::green << "soft-clips, sc                   " << termcolor::reset << "Toggle soft-clips\n";
-        std::cout << termcolor::green << "tags                             " << termcolor::reset << "Print selected sam tags\n";
-        std::cout << termcolor::green << "theme            igv/dark/slate  " << termcolor::reset << "Switch color theme e.g. 'theme dark'\n";
-        std::cout << termcolor::green << "tlen-y                           " << termcolor::reset << "Toggle --tlen-y option\n";
-//        std::cout << termcolor::green << "toggle           cov             " << termcolor::reset << "Toggle visibility of feature\n";
-//        std::cout << termcolor::green << "                 edges           " << termcolor::reset << "\n";
-//        std::cout << termcolor::green << "                 insertions, ins " << termcolor::reset << "\n";
-//        std::cout << termcolor::green << "                 line            " << termcolor::reset << "\n";
-//        std::cout << termcolor::green << "                 log2-cov        " << termcolor::reset << "\n";
-//        std::cout << termcolor::green << "                 mismatches, mm  " << termcolor::reset << "\n";
-//        std::cout << termcolor::green << "                 soft-clip, sc   " << termcolor::reset << "\n";
-        std::cout << termcolor::green << "var, v           vcf_column?     " << termcolor::reset << "Print variant information e.g. 'var', 'var info',\n                                 or a list of columns 'var pos qual format.SU'\n";
-        std::cout << termcolor::green << "ylim             number          " << termcolor::reset << "The maximum y-limit for the image e.g. 'ylim 100'\n";
+    void help(Themes::IniOptions &opts, std::ostream& out) {
+        out << termcolor::italic << "\n* Select the GW window (not the terminal) and type '/' or ':' to enter a command\n" << termcolor::reset;
+        out << termcolor::italic << "\n* Get more help using 'man [COMMAND]' or 'help [COMMAND]'\n" << termcolor::reset;
+        out << termcolor::underline << "\nCommand          Modifier        Description                                            \n" << termcolor::reset;
+        out << termcolor::green << "[locus]                          " << termcolor::reset << "e.g. 'chr1' or 'chr1:1-20000'\n";
+        out << termcolor::green << "add              region(s)       " << termcolor::reset << "Add one or more regions e.g. 'add chr1:1-20000'\n";
+//        out << termcolor::green << "config                           " << termcolor::reset << "Opens .gw.ini config in a text editor\n";
+        out << termcolor::green << "count            expression?     " << termcolor::reset << "Count reads. See filter for example expressions'\n";
+        out << termcolor::green << "cov              value?          " << termcolor::reset << "Change max coverage value. Use 'cov' to toggle coverage\n";
+        out << termcolor::green << "edges                            " << termcolor::reset << "Toggle edges\n";
+        out << termcolor::green << "expand-track                     " << termcolor::reset << "Toggle showing expanded tracks\n";
+        out << termcolor::green << "filter           expression      " << termcolor::reset << "Examples 'filter mapq > 0', 'filter ~flag & secondary'\n                                 'filter mapq >= 30 or seq-len > 100'\n";
+        out << termcolor::green << "find, f          qname?          " << termcolor::reset << "To find other alignments from selected read use 'find'\n                                 Or use 'find [QNAME]' to find target read'\n";
+        out << termcolor::green << "goto             loci/feature    " << termcolor::reset << "e.g. 'goto chr1:1-20000'. 'goto hTERT' \n";
+        out << termcolor::green << "grid             width x height  " << termcolor::reset << "Set the grid size for --variant images 'grid 8x8' \n";
+        out << termcolor::green << "indel-length     int             " << termcolor::reset << "Label indels >= length\n";
+        out << termcolor::green << "insertions, ins                  " << termcolor::reset << "Toggle insertions\n";
+        out << termcolor::green << "line                             " << termcolor::reset << "Toggle mouse position vertical line\n";
+        out << termcolor::green << "link             none/sv/all     " << termcolor::reset << "Switch read-linking 'link all'\n";
+        out << termcolor::green << "log2-cov                         " << termcolor::reset << "Toggle scale coverage by log2\n";
+        out << termcolor::green << "mate             add?            " << termcolor::reset << "Use 'mate' to navigate to mate-pair, or 'mate add' \n                                 to add a new region with mate \n";
+        out << termcolor::green << "mismatches, mm                   " << termcolor::reset << "Toggle mismatches\n";
+        out << termcolor::green << "online                           " << termcolor::reset << "Show links to online genome browsers\n";
+        out << termcolor::green << "quit, q          -               " << termcolor::reset << "Quit GW\n";
+        out << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
+        out << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. 'rm 1'. To remove a bam \n                                 use the bam index 'rm bam1', or track 'rm track1'\n";
+        out << termcolor::green << "sam                              " << termcolor::reset << "Print selected read in sam format\n";
+        out << termcolor::green << "save             filename        " << termcolor::reset << "Save reads (.bam/.cram), snapshot (.png) or session (.xml) to file\n";
+        out << termcolor::green << "settings                         " << termcolor::reset << "Open the settings menu'\n";
+		out << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window to png e.g. 's', or 's view.png',\n                                 or vcf columns can be used 's {pos}_{info.SU}.png'\n";
+        out << termcolor::green << "soft-clips, sc                   " << termcolor::reset << "Toggle soft-clips\n";
+        out << termcolor::green << "tags                             " << termcolor::reset << "Print selected sam tags\n";
+        out << termcolor::green << "theme            igv/dark/slate  " << termcolor::reset << "Switch color theme e.g. 'theme dark'\n";
+        out << termcolor::green << "tlen-y                           " << termcolor::reset << "Toggle --tlen-y option\n";
+        out << termcolor::green << "var, v           vcf_column?     " << termcolor::reset << "Print variant information e.g. 'var', 'var info',\n                                 or a list of columns 'var pos qual format.SU'\n";
+        out << termcolor::green << "ylim             number          " << termcolor::reset << "The maximum y-limit for the image e.g. 'ylim 100'\n";
 
-        std::cout << termcolor::underline << "\nHot keys                      \n" << termcolor::reset;
-        std::cout << "scroll left          " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_left); std::cout << "\n" << termcolor::reset;
-        std::cout << "scroll right         " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_right); std::cout << "\n" << termcolor::reset;
-        std::cout << "scroll down          " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_down); std::cout << "\n" << termcolor::reset;
-        std::cout << "scroll up            " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_up); std::cout << "\n" << termcolor::reset;
-        std::cout << "zoom in              " << termcolor::bright_yellow; Term::printKeyFromValue(opts.zoom_in); std::cout << "\n" << termcolor::reset;
-        std::cout << "zoom out             " << termcolor::bright_yellow; Term::printKeyFromValue(opts.zoom_out); std::cout << "\n" << termcolor::reset;
-        std::cout << "zoom to cursor       " << termcolor::bright_yellow; std::cout << "CTRL + LEFT_MOUSE" << "\n" << termcolor::reset;
-        std::cout << "next region view     " << termcolor::bright_yellow; Term::printKeyFromValue(opts.next_region_view); std::cout << "\n" << termcolor::reset;
-        std::cout << "previous region view " << termcolor::bright_yellow; Term::printKeyFromValue(opts.previous_region_view); std::cout << "\n" << termcolor::reset;
-        std::cout << "cycle link mode      " << termcolor::bright_yellow; Term::printKeyFromValue(opts.cycle_link_mode); std::cout << "\n" << termcolor::reset;
-        std::cout << "find all alignments  " << termcolor::bright_yellow; Term::printKeyFromValue(opts.find_alignments); std::cout << "\n" << termcolor::reset;
-        std::cout << "repeat last command  " << termcolor::bright_yellow; std::cout << "ENTER" << "\n" << termcolor::reset;
-        std::cout << "resize window        " << termcolor::bright_yellow; std::cout << "SHIFT + ARROW_KEY" << "\n" << termcolor::reset;
-        std::cout << "switch viewing mode  " << termcolor::bright_yellow; std::cout << "TAB" << "\n" << termcolor::reset;
+        out << termcolor::underline << "\nHot keys                      \n" << termcolor::reset;
+        out << "scroll left          " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_left, out); out << "\n" << termcolor::reset;
+        out << "scroll right         " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_right, out); out << "\n" << termcolor::reset;
+        out << "scroll down          " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_down, out); out << "\n" << termcolor::reset;
+        out << "scroll up            " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_up, out); out << "\n" << termcolor::reset;
+        out << "zoom in              " << termcolor::bright_yellow; Term::printKeyFromValue(opts.zoom_in, out); out << "\n" << termcolor::reset;
+        out << "zoom out             " << termcolor::bright_yellow; Term::printKeyFromValue(opts.zoom_out, out); out << "\n" << termcolor::reset;
+        out << "zoom to cursor       " << termcolor::bright_yellow; out << "CTRL + LEFT_MOUSE" << "\n" << termcolor::reset;
+        out << "next region view     " << termcolor::bright_yellow; Term::printKeyFromValue(opts.next_region_view, out); out << "\n" << termcolor::reset;
+        out << "previous region view " << termcolor::bright_yellow; Term::printKeyFromValue(opts.previous_region_view, out); out << "\n" << termcolor::reset;
+        out << "cycle link mode      " << termcolor::bright_yellow; Term::printKeyFromValue(opts.cycle_link_mode, out); out << "\n" << termcolor::reset;
+        out << "find all alignments  " << termcolor::bright_yellow; Term::printKeyFromValue(opts.find_alignments, out); out << "\n" << termcolor::reset;
+        out << "repeat last command  " << termcolor::bright_yellow; out << "ENTER" << "\n" << termcolor::reset;
+        out << "resize window        " << termcolor::bright_yellow; out << "SHIFT + ARROW_KEY" << "\n" << termcolor::reset;
+        out << "switch viewing mode  " << termcolor::bright_yellow; out << "TAB" << "\n" << termcolor::reset;
 
-        std::cout << "\n";
+        out << "\n";
     }
 
-    void manuals(std::string &s) {
-        std::cout << "\nManual for command '" << s << "'\n";
-        std::cout << "--------------------"; for (int i=0; i<(int)s.size(); ++i) std::cout << "-"; std::cout << "-\n\n";
+    void manuals(std::string &s, std::ostream& out) {
+        out << "\nManual for command '" << s << "'\n";
+        out << "--------------------"; for (int i=0; i<(int)s.size(); ++i) out << "-"; out << "-\n\n";
         if (s == "[locus]" || s == "locus") {
-            std::cout << "    Navigate to a genomic locus.\n        You can use chromosome names or chromosome coordinates.\n    Examples:\n        'chr1:1-20000', 'chr1', 'chr1:10000'\n\n";
+            out << "    Navigate to a genomic locus.\n        You can use chromosome names or chromosome coordinates.\n    Examples:\n        'chr1:1-20000', 'chr1', 'chr1:10000'\n\n";
         } else if (s == "add") {
-            std::cout << "    Add a genomic locus.\n        This will add a new locus to the right-hand-side of your view.\n    Examples:\n        'add chr1:1-20000', 'add chr2'\n\n";
+            out << "    Add a genomic locus.\n        This will add a new locus to the right-hand-side of your view.\n    Examples:\n        'add chr1:1-20000', 'add chr2'\n\n";
 //        } else if (s == "config") {
-//            std::cout << "    Open the GW config file.\n        The config file will be opened in a text editor, for Mac TextEdit will be used, linux will be vi, and windows will be notepad.\n\n";
+//            out << "    Open the GW config file.\n        The config file will be opened in a text editor, for Mac TextEdit will be used, linux will be vi, and windows will be notepad.\n\n";
         } else if (s == "count") {
-            std::cout << "    Count the visible reads in each view.\n        A summary output will be displayed for each view on the screen.\n        Optionally a filter expression may be added to the command. See the man page for 'filter' for mote details\n    Examples:\n        'count', 'count flag & 2', 'count flag & proper-pair' \n\n";
+            out << "    Count the visible reads in each view.\n        A summary output will be displayed for each view on the screen.\n        Optionally a filter expression may be added to the command. See the man page for 'filter' for mote details\n    Examples:\n        'count', 'count flag & 2', 'count flag & proper-pair' \n\n";
         } else if (s == "cov") {
-            std::cout << "    Toggle coverage track.\n        This will turn on/off coverage tracks.\n\n";
+            out << "    Toggle coverage track.\n        This will turn on/off coverage tracks.\n\n";
         } else if (s == "edges" || s == "sc") {
-            std::cout << "    Toggle edge highlights.\n        Edge highlights are turned on or off.\n\n";
+            out << "    Toggle edge highlights.\n        Edge highlights are turned on or off.\n\n";
         } else if (s == "expand-tracks") {
-                std::cout << "    Toggle expand-tracks.\n        Features in the tracks panel are expanded so overlapping features can be seen.\n\n";
+                out << "    Toggle expand-tracks.\n        Features in the tracks panel are expanded so overlapping features can be seen.\n\n";
         } else if (s == "filter") {
-            std::cout << "    Filter visible reads.\n"
+            out << "    Filter visible reads.\n"
                          "        Reads can be filtered using an expression '{property} {operation} {value}' (the white-spaces are also needed).\n"
                          "        For example, here are some useful expressions:\n"
                          "            filter mapq >= 20\n"
@@ -129,44 +123,47 @@ namespace Term {
                          "              filter mapq > 0 [0, :]   # Row 0, all columns (the first bam only, all regions)\n"
                          "              filter mapq > 0 [1, -1]  # Row 1, last column\n\n";
         } else if (s == "find" || s == "f") {
-            std::cout << "    Find a read with name.\n        All alignments with the same name will be highlighted with a black border\n    Examples:\n        'find D00360:18:H8VC6ADXX:1:1107:5538:24033'\n\n";
+            out << "    Find a read with name.\n        All alignments with the same name will be highlighted with a black border\n    Examples:\n        'find D00360:18:H8VC6ADXX:1:1107:5538:24033'\n\n";
         } else if (s == "goto") {
-            std::cout << "    Navigate to a locus or track feature.\n        This moves the current region to a new view point. You can specify a genome locus, or a feature name from one of the loaded tracks\n    Examples:\n        'goto chr1'   \n        'goto hTERT'   # this will search all tracks for an entry called 'hTERT' \n\n";
+            out << "    Navigate to a locus or track feature.\n        This moves the current region to a new view point. You can specify a genome locus, or a feature name from one of the loaded tracks\n    Examples:\n        'goto chr1'   \n        'goto hTERT'   # this will search all tracks for an entry called 'hTERT' \n\n";
         } else if (s == "grid") {
-            std::cout << "    Set the grid size.\n        Set the number of images displayed in a grid when using --variant option\n    Examples:\n        'grid 8x8'   # this will display 64 image tiles\n\n";
+            out << "    Set the grid size.\n        Set the number of images displayed in a grid when using --variant option\n    Examples:\n        'grid 8x8'   # this will display 64 image tiles\n\n";
         } else if (s == "indel-length") {
-            std::cout << "    Set the minimum indel-length.\n        Indels (gaps in alignments) will be labelled with text if they have length >= 'indel-length'\n    Examples:\n        'indel-length 30'\n\n";
+            out << "    Set the minimum indel-length.\n        Indels (gaps in alignments) will be labelled with text if they have length >= 'indel-length'\n    Examples:\n        'indel-length 30'\n\n";
         } else if (s == "insertions" || s == "ins") {
-            std::cout << "    Toggle insertions.\n        Insertions smaller than 'indel-length' are turned on or off.\n\n";
+            out << "    Toggle insertions.\n        Insertions smaller than 'indel-length' are turned on or off.\n\n";
         } else if (s == "line") {
-            std::cout << "    Toggle line.\n        A vertical line will turn on/off.\n\n";
+            out << "    Toggle line.\n        A vertical line will turn on/off.\n\n";
         } else if (s == "link" || s == "l") {
-            std::cout << "    Link alignments.\n        This will change how alignments are linked, options are 'none', 'sv', 'all'.\n    Examples:\n        'link sv', 'link all'\n\n";
+            out << "    Link alignments.\n        This will change how alignments are linked, options are 'none', 'sv', 'all'.\n    Examples:\n        'link sv', 'link all'\n\n";
         } else if (s == "log2-cov") {
-            std::cout << "    Toggle log2-coverage.\n        The coverage track will be scaled by log2.\n\n";
+            out << "    Toggle log2-coverage.\n        The coverage track will be scaled by log2.\n\n";
         } else if (s == "mate") {
-            std::cout << "    Goto mate alignment.\n        Either moves the current view to the mate locus, or adds a new view of the mate locus.\n    Examples:\n        'mate', 'mate add'\n\n";
+            out << "    Goto mate alignment.\n        Either moves the current view to the mate locus, or adds a new view of the mate locus.\n    Examples:\n        'mate', 'mate add'\n\n";
         } else if (s == "mismatches" || s == "mm") {
-            std::cout << "    Toggle mismatches.\n        Mismatches with the reference genome are turned on or off.\n\n";
+            out << "    Toggle mismatches.\n        Mismatches with the reference genome are turned on or off.\n\n";
         } else if (s == "online") {
-            std::cout << "    Show links to online browsers for the current region.\n        A genome tag may need to be added e.g. 'online hg38'\n\n";
+            out << "    Show links to online browsers for the current region.\n        A genome tag may need to be added e.g. 'online hg38'\n\n";
         } else if (s == "refresh" || s == "r") {
-            std::cout << "    Refresh the drawing.\n        All filters will be removed any everything will be redrawn.\n\n";
+            out << "    Refresh the drawing.\n        All filters will be removed any everything will be redrawn.\n\n";
         } else if (s == "remove" || s == "rm") {
-            std::cout << "    Remove a region, bam or track.\n        Remove a region, bam or track by index. To remove a bam or track add a 'bam' or 'track' prefix.\n    Examples:\n        'rm 0', 'rm bam1', 'rm track2'\n\n";
+            out << "    Remove a region, bam or track.\n        Remove a region, bam or track by index. To remove a bam or track add a 'bam' or 'track' prefix.\n    Examples:\n        'rm 0', 'rm bam1', 'rm track2'\n\n";
         } else if (s == "sam") {
-            std::cout << "    Print the sam format of the read.\n        First select a read using the mouse then type ':sam'.\n\n";
+            out << "    Print the sam format of the read.\n        First select a read using the mouse then type ':sam'.\n\n";
         } else if (s == "save") {
-            std::cout << "    Save reads, snapshot or session to file.\n"
-                         "        The filepath extension you use will determine the output file type.\n"
+            out << "    Save reads, snapshot or session to file.\n"
+                         "        The filepath extension you use will determine the output file type.\n\n"
                          "    Examples:\n"
                          "        'save reads.bam'    # Save all visible reads to reads.bam file. Any filters are applied.\n"
                          "        'save reads.cram'   # Reads saved in cram format, the loaded reference genome to configure\n"
                          "        'save reads.sam'    # Reads saved in sam format (human readable)\n"
                          "        'save view.png'     # The current view is saved to view.png. Same functionality as 'snapshot' command\n"
-                         "        'save session.xml'  # The current session will be saved, allowing this session to be revisited\n\n";
+                         "        'save session.xml'  # The current session will be saved, allowing this session to be revisited\n\n"
+                         "    Notes:\n"
+                         "        If multiple bams are open, reads are saved in sorted order. Some issues may arise if headers\n"
+                         "        are different between different input files\n\n";
 		} else if (s == "snapshot" || s == "s") {
-            std::cout << "    Save an image of the screen.\n"
+            out << "    Save an image of the screen.\n"
                          "        Saves current window. If no name is provided, the image name will be 'chrom_start_end.png', \n"
                          "        or if you are in tile-mode, the image name will be 'index_start_end.png'.\n"
                          "            snapshot\n"
@@ -180,15 +177,15 @@ namespace Term {
                          "        you can press the repeat key (R) to repeat the last command, which can save typing this\n"
                          "        command over and over.\n\n";
         } else if (s == "soft-clips" || s == "sc") {
-            std::cout << "    Toggle soft-clips.\n        Soft-clipped bases or hard-clips are turned on or off.\n\n";
+            out << "    Toggle soft-clips.\n        Soft-clipped bases or hard-clips are turned on or off.\n\n";
         } else if (s == "tags") {
-            std::cout << "    Print selected sam tags.\n        This will print all the tags of the selected read\n\n";
+            out << "    Print selected sam tags.\n        This will print all the tags of the selected read\n\n";
         } else if (s == "theme") {
-            std::cout << "    Switch the theme.\n        Currently 'igv', 'dark' or 'slate' themes are supported.\n\n";
+            out << "    Switch the theme.\n        Currently 'igv', 'dark' or 'slate' themes are supported.\n\n";
         } else if (s == "tlen-y") {
-            std::cout << "    Toggle --tlen-y option.\n        The --tlen-y option scales reads by template length. Applies to paired-end reads only.\n\n";
+            out << "    Toggle --tlen-y option.\n        The --tlen-y option scales reads by template length. Applies to paired-end reads only.\n\n";
         } else if (s == "var" || s == "v") {
-            std::cout << "    Print variant information.\n"
+            out << "    Print variant information.\n"
                          "        Using 'var' will print the selected variant.\n"
                          "        If you are viewing a vcf/bcf then columns can be parsed e.g:\n"
                          "            var pos              # position\n"
@@ -200,17 +197,17 @@ namespace Term {
                          "        you can press ENTER to repeat the last command, which can save typing this\n"
                          "        command over and over.\n\n";
         } else if (s == "ylim") {
-            std::cout << "    Set the y limit.\n        The y limit is the maximum depth shown on the drawing e.g. 'ylim 100'.\n\n";
+            out << "    Set the y limit.\n        The y limit is the maximum depth shown on the drawing e.g. 'ylim 100'.\n\n";
         } else {
-            std::cerr << termcolor::red << "Error:" << termcolor::reset << " no manual for command " << s << std::endl;
+            out << termcolor::red << "Error:" << termcolor::reset << " no manual for command " << s << std::endl;
         }
     }
     constexpr char basemap[] = {'.', 'A', 'C', '.', 'G', '.', '.', '.', 'T', '.', '.', '.', '.', '.', 'N', 'N', 'N'};
 
 
-    void clearLine() {
+    void clearLine(std::ostream& out) {
         std::string s(Utils::get_terminal_width(), ' ');
-        std::cout << "\r" << s << std::flush;
+        out << "\r" << s << std::flush;
     }
 
     void editInputText(std::string &inputText, const char *letter, int &charIndex) {
@@ -223,7 +220,7 @@ namespace Term {
         }
     }
 
-    void printCigar(std::vector<Segs::Align>::iterator r) {
+    void printCigar(std::vector<Segs::Align>::iterator r, std::ostream& out) {
         uint32_t l, cigar_l, op, k;
         uint32_t *cigar_p;
         cigar_l = r->delegate->core.n_cigar;
@@ -235,35 +232,35 @@ namespace Term {
 
             if (cigar_l > 30 && !(k == 0 || k == cigar_l - 1)) {
                 if (print_dots) {
-                    std::cout << " ... ";
+                    out << " ... ";
                     print_dots = false;
 
                 }
                 continue;
             }
             if (op == 0) {
-                std::cout << l << "M";
+                out << l << "M";
             } else if (op == 1) {
-                std::cout << termcolor::magenta << l << "I" << termcolor::reset;
+                out << termcolor::magenta << l << "I" << termcolor::reset;
             } else if (op == 2) {
-                std::cout << termcolor::red << l << "D"<< termcolor::reset;
+                out << termcolor::red << l << "D"<< termcolor::reset;
             } else if (op == 8) {
-                std::cout << l << "X";
+                out << l << "X";
             } else if (op == 4) {
-                std::cout << termcolor::bright_blue << l << "S"<< termcolor::reset;
+                out << termcolor::bright_blue << l << "S"<< termcolor::reset;
             } else if (op == 5) {
-                std::cout << termcolor::blue << l << "H" << termcolor::reset;
+                out << termcolor::blue << l << "H" << termcolor::reset;
             }
             else {
-                std::cout << termcolor::blue << l << "?" << termcolor::reset;
+                out << termcolor::blue << l << "?" << termcolor::reset;
             }
         }
     }
 
-    void printSeq(std::vector<Segs::Align>::iterator r, const char *refSeq, int refStart, int refEnd, int max=500) {
+    void printSeq(std::vector<Segs::Align>::iterator r, const char *refSeq, int refStart, int refEnd, int max, std::ostream& out) {
         auto l_seq = (int)r->delegate->core.l_qseq;
         if (l_seq == 0) {
-            std::cout << "*";
+            out << "*";
             return;
         }
         uint32_t l, cigar_l, op, k;
@@ -277,14 +274,14 @@ namespace Term {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
             if (i >= max || (int)l >= max) {
-                std::cout << "...";
+                out << "...";
                 return;
             }
             if (op == BAM_CHARD_CLIP) {
                 continue;
             } else if (op == BAM_CDEL) {
                 for (int n=0; n < (int)l; ++n) {
-                    std::cout << "-";
+                    out << "-";
                 }
                 p += l;
             } else if (op == BAM_CMATCH) {
@@ -295,40 +292,40 @@ namespace Term {
                         mm = true;
                     }
                     if (mm) {
-                        std::cout << termcolor::underline;
+                        out << termcolor::underline;
                         switch (basemap[base]) {
                                 case 65 :
-                                    std::cout << termcolor::green << "A" << termcolor::reset;
+                                    out << termcolor::green << "A" << termcolor::reset;
                                     break;
                                 case 67 :
-                                    std::cout << termcolor::blue << "C" << termcolor::reset;
+                                    out << termcolor::blue << "C" << termcolor::reset;
                                     break;
                                 case 71 :
-                                    std::cout << termcolor::yellow << "G" << termcolor::reset;
+                                    out << termcolor::yellow << "G" << termcolor::reset;
                                     break;
                                 case 78 :
-                                    std::cout << termcolor::grey << "N" << termcolor::reset;
+                                    out << termcolor::grey << "N" << termcolor::reset;
                                     break;
                                 case 84 :
-                                    std::cout << termcolor::red << "T" << termcolor::reset;
+                                    out << termcolor::red << "T" << termcolor::reset;
                                     break;
                             }
                     } else {
                         switch (basemap[base]) {
                             case 65 :
-                                std::cout << "A";
+                                out << "A";
                                 break;
                             case 67 :
-                                std::cout << "C";
+                                out << "C";
                                 break;
                             case 71 :
-                                std::cout << "G";
+                                out << "G";
                                 break;
                             case 78 :
-                                std::cout << "N";
+                                out << "N";
                                 break;
                             case 84 :
-                                std::cout << "T";
+                                out << "T";
                                 break;
                         }
                     }
@@ -341,19 +338,19 @@ namespace Term {
                     uint8_t base = bam_seqi(ptr_seq, i);
                     switch (basemap[base]) {
                         case 65 :
-                            std::cout << "A";
+                            out << "A";
                             break;
                         case 67 :
-                            std::cout << "C";
+                            out << "C";
                             break;
                         case 71 :
-                            std::cout << "G";
+                            out << "G";
                             break;
                         case 78 :
-                            std::cout << "N";
+                            out << "N";
                             break;
                         case 84 :
-                            std::cout << "T";
+                            out << "T";
                             break;
                     }
                     i += 1;
@@ -365,19 +362,19 @@ namespace Term {
                     uint8_t base = bam_seqi(ptr_seq, i);
                     switch (basemap[base]) {
                         case 65 :
-                            std::cout << termcolor::green << "A" << termcolor::reset;
+                            out << termcolor::green << "A" << termcolor::reset;
                             break;
                         case 67 :
-                            std::cout << termcolor::blue << "C" << termcolor::reset;
+                            out << termcolor::blue << "C" << termcolor::reset;
                             break;
                         case 71 :
-                            std::cout << termcolor::yellow << "G" << termcolor::reset;
+                            out << termcolor::yellow << "G" << termcolor::reset;
                             break;
                         case 78 :
-                            std::cout << termcolor::grey << "N" << termcolor::reset;
+                            out << termcolor::grey << "N" << termcolor::reset;
                             break;
                         case 84 :
-                            std::cout << termcolor::red << "T" << termcolor::reset;
+                            out << termcolor::red << "T" << termcolor::reset;
                             break;
                     }
                     i += 1;
@@ -388,11 +385,11 @@ namespace Term {
                 for (int n=0; n < (int)l; ++n) {  // soft-clips
                     uint8_t base = bam_seqi(ptr_seq, i);
                     switch (basemap[base]) {
-                        case 65 : std::cout << termcolor::green << "A" << termcolor::reset; break;
-                        case 67 : std::cout << termcolor::blue << "C" << termcolor::reset; break;
-                        case 71 : std::cout << termcolor::yellow << "G" << termcolor::reset; break;
-                        case 78 : std::cout << termcolor::grey << "N" << termcolor::reset; break;
-                        case 84 : std::cout << termcolor::red << "T" << termcolor::reset; break;
+                        case 65 : out << termcolor::green << "A" << termcolor::reset; break;
+                        case 67 : out << termcolor::blue << "C" << termcolor::reset; break;
+                        case 71 : out << termcolor::yellow << "G" << termcolor::reset; break;
+                        case 78 : out << termcolor::grey << "N" << termcolor::reset; break;
+                        case 84 : out << termcolor::red << "T" << termcolor::reset; break;
                     }
                     i += 1;
                 }
@@ -400,143 +397,73 @@ namespace Term {
         }
     }
 
-    void read2sam(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, bool low_mem) {
-        uint32_t l, cigar_l, op, k;
-        uint32_t *cigar_p;
-        cigar_l = r->delegate->core.n_cigar;
-        cigar_p = bam_get_cigar(r->delegate);
-        const char *rname = sam_hdr_tid2name(hdr, r->delegate->core.tid);
-        std::string d = "\t";
-        std::ostringstream oss;
-        oss << bam_get_qname(r->delegate) << d
-            << r->delegate->core.flag << d
-            << rname << d
-            << r->pos + 1 << d
-            << (int)r->delegate->core.qual << d;
-        if (cigar_l) {
-            for (k = 0; k < cigar_l; k++) {
-                op = cigar_p[k] & BAM_CIGAR_MASK;
-                l = cigar_p[k] >> BAM_CIGAR_SHIFT;
-                oss << l;
-                switch (op) {
-                    case 0: oss << "M"; break;
-                    case 1: oss << "I"; break;
-                    case 2: oss << "D"; break;
-                    case 3: oss << "N"; break;
-                    case 4: oss << "S"; break;
-                    case 5: oss << "H"; break;
-                    case 6: oss << "P"; break;
-                    case 7: oss << "="; break;
-                    case 8: oss << "X"; break;
-                    default: oss << "B";
-                }
-            } oss << d;
-        } else {
-            oss << "*" << d;
+    void read2sam(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, bool low_mem, std::ostream& out) {
+        kstring_t kstr = {0, 0, nullptr};
+        int res = sam_format1(hdr, r->delegate, &kstr);
+        if (res < 0) {
+            out << termcolor::red << "Error:" << termcolor::reset << " failed to parse alignment record\n";
         }
-        if (r->delegate->core.mtid < 0) {
-            oss << "*" << d;
-        } else if (r->delegate->core.mtid == r->delegate->core.tid) {
-            oss << "=" << d;
-        } else {
-            oss << sam_hdr_tid2name(hdr, r->delegate->core.mtid) << d;
-        }
-        oss << r->delegate->core.mpos + 1 << d;
-        oss << r->delegate->core.isize << d;
-        if (r->delegate->core.l_qseq) {
-            uint8_t *ptr_seq = bam_get_seq(r->delegate);
-            for (int n = 0; n < r->delegate->core.l_qseq; ++n) {
-                oss << basemap[bam_seqi(ptr_seq, n)];
-            }
-
-            if (!low_mem) {
-                oss << d;
-                uint8_t *ptr_qual = bam_get_qual(r->delegate);
-                for (int n = 0; n < r->delegate->core.l_qseq; ++n) {
-                    uint8_t qual = ptr_qual[n];
-                    oss << (char)(qual + 33);
-                }
-                oss << d;
-            }
-        } else {
-            oss << "*" << d << "*" << d;
-        }
-
-        uint8_t *s = bam_get_aux(r->delegate);
-        uint8_t *end = r->delegate->data + r->delegate->l_data;
-        kstring_t str = { 0, 0, nullptr };
-        while (end - s >= 4) {
-            kputc_('\t', &str);
-            if ((s = (uint8_t *)sam_format_aux1(s, s[2], s+3, end, &str)) == nullptr) {
-
-            }
-        }
-        kputsn("", 0, &str); // nul terminate
-        char * si = str.s;
-        for (int n = 0; n < (int)str.l; ++n) {
-            oss << *si;
-            si ++;
-        }
-        sam = oss.str();
-        ks_free(&str);
+        sam = kstr.s;
+        ks_free(&kstr);
+        return;
     }
 
-    void printRead(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, const char *refSeq, int refStart, int refEnd, bool low_mem) {
+    void printRead(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, const char *refSeq, int refStart, int refEnd, bool low_mem, std::ostream& out) {
         const char *rname = sam_hdr_tid2name(hdr, r->delegate->core.tid);
         const char *rnext = sam_hdr_tid2name(hdr, r->delegate->core.mtid);
-        std::cout << std::endl << std::endl;
-        std::cout << termcolor::bold << "qname    " << termcolor::reset << bam_get_qname(r->delegate) << std::endl;
-        std::cout << termcolor::bold << "span     " << termcolor::reset << rname << ":" << r->pos << "-" << r->reference_end << std::endl;
+        out << std::endl << std::endl;
+        out << termcolor::bold << "qname    " << termcolor::reset << bam_get_qname(r->delegate) << std::endl;
+        out << termcolor::bold << "span     " << termcolor::reset << rname << ":" << r->pos << "-" << r->reference_end << std::endl;
         if (rnext) {
-            std::cout << termcolor::bold << "mate     " << termcolor::reset << rnext << ":" << r->delegate->core.mpos << std::endl;
+            out << termcolor::bold << "mate     " << termcolor::reset << rnext << ":" << r->delegate->core.mpos << std::endl;
         }
-        std::cout << termcolor::bold << "flag     " << termcolor::reset << r->delegate->core.flag << std::endl;
-        std::cout << termcolor::bold << "mapq     " << termcolor::reset << (int)r->delegate->core.qual << std::endl;
-        std::cout << termcolor::bold << "cigar    " << termcolor::reset; printCigar(r); std::cout << std::endl;
-        std::cout << termcolor::bold << "seq      " << termcolor::reset; printSeq(r, refSeq, refStart, refEnd); std::cout << std::endl << std::endl;
+        out << termcolor::bold << "flag     " << termcolor::reset << r->delegate->core.flag << std::endl;
+        out << termcolor::bold << "mapq     " << termcolor::reset << (int)r->delegate->core.qual << std::endl;
+        out << termcolor::bold << "cigar    " << termcolor::reset; printCigar(r, out); out << std::endl;
+        out << termcolor::bold << "seq      " << termcolor::reset; printSeq(r, refSeq, refStart, refEnd, 500, out); out << std::endl << std::endl;
 
-        read2sam(r, hdr, sam, low_mem);
+        read2sam(r, hdr, sam, low_mem, out);
     }
 
-    void printSelectedSam(std::string &sam) {
-        std::cout << std::endl << sam << std::endl << std::endl;
+    void printSelectedSam(std::string &sam, std::ostream& out) {
+        out << std::endl << sam << std::endl << std::endl;
     }
 
-    void printKeyFromValue(int v) {
+    void printKeyFromValue(int v, std::ostream& out) {
         ankerl::unordered_dense::map<std::string, int> key_table;
         Keys::getKeyTable(key_table);
         for (auto &p: key_table) {
             if (p.second == v) {
-                std::cout << p.first;
+                out << p.first;
                 break;
             }
         }
     }
 
-    void printRefSeq(Utils::Region *region, float x, float xOffset, float xScaling) {
+    void printRefSeq(Utils::Region *region, float x, float xOffset, float xScaling, std::ostream& out) {
         float min_x = xOffset;
         float max_x = xScaling * ((float)(region->end - region->start)) + min_x;
         int size = region->end - region->start;
         if (x > min_x && x < max_x && size <= 20000) {
             const char * s = region->refSeq;
-            std::cout << "\n\n" << region->chrom << ":" << region->start << "-" << region->end << "\n";
+            out << "\n\n" << region->chrom << ":" << region->start << "-" << region->end << "\n";
             while (*s) {
                 switch ((unsigned int)*s) {
-                    case 65: std::cout << termcolor::green << "a"; break;
-                    case 67: std::cout << termcolor::blue << "c"; break;
-                    case 71: std::cout << termcolor::yellow << "g"; break;
-                    case 78: std::cout << termcolor::bright_grey << "n"; break;
-                    case 84: std::cout << termcolor::red << "t"; break;
-                    case 97: std::cout << termcolor::green << "A"; break;
-                    case 99: std::cout << termcolor::blue << "C"; break;
-                    case 103: std::cout << termcolor::yellow << "G"; break;
-                    case 110: std::cout << termcolor::bright_grey << "N"; break;
-                    case 116: std::cout << termcolor::red << "T"; break;
-                    default: std::cout << "?"; break;
+                    case 65: out << termcolor::green << "a"; break;
+                    case 67: out << termcolor::blue << "c"; break;
+                    case 71: out << termcolor::yellow << "g"; break;
+                    case 78: out << termcolor::bright_grey << "n"; break;
+                    case 84: out << termcolor::red << "t"; break;
+                    case 97: out << termcolor::green << "A"; break;
+                    case 99: out << termcolor::blue << "C"; break;
+                    case 103: out << termcolor::yellow << "G"; break;
+                    case 110: out << termcolor::bright_grey << "N"; break;
+                    case 116: out << termcolor::red << "T"; break;
+                    default: out << "?"; break;
                 }
                 ++s;
             }
-            std::cout << termcolor::reset << std::endl << std::endl;
+            out << termcolor::reset << std::endl << std::endl;
             return;
         }
     }
@@ -552,7 +479,7 @@ namespace Term {
         return s;
     }
 
-	void printCoverage(int pos, Segs::ReadCollection &cl) {
+	void printCoverage(int pos, Segs::ReadCollection &cl, std::ostream& out) {
         if (cl.readQueue.empty()) {
             return;
         }
@@ -693,52 +620,52 @@ namespace Term {
             return;
         }
 
-		std::cout << termcolor::bold << "\rCoverage    " << termcolor::reset << totCov << "    ";
+		out << termcolor::bold << "\rCoverage    " << termcolor::reset << totCov << "    ";
 		if (A) {
-			std::cout << "  A:" << A;
+			out << "  A:" << A;
 		} else if (T) {
-			std::cout << "  T:" << T;
+			out << "  T:" << T;
 		} else if (C) {
-			std::cout << "  C:" << C;
+			out << "  C:" << C;
 		} else if (G) {
-			std::cout << "  G:" << G;
+			out << "  G:" << G;
 		} else {
-			std::cout << "     ";
+			out << "     ";
 		}
         term_space -= (int)line.size();
         line.clear();
         line = "  A:" + std::to_string(mA) + "  T:" + std::to_string(mT) + "  C:" + std::to_string(mC) + "  G:" + std::to_string(mT);
         if (term_space < (int)line.size()) {
-            std::cout << std::flush;
+            out << std::flush;
             return;
         }
 
 		if (mA > 0 || mT > 0 || mC > 0 || mG > 0) {
 			if (mA) {
-				std::cout << termcolor::green << "  A" << termcolor::reset << ":" << mA;
+				out << termcolor::green << "  A" << termcolor::reset << ":" << mA;
 			}
 			if (mT) {
-				std::cout << termcolor::red << "  T" << termcolor::reset << ":"<< mT;
+				out << termcolor::red << "  T" << termcolor::reset << ":"<< mT;
 			}
 			if (mC) {
-				std::cout << termcolor::blue << "  C" << termcolor::reset << ":" << mC;
+				out << termcolor::blue << "  C" << termcolor::reset << ":" << mC;
 			}
 			if (mG) {
-				std::cout << termcolor::yellow << "  G" << termcolor::reset << ":" << mG;
+				out << termcolor::yellow << "  G" << termcolor::reset << ":" << mG;
 			}
 		}
         line.clear();
         std::string s = intToStringCommas(pos);
         line = "    Pos  " + s;
         if (term_space < (int)line.size()) {
-            std::cout << std::flush;
+            out << std::flush;
             return;
         }
-        std::cout << termcolor::bold << "    Pos  " << termcolor::reset << s;
-		std::cout << std::flush;
+        out << termcolor::bold << "    Pos  " << termcolor::reset << s;
+		out << std::flush;
 	}
 
-	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver, int targetLevel, int trackIdx, std::string &target_name, int *target_pos) {
+	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver, int targetLevel, int trackIdx, std::string &target_name, int *target_pos, std::ostream& out) {
         if (rgn == nullptr) {
             return;
         }
@@ -751,7 +678,7 @@ namespace Term {
         bool same_pos, same_name = false;
         for (auto &b : rgn->featuresInView.at(trackIdx)) {
             if (b.start <= target && b.end >= target && b.level == targetLevel) {
-                clearLine();
+                clearLine(out);
                 if (target_name == b.name) {
                     same_name = true;
                 } else {
@@ -763,27 +690,27 @@ namespace Term {
                     *target_pos = b.start;
                 }
 
-                std::cout << "\r" << termcolor::bold << p.filename().string() << termcolor::reset << "    " << \
+                out << "\r" << termcolor::bold << p.filename().string() << termcolor::reset << "    " << \
                     termcolor::cyan << b.chrom << ":" << b.start << "-" << b.end << termcolor::reset;
 
                 if (!b.parent.empty()) {
-                    std::cout << termcolor::bold << "    Parent  " << termcolor::reset << b.parent;
+                    out << termcolor::bold << "    Parent  " << termcolor::reset << b.parent;
                 } else if (!b.name.empty()) {
-                    std::cout << termcolor::bold << "    ID  " << termcolor::reset << b.name;
+                    out << termcolor::bold << "    ID  " << termcolor::reset << b.name;
                     target_name = b.name;
                 }
                 if (!b.vartype.empty()) {
-                    std::cout << termcolor::bold << "    Type  " << termcolor::reset << b.vartype;
+                    out << termcolor::bold << "    Type  " << termcolor::reset << b.vartype;
                 }
-                std::cout << std::flush;
+                out << std::flush;
 
                 if (same_name && same_pos && !mouseOver && !b.line.empty()) {
-                    std::cout << "\n" << b.line << std::endl;
+                    out << "\n" << b.line << std::endl;
                     return;
                 }
 
                 if (!mouseOver) {
-                    std::cout << std::endl;
+                    out << std::endl;
                     std::vector<std::string> &parts = b.parts;
                     if (isGFF) {
                         int i = 0; int j = 0;
@@ -796,8 +723,8 @@ namespace Term {
                                         bool first = true;
                                         assert (j >=9);
                                         for (int k=j-9; k <= j; ++k) {
-                                            if (first) { std::cout << parts[k]; first = false;}
-                                            else { std::cout << "\t" << parts[k]; }
+                                            if (first) { out << parts[k]; first = false;}
+                                            else { out << "\t" << parts[k]; }
                                         }
                                     }
                                     break;
@@ -809,11 +736,11 @@ namespace Term {
                     } else {
                         bool first = true;
                         for (auto &p: parts) {
-                            if (first) { std::cout << p; first = false; }
-                            else { std::cout << "\t" << p; }
+                            if (first) { out << p; first = false; }
+                            else { out << "\t" << p; }
                         }
                     }
-                    std::cout << std::endl;
+                    out << std::endl;
                 } else {
                     break;
                 }
@@ -821,76 +748,76 @@ namespace Term {
         }
 
         if (!mouseOver) {
-            std::cout << std::endl;
+            out << std::endl;
         }
 	}
 
-    void printVariantFileInfo(Utils::Label *label, int index) {
+    void printVariantFileInfo(Utils::Label *label, int index, std::ostream& out) {
         if (label->pos < 0) {
             return;
         }
-        Term::clearLine();
+        Term::clearLine(out);
         std::string v = "\rPos     ";
 
         int term_space = Utils::get_terminal_width();
         if (term_space < (int)v.size()) {
-            std::cout << std::flush; return;
+            out << std::flush; return;
         }
-        std::cout << termcolor::bold << v << termcolor::reset;
+        out << termcolor::bold << v << termcolor::reset;
         term_space -= (int)v.size();
 
         if (label->pos != -1) {
             v = label->chrom + ":" + std::to_string(label->pos);
             if (term_space < (int)v.size()) {
-                std::cout << std::flush; return;
+                out << std::flush; return;
             }
-            std::cout << v;
+            out << v;
             term_space -= (int)v.size();
         }
         v = "    ID  ";
         if (term_space < (int)v.size()) {
-            std::cout << std::flush; return;
+            out << std::flush; return;
         }
-        std::cout << termcolor::bold << v << termcolor::reset;
+        out << termcolor::bold << v << termcolor::reset;
         term_space -= (int)v.size();
 
         v = label->variantId;
         if (term_space < (int)v.size()) {
-            std::cout << std::flush; return;
+            out << std::flush; return;
         }
-        std::cout << v;
+        out << v;
         term_space -= (int)v.size();
 
         v = "    Type  ";
         if (term_space < (int)v.size()) {
-            std::cout << std::flush; return;
+            out << std::flush; return;
         }
-        std::cout << termcolor::bold << v << termcolor::reset;
+        out << termcolor::bold << v << termcolor::reset;
         term_space -= (int)v.size();
 
         if (!label->vartype.empty()) {
             v = label->vartype;
             if (term_space < (int)v.size()) {
-                std::cout << std::flush; return;
+                out << std::flush; return;
             }
-            std::cout << v;
+            out << v;
             term_space -= (int)v.size();
         }
 
         v = "    Index  ";
         if (term_space < (int)v.size()) {
-            std::cout << std::flush; return;
+            out << std::flush; return;
         }
-        std::cout << termcolor::bold << v << termcolor::reset;
+        out << termcolor::bold << v << termcolor::reset;
         term_space -= (int)v.size();
 
         v = std::to_string(index);
         if (term_space < (int)v.size()) {
-            std::cout << std::flush; return;
+            out << std::flush; return;
         }
-        std::cout << v;
+        out << v;
         term_space -= (int)v.size();
-        std::cout << std::flush;
+        out << std::flush;
     }
 
     int check_url(const char *url) {
@@ -914,23 +841,23 @@ namespace Term {
         link = std::regex_replace(link, end_pattern, std::to_string(end));
     }
 
-    int checkAndPrintRegionLink(std::string &link, const char *info) {
+    int checkAndPrintRegionLink(std::string &link, const char *info, std::ostream& out) {
         if (check_url(link.c_str())) {
-            std::cout << termcolor::green << "\n" << info << "\n" << termcolor::reset;
-            std::cout << link << std::endl;
+            out << termcolor::green << "\n" << info << "\n" << termcolor::reset;
+            out << link << std::endl;
             return 1;
         }
         return 0;
     }
 
-    void printOnlineLinks(std::vector<HGW::GwTrack> &tracks, Utils::Region &rgn, std::string &genome_tag) {
+    void printOnlineLinks(std::vector<HGW::GwTrack> &tracks, Utils::Region &rgn, std::string &genome_tag, std::ostream& out) {
         if (genome_tag.empty()) {
-            std::cerr << termcolor::red << "Error:" << termcolor::reset
+            out << termcolor::red << "Error:" << termcolor::reset
                       << " a 'genome_tag' must be provided for the current reference genome e.g. hg19 or hs1"
                       << std::endl;
             return;
         }
-        std::cout << "\nFetching online resources for genome: " << termcolor::bold << genome_tag << termcolor::reset
+        out << "\nFetching online resources for genome: " << termcolor::bold << genome_tag << termcolor::reset
                   << std::endl;
 
         std::string chrom = rgn.chrom;
@@ -954,71 +881,71 @@ namespace Term {
         if (is_hg19) {
             link = "https://genome.ucsc.edu/cgi-bin/hgTracks?db=hg19&lastVirtModeType=default&lastVirtModeExtraState=&virtModeType=default&virtMode=0&nonVirtPosition=&position=CHROM%3ASTART%2DEND&hgsid=1791027784_UAbj7DxAIuZZsoF0z5BQmYQgoS6j";
             replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom, rgn.start, rgn.end);
-            p += checkAndPrintRegionLink(link, "UCSC Genome Browser GRCh37");
+            p += checkAndPrintRegionLink(link, "UCSC Genome Browser GRCh37", out);
 
             link = "https://www.deciphergenomics.org/browser#q/grch37:CHROM:START-END/location/CHROM:START-END";
             replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom_no_chr, rgn.start, rgn.end);
-            p += checkAndPrintRegionLink(link, "DECIPHER Genome Browser GRCh37");
+            p += checkAndPrintRegionLink(link, "DECIPHER Genome Browser GRCh37", out);
 
             link = "https://gnomad.broadinstitute.org/region/CHROM-START-END?dataset=gnomad_r2_1";
             replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom_no_chr, rgn.start, rgn.end);
-            p += checkAndPrintRegionLink(link, "Gnomad Genome Browser v2.1");
+            p += checkAndPrintRegionLink(link, "Gnomad Genome Browser v2.1", out);
 
             link = "http://grch37.ensembl.org/Homo_sapiens/Location/View?r=CHROM:START-END";
             replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom_no_chr, rgn.start, rgn.end);
-            p += checkAndPrintRegionLink(link, "Ensemble Genome Browser GRCh37");
+            p += checkAndPrintRegionLink(link, "Ensemble Genome Browser GRCh37", out);
 
             link = "https://www.ncbi.nlm.nih.gov/genome/gdv/browser/genome/?chr=CHROM&from=START&to=END&id=GCF_000001405.40";
             replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom_no_chr, rgn.start, rgn.end);
-            p += checkAndPrintRegionLink(link, "NCBI Genome Browser GRCh37");
+            p += checkAndPrintRegionLink(link, "NCBI Genome Browser GRCh37", out);
 
         } else if (is_hg38) {
             link  = "https://genome.ucsc.edu/cgi-bin/hgTracks?db=hg38&lastVirtModeType=default&lastVirtModeExtraState=&virtModeType=default&virtMode=0&nonVirtPosition=&position=CHROM%3ASTART%2DEND&hgsid=1791027784_UAbj7DxAIuZZsoF0z5BQmYQgoS6j";
             replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom, rgn.start, rgn.end);
-            p += checkAndPrintRegionLink(link, "UCSC Genome Browser GRCh38");
+            p += checkAndPrintRegionLink(link, "UCSC Genome Browser GRCh38", out);
 
             link = "https://www.deciphergenomics.org/browser#q/CHROM:START-END/location/CHROM:START-END";
             replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom_no_chr, rgn.start, rgn.end);
-            p += checkAndPrintRegionLink(link, "DECIPHER Genome Browser GRCh38");
+            p += checkAndPrintRegionLink(link, "DECIPHER Genome Browser GRCh38", out);
 
             link = "https://gnomad.broadinstitute.org/region/CHROM-START-END?dataset=gnomad_sv_r4";
             replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom_no_chr, rgn.start, rgn.end);
-            p += checkAndPrintRegionLink(link, "Gnomad Genome Browser v4");
+            p += checkAndPrintRegionLink(link, "Gnomad Genome Browser v4", out);
 
             link = "http://www.ensembl.org/Homo_sapiens/Location/View?r=CHROM%3ASTART-END";
             replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom_no_chr, rgn.start, rgn.end);
-            p += checkAndPrintRegionLink(link, "Ensemble Genome Browser GRCh38");
+            p += checkAndPrintRegionLink(link, "Ensemble Genome Browser GRCh38", out);
 
             link = "https://www.ncbi.nlm.nih.gov/genome/gdv/browser/genome/?chr=CHROM&from=START&to=END&id=GCF_000001405.40";
             replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom_no_chr, rgn.start, rgn.end);
-            p += checkAndPrintRegionLink(link, "NCBI Genome Browser GRCh38");
+            p += checkAndPrintRegionLink(link, "NCBI Genome Browser GRCh38", out);
 
         } else if (is_t2t) {
             link  = "https://genome.ucsc.edu/cgi-bin/hgTracks?db=hub_3267197_GCA_009914755.4&lastVirtModeType=default&lastVirtModeExtraState=&virtModeType=default&virtMode=0&nonVirtPosition=&position=CHROM%3ASTART%2DEND&hgsid=1791153048_ztJI6SNAA8eGqv01Z11jfkDfa76v";
             replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom, rgn.start, rgn.end);
-            p += checkAndPrintRegionLink(link, "UCSC Genome Browser T2T v2.0");
+            p += checkAndPrintRegionLink(link, "UCSC Genome Browser T2T v2.0", out);
 
             link = "https://rapid.ensembl.org/Homo_sapiens_GCA_009914755.4/Location/View?r=CHROM%3ASTART-END";
             replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom_no_chr, rgn.start, rgn.end);
-            p += checkAndPrintRegionLink(link, "Ensemble Genome Browser T2T v2.0");
+            p += checkAndPrintRegionLink(link, "Ensemble Genome Browser T2T v2.0", out);
 
             link  = "https://www.ncbi.nlm.nih.gov/genome/gdv/browser/genome/?chr=CHROM&from=START&to=END&id=GCF_009914755.1";
             replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom, rgn.start, rgn.end);
-            p += checkAndPrintRegionLink(link, "NCBI Genome Browser T2T v2.0");
+            p += checkAndPrintRegionLink(link, "NCBI Genome Browser T2T v2.0", out);
         } else {
             link  = "https://genome-euro.ucsc.edu/cgi-bin/hgTracks?db=GENOME&lastVirtModeType=default&lastVirtModeExtraState=&virtModeType=default&virtMode=0&nonVirtPosition=&position=CHROM%3ASTART%2DEND&hgsid=308573407_B0yK8LZQyOQXcYLjPy7a3u2IW7an";
             link = std::regex_replace(link, genome_pattern, genome_tag);
             replaceRegionInLink(chrom_pattern, start_pattern, end_pattern, link, chrom, rgn.start, rgn.end);
-            p += checkAndPrintRegionLink(link, genome_tag.c_str());
+            p += checkAndPrintRegionLink(link, genome_tag.c_str(), out);
         }
         if (!p) {
-            std::cout << "Could not find find any valid links, invalid genome_tag? Should be e.g. hg19 or mm39 etc\n";
+            out << "Could not find find any valid links, invalid genome_tag? Should be e.g. hg19 or mm39 etc\n";
         } else {
-            std::cout << std::endl;
+            out << std::endl;
         }
     }
 
-    void updateRefGenomeSeq(Utils::Region *region, float xW, float xOffset, float xScaling) {
+    void updateRefGenomeSeq(Utils::Region *region, float xW, float xOffset, float xScaling, std::ostream& out) {
         float min_x = xOffset;
         float max_x = xScaling * ((float)(region->end - region->start)) + min_x;
         if (xW > min_x && xW < max_x) {
@@ -1040,27 +967,27 @@ namespace Term {
                 return;
             }
             const char * s = &region->refSeq[startIdx];
-            Term::clearLine();
-            std::cout << termcolor::bold << "\rRef       " << termcolor::reset ;
+            Term::clearLine(out);
+            out << termcolor::bold << "\rRef       " << termcolor::reset ;
             int l = 0;
             while (*s && l < chars) {
                 switch ((unsigned int)*s) { // this is a bit of mess, but gets the job done
-                    case 65: ((l == i) ? (std::cout << termcolor::underline << termcolor::green << "a" << termcolor::reset) : (std::cout << termcolor::green << "a") ); break;
-                    case 67: ((l == i) ? (std::cout << termcolor::underline << termcolor::blue << "c" << termcolor::reset) : (std::cout << termcolor::blue << "c") ); break;
-                    case 71: ((l == i) ? (std::cout << termcolor::underline << termcolor::yellow << "g" << termcolor::reset) : (std::cout << termcolor::yellow << "g") ); break;
-                    case 78: ((l == i) ? (std::cout << termcolor::underline << termcolor::bright_grey << "n" << termcolor::reset) : (std::cout << termcolor::bright_grey << "n") ); break;
-                    case 84: ((l == i) ? (std::cout << termcolor::underline << termcolor::red << "t" << termcolor::reset) : (std::cout << termcolor::red << "t") ); break;
-                    case 97: ((l == i) ? (std::cout << termcolor::underline << termcolor::green << "A" << termcolor::reset) : (std::cout << termcolor::green << "A") ); break;
-                    case 99: ((l == i) ? (std::cout << termcolor::underline << termcolor::blue << "C" << termcolor::reset) : (std::cout << termcolor::blue << "C") ); break;
-                    case 103: ((l == i) ? (std::cout << termcolor::underline << termcolor::yellow << "G" << termcolor::reset) : (std::cout << termcolor::yellow << "G") ); break;
-                    case 110: ((l == i) ? (std::cout << termcolor::underline << termcolor::bright_grey << "N" << termcolor::reset) : (std::cout << termcolor::bright_grey << "N") ); break;
-                    case 116: ((l == i) ? (std::cout << termcolor::underline << termcolor::red << "T" << termcolor::reset) : (std::cout << termcolor::red << "T") ); break;
-                    default: std::cout << "?"; break;
+                    case 65: ((l == i) ? (out << termcolor::underline << termcolor::green << "a" << termcolor::reset) : (out << termcolor::green << "a") ); break;
+                    case 67: ((l == i) ? (out << termcolor::underline << termcolor::blue << "c" << termcolor::reset) : (out << termcolor::blue << "c") ); break;
+                    case 71: ((l == i) ? (out << termcolor::underline << termcolor::yellow << "g" << termcolor::reset) : (out << termcolor::yellow << "g") ); break;
+                    case 78: ((l == i) ? (out << termcolor::underline << termcolor::bright_grey << "n" << termcolor::reset) : (out << termcolor::bright_grey << "n") ); break;
+                    case 84: ((l == i) ? (out << termcolor::underline << termcolor::red << "t" << termcolor::reset) : (out << termcolor::red << "t") ); break;
+                    case 97: ((l == i) ? (out << termcolor::underline << termcolor::green << "A" << termcolor::reset) : (out << termcolor::green << "A") ); break;
+                    case 99: ((l == i) ? (out << termcolor::underline << termcolor::blue << "C" << termcolor::reset) : (out << termcolor::blue << "C") ); break;
+                    case 103: ((l == i) ? (out << termcolor::underline << termcolor::yellow << "G" << termcolor::reset) : (out << termcolor::yellow << "G") ); break;
+                    case 110: ((l == i) ? (out << termcolor::underline << termcolor::bright_grey << "N" << termcolor::reset) : (out << termcolor::bright_grey << "N") ); break;
+                    case 116: ((l == i) ? (out << termcolor::underline << termcolor::red << "T" << termcolor::reset) : (out << termcolor::red << "T") ); break;
+                    default: out << "?"; break;
                 }
                 ++s;
                 l += 1;
             }
-            std::cout << termcolor::reset << std::flush;
+            out << termcolor::reset << std::flush;
             return;
         }
     }

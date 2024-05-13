@@ -20,31 +20,34 @@
 
 namespace Term {
 
-    void help(Themes::IniOptions &opts);
+    void help(Themes::IniOptions &opts, std::ostream& out);
 
-    void manuals(std::string &s);
+    void manuals(std::string &s, std::ostream& out);
 
-    void clearLine();
+    void clearLine(std::ostream& out);
 
     void editInputText(std::string &inputText, const char *letter, int &charIndex);
 
-    void printRead(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, const char *refSeq, int refStart, int refEnd, bool low_mem);
+    void printRead(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, const char *refSeq,
+                   int refStart, int refEnd, bool low_mem, std::ostream& out);
 
-    void printSelectedSam(std::string &sam);
+    void printSelectedSam(std::string &sam, std::ostream& out);
 
-    void printKeyFromValue(int v);
+    void printKeyFromValue(int v, std::ostream& out);
 
     std::string intToStringCommas(int pos);
 
-    void printRefSeq(Utils::Region *region, float x, float xOffset, float xScaling);
+    void printRefSeq(Utils::Region *region, float x, float xOffset, float xScaling, std::ostream& out);
 
-	void printCoverage(int pos, Segs::ReadCollection &cl);
+	void printCoverage(int pos, Segs::ReadCollection &cl, std::ostream& out);
 
-	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver, int targetLevel, int trackIdx, std::string &target_name, int *target_pos);
+	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver, int targetLevel, int trackIdx,
+                    std::string &target_name, int *target_pos, std::ostream& out);
 
-    void printVariantFileInfo(Utils::Label *label, int index);
+    void printVariantFileInfo(Utils::Label *label, int index, std::ostream& out);
 
-    void printOnlineLinks(std::vector<HGW::GwTrack> &tracks, Utils::Region &rgn, std::string &genome_tag);
+    void printOnlineLinks(std::vector<HGW::GwTrack> &tracks, Utils::Region &rgn, std::string &genome_tag,
+                          std::ostream& out);
 
-    void updateRefGenomeSeq(Utils::Region *region, float xW, float xOffset, float xScaling);
+    void updateRefGenomeSeq(Utils::Region *region, float xW, float xOffset, float xScaling, std::ostream& out);
 }

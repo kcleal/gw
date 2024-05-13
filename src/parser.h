@@ -103,7 +103,7 @@ namespace Parse {
     };
 
     void countExpression(std::vector<Segs::ReadCollection> &collections, std::string &str, std::vector<sam_hdr_t*> hdrs,
-                         std::vector<std::string> &bam_paths, int nBams, int nRegions);
+                         std::vector<std::string> &bam_paths, int nBams, int nRegions, std::ostream& out);
 
 	void parse_INFO(std::string &line, std::string &infoCol, std::string &request);
 

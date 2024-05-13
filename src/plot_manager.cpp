@@ -48,16 +48,16 @@ namespace Manager {
 
     void HiddenWindow::init(int width, int height) {
         if (!glfwInit()) {
-            std::cerr<<"ERROR: could not initialize GLFW3"<<std::endl;
-            std::terminate();
+            std::cerr<< "ERROR: could not initialize GLFW3" <<std::endl;
+            std::exit(-1);
         }
         glfwWindowHint(GLFW_STENCIL_BITS, 8);
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
         window = glfwCreateWindow(width, height, "GW", NULL, NULL);
         if (!window) {
-            std::cerr<<"ERROR: could not create back window with GLFW3"<<std::endl;
+            std::cerr<< "ERROR: could not create back window with GLFW3" <<std::endl;
             glfwTerminate();
-            std::terminate();
+            std::exit(-1);
         }
         glfwMakeContextCurrent(window);
 
@@ -78,13 +78,14 @@ namespace Manager {
         captureText = false;
         drawToBackWindow = false;
         textFromSettings = false;
+        terminalOutput = true;
         monitorScale = 1;
         fonts = Themes::Fonts();
         fonts.setTypeface(opt.font_str, opt.font_size);
         if (!reference.empty()) {
             fai = fai_load(reference.c_str());
             if (fai == nullptr) {
-                std::cerr << termcolor::red << "Error:" << termcolor::reset << " reference genome could not be opened " << reference << std::endl;
+                std::cerr << "Error: reference genome could not be opened " << reference << std::endl;
                 std::exit(-1);
             }
         }
@@ -104,7 +105,9 @@ namespace Manager {
             tracks.reserve(track_paths.size() + track_paths_temp.size());
             for (const auto &trk_item : track_paths_temp) {
                 if (!Utils::is_file_exist(trk_item)) {
-                    std::cerr << "Warning: track file does not exists - " << trk_item << std::endl;
+                    if (terminalOutput) {
+                        std::cerr << "Warning: track file does not exists - " << trk_item << std::endl;
+                    }
                 } else {
                     tracks.push_back(HGW::GwTrack());
                     tracks.back().genome_tag = opts.genome_tag;
@@ -176,7 +179,7 @@ namespace Manager {
         glfwSetErrorCallback(ErrorCallback);
 
         if (!glfwInit()) {
-            std::cerr<<"ERROR: could not initialize GLFW3"<<std::endl;
+            std::cerr << "ERROR: could not initialize GLFW3" << std::endl;
             std::terminate();
         }
 
@@ -247,9 +250,9 @@ namespace Manager {
         glfwSetWindowSizeCallback(window, func_resize);
 
         if (!window) {
-            std::cerr<<"ERROR: could not create window with GLFW3"<<std::endl;
+            std::cerr << "ERROR: could not create window with GLFW3" << std::endl;
             glfwTerminate();
-            std::terminate();
+            std::exit(-1);
         }
         glfwMakeContextCurrent(window);
         setGlfwFrameBufferSize();
@@ -260,14 +263,14 @@ namespace Manager {
 
     void GwPlot::initBack(int width, int height) {
         if (!glfwInit()) {
-            std::cerr<<"ERROR: could not initialize GLFW3"<<std::endl;
-            std::terminate();
+            std::cerr << "ERROR: could not initialize GLFW3" << std::endl;
+            std::exit(-1);
         }
 
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
         backWindow = glfwCreateWindow(width, height, "GW", NULL, NULL);
         if (!backWindow) {
-            std::cerr<<"ERROR: could not create back window with GLFW3"<<std::endl;
+            std::cerr << "ERROR: could not create back window with GLFW3" << std::endl;
             glfwTerminate();
             std::terminate();
         }
@@ -420,11 +423,14 @@ namespace Manager {
     }
 
     int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay) {
-        std::cerr << "Type ':help' for more info\n";
+        if (terminalOutput) {
+            std::cerr << "Type ':help' for more info\n";
+        } else {
+            outStr << "Type ':help' for more info\n";
+        }
 
         vCursor = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
         setGlfwFrameBufferSize();
-//        rasterSurface = SkSurface::MakeRasterN32Premul(opts.dimensions.x, opts.dimensions.y);
 
         fetchRefSeqs();
         opts.theme.setAlphas();
@@ -434,8 +440,11 @@ namespace Manager {
         } else {
             mouseOverTileIndex = 0;
             bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
-            std::cout << termcolor::magenta << "File    " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
-
+            if (terminalOutput) {
+                std::cout << termcolor::magenta << "File    " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
+            } else {
+                outStr << "File    " << variantTracks[variantFileSelection].path << "\n";
+            }
         }
         bool wasResized = false;
 
@@ -490,7 +499,7 @@ namespace Manager {
                 if (!backendRenderTarget.isValid()) {
                     std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
                     glfwTerminate();
-                    std::terminate();
+                    std::exit(-1);
                 }
 
                 sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
@@ -501,7 +510,7 @@ namespace Manager {
                                                                   nullptr).release();
                 if (!sSurface) {
                     std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
-                    std::terminate();
+                    std::exit(-1);
                 }
 
                 SkImageInfo info = SkImageInfo::MakeN32Premul(opts.dimensions.x * monitorScale, opts.dimensions.y * monitorScale);
@@ -523,7 +532,9 @@ namespace Manager {
         saveLabels();
         if (wasResized) {
             // no idea why, but unless exit is here then we get an abort error if we return to main. Something to do with lifetime of backendRenderTarget
-            std::cerr << "\nGw finished\n";
+            if (terminalOutput) {
+                std::cerr << "\nGw finished\n";
+            }
             exit(EXIT_SUCCESS);
         }
 
@@ -1296,12 +1307,12 @@ namespace Manager {
         FILE* fout = stdout;
 #if defined(_WIN32) || defined(_WIN64)
         HANDLE h = (HANDLE) _get_osfhandle(_fileno(fout));
-	DWORD t = GetFileType(h);
-	if (t == FILE_TYPE_CHAR) {
+        DWORD t = GetFileType(h);
+	    if (t == FILE_TYPE_CHAR) {
         } // fine
-	if (t != FILE_TYPE_PIPE) {
-	    std::cerr << "Error: attempting to write to a bad PIPE. This is unsupported on Windows" <<  std::endl;
-            std::terminate();
+	    if (t != FILE_TYPE_PIPE) {
+	        std::cerr << "Error: attempting to write to a bad PIPE. This is unsupported on Windows" <<  std::endl;
+            std::exit(-1);
         }
 #endif	    
         fwrite(png->data(), 1, png->size(), fout);

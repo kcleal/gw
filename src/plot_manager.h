@@ -86,6 +86,9 @@ namespace Manager {
         bool processed;
         bool drawLine;
 
+        bool terminalOutput;  // recoverable runtime errors and output sent to terminal or outStr
+        std::ostringstream outStr;
+
         std::vector<char> pixelMemory;
 
         std::string reference;
@@ -109,6 +112,9 @@ namespace Manager {
         std::vector<Segs::ReadCollection> collections;  // stores alignments
 
         std::vector<HGW::GwVariantTrack> variantTracks; // make image tiles from these
+
+        HGW::GwVariantTrack *currentVarTrack;  // var track with current focus/event
+        int mouseOverTileIndex;  // tile with mouse over
 
         std::vector<Parse::Parser> filters;
 
@@ -225,7 +231,6 @@ namespace Manager {
         bool tabBorderPress;
         std::vector< std::string > commandHistory;
         int commandIndex, charIndex;
-        int mouseOverTileIndex;
 
         float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace, sliderSpace;
 
@@ -243,8 +248,6 @@ namespace Manager {
         Utils::Region clicked;
         int clickedIdx;
         int commandToolTipIndex;
-
-        HGW::GwVariantTrack *currentVarTrack;
 
         std::vector<Utils::BoundingBox> bboxes;
 

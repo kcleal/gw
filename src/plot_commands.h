@@ -9,6 +9,6 @@
 
 namespace Commands {
 
-    bool run_command_map(Manager::GwPlot* p, std::string& command);
+    void run_command_map(Manager::GwPlot* p, std::string& command, std::ostream& out);
 
 }

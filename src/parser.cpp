@@ -659,7 +659,7 @@ namespace Parse {
 
 
     void countExpression(std::vector<Segs::ReadCollection> &collections, std::string &str, std::vector<sam_hdr_t*> hdrs,
-                         std::vector<std::string> &bam_paths, int nBams, int nRegions) {
+                         std::vector<std::string> &bam_paths, int nBams, int nRegions, std::ostream& out) {
 
         std::vector<Parser> filters;
         for (auto &s: Utils::split(str, ';')) {
@@ -726,34 +726,34 @@ namespace Parse {
                     inv_r += 1;
                 }
             }
-            std::cout << termcolor::bright_blue << "File\t" << bam_paths[col.bamIdx] << termcolor::reset << std::endl;
-            std::cout << "Region\t" << col.region->chrom << ":" << col.region->start << "-" << col.region->end << std::endl;
+            out << termcolor::bright_blue << "File\t" << bam_paths[col.bamIdx] << termcolor::reset << std::endl;
+            out << "Region\t" << col.region->chrom << ":" << col.region->start << "-" << col.region->end << std::endl;
             if (!str.empty()) {
-                std::cout << "Filter\t" << str << std::endl;
+                out << "Filter\t" << str << std::endl;
             }
-            std::cout << "Total\t" << tot << std::endl;
-            std::cout << "Paired\t" << paired << std::endl;
-            std::cout << "Proper-pair\t" << proper_pair << std::endl;
-            std::cout << "Read-unmapped\t" << read_unmapped << std::endl;
-            std::cout << "Mate-unmapped\t" << mate_unmapped << std::endl;
-            std::cout << "Read-reverse\t" << read_reverse << std::endl;
-            std::cout << "Mate-reverse\t" << mate_reverse << std::endl;
-            std::cout << "First-in-pair\t" << first << std::endl;
-            std::cout << "Second-in-pair\t" << second << std::endl;
-            std::cout << "Not-primary\t" << not_primary << std::endl;
-            std::cout << "Fails-qc\t" << fails_qc << std::endl;
-            std::cout << "Duplicate\t" << duplicate << std::endl;
-            std::cout << "Supplementary\t" << supp << std::endl;
+            out << "Total\t" << tot << std::endl;
+            out << "Paired\t" << paired << std::endl;
+            out << "Proper-pair\t" << proper_pair << std::endl;
+            out << "Read-unmapped\t" << read_unmapped << std::endl;
+            out << "Mate-unmapped\t" << mate_unmapped << std::endl;
+            out << "Read-reverse\t" << read_reverse << std::endl;
+            out << "Mate-reverse\t" << mate_reverse << std::endl;
+            out << "First-in-pair\t" << first << std::endl;
+            out << "Second-in-pair\t" << second << std::endl;
+            out << "Not-primary\t" << not_primary << std::endl;
+            out << "Fails-qc\t" << fails_qc << std::endl;
+            out << "Duplicate\t" << duplicate << std::endl;
+            out << "Supplementary\t" << supp << std::endl;
             if (del > 0)
-                std::cout << "Deletion-pattern\t" << del << std::endl;
+                out << "Deletion-pattern\t" << del << std::endl;
             if (dup > 0)
-                std::cout << "Duplication-pattern\t" << dup << std::endl;
+                out << "Duplication-pattern\t" << dup << std::endl;
             if (tra > 0)
-                std::cout << "Translocation-pattern\t" << tra << std::endl;
+                out << "Translocation-pattern\t" << tra << std::endl;
             if (inv_f > 0)
-                std::cout << "F-inversion-pattern\t" << inv_f << std::endl;
+                out << "F-inversion-pattern\t" << inv_f << std::endl;
             if (inv_r > 0)
-                std::cout << "R-inversion-pattern\t" << inv_r << std::endl;
+                out << "R-inversion-pattern\t" << inv_r << std::endl;
         }
     }
 
