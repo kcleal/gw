@@ -841,6 +841,24 @@ namespace Commands {
         return Err::NONE;
     }
 
+    //    Err write_bam()
+
+    Err save_command(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        if (parts.size() == 1) {
+            return Err::OPTION_NOT_UNDERSTOOD;
+        }
+        if (parts.size() == 2) {
+            if (Utils::endsWith(parts.back(), ".bam") || Utils::endsWith(parts.back(), ".cram")) {
+
+            }
+        } else if (parts.size() == 3 && (parts[1] == ">" || parts[1] == ">>")) {
+
+        } else {
+            return Err::OPTION_NOT_UNDERSTOOD;
+        }
+        return Err::NONE;
+    }
+
     Err infer_region_or_feature(Plot* p, std::string& command, std::vector<std::string> parts) {
         Utils::Region rgn;
         Err reason = Err::NONE;
@@ -891,23 +909,6 @@ namespace Commands {
             p->imageCache.clear();
         }
         return reason;
-    }
-
-//    Err write_bam()
-
-    Err infer_region_or_feature(Plot* p, std::string& command, std::vector<std::string> parts) {
-        if (parts.size() == 1) {
-            return Err::OPTION_NOT_UNDERSTOOD;
-        }
-        if (parts.size() == 2) {
-            if (Utils::endsWith(parts.back(), ".bam") || Utils::endsWith(parts.back(), ".cram")) {
-
-            }
-        } else if (parts.size() == 3 && (parts[1] == ">" || parts[1] == ">>") {
-
-        } else {
-            return Err::OPTION_NOT_UNDERSTOOD;
-        }
     }
 
     void handle_err(Err result, std::ostream& out) {
@@ -1009,7 +1010,7 @@ namespace Commands {
                 {"s",        PARAMS { return snapshot(p, parts, out); }},
                 {"snapshot", PARAMS { return snapshot(p, parts, out); }},
                 {"online",   PARAMS { return online(p, parts, out); }},
-                {"save",     PARAMS { return online(p, parts, out); }},
+                {"save",     PARAMS { return save_command(p, parts, out); }},
 
         };
 
