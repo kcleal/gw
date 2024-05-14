@@ -19,7 +19,7 @@ namespace Parse {
     constexpr std::string_view numeric_like = "eq ne gt lt ge le == != > < >= <=";
     constexpr std::string_view string_like = "eq ne contains == != omit";
 
-    Parser::Parser() {
+    Parser::Parser(std::ostream& errOutput) : out(errOutput) {
         opMap["mapq"] = MAPQ;
         opMap["flag"] = FLAG;
         opMap["~flag"] = NFLAG;
@@ -136,7 +136,7 @@ namespace Parse {
 
     }
 
-    int parse_indexing(std::string &s, int nBams, int nRegions, std::vector< std::vector<int> > &v) {
+    int parse_indexing(std::string &s, size_t nBams, size_t nRegions, std::vector< std::vector<size_t> > &v, std::ostream& out) {
         // check for indexing. Makes a lookup table which describes which panels a filter should be applied to
         std::string::iterator iStart = s.end();
         std::string::iterator iEnd = s.end();
@@ -161,7 +161,7 @@ namespace Parse {
             return 0;
         }
         if (!open != !close) {  // xor
-            std::cerr << "Error: expression not understood: " << s << std::endl;
+            out << "Error: expression not understood: " << s << std::endl;
             return -1;
         }
         auto indexStr = std::string(iStart, iEnd);
@@ -171,7 +171,7 @@ namespace Parse {
             return 1;
         }
         if (nBams == 0 || nRegions == 0) {
-            std::cerr << "Error: No bam/region to filter. Trying to apply a filter to nBams==" << nBams << " and nRegions==" << nRegions << std::endl;
+            out << "Error: No bam/region to filter. Trying to apply a filter to nBams==" << nBams << " and nRegions==" << nRegions << std::endl;
             return -1;
         }
         std::string lhs, rhs;
@@ -189,7 +189,7 @@ namespace Parse {
         }
         rhs = std::string(iStart, itr);
         if (nBams > 1 && lhs.empty()) {
-            std::cerr << "Error: if multiple bams are present you need to specify the [row,column] e.g. [:, 0] or [0,1] etc\n";
+            out << "Error: if multiple bams are present you need to specify the [row,column] e.g. [:, 0] or [0,1] etc\n";
             return -1;
         }
         bool allRows = lhs == ":";
@@ -199,28 +199,27 @@ namespace Parse {
             iRow = (lhs.empty()) ? 0 : (allRows) ? -1 : std::stoi(lhs);
             iCol = (allColumns) ? 0 : std::stoi(rhs);
         } catch (...) {
-            std::cerr << "Error: string to integer failed for left-hand side=" << lhs << ", or right-hand side=" << rhs << std::endl;
-            return -1;
-        }
-
-        if (std::abs(iRow) >= nBams) {
-            std::cerr << "Error: row index is > nBams\n";
-            return -1;
-        }
-        if (std::abs(iCol) >= nRegions) {
-            std::cerr << "Error: column index is > nRegions\n";
+            out << "Error: string to integer failed for left-hand side=" << lhs << ", or right-hand side=" << rhs << std::endl;
             return -1;
         }
         iRow = (iRow < 0) ? nBams + iRow : iRow;  // support negative indexing
         iCol = (iCol < 0) ? nRegions + iCol : iCol;
-        v.resize(nBams, std::vector<int>(nRegions));
-        for (int r=0; r < nBams; ++r) {
-            for (int c=0; c < nRegions; ++c) {
-                if (allRows && c==iCol) {
+        if (std::abs(iRow) >= (int)nBams) {
+            out << "Error: row index is > nBams\n";
+            return -1;
+        }
+        if (std::abs(iCol) >= (int)nRegions) {
+            out << "Error: column index is > nRegions\n";
+            return -1;
+        }
+        v.resize(nBams, std::vector<size_t>(nRegions));
+        for (size_t r=0; r < nBams; ++r) {
+            for (size_t c=0; c < nRegions; ++c) {
+                if (allRows && c==(size_t)iCol) {
                     v[r][c] = 1;
-                } else if (allColumns && r==iRow) {
+                } else if (allColumns && r==(size_t)iRow) {
                     v[r][c] = 1;
-                } else if (c==iCol && r==iRow) {
+                } else if (c==(size_t)iCol && r==(size_t)iRow) {
                     v[r][c] = 1;
                 }
             }
@@ -238,7 +237,7 @@ namespace Parse {
             orBlock = true;
         }
 
-        int res = parse_indexing(s, nBams, nRegions, targetIndexes);
+        int res = parse_indexing(s, nBams, nRegions, targetIndexes, out);
         if (res < 0) {
             return res;
         }
@@ -262,7 +261,7 @@ namespace Parse {
                         output = {"~flag", "&", output[0]};
                     }
                 } else {
-                    std::cerr << "Expression not understood, need three components as {property} {operator} {value}, or a named value for flag. Found: " << token << std::endl;
+                    out << "Expression not understood, need three components as {property} {operator} {value}, or a named value for flag. Found: " << token << std::endl;
                     return -1;
                 }
             }
@@ -283,7 +282,7 @@ namespace Parse {
                             output = {"~flag", "&", output[0]};
                         }
                     } else {
-                        std::cerr << "Expression not understood, need three components as {property} {operator} {value}, or a named value for flag. Found: " << token << std::endl;
+                        out << "Expression not understood, need three components as {property} {operator} {value}, or a named value for flag. Found: " << token << std::endl;
                         return -1;
                     }
                 }
@@ -304,7 +303,7 @@ namespace Parse {
                         output = {"~flag", "&", output[0]};
                     }
                 } else {
-                    std::cerr << "Expression not understood, need three components as {property} {operator} {value}, or a named value for flag. Found: " << token << std::endl;
+                    out << "Expression not understood, need three components as {property} {operator} {value}, or a named value for flag. Found: " << token << std::endl;
                     return -1;
                 }
             }
@@ -322,11 +321,11 @@ namespace Parse {
 
     int Parser::prep_evaluations(std::vector<Eval> &evaluations, std::vector<std::string> &output) {
         if (! opMap.contains(output[0])) {
-            std::cerr << "Left-hand side property not available: " << output[0] << std::endl;
+            out << "Left-hand side property not available: " << output[0] << std::endl;
             return -1;
         }
         if (! opMap.contains(output[1])) {
-            std::cerr << "Middle operation not available: " << output[1] << std::endl;
+            out << "Middle operation not available: " << output[1] << std::endl;
             return -1;
         }
         Property lhs = opMap[output[0]];
@@ -334,7 +333,7 @@ namespace Parse {
 
         std::string allowed = permit[lhs];
         if (allowed.find(output[1]) == std::string::npos) {
-            std::cerr << output[0] << " is only compatible with: " << allowed << std::endl;
+            out << output[0] << " is only compatible with: " << allowed << std::endl;
             return -1;
         }
 
@@ -380,8 +379,8 @@ namespace Parse {
                 } else if (output.back() == "supplementary") {
                     e.ival = Property::SUPPLEMENTARY;
                 } else {
-                    std::cerr << "Right-hand side value must be an integer or named-value: " << output[2] << std::endl;
-                    std::cerr << "Named values can be one of: paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary, qcfail, dup, supplementary\n";
+                    out << "Right-hand side value must be an integer or named-value: " << output[2] << std::endl;
+                    out << "Named values can be one of: paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary, qcfail, dup, supplementary\n";
                     return -1;
                 }
             }
@@ -390,7 +389,7 @@ namespace Parse {
             e.op = mid;
             e.sval = output.back();
         } else {
-            std::cerr << "Left-hand side operation not available: " << output[0] << std::endl; return -1;
+            out << "Left-hand side operation not available: " << output[0] << std::endl; return -1;
         }
         evaluations.push_back(e);
         return 1;
@@ -399,7 +398,7 @@ namespace Parse {
     int Parser::set_filter(std::string &s, int nBams, int nRegions) {
         filter_str = s;
         if ( (s.find("or") != std::string::npos) && (s.find("and") != std::string::npos) ) {
-            std::cerr << "Filter block must be either composed of 'or' expressions, or 'and' expressions, not both\n";
+            out << "Filter block must be either composed of 'or' expressions, or 'and' expressions, not both\n";
             return -1;
         }
         int res1 = split_into_or(s, evaluations_block, nBams, nRegions);
@@ -663,7 +662,7 @@ namespace Parse {
 
         std::vector<Parser> filters;
         for (auto &s: Utils::split(str, ';')) {
-            Parse::Parser p = Parse::Parser();
+            Parse::Parser p = Parse::Parser(out);
             int rr = p.set_filter(s, nBams, nRegions);
             if (rr > 0) {
                 filters.push_back(p);
@@ -757,7 +756,7 @@ namespace Parse {
         }
     }
 
-	void get_value_in_brackets(std::string &requestBracket) {
+	void get_value_in_brackets(std::string &requestBracket, std::ostream& out) {
 		const std::regex singleBracket("\\[");
 		if (std::regex_search(requestBracket, singleBracket)) {
 			const std::regex bracketRegex("\\[(.*?)\\]");
@@ -765,7 +764,7 @@ namespace Parse {
 			if (std::regex_search(requestBracket, bracketMatch, bracketRegex)) {
 				requestBracket = bracketMatch[1].str();
 			} else {
-				std::cerr << "Cannot parse sample inside [] from input string. \n";
+				out << "Cannot parse sample inside [] from input string. \n";
 			}
 		} else {
 			requestBracket = "0";
@@ -778,8 +777,8 @@ namespace Parse {
 		return !s.empty() && it == s.end();
 	}
 
-	void convert_name_index(std::string &requestBracket, int &i, std::vector<std::string> &sample_names) {
-		get_value_in_brackets(requestBracket);
+	void convert_name_index(std::string &requestBracket, int &i, std::vector<std::string> &sample_names, std::ostream& out) {
+		get_value_in_brackets(requestBracket, out);
 		Utils::trim(requestBracket);
 		if (is_number(requestBracket)) {
 			i = std::stoi(requestBracket);
@@ -787,12 +786,12 @@ namespace Parse {
 		} else {
 			ptrdiff_t index = std::distance(sample_names.begin(), std::find(sample_names.begin(), sample_names.end(), requestBracket));
 			if ((int)index >= (int)sample_names.size()) {
-				std::cerr << "Sample not in file: " << requestBracket << std::endl;
-                std::cerr << "Samples listed in file are: ";
+				out << "Sample not in file: " << requestBracket << std::endl;
+                out << "Samples listed in file are: ";
                 for (auto &samp : sample_names) {
-                    std::cerr << samp << " ";
+                    out << samp << " ";
                 }
-                std::cerr << std::endl;
+                out << std::endl;
 				return;
 			}
 			i = (int)index + 9;
@@ -819,14 +818,14 @@ namespace Parse {
 		}
 	}
 
-	void parse_FORMAT (std::string &result, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names) {
+	void parse_FORMAT (std::string &result, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names, std::ostream& out) {
 		if (request == "format" || request == "genome" || request == "format[0]") {
 			result = vcfCols[9];
 			return;
 		}
 		std::string requestBracket = request;
 		int i = 0;
-        convert_name_index(requestBracket, i, sample_names);
+        convert_name_index(requestBracket, i, sample_names, out);
         if (i == 0 || i >= (int)vcfCols.size()) {
             throw std::invalid_argument("request was invalid");
 		}
@@ -850,7 +849,7 @@ namespace Parse {
 	}
 
 
-	void parse_vcf_split(std::string &result, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names) {	
+	void parse_vcf_split(std::string &result, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names, std::ostream& out) {
 		if (request == "chrom") {
 			result = vcfCols[0];
 		} else if (request == "pos") {
@@ -868,10 +867,9 @@ namespace Parse {
 		} else if (request == "info" || Utils::startsWith(request, "info.")) {
 			parse_INFO(result, vcfCols[7], request);
 		} else if (request == "format" || Utils::startsWith(request, "format.") || Utils::startsWith(request, "format[")) {
-			parse_FORMAT(result, vcfCols, request, sample_names);
+			parse_FORMAT(result, vcfCols, request, sample_names, out);
 		} else {
-            std::cerr << "Valid fields are chrom, pos, id, ref, alt, qual, filter, info, format\n";
-            throw std::invalid_argument("request was invalid");
+            out << termcolor::red << "Error:" << termcolor::reset << " could not parse. Valid fields are chrom, pos, id, ref, alt, qual, filter, info, format\n";
         }
 	}
 
@@ -902,7 +900,7 @@ namespace Parse {
 		}
 	}
 
-	void parse_output_name_format(std::string &nameFormat, std::vector<std::string> &vcfCols, std::vector<std::string> &sample_names, std::vector<std::string> &bam_paths, std::string &label) {
+	void parse_output_name_format(std::string &nameFormat, std::vector<std::string> &vcfCols, std::vector<std::string> &sample_names, std::vector<std::string> &bam_paths, std::string &label, std::ostream& out) {
 		std::regex bash("\\{(.*?)\\}");
 		std::smatch matches;
 		std::string test = nameFormat;
@@ -916,7 +914,7 @@ namespace Parse {
 			if (matches.size() == 2) {
 				std::string tmpVal = matches[1];
 				if (tmpVal != "sample" && tmpVal != "label") {
-					parse_vcf_split(value, vcfCols, tmpVal, sample_names);
+					parse_vcf_split(value, vcfCols, tmpVal, sample_names, out);
 				} else if (tmpVal == "sample") {
 					parse_sample_variable(value, bam_paths);
 				} else if (tmpVal == "label") {

@@ -413,8 +413,7 @@ namespace Themes {
 
     void IniOptions::getOptionsFromIni() {
 
-        ankerl::unordered_dense::map<std::string, int> key_table;
-
+        std::unordered_map<std::string, int> key_table;
         Keys::getKeyTable(key_table);
 
         theme_str = myIni["general"]["theme"];
@@ -502,17 +501,26 @@ namespace Themes {
         enter_interactive_mode = key_table[myIni["labelling"]["enter_interactive_mode"]];
 
         if (myIni.has("shift_keymap")) {
-            shift_keymap[key_table[myIni["shift_keymap"]["ampersand"]]] = "&";
-            shift_keymap[key_table[myIni["shift_keymap"]["bar"]]] = "|";
-            shift_keymap[key_table[myIni["shift_keymap"]["colon"]]] = ":";
-            shift_keymap[key_table[myIni["shift_keymap"]["curly_open"]]] = "{";
-            shift_keymap[key_table[myIni["shift_keymap"]["curly_close"]]] = "}";
-            shift_keymap[key_table[myIni["shift_keymap"]["dollar"]]] = "$";
-            shift_keymap[key_table[myIni["shift_keymap"]["exclamation"]]] = "!";
-            shift_keymap[key_table[myIni["shift_keymap"]["greater_than"]]] = ">";
-            shift_keymap[key_table[myIni["shift_keymap"]["less_than"]]] = "<";
-            shift_keymap[key_table[myIni["shift_keymap"]["tilde"]]] = "~";
-            shift_keymap[key_table[myIni["shift_keymap"]["underscore"]]] = "_";
+            shift_keymap["\\"] = "|";
+            shift_keymap[";"] = ":";
+            shift_keymap["["] = "{";
+            shift_keymap["]"] = "}";
+            shift_keymap["."] = ">";
+            shift_keymap[","] = "<";
+            shift_keymap["#"] = "~";
+            shift_keymap["-"] = "_";
+            shift_keymap["'"] = "@";
+            shift_keymap["="] = "+";
+            shift_keymap["1"] = "!";
+            shift_keymap["2"] = "\"";
+            shift_keymap["3"] = "£";
+            shift_keymap["4"] = "$";
+            shift_keymap["5"] = "%";
+            shift_keymap["6"] = "^";
+            shift_keymap["7"] = "&";
+            shift_keymap["8"] = "*";
+            shift_keymap["9"] = "(";
+            shift_keymap["0"] = ")";
         }
     }
 

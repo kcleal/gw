@@ -760,7 +760,7 @@ namespace Menu {
     }
 
     void applyKeyboardKeyOption(Option &new_opt, Themes::IniOptions &opts) {
-        ankerl::unordered_dense::map<std::string, int> keys;
+        std::unordered_map<std::string, int> keys;
         Keys::getKeyTable(keys);
         std::string k = new_opt.value;
         for(auto &c : k) { c = toupper(c); }

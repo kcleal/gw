@@ -430,7 +430,7 @@ namespace Term {
     }
 
     void printKeyFromValue(int v, std::ostream& out) {
-        ankerl::unordered_dense::map<std::string, int> key_table;
+        std::unordered_map<std::string, int> key_table;
         Keys::getKeyTable(key_table);
         for (auto &p: key_table) {
             if (p.second == v) {

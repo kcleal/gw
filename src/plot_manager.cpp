@@ -378,11 +378,9 @@ namespace Manager {
     }
 
     void GwPlot::addFilter(std::string &filter_str) {
-        Parse::Parser p = Parse::Parser();
+        Parse::Parser p = Parse::Parser(outStr);
         if (p.set_filter(filter_str, bams.size(), regions.size()) > 0) {
             filters.push_back(p);
-        } else {
-            throw std::runtime_error("Error: --filter option not understood");
         }
     }
 

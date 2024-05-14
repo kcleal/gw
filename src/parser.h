@@ -84,15 +84,16 @@ namespace Parse {
 
     class Parser {
     public:
-        Parser();
-        ~Parser() {};
+        Parser(std::ostream& errOutput);
+        ~Parser() = default;
 
         bool orBlock;
         std::string filter_str;
         ankerl::unordered_dense::map< std::string, Property> opMap;
         ankerl::unordered_dense::map< Property, std::string> permit;
         std::vector<Eval> evaluations_block;
-        std::vector< std::vector<int> > targetIndexes;
+        std::vector< std::vector<size_t> > targetIndexes;
+        std::ostream& out;
 
         int set_filter(std::string &f, int nBams, int nRegions);
         bool eval(const Segs::Align &aln, const sam_hdr_t* hdr, int bamIdx, int regionIdx);
@@ -105,16 +106,18 @@ namespace Parse {
     void countExpression(std::vector<Segs::ReadCollection> &collections, std::string &str, std::vector<sam_hdr_t*> hdrs,
                          std::vector<std::string> &bam_paths, int nBams, int nRegions, std::ostream& out);
 
-	void parse_INFO(std::string &line, std::string &infoCol, std::string &request);
+	void parse_INFO(std::string &line, std::string &infoCol, std::string &request, std::ostream& out);
 
-	void parse_FORMAT(std::string &line, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names);
+	void parse_FORMAT(std::string &line, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names, std::ostream& out);
 
-	void parse_vcf_split(std::string &line, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names);
+	void parse_vcf_split(std::string &line, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names, std::ostream& out);
 
 	void parse_output_name_format(std::string &nameFormat, std::vector<std::string> &vcfCols, std::vector<std::string> &sample_names,
-                                  std::vector<std::string> &bam_paths, std::string &label);
+                                  std::vector<std::string> &bam_paths, std::string &label, std::ostream& out);
 
 	void parse_sample_variable(std::string &fname, std::vector<std::string> &bam_paths);
+
+    int parse_indexing(std::string &s, size_t nBams, size_t nRegions, std::vector< std::vector<size_t> > &v, std::ostream& out);
 
 }
 

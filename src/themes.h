@@ -138,7 +138,8 @@ namespace Themes {
         ~IniOptions() {};
 
         mINI::INIStructure myIni;
-        ankerl::unordered_dense::map<int, std::string> shift_keymap;
+//        std::unordered_map<int, std::string> shift_keymap;
+        std::unordered_map<std::string, std::string> shift_keymap;
         BaseTheme theme;
         Utils::Dims dimensions, number;
         std::string genome_tag;

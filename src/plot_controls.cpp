@@ -349,16 +349,21 @@ namespace Manager {
                     }
                 }
                 const char *letter = glfwGetKeyName(key, scancode);
+//                std::string letter_str(letter);
+//                if (letter_str == "\\") {
+//                    std::cout << "yep\n";
+//                }
+
                 if (letter || key == GLFW_KEY_SPACE) {
                     if (key == GLFW_KEY_SPACE) {  // deal with special keys first
                         Term::editInputText(inputText, " ", charIndex);
                     }
                     else {
-                        if (mods == GLFW_MOD_SHIFT && opts.shift_keymap.contains(key)) {
-                            Term::editInputText(inputText, opts.shift_keymap[key].c_str(), charIndex);
-                        }
-                        else if (mods == GLFW_MOD_SHIFT) { // uppercase
-                            std::string str = letter;
+                        std::string str = letter;
+                        if (mods == GLFW_MOD_SHIFT && opts.shift_keymap.find(str) != opts.shift_keymap.end()) {
+                            Term::editInputText(inputText, opts.shift_keymap[str].c_str(), charIndex);
+                        } else if (mods == GLFW_MOD_SHIFT) { // uppercase
+
                             std::transform(str.begin(), str.end(),str.begin(), ::toupper);
                             Term::editInputText(inputText, str.c_str(), charIndex);
                         } else {  // normal text here

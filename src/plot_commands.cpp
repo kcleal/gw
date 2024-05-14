@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <functional>
 #include <vector>
+#include <queue>
 #include <htslib/sam.h>
 #include <htslib/hts.h>
 #include <htslib/bgzf.h>
@@ -127,7 +128,8 @@ namespace Commands {
         std::filesystem::path homedir(home);
         std::filesystem::path inputPath(fpath);
         path = homedir / inputPath;
-        return path;
+        std::string stringpath = path.generic_string();
+        return stringpath;
     }
 
     Err sam(Plot* p, std::string& command, std::vector<std::string>& parts, std::ostream& out) {
@@ -375,9 +377,9 @@ namespace Commands {
                     for (size_t i = 1; i < requests; ++i) {
                         std::string result;
                         try {
-                            Parse::parse_vcf_split(result, vcfCols, parts[i], sample_names_copy);
+                            Parse::parse_vcf_split(result, vcfCols, parts[i], sample_names_copy, out);
                         } catch (...) {
-                            out << termcolor::red << "Error:" << termcolor::reset << " could not parse " << parts[i] << std::endl;
+                            out << termcolor::red << "Error:" << termcolor::reset << " could not parse " << parts[i] << ". Valid fields are chrom, pos, id, ref, alt, qual, filter, info, format\n";
                             return Err::PARSE_VCF;
                         }
                         if (i != requests-1) {
@@ -421,7 +423,7 @@ namespace Commands {
             return Err::NONE;
         }
         for (auto &s: Utils::split(str, ';')) {
-            Parse::Parser ps = Parse::Parser();
+            Parse::Parser ps = Parse::Parser(out);
             int rr = ps.set_filter(s, (int)p->bams.size(), (int)p->regions.size());
             if (rr > 0) {
                 p->filters.push_back(ps);
@@ -803,7 +805,7 @@ namespace Commands {
                 }
                 std::vector<std::string> vcfCols = Utils::split(variantStringCopy, '\t');
                 try {
-                    Parse::parse_output_name_format(nameFormat, vcfCols, sample_names_copy, p->bam_paths, lbl.current());
+                    Parse::parse_output_name_format(nameFormat, vcfCols, sample_names_copy, p->bam_paths, lbl.current(), out);
                 } catch (...) {
                     return Err::PARSE_INPUT;
                 }
@@ -841,21 +843,183 @@ namespace Commands {
         return Err::NONE;
     }
 
-    //    Err write_bam()
+    Err write_bam(Plot* p, std::string& o_str, std::vector< std::vector<size_t>> targets, std::ostream& out, bool append=false) {
 
-    Err save_command(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        sam_hdr_t* hdr = p->headers[p->regionSelection];
+        cram_fd* fc = nullptr;
+        htsFile *h_out = nullptr;
+        bool write_cram = false;
+        int res;
+        std::string full_path = tilde_to_home(o_str);
+        const char* outf = full_path.c_str();
+        if (!append) {
+            out << "Creating new file: " << outf << "\n";
+            if (Utils::endsWith(o_str, ".sam")) {
+                h_out = hts_open(outf, "w");
+                res = sam_hdr_write(h_out, hdr);
+                if (res < 0) {
+                    out << termcolor::red << "Error:" << termcolor::reset << " Failed to copy header\n";
+                    sam_close(h_out);
+                    return Err::NONE;
+                }
+            } else if (Utils::endsWith(o_str, ".bam")) {
+                h_out = hts_open(outf, "wb");
+                res = sam_hdr_write(h_out, hdr);
+                if (res < 0) {
+                    out << termcolor::red << "Error:" << termcolor::reset << " Failed to copy header\n";
+                    sam_close(h_out);
+                    return Err::NONE;
+                }
+            } else {
+                h_out = hts_open(outf, "wc");
+                fc = h_out->fp.cram;
+                write_cram = true;
+                cram_fd_set_header(fc, hdr);
+                res = sam_hdr_write(h_out, hdr);
+                if (res < 0) {
+                    out << termcolor::red << "Error:" << termcolor::reset << " Failed to copy header\n";
+                    sam_close(h_out);
+                    return Err::NONE;
+                }
+            }
+        } else {
+            out << "Appending to file: " << outf << "\n";
+            if (Utils::endsWith(o_str, ".sam")) {
+                h_out = hts_open(outf, "a");
+            } else if (Utils::endsWith(o_str, ".bam")) {
+                h_out = hts_open(outf, "ab");
+            } else {
+                h_out = hts_open(outf, "ac");
+                fc = h_out->fp.cram;
+                write_cram = true;
+            }
+        }
+
+        std::vector<hts_itr_t *> region_iters;
+        std::vector<htsFile *> file_ptrs;
+        if (targets.empty()) {
+            for (size_t i=0; i < p->regions.size(); ++i) {
+                int start = p->regions[i].start;
+                int end = p->regions[i].end;
+                for (size_t j=0; j < p->bams.size(); ++j) {
+                    sam_hdr_t* hdr_ptr = p->headers[j];
+                    int tid = sam_hdr_name2tid(hdr_ptr, p->regions[i].chrom.c_str());
+                    hts_idx_t* index = p->indexes[j];
+                    hts_itr_t* it = sam_itr_queryi(index, tid, start, end);
+                    region_iters.push_back(it);
+                    file_ptrs.push_back(p->bams[j]);
+                }
+            }
+        } else {
+            for (const auto& t : targets) {
+                sam_hdr_t *hdr_ptr = p->headers[t[0]];
+                int tid = sam_hdr_name2tid(hdr_ptr, p->regions[t[1]].chrom.c_str());
+                int start = p->regions[t[1]].start;
+                int end = p->regions[t[1]].end;
+                hts_idx_t* index = p->indexes[t[0]];
+                hts_itr_t* it = sam_itr_queryi(index, tid, start, end);
+                region_iters.push_back(it);
+                file_ptrs.push_back(p->bams[t[0]]);
+            }
+        }
+        auto compare = [](bam1_t* a, bam1_t* b) -> bool {
+            if (a->core.tid < b->core.tid) {
+                return true;
+            } else if (a->core.tid == b->core.tid) {
+                return a->core.pos <= b->core.pos;
+            } else {
+                return false;
+            }
+        };
+        std::priority_queue<bam1_t*, std::vector<bam1_t*>, decltype(compare)> align_q(compare);
+
+        while (region_iters.size() > 0) {
+            for (size_t i=0; i < region_iters.size(); ++i) {
+                bam1_t* a = bam_init1();
+                if (sam_itr_next(file_ptrs[i], region_iters[i], a) >= 0) {
+                    align_q.push(a);
+                } else {
+                    region_iters.erase(region_iters.begin() + i);
+                    file_ptrs.erase(file_ptrs.begin() + i);
+                    bam_destroy1(a);
+                    break;
+                }
+            }
+
+        }
+
+        for (auto & item : region_iters) {
+            bam_itr_destroy(item);
+        }
+
+//
+//        bam1_t* b = bam_init1();
+//        kstring_t kstr = {0, 0, nullptr};
+//        std::string& stdStr = p->selectedAlign;
+//        kstr.l = stdStr.size();
+//        kstr.m = stdStr.size() + 1;
+//        kstr.s = (char*)malloc(kstr.m);
+//        memcpy(kstr.s, stdStr.data(), stdStr.size());
+//        kstr.s[kstr.l] = '\0';
+//        std::cerr << kstr.s << std::endl;
+//        res = sam_parse1(&kstr, hdr, b);
+//        free(kstr.s);
+//        if (res < 0) {
+//            out << termcolor::red << "Error:" << termcolor::reset << " Could not convert str to bam1_t\n";
+//            bam_destroy1(b);
+//            sam_close(h_out);
+//            return Err::NONE;
+//        }
+//        if (!write_cram) {
+//            hts_set_fai_filename(h_out, p->reference.c_str());
+//            hts_set_threads(h_out, p->opts.threads);
+//        } else {
+//            cram_set_option(fc, CRAM_OPT_REFERENCE, p->fai);
+//            cram_set_option(fc, CRAM_OPT_NTHREADS, p->opts.threads);
+//        }
+//        res = sam_write1(h_out, hdr, b);
+//        if (res < 0) {
+//            out << termcolor::red << "Error:" << termcolor::reset << "Write failed\n";
+//        }
+//        bam_destroy1(b);
+//        sam_close(h_out);
+
+
+        // targets is rows and columns
+        return Err::NONE;
+    }
+
+    Err save_command(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
         if (parts.size() == 1) {
             return Err::OPTION_NOT_UNDERSTOOD;
         }
-        if (parts.size() == 2) {
-            if (Utils::endsWith(parts.back(), ".bam") || Utils::endsWith(parts.back(), ".cram")) {
-
-            }
-        } else if (parts.size() == 3 && (parts[1] == ">" || parts[1] == ">>")) {
-
-        } else {
-            return Err::OPTION_NOT_UNDERSTOOD;
+        auto as_alignments = [](std::string &s) -> bool { return (Utils::endsWith(s, ".sam") || Utils::endsWith(s, ".bam") || Utils::endsWith(s, ".cram")); };
+        std::vector< std::vector<size_t>> targets;
+        int res = Parse::parse_indexing(command, p->bams.size(), p->regions.size(), targets, out);
+        if (res < 0) {
+            return Err::SILENT;
         }
+        if (res) {
+            Utils::trim(command);
+            parts = Utils::split(command, ' ');
+        }
+        if (as_alignments(parts.back())) {
+            if (parts.size() == 2) {
+                write_bam(p, parts.back(), targets, out);
+            } else if (parts.size() == 3) {
+                if (parts[1] == ">") {
+                    write_bam(p, parts.back(), targets, out);
+                } else if (parts[1] == ">>") {
+                    write_bam(p, parts.back(), targets, out, true);
+                } else {
+                    return Err::OPTION_NOT_UNDERSTOOD;
+                }
+            } else {
+                return Err::OPTION_NOT_UNDERSTOOD;
+            }
+        }
+
+
         return Err::NONE;
     }
 
@@ -996,6 +1160,7 @@ namespace Commands {
                 {"filter",   PARAMS { return addFilter(p, command, out); }},
                 {"tags",     PARAMS { return tags(p, command, out); }},
                 {"mate",     PARAMS { return mate(p, command, out); }},
+                {"save",     PARAMS { return save_command(p, command, parts, out); }},
                 {"f",        PARAMS { return findRead(p, parts, out); }},
                 {"find",     PARAMS { return findRead(p, parts, out); }},
                 {"ylim",     PARAMS { return setYlim(p, parts, out); }},
@@ -1010,7 +1175,7 @@ namespace Commands {
                 {"s",        PARAMS { return snapshot(p, parts, out); }},
                 {"snapshot", PARAMS { return snapshot(p, parts, out); }},
                 {"online",   PARAMS { return online(p, parts, out); }},
-                {"save",     PARAMS { return save_command(p, parts, out); }},
+
 
         };
 
