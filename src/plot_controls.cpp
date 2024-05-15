@@ -273,7 +273,7 @@ namespace Manager {
                     }
                 }
             } else {
-                if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER || key == GLFW_KEY_SPACE) {
+                if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER ) { // || key == GLFW_KEY_SPACE) {
                     inputText = Menu::commandToolTip[commandToolTipIndex];
                     charIndex = (int)inputText.size();
                     if (std::find( Menu::exec.begin(), Menu::exec.end(), inputText) != Menu::exec.end() || (inputText == "online" && !opts.genome_tag.empty())) {
@@ -349,11 +349,6 @@ namespace Manager {
                     }
                 }
                 const char *letter = glfwGetKeyName(key, scancode);
-//                std::string letter_str(letter);
-//                if (letter_str == "\\") {
-//                    std::cout << "yep\n";
-//                }
-
                 if (letter || key == GLFW_KEY_SPACE) {
                     if (key == GLFW_KEY_SPACE) {  // deal with special keys first
                         Term::editInputText(inputText, " ", charIndex);
@@ -378,6 +373,11 @@ namespace Manager {
                         commandToolTipIndex = tip_bounds.upper;
                     } else {
                         commandToolTipIndex = std::max(commandToolTipIndex - 1, tip_bounds.lower);
+                    }
+                    if (Utils::startsWith(inputText, "load ") && !(inputText == "load ")) {
+                        Term::clearLine(out);
+                        Parse::tryTabCompletion(inputText, out);
+                        return key;
                     }
                     return GLFW_KEY_UNKNOWN;
                 } else if (key == GLFW_KEY_UP) {

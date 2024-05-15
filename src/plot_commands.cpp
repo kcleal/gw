@@ -46,6 +46,7 @@ namespace Commands {
         CHROM_NOT_IN_REFERENCE,
         FEATURE_NOT_IN_TRACKS,
         BAD_REGION,
+        OPTION_NOT_SUPPORTED,
         OPTION_NOT_UNDERSTOOD,
         INVALID_PATH,
         EMPTY_TRACKS,
@@ -109,29 +110,6 @@ namespace Commands {
         return Err::NONE;
     }
 
-    std::string tilde_to_home(std::string fpath) {
-        if (fpath[0] != '~') {
-            return fpath;
-        }
-        fpath.erase(0, 2);
-#if defined(_WIN32) || defined(_WIN64)
-        const char *homedrive_c = std::getenv("HOMEDRIVE");
-        const char *homepath_c = std::getenv("HOMEPATH");
-        std::string homedrive(homedrive_c ? homedrive_c : "");
-        std::string homepath(homepath_c ? homepath_c : "");
-        std::string home = homedrive + homepath;
-#else
-        struct passwd *pw = getpwuid(getuid());
-        std::string home(pw->pw_dir);
-#endif
-        std::filesystem::path path;
-        std::filesystem::path homedir(home);
-        std::filesystem::path inputPath(fpath);
-        path = homedir / inputPath;
-        std::string stringpath = path.generic_string();
-        return stringpath;
-    }
-
     Err sam(Plot* p, std::string& command, std::vector<std::string>& parts, std::ostream& out) {
         if (!p->selectedAlign.empty()) {
             if (command == "sam") {
@@ -143,7 +121,7 @@ namespace Commands {
                 htsFile *h_out = nullptr;
                 bool write_cram = false;
                 int res;
-                std::string full_path = tilde_to_home(parts[2]);
+                std::string full_path = Parse::tilde_to_home(parts[2]);
                 const char* outf = full_path.c_str();
                 if (parts[1] == ">") {
                     out << "Creating new file: " << outf << "\n";
@@ -843,149 +821,169 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err write_bam(Plot* p, std::string& o_str, std::vector< std::vector<size_t>> targets, std::ostream& out, bool append=false) {
-
+    Err write_bam(Plot* p, std::string& o_str, std::vector< std::vector<size_t>> targets, std::ostream& out) {
         sam_hdr_t* hdr = p->headers[p->regionSelection];
         cram_fd* fc = nullptr;
         htsFile *h_out = nullptr;
-        bool write_cram = false;
-        int res;
-        std::string full_path = tilde_to_home(o_str);
+        int res = 0;
+        std::string full_path = Parse::tilde_to_home(o_str);
         const char* outf = full_path.c_str();
-        if (!append) {
-            out << "Creating new file: " << outf << "\n";
-            if (Utils::endsWith(o_str, ".sam")) {
-                h_out = hts_open(outf, "w");
-                res = sam_hdr_write(h_out, hdr);
-                if (res < 0) {
-                    out << termcolor::red << "Error:" << termcolor::reset << " Failed to copy header\n";
-                    sam_close(h_out);
-                    return Err::NONE;
-                }
-            } else if (Utils::endsWith(o_str, ".bam")) {
-                h_out = hts_open(outf, "wb");
-                res = sam_hdr_write(h_out, hdr);
-                if (res < 0) {
-                    out << termcolor::red << "Error:" << termcolor::reset << " Failed to copy header\n";
-                    sam_close(h_out);
-                    return Err::NONE;
-                }
-            } else {
-                h_out = hts_open(outf, "wc");
-                fc = h_out->fp.cram;
-                write_cram = true;
-                cram_fd_set_header(fc, hdr);
-                res = sam_hdr_write(h_out, hdr);
-                if (res < 0) {
-                    out << termcolor::red << "Error:" << termcolor::reset << " Failed to copy header\n";
-                    sam_close(h_out);
-                    return Err::NONE;
-                }
+        std::string idx_path;
+        int min_shift = 0;
+        out << "Creating new file: " << outf << "\n";
+        if (Utils::endsWith(o_str, ".sam")) {
+            h_out = hts_open(outf, "w");
+            res = sam_hdr_write(h_out, hdr);
+            if (res < 0) {
+                out << termcolor::red << "Error:" << termcolor::reset << " Failed to copy header\n";
+                sam_close(h_out);
+                return Err::SILENT;
             }
+        } else if (Utils::endsWith(o_str, ".bam")) {
+            h_out = hts_open(outf, "wb");
+            res = hts_set_threads(h_out, p->opts.threads);
+            res = sam_hdr_write(h_out, hdr);
+            if (res < 0) {
+                out << termcolor::red << "Error:" << termcolor::reset << " Failed to copy header\n";
+                sam_close(h_out);
+                return Err::SILENT;
+            }
+            idx_path = o_str + ".bai";
         } else {
-            out << "Appending to file: " << outf << "\n";
-            if (Utils::endsWith(o_str, ".sam")) {
-                h_out = hts_open(outf, "a");
-            } else if (Utils::endsWith(o_str, ".bam")) {
-                h_out = hts_open(outf, "ab");
-            } else {
-                h_out = hts_open(outf, "ac");
-                fc = h_out->fp.cram;
-                write_cram = true;
+            h_out = hts_open(outf, "wc");
+            fc = h_out->fp.cram;
+            cram_set_option(fc, CRAM_OPT_REFERENCE, p->reference.c_str());
+            cram_set_option(fc, CRAM_OPT_NTHREADS, p->opts.threads);
+            cram_fd_set_header(fc, hdr);
+            res = sam_hdr_write(h_out, hdr);
+            if (res < 0) {
+                out << termcolor::red << "Error:" << termcolor::reset << " Failed to copy header\n";
+                sam_close(h_out);
+                return Err::SILENT;
+            }
+            idx_path = o_str + ".crai";
+            min_shift = 14;
+        }
+        // start index
+        if (!idx_path.empty()) {
+            res = sam_idx_init(h_out, hdr, min_shift, idx_path.c_str());
+            if (res < 0) {
+                out << termcolor::red << "Error:" << termcolor::reset << " Failed to make index\n";
+                idx_path.clear();
             }
         }
 
+        // use region array from htlib
         std::vector<hts_itr_t *> region_iters;
         std::vector<htsFile *> file_ptrs;
-        if (targets.empty()) {
+        for (size_t j=0; j < p->bams.size(); ++j) {
+            sam_hdr_t* hdr_ptr = p->headers[j];
+            hts_idx_t* index = p->indexes[j];
+            std::vector<std::string> region_names;
             for (size_t i=0; i < p->regions.size(); ++i) {
-                int start = p->regions[i].start;
-                int end = p->regions[i].end;
-                for (size_t j=0; j < p->bams.size(); ++j) {
-                    sam_hdr_t* hdr_ptr = p->headers[j];
-                    int tid = sam_hdr_name2tid(hdr_ptr, p->regions[i].chrom.c_str());
-                    hts_idx_t* index = p->indexes[j];
-                    hts_itr_t* it = sam_itr_queryi(index, tid, start, end);
-                    region_iters.push_back(it);
-                    file_ptrs.push_back(p->bams[j]);
+                const auto &r = p->regions[i];
+                if (!targets.empty()) {
+                    if (targets[j][i]) {
+                        region_names.push_back(r.chrom + ":" + std::to_string(r.start) + "-" + std::to_string(r.end));
+                    }
+                } else {
+                    region_names.push_back(r.chrom + ":" + std::to_string(r.start) + "-" + std::to_string(r.end));
                 }
             }
-        } else {
-            for (const auto& t : targets) {
-                sam_hdr_t *hdr_ptr = p->headers[t[0]];
-                int tid = sam_hdr_name2tid(hdr_ptr, p->regions[t[1]].chrom.c_str());
-                int start = p->regions[t[1]].start;
-                int end = p->regions[t[1]].end;
-                hts_idx_t* index = p->indexes[t[0]];
-                hts_itr_t* it = sam_itr_queryi(index, tid, start, end);
-                region_iters.push_back(it);
-                file_ptrs.push_back(p->bams[t[0]]);
+            if (region_names.empty()) {
+                continue;
+            }
+            std::vector<char*> c_regions(region_names.size());
+            for (size_t i=0; i < region_names.size(); ++i) {
+                c_regions[i] = const_cast<char*>(region_names[i].c_str());
+            }
+            hts_itr_t *iter = sam_itr_regarray(index, hdr_ptr, &c_regions[0], c_regions.size());
+            region_iters.push_back(iter);
+            file_ptrs.push_back(p->bams[j]);
+        }
+
+        struct qItem {
+            Segs::Align align;
+            htsFile* file_ptr;
+            hts_itr_t* bam_iter;
+            size_t from;
+        };
+        auto compare = [](qItem& a, qItem& b) -> bool {
+            if (a.align.delegate->core.tid > b.align.delegate->core.tid) {
+                return true;
+            } else if (a.align.delegate->core.tid == b.align.delegate->core.tid) {
+                return a.align.delegate->core.pos > b.align.delegate->core.pos;
+            }
+            return false;
+        };
+        // sort using priority queue
+        std::priority_queue<qItem, std::vector<qItem>, decltype(compare)> pq(compare);
+        for (size_t i=0; i < region_iters.size(); ++i) {
+            bam1_t* a = bam_init1();
+            if (sam_itr_next(file_ptrs[i], region_iters[i], a) >= 0) {
+                Segs::Align alignment = Segs::Align(a);
+                Segs::align_init(&alignment);
+                pq.push({std::move(alignment), file_ptrs[i], region_iters[i], i});
+            } else {
+                bam_destroy1(a);
             }
         }
-        auto compare = [](bam1_t* a, bam1_t* b) -> bool {
-            if (a->core.tid < b->core.tid) {
-                return true;
-            } else if (a->core.tid == b->core.tid) {
-                return a->core.pos <= b->core.pos;
+        // process queue and write to bam
+        int count = 0;
+        bool filter_reads = !p->filters.empty();
+        while (!pq.empty()) {
+            qItem item = pq.top();  // take copy
+            if (filter_reads) {
+                bool good = true;
+                for (auto &f: p->filters) {
+                    if (!f.eval(item.align, hdr, -1, -1)) {
+                        good = false;
+                        break;
+                    }
+                }
+                if (good) {
+                    res = sam_write1(h_out, hdr, item.align.delegate);
+                    if (res < 0) {
+                        out << termcolor::red << "Error:" << termcolor::reset << " Write alignment failed" << std::endl;
+                        break;
+                    }
+                }
             } else {
-                return false;
-            }
-        };
-        std::priority_queue<bam1_t*, std::vector<bam1_t*>, decltype(compare)> align_q(compare);
-
-        while (region_iters.size() > 0) {
-            for (size_t i=0; i < region_iters.size(); ++i) {
-                bam1_t* a = bam_init1();
-                if (sam_itr_next(file_ptrs[i], region_iters[i], a) >= 0) {
-                    align_q.push(a);
-                } else {
-                    region_iters.erase(region_iters.begin() + i);
-                    file_ptrs.erase(file_ptrs.begin() + i);
-                    bam_destroy1(a);
+                res = sam_write1(h_out, hdr, item.align.delegate);
+                if (res < 0) {
+                    out << termcolor::red << "Error:" << termcolor::reset << " Write alignment failed" << std::endl;
                     break;
                 }
             }
-
+            if (sam_itr_next(item.file_ptr, item.bam_iter, item.align.delegate) >= 0) {
+                Segs::align_init(&item.align);
+                pq.push(item);
+            } else {
+                bam_destroy1(item.align.delegate);
+            }
+            pq.pop();
+            count += 1;
         }
-
-        for (auto & item : region_iters) {
-            bam_itr_destroy(item);
+        // clean up
+        for (size_t i=0; i < region_iters.size(); ++i) {
+            bam_itr_destroy(region_iters[i]);
         }
-
-//
-//        bam1_t* b = bam_init1();
-//        kstring_t kstr = {0, 0, nullptr};
-//        std::string& stdStr = p->selectedAlign;
-//        kstr.l = stdStr.size();
-//        kstr.m = stdStr.size() + 1;
-//        kstr.s = (char*)malloc(kstr.m);
-//        memcpy(kstr.s, stdStr.data(), stdStr.size());
-//        kstr.s[kstr.l] = '\0';
-//        std::cerr << kstr.s << std::endl;
-//        res = sam_parse1(&kstr, hdr, b);
-//        free(kstr.s);
-//        if (res < 0) {
-//            out << termcolor::red << "Error:" << termcolor::reset << " Could not convert str to bam1_t\n";
-//            bam_destroy1(b);
-//            sam_close(h_out);
-//            return Err::NONE;
-//        }
-//        if (!write_cram) {
-//            hts_set_fai_filename(h_out, p->reference.c_str());
-//            hts_set_threads(h_out, p->opts.threads);
-//        } else {
-//            cram_set_option(fc, CRAM_OPT_REFERENCE, p->fai);
-//            cram_set_option(fc, CRAM_OPT_NTHREADS, p->opts.threads);
-//        }
-//        res = sam_write1(h_out, hdr, b);
-//        if (res < 0) {
-//            out << termcolor::red << "Error:" << termcolor::reset << "Write failed\n";
-//        }
-//        bam_destroy1(b);
-//        sam_close(h_out);
-
-
-        // targets is rows and columns
+        if (!pq.empty()) {
+            while (!pq.empty()) {
+                bam_destroy1(pq.top().align.delegate);
+                pq.pop();
+            }
+            hts_close(h_out);
+            return Err::UNKNOWN;
+        }
+        if (!idx_path.empty()) {
+            res = sam_idx_save(h_out);
+            if (res < 0) {
+                out << termcolor::red << "Error:" << termcolor::reset << " Write index failed" << std::endl;
+            }
+        }
+        hts_close(h_out);
+        out << count << " alignments written\n";
         return Err::NONE;
     }
 
@@ -1010,7 +1008,7 @@ namespace Commands {
                 if (parts[1] == ">") {
                     write_bam(p, parts.back(), targets, out);
                 } else if (parts[1] == ">>") {
-                    write_bam(p, parts.back(), targets, out, true);
+                    return Err::OPTION_NOT_SUPPORTED;
                 } else {
                     return Err::OPTION_NOT_UNDERSTOOD;
                 }
@@ -1018,8 +1016,15 @@ namespace Commands {
                 return Err::OPTION_NOT_UNDERSTOOD;
             }
         }
+        return Err::NONE;
+    }
 
-
+    Err load_file(Plot* p, std::vector<std::string> parts) {
+        if (parts.size() != 2) {
+            return Err::OPTION_NOT_UNDERSTOOD;
+        }
+        std::string filename = Parse::tilde_to_home(parts.back());
+        p->addTrack(filename, true);
         return Err::NONE;
     }
 
@@ -1094,6 +1099,9 @@ namespace Commands {
             case BAD_REGION:
                 out << termcolor::red << "Error:" << termcolor::reset << " Region not understood\n";
                 break;
+            case OPTION_NOT_SUPPORTED:
+                out << termcolor::red << "Error:" << termcolor::reset << " Option not supported\n";
+                break;
             case OPTION_NOT_UNDERSTOOD:
                 out << termcolor::red << "Error:" << termcolor::reset << " Option not understood\n";
                 break;
@@ -1149,6 +1157,7 @@ namespace Commands {
                 {"log2-cov",  PARAMS { return log2_cov(p); }},
                 {"expand-tracks", PARAMS { return expand_tracks(p); }},
                 {"tlen-y",   PARAMS { return tlen_y(p); }},
+
                 {"sam",      PARAMS { return sam(p, command, parts, out); }},
                 {"h",        PARAMS { return getHelp(p, command, parts, out); }},
                 {"help",     PARAMS { return getHelp(p, command, parts, out); }},
@@ -1156,11 +1165,13 @@ namespace Commands {
                 {"link",     PARAMS { return link(p, command, parts); }},
                 {"v",        PARAMS { return var_info(p, command, parts, out); }},
                 {"var",      PARAMS { return var_info(p, command, parts, out); }},
+                {"save",     PARAMS { return save_command(p, command, parts, out); }},
+
                 {"count",    PARAMS { return count(p, command, out); }},
                 {"filter",   PARAMS { return addFilter(p, command, out); }},
                 {"tags",     PARAMS { return tags(p, command, out); }},
                 {"mate",     PARAMS { return mate(p, command, out); }},
-                {"save",     PARAMS { return save_command(p, command, parts, out); }},
+
                 {"f",        PARAMS { return findRead(p, parts, out); }},
                 {"find",     PARAMS { return findRead(p, parts, out); }},
                 {"ylim",     PARAMS { return setYlim(p, parts, out); }},
@@ -1170,12 +1181,13 @@ namespace Commands {
                 {"cov",      PARAMS { return cov(p, parts, out); }},
                 {"theme",    PARAMS { return theme(p, parts, out); }},
                 {"goto",     PARAMS { return goto_command(p, parts); }},
-                {"grid",     PARAMS { return grid(p, parts); }},
                 {"add",      PARAMS { return add_region(p, parts, out); }},
                 {"s",        PARAMS { return snapshot(p, parts, out); }},
                 {"snapshot", PARAMS { return snapshot(p, parts, out); }},
                 {"online",   PARAMS { return online(p, parts, out); }},
 
+                {"grid",     PARAMS { return grid(p, parts); }},
+                {"load",     PARAMS { return load_file(p, parts); }},
 
         };
 

@@ -119,6 +119,9 @@ namespace Parse {
 
     int parse_indexing(std::string &s, size_t nBams, size_t nRegions, std::vector< std::vector<size_t> > &v, std::ostream& out);
 
+    std::string tilde_to_home(std::string fpath);
+
+    void tryTabCompletion(std::string &inputText, std::ostream& out);
 }
 
 

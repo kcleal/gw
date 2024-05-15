@@ -34,7 +34,6 @@ namespace Term {
         out << termcolor::underline << "\nCommand          Modifier        Description                                            \n" << termcolor::reset;
         out << termcolor::green << "[locus]                          " << termcolor::reset << "e.g. 'chr1' or 'chr1:1-20000'\n";
         out << termcolor::green << "add              region(s)       " << termcolor::reset << "Add one or more regions e.g. 'add chr1:1-20000'\n";
-//        out << termcolor::green << "config                           " << termcolor::reset << "Opens .gw.ini config in a text editor\n";
         out << termcolor::green << "count            expression?     " << termcolor::reset << "Count reads. See filter for example expressions'\n";
         out << termcolor::green << "cov              value?          " << termcolor::reset << "Change max coverage value. Use 'cov' to toggle coverage\n";
         out << termcolor::green << "edges                            " << termcolor::reset << "Toggle edges\n";
@@ -47,6 +46,7 @@ namespace Term {
         out << termcolor::green << "insertions, ins                  " << termcolor::reset << "Toggle insertions\n";
         out << termcolor::green << "line                             " << termcolor::reset << "Toggle mouse position vertical line\n";
         out << termcolor::green << "link             none/sv/all     " << termcolor::reset << "Switch read-linking 'link all'\n";
+        out << termcolor::green << "load             file            " << termcolor::reset << "Load bams, tracks or session file\n";
         out << termcolor::green << "log2-cov                         " << termcolor::reset << "Toggle scale coverage by log2\n";
         out << termcolor::green << "mate             add?            " << termcolor::reset << "Use 'mate' to navigate to mate-pair, or 'mate add' \n                                 to add a new region with mate \n";
         out << termcolor::green << "mismatches, mm                   " << termcolor::reset << "Toggle mismatches\n";
@@ -136,6 +136,19 @@ namespace Term {
             out << "    Toggle line.\n        A vertical line will turn on/off.\n\n";
         } else if (s == "link" || s == "l") {
             out << "    Link alignments.\n        This will change how alignments are linked, options are 'none', 'sv', 'all'.\n    Examples:\n        'link sv', 'link all'\n\n";
+        } else if (s == "load") {
+            out << "    Load reads, tracks or session file.\n"
+                   "        The filepath extension will determine which type of file to load.\n\n"
+                   "    Examples:\n"
+                   "        'load reads.bam'        # Load reads.bam file.\n"
+                   "        'load reads.cram'       # Load a cram file\n"
+                   "        'load repeats.bed'      # Load a bed file\n"
+                   "        'load variants.vcf'     # Load a vcf file\n"
+                   "        'load session.xml'      # Load a previous session\n\n"
+                   "    Notes:\n"
+                   "        Vcfs/bcfs can be loaded as a track or image tiles. Control this behavior using the\n"
+                   "        settings option Settings -> Interaction -> vcf_as_tracks"
+                   "\n\n";
         } else if (s == "log2-cov") {
             out << "    Toggle log2-coverage.\n        The coverage track will be scaled by log2.\n\n";
         } else if (s == "mate") {
@@ -152,16 +165,20 @@ namespace Term {
             out << "    Print the sam format of the read.\n        First select a read using the mouse then type ':sam'.\n\n";
         } else if (s == "save") {
             out << "    Save reads, snapshot or session to file.\n"
-                         "        The filepath extension you use will determine the output file type.\n\n"
+                         "        The filepath extension will determine the output file type.\n\n"
                          "    Examples:\n"
-                         "        'save reads.bam'    # Save all visible reads to reads.bam file. Any filters are applied.\n"
-                         "        'save reads.cram'   # Reads saved in cram format, the loaded reference genome to configure\n"
-                         "        'save reads.sam'    # Reads saved in sam format (human readable)\n"
-                         "        'save view.png'     # The current view is saved to view.png. Same functionality as 'snapshot' command\n"
-                         "        'save session.xml'  # The current session will be saved, allowing this session to be revisited\n\n"
+                         "        'save reads.bam'        # Save visible reads to reads.bam file.\n"
+                         "        'save reads.bam [0, 1]' # Indexing can be used, here reads from row 0, column 1 will be saved\n"
+                         "        'save reads.cram'       # Reads saved in cram format\n"
+                         "        'save reads.sam'        # Reads saved in sam format (human readable)\n"
+                         "        'save view.png'         # The current view is saved to view.png. Same functionality as 'snapshot'\n"
+                         "        'save session.xml'      # The current session will be saved, allowing this session to be revisited\n\n"
                          "    Notes:\n"
-                         "        If multiple bams are open, reads are saved in sorted order. Some issues may arise if headers\n"
-                         "        are different between different input files\n\n";
+                         "        Any read-filters are applied when saving reads\n"
+                         "        Reads are saved in sorted order, however issues may arise if different bam headers\n"
+                         "        are incompatible.\n"
+                         "        If two regions overlap, then reads in both regions are only written once."
+                         "\n\n";
 		} else if (s == "snapshot" || s == "s") {
             out << "    Save an image of the screen.\n"
                          "        Saves current window. If no name is provided, the image name will be 'chrom_start_end.png', \n"

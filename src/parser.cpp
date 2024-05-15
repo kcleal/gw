@@ -7,8 +7,9 @@
 #include <string>
 #include <regex>
 #include <htslib/sam.h>
-#include "ankerl_unordered_dense.h"
+#include <glob_cpp.hpp>
 #include "termcolor.h"
+#include "term_out.h"
 #include "utils.h"
 #include "parser.h"
 #include "segments.h"
@@ -495,7 +496,7 @@ namespace Parse {
 
         bool block_result = true;
 
-        if (!targetIndexes.empty() && targetIndexes[bamIdx][regionIdx] == 0) {
+        if (bamIdx >= 0 && !targetIndexes.empty() && targetIndexes[bamIdx][regionIdx] == 0) {
             return true;
         }
 
@@ -930,4 +931,69 @@ namespace Parse {
 			}
 		}
 	}
+
+    std::string tilde_to_home(std::string fpath) {
+        if (Utils::startsWith(fpath, "./")) {
+            fpath.erase(0, 2);
+            return fpath;
+        }
+        if (!Utils::startsWith(fpath, "~/")) {
+            return fpath;
+        }
+        fpath.erase(0, 2);
+#if defined(_WIN32) || defined(_WIN64)
+        const char *homedrive_c = std::getenv("HOMEDRIVE");
+        const char *homepath_c = std::getenv("HOMEPATH");
+        std::string homedrive(homedrive_c ? homedrive_c : "");
+        std::string homepath(homepath_c ? homepath_c : "");
+        std::string home = homedrive + homepath;
+#else
+        struct passwd *pw = getpwuid(getuid());
+        std::string home(pw->pw_dir);
+#endif
+        std::filesystem::path path;
+        std::filesystem::path homedir(home);
+        std::filesystem::path inputPath(fpath);
+        path = homedir / inputPath;
+        std::string stringpath = path.generic_string();
+        return stringpath;
+    }
+
+    void tryTabCompletion(std::string &inputText, std::ostream& out) {
+        std::vector<std::string> parts = Utils::split(inputText, ' ');
+        std::string globstr;
+        parts.back() = tilde_to_home(parts.back());
+        if (parts.back() == "." || parts.back() == "./") {
+            globstr = "*";
+        } else {
+            globstr = parts.back() + "*";
+        }
+        size_t width = (size_t)Utils::get_terminal_width();
+        std::vector<std::filesystem::path> glob_paths = glob_cpp::glob(globstr);
+        if (glob_paths.size() == 1) {
+            inputText = parts[0] + " " + glob_paths[0].generic_string();
+            return;
+        }
+        size_t i = 0;
+        for (auto &item : glob_paths) {
+            std::string s = item.filename().generic_string();
+            if (s.size() < width) {
+                out << s;
+                width -= s.size();
+            } else {
+                if (width > 6 && s.size() > 6) {
+                    s.erase(s.begin() + width - 4, s.end());
+                    out << s << " ...";
+                }
+                break;
+            }
+            if (i < glob_paths.size() - 2 && width > 2) {
+                out << "  ";
+                width -= 2;
+            } else {
+                break;
+            }
+        }
+        out.flush();
+    }
 }
