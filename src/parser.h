@@ -121,7 +121,7 @@ namespace Parse {
 
     std::string tilde_to_home(std::string fpath);
 
-    void tryTabCompletion(std::string &inputText, std::ostream& out);
+    void tryTabCompletion(std::string &inputText, std::ostream& out, int& charIndex);
 }
 
 

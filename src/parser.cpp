@@ -933,10 +933,10 @@ namespace Parse {
 	}
 
     std::string tilde_to_home(std::string fpath) {
-        if (Utils::startsWith(fpath, "./")) {
-            fpath.erase(0, 2);
-            return fpath;
-        }
+//        if (Utils::startsWith(fpath, "./")) {
+//            fpath.erase(0, 2);
+//            return fpath;
+//        }
         if (!Utils::startsWith(fpath, "~/")) {
             return fpath;
         }
@@ -959,24 +959,50 @@ namespace Parse {
         return stringpath;
     }
 
-    void tryTabCompletion(std::string &inputText, std::ostream& out) {
+    std::string longestCommonPrefix(std::vector<std::string> ar) {
+        if (ar.empty())
+            return "";
+        if (ar.size() == 1)
+            return ar[0];
+        std::sort(ar.begin(), ar.end());
+        std::string first = ar.front(), last = ar.back();
+        int end = std::min(first.size(), last.size());
+        int i = 0;
+        while (i < end && first[i] == last[i])
+            ++i;
+        std::string pre = first.substr(0, i);
+        return pre;
+    }
+
+    void tryTabCompletion(std::string &inputText, std::ostream& out, int& charIndex) {
         std::vector<std::string> parts = Utils::split(inputText, ' ');
         std::string globstr;
-        parts.back() = tilde_to_home(parts.back());
-        if (parts.back() == "." || parts.back() == "./") {
-            globstr = "*";
+        if (parts.back() == "./") {
+            globstr = "./*";
         } else {
             globstr = parts.back() + "*";
         }
-        size_t width = (size_t)Utils::get_terminal_width();
+        parts.back() = tilde_to_home(parts.back());
         std::vector<std::filesystem::path> glob_paths = glob_cpp::glob(globstr);
         if (glob_paths.size() == 1) {
             inputText = parts[0] + " " + glob_paths[0].generic_string();
+            charIndex = inputText.size();
             return;
         }
-        size_t i = 0;
+        std::vector<std::string> path_str;
         for (auto &item : glob_paths) {
-            std::string s = item.filename().generic_string();
+            path_str.push_back(item.generic_string());
+        }
+        std::string lcp = longestCommonPrefix(path_str);
+        if (lcp.empty()) {
+            return;
+        }
+        inputText = parts[0] + " " + lcp;
+        charIndex = inputText.size();
+        size_t width = (size_t)Utils::get_terminal_width() - 1;
+        size_t i = 0;
+        for (auto s_path : glob_paths) {
+            std::string s = s_path.filename().generic_string();
             if (s.size() < width) {
                 out << s;
                 width -= s.size();
@@ -995,5 +1021,6 @@ namespace Parse {
             }
         }
         out.flush();
+        return;
     }
 }

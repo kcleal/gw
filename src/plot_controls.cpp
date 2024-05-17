@@ -243,12 +243,13 @@ namespace Manager {
             }
 
             const bool no_command_selected = commandToolTipIndex == -1;
+//            std::cerr << Utils::startsWith() << std::endl;
             if (no_command_selected) {
                 if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
                     captureText = false;
                     processText = true;
                     shiftPress = false;
-                    redraw = true;
+                    redraw = true;  // todo set to false here?
                     processed = true;
                     commandToolTipIndex = -1;
                     out << "\n";
@@ -273,7 +274,7 @@ namespace Manager {
                     }
                 }
             } else {
-                if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER ) { // || key == GLFW_KEY_SPACE) {
+                if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER ) {
                     inputText = Menu::commandToolTip[commandToolTipIndex];
                     charIndex = (int)inputText.size();
                     if (std::find( Menu::exec.begin(), Menu::exec.end(), inputText) != Menu::exec.end() || (inputText == "online" && !opts.genome_tag.empty())) {
@@ -369,15 +370,16 @@ namespace Manager {
                 // determine which command prefix the user has typed
                 TipBounds tip_bounds = getToolTipBounds(inputText);
                 if (key == GLFW_KEY_TAB || key == GLFW_KEY_DOWN) {
+                    if (Utils::startsWith(inputText, "load ") && !(inputText == "load ")) {
+                        Term::clearLine(out);
+                        Parse::tryTabCompletion(inputText, out, charIndex);
+//                        commandToolTipIndex = -1;
+                        return GLFW_KEY_UNKNOWN;
+                    }
                     if (commandToolTipIndex <= 0 || commandToolTipIndex <= tip_bounds.lower) {
                         commandToolTipIndex = tip_bounds.upper;
                     } else {
                         commandToolTipIndex = std::max(commandToolTipIndex - 1, tip_bounds.lower);
-                    }
-                    if (Utils::startsWith(inputText, "load ") && !(inputText == "load ")) {
-                        Term::clearLine(out);
-                        Parse::tryTabCompletion(inputText, out);
-                        return key;
                     }
                     return GLFW_KEY_UNKNOWN;
                 } else if (key == GLFW_KEY_UP) {
