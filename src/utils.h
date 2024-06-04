@@ -55,6 +55,10 @@ namespace Utils {
             coding_end = -1;
             value = 0;
             level = 0;
+            start = 0;
+            end = 0;
+            strand = 0;
+            anyToDraw = false;
         }
     };
 
@@ -82,6 +86,7 @@ namespace Utils {
             markerPosEnd = -1;
             refSeq = nullptr;
         }
+        std::string toString();
     };
 
     EXPORT Region parseRegion(std::string &r);

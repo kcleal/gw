@@ -457,8 +457,7 @@ namespace Menu {
                 opts.control_level = "close";
                 opts.menu_table = Themes::MenuTable::MAIN;
                 opts.previous_level = opts.menu_level;
-                mINI::INIFile file(opts.ini_path);
-                file.write(opts.myIni);
+                opts.saveIniChanges();
                 std::cout << "Saved .gw.ini to " << opts.ini_path << std::endl;
                 return false;
             } else if (opts.control_level == "delete") {

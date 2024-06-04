@@ -76,6 +76,7 @@ int main(int argc, char *argv[]) {
     if (!success) {
 
     }
+    bool have_session_file = !iopts.session_file.empty();
 
     static const std::vector<std::string> img_fmt = { "png", "pdf", "svg" };
     static const std::vector<std::string> img_themes = { "igv", "dark", "slate" };
@@ -211,6 +212,8 @@ int main(int argc, char *argv[]) {
             .default_value(false).implicit_value(true)
             .help("Display path of loaded .gw.ini config");
 
+    bool show_banner = true;
+
     // check input for errors and merge input options with IniOptions
     try {
         program.parse_args(argc, argv);
@@ -225,7 +228,10 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    std::vector<std::string> bam_paths;
+    std::vector<std::string> tracks;
     std::vector<Utils::Region> regions;
+
     if (program.is_used("-r")) {
         std::vector<std::string> regions_str;
         regions_str = program.get<std::vector<std::string>>("-r");
@@ -233,8 +239,6 @@ int main(int argc, char *argv[]) {
             regions.push_back(Utils::parseRegion(regions_str[i]));
         }
     }
-
-    std::vector<std::string> bam_paths;
 
     // check if bam/cram file provided as main argument
     auto genome = program.get<std::string>("genome");
@@ -245,8 +249,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    bool show_banner = true;
-
     if (iopts.myIni["genomes"].has(genome)) {
         iopts.genome_tag = genome;
         genome = iopts.myIni["genomes"][genome];
@@ -254,7 +256,8 @@ int main(int argc, char *argv[]) {
         // prompt for genome
         print_banner();
         show_banner = false;
-        std::cout << "\n Reference genomes listed in " << iopts.ini_path << std::endl << std::endl;
+
+        std::cout << "\nReference genomes listed in " << iopts.ini_path << std::endl << std::endl;
         std::string online = "https://github.com/kcleal/ref_genomes/releases/download/v0.1.0";
 #if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
         const char *block_char = "*";
@@ -264,7 +267,7 @@ int main(int argc, char *argv[]) {
         std::cout << " " << block_char << " " << online << std::endl << std::endl;
         int i = 0;
         int tag_wd = 11;
-        std::vector<std::string> vals;
+        std::vector<std::pair<std::string, std::string>> vals;
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
         std::cout << "  Number | Genome-tag | Path \n";
@@ -297,32 +300,51 @@ int main(int argc, char *argv[]) {
             } else {
                 std::cout << g_path << std::endl;
             }
-            vals.push_back(rg.second);
+            vals.push_back(rg); //rg.second);
             i += 1;
         }
-        if (i == 0) {
+        if (i == 0 && !have_session_file) {
             std::cerr << "No genomes listed, finishing\n";
             std::exit(0);
         }
-        std::cout << "\n Enter number: " << std::flush;
-        int user_i;
-        std::cin >> user_i;
-        std::cerr << std::endl;
-        assert (user_i >= 0 && (int)user_i < vals.size());
-        try {
-            genome = vals[user_i];
-        } catch (...) {
-            std::cerr << "Something went wrong\n";
-            std::exit(-1);
+        user_prompt:
+        if (have_session_file) {
+            std::cout << "\nPress ENTER to load previous session or input a genome number: " << std::flush;
+
+        } else {
+            std::cout << "\nEnter genome number: " << std::flush;
         }
-        assert (Utils::is_file_exist(genome));
-        iopts.genome_tag = genome;
+
+        std::string user_input;
+        std::getline(std::cin, user_input);
+        size_t user_i = 0;
+        if (user_input == "q" || user_input == "quit" || user_input == "exit") {
+            std::exit(0);
+        }
+        if (user_input.empty()) {
+            if (have_session_file) {
+//                load_from_session(bam_paths, tracks, regions, iopts, genome);
+            } else {
+                goto user_prompt;
+            }
+        } else {
+            try {
+                user_i = std::stoi(user_input);
+                genome = vals[user_i].second;
+                iopts.genome_tag = vals[user_i].first;
+                std::cout << "Genome:  " << iopts.genome_tag << std::endl;
+            } catch (...) {
+                goto user_prompt;
+            }
+            if (user_i < 0 || user_i > vals.size() -1) {
+                goto user_prompt;
+            }
+        }
 
     } else if (!genome.empty() && !Utils::is_file_exist(genome)) {
         std::cerr << "Loading remote genome" << std::endl;
     }
 
-    std::vector<std::string> tracks;
     if (program.is_used("--track")) {
         tracks = program.get<std::vector<std::string>>("--track");
         for (auto &trk: tracks){
@@ -351,7 +373,7 @@ int main(int argc, char *argv[]) {
                 }
             }
         }
-        if (!program.is_used("genome") && genome.empty() && !bam_paths.empty()) {
+        if (!have_session_file && !program.is_used("genome") && genome.empty() && !bam_paths.empty()) {
             HGW::guessRefGenomeFromBam(genome, iopts, bam_paths, regions);
             if (genome.empty()) {
                 std::exit(0);
@@ -459,9 +481,6 @@ int main(int argc, char *argv[]) {
     if (program.is_used("--no-soft-clips")) {
         iopts.soft_clip_threshold = 0;
     }
-//    if (program.is_used("--low-mem")) {
-//        iopts.low_mem = true;
-//    }
     if (program.is_used("--start-index")) {
         iopts.start_index = program.get<int>("--start-index");
     }

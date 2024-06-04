@@ -118,7 +118,7 @@ namespace Manager {
 
         std::vector<Parse::Parser> filters;
 
-        ankerl::unordered_dense::map< int, sk_sp<SkImage>> imageCache;
+        std::unordered_map< int, sk_sp<SkImage>> imageCache;
 
         // keys are variantFilename and variantId
         ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::map< std::string, Utils::Label>> inputLabels;
@@ -134,6 +134,7 @@ namespace Manager {
         GLFWwindow* backWindow;
 
         sk_sp<SkSurface> rasterSurface;
+        SkCanvas* rasterCanvas;
 
         Show mode;
         Show last_mode;
@@ -183,6 +184,8 @@ namespace Manager {
         void setScaling();
 
         void setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop);
+
+        void load_session();
 
         int startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay);
 

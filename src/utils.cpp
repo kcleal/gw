@@ -169,6 +169,14 @@ namespace Utils {
             start = end + 1;
             end = s.find(delim, start);
             r->end = std::stoi(s.substr(start, end - start));
+            if (end != std::string::npos) {
+                start = end + 1;
+                end = s.find(delim, start);
+                r->markerPos = std::stoi(s.substr(start, end - start));
+                start = end + 1;
+                end = s.find(delim, start);
+                r->markerPosEnd = std::stoi(s.substr(start, end - start));
+            }
         } else {
             r->start = std::stoi(s.substr(start, s.size()));
             r->end = r->start + 1;
@@ -186,9 +194,6 @@ namespace Utils {
             Utils::strToRegion(&reg, s, ',');
         } else if (s.find("\t") != std::string::npos) {
             Utils::strToRegion(&reg, s, '\t');
-//        }
-//        else if (s.find("_") != std::string::npos) {
-//            Utils::strToRegion(&reg, s, '_');
         } else if (s.find(" ") != std::string::npos) {
             Utils::strToRegion(&reg, s, ' ');
         } else {
@@ -202,8 +207,12 @@ namespace Utils {
         if (reg.start == reg.end) {
             reg.end += 1;
         }
-        reg.markerPos = -1;
         return reg;
+    }
+
+    std::string Region::toString() {
+        return chrom + ":" + std::to_string(start) + "-" + std::to_string(end)
+           + ((markerPos >= 0) ? ":" + std::to_string(markerPos) + ":" + std::to_string(markerPosEnd) : "");
     }
 
     std::filesystem::path makeFilenameFromRegions(std::vector<Utils::Region> &regions) {

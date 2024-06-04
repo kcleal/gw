@@ -46,7 +46,6 @@
 #include "utils.h"
 #include "export_definitions.h"
 
-
 namespace Themes {
 
     enum MenuTable {
@@ -137,11 +136,11 @@ namespace Themes {
         IniOptions();
         ~IniOptions() {};
 
-        mINI::INIStructure myIni;
-//        std::unordered_map<int, std::string> shift_keymap;
+        mINI::INIStructure myIni, seshIni;
         std::unordered_map<std::string, std::string> shift_keymap;
         BaseTheme theme;
         Utils::Dims dimensions, number;
+        std::string session_file;
         std::string genome_tag;
         std::string theme_str, font_str, parse_label, labels, link, dimensions_str, number_str, ini_path, outdir;
         std::string menu_level, control_level, previous_level;
@@ -173,7 +172,13 @@ namespace Themes {
         bool readIni();
         static std::filesystem::path writeDefaultIni(std::filesystem::path &homedir, std::filesystem::path &home_config, std::filesystem::path &gwIni);
         void getOptionsFromIni();
+        void getOptionsFromSessionIni(mINI::INIStructure& seshIni);
+        void saveIniChanges();
         void setTheme(std::string &theme_str);
+        void saveCurrentSession(std::string& genome_path, std::vector<std::string>& bam_paths,
+                                std::vector<std::string>& track_paths, std::vector<Utils::Region>& regions,
+                                std::vector<std::string>& variant_tracks_paths,
+                                std::vector<std::string>& commands, std::string output_session, int mode);
 
     };
 

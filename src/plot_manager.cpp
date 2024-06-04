@@ -171,6 +171,7 @@ namespace Manager {
         this->pixelMemory.resize(size);
         this->rasterSurface = SkSurface::MakeRasterDirect(
             info, &pixelMemory[0], rowBytes);
+        rasterCanvas = rasterSurface->getCanvas();
         return pixelMemory.size();
     }
 
@@ -420,11 +421,75 @@ namespace Manager {
         }
     }
 
+    void GwPlot::load_session() {
+        mINI::INIFile file(opts.session_file);
+        file.read(opts. seshIni);
+        if (!opts.seshIni.has("data")) {
+            std::cerr << "Error: session file is missing 'data' heading. Invalid session file\n";
+            std::exit(-1);
+        }
+        reference = opts.seshIni["data"]["genome_path"];
+        opts.genome_tag = opts.seshIni["data"]["genome_tag"];
+        opts.getOptionsFromSessionIni(opts.seshIni);
+        if (opts.seshIni["data"].has("mode")) {
+            mode = (opts.seshIni["data"]["mode"] == "tiled") ? Show::TILED : Show::SINGLE;
+        }
+        if (!reference.empty()) {
+            fai = fai_load(reference.c_str());
+            if (fai == nullptr) {
+                std::cerr << "Error: reference genome could not be opened " << reference << std::endl;
+                std::exit(-1);
+            }
+            std::cout << "Genome:  " << reference << std::endl;
+        }
+
+        bam_paths.clear(); tracks.clear(); regions.clear(); filters.clear(); variantTracks.clear();
+        bams.clear(); headers.clear(); indexes.clear(); collections.clear();
+        for (const auto& item : opts.seshIni["data"]) {
+            if (Utils::startsWith(item.first, "bam")) {
+                bam_paths.push_back(item.second);
+            } else if (Utils::startsWith(item.first, "track")) {
+                tracks.push_back(HGW::GwTrack());
+                tracks.back().open(item.second, true);
+                tracks.back().variant_distance = &opts.variant_distance;
+            } else if (Utils::startsWith(item.first, "region")) {
+                std::string rgn = item.second;
+                regions.push_back(Utils::parseRegion(rgn));
+            } else if (Utils::startsWith(item.first, "var")) {
+                std::string v = item.second;
+                addVariantTrack(v, 0, false, false);
+            }
+        }
+
+        fonts.setTypeface(opts.font_str, opts.font_size);
+
+        for (auto &fn: bam_paths) {
+            htsFile* f = sam_open(fn.c_str(), "r");
+            hts_set_fai_filename(f, reference.c_str());
+            hts_set_threads(f, opts.threads);
+            bams.push_back(f);
+            sam_hdr_t *hdr_ptr = sam_hdr_read(f);
+            headers.push_back(hdr_ptr);
+            hts_idx_t* idx = sam_index_load(f, fn.c_str());
+            indexes.push_back(idx);
+        }
+
+        if (opts.seshIni.has("commands")) {
+            for (auto &item: opts.seshIni["commands"]) {
+                inputText = item.second;
+                commandProcessed();
+            }
+        }
+    }
+
     int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay) {
+        if (!opts.session_file.empty() && reference.empty()) {
+            load_session();
+        }
         if (terminalOutput) {
-            std::cerr << "Type ':help' for more info\n";
+            std::cerr << "\nType" << termcolor::green << " '/help'" << termcolor::reset << " for more info\n";
         } else {
-            outStr << "Type ':help' for more info\n";
+            outStr << "Type '/help' for more info\n";
         }
 
         vCursor = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
@@ -517,7 +582,7 @@ namespace Manager {
                 pixelMemory.resize(size);
                 rasterSurface = SkSurface::MakeRasterDirect(
                         info, &pixelMemory[0], rowBytes);
-
+                rasterCanvas = rasterSurface->getCanvas();
                 resizeTimer = std::chrono::high_resolution_clock::now();
 
             }
@@ -528,8 +593,17 @@ namespace Manager {
 
         }
         saveLabels();
+        std::vector<std::string> track_paths; track_paths.reserve(tracks.size());
+        for (const auto& item: tracks) {
+            track_paths.push_back(item.path);
+        }
+        std::vector<std::string> variant_paths; variant_paths.reserve(variantTracks.size());
+        for (const auto& item: variantTracks) {
+            variant_paths.push_back(item.path);
+        }
+        opts.saveCurrentSession(reference, bam_paths, track_paths, regions, variant_paths, commandHistory, "", mode);
         if (wasResized) {
-            // no idea why, but unless exit is here then we get an abort error if we return to main. Something to do with lifetime of backendRenderTarget
+            // no idea why, but unless exit is here then we get an abort error if we return to main. Something to do with lifetime of backendRenderTarget?
             if (terminalOutput) {
                 std::cerr << "\nGw finished\n";
             }
@@ -723,7 +797,7 @@ namespace Manager {
 
 //        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
 
-        SkCanvas *canvasR = rasterSurface->getCanvas();
+        SkCanvas *canvasR = rasterCanvas;
 
         canvas->drawPaint(opts.theme.bgPaint);
         canvasR->drawPaint(opts.theme.bgPaint);
@@ -1018,7 +1092,7 @@ namespace Manager {
             }
         }
         bool current_view_is_images = (!variantTracks.empty() && variantTracks[variantFileSelection].type == HGW::TrackType::IMAGES);
-        if (bams.empty() && !current_view_is_images) {
+        if (bams.empty() && !current_view_is_images && mode != SETTINGS) {
             float trackBoundary = fb_height - totalTabixY - refSpace;
             std::string dd_msg = "Drag-and-drop bam or cram files here";
             float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
@@ -1031,7 +1105,7 @@ namespace Manager {
             if (trackBoundary > (float)fb_height / 2) {
                 canvas->drawTextBlob(blob.get(), txt_start, (float)fb_height / 2, tcMenu);
             }
-        } else if (regions.empty() && !current_view_is_images) {
+        } else if (regions.empty() && !current_view_is_images && mode != SETTINGS) {
             std::string dd_msg = "Type e.g. '/chr1' to add a region, or drag-and-drop a vcf file here";
             float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
             float txt_start = ((float)fb_width / 2) - (msg_width / 2);
@@ -1051,13 +1125,13 @@ namespace Manager {
         int endIdx = bStart + bLen;
         currentVarTrack->iterateToIndex(endIdx);
         for (int i=bStart; i<endIdx; ++i) {
-            bool c = imageCache.contains(i);
+            bool c = imageCache.find(i) != imageCache.end();
             if (!c && i < (int)currentVarTrack->multiRegions.size() && !bams.empty()) {
                 regions = currentVarTrack->multiRegions[i];
-                runDraw();
+                runDrawOnCanvas(canvas);
+                sContext->flush();
                 sk_sp<SkImage> img(sSurface->makeImageSnapshot());
                 imageCache[i] = img;
-                sContext->flush();
             }
         }
     }
@@ -1072,7 +1146,7 @@ namespace Manager {
                               [&](const int a, const int b) {
                                   for (int i=a; i<b; ++i) {
                                       g_mutex.lock();
-                                      bool c = imageCache.contains(i);
+                                      bool c = imageCache.find(i) != imageCache.end();
                                       g_mutex.unlock();
                                       if (!c && i < n_images) {
                                           sk_sp<SkData> data(nullptr);
@@ -1115,7 +1189,6 @@ namespace Manager {
         setScaling();
         float y_gap = (variantTracks.size() <= 1) ? 0 : (10 * monitorScale);
         bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height, 15, 15, y_gap);
-
         if (currentVarTrack->image_glob.empty()) {
             tileDrawingThread(canvas, sContext, sSurface);  // draws images from variant file
         } else {
@@ -1142,7 +1215,7 @@ namespace Manager {
         int i = bStart;
         for (auto &b : bboxes) {
             SkRect rect;
-            if (imageCache.contains(i)) {
+            if (imageCache.find(i) != imageCache.end()) {
                 int w = imageCache[i]->width();
                 int h = imageCache[i]->height();
                 float ratio = (float)w / (float)h;
@@ -1193,7 +1266,7 @@ namespace Manager {
     }
 
     void GwPlot::runDraw() {
-        runDrawOnCanvas(rasterSurface->getCanvas());
+        runDrawOnCanvas(rasterCanvas);
     }
 
     void GwPlot::runDrawNoBuffer() {
@@ -1203,7 +1276,7 @@ namespace Manager {
         if (bams.empty()) {
             return;
         }
-        SkCanvas* canvas = rasterSurface->getCanvas();
+        SkCanvas* canvas = rasterCanvas;
         canvas->drawPaint(opts.theme.bgPaint);
 
         fetchRefSeqs();

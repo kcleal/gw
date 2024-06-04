@@ -417,28 +417,19 @@ namespace Themes {
         Keys::getKeyTable(key_table);
 
         theme_str = myIni["general"]["theme"];
-        if (theme_str == "dark") {
-            theme = Themes::DarkTheme();
-        } else if (theme_str == "slate") {
-            theme = Themes::SlateTheme();
-        } else {
-            theme = Themes::IgvTheme();
-        }
+        if (theme_str == "dark") { theme = Themes::DarkTheme(); } else if (theme_str == "slate") { theme = Themes::SlateTheme(); } else { theme = Themes::IgvTheme(); }
         dimensions_str = myIni["general"]["dimensions"];
         dimensions = Utils::parseDimensions(dimensions_str);
 
-        std::string lnk = myIni["general"]["link"];
+        link = myIni["general"]["link"];
         link_op = 0;
-        if (lnk == "none") {
-        } else if (lnk == "sv") {
+        if (link == "sv") {
             link_op = 1;
-        } else if (lnk == "all") {
+        } else if (link == "all") {
             link_op = 2;
         } else {
-            std::cerr << "Link type not known [none/sv/all] " << lnk << std::endl;
-            std::exit(-1);
+            link = "none";
         }
-        link = myIni["general"]["link"];
 
         indel_length = std::stoi(myIni["general"]["indel_length"]);
         ylim = std::stoi(myIni["general"]["ylim"]);
@@ -460,6 +451,9 @@ namespace Themes {
         }
         if (myIni["general"].has("sv_arcs")) {
             sv_arcs = myIni["general"]["sv_arcs"] == "true";
+        }
+        if (myIni["general"].has("session_file")) {
+            session_file = myIni["general"]["session_file"];
         }
 
         soft_clip_threshold = std::stoi(myIni["view_thresholds"]["soft_clip"]);
@@ -524,6 +518,95 @@ namespace Themes {
         }
     }
 
+    void IniOptions::getOptionsFromSessionIni(mINI::INIStructure& sesh) {
+        if (sesh.has("general")) {
+            mINI::INIMap<std::string>& sub = sesh["general"];
+            if (sub.has("theme")) {
+                theme_str = sub["theme"];
+                if (theme_str == "dark") {
+                    theme = Themes::DarkTheme();
+                } else if (theme_str == "slate") {
+                    theme = Themes::SlateTheme();
+                } else {
+                    theme = Themes::IgvTheme();
+                }
+            }
+            if (sub.has("dimensions")) {
+                dimensions_str = sub["dimensions"];
+                dimensions = Utils::parseDimensions(dimensions_str);
+            }
+            if (sub.has("indel_length")) {
+                indel_length = std::stoi(sub["indel_length"]);
+            }
+            if (sub.has("ylim")) {
+                ylim = std::stoi(sub["ylim"]);
+            }
+            if (sub.has("coverage")) {
+                max_coverage = (sub["coverage"] == "true") ? 100000 : 0;
+            }
+            if (sub.has("log2_cov")) {
+                log2_cov = sub["log2_cov"] == "true";
+            }
+            if (sub.has("expand_tracks")) {
+                expand_tracks = sub["expand_tracks"] == "true";
+            }
+            if (sub.has("link")) {
+                link = sub["link"] == "true";
+                link_op = 0;
+                if (link == "sv") {
+                    link_op = 1;
+                } else if (link == "all") {
+                    link_op = 2;
+                } else {
+                    link = "none";
+                }
+            }
+            if (sub.has("split_view_size")) {
+                split_view_size = std::stoi(sub["split_view_size"]);
+            }
+            if (sub.has("pad")) {
+                pad = std::stoi(sub["pad"]);
+            }
+            if (sub.has("tabix_track_height")) {
+                tab_track_height = std::stof(sub["tabix_track_height"]);
+            }
+            if (sub.has("font")) {
+                font_str = sub["font"];
+            }
+            if (sub.has("font_size")) {
+                font_size = std::stoi(sub["font_size"]);
+            }
+        }
+        if (sesh.has("view_thresholds")) {
+            mINI::INIMap<std::string>& vt = sesh["view_thresholds"];
+            if (vt.has("soft_clip")) {
+                soft_clip_threshold = std::stoi(vt["soft_clip"]);
+            }
+            if (vt.has("small_indel_threshold")) {
+                small_indel_threshold = std::stoi(vt["small_indel_threshold"]);
+            }
+            if (vt.has("snp_threshold")) {
+                snp_threshold = std::stoi(vt["snp_threshold"]);
+            }
+            if (vt.has("edge_highlights")) {
+                edge_highlights = std::stoi(vt["edge_highlights"]);
+            }
+        }
+        if (sesh.has("labelling")) {
+            mINI::INIMap<std::string> &lb = sesh["labelling"];
+            if (lb.has("number")) {
+                number_str = lb["number"];
+                number = Utils::parseDimensions(number_str);
+            }
+            if (lb.has("parse_label")) {
+                parse_label =lb["parse_label"];
+            }
+            if (lb.has("labels")) {
+                labels = lb["labels"];
+            }
+        }
+    }
+
     std::filesystem::path IniOptions::writeDefaultIni(std::filesystem::path &homedir, std::filesystem::path &home_config, std::filesystem::path &gwIni) {
         std::ofstream outIni;
         std::filesystem::path outPath;
@@ -559,6 +642,7 @@ namespace Themes {
         std::filesystem::path path;
         std::filesystem::path homedir(home);
         std::filesystem::path gwini(".gw.ini");
+//        std::filesystem::path gw_session(".gw_session.ini");
         if (std::filesystem::exists(homedir / gwini)) {
             path = homedir / gwini;
         } else {
@@ -586,6 +670,107 @@ namespace Themes {
         return true;
     }
 
+    void IniOptions::saveIniChanges() {
+        mINI::INIFile file(ini_path);
+        file.write(myIni);
+    }
+
+    void IniOptions::saveCurrentSession(std::string& genome_path, std::vector<std::string>& bam_paths,
+                                        std::vector<std::string>& track_paths, std::vector<Utils::Region>& regions,
+                                        std::vector<std::string>& variant_tracks_paths,
+                                        std::vector<std::string>& commands, std::string output_session,
+                                        int mode) {
+
+
+        if (output_session.empty()) {
+            if (session_file.empty()) {  // fill new session
+                std::filesystem::path gwini(ini_path);
+                std::filesystem::path sesh(".gw_session.ini");
+                std::filesystem::path sesh_path = gwini.parent_path() / sesh;
+                myIni["general"].set("session_file", sesh_path.string());
+                saveIniChanges();
+            }
+            output_session = myIni["general"]["session_file"];
+        }
+        mINI::INIFile file(output_session);
+
+        seshIni["data"]["genome_tag"] = genome_tag;
+        seshIni["data"]["genome_path"] = genome_path;
+        int count = 0;
+        for (const auto& item : bam_paths) {
+            seshIni["data"]["bam" + std::to_string(count)] = item;
+            count += 1;
+        }
+        count = 0;
+        for (const auto& item : track_paths) {
+            seshIni["data"]["track" + std::to_string(count)] = item;
+            count += 1;
+        }
+        count = 0;
+        for (auto& item: regions) {
+            seshIni["data"]["region" + std::to_string(count)] = item.toString();
+            count += 1;
+        }
+        count = 0;
+        for (auto& item: variant_tracks_paths) {
+            std::filesystem::path fspath(item);
+            std::string path = std::filesystem::absolute(fspath).string();
+            seshIni["data"]["var" + std::to_string(count)] = path;
+            count += 1;
+        }
+        seshIni["data"]["mode"] = (mode == 1) ? "tiled" : "single";
+        count = 0;
+        size_t last_refresh = 0;
+        std::vector<std::string> keep = {"egdes", "expand-tracks", "soft-clips", "sc", "mm", "mismatches", "ins", "insertions"};
+        for (auto& item: commands) {
+            for (const auto& k: keep) {
+                if (Utils::startsWith(item, k)) {
+                    seshIni["commands"][std::to_string(count)] = item;
+                }
+            }
+            if (item == "r" || item == "refresh") {
+                last_refresh = count;
+            }
+            count += 1;
+        }
+        keep = {"filter ", "find ", "f "};
+        size_t j = 0;
+        for (; last_refresh < commands.size(); ++last_refresh) {
+            for (const auto& k: keep) {
+                if (Utils::startsWith(commands[last_refresh], k)) {
+                    seshIni["commands"][std::to_string(j)] = commands[last_refresh];
+                    j++;
+                }
+            }
+        }
+        mINI::INIMap<std::string>& sub = seshIni["general"];
+        sub["theme"] = theme_str;
+        sub["dimensions"] = std::to_string(dimensions.x) + "x" + std::to_string(dimensions.y);
+        sub["indel_length"] = std::to_string(indel_length);
+        sub["ylim"] = std::to_string(ylim);
+        sub["coverage"] = (max_coverage) ? "true" : "false";
+        sub["log2_cov"] = (log2_cov) ? "true" : "false";
+        sub["expand_tracks"] = (expand_tracks) ? "true" : "false";
+        sub["link"] = link;
+        sub["split_view_size"] = std::to_string(split_view_size);
+        sub["pad"] = std::to_string(pad);
+        sub["tabix_track_height"] = std::to_string(tab_track_height);
+        sub["font"] = font_str;
+        sub["font_size"] = std::to_string(font_size);
+
+        mINI::INIMap<std::string>& vt = seshIni["view_thresholds"];
+        vt["soft_clip"] = std::to_string(soft_clip_threshold);
+        vt["small_indel"] = std::to_string(small_indel_threshold);
+        vt["snp"] = std::to_string(snp_threshold);
+        vt["edge_highlights"] = std::to_string(edge_highlights);
+
+        mINI::INIMap<std::string>& lb = seshIni["labelling"];
+        lb["number"] = std::to_string(number.x) + "x" + std::to_string(number.y);
+        lb["parse_label"] = parse_label;
+        lb["labels"] = labels;
+
+        file.generate(seshIni, true);
+    }
 
     const SkGlyphID glyphs[1] = {100};
 

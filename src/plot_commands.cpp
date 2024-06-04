@@ -304,15 +304,18 @@ namespace Commands {
     Err link(Plot* p, std::string& command, std::vector<std::string>& parts) {
         bool relink = false;
         if (command == "link" || command == "link all") {
-            relink = (p->opts.link_op != 2) ? true : false;
+            relink = p->opts.link_op != 2;
             p->opts.link_op = 2;
+            p->opts.link = "all";
         } else if (parts.size() == 2) {
             if (parts[1] == "sv") {
-                relink = (p->opts.link_op != 1) ? true : false;
+                relink = p->opts.link_op != 1;
                 p->opts.link_op = 1;
+                p->opts.link = "sv";
             } else if (parts[1] == "none") {
-                relink = (p->opts.link_op != 0) ? true : false;
+                relink = p->opts.link_op != 0;
                 p->opts.link_op = 0;
+                p->opts.link = "none";
             }
         }
         if (relink) {
@@ -509,16 +512,13 @@ namespace Commands {
     }
 
     Err setYlim(Plot* p, std::vector<std::string> parts, std::ostream& out) {
-        int ylim = p->opts.ylim;
-        int samMaxY = p->opts.ylim;
-        int max_tlen = p->opts.max_tlen;
         try {
             if (!p->opts.tlen_yscale) {
-                ylim = std::stoi(parts.back());
-                samMaxY = p->opts.ylim;
+                p->opts.ylim = std::stoi(parts.back());
+                p->samMaxY = p->opts.ylim;
             } else {
-                max_tlen = std::stoi(parts.back());
-                samMaxY = p->opts.max_tlen;
+                p->opts.max_tlen = std::stoi(parts.back());
+                p->samMaxY = p->opts.max_tlen;
             }
         } catch (...) {
             out << termcolor::red << "Error:" << termcolor::reset << " ylim invalid value\n";
@@ -528,14 +528,11 @@ namespace Commands {
         HGW::refreshLinked(p->collections, p->opts, &p->samMaxY);
         p->processed = true;
         p->redraw = true;
-        p->opts.ylim = ylim;
-        p->samMaxY = samMaxY;
-        p->opts.max_tlen = max_tlen;
         return Err::NONE;
     }
 
     Err indelLength(Plot* p, std::vector<std::string> parts, std::ostream& out) {
-        int indel_length = p->opts.indel_length;
+        int indel_length;
         try {
             indel_length = std::stoi(parts.back());
         } catch (...) {
@@ -1039,7 +1036,7 @@ namespace Commands {
         if (reason == Err::NONE) {
             int res = faidx_has_seq(p->fai, rgn.chrom.c_str());
             if (res <= 0) {
-                reason = Err::CHROM_NOT_IN_REFERENCE;
+                return Err::OPTION_NOT_UNDERSTOOD;
             }
             if (p->mode != Manager::Show::SINGLE) { p->mode = Manager::Show::SINGLE; }
             if (p->regions.empty()) {
