@@ -185,7 +185,7 @@ namespace Manager {
 
         void setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop);
 
-        void load_session();
+        void loadSession();
 
         int startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay);
 
@@ -217,6 +217,7 @@ namespace Manager {
 
         void highlightQname();
 
+        void saveSession();
 
     private:
         long frameId;
@@ -242,6 +243,8 @@ namespace Manager {
         double xDrag, xOri, lastX, yDrag, yOri, lastY;
 
         double yScaling;
+
+        uint32_t minGapSize;
 
 //        std::vector<std::vector<char>> extraPixelArrays;  // one for each thread
 

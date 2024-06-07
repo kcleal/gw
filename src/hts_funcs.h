@@ -210,7 +210,7 @@ namespace HGW {
     };
     class GwVariantTrack {
     public:
-        GwVariantTrack(std::string &path, bool cacheStdin, Themes::IniOptions *t_opts, int startIndex,
+        GwVariantTrack(std::string &path, bool cacheStdin, Themes::IniOptions *t_opts, int endIndex,
                        std::vector<std::string> &t_labelChoices,
                        std::shared_ptr<ankerl::unordered_dense::map< std::string, Utils::Label>> t_inputLabels,
                        std::shared_ptr<ankerl::unordered_dense::set<std::string>> t_seenLabels);

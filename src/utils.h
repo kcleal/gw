@@ -76,6 +76,7 @@ namespace Utils {
         int start, end;
         int markerPos, markerPosEnd;
         const char *refSeq;
+        std::vector<uint8_t> refSeq_nibbled;
         std::vector<std::vector<Utils::TrackBlock>> featuresInView;  // one vector for each Track
         std::vector<int> featureLevels;
         Region() {

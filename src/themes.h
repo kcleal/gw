@@ -177,8 +177,9 @@ namespace Themes {
         void setTheme(std::string &theme_str);
         void saveCurrentSession(std::string& genome_path, std::vector<std::string>& bam_paths,
                                 std::vector<std::string>& track_paths, std::vector<Utils::Region>& regions,
-                                std::vector<std::string>& variant_tracks_paths,
-                                std::vector<std::string>& commands, std::string output_session, int mode);
+                                std::vector<std::pair<std::string, int>>& variant_paths_info,
+                                std::vector<std::string>& commands, std::string output_session,
+                                int mode, int window_x_pos, int window_y_pos);
 
     };
 

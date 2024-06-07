@@ -59,13 +59,10 @@ namespace Segs {
         bam1_t *delegate;
         int cov_start, cov_end, orient_pattern, left_soft_clip, right_soft_clip, y, edge_type;
         uint32_t pos, reference_end;
-        bool has_SA, initialized;
+        bool has_SA; //, initialized;
         std::vector<uint32_t> block_starts, block_ends;
         std::vector<InsItem> any_ins;
-        Align(bam1_t *src) {
-            delegate = src;
-            initialized = false;
-        }
+        Align(bam1_t *src) { delegate = src; }
     };
 
     struct EXPORT Mismatches {

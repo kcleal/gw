@@ -325,11 +325,12 @@ namespace Manager {
         std::shared_ptr<ankerl::unordered_dense::set<std::string>> sLabels = std::make_shared<ankerl::unordered_dense::set<std::string>>(seenLabels[variantFilename]);
 
         variantTracks.push_back(
-                HGW::GwVariantTrack(path, cacheStdin, &opts, startIndex,
+                HGW::GwVariantTrack(path, cacheStdin, &opts, startIndex + (opts.number.x * opts.number.y),
                                     labelChoices,
                                     inLabels,
                                     sLabels)
         );
+        std::cout << "plot_manager YO: " << variantFilename << std::endl;
     }
 
     void GwPlot::setOutLabelFile(const std::string &path) {
@@ -421,16 +422,15 @@ namespace Manager {
         }
     }
 
-    void GwPlot::load_session() {
+    void GwPlot::loadSession() {
         mINI::INIFile file(opts.session_file);
-        file.read(opts. seshIni);
-        if (!opts.seshIni.has("data")) {
+        file.read(opts.seshIni);
+        if (!opts.seshIni.has("data") || !opts.seshIni.has("show")) {
             std::cerr << "Error: session file is missing 'data' heading. Invalid session file\n";
             std::exit(-1);
         }
         reference = opts.seshIni["data"]["genome_path"];
         opts.genome_tag = opts.seshIni["data"]["genome_tag"];
-        opts.getOptionsFromSessionIni(opts.seshIni);
         if (opts.seshIni["data"].has("mode")) {
             mode = (opts.seshIni["data"]["mode"] == "tiled") ? Show::TILED : Show::SINGLE;
         }
@@ -441,6 +441,11 @@ namespace Manager {
                 std::exit(-1);
             }
             std::cout << "Genome:  " << reference << std::endl;
+        }
+
+        if (opts.seshIni.has("labelling") && opts.seshIni["labelling"].has("labels")) {
+            std::vector<std::string> labels = Utils::split_keep_empty_str(opts.seshIni["labelling"]["labels"], ',');
+            setLabelChoices(labels);
         }
 
         bam_paths.clear(); tracks.clear(); regions.clear(); filters.clear(); variantTracks.clear();
@@ -457,7 +462,20 @@ namespace Manager {
                 regions.push_back(Utils::parseRegion(rgn));
             } else if (Utils::startsWith(item.first, "var")) {
                 std::string v = item.second;
-                addVariantTrack(v, 0, false, false);
+                addVariantTrack(v, 0, false, true);
+            }
+        }
+        size_t count = 0;
+        for (const auto& item : opts.seshIni["show"]) {
+            if (Utils::startsWith(item.first, "region")) {
+                std::string rgn = item.second;
+                regions.push_back(Utils::parseRegion(rgn));
+            } else if (Utils::startsWith(item.first, "mode")) {
+                mode = (item.second == "tiled") ? Show::TILED : Show::SINGLE;
+            } else if (Utils::startsWith(item.first, "var") && count < variantTracks.size()) {
+                variantTracks[count].iterateToIndex(std::stoi(item.second) + (opts.number.x * opts.number.y));
+                variantTracks[count].blockStart = std::stoi(item.second);
+                count += 1;
             }
         }
 
@@ -480,11 +498,32 @@ namespace Manager {
                 commandProcessed();
             }
         }
+        if (opts.seshIni["show"].has("window_position")) {
+            Utils::Dims pos = Utils::parseDimensions(opts.seshIni["show"]["window_position"]);
+            glfwSetWindowPos(window, pos.x, pos.y);
+        }
+        glfwSetWindowSize(window, opts.dimensions.x, opts.dimensions.y);
+        windowResize(opts.dimensions.x, opts.dimensions.y);
+        redraw = true;
+    }
+
+    void GwPlot::saveSession() {
+        std::vector<std::string> track_paths;
+        for (const auto& item: tracks) {
+            track_paths.push_back(item.path);
+        }
+        std::vector<std::pair<std::string, int>> variant_paths_info;
+        for (const auto& item: variantTracks) {
+            variant_paths_info.push_back({item.path, item.blockStart});
+        }
+        int xpos, ypos;
+        glfwGetWindowPos(window, &xpos, &ypos);
+        opts.saveCurrentSession(reference, bam_paths, track_paths, regions, variant_paths_info, commandHistory, "", mode, xpos, ypos);
     }
 
     int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay) {
         if (!opts.session_file.empty() && reference.empty()) {
-            load_session();
+            loadSession();
         }
         if (terminalOutput) {
             std::cerr << "\nType" << termcolor::green << " '/help'" << termcolor::reset << " for more info\n";
@@ -593,15 +632,7 @@ namespace Manager {
 
         }
         saveLabels();
-        std::vector<std::string> track_paths; track_paths.reserve(tracks.size());
-        for (const auto& item: tracks) {
-            track_paths.push_back(item.path);
-        }
-        std::vector<std::string> variant_paths; variant_paths.reserve(variantTracks.size());
-        for (const auto& item: variantTracks) {
-            variant_paths.push_back(item.path);
-        }
-        opts.saveCurrentSession(reference, bam_paths, track_paths, regions, variant_paths, commandHistory, "", mode);
+        saveSession();
         if (wasResized) {
             // no idea why, but unless exit is here then we get an abort error if we return to main. Something to do with lifetime of backendRenderTarget?
             if (terminalOutput) {
@@ -791,6 +822,7 @@ namespace Manager {
         } else if (opts.tlen_yscale) {
             pH = std::fmax(pH, 8);
         }
+        minGapSize = (uint32_t)(fb_width * 0.005);
     }
 
     void GwPlot::drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {

@@ -499,7 +499,15 @@ int main(int argc, char *argv[]) {
     }
 
     if (!iopts.no_show) {  // plot something to screen
-
+        if (have_session_file) {
+            mINI::INIFile file(iopts.session_file);
+            file.read(iopts.seshIni);
+            if (!iopts.seshIni.has("data") || !iopts.seshIni.has("show")) {
+                std::cerr << "Error: session file is missing 'data' heading. Invalid session file\n";
+                std::exit(-1);
+            }
+            iopts.getOptionsFromSessionIni(iopts.seshIni);
+        }
         /*
          * / Gw start
          */

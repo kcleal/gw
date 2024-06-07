@@ -378,15 +378,21 @@ namespace Utils {
         int start = 0;
         int end = (int)s.find('x');
         if (end == (int)s.size()) {
-            throw std::runtime_error("Error: 'x' not in dimensions");
+            end = (int)s.find(',');
+            if (end == (int)s.size()) {
+                throw std::runtime_error("Error: 'x' or ',' not in dimensions");
+            }
         }
         d.x = std::stoi(s.substr(start, end - start));
         start = end + 1;
         end = (int)s.find('x', start);
-        d.y = std::stoi(s.substr(start, end - start));
-        if (d.x == 0) {
-            throw std::runtime_error("Error: dimension x was 0");
+        if (end == (int)s.size()) {
+            end = (int)s.find(',');
         }
+        d.y = std::stoi(s.substr(start, end - start));
+//        if (d.x == 0) {
+//            throw std::runtime_error("Error: dimension x was 0");
+//        }
         return d;
     }
 

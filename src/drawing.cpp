@@ -689,7 +689,9 @@ namespace Drawing {
         SkPath path;
         const Themes::BaseTheme &theme = opts.theme;
 
-        std::vector<TextItem> text_ins, text_del;
+        static std::vector<TextItem> text_ins, text_del;
+        text_ins.clear();
+        text_del.clear();
 
         int regionBegin = cl.region->start;
         int regionEnd = cl.region->end;
@@ -1163,8 +1165,7 @@ namespace Drawing {
         }
     }
 
-    void
-    drawLabel(const Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts,
+    void drawLabel(const Themes::IniOptions &opts, SkCanvas *canvas, SkRect &rect, Utils::Label &label, Themes::Fonts &fonts,
               const ankerl::unordered_dense::set<std::string> &seenLabels, const std::vector<std::string> &srtLabels) {
         float pad = 2;
         std::string cur = label.current();
@@ -1173,7 +1174,6 @@ namespace Drawing {
         }
         sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(cur.c_str(), fonts.overlay);
         float wl = fonts.overlayWidth * (cur.size() + 1);
-
         auto it = std::find(srtLabels.begin(), srtLabels.end(), cur);
         int idx;
         if (it != srtLabels.end()) {

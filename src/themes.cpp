@@ -530,6 +530,7 @@ namespace Themes {
                 } else {
                     theme = Themes::IgvTheme();
                 }
+                theme.name = theme_str;
             }
             if (sub.has("dimensions")) {
                 dimensions_str = sub["dimensions"];
@@ -677,9 +678,9 @@ namespace Themes {
 
     void IniOptions::saveCurrentSession(std::string& genome_path, std::vector<std::string>& bam_paths,
                                         std::vector<std::string>& track_paths, std::vector<Utils::Region>& regions,
-                                        std::vector<std::string>& variant_tracks_paths,
+                                        std::vector<std::pair<std::string, int>>& variant_paths_info,
                                         std::vector<std::string>& commands, std::string output_session,
-                                        int mode) {
+                                        int mode, int window_x_pos, int window_y_pos) {
 
 
         if (output_session.empty()) {
@@ -707,18 +708,25 @@ namespace Themes {
             count += 1;
         }
         count = 0;
-        for (auto& item: regions) {
-            seshIni["data"]["region" + std::to_string(count)] = item.toString();
-            count += 1;
-        }
-        count = 0;
-        for (auto& item: variant_tracks_paths) {
-            std::filesystem::path fspath(item);
+        for (auto& item: variant_paths_info) {
+            std::filesystem::path fspath(item.first);
             std::string path = std::filesystem::absolute(fspath).string();
             seshIni["data"]["var" + std::to_string(count)] = path;
             count += 1;
         }
-        seshIni["data"]["mode"] = (mode == 1) ? "tiled" : "single";
+        count = 0;
+        for (auto& item: regions) {
+            seshIni["show"]["region" + std::to_string(count)] = item.toString();
+            count += 1;
+        }
+        seshIni["show"]["mode"] = (mode == 1) ? "tiled" : "single";
+        count = 0;
+        for (auto& item: variant_paths_info) {
+            seshIni["show"]["var" + std::to_string(count)] = std::to_string(item.second);
+            count += 1;
+        }
+        seshIni["show"]["window_position"] = std::to_string(window_x_pos) + "," + std::to_string(window_y_pos);
+
         count = 0;
         size_t last_refresh = 0;
         std::vector<std::string> keep = {"egdes", "expand-tracks", "soft-clips", "sc", "mm", "mismatches", "ins", "insertions"};

@@ -238,14 +238,14 @@ namespace Segs {
 
     constexpr uint32_t PP_RR_MR = 50;
 
-    constexpr std::array<Pattern, 49> posFirst = {INV_F, u, u, u, u, u, u, u,
+    alignas(64) constexpr std::array<Pattern, 49> posFirst = {INV_F, u, u, u, u, u, u, u,
                                                   u, u, u, u, u, u, u, u,
                                                   DUP, u, u, u, u, u, u, u,
                                                   u, u, u, u, u, u, u, u,
                                                   DEL, u, u, u, u, u, u, u,
                                                   u, u, u, u, u, u, u, u,
                                                   INV_R};
-    constexpr std::array<Pattern, 49> mateFirst = {INV_R, u, u, u, u, u, u, u,
+    alignas(64) constexpr std::array<Pattern, 49> mateFirst = {INV_R, u, u, u, u, u, u, u,
                                                   u, u, u, u, u, u, u, u,
                                                   DEL, u, u, u, u, u, u, u,
                                                   u, u, u, u, u, u, u, u,
@@ -258,9 +258,6 @@ namespace Segs {
         bam1_t *src = self->delegate;
 
         self->pos = src->core.pos;
-        self->reference_end = bam_endpos(src);  // reference_end - already checked for 0 length cigar and mapped
-        self->cov_start = (int)self->pos;
-        self->cov_end = (int)self->reference_end;
 
         uint32_t pos, l, cigar_l, op, k;
         uint32_t *cigar_p;
@@ -279,13 +276,15 @@ namespace Segs {
         self->block_starts.reserve(cigar_l);
         self->block_ends.reserve(cigar_l);
 
+//        uint32_t min_gap = 1000;  // todo THISSS
+//        uint32_t last_l = 0;
         for (k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
 
             switch (op) {
                 case BAM_CMATCH: case BAM_CEQUAL: case BAM_CDIFF:
-                    if (last_op == BAM_CINS) {
+                    if (last_op == BAM_CINS ) { //|| (last_op == BAM_CDEL && last_l < min_gap)) {
                         if (!self->block_ends.empty() ) {
                             self->block_ends.back() = pos + l;
                         }
@@ -298,15 +297,19 @@ namespace Segs {
                 case BAM_CINS:
                     self->any_ins.push_back({pos, l});
                     break;
-                case BAM_CDEL: case BAM_CREF_SKIP:
+                case BAM_CDEL:
                     pos += l;
+//                    last_l = l;
+                    break;
+                case BAM_CREF_SKIP:
+                    op = BAM_CDEL;
+                    pos += l;
+//                    last_l = l;
                     break;
                 case BAM_CSOFT_CLIP:
                     if (k == 0) {
-                        self->cov_start -= (int)l;
                         self->left_soft_clip = (int)l;
                     } else {
-                        self->cov_end += l;
                         self->right_soft_clip = (int)l;
                     }
                     break;
@@ -317,6 +320,9 @@ namespace Segs {
             }
             last_op = op;
         }
+        self->reference_end = self->block_ends.back();
+        self->cov_start = (int)self->pos - self->left_soft_clip;
+        self->cov_end = (int)self->reference_end + self->right_soft_clip;
 
         uint32_t flag = src->core.flag;
 
@@ -332,7 +338,9 @@ namespace Segs {
             if (src->core.tid != src->core.mtid) {
                 self->orient_pattern = TRA;
             } else {
-                uint32_t info = flag & PP_RR_MR;  // PP_RR_MR = proper-pair, read-reverse, mate-reverse flags
+                // PP_RR_MR = proper-pair, read-reverse, mate-reverse flags
+                // 00110010 = 0010       , 00010000    , 00100000
+                uint32_t info = flag & PP_RR_MR;
                 if (self->pos <= src->core.mpos) {
                     self->orient_pattern = posFirst[info];
                 } else {
@@ -343,14 +351,13 @@ namespace Segs {
             self->orient_pattern = Segs::Pattern::NORMAL;
         }
 
-        if (flag & 2048 || self->has_SA) {
+        if (self->has_SA || flag & 2048) {
             self->edge_type = 2;  // "SPLIT"
         } else if (flag & 8) {
             self->edge_type = 3;  // "MATE_UNMAPPED"
         } else {
             self->edge_type = 1;  // "NORMAL"
         }
-        self->initialized = true;
 //        auto stop = std::chrono::high_resolution_clock::now();
 //        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
     }
@@ -628,7 +635,7 @@ namespace Segs {
 
                     case BAM_CHARD_CLIP:
                     case BAM_CEQUAL:
-                        // Nothing to do here, just continue in the loop
+                        // Nothing to do here
                         break;
                     case BAM_CDIFF:
                         for (uint32_t i = 0; i < l; ++i) {
