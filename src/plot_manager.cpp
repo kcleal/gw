@@ -1301,14 +1301,14 @@ namespace Manager {
         runDrawOnCanvas(rasterCanvas);
     }
 
-    void GwPlot::runDrawNoBuffer() {
+    void GwPlot::runDrawNoBufferOnCanvas(SkCanvas* canvas) {
 
 //        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
 
         if (bams.empty()) {
             return;
         }
-        SkCanvas* canvas = rasterCanvas;
+//        SkCanvas* canvas = rasterCanvas;
         canvas->drawPaint(opts.theme.bgPaint);
 
         fetchRefSeqs();
@@ -1370,6 +1370,11 @@ namespace Manager {
         Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
 //        std::cerr << " time runDrawNoBuffer " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
+
+    void GwPlot::runDrawNoBuffer() {
+        runDrawNoBufferOnCanvas(rasterCanvas);
+    }
+
 
     sk_sp<SkImage> GwPlot::makeImage() {
         makeRasterSurface();

@@ -723,16 +723,15 @@ int main(int argc, char *argv[]) {
                 if (!regions.empty()) {  // plot target regions
                     plotter.setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
                     plotter.gap = 0;
-                    plotter.makeRasterSurface();
-//                    sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
-//                                                                                    iopts.dimensions.y);
-//                    SkCanvas *canvas = rasterSurface->getCanvas();
+                    sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
+                                                                                    iopts.dimensions.y);
+                    SkCanvas *canvas = rasterSurface->getCanvas();
                     if (iopts.link_op == 0) {
-                        plotter.runDrawNoBuffer();
+                        plotter.runDrawNoBufferOnCanvas(canvas);
                     } else {
                         plotter.runDraw();
                     }
-                    img = plotter.rasterSurface->makeImageSnapshot();
+                    img = rasterSurface->makeImageSnapshot();
 
                     if (outdir.empty()) {
                         std::string fpath;

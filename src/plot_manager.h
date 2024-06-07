@@ -205,7 +205,9 @@ namespace Manager {
 
         void runDrawOnCanvas(SkCanvas *canvas);
 
-        void runDrawNoBuffer();
+        void runDrawNoBuffer();  // draws to canvas managed by GwPlot (slower)
+
+        void runDrawNoBufferOnCanvas(SkCanvas* canvas);  // draws to external canvas (faster)
 
         sk_sp<SkImage> makeImage();
 
