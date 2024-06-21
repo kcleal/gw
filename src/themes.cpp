@@ -680,9 +680,7 @@ namespace Themes {
                                         std::vector<std::string>& track_paths, std::vector<Utils::Region>& regions,
                                         std::vector<std::pair<std::string, int>>& variant_paths_info,
                                         std::vector<std::string>& commands, std::string output_session,
-                                        int mode, int window_x_pos, int window_y_pos) {
-
-
+                                        int mode, int window_x_pos, int window_y_pos, float monitorScale) {
         if (output_session.empty()) {
             if (session_file.empty()) {  // fill new session
                 std::filesystem::path gwini(ini_path);
@@ -725,8 +723,7 @@ namespace Themes {
             seshIni["show"]["var" + std::to_string(count)] = std::to_string(item.second);
             count += 1;
         }
-        seshIni["show"]["window_position"] = std::to_string(window_x_pos) + "," + std::to_string(window_y_pos);
-
+        seshIni["show"]["window_position"] = std::to_string(window_x_pos) + "x" + std::to_string(window_y_pos);
         count = 0;
         size_t last_refresh = 0;
         std::vector<std::string> keep = {"egdes", "expand-tracks", "soft-clips", "sc", "mm", "mismatches", "ins", "insertions"};
@@ -754,7 +751,8 @@ namespace Themes {
         mINI::INIMap<std::string>& sub = seshIni["general"];
         sub["theme"] = theme_str;
         sub["dimensions"] = std::to_string(dimensions.x) + "x" + std::to_string(dimensions.y);
-        sub["indel_length"] = std::to_string(indel_length);
+
+//        sub["indel_length"] = std::to_string(indel_length);
         sub["ylim"] = std::to_string(ylim);
         sub["coverage"] = (max_coverage) ? "true" : "false";
         sub["log2_cov"] = (log2_cov) ? "true" : "false";

@@ -491,7 +491,6 @@ namespace Manager {
             hts_idx_t* idx = sam_index_load(f, fn.c_str());
             indexes.push_back(idx);
         }
-
         if (opts.seshIni.has("commands")) {
             for (auto &item: opts.seshIni["commands"]) {
                 inputText = item.second;
@@ -518,11 +517,13 @@ namespace Manager {
         }
         int xpos, ypos;
         glfwGetWindowPos(window, &xpos, &ypos);
-        opts.saveCurrentSession(reference, bam_paths, track_paths, regions, variant_paths_info, commandHistory, "", mode, xpos, ypos);
+        opts.saveCurrentSession(reference, bam_paths, track_paths, regions, variant_paths_info, commandHistory,
+                                "", mode, xpos, ypos, monitorScale);
     }
 
     int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay) {
         if (!opts.session_file.empty() && reference.empty()) {
+            std::cout << "Loading session: " << opts.session_file << std::endl;
             loadSession();
         }
         if (terminalOutput) {
@@ -585,8 +586,8 @@ namespace Manager {
                 setScaling();
                 bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
 
-                opts.dimensions.x = fb_width;
-                opts.dimensions.y = fb_height;
+//                opts.dimensions.x = fb_width;
+//                opts.dimensions.y = fb_height;
                 resizeTriggered = false;
 
                 sContext->abandonContext();
@@ -615,7 +616,8 @@ namespace Manager {
                     std::exit(-1);
                 }
 
-                SkImageInfo info = SkImageInfo::MakeN32Premul(opts.dimensions.x * monitorScale, opts.dimensions.y * monitorScale);
+//                SkImageInfo info = SkImageInfo::MakeN32Premul(opts.dimensions.x * monitorScale, opts.dimensions.y * monitorScale);
+                SkImageInfo info = SkImageInfo::MakeN32Premul(fb_width, fb_height);
                 size_t rowBytes = info.minRowBytes();
                 size_t size = info.computeByteSize(rowBytes);
                 pixelMemory.resize(size);

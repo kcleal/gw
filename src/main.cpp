@@ -77,6 +77,7 @@ int main(int argc, char *argv[]) {
 
     }
     bool have_session_file = !iopts.session_file.empty();
+    bool use_session = false;
 
     static const std::vector<std::string> img_fmt = { "png", "pdf", "svg" };
     static const std::vector<std::string> img_themes = { "igv", "dark", "slate" };
@@ -307,10 +308,11 @@ int main(int argc, char *argv[]) {
             std::cerr << "No genomes listed, finishing\n";
             std::exit(0);
         }
+
         user_prompt:
+
         if (have_session_file) {
             std::cout << "\nPress ENTER to load previous session or input a genome number: " << std::flush;
-
         } else {
             std::cout << "\nEnter genome number: " << std::flush;
         }
@@ -323,7 +325,7 @@ int main(int argc, char *argv[]) {
         }
         if (user_input.empty()) {
             if (have_session_file) {
-//                load_from_session(bam_paths, tracks, regions, iopts, genome);
+                use_session = true;
             } else {
                 goto user_prompt;
             }
@@ -499,7 +501,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (!iopts.no_show) {  // plot something to screen
-        if (have_session_file) {
+        if (use_session) {
             mINI::INIFile file(iopts.session_file);
             file.read(iopts.seshIni);
             if (!iopts.seshIni.has("data") || !iopts.seshIni.has("show")) {
