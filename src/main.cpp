@@ -107,6 +107,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("-f", "--file")
             .append()
             .help("Output single image to file");
+    program.add_argument("--ideogram")
+            .append()
+            .help("Ideogram file");
     program.add_argument("-n", "--no-show")
             .default_value(false).implicit_value(true)
             .help("Don't display images to screen");
@@ -523,8 +526,18 @@ int main(int argc, char *argv[]) {
             plotter.addFilter(s);
         }
 
+        if (program.is_used("--ideogram")) {
+            plotter.addIdeogram(program.get("--ideogram"));
+        }
 
-        // initialize display screen
+
+        // initialize drawing surface
+        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
+                                                                        iopts.dimensions.y);
+        plotter.rasterCanvas = rasterSurface->getCanvas();
+        plotter.rasterSurfacePtr = &rasterSurface;
+
+        // initialize graphics window
         plotter.init(iopts.dimensions.x, iopts.dimensions.y);
         int fb_height, fb_width;
         glfwGetFramebufferSize(plotter.window, &fb_width, &fb_height);
@@ -660,6 +673,9 @@ int main(int argc, char *argv[]) {
             for (auto &s: filters) {
                 plotter.addFilter(s);
             }
+            if (program.is_used("--ideogram")) {
+                plotter.addIdeogram(program.get("--ideogram"));
+            }
 
             plotter.opts.theme.setAlphas();
 
@@ -775,6 +791,9 @@ int main(int argc, char *argv[]) {
                         for (auto &s: filters) {
                             m->addFilter(s);
                         }
+                        if (program.is_used("--ideogram")) {
+                            m->addIdeogram(program.get("--ideogram"));
+                        }
                         managers.push_back(m);
                     }
 
@@ -886,6 +905,9 @@ int main(int argc, char *argv[]) {
                     m->opts.threads = 1;
                     for (auto &s: filters) {
                         m->addFilter(s);
+                    }
+                    if (program.is_used("--ideogram")) {
+                        m->addIdeogram(program.get("--ideogram"));
                     }
                     managers.push_back(m);
                 }

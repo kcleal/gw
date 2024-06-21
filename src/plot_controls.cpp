@@ -1322,9 +1322,20 @@ namespace Manager {
                 while (bnd != cl.readQueue.begin()) {
                     if (!opts.tlen_yscale) {
                         if (bnd->y == level && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
-                            bnd->edge_type = 4;
-                            target_qname = bam_get_qname(bnd->delegate);
-                            Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_memory, out);
+                            if (bnd->edge_type == 4) {
+                                if (bnd->has_SA || bnd->delegate->core.flag & 2048) {
+                                    bnd->edge_type = 2;  // "SPLIT"
+                                } else if (bnd->delegate->core.flag & 8) {
+                                    bnd->edge_type = 3;  // "MATE_UNMAPPED"
+                                } else {
+                                    bnd->edge_type = 1;  // "NORMAL"
+                                }
+                                target_qname = "";
+                            } else {
+                                bnd->edge_type = 4;
+                                target_qname = bam_get_qname(bnd->delegate);
+                                Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_memory, out);
+                            }
                             redraw = true;
                             processed = true;
                             cl.skipDrawingReads = false;
@@ -1333,9 +1344,20 @@ namespace Manager {
                         }
                     } else {
                         if ((bnd->y >= level - slop && bnd->y < level) && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
-                            bnd->edge_type = 4;
-                            target_qname = bam_get_qname(bnd->delegate);
-                            Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_memory, out);
+                            if (bnd->edge_type == 4) {
+                                if (bnd->has_SA || bnd->delegate->core.flag & 2048) {
+                                    bnd->edge_type = 2;  // "SPLIT"
+                                } else if (bnd->delegate->core.flag & 8) {
+                                    bnd->edge_type = 3;  // "MATE_UNMAPPED"
+                                } else {
+                                    bnd->edge_type = 1;  // "NORMAL"
+                                }
+                                target_qname = "";
+                            } else {
+                                bnd->edge_type = 4;
+                                target_qname = bam_get_qname(bnd->delegate);
+                                Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_memory, out);
+                            }
                             redraw = true;
                             processed = true;
                             cl.skipDrawingReads = false;

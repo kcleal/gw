@@ -190,11 +190,11 @@ namespace HGW {
             readQueue.pop_back();
         }
 
+        Segs::init_parallel(readQueue, threads, pool);
+
         if (!filters.empty()) {
             applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
         }
-
-        Segs::init_parallel(readQueue, threads, pool);
 
         if (coverage) {
             int l_arr = (int)col.covArr.size() - 1;

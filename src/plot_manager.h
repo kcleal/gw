@@ -113,6 +113,8 @@ namespace Manager {
 
         std::vector<HGW::GwVariantTrack> variantTracks; // make image tiles from these
 
+        std::vector< std::string > commandHistory, commandsApplied;
+
         HGW::GwVariantTrack *currentVarTrack;  // var track with current focus/event
         int mouseOverTileIndex;  // tile with mouse over
 
@@ -134,6 +136,7 @@ namespace Manager {
         GLFWwindow* backWindow;
 
         sk_sp<SkSurface> rasterSurface;
+        sk_sp<SkSurface>* rasterSurfacePtr;  // option to use externally managed surface (faster)
         SkCanvas* rasterCanvas;
 
         Show mode;
@@ -164,6 +167,8 @@ namespace Manager {
         void removeRegion(int index);
 
         void addVariantTrack(std::string &path, int startIndex, bool cacheStdin, bool useFullPath);
+
+        void addIdeogram(std::string path);
 
         void addFilter(std::string &filter_str);
 
@@ -235,7 +240,7 @@ namespace Manager {
 
         bool captureText, shiftPress, ctrlPress, processText;
         bool tabBorderPress;
-        std::vector< std::string > commandHistory;
+
         int commandIndex, charIndex;
 
         float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace, sliderSpace;
@@ -258,6 +263,8 @@ namespace Manager {
         int commandToolTipIndex;
 
         std::vector<Utils::BoundingBox> bboxes;
+
+        std::unordered_map<std::string, std::vector<Themes::Band>> ideogram;
 
         BS::thread_pool pool;
 

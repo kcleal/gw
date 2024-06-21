@@ -253,8 +253,9 @@ namespace Segs {
                                                   u, u, u, u, u, u, u, u,
                                                   INV_F};
 
-    void align_init(Align *self) { //noexcept {
+    void align_init(Align *self) {
 //        auto start = std::chrono::high_resolution_clock::now();
+
         bam1_t *src = self->delegate;
 
         self->pos = src->core.pos;

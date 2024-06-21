@@ -842,4 +842,77 @@ namespace Themes {
             }
         }
     }
+
+    void printIdeogram(const std::unordered_map<std::string, std::vector<Band>> &bands) {
+        std::cout << "{\n";
+        for (const auto &kv: bands) {
+            std::cout << "{" << kv.first << ",\n{  \n";
+            for (const auto &b: kv.second) {
+                std::cout <<
+                          "  {" << b.start << ", "
+                          << b.end << ", "
+                          << b.alpha << ", "
+                          << b.red << ", "
+                          << b.green << ", "
+                          << b.blue << ", "
+                          << b.name << "},\n";
+            }
+            std::cout << "  },\n";
+        }
+        std::cout << "};\n\n";
+    }
+
+    void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Band>> &ideogram) {
+        std::ifstream band_file(file_path);
+        if (!band_file) {
+            throw std::runtime_error("Failed to open input files");
+        }
+        std::string line, token, chrom, name, property;
+        while (std::getline(band_file, line)) {
+            std::istringstream iss(line);
+#define next_t std::getline(iss, token, '\t')
+            next_t;
+            chrom = token;
+            next_t;
+            int start = std::stoi(token);
+            next_t;
+            int end = std::stoi(token);
+            next_t;
+            name = token;
+            next_t;
+            property = token;
+
+            if (property == "gneg") {
+                ideogram[chrom].emplace_back() = {start, end, 255, 255, 255, 255, {}, name};
+            } else if (property == "gpos25") {
+                ideogram[chrom].emplace_back() = {start, end, 255, 235, 235, 235, {}, name};
+            } else if (property == "gpos50") {
+                ideogram[chrom].emplace_back() = {start, end, 255, 185, 185, 185, {}, name};
+            } else if (property == "gpos75") {
+                ideogram[chrom].emplace_back() = {start, end, 255, 110, 110, 110, {}, name};
+            } else if (property == "gpos100") {
+                ideogram[chrom].emplace_back() = {start, end, 255, 60, 60, 60, {}, name};
+            } else if (property == "acen") {
+                ideogram[chrom].emplace_back() = {start, end, 255, 220, 10, 10, {}, name};
+            } else if (property == "gvar") {
+                ideogram[chrom].emplace_back() = {start, end, 255, 10, 10, 220, {}, name};
+            } else if (!property.empty()) {  // try custom color scheme
+                std::vector<std::string> a = Utils::split(property, ',');
+                if (a.size() == 4) {
+                    try {
+                        ideogram[chrom].emplace_back() = {start, end, std::stoi(a[0]), std::stoi(a[1]), std::stoi(a[2]),
+                                                          std::stoi(a[3]), {}, name};
+                    } catch (...) {
+
+                    }
+                }
+            }
+        }
+        for (auto& kv : ideogram) {
+            for (auto& i : kv.second) {
+                i.paint.setARGB(i.alpha, i.red, i.green, i.blue);
+            }
+        }
+//        printIdeogram(ideogram);
+    }
 }

@@ -200,4 +200,12 @@ namespace Themes {
         void setFontSize(float yScaling, float yScale);
     };
 
+    struct Band {
+        int start, end, alpha, red, green, blue;
+        SkPaint paint;
+        std::string name;
+    };
+
+    void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Band>> &ideogram);
+
 }

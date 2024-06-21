@@ -38,7 +38,7 @@
 namespace Commands {
 
     enum Err {
-        NONE,
+        NONE = 0,
         UNKNOWN,
         SILENT,
 
@@ -1077,9 +1077,12 @@ namespace Commands {
         return reason;
     }
 
-    void handle_err(Err result, std::ostream& out) {
+    void save_command_or_handle_err(Err result, std::ostream& out,
+                                    std::vector<std::string>* applied, std::string& command) {
         switch (result) {
-            case NONE: break;
+            case NONE:
+                applied->push_back(command);
+                break;
             case UNKNOWN:
                 out << termcolor::red << "Error:" << termcolor::reset << " Unknown error\n";
                 break;
@@ -1195,7 +1198,7 @@ namespace Commands {
         } else {
             res = infer_region_or_feature(p, command, parts);
         }
+        save_command_or_handle_err(res, out, &p->commandsApplied, command);
         p->inputText = "";
-        handle_err(res, out);
     }
 }

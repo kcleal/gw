@@ -492,7 +492,7 @@ namespace Parse {
         }
     }
 
-    bool Parser::eval(const Segs::Align &aln, const sam_hdr_t* hdr, int bamIdx, int regionIdx) {
+    bool Parser::eval(const Segs::Align& aln, const sam_hdr_t* hdr, int bamIdx, int regionIdx) {
 
         bool block_result = true;
 

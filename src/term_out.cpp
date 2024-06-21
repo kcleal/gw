@@ -113,15 +113,22 @@ namespace Term {
                          "             RG, BC, BX, RX, LB, MD, MI, PU, SA, MC, NM, CM, FI, HO, MQ, SM, TC, UQ, AS\n\n"
                          "        These can be combined with '{operator}' values:\n"
                          "             &, ==, !=, >, <, >=, <=, eq, ne, gt, lt, ge, le, contains, omit\n\n"
+                         "        Reads can be filtered on their mapping orientation/pattern e.g:\n"
+                         "             filter pattern == del    # deletion-like pattern\n"
+                         "             filter pattern == inv_f  # inversion-forward\n"
+                         "             filter pattern == inv_f  # inversion-reverse\n"
+                         "             filter pattern != tra    # translocation\n\n"
                          "        Bitwise flags can also be applied with named values:\n"
                          "             paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary, dup, supplementary\n\n"
+                         "             filter paired\n"
+                         "             filter read1\n\n"
                          "        Expressions can be chained together providing all expressions are 'AND' or 'OR' blocks:\n"
                          "             filter mapq >= 20 and mapq < 30\n"
                          "             filter mapq >= 20 or flag & supplementary\n\n"
                          "        Finally, you can apply filters to specific panels using array indexing notation:\n"
-                         "              filter mapq > 0 [:, 0]   # All rows, column 0 (all bams, first region only)\n"
-                         "              filter mapq > 0 [0, :]   # Row 0, all columns (the first bam only, all regions)\n"
-                         "              filter mapq > 0 [1, -1]  # Row 1, last column\n\n";
+                         "             filter mapq > 0 [:, 0]   # All rows, column 0 (all bams, first region only)\n"
+                         "             filter mapq > 0 [0, :]   # Row 0, all columns (the first bam only, all regions)\n"
+                         "             filter mapq > 0 [1, -1]  # Row 1, last column\n\n";
         } else if (s == "find" || s == "f") {
             out << "    Find a read with name.\n        All alignments with the same name will be highlighted with a black border\n    Examples:\n        'find D00360:18:H8VC6ADXX:1:1107:5538:24033'\n\n";
         } else if (s == "goto") {

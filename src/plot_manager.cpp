@@ -172,6 +172,7 @@ namespace Manager {
         this->rasterSurface = SkSurface::MakeRasterDirect(
             info, &pixelMemory[0], rowBytes);
         rasterCanvas = rasterSurface->getCanvas();
+        rasterSurfacePtr = &rasterSurface;
         return pixelMemory.size();
     }
 
@@ -258,7 +259,9 @@ namespace Manager {
         glfwMakeContextCurrent(window);
         setGlfwFrameBufferSize();
 
-        makeRasterSurface();
+        if (rasterSurfacePtr == nullptr) {
+            makeRasterSurface();
+        }
 
     }
 
@@ -330,7 +333,6 @@ namespace Manager {
                                     inLabels,
                                     sLabels)
         );
-        std::cout << "plot_manager YO: " << variantFilename << std::endl;
     }
 
     void GwPlot::setOutLabelFile(const std::string &path) {
@@ -377,6 +379,10 @@ namespace Manager {
             }
         }
         f.close();
+    }
+
+    void GwPlot::addIdeogram(std::string path) {
+        Themes::readIdeogramFile(path, ideogram);
     }
 
     void GwPlot::addFilter(std::string &filter_str) {
@@ -517,7 +523,7 @@ namespace Manager {
         }
         int xpos, ypos;
         glfwGetWindowPos(window, &xpos, &ypos);
-        opts.saveCurrentSession(reference, bam_paths, track_paths, regions, variant_paths_info, commandHistory,
+        opts.saveCurrentSession(reference, bam_paths, track_paths, regions, variant_paths_info, commandsApplied,
                                 "", mode, xpos, ypos, monitorScale);
     }
 
@@ -565,6 +571,7 @@ namespace Manager {
 //                    if (opts.low_mem) {
 //                        drawScreenNoBuffer(sSurface->getCanvas(),  sContext, sSurface);
 //                    } else {
+
                     drawScreen(sSurface->getCanvas(), sContext, sSurface);
 //                    }
 
@@ -586,8 +593,6 @@ namespace Manager {
                 setScaling();
                 bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
 
-//                opts.dimensions.x = fb_width;
-//                opts.dimensions.y = fb_height;
                 resizeTriggered = false;
 
                 sContext->abandonContext();
@@ -616,14 +621,19 @@ namespace Manager {
                     std::exit(-1);
                 }
 
-//                SkImageInfo info = SkImageInfo::MakeN32Premul(opts.dimensions.x * monitorScale, opts.dimensions.y * monitorScale);
-                SkImageInfo info = SkImageInfo::MakeN32Premul(fb_width, fb_height);
-                size_t rowBytes = info.minRowBytes();
-                size_t size = info.computeByteSize(rowBytes);
-                pixelMemory.resize(size);
-                rasterSurface = SkSurface::MakeRasterDirect(
-                        info, &pixelMemory[0], rowBytes);
+//                SkImageInfo info = SkImageInfo::MakeN32Premul(fb_width, fb_height);
+//                size_t rowBytes = info.minRowBytes();
+//                size_t size = info.computeByteSize(rowBytes);
+//                pixelMemory.resize(size);
+//                rasterSurface = SkSurface::MakeRasterDirect(
+//                        info, &pixelMemory[0], rowBytes);
+//                rasterCanvas = rasterSurface->getCanvas();
+
+
+                rasterSurface = SkSurface::MakeRasterN32Premul(fb_width,fb_height);
                 rasterCanvas = rasterSurface->getCanvas();
+                rasterSurfacePtr = &rasterSurface;
+
                 resizeTimer = std::chrono::high_resolution_clock::now();
 
             }
@@ -893,11 +903,11 @@ namespace Manager {
             Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, refSpace, (float)regions.size(), gap);
             Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
             Drawing::drawTracks(opts, fb_width, fb_height, canvasR, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
-            Drawing::drawChromLocation(opts, collections, canvasR, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
+            Drawing::drawChromLocation(opts, regions, ideogram, canvasR, fai, fb_width, fb_height, monitorScale);
 
         }
 
-        imageCacheQueue.emplace_back(frameId, rasterSurface->makeImageSnapshot());
+        imageCacheQueue.emplace_back(frameId, rasterSurfacePtr[0]->makeImageSnapshot());
         canvas->drawImage(imageCacheQueue.back().second, 0, 0);
 
         sContext->flush();
@@ -914,7 +924,7 @@ namespace Manager {
         } else {
             runDrawNoBuffer();
         }
-        imageCacheQueue.emplace_back(frameId, rasterSurface->makeImageSnapshot());
+        imageCacheQueue.emplace_back(frameId, rasterSurfacePtr[0]->makeImageSnapshot());
         canvas->drawImage(imageCacheQueue.back().second, 0, 0);
         sContext->flush();
         glfwSwapBuffers(window);
@@ -1369,7 +1379,7 @@ namespace Manager {
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
-        Drawing::drawChromLocation(opts, collections, canvas, fai, headers, regions.size(), fb_width, fb_height, monitorScale);
+        Drawing::drawChromLocation(opts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale);
 //        std::cerr << " time runDrawNoBuffer " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
 
@@ -1381,12 +1391,12 @@ namespace Manager {
     sk_sp<SkImage> GwPlot::makeImage() {
         makeRasterSurface();
         runDraw();
-        sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
+        sk_sp<SkImage> img(rasterSurfacePtr[0]->makeImageSnapshot());
         return img;
     }
 
     void GwPlot::rasterToPng(const char* path) {
-        sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
+        sk_sp<SkImage> img(rasterSurfacePtr[0]->makeImageSnapshot());
         if (!img) { return; }
         sk_sp<SkData> png(img->encodeToData());
         if (!png) { return; }

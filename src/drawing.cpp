@@ -1654,59 +1654,83 @@ namespace Drawing {
 
     }
 
-    void drawChromLocation(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections,
+    void drawChromLocation(const Themes::IniOptions &opts,
+                           const std::vector<Utils::Region> &regions,
+                           const std::unordered_map<std::string, std::vector<Themes::Band>> &ideogram,
                            SkCanvas *canvas,
-                           const faidx_t *fai, std::vector<sam_hdr_t *> &headers, size_t nRegions, float fb_width,
+                           const faidx_t *fai, float fb_width,
                            float fb_height, float monitorScale) {
-        SkPaint paint, line;
-//        paint.setARGB(255, 110, 120, 165);
-
+        SkPaint paint, light_paint, line;
         if (opts.theme_str == "igv") {
             paint.setARGB(255, 87, 95, 107);
-//            paint.setARGB(255, 160, 160, 165);
         } else {
             paint.setARGB(255, 149, 149, 163);
-//            paint.setColor(SK_ColorRED);
         }
         paint.setStrokeWidth(2);
         paint.setStyle(SkPaint::kStroke_Style);
-//        line.setColor((opts.theme_str == "dark") ? SK_ColorGRAY : SK_ColorBLACK);
+
+        light_paint = opts.theme.lcLightJoins;
+
         line.setColor((opts.theme_str == "dark") ? SK_ColorGRAY : SK_ColorBLACK);
         line.setStrokeWidth(monitorScale);
         line.setStyle(SkPaint::kStroke_Style);
         SkRect rect{};
         SkPath path{};
-        auto yh = std::fmax((float) (fb_height * 0.0175), 10 * monitorScale);
-        float rowHeight = (float) fb_height / (float) headers.size();
-        float colWidth = (float) fb_width / (float) nRegions;
+
+        float yh = std::fmax((float) (fb_height * 0.0175), 10 * monitorScale);
+        float yh_two_thirds = yh * (float)0.66;
+        float yh_one_third = yh * (float)0.33;
+        float yh_half = yh * (float)0.5;
+
+        float top = fb_height - (yh * 2);
+        float colWidth = (float) fb_width / (float) regions.size();
         float gap = 50;
         float gap2 = 2 * gap;
         float drawWidth = colWidth - gap2;
+
         if (drawWidth < 0) {
             return;
         }
-        for (auto &cl: collections) {
-            if (cl.bamIdx + 1 != (int) headers.size()) {
-                continue;
-            }
-            auto length = (float) faidx_seq_len(fai, cl.region->chrom.c_str());
-            float s = (float) cl.region->start / length;
-            float e = (float) cl.region->end / length;
+
+        float regionIdx = 0;
+        for (const auto& region: regions) {
+
+            auto length = (float) faidx_seq_len(fai, region.chrom.c_str());
+            float s = (float) region.start / length;
+            float e = (float) region.end / length;
             float w = (e - s) * drawWidth;
             if (w < 3) {
                 w = 3;
             }
-            float yp = ((cl.bamIdx + 1) * rowHeight) - yh - (yh * 0.5);
-            float xp = (cl.regionIdx * colWidth) + gap;
-            rect.setXYWH(xp + (s * drawWidth),
-                         yp,
-                         w,
-                         yh);
+            float xp = (regionIdx * colWidth) + gap;
+
             path.reset();
-            path.moveTo(xp, ((cl.bamIdx + 1) * rowHeight) - (yh));
-            path.lineTo(xp + drawWidth, ((cl.bamIdx + 1) * rowHeight) - (yh));
+            path.moveTo(xp, top + yh_half);
+            path.lineTo(xp + drawWidth, top + yh_half);
             canvas->drawPath(path, line);
+
+            auto it = ideogram.find(region.chrom);
+            if (it != ideogram.end()) {
+                const std::vector<Themes::Band>& bands = it->second;
+                for (const auto& b : bands) {
+                    float sb = (float) b.start / length;
+                    float eb = (float) b.end / length;
+                    float wb = (eb - sb) * drawWidth;
+                    rect.setXYWH(xp + (sb * drawWidth),
+                                 top + yh_one_third,
+                                 wb,
+                                 yh_two_thirds);
+                    canvas->drawRect(rect, b.paint);
+                    canvas->drawRect(rect, light_paint);
+                }
+            }
+            rect.setXYWH(xp + (s * drawWidth),
+                         top,
+                         w,
+                         yh + yh_one_third);
             canvas->drawRect(rect, paint);
+
+            regionIdx += 1;
         }
     }
 }
