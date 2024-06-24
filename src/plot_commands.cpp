@@ -1077,6 +1077,123 @@ namespace Commands {
         return reason;
     }
 
+    Err update_colour(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
+        if (parts.size() != 6) {
+            return Err::OPTION_NOT_UNDERSTOOD;
+        }
+        int alpha, red, green, blue;
+        try {
+            alpha = std::stoi(parts[2]);
+            red = std::stoi(parts[3]);
+            green = std::stoi(parts[4]);
+            blue = std::stoi(parts[5]);
+        } catch (...) {
+            return Err::OPTION_NOT_UNDERSTOOD;
+        }
+        Themes::GwPaint e;
+        std::string &c = parts[1];
+        if (c == "bgPaint") { e = Themes::GwPaint::bgPaint; }
+        else if (c == "fcNormal") { e = Themes::GwPaint::fcNormal; }
+        else if (c == "fcDel") { e = Themes::GwPaint::fcDel; }
+        else if (c == "fcDup") { e = Themes::GwPaint::fcDup; }
+        else if (c == "fcInvF") { e = Themes::GwPaint::fcInvF; }
+        else if (c == "fcInvR") { e = Themes::GwPaint::fcInvR; }
+        else if (c == "fcTra") { e = Themes::GwPaint::fcTra; }
+        else if (c == "fcIns") { e = Themes::GwPaint::fcIns; }
+        else if (c == "fcSoftClip") { e = Themes::GwPaint::fcSoftClip; }
+        else if (c == "fcA") { e = Themes::GwPaint::fcA; }
+        else if (c == "fcT") { e = Themes::GwPaint::fcT; }
+        else if (c == "fcC") { e = Themes::GwPaint::fcC; }
+        else if (c == "fcG") { e = Themes::GwPaint::fcG; }
+        else if (c == "fcN") { e = Themes::GwPaint::fcN; }
+        else if (c == "fcCoverage") { e = Themes::GwPaint::fcCoverage; }
+        else if (c == "fcTrack") { e = Themes::GwPaint::fcTrack; }
+        else if (c == "fcNormal0") { e = Themes::GwPaint::fcNormal0; }
+        else if (c == "fcDel0") { e = Themes::GwPaint::fcDel0; }
+        else if (c == "fcDup0") { e = Themes::GwPaint::fcDup0; }
+        else if (c == "fcInvF0") { e = Themes::GwPaint::fcInvF0; }
+        else if (c == "fcInvR0") { e = Themes::GwPaint::fcInvR0; }
+        else if (c == "fcTra0") { e = Themes::GwPaint::fcTra0; }
+        else if (c == "fcSoftClip0") { e = Themes::GwPaint::fcSoftClip0; }
+        else if (c == "fcBigWig") { e = Themes::GwPaint::fcBigWig; }
+        else if (c == "mate_fc") { e = Themes::GwPaint::mate_fc; }
+        else if (c == "mate_fc0") { e = Themes::GwPaint::mate_fc0; }
+        else if (c == "ecMateUnmapped") { e = Themes::GwPaint::ecMateUnmapped; }
+        else if (c == "ecSplit") { e = Themes::GwPaint::ecSplit; }
+        else if (c == "ecSelected") { e = Themes::GwPaint::ecSelected; }
+        else if (c == "lcJoins") { e = Themes::GwPaint::lcJoins; }
+        else if (c == "lcCoverage") { e = Themes::GwPaint::lcCoverage; }
+        else if (c == "lcLightJoins") { e = Themes::GwPaint::lcLightJoins; }
+        else if (c == "lcLabel") { e = Themes::GwPaint::lcLabel; }
+        else if (c == "lcBright") { e = Themes::GwPaint::lcBright; }
+        else if (c == "tcDel") { e = Themes::GwPaint::tcDel; }
+        else if (c == "tcIns") { e = Themes::GwPaint::tcIns; }
+        else if (c == "tcLabels") { e = Themes::GwPaint::tcLabels; }
+        else if (c == "tcBackground") { e = Themes::GwPaint::tcBackground; }
+        else if (c == "fcMarkers") { e = Themes::GwPaint::fcMarkers; }
+        else if (c == "fcRoi") { e = Themes::GwPaint::fcRoi; }
+        else {
+            return Err::OPTION_NOT_UNDERSTOOD;
+        }
+        p->opts.theme.setPaintARGB(e, alpha, red, green, blue);
+        return Err::NONE;
+    }
+
+    Err add_roi(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
+        if (p->regions.empty()) {
+            return Err::SILENT;
+        }
+        std::string com = command;
+        Utils::TrackBlock b;
+        b.line = command;
+        b.strand = 0;
+        Utils::Region& rgn = p->regions[p->regionSelection];
+        if (command == "roi") { // use active region as roi
+            b.chrom = rgn.chrom;
+            b.start = rgn.start;
+            b.end = rgn.end;
+            b.name = rgn.toString();
+        } else {
+            bool good = false;
+            int s_idx = 4;
+            try {
+                Utils::Region r = Utils::parseRegion(parts[1]);
+                if (r.chrom == rgn.chrom) {
+                    b.chrom = r.chrom;
+                    b.start = r.start;
+                    b.end = r.end;
+                    good = true;
+                    s_idx += parts[1].size();
+                }
+            } catch (...) {
+            }
+            if (!good) {
+                b.chrom = rgn.chrom;
+                b.start = rgn.start;
+                b.end = rgn.end;
+            }
+            com.erase(0, s_idx);
+            b.name = com;
+        }
+        bool added = false;
+        for (auto& t : p->tracks) {
+            if (t.kind == HGW::FType::ROI) {
+                t.allBlocks[b.chrom].add(b.start, b.end, b);
+                t.allBlocks[b.chrom].index();
+                added = true;
+                break;
+            }
+        }
+        if (!added) {
+            p->tracks.emplace_back() = HGW::GwTrack();
+            p->tracks.back().kind = HGW::FType::ROI;
+            p->tracks.back().add_to_dict = true;
+            p->tracks.back().allBlocks[b.chrom].add(b.start, b.end, b);
+            p->tracks.back().allBlocks[b.chrom].index();
+        }
+        return Err::NONE;
+    }
+
     void save_command_or_handle_err(Err result, std::ostream& out,
                                     std::vector<std::string>* applied, std::string& command) {
         switch (result) {
@@ -1166,6 +1283,9 @@ namespace Commands {
                 {"v",        PARAMS { return var_info(p, command, parts, out); }},
                 {"var",      PARAMS { return var_info(p, command, parts, out); }},
                 {"save",     PARAMS { return save_command(p, command, parts, out); }},
+                {"colour",     PARAMS { return update_colour(p, command, parts, out); }},
+                {"color",     PARAMS { return update_colour(p, command, parts, out); }},
+                {"roi",     PARAMS { return add_roi(p, command, parts, out); }},
 
                 {"count",    PARAMS { return count(p, command, out); }},
                 {"filter",   PARAMS { return addFilter(p, command, out); }},

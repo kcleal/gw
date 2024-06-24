@@ -109,7 +109,7 @@ namespace Manager {
                         std::cerr << "Warning: track file does not exists - " << trk_item << std::endl;
                     }
                 } else {
-                    tracks.push_back(HGW::GwTrack());
+                    tracks.emplace_back() = HGW::GwTrack();
                     tracks.back().genome_tag = opts.genome_tag;
                     tracks.back().open(trk_item, true);
                     tracks.back().variant_distance = &opts.variant_distance;
@@ -119,7 +119,7 @@ namespace Manager {
             tracks.reserve(track_paths.size());
         }
         for (const auto &tp: track_paths) {
-            tracks.push_back(HGW::GwTrack());
+            tracks.emplace_back() = HGW::GwTrack();
             tracks.back().open(tp, true);
             tracks.back().variant_distance = &opts.variant_distance;
         }
@@ -515,7 +515,9 @@ namespace Manager {
     void GwPlot::saveSession() {
         std::vector<std::string> track_paths;
         for (const auto& item: tracks) {
-            track_paths.push_back(item.path);
+            if (item.kind != HGW::FType::ROI) {
+                track_paths.push_back(item.path);
+            }
         }
         std::vector<std::pair<std::string, int>> variant_paths_info;
         for (const auto& item: variantTracks) {
@@ -566,6 +568,7 @@ namespace Manager {
             if (delay > 0) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(delay));
             }
+
             if (redraw) {
                 if (mode == Show::SINGLE) {
 //                    if (opts.low_mem) {
@@ -583,6 +586,10 @@ namespace Manager {
             drawOverlay(sSurface->getCanvas());
             sContext->flush();
             glfwSwapBuffers(window);
+
+//            if (resizeTriggered && !imageCacheQueue.empty()) {
+//                sSurface->getCanvas()->drawImage(imageCacheQueue.back().second, 0, 0);
+//            }
 
             if (resizeTriggered && std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - resizeTimer) > 100ms) {
                 imageCache.clear();

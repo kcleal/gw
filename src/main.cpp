@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
             .help("Output single image to file");
     program.add_argument("--ideogram")
             .append()
-            .help("Ideogram file");
+            .help("Ideogram bed file (uncompressed). Any bed file should work");
     program.add_argument("-n", "--no-show")
             .default_value(false).implicit_value(true)
             .help("Don't display images to screen");

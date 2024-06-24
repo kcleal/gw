@@ -89,8 +89,11 @@ namespace Themes {
         alpha = 204;
         mapq0_alpha = 102;
 
-        marker_paint.setStyle(SkPaint::kStrokeAndFill_Style);
-        marker_paint.setStrokeWidth(3);
+        fcMarkers.setStyle(SkPaint::kStrokeAndFill_Style);
+        fcMarkers.setStrokeWidth(3);
+
+        fcRoi.setARGB(180, 230, 10, 45);
+        fcRoi.setStyle(SkPaint::kStrokeAndFill_Style);
 
         fcBigWig.setARGB(255, 20, 90, 190);
         fcBigWig.setStyle(SkPaint::kStrokeAndFill_Style);
@@ -145,10 +148,10 @@ namespace Themes {
         insS.setStyle(SkPaint::kStroke_Style);
         insS.setStrokeWidth(4);
 
-        marker_paint.setStyle(SkPaint::kStrokeAndFill_Style);
-        marker_paint.setAntiAlias(true);
-        marker_paint.setStrokeMiter(0.1);
-        marker_paint.setStrokeWidth(0.5);
+        fcMarkers.setStyle(SkPaint::kStrokeAndFill_Style);
+        fcMarkers.setAntiAlias(true);
+        fcMarkers.setStrokeMiter(0.1);
+        fcMarkers.setStrokeWidth(0.5);
 
         for (size_t i=0; i < mate_fc.size(); ++i) {
             SkPaint p = mate_fc[i];
@@ -219,15 +222,14 @@ namespace Themes {
             case GwPaint::lcJoins: this->lcJoins.setARGB(a, r, g, b); break;
             case GwPaint::lcCoverage: this->lcCoverage.setARGB(a, r, g, b); break;
             case GwPaint::lcLightJoins: this->lcLightJoins.setARGB(a, r, g, b); break;
-            case GwPaint::insF: this->insF.setARGB(a, r, g, b); break;
-            case GwPaint::insS: this->insS.setARGB(a, r, g, b); break;
             case GwPaint::lcLabel: this->lcLabel.setARGB(a, r, g, b); break;
             case GwPaint::lcBright: this->lcBright.setARGB(a, r, g, b); break;
             case GwPaint::tcDel: this->tcDel.setARGB(a, r, g, b); break;
             case GwPaint::tcIns: this->tcIns.setARGB(a, r, g, b); break;
             case GwPaint::tcLabels: this->tcLabels.setARGB(a, r, g, b); break;
             case GwPaint::tcBackground: this->tcBackground.setARGB(a, r, g, b); break;
-            case GwPaint::marker_paint: this->marker_paint.setARGB(a, r, g, b); break;
+            case GwPaint::fcMarkers: this->fcMarkers.setARGB(a, r, g, b); break;
+            case GwPaint::fcRoi: this->fcRoi.setARGB(a, r, g, b); break;
             default: break;
         }
     }
@@ -258,7 +260,7 @@ namespace Themes {
         tcLabels.setARGB(255, 80, 80, 80);
         tcIns.setARGB(255, 255, 255, 255);
         tcBackground.setARGB(255, 255, 255, 255);
-        marker_paint.setARGB(255, 0, 0, 0);
+        fcMarkers.setARGB(255, 0, 0, 0);
         ecSelected.setARGB(255, 0, 0, 0);
         ecSelected.setStyle(SkPaint::kStroke_Style);
         ecSelected.setStrokeWidth(2);
@@ -295,7 +297,7 @@ namespace Themes {
         tcLabels.setARGB(255, 0, 0, 0);
         tcIns.setARGB(255, 227, 227, 227);
         tcBackground.setARGB(255, 10, 10, 20);
-        marker_paint.setARGB(255, 220, 220, 220);
+        fcMarkers.setARGB(255, 220, 220, 220);
         ecSelected.setARGB(255, 255, 255, 255);
         ecSelected.setStyle(SkPaint::kStroke_Style);
         ecSelected.setStrokeWidth(2);
@@ -331,7 +333,7 @@ namespace Themes {
         tcLabels.setARGB(255, 100, 100, 100);
         tcIns.setARGB(255, 227, 227, 227);
         tcBackground.setARGB(255, 10, 10, 20);
-        marker_paint.setARGB(255, 220, 220, 220);
+        fcMarkers.setARGB(255, 220, 220, 220);
         ecSelected.setARGB(255, 255, 255, 255);
         ecSelected.setStyle(SkPaint::kStroke_Style);
         ecSelected.setStrokeWidth(2);
@@ -738,7 +740,7 @@ namespace Themes {
             }
             count += 1;
         }
-        keep = {"filter ", "find ", "f "};
+        keep = {"filter ", "find ", "f ", "colour", "color", "roi"};
         size_t j = 0;
         for (; last_refresh < commands.size(); ++last_refresh) {
             for (const auto& k: keep) {
@@ -867,10 +869,23 @@ namespace Themes {
         if (!band_file) {
             throw std::runtime_error("Failed to open input files");
         }
+        std::unordered_map<std::string, Band> custom;
         std::string line, token, chrom, name, property;
         while (std::getline(band_file, line)) {
             std::istringstream iss(line);
-#define next_t std::getline(iss, token, '\t')
+            if (line[0] == '#') {
+                if (Utils::startsWith(line, "#gw ")) {
+                    std::vector<std::string> parts = Utils::split( line, ' ');
+                    if (parts.size() == 3) {
+                        std::vector<std::string> c = Utils::split(parts.back(), ',');
+                        if (c.size() == 4) {
+                            custom[parts[1]] = {0, 0, std::stoi(c[0]), std::stoi(c[1]), std::stoi(c[2]), std::stoi(c[3]), {}, parts[1]};
+                        }
+                    }
+                }
+                continue;
+            }
+            #define next_t std::getline(iss, token, '\t')
             next_t;
             chrom = token;
             next_t;
@@ -881,7 +896,6 @@ namespace Themes {
             name = token;
             next_t;
             property = token;
-
             if (property == "gneg") {
                 ideogram[chrom].emplace_back() = {start, end, 255, 255, 255, 255, {}, name};
             } else if (property == "gpos25") {
@@ -896,6 +910,11 @@ namespace Themes {
                 ideogram[chrom].emplace_back() = {start, end, 255, 220, 10, 10, {}, name};
             } else if (property == "gvar") {
                 ideogram[chrom].emplace_back() = {start, end, 255, 10, 10, 220, {}, name};
+            } else if (custom.find(name) != custom.end()) {
+                Band cust = custom[name];
+                cust.start = start;
+                cust.end = end;
+                ideogram[chrom].emplace_back() = cust;
             } else if (!property.empty()) {  // try custom color scheme
                 std::vector<std::string> a = Utils::split(property, ',');
                 if (a.size() == 4) {
@@ -906,6 +925,11 @@ namespace Themes {
 
                     }
                 }
+                else {
+                    ideogram[chrom].emplace_back() = {start, end, 255, 85, 171, 159, {}, name};
+                }
+            } else {
+                ideogram[chrom].emplace_back() = {start, end, 255, 85, 171, 159, {}, name};
             }
         }
         for (auto& kv : ideogram) {

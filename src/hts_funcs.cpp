@@ -1535,7 +1535,6 @@ namespace HGW {
                     if (tp[0] == '#') {
                         continue;
                     }
-                    std::cerr << tp << std::endl;
                     std::vector<std::string> parts = Utils::split_keep_empty_str(tp, '\t');
                     chrom = parts[0];
                     chrom2 = chrom;
@@ -2192,7 +2191,6 @@ namespace HGW {
             b->end = trk.stop;
             b->line = trk.variantString;
             b->parts = trk.parts;
-//            b->parent = trk.parent;
             b->anyToDraw = true;
             if (trk.parts.size() >= 5) {
                 b->strand = (trk.parts[5] == "+") ? 1 : (trk.parts[5] == "-") ? -1 : 0;

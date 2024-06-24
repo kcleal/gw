@@ -70,9 +70,9 @@ namespace Themes {
     enum GwPaint {
         bgPaint, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip,
         fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack, fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0,
-        fcSoftClip0, fcBigWig, mate_fc, mate_fc0, ecMateUnmapped, ecSplit, ecSelected,
-        lcJoins, lcCoverage, lcLightJoins, insF, insS, lcLabel, lcBright, tcDel, tcIns, tcLabels, tcBackground,
-        marker_paint
+        fcSoftClip0, fcBigWig, fcRoi, mate_fc, mate_fc0, ecMateUnmapped, ecSplit, ecSelected,
+        lcJoins, lcCoverage, lcLightJoins, lcLabel, lcBright, tcDel, tcIns, tcLabels, tcBackground,
+        fcMarkers
     };
 
     class EXPORT BaseTheme {
@@ -83,7 +83,7 @@ namespace Themes {
         std::string name;
         // face colours
         SkPaint bgPaint, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip, \
-                fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack;
+                fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack, fcRoi;
         SkPaint fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0, fcSoftClip0, fcBigWig;
 
         std::vector<SkPaint> mate_fc;
@@ -102,7 +102,7 @@ namespace Themes {
         SkPaint tcDel, tcIns, tcLabels, tcBackground;
 
         // Markers
-        SkPaint marker_paint;
+        SkPaint fcMarkers;
 
         uint8_t alpha, mapq0_alpha;
 

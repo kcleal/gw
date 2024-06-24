@@ -34,6 +34,7 @@ namespace Term {
         out << termcolor::underline << "\nCommand          Modifier        Description                                            \n" << termcolor::reset;
         out << termcolor::green << "[locus]                          " << termcolor::reset << "e.g. 'chr1' or 'chr1:1-20000'\n";
         out << termcolor::green << "add              region(s)       " << termcolor::reset << "Add one or more regions e.g. 'add chr1:1-20000'\n";
+        out << termcolor::green << "colour           name + ARGB     " << termcolor::reset << "Set a colour for a plot component\n";
         out << termcolor::green << "count            expression?     " << termcolor::reset << "Count reads. See filter for example expressions'\n";
         out << termcolor::green << "cov              value?          " << termcolor::reset << "Change max coverage value. Use 'cov' to toggle coverage\n";
         out << termcolor::green << "edges                            " << termcolor::reset << "Toggle edges\n";
@@ -54,6 +55,7 @@ namespace Term {
         out << termcolor::green << "quit, q          -               " << termcolor::reset << "Quit GW\n";
         out << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
         out << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. 'rm 1'. To remove a bam \n                                 use the bam index 'rm bam1', or track 'rm track1'\n";
+        out << termcolor::green << "roi              region? name?   " << termcolor::reset << "Add a region of interest\n";
         out << termcolor::green << "sam                              " << termcolor::reset << "Print selected read in sam format\n";
         out << termcolor::green << "save             filename        " << termcolor::reset << "Save reads (.bam/.cram), snapshot (.png) or session (.xml) to file\n";
         out << termcolor::green << "settings                         " << termcolor::reset << "Open the settings menu'\n";
@@ -91,8 +93,48 @@ namespace Term {
             out << "    Navigate to a genomic locus.\n        You can use chromosome names or chromosome coordinates.\n    Examples:\n        'chr1:1-20000', 'chr1', 'chr1:10000'\n\n";
         } else if (s == "add") {
             out << "    Add a genomic locus.\n        This will add a new locus to the right-hand-side of your view.\n    Examples:\n        'add chr1:1-20000', 'add chr2'\n\n";
-//        } else if (s == "config") {
-//            out << "    Open the GW config file.\n        The config file will be opened in a text editor, for Mac TextEdit will be used, linux will be vi, and windows will be notepad.\n\n";
+        } else if (s == "colour" || s == "color") {
+            out << "    Set the (alpha, red, green, blue) colour for one of the plot elements.\n"
+                   "        Elements are selected by name (see below) and values are in the range [0, 255].\n"
+                   "        For example 'colour fcNormal 255 255 0 0' sets face-colour of normal reads to red.\n\n"
+                   "          bgPaint        - background paint\n"
+                   "          fcNormal       - face-colour normal reads\n"
+                   "          fcDel          - face-colour deletion pattern reads\n"
+                   "          fcDup          - face-colour duplication pattern reads\n"
+                   "          fcInvF         - face-colour inversion-forward pattern reads\n"
+                   "          fcInvR         - face-colour inversion-reverse pattern reads\n"
+                   "          fcTra          - face-colour translocation pattern reads\n"
+                   "          fcIns          - face-colour insertion blocks\n"
+                   "          fcSoftClips    - face-colour soft-clips when zoomed-out\n"
+                   "          fcA            - face-colour A mismatch\n"
+                   "          fcT            - face-colour T mismatch\n"
+                   "          fcC            - face-colour C mismatch\n"
+                   "          fcG            - face-colour G mismatch\n"
+                   "          fcN            - face-colour N mismatch\n"
+                   "          fcCoverage     - face-colour coverage track\n"
+                   "          fcTrack        - face-colour tracks\n"
+                   "          fcBigWig       - face-colour bigWig files\n"
+                   "          fcNormal0      - face-colour normal reads with mapq=0\n"
+                   "          fcDel0         - face-colour deletion pattern reads with mapq=0\n"
+                   "          fcDup0         - face-colour duplication pattern reads with mapq=0\n"
+                   "          fcInvF0        - face-colour inversion-forward pattern reads with mapq=0\n"
+                   "          fcInvR0        - face-colour inversion-reverse pattern reads with mapq=0\n"
+                   "          fcTra0         - face-colour translocation pattern reads with mapq=0\n"
+                   "          fcIns0         - face-colour insertion blocks with mapq=0\n"
+                   "          fcSoftClips0   - face-colour soft-clips when zoomed-out with mapq=0\n"
+                   "          fcMarkers      - face-colour of markers\n"
+                   "          ecMateUnmapped - edge-colour mate unmapped reads\n"
+                   "          ecSplit        - edge-colour split reads\n"
+                   "          ecSelected     - edge-colour selected reads\n"
+                   "          lcJoins        - line-colour of joins\n"
+                   "          lcCoverage     - line-colour of coverage profile\n"
+                   "          lcLightJoins   - line-colour of lighter joins\n"
+                   "          lcLabel        - line-colour of labels\n"
+                   "          lcBright       - line-colour of bright edges\n"
+                   "          tcDel          - text-colour of deletions\n"
+                   "          tcIns          - text-colour of insertions\n"
+                   "          tcLabels       - text-colour of labels\n"
+                   "          tcBackground   - text-colour of background\n\n";
         } else if (s == "count") {
             out << "    Count the visible reads in each view.\n        A summary output will be displayed for each view on the screen.\n        Optionally a filter expression may be added to the command. See the man page for 'filter' for mote details\n    Examples:\n        'count', 'count flag & 2', 'count flag & proper-pair' \n\n";
         } else if (s == "cov") {
@@ -168,6 +210,8 @@ namespace Term {
             out << "    Refresh the drawing.\n        All filters will be removed any everything will be redrawn.\n\n";
         } else if (s == "remove" || s == "rm") {
             out << "    Remove a region, bam or track.\n        Remove a region, bam or track by index. To remove a bam or track add a 'bam' or 'track' prefix.\n    Examples:\n        'rm 0', 'rm bam1', 'rm track2'\n\n";
+        } else if (s == "roi") {
+            out << "    Add a region of interest as a new track. If no region is supplied, the visible active window is used\n    Examples:\n        'roi', 'roi chr1:1-20000'\n\n";
         } else if (s == "sam") {
             out << "    Print the sam format of the read.\n        First select a read using the mouse then type ':sam'.\n\n";
         } else if (s == "save") {

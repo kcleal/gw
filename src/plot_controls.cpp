@@ -714,8 +714,8 @@ namespace Manager {
                     if (region.refSeq != nullptr) {
                         delete region.refSeq;
                     }
-                    region.start = region.start + shift;
-                    region.end = region.end + shift;
+                    region.start = std::max(0, region.start + shift);
+                    region.end = std::max(region.start + 1, region.end + shift);
                     fetchRefSeq(region);
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
@@ -750,8 +750,8 @@ namespace Manager {
                     if (region.refSeq != nullptr) {
                         delete region.refSeq;
                     }
-                    region.start = region.start - shift;
-                    region.end = region.end - shift;
+                    region.start = std::max(0, region.start - shift);
+                    region.end = std::max(region.start + 1, region.end - shift);
                     fetchRefSeq(region);
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
@@ -787,8 +787,8 @@ namespace Manager {
                     if (region.refSeq != nullptr) {
                         delete region.refSeq;
                     }
-                    region.start = region.start - shift_left;
-                    region.end = region.end + shift;
+                    region.start = std::max(0, region.start - shift_left);
+                    region.end = std::max(region.start + 1, region.end + shift);
                     fetchRefSeq(region);
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
@@ -840,8 +840,8 @@ namespace Manager {
                         if (region.refSeq != nullptr) {
                             delete region.refSeq;
                         }
-                        region.start = region.start + shift;
-                        region.end = region.end - shift;
+                        region.start = std::max(0, region.start + shift);
+                        region.end = std::max(region.start + 1, region.end - shift);
                         fetchRefSeq(region);
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
@@ -1113,7 +1113,7 @@ namespace Manager {
                 relX = (relX > drawWidth) ? drawWidth : relX;
                 float relP = relX / drawWidth;
                 auto length = (float)faidx_seq_len(fai, rgn.chrom.c_str());
-                auto new_s = (int)(length * relP);
+                auto new_s = std::max(0, (int)(length * relP));
                 int regionL = rgn.end - rgn.start;
                 rgn.start = new_s;
                 rgn.end = new_s + regionL;
@@ -1289,8 +1289,8 @@ namespace Manager {
                     int strt = pos - 2500;
                     strt = (strt < 0) ? 0 : strt;
                     Utils::Region &region = regions[regionSelection];
-                    region.start = strt;
-                    region.end = strt + 5000;
+                    region.start = std::max(0, strt);
+                    region.end = std::max(region.start + 1, strt + 5000);
                     regionSelection = cl.regionIdx;
                     delete region.refSeq;
                     fetchRefSeq(region);
@@ -1729,9 +1729,11 @@ namespace Manager {
                     int travel = (int) (w * (xDrag / windowW));
                     if (region.start - travel < 1) {
                         return;
-                    } else {
+                    } else if (clicked.start - travel > 0) {
                         region.start = clicked.start - travel;
                         region.end = clicked.end - travel;
+                    } else {
+                        return;
                     }
                     if (region.start < 1 || region.end < 1) {
                         return;
@@ -1925,5 +1927,11 @@ namespace Manager {
         resizeTimer = std::chrono::high_resolution_clock::now();
         glfwGetFramebufferSize(window, &fb_width, &fb_height);
         bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
+        if (opts.theme_str == "igv") {
+            glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        } else {
+            glClearColor(0.f, 0.f, 0.f, 1.0f);
+        }
+        glClear(GL_COLOR_BUFFER_BIT);
     }
 }

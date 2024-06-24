@@ -41,6 +41,7 @@ namespace HGW {
          GTF_NOI,
          GW_LABEL,
          STDIN,
+         ROI,
     };
 
     void guessRefGenomeFromBam(std::string &inputName, Themes::IniOptions &opts, std::vector<std::string> &bam_paths, std::vector<Utils::Region> &regions);
@@ -131,6 +132,7 @@ namespace HGW {
     /*
     * VCF/BCF/BED/GFF3/LABEL file reader. No label parsing for vcf/bcf.
     * Non-indexed files are cached using TrackBlock items. Files with an index are fetched during drawing.
+    * Can also have no file associated with it, just an array of TrackBlock (used for roi drawing)
     */
     class GwTrack {
     public:
@@ -206,7 +208,7 @@ namespace HGW {
     enum TrackType {
         VCF,
         GW_TRACK,
-        IMAGES
+        IMAGES,
     };
     class GwVariantTrack {
     public:
