@@ -76,7 +76,8 @@ namespace Manager {
                std::vector<std::string> &track_paths);
         ~GwPlot();
 
-        int fb_width, fb_height;
+        int fb_width, fb_height;  // frame buffer size
+        double xPos_fb, yPos_fb;  // mouse position in frame buffer coords
         float monitorScale, gap;
         int samMaxY;
         int regionSelection, variantFileSelection;
@@ -289,6 +290,8 @@ namespace Manager {
         void updateCursorGenomePos(float xOffset, float xScaling, float xPos, Utils::Region *region, int bamIdx);
 
         void updateSlider(float xPos);
+
+        void drawCursorPosOnRefSlider(SkCanvas *canvas);
 
     };
 

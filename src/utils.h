@@ -76,6 +76,7 @@ namespace Utils {
         std::string chrom;
         int start, end;
         int markerPos, markerPosEnd;
+        int chromLength;
         const char *refSeq;
         std::vector<uint8_t> refSeq_nibbled;
         std::vector<std::vector<Utils::TrackBlock>> featuresInView;  // one vector for each Track
@@ -86,6 +87,7 @@ namespace Utils {
             end = -1;
             markerPos = -1;
             markerPosEnd = -1;
+            chromLength = 0;
             refSeq = nullptr;
         }
         std::string toString();

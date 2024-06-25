@@ -36,6 +36,7 @@
 #include "menu.h"
 #include "segments.h"
 #include "termcolor.h"
+#include "term_out.h"
 #include "themes.h"
 #include "window_icon.h"
 
@@ -80,6 +81,8 @@ namespace Manager {
         textFromSettings = false;
         terminalOutput = true;
         monitorScale = 1;
+        xPos_fb = 0;
+        yPos_fb = 0;
         fonts = Themes::Fonts();
         fonts.setTypeface(opt.font_str, opt.font_size);
         if (!reference.empty()) {
@@ -293,6 +296,9 @@ namespace Manager {
         for (auto &rgn : regions) {
             if (rgn.end - rgn.start < opts.snp_threshold) {
                 fetchRefSeq(rgn);
+            }
+            if (rgn.chromLength == 0) {
+                rgn.chromLength = faidx_seq_len(fai, rgn.chrom.c_str());
             }
         }
     }
@@ -938,12 +944,50 @@ namespace Manager {
         redraw = false;
     }
 
+    void GwPlot::drawCursorPosOnRefSlider(SkCanvas *canvas) {
+        // determine if cursor is over the ref slider
+        if (regions.empty() || xPos_fb <= 0 || yPos_fb <= 0 || regionSelection < 0) {
+            return;
+        }
+        const float yh = std::fmax((float) (fb_height * 0.0175), 10 * monitorScale);
+        if (yPos_fb < fb_height - (yh * 2)) {
+            return;
+        }
+        const float colWidth = (float) fb_width / (float) regions.size();
+        const float gap = 50;
+        const float gap2 = 100;
+        const float drawWidth = colWidth - gap2;
+        float xp = ((float)regionSelection * colWidth) + gap;
+        if (xPos_fb < xp || xPos_fb > xp + drawWidth) {
+            return;
+        }
+        int pos = (int)(((xPos_fb - xp) / drawWidth) * (float)regions[regionSelection].chromLength);
+        std::string s = Term::intToStringCommas(pos);
+
+        float estimatedTextWidth = (float) s.size() * fonts.overlayWidth;
+        SkRect rect;
+        SkPaint rect_paint = opts.theme.bgPaint;
+        rect_paint.setAlpha(160);
+        float xbox = std::fmin(xPos_fb + monitorScale, drawWidth);
+        rect.setXYWH(xbox, fb_height - (yh *2) + (monitorScale), estimatedTextWidth, (yh*(float)1.33) - monitorScale - monitorScale);
+        canvas->drawRect(rect, rect_paint);
+        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(s.c_str(), fonts.overlay);
+        SkPath path;
+        path.moveTo(xPos_fb, fb_height - (yh * 2));
+        path.lineTo(xPos_fb, fb_height - (yh * (float)0.66));
+        canvas->drawPath(path, opts.theme.lcBright);
+        canvas->drawTextBlob(blob, xbox + monitorScale, fb_height - yh, opts.theme.tcDel);
+    }
+
     void GwPlot::drawOverlay(SkCanvas *canvas) {
         if (!imageCacheQueue.empty()) {
             while (imageCacheQueue.front().first != frameId) {
                 imageCacheQueue.pop_front();
             }
             canvas->drawImage(imageCacheQueue.back().second, 0, 0);
+        }
+        if (mode == Show::SINGLE) {
+            drawCursorPosOnRefSlider(canvas);
         }
         if (mode == Show::SETTINGS) {
             if (!imageCacheQueue.empty()) {

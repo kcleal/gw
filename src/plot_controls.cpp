@@ -1636,8 +1636,8 @@ namespace Manager {
         lastX = xPos;
         lastY = yPos;
 
-        double xPos_fb = xPos;
-        double yPos_fb = yPos;
+        xPos_fb = xPos;
+        yPos_fb = yPos;
         double xPosOri_fb = xOri;
         double yPosOri_fb = yOri;
         convertScreenCoordsToFrameBufferCoords(wind, &xPos_fb, &yPos_fb, fb_width, fb_height);
