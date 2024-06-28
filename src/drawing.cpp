@@ -1696,15 +1696,15 @@ namespace Drawing {
         SkRect rect{};
         SkPath path{};
 
-        float yh = std::fmax((float) (fb_height * 0.0175), 10 * monitorScale);
-        float yh_two_thirds = yh * (float)0.66;
-        float yh_one_third = yh * (float)0.33;
+        const float yh = std::fmax((float) (fb_height * 0.0175), 10 * monitorScale);
+        const float yh_two_thirds = yh * (float)0.66;
+        const float yh_one_third = yh * (float)0.33;
 
-        float top = fb_height - (yh * 2);
-        float colWidth = (float) fb_width / (float) regions.size();
-        float gap = 50;
-        float gap2 = 2 * gap;
-        float drawWidth = colWidth - gap2;
+        const float top = fb_height - (yh * 2);
+        const float colWidth = (float) fb_width / (float) regions.size();
+        const float gap = 50;
+        const float gap2 = 100;
+        const float drawWidth = colWidth - gap2;
 
         if (drawWidth < 0) {
             return;
@@ -1713,9 +1713,8 @@ namespace Drawing {
         float regionIdx = 0;
         for (const auto& region: regions) {
 
-            auto length = (float) faidx_seq_len(fai, region.chrom.c_str());
-            float s = (float) region.start / length;
-            float e = (float) region.end / length;
+            float s = (float)region.start / (float)region.chromLength;
+            float e = (float)region.end / (float)region.chromLength;
             float w = (e - s) * drawWidth;
             if (w < 3) {
                 w = 3;
@@ -1731,8 +1730,8 @@ namespace Drawing {
             if (it != ideogram.end()) {
                 const std::vector<Themes::Band>& bands = it->second;
                 for (const auto& b : bands) {
-                    float sb = (float) b.start / length;
-                    float eb = (float) b.end / length;
+                    float sb = (float) b.start / (float)region.chromLength;
+                    float eb = (float) b.end / (float)region.chromLength;
                     float wb = (eb - sb) * drawWidth;
                     rect.setXYWH(xp + (sb * drawWidth),
                                  top + yh_one_third,
