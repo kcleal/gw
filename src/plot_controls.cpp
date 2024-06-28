@@ -847,7 +847,7 @@ namespace Manager {
                             if (cl.regionIdx == regionSelection) {
                                 if (!bams.empty() && cl.regionLen >= opts.low_memory && region.end - region.start < opts.low_memory) {
                                     cl.clear();
-                                    HGW::collectReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts.threads, &region, (bool)opts.max_coverage, filters, pool);
+                                    HGW::collectReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts.threads, &region, (bool)opts.max_coverage, filters, pool, opts.parse_mods);
                                     int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, &region, false);
                                     if (maxY > samMaxY) {
                                         samMaxY = maxY;

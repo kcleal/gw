@@ -183,6 +183,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("--no-soft-clips")
             .default_value(false).implicit_value(true)
             .help("Soft-clips are not shown");
+    program.add_argument("--no-mods")
+            .default_value(false).implicit_value(true)
+            .help("Base modifications are not shown");
     program.add_argument("--low-mem")
             .default_value(false).implicit_value(true)
             .help("Reduce memory usage by discarding quality values");
@@ -486,6 +489,9 @@ int main(int argc, char *argv[]) {
     if (program.is_used("--no-soft-clips")) {
         iopts.soft_clip_threshold = 0;
     }
+    if (program.is_used("--no-mods")) {
+        iopts.parse_mods = 0;
+    }
     if (program.is_used("--start-index")) {
         iopts.start_index = program.get<int>("--start-index");
     }
@@ -529,13 +535,6 @@ int main(int argc, char *argv[]) {
         if (program.is_used("--ideogram")) {
             plotter.addIdeogram(program.get("--ideogram"));
         }
-
-
-        // initialize drawing surface
-        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
-                                                                        iopts.dimensions.y);
-        plotter.rasterCanvas = rasterSurface->getCanvas();
-        plotter.rasterSurfacePtr = &rasterSurface;
 
         // initialize graphics window
         plotter.init(iopts.dimensions.x, iopts.dimensions.y);
@@ -594,6 +593,12 @@ int main(int argc, char *argv[]) {
             std::cerr << "ERROR: could not create a valid frame buffer\n";
             std::exit(-1);
         }
+
+        // initialize drawing surface
+        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x * plotter.monitorScale,
+                                                                        iopts.dimensions.y * plotter.monitorScale);
+        plotter.rasterCanvas = rasterSurface->getCanvas();
+        plotter.rasterSurfacePtr = &rasterSurface;
 
         // start UI here
         if (!program.is_used("--variants") && !program.is_used("--images")) {

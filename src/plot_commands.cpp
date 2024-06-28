@@ -919,7 +919,7 @@ namespace Commands {
             bam1_t* a = bam_init1();
             if (sam_itr_next(file_ptrs[i], region_iters[i], a) >= 0) {
                 Segs::Align alignment = Segs::Align(a);
-                Segs::align_init(&alignment);
+                Segs::align_init(&alignment, p->opts.parse_mods);
                 pq.push({std::move(alignment), file_ptrs[i], region_iters[i], i});
             } else {
                 bam_destroy1(a);
@@ -953,7 +953,7 @@ namespace Commands {
                 }
             }
             if (sam_itr_next(item.file_ptr, item.bam_iter, item.align.delegate) >= 0) {
-                Segs::align_init(&item.align);
+                Segs::align_init(&item.align, p->opts.parse_mods);
                 pq.push(item);
             } else {
                 bam_destroy1(item.align.delegate);

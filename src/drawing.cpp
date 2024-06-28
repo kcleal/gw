@@ -443,6 +443,40 @@ namespace Drawing {
         canvas->drawPath(path, sidesColor);
     }
 
+    constexpr char lookup_ref_base[256] = {
+            ['A'] = 1, ['a'] = 1,
+            ['C'] = 2, ['c'] = 2,
+            ['G'] = 4, ['g'] = 4,
+            ['T'] = 8, ['t'] = 8,
+            ['N'] = 15, ['n'] = 15, // All other entries default to 15
+    };
+
+    void update_A(Segs::Mismatches& elem) { elem.A += 1; }
+    void update_C(Segs::Mismatches& elem) { elem.C += 1; }
+    void update_G(Segs::Mismatches& elem) { elem.G += 1; }
+    void update_T(Segs::Mismatches& elem) { elem.T += 1; }
+    void update_pass(Segs::Mismatches& elem) {}  // For N bases
+
+    // Lookup table for function pointers, initialized statically
+    void (*lookup_table_mm[16])(Segs::Mismatches&) = {
+            update_pass,     // 0
+            update_A,        // 1
+            update_C,        // 2
+            update_pass,     // 3
+            update_G,        // 4
+            update_pass,     // 5
+            update_pass,     // 6
+            update_pass,     // 7
+            update_T,        // 8
+            update_pass,     // 9
+            update_pass,     // 10
+            update_pass,     // 11
+            update_pass,     // 12
+            update_pass,     // 13
+            update_pass,     // 14
+            update_pass      // 15
+    };
+
     void drawMismatchesNoMD(SkCanvas *canvas, SkRect &rect, const Themes::BaseTheme &theme, const Utils::Region *region,
                             const Segs::Align &align,
                             float width, float xScaling, float xOffset, float mmPosOffset, float yScaledOffset,
@@ -481,7 +515,7 @@ namespace Drawing {
             switch (op) {
                 case BAM_CMATCH:
                     for (uint32_t i = 0; i < l; ++i) {
-                        int r_idx = (int) r_pos - rbegin;  // Casting once and reusing.
+                        int r_idx = (int) r_pos - rbegin;
                         if (r_idx < 0) {
                             idx += 1;
                             r_pos += 1;
@@ -496,28 +530,7 @@ namespace Drawing {
 
                         char ref_base;
                         char current_base = refSeq[r_idx];
-                        // Using a lookup might be faster if 'switch-case' doesn't optimize well in the compiler.
-                        switch (current_base) {
-                            case 'A':
-                            case 'a':
-                                ref_base = 1;
-                                break;
-                            case 'C':
-                            case 'c':
-                                ref_base = 2;
-                                break;
-                            case 'G':
-                            case 'g':
-                                ref_base = 4;
-                                break;
-                            case 'T':
-                            case 't':
-                                ref_base = 8;
-                                break;
-                            default:
-                                ref_base = 15;
-                                break;  // assuming 'N' and other characters map to 15
-                        }
+                        ref_base = lookup_ref_base[(unsigned char)current_base];
 
                         char bam_base = bam_seqi(ptr_seq, idx);
                         if (bam_base != ref_base) {
@@ -526,23 +539,26 @@ namespace Drawing {
                             rect.setXYWH(p + precalculated_xOffset_mmPosOffset, yScaledOffset, width, pH);
                             canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]);
                             if (!collection_processed) {
-                                auto &mismatch = mm_array[r_pos - rbegin]; // Reduce redundant calculations
-                                switch (bam_base) {
-                                    case 1:
-                                        mismatch.A += 1;
-                                        break;
-                                    case 2:
-                                        mismatch.C += 1;
-                                        break;
-                                    case 4:
-                                        mismatch.G += 1;
-                                        break;
-                                    case 8:
-                                        mismatch.T += 1;
-                                        break;
-                                    default:
-                                        break;
-                                }
+                                lookup_table_mm[(size_t)bam_base](mm_array[r_pos - rbegin]);
+
+//                                auto &mismatch = mm_array[r_pos - rbegin];
+//
+//                                switch (bam_base) {
+//                                    case 1:
+//                                        mismatch.A += 1;
+//                                        break;
+//                                    case 2:
+//                                        mismatch.C += 1;
+//                                        break;
+//                                    case 4:
+//                                        mismatch.G += 1;
+//                                        break;
+//                                    case 8:
+//                                        mismatch.T += 1;
+//                                        break;
+//                                    default:
+//                                        break;
+//                                }
                             }
                         }
                         idx += 1;
@@ -566,23 +582,26 @@ namespace Drawing {
                             rect.setXYWH(p + precalculated_xOffset_mmPosOffset, yScaledOffset, width, pH);
                             canvas->drawRect(rect, theme.BasePaints[bam_base][colorIdx]);
 
-                            auto &mismatch = mm_array[r_pos - rbegin]; // Reduce redundant calculations
-                            switch (bam_base) {
-                                case 1:
-                                    mismatch.A += 1;
-                                    break;
-                                case 2:
-                                    mismatch.C += 1;
-                                    break;
-                                case 4:
-                                    mismatch.G += 1;
-                                    break;
-                                case 8:
-                                    mismatch.T += 1;
-                                    break;
-                                default:
-                                    break;
+                            if (!collection_processed) {
+                                lookup_table_mm[(size_t) bam_base](mm_array[r_pos - rbegin]);
                             }
+//                            auto &mismatch = mm_array[r_pos - rbegin]; // Reduce redundant calculations
+//                            switch (bam_base) {
+//                                case 1:
+//                                    mismatch.A += 1;
+//                                    break;
+//                                case 2:
+//                                    mismatch.C += 1;
+//                                    break;
+//                                case 4:
+//                                    mismatch.G += 1;
+//                                    break;
+//                                case 8:
+//                                    mismatch.T += 1;
+//                                    break;
+//                                default:
+//                                    break;
+//                            }
                         }
                         idx += 1;
                         r_pos += 1;

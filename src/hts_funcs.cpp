@@ -159,7 +159,8 @@ namespace HGW {
 
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, int threads, Utils::Region *region,
-                                 bool coverage, std::vector<Parse::Parser> &filters, BS::thread_pool &pool) {
+                                 bool coverage, std::vector<Parse::Parser> &filters, BS::thread_pool &pool,
+                                 const bool parse_mods) {
         bam1_t *src;
         hts_itr_t *iter_q;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
@@ -190,7 +191,7 @@ namespace HGW {
             readQueue.pop_back();
         }
 
-        Segs::init_parallel(readQueue, threads, pool);
+        Segs::init_parallel(readQueue, threads, pool, parse_mods);
 
         if (!filters.empty()) {
             applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
@@ -379,7 +380,7 @@ namespace HGW {
             if (j < BATCH) {
                 continue;
             }
-            Segs::init_parallel(readQueue, threads, pool);
+            Segs::init_parallel(readQueue, threads, pool, opts.parse_mods);
             if (filter) {
                 applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
             }
@@ -403,7 +404,7 @@ namespace HGW {
         if (j < BATCH) {
             readQueue.erase(readQueue.begin() + j, readQueue.end());
             if (!readQueue.empty()) {
-                Segs::init_parallel(readQueue, threads, pool);
+                Segs::init_parallel(readQueue, threads, pool, opts.parse_mods);
                 if (!filters.empty()) {
                     applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
                 }
@@ -455,7 +456,7 @@ namespace HGW {
             if (src->core.flag & 4 || src->core.n_cigar == 0) {
                 continue;
             }
-            Segs::align_init(&readQueue.back());
+            Segs::align_init(&readQueue.back(), opts.parse_mods);
             if (filter) {
                 applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
                 if (readQueue.back().y == -2) {
@@ -670,7 +671,7 @@ namespace HGW {
             if (!filters.empty()) {
                 applyFilters(filters, newReads, hdr_ptr, col.bamIdx, col.regionIdx);
             }
-            Segs::init_parallel(newReads, opts.threads, pool);
+            Segs::init_parallel(newReads, opts.threads, pool, opts.parse_mods);
             bool findYall = false;
             if (col.vScroll == 0 && opts.link_op == 0) {  // only new reads need findY, otherwise, reset all below
                 int maxY = Segs::findY(col, newReads, opts.link_op, opts, region,  left);

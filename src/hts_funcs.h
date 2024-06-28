@@ -91,7 +91,8 @@ namespace HGW {
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, int threads, Utils::Region *region,
                                  bool coverage,
-                                 std::vector<Parse::Parser> &filters, BS::thread_pool &pool);
+                                 std::vector<Parse::Parser> &filters, BS::thread_pool &pool,
+                                 const bool parse_mods);
 
     void iterDrawParallel(Segs::ReadCollection &col,
                           htsFile *b,

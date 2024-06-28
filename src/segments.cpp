@@ -253,7 +253,7 @@ namespace Segs {
                                                   u, u, u, u, u, u, u, u,
                                                   INV_F};
 
-    void align_init(Align *self) {
+    void align_init(Align *self, const bool parse_mods) {
 //        auto start = std::chrono::high_resolution_clock::now();
 
         bam1_t *src = self->delegate;
@@ -332,6 +332,34 @@ namespace Segs {
         } else {
             self->has_SA = false;
         }
+        bool has_mods = (bam_aux_get(self->delegate, "MM") != nullptr || bam_aux_get(self->delegate, "Mm") != nullptr);
+        if (has_mods && parse_mods) {
+            hts_base_mod_state * mod_state = hts_base_mod_state_alloc();
+            int res = bam_parse_basemod(src, mod_state);
+            if (res >= 0) {
+                hts_base_mod mods[10];
+                int pos = 0;
+                int nm = bam_next_basemod(src, mod_state, mods, 10, &pos);
+                while (nm > 0) {
+                self->any_mods.emplace_back() = ModItem();
+                ModItem& mi = self->any_mods.back();
+                mi.index = pos;
+                for (size_t m=0; m < std::min(4, nm); ++m) {
+                    mi.mods[m] = (char)mods[m].modified_base;
+                    mi.quals[m] = (uint8_t)mods[m].qual;
+                    mi.strands[m] = (bool)mods[m].strand;
+                }
+//                std::cout << nm << " " << mods[0].modified_base
+//                << " " << mods[0].canonical_base
+//                << " " << mods[0].strand
+//                << " " << mods[0].qual
+//                << std::endl;
+                nm = bam_next_basemod(src, mod_state, mods, 10, &pos);
+                }
+//                std::cout << std::endl;
+            }
+        }
+
 
         self->y = -1;  // -1 has no level, -2 means initialized but filtered
 
@@ -369,16 +397,16 @@ namespace Segs {
         self->any_ins.clear();
     }
 
-    void init_parallel(std::vector<Align> &aligns, int n,  BS::thread_pool &pool) {
+    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool, const bool parse_mods) {
         if (n == 1) {
             for (auto &aln : aligns) {
-                align_init(&aln);
+                align_init(&aln, parse_mods);
             }
         } else {
             pool.parallelize_loop(0, aligns.size(),
-                                  [&aligns](const int a, const int b) {
+                                  [&aligns, parse_mods](const int a, const int b) {
                                       for (int i = a; i < b; ++i)
-                                          align_init(&aligns[i]);
+                                          align_init(&aligns[i], parse_mods);
                                   })
                     .wait();
         }
@@ -582,6 +610,40 @@ namespace Segs {
         return samMaxY;
     }
 
+    constexpr char lookup_ref_base[256] = {
+            ['A'] = 1, ['a'] = 1,
+            ['C'] = 2, ['c'] = 2,
+            ['G'] = 4, ['g'] = 4,
+            ['T'] = 8, ['t'] = 8,
+            ['N'] = 15, ['n'] = 15, // All other entries default to 15
+    };
+
+    void update_A(Mismatches& elem) { elem.A += 1; }
+    void update_C(Mismatches& elem) { elem.C += 1; }
+    void update_G(Mismatches& elem) { elem.G += 1; }
+    void update_T(Mismatches& elem) { elem.T += 1; }
+    void update_pass(Mismatches& elem) {}  // For N bases
+
+    // Lookup table for function pointers, initialized statically
+    void (*lookup_table_mm[16])(Mismatches&) = {
+            update_pass,     // 0
+            update_A,        // 1
+            update_C,        // 2
+            update_pass,     // 3
+            update_G,        // 4
+            update_pass,     // 5
+            update_pass,     // 6
+            update_pass,     // 7
+            update_T,        // 8
+            update_pass,     // 9
+            update_pass,     // 10
+            update_pass,     // 11
+            update_pass,     // 12
+            update_pass,     // 13
+            update_pass,     // 14
+            update_pass      // 15
+    };
+
     void findMismatches(const Themes::IniOptions &opts, ReadCollection &collection) {
 
         std::vector<Segs::Mismatches> &mm_array = collection.mmVector;
@@ -642,22 +704,23 @@ namespace Segs {
                         for (uint32_t i = 0; i < l; ++i) {
                             if (r_pos >= rbegin && r_pos < rend && r_pos - rbegin < mm_array_len) {
                                 char bam_base = bam_seqi(ptr_seq, idx);
-                                switch (bam_base) {
-                                    case 1:
-                                        mm_array[r_pos - rbegin].A += 1;
-                                        break;
-                                    case 2:
-                                        mm_array[r_pos - rbegin].C += 1;
-                                        break;
-                                    case 4:
-                                        mm_array[r_pos - rbegin].G += 1;
-                                        break;
-                                    case 8:
-                                        mm_array[r_pos - rbegin].T += 1;
-                                        break;
-                                    default:
-                                        break;
-                                }
+                                lookup_table_mm[(size_t)bam_base](mm_array[r_pos - rbegin]);
+//                                switch (bam_base) {
+//                                    case 1:
+//                                        mm_array[r_pos - rbegin].A += 1;
+//                                        break;
+//                                    case 2:
+//                                        mm_array[r_pos - rbegin].C += 1;
+//                                        break;
+//                                    case 4:
+//                                        mm_array[r_pos - rbegin].G += 1;
+//                                        break;
+//                                    case 8:
+//                                        mm_array[r_pos - rbegin].T += 1;
+//                                        break;
+//                                    default:
+//                                        break;
+//                                }
                             }
                             idx += 1;
                             r_pos += 1;
@@ -679,48 +742,27 @@ namespace Segs {
                                 break;
                             }
 
-                            char ref_base;
-                            switch (refSeq[r_idx]) {
-                                case 'A':
-                                case 'a':
-                                    ref_base = 1;
-                                    break;
-                                case 'C':
-                                case 'c':
-                                    ref_base = 2;
-                                    break;
-                                case 'G':
-                                case 'g':
-                                    ref_base = 4;
-                                    break;
-                                case 'T':
-                                case 't':
-                                    ref_base = 8;
-                                    break;
-                                case 'N':
-                                default:
-                                    ref_base = 15;
-                                    break;
-                            }
+                            char ref_base = lookup_ref_base[(unsigned char)refSeq[r_idx]];
 
                             char bam_base = bam_seqi(ptr_seq, idx);
                             if (bam_base != ref_base) {
-                                switch (bam_base) {
-                                    case 1:
-                                        mm_array[r_pos - rbegin].A += 1;
-                                        break;
-                                    case 2:
-                                        mm_array[r_pos - rbegin].C += 1;
-                                        break;
-                                    case 4:
-                                        mm_array[r_pos - rbegin].G += 1;
-                                        break;
-                                    case 8:
-                                        mm_array[r_pos - rbegin].T += 1;
-                                        break;
-                                    default:
-                                        break;
-                                }
+                                lookup_table_mm[(size_t)bam_base](mm_array[r_pos - rbegin]);
+//                                switch (bam_base) {
+//                                    case 1:
+//                                        mm_array[r_pos - rbegin].A += 1;
+//                                        break;
+//                                    case 2:
+//                                        mm_array[r_pos - rbegin].C += 1;
+//                                        break;
+//                                    case 4:
+//                                        mm_array[r_pos - rbegin].G += 1;
+//                                        break;
+//                                    case 8:
+//                                        mm_array[r_pos - rbegin].T += 1;
+//                                        break;
+//                                    default:
+//                                        break;
+//                                }
                             }
                             idx += 1;
                             r_pos += 1;

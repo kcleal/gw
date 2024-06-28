@@ -724,7 +724,7 @@ namespace Manager {
                         }
                     }
                     if (reg->end - reg->start < opts.low_memory) {
-                        HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage, filters, pool);
+                        HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage, filters, pool, opts.parse_mods);
                         int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts, reg, false);
                         if (maxY > samMaxY) {
                             samMaxY = maxY;
@@ -939,6 +939,7 @@ namespace Manager {
     }
 
     void GwPlot::drawOverlay(SkCanvas *canvas) {
+
         if (!imageCacheQueue.empty()) {
             while (imageCacheQueue.front().first != frameId) {
                 imageCacheQueue.pop_front();

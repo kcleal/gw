@@ -36,6 +36,21 @@ namespace Segs {
     struct EXPORT InsItem {
         uint32_t pos, length;
     };
+
+    struct EXPORT ModItem {  // up to 4 modifications
+        int index;
+        char mods[4];  // 0 is used to indicate no more mods
+        uint8_t quals[4];
+        bool strands[4];
+        ModItem () {
+            index = -1;
+            mods[0] = 0;
+            mods[1] = 0;
+            mods[2] = 0;
+            mods[3] = 0;
+        }
+    };
+
 //
 //    struct QueueItem {
 //        uint32_t c_s_idx, l;
@@ -62,6 +77,8 @@ namespace Segs {
         bool has_SA; //, initialized;
         std::vector<uint32_t> block_starts, block_ends;
         std::vector<InsItem> any_ins;
+        std::vector<ModItem> any_mods;
+
         Align(bam1_t *src) { delegate = src; }
     };
 
@@ -96,11 +113,11 @@ namespace Segs {
         void clear();
     };
 
-    void align_init(Align *self); // noexcept;
+    void align_init(Align *self, const bool parse_mods);
 
     void align_clear(Align *self);
 
-    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool);
+    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool, const bool parse_mods);
 
     void resetCovStartEnd(ReadCollection &cl);
 

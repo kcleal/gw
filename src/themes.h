@@ -148,7 +148,7 @@ namespace Themes {
         bool editing_underway;
         int canvas_width, canvas_height;
         int indel_length, ylim, split_view_size, threads, pad, link_op, max_coverage, max_tlen;
-        bool no_show, log2_cov, tlen_yscale, expand_tracks, vcf_as_tracks, sv_arcs;
+        bool no_show, log2_cov, tlen_yscale, expand_tracks, vcf_as_tracks, sv_arcs, parse_mods;
         float scroll_speed, tab_track_height;
         int scroll_right;
         int scroll_left;

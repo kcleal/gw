@@ -378,10 +378,10 @@ namespace Themes {
         no_show = false;
         log2_cov = false;
         tlen_yscale = false;
-//        low_mem = false;
         expand_tracks = false;
         vcf_as_tracks = false;
-        sv_arcs=true;
+        sv_arcs = true;
+        parse_mods = true;
 
         scroll_speed = 0.15;
         tab_track_height = 0.05;
@@ -453,6 +453,9 @@ namespace Themes {
         }
         if (myIni["general"].has("sv_arcs")) {
             sv_arcs = myIni["general"]["sv_arcs"] == "true";
+        }
+        if (myIni["general"].has("show_mods")) {
+            parse_mods = myIni["general"]["show_mods"] == "true";
         }
         if (myIni["general"].has("session_file")) {
             session_file = myIni["general"]["session_file"];
