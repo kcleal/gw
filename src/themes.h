@@ -165,7 +165,7 @@ namespace Themes {
         int enter_interactive_mode;
         int repeat_command;
         int start_index;
-        int soft_clip_threshold, small_indel_threshold, snp_threshold, variant_distance, low_memory;
+        int soft_clip_threshold, small_indel_threshold, snp_threshold, mod_threshold, variant_distance, low_memory;
         int edge_highlights;
         int font_size;
 

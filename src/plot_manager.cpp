@@ -188,6 +188,7 @@ namespace Manager {
             std::terminate();
         }
 
+
 //        GLFWmonitor* primary = glfwGetPrimaryMonitor();
 //        const GLFWvidmode* mode = glfwGetVideoMode(primary);
 //
@@ -219,7 +220,6 @@ namespace Manager {
             getWindowIconImage(&iconimage);
 	          glfwSetWindowIcon(window, 1, &iconimage);
         #endif
-
 
         // https://stackoverflow.com/questions/7676971/pointing-to-a-function-that-is-a-class-member-glfw-setkeycallback/28660673#28660673
         glfwSetWindowUserPointer(window, this);
@@ -871,7 +871,7 @@ namespace Manager {
             for (auto &cl: collections) {
 
                 canvasR->save();
-
+                std::cout << cl.skipDrawingCoverage << " " << cl.skipDrawingReads << std::endl;
                 // Copy some of the image from the last frame
                 if ((cl.skipDrawingCoverage || cl.skipDrawingReads) && !imageCacheQueue.empty()) {
                     if (cl.skipDrawingCoverage) {
@@ -892,24 +892,33 @@ namespace Manager {
                 }
                 canvasR->drawPaint(opts.theme.bgPaint);
 
-                if (cl.regionLen >= opts.low_memory && !bams.empty()) {  // low memory mode will be used
-                    cl.clear();
-//                    HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], &regions[cl.regionIdx], (bool) opts.max_coverage,
-//                                  filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pointSlop, textDrop, pH);
-                    if (opts.threads == 1) {
-                        HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], &regions[cl.regionIdx], (bool) opts.max_coverage,
-                                      filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pointSlop, textDrop, pH);
-                    } else {
-                        HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
-                                              filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pool, pointSlop, textDrop, pH);
-                    }
-                } else {
-                    Drawing::drawCollection(opts, cl, canvasR, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
-                }
+                if (!cl.skipDrawingReads) {
 
+
+                    if (cl.regionLen >= opts.low_memory && !bams.empty()) {  // low memory mode will be used
+                        cl.clear();
+                        std::cout << " iter draw\n";
+                        if (opts.threads == 1) {
+                            HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                          &regions[cl.regionIdx], (bool) opts.max_coverage,
+                                          filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pointSlop,
+                                          textDrop, pH, monitorScale);
+                        } else {
+                            HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                                  opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
+                                                  filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pool,
+                                                  pointSlop, textDrop, pH, monitorScale);
+                        }
+                    } else {
+                        std::cout << " full draw\n";
+                        Drawing::drawCollection(opts, cl, canvasR, trackY, yScaling, fonts, opts.link_op, refSpace,
+                                                pointSlop, textDrop, pH, monitorScale);
+                    }
+                }
                 canvasR->restore();
 
             }
+            std::cout << " done draw\n";
             if (opts.max_coverage) {
                 Drawing::drawCoverage(opts, collections, canvasR, fonts, covY, refSpace);
             }
@@ -968,7 +977,7 @@ namespace Manager {
         SkRect rect;
         SkPaint rect_paint = opts.theme.bgPaint;
         rect_paint.setAlpha(160);
-        float xbox = std::fmin(xPos_fb + monitorScale, drawWidth);
+        float xbox = xPos_fb + monitorScale;
         rect.setXYWH(xbox, fb_height - (yh *2) + (monitorScale), estimatedTextWidth, (yh*(float)1.33) - monitorScale - monitorScale);
         canvas->drawRect(rect, rect_paint);
         sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(s.c_str(), fonts.overlay);
@@ -1050,6 +1059,136 @@ namespace Manager {
             xposm *= (float) fb_width / (float) windowW;
             yposm *= (float) fb_height / (float) windowH;
         }
+
+
+        bool variantFile_info = mode == TILED && variantTracks.size() > 1 && yposm < fb_height * 0.02;
+        if (variantFile_info) {
+            float tile_box_w = std::fmin(100 * monitorScale, (fb_width - (variantTracks.size() * gap + 1)) / variantTracks.size());
+            float x_val = gap;
+            float h = fonts.overlayHeight / 2;
+            SkRect rect{};
+            for (int i=0; i < (int)variantTracks.size(); ++i) {
+                if (x_val - gap <= xposm && x_val + tile_box_w >= xposm) {
+                    std::string &fname = variantTracks[i].path;
+                    rect.setXYWH(x_val, h, fname.size() * fonts.overlayWidth + gap + gap, fonts.overlayHeight*2);
+                    canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale,opts.theme.bgPaint);
+                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(fname.c_str(), fonts.overlay);
+                    canvas->drawTextBlob(blob, x_val + gap, h + (fonts.overlayHeight * 1.3), opts.theme.tcDel);
+                    rect.setXYWH(x_val, 0, tile_box_w, fb_width * 0.005);
+                    canvas->drawRect(rect,  opts.theme.fcDup);
+                }
+                x_val += tile_box_w + gap;
+            }
+        }
+
+        if (captureText && !opts.editing_underway) {
+            fonts.setFontSize(yScaling, monitorScale);
+            SkRect rect{};
+            float height_f = fonts.overlayHeight * 2;
+            float x = 50;
+            float w = fb_width - 100;
+
+            SkPaint bg;
+            if (opts.theme_str != "igv") {
+                bg.setARGB(255, 15, 15, 25);
+            } else {
+                bg.setARGB(255, 240, 240, 240);
+            }
+
+            if (x < w) {
+                float y = fb_height - (fb_height * 0.025);
+//                float y2 = fb_height - (height_f * 2.25);
+                float y2 = fb_height - (height_f * 2.5);
+                float yy = (y2 < y) ? y2 : y;
+                float to_cursor_width = fonts.overlay.measureText(inputText.substr(0, charIndex).c_str(), charIndex, SkTextEncoding::kUTF8);
+//                SkPaint box{};
+//                box.setColor(SK_ColorGRAY);
+//                box.setStrokeWidth(monitorScale);
+//                box.setAntiAlias(true);
+//                box.setStyle(SkPaint::kStroke_Style);
+//                rect.setXYWH(x, yy, w, height_f);
+//                canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, opts.theme.bgPaint);
+//                canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, box);
+
+                rect.setXYWH(0, yy, fb_width, fb_height);
+
+                canvas->drawRect(rect, bg);
+
+                SkPath path;
+                path.moveTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 0.3));
+                path.lineTo(x + 14 + to_cursor_width, yy + fonts.overlayHeight * 1.5);
+                canvas->drawPath(path, opts.theme.lcBright);
+                if (!inputText.empty()) {
+                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(inputText.c_str(), fonts.overlay);
+                    canvas->drawTextBlob(blob, x + 14, yy + (fonts.overlayHeight * 1.3), opts.theme.tcDel);
+                }
+                if (mode != SETTINGS && (commandToolTipIndex != -1 || !inputText.empty())) {
+                    float pad = fonts.overlayHeight * 0.3;
+                    if (inputText.empty() && yy - (Menu::commandToolTip.size() * (fonts.overlayHeight+ pad)) < covY) {
+                        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(Menu::commandToolTip[commandToolTipIndex], fonts.overlay);
+                        SkPaint grey;
+                        grey.setColor(SK_ColorGRAY);
+                        canvas->drawTextBlob(blob, x + 14 + fonts.overlayWidth + fonts.overlayWidth, yy + (fonts.overlayHeight * 1.3), grey);
+                    }
+
+                    yy -= pad + pad;
+                    SkPaint tip_paint = opts.theme.lcBright;
+                    tip_paint.setAntiAlias(true);
+                    float n = 0;
+                    for (const auto &cmd : Menu::commandToolTip) {
+                        std::string cmd_s = cmd;
+                        if (!inputText.empty() && !Utils::startsWith(cmd_s, inputText)) {
+                            continue;
+                        }
+                        if (cmd_s == inputText) {
+                            n = 0;
+                            break;
+                        }
+                        n += 1;
+                    }
+                    if (n > 0) {
+                        float step = fonts.overlayHeight + pad;
+                        float top = yy - (n * step);
+                        rect.setXYWH(0, top, x + fonts.overlayWidth * 18, (n * step) + pad + pad);
+                        canvas->drawRect(rect, bg);
+                    }
+
+
+
+                    for (const auto &cmd : Menu::commandToolTip) {
+                        std::string cmd_s = cmd;
+                        if (!inputText.empty() && !Utils::startsWith(cmd_s, inputText)) {
+                            continue;
+                        }
+                        if (cmd_s == inputText) {
+                            break;
+                        }
+                        rect.setXYWH(x, yy - fonts.overlayHeight - pad, fonts.overlayWidth * 18, fonts.overlayHeight + pad + pad);
+//                        canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, opts.theme.bgPaint);
+                        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(cmd, fonts.overlay);
+                        canvas->drawTextBlob(blob, x + (fonts.overlayWidth * 3), yy, opts.theme.tcDel);
+                        tip_paint.setStyle(SkPaint::kStrokeAndFill_Style);
+                        if (commandToolTipIndex >= 0 && Menu::commandToolTip[commandToolTipIndex] == cmd) {
+                            canvas->drawCircle(x + (fonts.overlayWidth), yy - (fonts.overlayHeight*0.5), 3, tip_paint);
+                        }
+                        tip_paint.setStyle(SkPaint::kStroke_Style);
+                        int cs_val = Menu::getCommandSwitchValue(opts, cmd_s, drawLine);
+                        if (cs_val == 1) {
+                            path.reset();
+                            path.moveTo(x + (2.*fonts.overlayWidth), yy - (fonts.overlayHeight*0.25));
+                            path.lineTo(x + (2.25*fonts.overlayWidth), yy);
+                            path.lineTo(x + (2.75*fonts.overlayWidth), yy - (fonts.overlayHeight*0.75));
+                            canvas->drawPath(path, tip_paint);
+                        }
+                        yy -= fonts.overlayHeight + pad;
+                        if (yy < covY) {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
         float half_h = (float)fb_height / 2;
         bool tool_popup = (xposm > 0 && xposm <= 60 && yposm >= half_h - 150 && yposm <= half_h + 150 && (xDrag == -1000000 || xDrag == 0) && (yDrag == -1000000 || yDrag == 0));
         if (tool_popup) {
@@ -1095,98 +1234,6 @@ namespace Manager {
             canvas->drawPath(path, opts.theme.lcJoins);
         }
 
-        bool variantFile_info = mode == TILED && variantTracks.size() > 1 && yposm < fb_height * 0.02;
-        if (variantFile_info) {
-            float tile_box_w = std::fmin(100 * monitorScale, (fb_width - (variantTracks.size() * gap + 1)) / variantTracks.size());
-            float x_val = gap;
-            float h = fonts.overlayHeight / 2;
-            SkRect rect{};
-            for (int i=0; i < (int)variantTracks.size(); ++i) {
-                if (x_val - gap <= xposm && x_val + tile_box_w >= xposm) {
-                    std::string &fname = variantTracks[i].path;
-                    rect.setXYWH(x_val, h, fname.size() * fonts.overlayWidth + gap + gap, fonts.overlayHeight*2);
-                    canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale,opts.theme.bgPaint);
-                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(fname.c_str(), fonts.overlay);
-                    canvas->drawTextBlob(blob, x_val + gap, h + (fonts.overlayHeight * 1.3), opts.theme.tcDel);
-                    rect.setXYWH(x_val, 0, tile_box_w, fb_width * 0.005);
-                    canvas->drawRect(rect,  opts.theme.fcDup);
-                }
-                x_val += tile_box_w + gap;
-            }
-        }
-
-        if (captureText && !opts.editing_underway) {
-            fonts.setFontSize(yScaling, monitorScale);
-            SkRect rect{};
-            float height_f = fonts.overlayHeight * 2;
-            float x = 50;
-            float w = fb_width - 100;
-            if (x < w) {
-                float y = fb_height - (fb_height * 0.025);
-                float y2 = fb_height - (height_f * 2.25);
-                float yy = (y2 < y) ? y2 : y;
-                float to_cursor_width = fonts.overlay.measureText(inputText.substr(0, charIndex).c_str(), charIndex, SkTextEncoding::kUTF8);
-                SkPaint box{};
-                box.setColor(SK_ColorGRAY);
-                box.setStrokeWidth(monitorScale);
-                box.setAntiAlias(true);
-                box.setStyle(SkPaint::kStroke_Style);
-                rect.setXYWH(x, yy, w, height_f);
-                canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, opts.theme.bgPaint);
-                canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, box);
-                SkPath path;
-                path.moveTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 0.3));
-                path.lineTo(x + 14 + to_cursor_width, yy + fonts.overlayHeight * 1.5);
-                canvas->drawPath(path, opts.theme.lcBright);
-                if (!inputText.empty()) {
-                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(inputText.c_str(), fonts.overlay);
-                    canvas->drawTextBlob(blob, x + 14, yy + (fonts.overlayHeight * 1.3), opts.theme.tcDel);
-                }
-                if (mode != SETTINGS && (commandToolTipIndex != -1 || !inputText.empty())) {
-                    float pad = fonts.overlayHeight * 0.3;
-                    if (inputText.empty() && yy - (Menu::commandToolTip.size() * (fonts.overlayHeight+ pad)) < covY) {
-                        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(Menu::commandToolTip[commandToolTipIndex], fonts.overlay);
-                        SkPaint grey;
-                        grey.setColor(SK_ColorGRAY);
-                        canvas->drawTextBlob(blob, x + 14 + fonts.overlayWidth + fonts.overlayWidth, yy + (fonts.overlayHeight * 1.3), grey);
-                    }
-
-                    yy -= pad + pad;
-                    SkPaint tip_paint = opts.theme.lcBright;
-                    tip_paint.setAntiAlias(true);
-                    for (const auto &cmd : Menu::commandToolTip) {
-                        std::string cmd_s = cmd;
-                        if (!inputText.empty() && !Utils::startsWith(cmd_s, inputText)) {
-                            continue;
-                        }
-                        if (cmd_s == inputText) {
-                            break;
-                        }
-                        rect.setXYWH(x, yy - fonts.overlayHeight - pad, fonts.overlayWidth * 18, fonts.overlayHeight + pad + pad);
-                        canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, opts.theme.bgPaint);
-                        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(cmd, fonts.overlay);
-                        canvas->drawTextBlob(blob, x + (fonts.overlayWidth * 3), yy, opts.theme.tcDel);
-                        tip_paint.setStyle(SkPaint::kStrokeAndFill_Style);
-                        if (commandToolTipIndex >= 0 && Menu::commandToolTip[commandToolTipIndex] == cmd) {
-                            canvas->drawCircle(x + (fonts.overlayWidth), yy - (fonts.overlayHeight*0.5), 3, tip_paint);
-                        }
-                        tip_paint.setStyle(SkPaint::kStroke_Style);
-                        int cs_val = Menu::getCommandSwitchValue(opts, cmd_s, drawLine);
-                        if (cs_val == 1) {
-                            path.reset();
-                            path.moveTo(x + (2.*fonts.overlayWidth), yy - (fonts.overlayHeight*0.25));
-                            path.lineTo(x + (2.25*fonts.overlayWidth), yy);
-                            path.lineTo(x + (2.75*fonts.overlayWidth), yy - (fonts.overlayHeight*0.75));
-                            canvas->drawPath(path, tip_paint);
-                        }
-                        yy -= fonts.overlayHeight + pad;
-                        if (yy < covY) {
-                            break;
-                        }
-                    }
-                }
-            }
-        }
         bool current_view_is_images = (!variantTracks.empty() && variantTracks[variantFileSelection].type == HGW::TrackType::IMAGES);
         if (bams.empty() && !current_view_is_images && mode != SETTINGS) {
             float trackBoundary = fb_height - totalTabixY - refSpace;
@@ -1351,7 +1398,7 @@ namespace Manager {
         setScaling();
         canvas->drawPaint(opts.theme.bgPaint);
         for (auto &cl: collections) {
-            Drawing::drawCollection(opts, cl, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+            Drawing::drawCollection(opts, cl, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
         }
         if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
@@ -1416,10 +1463,10 @@ namespace Manager {
                 Utils::Region *reg = &regions[j];
                 if (opts.threads == 1) {
                     HGW::iterDraw(collections[idx], b, hdr_ptr, index, reg, (bool) opts.max_coverage,
-                                  filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop, textDrop, pH);
+                                  filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop, textDrop, pH, monitorScale);
                 } else {
                     HGW::iterDrawParallel(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool) opts.max_coverage,
-                                  filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool, pointSlop, textDrop, pH);
+                                  filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool, pointSlop, textDrop, pH, monitorScale);
                 }
                 idx += 1;
             }

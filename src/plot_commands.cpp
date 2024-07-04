@@ -230,6 +230,22 @@ namespace Commands {
         return Err::NONE;
     }
 
+    Err mods(Plot* p) {
+        p->opts.mod_threshold = (p->opts.mod_threshold == 0) ? std::stoi(p->opts.myIni["view_thresholds"]["mod"]) : 0;
+        if (p->mode == Manager::Show::SINGLE) {
+            p->processed = true;
+            for (auto &cl : p->collections) {
+                cl.skipDrawingReads = false;
+                cl.skipDrawingCoverage = false;
+            }
+        } else {
+            p->processed = false;
+        }
+        p->redraw = true;
+        p->imageCache.clear();
+        return Err::NONE;
+    }
+
     Err edges(Plot* p) {
         p->opts.edge_highlights = (p->opts.edge_highlights == 0) ? std::stoi(p->opts.myIni["view_thresholds"]["edge_highlights"]) : 0;
         if (p->mode == Manager::Show::SINGLE) {
@@ -728,6 +744,7 @@ namespace Commands {
                 if (res <= 0) {
                     return Err::CHROM_NOT_IN_REFERENCE;
                 } else {
+                    dummy_region.chromLength = faidx_seq_len(p->fai, dummy_region.chrom.c_str());
                     new_regions.push_back(dummy_region);
                     p->fetchRefSeq(new_regions.back());
                 }
@@ -1042,6 +1059,7 @@ namespace Commands {
             if (p->regions.empty()) {
                 p->regions.push_back(rgn);
                 p->fetchRefSeq(p->regions.back());
+                p->regions.back().chromLength = faidx_seq_len(p->fai, p->regions.back().chrom.c_str());
             } else {
                 if (p->regions[p->regionSelection].chrom == rgn.chrom) {
                     rgn.markerPos = p->regions[p->regionSelection].markerPos;
@@ -1049,6 +1067,7 @@ namespace Commands {
                 }
                 p->regions[p->regionSelection] = rgn;
                 p->fetchRefSeq(p->regions[p->regionSelection]);
+                p->regions[p->regionSelection].chromLength = faidx_seq_len(p->fai, p->regions[p->regionSelection].chrom.c_str());
             }
         } else {  // search all tracks for matching name, slow but ok for small tracks
             if (!p->tracks.empty()) {
@@ -1253,7 +1272,6 @@ namespace Commands {
     void run_command_map(Plot* p, std::string& command, std::ostream& out) {
 
         std::vector<std::string> parts = Utils::split(command, ' ');
-
         static std::unordered_map<std::string,
                                   std::function<Err(Plot*, std::string&, std::vector<std::string>&, std::ostream& out)>> functionMap = {
 
@@ -1269,8 +1287,9 @@ namespace Commands {
                 {"insertions",  PARAMS { return insertions(p); }},
                 {"mm",       PARAMS { return mismatches(p); }},
                 {"mismatches",  PARAMS { return mismatches(p); }},
+                {"mods",  PARAMS { return mods(p); }},
                 {"edges",    PARAMS { return edges(p); }},
-                {"soft_clips",  PARAMS { return soft_clips(p); }},
+                {"soft-clips",  PARAMS { return soft_clips(p); }},
                 {"log2-cov",  PARAMS { return log2_cov(p); }},
                 {"expand-tracks", PARAMS { return expand_tracks(p); }},
                 {"tlen-y",   PARAMS { return tlen_y(p); }},
@@ -1320,5 +1339,11 @@ namespace Commands {
         }
         save_command_or_handle_err(res, out, &p->commandsApplied, command);
         p->inputText = "";
+        if (p->redraw) {
+            for (auto &cl : p->collections) {  // todo use this inside commands, not here
+                cl.skipDrawingReads = false;
+                cl.skipDrawingCoverage = false;
+            }
+        }
     }
 }

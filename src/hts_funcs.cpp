@@ -348,7 +348,8 @@ namespace HGW {
                           BS::thread_pool &pool,
                           float pointSlop,
                           float textDrop,
-                          float pH) {
+                          float pH,
+                          float monitorScale) {
         const int BATCH = 1500;
         bam1_t *src;
         hts_itr_t *iter_q;
@@ -393,7 +394,7 @@ namespace HGW {
                 }
             }
             Segs::findY(col, readQueue, opts.link_op, opts, region, false);
-            Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+            Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
 
             for (int i=0; i < BATCH; ++ i) {
                 Segs::align_clear(&readQueue[i]);
@@ -417,7 +418,7 @@ namespace HGW {
                     }
                 }
                 Segs::findY(col, readQueue, opts.link_op, opts, region, false);
-                Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+                Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
                 for (int i=0; i < BATCH; ++ i) {
                     Segs::align_clear(&readQueue[i]);
                 }
@@ -430,7 +431,7 @@ namespace HGW {
                   bool coverage,
                   std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
                   float trackY, float yScaling, Themes::Fonts &fonts, float refSpace,
-                  float pointSlop, float textDrop, float pH) {
+                  float pointSlop, float textDrop, float pH, float monitorScale) {
 //        if (region->end == 0) {
 //            return;
 //        }
@@ -469,7 +470,7 @@ namespace HGW {
                 Segs::addToCovArray(col.covArr, readQueue.back(), region->start, region->end, l_arr);
             }
             Segs::findY(col, readQueue, opts.link_op, opts, region, false);
-            Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+            Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
             Segs::align_clear(&readQueue.back());
         }
     }

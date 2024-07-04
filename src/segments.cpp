@@ -271,45 +271,37 @@ namespace Segs {
         self->left_soft_clip = 0;
         self->right_soft_clip = 0;
 
-        uint32_t last_op = 0;
+        uint32_t seq_index = 0;
 
         self->any_ins.reserve(cigar_l);
-        self->block_starts.reserve(cigar_l);
-        self->block_ends.reserve(cigar_l);
+        self->blocks.reserve(cigar_l);
 
-//        uint32_t min_gap = 1000;  // todo THISSS
-//        uint32_t last_l = 0;
         for (k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
 
             switch (op) {
                 case BAM_CMATCH: case BAM_CEQUAL: case BAM_CDIFF:
-                    if (last_op == BAM_CINS ) { //|| (last_op == BAM_CDEL && last_l < min_gap)) {
-                        if (!self->block_ends.empty() ) {
-                            self->block_ends.back() = pos + l;
-                        }
-                    } else {
-                        self->block_starts.push_back(pos);
-                        self->block_ends.push_back(pos + l);
-                    }
+                    self->blocks.emplace_back() = {pos, pos+l, seq_index};
                     pos += l;
+                    seq_index += l;
                     break;
                 case BAM_CINS:
                     self->any_ins.push_back({pos, l});
+                    seq_index += l;
                     break;
                 case BAM_CDEL:
                     pos += l;
-//                    last_l = l;
                     break;
                 case BAM_CREF_SKIP:
                     op = BAM_CDEL;
                     pos += l;
-//                    last_l = l;
+                    seq_index += l;
                     break;
                 case BAM_CSOFT_CLIP:
                     if (k == 0) {
                         self->left_soft_clip = (int)l;
+                        seq_index += l;
                     } else {
                         self->right_soft_clip = (int)l;
                     }
@@ -319,9 +311,8 @@ namespace Segs {
                 default:  // Match case --> MATCH, EQUAL, DIFF
                     break;
             }
-            last_op = op;
         }
-        self->reference_end = self->block_ends.back();
+        self->reference_end = self->blocks.back().end;
         self->cov_start = (int)self->pos - self->left_soft_clip;
         self->cov_end = (int)self->reference_end + self->right_soft_clip;
 
@@ -332,23 +323,29 @@ namespace Segs {
         } else {
             self->has_SA = false;
         }
-        bool has_mods = (bam_aux_get(self->delegate, "MM") != nullptr || bam_aux_get(self->delegate, "Mm") != nullptr);
+        bool has_mods = (src->core.l_qseq > 0 && (bam_aux_get(self->delegate, "MM") != nullptr || bam_aux_get(self->delegate, "Mm") != nullptr));
         if (has_mods && parse_mods) {
             hts_base_mod_state * mod_state = hts_base_mod_state_alloc();
             int res = bam_parse_basemod(src, mod_state);
             if (res >= 0) {
                 hts_base_mod mods[10];
-                int pos = 0;
+                int pos = 0;  // position on read, not reference
                 int nm = bam_next_basemod(src, mod_state, mods, 10, &pos);
                 while (nm > 0) {
                 self->any_mods.emplace_back() = ModItem();
                 ModItem& mi = self->any_mods.back();
                 mi.index = pos;
-                for (size_t m=0; m < std::min(4, nm); ++m) {
-                    mi.mods[m] = (char)mods[m].modified_base;
-                    mi.quals[m] = (uint8_t)mods[m].qual;
-                    mi.strands[m] = (bool)mods[m].strand;
+                size_t j=0;
+                int thresh = 50;
+                for (size_t m=0; m < std::min((size_t)4, (size_t)nm); ++m) {
+                    if (mods[m].qual > thresh) {
+                        mi.mods[j] = (char)mods[m].modified_base;
+                        mi.quals[j] = (uint8_t)mods[m].qual;
+                        mi.strands[j] = (bool)mods[m].strand;
+                        j += 1;
+                    }
                 }
+                mi.n_mods = (uint8_t)j;
 //                std::cout << nm << " " << mods[0].modified_base
 //                << " " << mods[0].canonical_base
 //                << " " << mods[0].strand
@@ -358,6 +355,7 @@ namespace Segs {
                 }
 //                std::cout << std::endl;
             }
+            hts_base_mod_state_free(mod_state);
         }
 
 
@@ -392,8 +390,9 @@ namespace Segs {
     }
 
     void align_clear(Align *self) {
-        self->block_starts.clear();
-        self->block_ends.clear();
+//        self->block_starts.clear();
+//        self->block_ends.clear();
+        self->blocks.clear();
         self->any_ins.clear();
     }
 
@@ -444,11 +443,13 @@ namespace Segs {
     }
 
     void addToCovArray(std::vector<int> &arr, const Align &align, const uint32_t begin, const uint32_t end, const uint32_t l_arr) noexcept {
-        size_t n_blocks = align.block_starts.size();
+        size_t n_blocks = align.blocks.size();
+//        size_t n_blocks = align.block_starts.size();
         for (size_t idx=0; idx < n_blocks; ++idx) {
-            uint32_t block_s = align.block_starts[idx];
+//            uint32_t block_s = align.block_starts[idx];
+            uint32_t block_s = align.blocks[idx].start;
             if (block_s >= end) { break; }
-            uint32_t block_e = align.block_ends[idx];
+            uint32_t block_e = align.blocks[idx].end;
             if (block_e < begin) { continue; }
             uint32_t s = std::max(block_s, begin) - begin;
             uint32_t e = std::min(block_e, end) - begin;
@@ -610,13 +611,19 @@ namespace Segs {
         return samMaxY;
     }
 
-    constexpr char lookup_ref_base[256] = {
-            ['A'] = 1, ['a'] = 1,
-            ['C'] = 2, ['c'] = 2,
-            ['G'] = 4, ['g'] = 4,
-            ['T'] = 8, ['t'] = 8,
-            ['N'] = 15, ['n'] = 15, // All other entries default to 15
-    };
+    constexpr std::array<char, 256> make_lookup_ref_base() {
+        std::array<char, 256> a{};
+        for (auto& elem : a) {
+            elem = 15;  // Initialize all elements to 15
+        }
+        a['A'] = 1; a['a'] = 1;
+        a['C'] = 2; a['c'] = 2;
+        a['G'] = 4; a['g'] = 4;
+        a['T'] = 8; a['t'] = 8;
+        a['N'] = 15; a['n'] = 15;
+        return a;
+    }
+    constexpr std::array<char, 256> lookup_ref_base = make_lookup_ref_base();
 
     void update_A(Mismatches& elem) { elem.A += 1; }
     void update_C(Mismatches& elem) { elem.C += 1; }
@@ -644,6 +651,7 @@ namespace Segs {
             update_pass      // 15
     };
 
+    // used for drawing mismatches over coverage track
     void findMismatches(const Themes::IniOptions &opts, ReadCollection &collection) {
 
         std::vector<Segs::Mismatches> &mm_array = collection.mmVector;

@@ -33,12 +33,18 @@ namespace Segs {
 
 //    typedef int64_t hts_pos_t;
 
+    struct EXPORT ABlock {
+        uint32_t start, end; // on reference
+        uint32_t seq_index;
+    };
+
     struct EXPORT InsItem {
         uint32_t pos, length;
     };
 
     struct EXPORT ModItem {  // up to 4 modifications
         int index;
+        uint8_t n_mods;
         char mods[4];  // 0 is used to indicate no more mods
         uint8_t quals[4];
         bool strands[4];
@@ -74,8 +80,8 @@ namespace Segs {
         bam1_t *delegate;
         int cov_start, cov_end, orient_pattern, left_soft_clip, right_soft_clip, y, edge_type;
         uint32_t pos, reference_end;
-        bool has_SA; //, initialized;
-        std::vector<uint32_t> block_starts, block_ends;
+        bool has_SA;
+        std::vector<ABlock> blocks;
         std::vector<InsItem> any_ins;
         std::vector<ModItem> any_mods;
 

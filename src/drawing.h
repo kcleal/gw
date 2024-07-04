@@ -33,7 +33,7 @@ namespace Drawing {
                       SkCanvas *canvas, const Themes::Fonts &fonts, float covY, float refSpace);
 
     void drawCollection(const Themes::IniOptions &opts, Segs::ReadCollection &cl, SkCanvas* canvas,
-                  float trackY, float yScaling, const Themes::Fonts &fonts, int linkOp, float refSpace, float pointSlop, float textDrop, float pH);
+                  float trackY, float yScaling, const Themes::Fonts &fonts, int linkOp, float refSpace, float pointSlop, float textDrop, float pH, float monitorScale);
 
     void drawRef(const Themes::IniOptions &opts, std::vector<Utils::Region> &regions, int fb_width,
                  SkCanvas *canvas, const Themes::Fonts &fonts, float refSpace, float nRegions, float gap);

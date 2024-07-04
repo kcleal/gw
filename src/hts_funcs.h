@@ -111,13 +111,14 @@ namespace HGW {
                           BS::thread_pool &pool,
                           float pointSlop,
                           float textDrop,
-                          float pH);
+                          float pH,
+                          float monitorScale);
 
     void iterDraw(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                   hts_idx_t *index, Utils::Region *region,
                   bool coverage, std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
                   float trackY, float yScaling, Themes::Fonts &fonts, float refSpace,
-                  float pointSlop, float textDrop, float pH);
+                  float pointSlop, float textDrop, float pH, float monitorScale);
 
     void trimToRegion(Segs::ReadCollection &col, bool coverage, int snp_threshold);
 

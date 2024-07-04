@@ -367,6 +367,7 @@ namespace Themes {
         soft_clip_threshold = 20000;
         small_indel_threshold = 100000;
         snp_threshold = 1000000;
+        mod_threshold = 250000;
         edge_highlights = 100000;
         variant_distance = 100000;
         low_memory = 1500000;
@@ -470,6 +471,11 @@ namespace Themes {
         }
         if (myIni["view_thresholds"].has("low_memory")) {
             low_memory = std::stoi(myIni["view_thresholds"]["low_memory"]);
+        }
+        if (myIni["view_thresholds"].has("mod_threshold")) {
+            mod_threshold = std::stoi(myIni["view_thresholds"]["mod_threshold"]);
+        } else {
+            myIni["view_thresholds"]["mod"] = "1000000";
         }
 
         scroll_right = key_table[myIni["navigation"]["scroll_right"]];
@@ -757,7 +763,6 @@ namespace Themes {
         sub["theme"] = theme_str;
         sub["dimensions"] = std::to_string(dimensions.x) + "x" + std::to_string(dimensions.y);
 
-//        sub["indel_length"] = std::to_string(indel_length);
         sub["ylim"] = std::to_string(ylim);
         sub["coverage"] = (max_coverage) ? "true" : "false";
         sub["log2_cov"] = (log2_cov) ? "true" : "false";
@@ -773,6 +778,7 @@ namespace Themes {
         vt["soft_clip"] = std::to_string(soft_clip_threshold);
         vt["small_indel"] = std::to_string(small_indel_threshold);
         vt["snp"] = std::to_string(snp_threshold);
+        vt["mod"] = std::to_string(mod_threshold);
         vt["edge_highlights"] = std::to_string(edge_highlights);
 
         mINI::INIMap<std::string>& lb = seshIni["labelling"];
