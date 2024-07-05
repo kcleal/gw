@@ -325,35 +325,73 @@ namespace Term {
         }
     }
 
-    void printSeq(std::vector<Segs::Align>::iterator r, const char *refSeq, int refStart, int refEnd, int max, std::ostream& out) {
+    void printSeq(std::vector<Segs::Align>::iterator r, const char *refSeq, int refStart, int refEnd, int max, std::ostream& out, int pos, int indel_length=30) {
         auto l_seq = (int)r->delegate->core.l_qseq;
         if (l_seq == 0) {
             out << "*";
             return;
         }
-        uint32_t l, cigar_l, op, k;
+        uint32_t cigar_l, op, k;
+        int l;
         uint32_t *cigar_p;
         cigar_l = r->delegate->core.n_cigar;
         cigar_p = bam_get_cigar(r->delegate);
         uint8_t *ptr_seq = bam_get_seq(r->delegate);
         int i = 0;
         int p = r->pos;
+        bool started = false;
+        int printed = 0;
         for (k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
-            l = cigar_p[k] >> BAM_CIGAR_SHIFT;
-            if (i >= max || (int)l >= max) {
-                out << "...";
-                return;
-            }
+            l = (int)(cigar_p[k] >> BAM_CIGAR_SHIFT);
+
+            int block_end = p + l;
+
             if (op == BAM_CHARD_CLIP) {
                 continue;
             } else if (op == BAM_CDEL) {
-                for (int n=0; n < (int)l; ++n) {
-                    out << "-";
+                if (started || std::abs(pos - p) < max || std::abs(pos - block_end) < max) {
+                    started = true;
+                } else {
+                    p += l;
+                    continue;
+                }
+                started = true;
+                std::string str = std::to_string(l);
+                if (l > max) {
+                    for (int n = 0; n < 100; ++n) {
+                        out << "-";
+                    }
+                    out << str;
+                    for (int n = 0; n < 100; ++n) {
+                        out << "-";
+                    }
+                } else if (l < (int)str.size() + 6) {
+                    for (int n = 0; n < l; ++n) {
+                        out << "-";
+                    }
+                } else {
+                    int n_dash = ((l - (int)str.size()) / 2);
+                    for (int n = 0; n < n_dash; ++n) {
+                        out << "-";
+                    }
+                    out << str;
+                    for (int n = 0; n < n_dash; ++n) {
+                        out << "-";
+                    }
                 }
                 p += l;
+
             } else if (op == BAM_CMATCH) {
-                for (int n = 0; n < (int)l; ++n) {
+                if (std::abs(pos - p)  < max || std::abs(pos - block_end)) {
+                    started = true;
+                } else {
+                    p += l;
+                    i += l;
+                    continue;
+                }
+                printed += l;
+                for (int n = 0; n < l; ++n) {
                     uint8_t base = bam_seqi(ptr_seq, i);
                     bool mm = false;
                     if (p >= refStart && p < refEnd && refSeq != nullptr && std::toupper(refSeq[p - refStart]) != basemap[base]) {
@@ -400,8 +438,20 @@ namespace Term {
                     i += 1;
                     p += 1;
                 }
+                if (printed > max * 2) {
+                    out << "...";
+                    break;
+                }
 
             } else if (op == BAM_CEQUAL) {
+                if (std::abs(pos - p)  < max || std::abs(pos - block_end)) {
+                    started = true;
+                } else {
+                    p += l;
+                    i += l;
+                    continue;
+                }
+                printed += l;
                 for (int n = 0; n < (int)l; ++n) {
                     uint8_t base = bam_seqi(ptr_seq, i);
                     switch (basemap[base]) {
@@ -424,8 +474,25 @@ namespace Term {
                     i += 1;
                 }
                 p += l;
+                if (printed > max * 2) {
+                    out << "...";
+                    break;
+                }
 
-            } else if (op == BAM_CDIFF) {
+            } else if (started && (op == BAM_CDIFF || op == BAM_CINS)) {
+                if (std::abs(pos - p)  < max || std::abs(pos - block_end)) {
+                    started = true;
+                } else {
+                    if (op == BAM_CDIFF) {
+                        p += l;
+                    }
+                    i += l;
+                    continue;
+                }
+                printed += l;
+                if (op == BAM_CINS && l > indel_length) {
+                    out << termcolor::magenta << "[" << std::to_string(l) << "]" << termcolor::reset;
+                }
                 for (int n = 0; n < (int)l; ++n) {
                     uint8_t base = bam_seqi(ptr_seq, i);
                     switch (basemap[base]) {
@@ -447,10 +514,34 @@ namespace Term {
                     }
                     i += 1;
                 }
-                p += l;
+                if (op == BAM_CDIFF) {
+                    p += l;
+                }
+                if (op == BAM_CINS && printed > max * 2) {
+                    out << "...";
+                    break;
+                }
 
             } else {
-                for (int n=0; n < (int)l; ++n) {  // soft-clips
+                if (k == 0) {
+                    if (pos - p > max) {
+                        continue;
+                    } else {
+                        started = true;
+                    }
+                }
+                int n = 0;
+                int stop = l;
+                if (l > max) {
+                    if (k == 0) {
+                        n = (int)l - max;
+                        out << "...";
+                    } else {
+                        stop = max;
+                    }
+                }
+                i += n;
+                for (; n < stop; ++n) {  // soft-clips
                     uint8_t base = bam_seqi(ptr_seq, i);
                     switch (basemap[base]) {
                         case 65 : out << termcolor::green << "A" << termcolor::reset; break;
@@ -460,6 +551,9 @@ namespace Term {
                         case 84 : out << termcolor::red << "T" << termcolor::reset; break;
                     }
                     i += 1;
+                }
+                if (l > max && k > 0) {
+                    out << "...";
                 }
             }
         }
@@ -476,7 +570,7 @@ namespace Term {
         return;
     }
 
-    void printRead(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, const char *refSeq, int refStart, int refEnd, bool low_mem, std::ostream& out) {
+    void printRead(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, const char *refSeq, int refStart, int refEnd, bool low_mem, std::ostream& out, int pos) {
         const char *rname = sam_hdr_tid2name(hdr, r->delegate->core.tid);
         const char *rnext = sam_hdr_tid2name(hdr, r->delegate->core.mtid);
         out << std::endl << std::endl;
@@ -488,7 +582,7 @@ namespace Term {
         out << termcolor::bold << "flag     " << termcolor::reset << r->delegate->core.flag << std::endl;
         out << termcolor::bold << "mapq     " << termcolor::reset << (int)r->delegate->core.qual << std::endl;
         out << termcolor::bold << "cigar    " << termcolor::reset; printCigar(r, out); out << std::endl;
-        out << termcolor::bold << "seq      " << termcolor::reset; printSeq(r, refSeq, refStart, refEnd, 500, out); out << std::endl << std::endl;
+        out << termcolor::bold << "seq      " << termcolor::reset; printSeq(r, refSeq, refStart, refEnd, 500, out, pos); out << std::endl << std::endl;
 
         read2sam(r, hdr, sam, low_mem, out);
     }

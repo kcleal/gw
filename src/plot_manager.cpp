@@ -910,7 +910,7 @@ namespace Manager {
                                                   pointSlop, textDrop, pH, monitorScale);
                         }
                     } else {
-                        std::cout << " full draw\n";
+//                        std::cout << " full draw\n";
                         Drawing::drawCollection(opts, cl, canvasR, trackY, yScaling, fonts, opts.link_op, refSpace,
                                                 pointSlop, textDrop, pH, monitorScale);
                     }
@@ -918,7 +918,7 @@ namespace Manager {
                 canvasR->restore();
 
             }
-            std::cout << " done draw\n";
+//            std::cout << " done draw\n";
             if (opts.max_coverage) {
                 Drawing::drawCoverage(opts, collections, canvasR, fonts, covY, refSpace);
             }

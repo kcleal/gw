@@ -1097,33 +1097,7 @@ namespace Drawing {
                 }
             }
 
-            // add insertions
-            if (!a.any_ins.empty()) {
-                for (auto &ins: a.any_ins) {
-                    float p = (ins.pos - regionBegin) * xScaling;
-                    if (0 <= p && p < regionPixels) {
-                        std::sprintf(indelChars, "%d", ins.length);
-                        size_t sl = strlen(indelChars);
-                        textW = fonts.textWidths[sl - 1];
-                        if (ins.length > (uint32_t) opts.indel_length) {
-                            if (regionLen < 500000 && indelTextFits) {  // line and text
-                                drawIns(canvas, Y, p, yScaling, xOffset, yOffset, textW, theme.insS,
-                                        theme.fcIns, path, rect, pH, monitorScale);
-                                text_ins.emplace_back() = {SkTextBlob::MakeFromString(indelChars, fonts.overlay),
-                                                           (float)(p - (textW * 0.5) + xOffset - 2),
-                                                           ((Y + polygonHeight) * yScaling) + yOffset - textDrop};
 
-                            } else {  // line only
-                                drawIns(canvas, Y, p, yScaling, xOffset, yOffset, xScaling, theme.insS,
-                                        theme.fcIns, path, rect, pH, monitorScale);
-                            }
-                        } else if (regionLen < 100000 && regionLen < opts.small_indel_threshold) {  // line only
-                            drawIns(canvas, Y, p, yScaling, xOffset, yOffset, xScaling, theme.insS,
-                                    theme.fcIns, path, rect, pH, monitorScale);
-                        }
-                    }
-                }
-            }
 
             // add mismatches
 //            if (regionLen > opts.snp_threshold && plotSoftClipAsBlock) {
@@ -1153,6 +1127,34 @@ namespace Drawing {
             if (opts.parse_mods && regionLen <= opts.mod_threshold) {
                 drawMods(canvas, rect, theme, cl.region, a, (float) width, xScaling, xOffset, mmPosOffset,
                          yScaledOffset, pH, l_qseq, monitorScale);
+            }
+
+            // add insertions
+            if (!a.any_ins.empty()) {
+                for (auto &ins: a.any_ins) {
+                    float p = (ins.pos - regionBegin) * xScaling;
+                    if (0 <= p && p < regionPixels) {
+                        std::sprintf(indelChars, "%d", ins.length);
+                        size_t sl = strlen(indelChars);
+                        textW = fonts.textWidths[sl - 1];
+                        if (ins.length > (uint32_t) opts.indel_length) {
+                            if (regionLen < 500000 && indelTextFits) {  // line and text
+                                drawIns(canvas, Y, p, yScaling, xOffset, yOffset, textW, theme.insS,
+                                        theme.fcIns, path, rect, pH, monitorScale);
+                                text_ins.emplace_back() = {SkTextBlob::MakeFromString(indelChars, fonts.overlay),
+                                                           (float)(p - (textW * 0.5) + xOffset - 2),
+                                                           ((Y + polygonHeight) * yScaling) + yOffset - textDrop};
+
+                            } else {  // line only
+                                drawIns(canvas, Y, p, yScaling, xOffset, yOffset, xScaling, theme.insS,
+                                        theme.fcIns, path, rect, pH, monitorScale);
+                            }
+                        } else if (regionLen < 100000 && regionLen < opts.small_indel_threshold) {  // line only
+                            drawIns(canvas, Y, p, yScaling, xOffset, yOffset, xScaling, theme.insS,
+                                    theme.fcIns, path, rect, pH, monitorScale);
+                        }
+                    }
+                }
             }
 
             // add soft-clips

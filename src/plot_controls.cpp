@@ -1334,7 +1334,7 @@ namespace Manager {
                             } else {
                                 bnd->edge_type = 4;
                                 target_qname = bam_get_qname(bnd->delegate);
-                                Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_memory, out);
+                                Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_memory, out, pos);
                             }
                             redraw = true;
                             processed = true;
@@ -1356,7 +1356,7 @@ namespace Manager {
                             } else {
                                 bnd->edge_type = 4;
                                 target_qname = bam_get_qname(bnd->delegate);
-                                Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_memory, out);
+                                Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_memory, out, pos);
                             }
                             redraw = true;
                             processed = true;
