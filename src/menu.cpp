@@ -305,7 +305,8 @@ namespace Menu {
             else if (opts.menu_level == "small_indel") { tip = "The distance in base-pairs when small indels become visible"; }
             else if (opts.menu_level == "snp") { tip = "The distance in base-pairs when snps become visible"; }
             else if (opts.menu_level == "edge_highlights") { tip = "The distance in base-pairs when edge-highlights become visible"; }
-            else if (opts.menu_level == "low_memory") { tip = "The distance in base-pairs when using low-memory mode (reads are not buffered)"; }
+            else if (opts.menu_level == "low_memory") { tip = "The distance in base-pairs when using low-memory mode (reads are not buffered in this mode)"; }
+            else if (opts.menu_level == "mods") { tip = "Display modified bases"; }
             else if (opts.menu_level == "scroll_right") { tip = "Keyboard key to use for scrolling right"; }
             else if (opts.menu_level == "scroll_left") { tip = "Keyboard key to use for scrolling left"; }
             else if (opts.menu_level == "scroll_down") { tip = "Keyboard key to use for scrolling down"; }
@@ -680,12 +681,13 @@ namespace Menu {
         for (const auto& v : {"scroll_speed", "tabix_track_height"}) {
             option_map[v] = Float;
         }
-        for (const auto& v : {"coverage", "log2_cov", "expand_tracks", "vcf_as_tracks", "sv_arcs"}) {
+        for (const auto& v : {"coverage", "log2_cov", "expand_tracks", "vcf_as_tracks", "sv_arcs", "mods"}) {
             option_map[v] = Bool;
         }
         for (const auto& v : {"scroll_right", "scroll_left", "zoom_out", "zoom_in", "scroll_down", "scroll_up", "cycle_link_mode", "print_screen", "find_alignments", "delete_labels", "enter_interactive_mode"}) {
             option_map[v] = KeyboardKey;
         }
+        std::cout << " hi " << name << " " << value << std::endl;
         option_map["font"] = String;
         if (mt == Themes::MenuTable::GENOMES) {
             return Option(name, Path, value, mt);
@@ -754,6 +756,7 @@ namespace Menu {
         else if (new_opt.name == "vcf_as_tracks") { opts.vcf_as_tracks = v; }
         else if (new_opt.name == "coverage") { opts.max_coverage = (v) ? 1410065408 : 0; }
         else if (new_opt.name == "sv_arcs") { opts.sv_arcs = v; }
+        else if (new_opt.name == "mods") { opts.parse_mods = v; }
         else { return; }
         opts.myIni[new_opt.table][new_opt.name] = (v) ? "true" : "false";
     }
@@ -884,8 +887,6 @@ namespace Menu {
             return (int)(opts.log2_cov);
         } else if (cmd_s == "expand-tracks") {
             return (int)(opts.expand_tracks);
-//        } else if (cmd_s == "low-mem") {
-//            return (int)(opts.low_mem);
         } else if (cmd_s == "line") {
             return (int)drawLine;
         } else if (cmd_s == "insertions") {
@@ -894,6 +895,8 @@ namespace Menu {
             return (int)(opts.edge_highlights > 0);
         } else if (cmd_s == "cov") {
             return (int)(opts.max_coverage > 0);
+        } else if (cmd_s == "mods") {
+            return (int)(opts.parse_mods);
         }
         return -1;
     }

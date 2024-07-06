@@ -136,17 +136,12 @@ namespace Themes {
         lcLabel.setStrokeWidth(1);
         lcLabel.setAntiAlias(true);
 
-//            lcBright.setStyle(SkPaint::kStrokeAndFill_Style);
         lcBright.setStyle(SkPaint::kStroke_Style);
         lcBright.setStrokeWidth(2);
         lcBright.setAntiAlias(true);
 
         insF = fcIns;
         insF.setStyle(SkPaint::kFill_Style);
-
-        insS = fcIns;
-        insS.setStyle(SkPaint::kStroke_Style);
-        insS.setStrokeWidth(4);
 
         fcMarkers.setStyle(SkPaint::kStrokeAndFill_Style);
         fcMarkers.setAntiAlias(true);
@@ -239,6 +234,7 @@ namespace Themes {
         fcCoverage.setARGB(255, 195, 195, 195);
         fcTrack.setARGB(200, 0, 0, 0);
         bgPaint.setARGB(255, 255, 255, 255);
+        bgMenu.setARGB(255, 250, 250, 250);
         fcNormal.setARGB(255, 202, 202, 202);
         fcDel.setARGB(255, 225, 19, 67);
         fcDup.setARGB(255, 0, 54, 205);
@@ -247,7 +243,6 @@ namespace Themes {
         fcTra.setARGB(255, 255, 105, 180);
         fcSoftClip.setARGB(255, 0, 128, 128);
         fcA.setARGB(255, 109, 230, 64);
-//        fcT.setARGB(255, 215, 0, 0);
         fcT.setARGB(255, 255, 0, 107);
         fcC.setARGB(255, 66, 127, 255);
         fcG.setARGB(255, 235, 150, 23);
@@ -274,7 +269,7 @@ namespace Themes {
         fcCoverage.setARGB(255, 95, 95, 105);
         fcTrack.setARGB(200, 227, 232, 255);
         bgPaint.setARGB(255, 10, 10, 20);
-//        bgPaint.setARGB(255, 0, 0, 0);
+        bgMenu.setARGB(255, 20, 20, 30);
         fcNormal.setARGB(255, 90, 90, 95);
         fcDel.setARGB(255, 185, 25, 25);
         fcDup.setARGB(255, 24, 100, 198);
@@ -283,8 +278,6 @@ namespace Themes {
         fcTra.setARGB(255, 225, 185, 185);
         fcSoftClip.setARGB(255, 0, 128, 128);
         fcA.setARGB(255, 106, 186, 79);
-//        fcT.setARGB(255, 201, 49, 24);
-//        fcA.setARGB(255, 105, 213, 92);
         fcT.setARGB(255, 232, 55, 99);
         fcC.setARGB(255, 77, 125, 245);
         fcG.setARGB(255, 226, 132, 19);
@@ -311,9 +304,9 @@ namespace Themes {
         fcCoverage.setARGB(255, 103, 102, 109);
         fcTrack.setARGB(200, 227, 232, 255);
         bgPaint.setARGB(255, 45, 45, 48);
+        bgMenu.setARGB(255, 0, 0, 0);
         fcNormal.setARGB(255, 93, 92, 99);
         fcDel.setARGB(255, 185, 25, 25);
-//        fcIns.setARGB(255, 225, 235, 245);
         fcIns.setARGB(255, 128, 91, 240);
         fcDup.setARGB(255, 24, 100, 198);
         fcInvF.setARGB(255, 49, 167, 118);
@@ -455,8 +448,8 @@ namespace Themes {
         if (myIni["general"].has("sv_arcs")) {
             sv_arcs = myIni["general"]["sv_arcs"] == "true";
         }
-        if (myIni["general"].has("show_mods")) {
-            parse_mods = myIni["general"]["show_mods"] == "true";
+        if (myIni["general"].has("mods")) {
+            parse_mods = myIni["general"]["mods"] == "true";
         }
         if (myIni["general"].has("session_file")) {
             session_file = myIni["general"]["session_file"];
@@ -684,15 +677,17 @@ namespace Themes {
 
     void IniOptions::saveIniChanges() {
         mINI::INIFile file(ini_path);
-        file.write(myIni);
+        file.generate(myIni);
     }
 
-    void IniOptions::saveCurrentSession(std::string& genome_path, std::vector<std::string>& bam_paths,
+    void IniOptions::saveCurrentSession(std::string& genome_path, std::string& ideogram_path, std::vector<std::string>& bam_paths,
                                         std::vector<std::string>& track_paths, std::vector<Utils::Region>& regions,
                                         std::vector<std::pair<std::string, int>>& variant_paths_info,
                                         std::vector<std::string>& commands, std::string output_session,
                                         int mode, int window_x_pos, int window_y_pos, float monitorScale) {
+        std::cout << output_session << " , " << session_file << " saving session \n";
         if (output_session.empty()) {
+
             if (session_file.empty()) {  // fill new session
                 std::filesystem::path gwini(ini_path);
                 std::filesystem::path sesh(".gw_session.ini");
@@ -703,9 +698,13 @@ namespace Themes {
             output_session = myIni["general"]["session_file"];
         }
         mINI::INIFile file(output_session);
-
+//        seshIni["data"].clear();
+        seshIni.clear();
         seshIni["data"]["genome_tag"] = genome_tag;
         seshIni["data"]["genome_path"] = genome_path;
+        if (!ideogram_path.empty()) {
+            seshIni["data"]["ideogram_path"] = ideogram_path;
+        }
         int count = 0;
         for (const auto& item : bam_paths) {
             seshIni["data"]["bam" + std::to_string(count)] = item;
@@ -713,6 +712,7 @@ namespace Themes {
         }
         count = 0;
         for (const auto& item : track_paths) {
+            std::cout << " track " << std::endl;
             seshIni["data"]["track" + std::to_string(count)] = item;
             count += 1;
         }
@@ -737,7 +737,7 @@ namespace Themes {
         seshIni["show"]["window_position"] = std::to_string(window_x_pos) + "x" + std::to_string(window_y_pos);
         count = 0;
         size_t last_refresh = 0;
-        std::vector<std::string> keep = {"egdes", "expand-tracks", "soft-clips", "sc", "mm", "mismatches", "ins", "insertions"};
+        std::vector<std::string> keep = {"egdes", "expand-tracks", "soft-clips", "sc", "mm", "mismatches", "ins", "insertions", "mods"};
         for (auto& item: commands) {
             for (const auto& k: keep) {
                 if (Utils::startsWith(item, k)) {
@@ -767,6 +767,7 @@ namespace Themes {
         sub["coverage"] = (max_coverage) ? "true" : "false";
         sub["log2_cov"] = (log2_cov) ? "true" : "false";
         sub["expand_tracks"] = (expand_tracks) ? "true" : "false";
+        sub["mods"] = (parse_mods) ? "true" : "false";
         sub["link"] = link;
         sub["split_view_size"] = std::to_string(split_view_size);
         sub["pad"] = std::to_string(pad);
@@ -873,13 +874,16 @@ namespace Themes {
         std::cout << "};\n\n";
     }
 
-    void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Band>> &ideogram) {
+    void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Band>> &ideogram,
+                          Themes::BaseTheme &theme) {
         std::ifstream band_file(file_path);
         if (!band_file) {
             throw std::runtime_error("Failed to open input files");
         }
         std::unordered_map<std::string, Band> custom;
         std::string line, token, chrom, name, property;
+        int acen = theme.fcT.getColor();
+        int gvar = theme.fcC.getColor();
         while (std::getline(band_file, line)) {
             std::istringstream iss(line);
             if (line[0] == '#') {
@@ -916,9 +920,9 @@ namespace Themes {
             } else if (property == "gpos100") {
                 ideogram[chrom].emplace_back() = {start, end, 255, 60, 60, 60, {}, name};
             } else if (property == "acen") {
-                ideogram[chrom].emplace_back() = {start, end, 255, 220, 10, 10, {}, name};
+                ideogram[chrom].emplace_back() = {start, end, 255, SkColorGetR(acen), SkColorGetG(acen), SkColorGetB(acen), {}, name};
             } else if (property == "gvar") {
-                ideogram[chrom].emplace_back() = {start, end, 255, 10, 10, 220, {}, name};
+                ideogram[chrom].emplace_back() = {start, end, 255, SkColorGetR(gvar), SkColorGetG(gvar), SkColorGetB(gvar), {}, name};
             } else if (custom.find(name) != custom.end()) {
                 Band cust = custom[name];
                 cust.start = start;
@@ -933,8 +937,7 @@ namespace Themes {
                     } catch (...) {
 
                     }
-                }
-                else {
+                } else {
                     ideogram[chrom].emplace_back() = {start, end, 255, 85, 171, 159, {}, name};
                 }
             } else {

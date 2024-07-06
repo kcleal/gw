@@ -310,14 +310,14 @@ int main(int argc, char *argv[]) {
             vals.push_back(rg); //rg.second);
             i += 1;
         }
-        if (i == 0 && !have_session_file) {
+        if (i == 0 && !have_session_file && !std::filesystem::exists(iopts.session_file)) {
             std::cerr << "No genomes listed, finishing\n";
             std::exit(0);
         }
 
         user_prompt:
 
-        if (have_session_file) {
+        if (have_session_file && std::filesystem::exists(iopts.session_file)) {
             std::cout << "\nPress ENTER to load previous session or input a genome number: " << std::flush;
         } else {
             std::cout << "\nEnter genome number: " << std::flush;
@@ -330,6 +330,7 @@ int main(int argc, char *argv[]) {
             std::exit(0);
         }
         if (user_input.empty()) {
+            have_session_file = std::filesystem::exists(iopts.session_file);
             if (have_session_file) {
                 use_session = true;
             } else {

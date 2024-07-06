@@ -35,6 +35,22 @@
 #include "themes.h"
 
 
+/* Notes for adding new commands:
+ * 1. Make a new function, accepting a pointer to a GwPlot instance and any other args
+ * 2. Add function to run_command_map below
+ * 3. Add documentation in term_out.cpp - quick help text as well as a manual
+ * 4. Register command in the menu functions:
+ *     register with optionFromStr fucntion
+ *     add to relevant functions
+ *         getCommandSwitchValue applyBoolOption, applyKeyboardKeyOption etc
+ *     add a tool tip in drawMenu
+ *     if the function should be in the pop-up menu, add to commandToolTip in menu.h
+ *     if the function should be applied straight away add to exec in menu.h
+ * 5. Optionally add a setting to .gw.ini
+ * 6. If new option should be saved in a session add it to saveCurrentSession in themes.cpp
+ *    Loading from a session should also be detailed in loadSession in plot_manager.cpp
+*/
+
 namespace Commands {
 
     enum Err {
@@ -231,7 +247,8 @@ namespace Commands {
     }
 
     Err mods(Plot* p) {
-        p->opts.mod_threshold = (p->opts.mod_threshold == 0) ? std::stoi(p->opts.myIni["view_thresholds"]["mod"]) : 0;
+        p->opts.parse_mods = !(p->opts.parse_mods);
+//        p->opts.mod_threshold = (p->opts.mod_threshold == 0) ? std::stoi(p->opts.myIni["view_thresholds"]["mod"]) : 0;
         if (p->mode == Manager::Show::SINGLE) {
             p->processed = true;
             for (auto &cl : p->collections) {
@@ -1112,6 +1129,7 @@ namespace Commands {
         Themes::GwPaint e;
         std::string &c = parts[1];
         if (c == "bgPaint") { e = Themes::GwPaint::bgPaint; }
+        else if (c == "bgMenu") { e = Themes::GwPaint::bgMenu; }
         else if (c == "fcNormal") { e = Themes::GwPaint::fcNormal; }
         else if (c == "fcDel") { e = Themes::GwPaint::fcDel; }
         else if (c == "fcDup") { e = Themes::GwPaint::fcDup; }

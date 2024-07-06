@@ -37,6 +37,13 @@ namespace Drawing {
         float x, y;
     };
 
+    struct TextItemIns{
+        sk_sp<SkTextBlob> text;
+        float x, y;
+//        float box_x, box_y;
+        float box_y, box_w;
+    };
+
     void drawCoverage(const Themes::IniOptions &opts, std::vector<Segs::ReadCollection> &collections,
                       SkCanvas *canvas, const Themes::Fonts &fonts, const float covYh, const float refSpace) {
 
@@ -421,29 +428,21 @@ namespace Drawing {
 
     inline void
     drawIns(SkCanvas *canvas, float y0, float start, float yScaling, float xOffset,
-                 float yOffset, float textW, const SkPaint &sidesColor, const SkPaint &faceColor, SkPath &path,
-                 SkRect &rect, float pH, float overhang) {
+            float yOffset, const SkPaint &faceColor, SkRect &rect, float pH, float overhang, float width) {
+
         float x = start + xOffset;
         float y = y0 * yScaling;
-        float text_half = textW * 0.5;
-        float box_left = x - text_half - overhang;
-        float box_w = textW + overhang;
-        rect.setXYWH(box_left, y + yOffset, textW + overhang, pH);
-        canvas->drawRect(rect, faceColor);
+        float box_left = x - (width * 0.5);
 
-        rect.setXYWH(box_left - overhang, yOffset + y, box_w + overhang + overhang, overhang);//pH * 0.2);
-        canvas->drawRect(rect, faceColor);
+        rect.setXYWH(box_left, y + yOffset, width, pH);
+        canvas->drawRect(rect, faceColor);  // middle bar
 
-        rect.setXYWH(box_left - overhang, yOffset + y + pH - overhang, box_w + overhang + overhang, overhang);//pH * 0.2);
-        canvas->drawRect(rect, faceColor);
-//        path.reset();
-//        path.moveTo(x - text_half - overhang, yOffset + y + pH_05);
-//        path.lineTo(x + text_half + overhang, yOffset + y + pH_05);
-//        path.moveTo(x - text_half - overhang, yOffset + y + pH_95);
-//        path.lineTo(x + text_half + overhang, yOffset + y + pH_95);
-//        path.moveTo(x, yOffset + y);
-//        path.lineTo(x, yOffset + y + pH);
-//        canvas->drawPath(path, sidesColor);
+        rect.setXYWH(box_left - overhang, yOffset + y, overhang + width + overhang, overhang);
+        canvas->drawRect(rect, faceColor);  // top bar
+
+        rect.setXYWH(box_left - overhang, yOffset + y + pH - overhang, overhang + width + overhang, overhang);
+        canvas->drawRect(rect, faceColor);  // bottom bar
+
     }
 
     constexpr std::array<char, 256> make_lookup_ref_base() {
@@ -693,7 +692,7 @@ namespace Drawing {
 
     void drawBlock(bool plotPointedPolygons, bool pointLeft, bool edged, float s, float e, float width,
                    float pointSlop, float pH, float yScaledOffset, float xOffset, float regionPixels,
-                   size_t idx, size_t nBlocks, int regionLen,
+                   size_t nBlocks, int regionLen,
                    const Segs::Align &a, SkCanvas *canvas, SkPath &path, SkRect &rect, SkPaint &faceColor,
                    SkPaint &edgeColor) {
 
@@ -714,7 +713,7 @@ namespace Drawing {
 
     void drawDeletionLine(const Segs::Align &a, SkCanvas *canvas, SkPath &path, const Themes::IniOptions &opts,
                           const Themes::Fonts &fonts,
-                          int regionBegin, size_t idx, int Y, int regionLen, int starti, int lastEndi,
+                          int regionBegin, int Y, int regionLen, int starti, int lastEndi,
                           float regionPixels, float xScaling, float yScaling, float xOffset, float yOffset,
                           float textDrop, std::vector<TextItem> &text, bool indelTextFits) {
 
@@ -840,7 +839,8 @@ namespace Drawing {
         SkPath path;
         const Themes::BaseTheme &theme = opts.theme;
 
-        static std::vector<TextItem> text_ins, text_del;
+        static std::vector<TextItemIns> text_ins;
+        static std::vector<TextItem> text_del;
         text_ins.clear();
         text_del.clear();
 
@@ -852,6 +852,9 @@ namespace Drawing {
         float xOffset = cl.xOffset;
         float yOffset = cl.yOffset;
         float regionPixels = cl.regionPixels;
+
+        float ins_block_h = std::fmin(pH * 0.3, monitorScale * 2);
+        float ins_block_w = std::fmax(ins_block_h, xScaling * 0.5);
 
         int min_gap_size = 1 + (1 / (cl.regionPixels / regionLen));
 
@@ -906,7 +909,7 @@ namespace Drawing {
                         e = (double)a.blocks[idx - 1].end - regionBegin;
                         width = (e - s) * xScaling;
                         drawBlock(plotPointedPolygons, pointLeft, edged, (float) s * xScaling, (float) e, (float) width,
-                                  pointSlop, pH, yScaledOffset, xOffset, regionPixels, idx, nBlocks, regionLen,
+                                  pointSlop, pH, yScaledOffset, xOffset, regionPixels, nBlocks, regionLen,
                                   a, canvas, path, rect, faceColor, edgeColor);
                         idx_begin = idx;
                     }
@@ -915,7 +918,7 @@ namespace Drawing {
                 e = (double)a.blocks[idx - 1].end - regionBegin;
                 width = (e - s) * xScaling;
                 drawBlock(plotPointedPolygons, pointLeft, edged, (float) s * xScaling, (float) e, (float) width,
-                          pointSlop, pH, yScaledOffset, xOffset, regionPixels, idx, nBlocks, regionLen,
+                          pointSlop, pH, yScaledOffset, xOffset, regionPixels, nBlocks, regionLen,
                           a, canvas, path, rect, faceColor, edgeColor);
                 idx_begin = idx;
 
@@ -929,7 +932,7 @@ namespace Drawing {
                     }
                     if (lastEnd <= regionEnd && regionBegin <= starti) {
                         drawDeletionLine(a, canvas, path, opts, fonts,
-                                         regionBegin, idx, Y, regionLen, starti, lastEnd,
+                                         regionBegin, Y, regionLen, starti, lastEnd,
                                          regionPixels, xScaling, yScaling, xOffset, yOffset,
                                          textDrop, text_del, indelTextFits);
                     }
@@ -940,104 +943,10 @@ namespace Drawing {
                 e = (double)a.blocks[0].end - regionBegin;
                 width = (e - s) * xScaling;
                 drawBlock(plotPointedPolygons, pointLeft, edged, (float) s * xScaling, (float) e, (float) width,
-                          pointSlop, pH, yScaledOffset, xOffset, regionPixels, idx, nBlocks, regionLen,
+                          pointSlop, pH, yScaledOffset, xOffset, regionPixels, nBlocks, regionLen,
                           a, canvas, path, rect, faceColor, edgeColor);
             }
 
-            // draw blocks
-//            idx = 0;
-//            size_t from = 0;
-//            for (; idx < nBlocks; ++idx) {
-//                if (idx > 0 && (a.blocks[idx].start - a.blocks[idx - 1].end < min_block_width)) {
-//                    continue;
-//                }
-//
-//                if (a.blocks[idx].end - a.blocks[idx].start < min_block_width) {
-//                    continue;
-//                }
-//                s = (double)a.blocks[from].start - regionBegin;
-//                e = (double)a.blocks[idx].end - regionBegin;
-//
-//                s = (s < 0) ? 0 : s;
-//                e = (e > regionLen) ? regionLen : e;
-//                width = (e - s) * xScaling;
-//
-//                drawBlock(plotPointedPolygons, pointLeft, edged, (float) s * xScaling, (float) e, (float) width,
-//                          pointSlop, pH, yScaledOffset, xOffset, regionPixels, idx, nBlocks, regionLen,
-//                          a, canvas, path, rect, faceColor, edgeColor);
-//
-//                from = idx;
-//            }
-//            if (from < nBlocks-1) {
-//                s = (double)a.blocks[from].start - regionBegin;
-//                e = (double)a.blocks.back().end - regionBegin;
-//                s = (s < 0) ? 0 : s;
-//                e = (e > regionLen) ? regionLen : e;
-//                width = (e - s) * xScaling;
-//                drawBlock(plotPointedPolygons, pointLeft, edged, (float) s * xScaling, (float) e, (float) width,
-//                          pointSlop, pH, yScaledOffset, xOffset, regionPixels, idx, nBlocks, regionLen,
-//                          a, canvas, path, rect, faceColor, edgeColor);
-//            }
-
-
-//
-//
-//            size_t extend_from = 0;
-//
-//            idx = 0;
-//            for (; idx < nBlocks; ++idx) {
-//
-//                // add lines and text between gaps
-////                if (idx > 0 && lastEnd != starti) {
-////                    drawDeletionLine(a, canvas, path, opts, fonts,
-////                                     regionBegin, idx, Y, regionLen, starti, lastEnd,
-////                                     regionPixels, xScaling, yScaling, xOffset, yOffset,
-////                                     textDrop, text_del, indelTextFits);
-////                }
-//
-//
-//
-//                starti = (int) a.blocks[idx].start;
-//
-//                if (idx > 0) {
-//                    lastEnd = (int) a.blocks[idx - 1].end;
-//                }
-//
-//                if (starti > regionEnd) {
-//                    break;
-//                }
-//
-//                if (starti > regionEnd) {
-//                    if (lastEnd < regionEnd) {
-//                        line_only = true;
-//                    } else {
-//                        break;
-//                    }
-//                } else {
-//                    line_only = false;
-//                }
-//
-//                e = (double) a.blocks[idx].end;
-//
-//                if (e < regionBegin) { continue; }
-//                s = starti - regionBegin;
-//                e -= regionBegin;
-//                s = (s < 0) ? 0 : s;
-//                e = (e > regionLen) ? regionLen : e;
-//                width = (e - s) * xScaling;
-//
-//                if (!line_only && width > min_block_width) {
-//
-//
-//                    drawBlock(plotPointedPolygons, pointLeft, edged, (float) s * xScaling, (float) e, (float) width,
-//                              pointSlop, pH, yScaledOffset, xOffset, regionPixels, idx, nBlocks, regionLen,
-//                              a, canvas, path, rect, faceColor, edgeColor);
-//
-//
-//
-//                }
-//
-//            }
             // add soft-clip blocks
             int start = (int) a.pos - regionBegin;
             int end = (int) a.reference_end - regionBegin;
@@ -1139,19 +1048,20 @@ namespace Drawing {
                         textW = fonts.textWidths[sl - 1];
                         if (ins.length > (uint32_t) opts.indel_length) {
                             if (regionLen < 500000 && indelTextFits) {  // line and text
-                                drawIns(canvas, Y, p, yScaling, xOffset, yOffset, textW, theme.insS,
-                                        theme.fcIns, path, rect, pH, monitorScale);
+                                // float yScaledOffset = (Y * yScaling) + yOffset;
                                 text_ins.emplace_back() = {SkTextBlob::MakeFromString(indelChars, fonts.overlay),
-                                                           (float)(p - (textW * 0.5) + xOffset - 2),
-                                                           ((Y + polygonHeight) * yScaling) + yOffset - textDrop};
+                                                           (float)(p - (textW * 0.5) + xOffset - monitorScale),
+                                                           yScaledOffset + polygonHeight - textDrop,
+                                                           //((Y + polygonHeight) * yScaling) + yOffset - textDrop,
+                                                           yScaledOffset,
+                                                           std::fmax((float)textW + monitorScale + monitorScale, ins_block_w)};
+
 
                             } else {  // line only
-                                drawIns(canvas, Y, p, yScaling, xOffset, yOffset, xScaling, theme.insS,
-                                        theme.fcIns, path, rect, pH, monitorScale);
+                                drawIns(canvas, Y, p, yScaling, xOffset, yOffset, theme.fcIns, rect, pH, ins_block_h, ins_block_w);
                             }
-                        } else if (regionLen < 100000 && regionLen < opts.small_indel_threshold) {  // line only
-                            drawIns(canvas, Y, p, yScaling, xOffset, yOffset, xScaling, theme.insS,
-                                    theme.fcIns, path, rect, pH, monitorScale);
+                        } else if (regionLen < opts.small_indel_threshold) {  // line only
+                            drawIns(canvas, Y, p, yScaling, xOffset, yOffset, theme.fcIns,rect, pH, ins_block_h, ins_block_w);
                         }
                     }
                 }
@@ -1194,13 +1104,16 @@ namespace Drawing {
 
         // draw text last
         for (const auto &t : text_del) {
-            canvas->drawTextBlob(t.text.get(), t.x, t.y, theme.tcDel);
+            canvas->drawTextBlob(t.text.get(), t.x + (monitorScale * 0.5), t.y, theme.tcDel);
         }
         for (const auto &t : text_ins) {
-            canvas->drawTextBlob(t.text.get(), t.x, t.y, theme.tcIns);
-        }
 
-//        canvas->restore();
+            const SkRect& bounds = t.text->bounds();
+            rect.setXYWH(t.x - monitorScale, t.box_y, t.box_w, pH);
+            canvas->drawRect(rect, theme.fcIns);
+
+            canvas->drawTextBlob(t.text.get(), t.x + (monitorScale * 0.5), t.y, theme.tcIns);
+        }
 
         // draw connecting lines between linked alignments
         if (linkOp > 0) {
@@ -1219,15 +1132,11 @@ namespace Drawing {
                             const Segs::Align *segA = ind[jdx];
                             const Segs::Align *segB = ind[jdx + 1];
 
-//                            if (segA->y == -1 || segB->y == -1 || segA->block_ends.empty() ||
                             if (segA->y == -1 || segB->y == -1 || segA->blocks.empty() ||
                                 segB->blocks.empty() ||
-//                                segB->block_ends.empty() ||
                                 (segA->delegate->core.tid != segB->delegate->core.tid)) { continue; }
 
-//                            long cstart = std::min(segA->block_ends.front(), segB->block_ends.front());
                             long cstart = std::min(segA->blocks.front().end, segB->blocks.front().end);
-//                            long cend = std::max(segA->block_starts.back(), segB->block_starts.back());
                             long cend = std::max(segA->blocks.back().start, segB->blocks.back().start);
                             double x_a = ((double) cstart - (double) cl.region->start) * cl.xScaling;
                             double x_b = ((double) cend - (double) cl.region->start) * cl.xScaling;

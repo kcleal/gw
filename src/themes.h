@@ -68,7 +68,7 @@ namespace Themes {
     if an item has 0 at the end this is the color when mapq == 0
     */
     enum GwPaint {
-        bgPaint, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip,
+        bgPaint, bgMenu, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip,
         fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack, fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0,
         fcSoftClip0, fcBigWig, fcRoi, mate_fc, mate_fc0, ecMateUnmapped, ecSplit, ecSelected,
         lcJoins, lcCoverage, lcLightJoins, lcLabel, lcBright, tcDel, tcIns, tcLabels, tcBackground,
@@ -82,7 +82,7 @@ namespace Themes {
 
         std::string name;
         // face colours
-        SkPaint bgPaint, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip, \
+        SkPaint bgPaint, bgMenu, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip, \
                 fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack, fcRoi;
         SkPaint fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0, fcSoftClip0, fcBigWig;
 
@@ -96,7 +96,7 @@ namespace Themes {
         float lwMateUnmapped, lwSplit, lwCoverage;
 
         // line colours and Insertion paint
-        SkPaint lcJoins, lcCoverage, lcLightJoins, insF, insS, lcLabel, lcBright;
+        SkPaint lcJoins, lcCoverage, lcLightJoins, insF, lcLabel, lcBright;
 
         // text colours
         SkPaint tcDel, tcIns, tcLabels, tcBackground;
@@ -175,7 +175,7 @@ namespace Themes {
         void getOptionsFromSessionIni(mINI::INIStructure& seshIni);
         void saveIniChanges();
         void setTheme(std::string &theme_str);
-        void saveCurrentSession(std::string& genome_path, std::vector<std::string>& bam_paths,
+        void saveCurrentSession(std::string& genome_path, std::string& ideogram_path, std::vector<std::string>& bam_paths,
                                 std::vector<std::string>& track_paths, std::vector<Utils::Region>& regions,
                                 std::vector<std::pair<std::string, int>>& variant_paths_info,
                                 std::vector<std::string>& commands, std::string output_session,
@@ -206,6 +206,7 @@ namespace Themes {
         std::string name;
     };
 
-    void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Band>> &ideogram);
+    void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Band>> &ideogram,
+                          Themes::BaseTheme &theme);
 
 }

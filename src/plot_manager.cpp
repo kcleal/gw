@@ -388,7 +388,8 @@ namespace Manager {
     }
 
     void GwPlot::addIdeogram(std::string path) {
-        Themes::readIdeogramFile(path, ideogram);
+        ideogram_path = path;
+        Themes::readIdeogramFile(path, ideogram, opts.theme);
     }
 
     void GwPlot::addFilter(std::string &filter_str) {
@@ -443,6 +444,9 @@ namespace Manager {
         }
         reference = opts.seshIni["data"]["genome_path"];
         opts.genome_tag = opts.seshIni["data"]["genome_tag"];
+        if (opts.seshIni["data"].has("ideogram_path")) {
+            addIdeogram(opts.seshIni["data"]["ideogram_path"]);
+        }
         if (opts.seshIni["data"].has("mode")) {
             mode = (opts.seshIni["data"]["mode"] == "tiled") ? Show::TILED : Show::SINGLE;
         }
@@ -531,7 +535,7 @@ namespace Manager {
         }
         int xpos, ypos;
         glfwGetWindowPos(window, &xpos, &ypos);
-        opts.saveCurrentSession(reference, bam_paths, track_paths, regions, variant_paths_info, commandsApplied,
+        opts.saveCurrentSession(reference, ideogram_path, bam_paths, track_paths, regions, variant_paths_info, commandsApplied,
                                 "", mode, xpos, ypos, monitorScale);
     }
 
@@ -729,7 +733,7 @@ namespace Manager {
                             collections[idx].mmVector.clear();
                         }
                     }
-                    if (reg->end - reg->start < opts.low_memory) {
+                    if (reg->end - reg->start < opts.low_memory || opts.link_op != 0) {
                         HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage, filters, pool, opts.parse_mods);
                         int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts, reg, false);
                         if (maxY > samMaxY) {
@@ -871,7 +875,7 @@ namespace Manager {
             for (auto &cl: collections) {
 
                 canvasR->save();
-                std::cout << cl.skipDrawingCoverage << " " << cl.skipDrawingReads << std::endl;
+
                 // Copy some of the image from the last frame
                 if ((cl.skipDrawingCoverage || cl.skipDrawingReads) && !imageCacheQueue.empty()) {
                     if (cl.skipDrawingCoverage) {
@@ -895,9 +899,9 @@ namespace Manager {
                 if (!cl.skipDrawingReads) {
 
 
-                    if (cl.regionLen >= opts.low_memory && !bams.empty()) {  // low memory mode will be used
+                    if (cl.regionLen >= opts.low_memory && !bams.empty() && opts.link_op == 0) {  // low memory mode will be used
                         cl.clear();
-                        std::cout << " iter draw\n";
+//                        std::cout << " iter draw\n";
                         if (opts.threads == 1) {
                             HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                           &regions[cl.regionIdx], (bool) opts.max_coverage,
@@ -926,6 +930,9 @@ namespace Manager {
             Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
             Drawing::drawTracks(opts, fb_width, fb_height, canvasR, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
             Drawing::drawChromLocation(opts, regions, ideogram, canvasR, fai, fb_width, fb_height, monitorScale);
+//            if (mode == Show::SINGLE) {
+//                drawCursorPosOnRefSlider(canvas);
+//            }
 
         }
 
@@ -996,9 +1003,13 @@ namespace Manager {
             }
             canvas->drawImage(imageCacheQueue.back().second, 0, 0);
         }
+
+        // slider overlay
         if (mode == Show::SINGLE) {
             drawCursorPosOnRefSlider(canvas);
         }
+
+        // draw menu
         if (mode == Show::SETTINGS) {
             if (!imageCacheQueue.empty()) {
                 while (imageCacheQueue.front().first != frameId) {
@@ -1010,6 +1021,8 @@ namespace Manager {
                 canvas->drawPaint(bg);
             }
             Menu::drawMenu(canvas, opts, fonts, monitorScale, fb_width, fb_height, inputText, charIndex);
+
+        // box for change in region selection using keyboard
         } else if (regionSelectionTriggered && regions.size() > 1) {
             SkRect rect{};
             float step = (float)fb_width / (float)regions.size();
@@ -1027,6 +1040,7 @@ namespace Manager {
             canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, box);
         }
 
+        // icon information for vcf-file
         if (mode == Show::TILED && variantTracks.size() > 1) {
             float tile_box_w = std::fmin(100 * monitorScale, (fb_width - (variantTracks.size() * gap + 1)) / variantTracks.size());
             SkPaint box{};
@@ -1060,7 +1074,7 @@ namespace Manager {
             yposm *= (float) fb_height / (float) windowH;
         }
 
-
+        // Text overlay for vcf file info
         bool variantFile_info = mode == TILED && variantTracks.size() > 1 && yposm < fb_height * 0.02;
         if (variantFile_info) {
             float tile_box_w = std::fmin(100 * monitorScale, (fb_width - (variantTracks.size() * gap + 1)) / variantTracks.size());
@@ -1081,6 +1095,7 @@ namespace Manager {
             }
         }
 
+        // command box
         if (captureText && !opts.editing_underway) {
             fonts.setFontSize(yScaling, monitorScale);
             SkRect rect{};
@@ -1088,12 +1103,7 @@ namespace Manager {
             float x = 50;
             float w = fb_width - 100;
 
-            SkPaint bg;
-            if (opts.theme_str != "igv") {
-                bg.setARGB(255, 15, 15, 25);
-            } else {
-                bg.setARGB(255, 240, 240, 240);
-            }
+            SkPaint bg = opts.theme.bgMenu;
 
             if (x < w) {
                 float y = fb_height - (fb_height * 0.025);
@@ -1112,26 +1122,28 @@ namespace Manager {
 
                 rect.setXYWH(0, yy, fb_width, fb_height);
 
-                canvas->drawRect(rect, bg);
+                canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, bg);
+                float pad = fonts.overlayHeight * 0.3;
 
+                // Cursor and text
                 SkPath path;
-                path.moveTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 0.3));
-                path.lineTo(x + 14 + to_cursor_width, yy + fonts.overlayHeight * 1.5);
+                path.moveTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 0.3) + pad + pad);
+                path.lineTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 1.5) + pad + pad);
                 canvas->drawPath(path, opts.theme.lcBright);
                 if (!inputText.empty()) {
                     sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(inputText.c_str(), fonts.overlay);
-                    canvas->drawTextBlob(blob, x + 14, yy + (fonts.overlayHeight * 1.3), opts.theme.tcDel);
+                    canvas->drawTextBlob(blob, x + 14, yy + (fonts.overlayHeight * 1.3) + pad + pad, opts.theme.tcDel);
                 }
                 if (mode != SETTINGS && (commandToolTipIndex != -1 || !inputText.empty())) {
-                    float pad = fonts.overlayHeight * 0.3;
+
                     if (inputText.empty() && yy - (Menu::commandToolTip.size() * (fonts.overlayHeight+ pad)) < covY) {
                         sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(Menu::commandToolTip[commandToolTipIndex], fonts.overlay);
                         SkPaint grey;
                         grey.setColor(SK_ColorGRAY);
                         canvas->drawTextBlob(blob, x + 14 + fonts.overlayWidth + fonts.overlayWidth, yy + (fonts.overlayHeight * 1.3), grey);
                     }
+                    yy += pad;
 
-                    yy -= pad + pad;
                     SkPaint tip_paint = opts.theme.lcBright;
                     tip_paint.setAntiAlias(true);
                     float n = 0;
@@ -1150,9 +1162,8 @@ namespace Manager {
                         float step = fonts.overlayHeight + pad;
                         float top = yy - (n * step);
                         rect.setXYWH(0, top, x + fonts.overlayWidth * 18, (n * step) + pad + pad);
-                        canvas->drawRect(rect, bg);
+                        canvas->drawRoundRect(rect, 10, 10, bg);
                     }
-
 
 
                     for (const auto &cmd : Menu::commandToolTip) {
@@ -1163,7 +1174,7 @@ namespace Manager {
                         if (cmd_s == inputText) {
                             break;
                         }
-                        rect.setXYWH(x, yy - fonts.overlayHeight - pad, fonts.overlayWidth * 18, fonts.overlayHeight + pad + pad);
+//                        rect.setXYWH(x, yy - fonts.overlayHeight - pad, fonts.overlayWidth * 18, fonts.overlayHeight + pad + pad);
 //                        canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, opts.theme.bgPaint);
                         sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(cmd, fonts.overlay);
                         canvas->drawTextBlob(blob, x + (fonts.overlayWidth * 3), yy, opts.theme.tcDel);
@@ -1189,6 +1200,7 @@ namespace Manager {
             }
         }
 
+        // cog and bubble
         float half_h = (float)fb_height / 2;
         bool tool_popup = (xposm > 0 && xposm <= 60 && yposm >= half_h - 150 && yposm <= half_h + 150 && (xDrag == -1000000 || xDrag == 0) && (yDrag == -1000000 || yDrag == 0));
         if (tool_popup) {

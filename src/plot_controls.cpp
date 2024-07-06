@@ -96,6 +96,10 @@ namespace Manager {
             return key;
         }
         if (key == GLFW_KEY_TAB && !captureText) {
+            if (variantTracks.empty()) {
+                return GLFW_KEY_UNKNOWN;
+            }
+
             currentVarTrack = &variantTracks[variantFileSelection];
             if (currentVarTrack == nullptr) {
                 return key;
@@ -1908,16 +1912,16 @@ namespace Manager {
                 }
             } else if (std::fabs(xoffset) > std::fabs(yoffset) && 0.1 < std::fabs(xoffset)) {
                 if (xoffset < 0) {
-                    keyPress(opts.scroll_right, 0, GLFW_PRESS, 0);
-                } else {
                     keyPress(opts.scroll_left, 0, GLFW_PRESS, 0);
+                } else {
+                    keyPress(opts.scroll_right, 0, GLFW_PRESS, 0);
                 }
             }
         } else if (std::fabs(yoffset) > std::fabs(xoffset) && 0.1 < std::fabs(yoffset)) {
             if (yoffset < 0) {
-                keyPress(opts.scroll_right, 0, GLFW_PRESS, 0);
-            } else {
                 keyPress(opts.scroll_left, 0, GLFW_PRESS, 0);
+            } else {
+                keyPress(opts.scroll_right, 0, GLFW_PRESS, 0);
             }
         }
     }

@@ -94,6 +94,8 @@ namespace Manager {
 
         std::string reference;
 
+        std::string ideogram_path;
+
         std::string inputText;
 
         std::string target_qname;
