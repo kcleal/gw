@@ -536,8 +536,10 @@ namespace Manager {
         }
         int xpos, ypos;
         glfwGetWindowPos(window, &xpos, &ypos);
+        int windX, windY;
+        glfwGetWindowSize(window, &windX, &windY);
         opts.saveCurrentSession(reference, ideogram_path, bam_paths, track_paths, regions, variant_paths_info, commandsApplied,
-                                "", mode, xpos, ypos, monitorScale);
+                                "", mode, xpos, ypos, monitorScale, windX, windY);
     }
 
     int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay) {

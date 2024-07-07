@@ -1304,14 +1304,19 @@ namespace Manager {
                     return;
                 }
                 // highlight read below
-                int level = 0;
+                int level = -1;
                 int slop = 0;
                 if (!opts.tlen_yscale) {
-                    level = (int)((yW - (float) cl.yOffset) / yScaling);
+                    if (yW < cl.yOffset) {
+                        out << std::endl;
+                        return;
+                    }
+                    level = ((yW - (float) cl.yOffset) / yScaling);
                     if (level < 0) {  // print coverage info (mouse Pos functions already prints out cov info to console)
                         out << std::endl;
                         return;
                     }
+                    level = (int)level;
                     if (cl.vScroll < 0) {
                         level += cl.vScroll + 1;
                     }
@@ -1321,10 +1326,12 @@ namespace Manager {
                     slop = (int)(max_bound * 0.025);
                     slop = (slop <= 0) ? 25 : slop;
                 }
+                std::cout << " level " << level << std::endl;
                 std::vector<Segs::Align>::iterator bnd;
                 bnd = std::lower_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
                                        [&](const Segs::Align &lhs, const int pos) { return (int)lhs.pos <= pos; });
-                while (bnd != cl.readQueue.begin()) {
+
+                while (true) {
                     if (!opts.tlen_yscale) {
                         if (bnd->y == level && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
                             if (bnd->edge_type == 4) {
@@ -1336,10 +1343,10 @@ namespace Manager {
                                     bnd->edge_type = 1;  // "NORMAL"
                                 }
                                 target_qname = "";
-                            } else {
+                            } else if (bnd->delegate != nullptr) {
                                 bnd->edge_type = 4;
                                 target_qname = bam_get_qname(bnd->delegate);
-                                Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_memory, out, pos);
+                                Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_memory, out, pos, opts.indel_length, opts.parse_mods);
                             }
                             redraw = true;
                             processed = true;
@@ -1348,6 +1355,7 @@ namespace Manager {
                             break;
                         }
                     } else {
+
                         if ((bnd->y >= level - slop && bnd->y < level) && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
                             if (bnd->edge_type == 4) {
                                 if (bnd->has_SA || bnd->delegate->core.flag & 2048) {
@@ -1361,13 +1369,16 @@ namespace Manager {
                             } else {
                                 bnd->edge_type = 4;
                                 target_qname = bam_get_qname(bnd->delegate);
-                                Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_memory, out, pos);
+                                Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_memory, out, pos, opts.indel_length, opts.parse_mods);
                             }
                             redraw = true;
                             processed = true;
                             cl.skipDrawingReads = false;
                             cl.skipDrawingCoverage = true;
                         }
+                    }
+                    if (bnd == cl.readQueue.begin()) {
+                        break;
                     }
                     --bnd;
                 }

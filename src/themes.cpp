@@ -688,7 +688,8 @@ namespace Themes {
                                         std::vector<std::string>& track_paths, std::vector<Utils::Region>& regions,
                                         std::vector<std::pair<std::string, int>>& variant_paths_info,
                                         std::vector<std::string>& commands, std::string output_session,
-                                        int mode, int window_x_pos, int window_y_pos, float monitorScale) {
+                                        int mode, int window_x_pos, int window_y_pos, float monitorScale,
+                                        int screen_width, int screen_height) {
         if (output_session.empty()) {
 
             if (session_file.empty()) {  // fill new session
@@ -764,7 +765,7 @@ namespace Themes {
         }
         mINI::INIMap<std::string>& sub = seshIni["general"];
         sub["theme"] = theme_str;
-        sub["dimensions"] = std::to_string(dimensions.x) + "x" + std::to_string(dimensions.y);
+        sub["dimensions"] = std::to_string(screen_width) + "x" + std::to_string(screen_height);
 
         sub["ylim"] = std::to_string(ylim);
         sub["coverage"] = (max_coverage) ? "true" : "false";
