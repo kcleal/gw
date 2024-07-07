@@ -250,7 +250,7 @@ namespace Commands {
         p->opts.parse_mods = !(p->opts.parse_mods);
 //        p->opts.mod_threshold = (p->opts.mod_threshold == 0) ? std::stoi(p->opts.myIni["view_thresholds"]["mod"]) : 0;
         if (p->mode == Manager::Show::SINGLE) {
-            p->processed = true;
+            p->processed = false;
             for (auto &cl : p->collections) {
                 cl.skipDrawingReads = false;
                 cl.skipDrawingCoverage = false;
@@ -953,7 +953,7 @@ namespace Commands {
             bam1_t* a = bam_init1();
             if (sam_itr_next(file_ptrs[i], region_iters[i], a) >= 0) {
                 Segs::Align alignment = Segs::Align(a);
-                Segs::align_init(&alignment, p->opts.parse_mods);
+                Segs::align_init(&alignment, 0);  // no need to parse mods here
                 pq.push({std::move(alignment), file_ptrs[i], region_iters[i], i});
             } else {
                 bam_destroy1(a);

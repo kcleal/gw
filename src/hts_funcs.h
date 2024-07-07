@@ -92,7 +92,7 @@ namespace HGW {
                                  hts_idx_t *index, int threads, Utils::Region *region,
                                  bool coverage,
                                  std::vector<Parse::Parser> &filters, BS::thread_pool &pool,
-                                 const bool parse_mods);
+                                 const int parse_mods);
 
     void iterDrawParallel(Segs::ReadCollection &col,
                           htsFile *b,

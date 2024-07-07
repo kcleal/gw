@@ -581,6 +581,7 @@ namespace Term {
         }
         out << termcolor::bold << "flag     " << termcolor::reset << r->delegate->core.flag << std::endl;
         out << termcolor::bold << "mapq     " << termcolor::reset << (int)r->delegate->core.qual << std::endl;
+        out << termcolor::bold << "len      " << termcolor::reset << (int)r->delegate->core.l_qseq << std::endl;
         out << termcolor::bold << "cigar    " << termcolor::reset; printCigar(r, out); out << std::endl;
         out << termcolor::bold << "seq      " << termcolor::reset; printSeq(r, refSeq, refStart, refEnd, 500, out, pos); out << std::endl << std::endl;
 

@@ -147,7 +147,7 @@ namespace Themes {
         MenuTable menu_table;
         bool editing_underway;
         int canvas_width, canvas_height;
-        int indel_length, ylim, split_view_size, threads, pad, link_op, max_coverage, max_tlen;
+        int indel_length, ylim, split_view_size, threads, pad, link_op, max_coverage, max_tlen, mods_qual_threshold;
         bool no_show, log2_cov, tlen_yscale, expand_tracks, vcf_as_tracks, sv_arcs, parse_mods;
         float scroll_speed, tab_track_height;
         int scroll_right;

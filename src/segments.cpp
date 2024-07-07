@@ -237,7 +237,8 @@ namespace Segs {
 //    }
 
 
-    /*
+    /* NOTE PARSING MODS SECTION BELOW IS FROM HTS-LIB
+     *
      * Count frequency of A, C, G, T and N canonical bases in the sequence
      */
     #define MAX_BASE_MOD 256
@@ -687,7 +688,7 @@ namespace Segs {
                                                   u, u, u, u, u, u, u, u,
                                                   INV_F};
 
-    void align_init(Align *self, const bool parse_mods) {
+    void align_init(Align *self, const int parse_mods_threshold) {
 //        auto start = std::chrono::high_resolution_clock::now();
 
         bam1_t *src = self->delegate;
@@ -758,7 +759,7 @@ namespace Segs {
             self->has_SA = false;
         }
 
-        if (parse_mods) {
+        if (parse_mods_threshold > 0) {
             hts_base_mod_state* mod_state = new hts_base_mod_state;
             int res = bam_parse_basemod_gw(src, mod_state, 0);
             if (res >= 0) {
@@ -770,9 +771,8 @@ namespace Segs {
                 ModItem& mi = self->any_mods.back();
                 mi.index = pos;
                 size_t j=0;
-                int thresh = 50;
                 for (size_t m=0; m < std::min((size_t)4, (size_t)nm); ++m) {
-                    if (mods[m].qual > thresh) {
+                    if (mods[m].qual > parse_mods_threshold) {
                         mi.mods[j] = (char)mods[m].modified_base;
                         mi.quals[j] = (uint8_t)mods[m].qual;
                         mi.strands[j] = (bool)mods[m].strand;
@@ -818,22 +818,20 @@ namespace Segs {
     }
 
     void align_clear(Align *self) {
-//        self->block_starts.clear();
-//        self->block_ends.clear();
         self->blocks.clear();
         self->any_ins.clear();
     }
 
-    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool, const bool parse_mods) {
+    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool, const int parse_mods_threshold) {
         if (n == 1) {
             for (auto &aln : aligns) {
-                align_init(&aln, parse_mods);
+                align_init(&aln, parse_mods_threshold);
             }
         } else {
             pool.parallelize_loop(0, aligns.size(),
-                                  [&aligns, parse_mods](const int a, const int b) {
+                                  [&aligns, parse_mods_threshold](const int a, const int b) {
                                       for (int i = a; i < b; ++i)
-                                          align_init(&aligns[i], parse_mods);
+                                          align_init(&aligns[i], parse_mods_threshold);
                                   })
                     .wait();
         }
@@ -872,9 +870,7 @@ namespace Segs {
 
     void addToCovArray(std::vector<int> &arr, const Align &align, const uint32_t begin, const uint32_t end, const uint32_t l_arr) noexcept {
         size_t n_blocks = align.blocks.size();
-//        size_t n_blocks = align.block_starts.size();
         for (size_t idx=0; idx < n_blocks; ++idx) {
-//            uint32_t block_s = align.block_starts[idx];
             uint32_t block_s = align.blocks[idx].start;
             if (block_s >= end) { break; }
             uint32_t block_e = align.blocks[idx].end;

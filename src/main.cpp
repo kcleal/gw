@@ -183,9 +183,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("--no-soft-clips")
             .default_value(false).implicit_value(true)
             .help("Soft-clips are not shown");
-    program.add_argument("--no-mods")
+    program.add_argument("--mods")
             .default_value(false).implicit_value(true)
-            .help("Base modifications are not shown");
+            .help("Base modifications are shown");
     program.add_argument("--low-mem")
             .default_value(false).implicit_value(true)
             .help("Reduce memory usage by discarding quality values");
@@ -472,6 +472,9 @@ int main(int argc, char *argv[]) {
     if (program.is_used("--tlen-y")) {
         iopts.tlen_yscale = true;
     }
+    if (program.is_used("--mods")) {
+        iopts.parse_mods = true;
+    }
     if (program.is_used("--split-view-size")) {
         iopts.split_view_size = program.get<int>("--split-view-size");
     }
@@ -490,9 +493,7 @@ int main(int argc, char *argv[]) {
     if (program.is_used("--no-soft-clips")) {
         iopts.soft_clip_threshold = 0;
     }
-    if (program.is_used("--no-mods")) {
-        iopts.parse_mods = 0;
-    }
+
     if (program.is_used("--start-index")) {
         iopts.start_index = program.get<int>("--start-index");
     }

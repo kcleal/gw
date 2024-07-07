@@ -307,6 +307,7 @@ namespace Menu {
             else if (opts.menu_level == "edge_highlights") { tip = "The distance in base-pairs when edge-highlights become visible"; }
             else if (opts.menu_level == "low_memory") { tip = "The distance in base-pairs when using low-memory mode (reads are not buffered in this mode)"; }
             else if (opts.menu_level == "mods") { tip = "Display modified bases"; }
+            else if (opts.menu_level == "mods_qual_threshold") { tip = "Threshold for displaying modified bases [0-255]"; }
             else if (opts.menu_level == "scroll_right") { tip = "Keyboard key to use for scrolling right"; }
             else if (opts.menu_level == "scroll_left") { tip = "Keyboard key to use for scrolling left"; }
             else if (opts.menu_level == "scroll_down") { tip = "Keyboard key to use for scrolling down"; }
@@ -675,7 +676,7 @@ namespace Menu {
 
     Option optionFromStr(std::string &name, Themes::MenuTable mt, std::string &value) {
         std::unordered_map<std::string, OptionKind> option_map;
-        for (const auto& v : {"indel_length", "ylim", "split_view_size", "threads", "pad", "soft_clip", "small_indel", "snp", "edge_highlights", "font_size", "variant_distance"}) {
+        for (const auto& v : {"indel_length", "ylim", "split_view_size", "threads", "pad", "soft_clip", "small_indel", "snp", "edge_highlights", "font_size", "variant_distance", "mods_qual_threshold"}) {
             option_map[v] = Int;
         }
         for (const auto& v : {"scroll_speed", "tabix_track_height"}) {
@@ -687,7 +688,6 @@ namespace Menu {
         for (const auto& v : {"scroll_right", "scroll_left", "zoom_out", "zoom_in", "scroll_down", "scroll_up", "cycle_link_mode", "print_screen", "find_alignments", "delete_labels", "enter_interactive_mode"}) {
             option_map[v] = KeyboardKey;
         }
-        std::cout << " hi " << name << " " << value << std::endl;
         option_map["font"] = String;
         if (mt == Themes::MenuTable::GENOMES) {
             return Option(name, Path, value, mt);
@@ -708,7 +708,7 @@ namespace Menu {
         std::string::const_iterator it = new_opt.value.begin();
         while (it != new_opt.value.end() && std::isdigit(*it)) ++it;
         if (it != new_opt.value.end()) {
-            std::cerr << termcolor::red << "Error:" << termcolor::reset << " expected an integer number, instead of " << new_opt.value << std::endl;
+            std::cerr << termcolor::red << "Error:" << termcolor::reset << " expected a positive integer number, instead of " << new_opt.value << std::endl;
         } else {
             int v = std::stoi(new_opt.value);
             if (new_opt.name == "indel_length") { opts.indel_length = std::max(1, v); }
@@ -722,6 +722,7 @@ namespace Menu {
             else if (new_opt.name == "edge_highlights") { opts.edge_highlights = std::max(1, v); }
             else if (new_opt.name == "font_size") { opts.font_size = std::max(1, v); }
             else if (new_opt.name == "variant_distance") { opts.variant_distance = std::max(1, v); }
+            else if (new_opt.name == "mods_qual_threshold") { opts.mods_qual_threshold = std::min(std::max(0, v), 255); new_opt.value = std::to_string(opts.mods_qual_threshold); }
             else { return; }
             opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
         }

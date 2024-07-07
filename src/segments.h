@@ -119,11 +119,11 @@ namespace Segs {
         void clear();
     };
 
-    void align_init(Align *self, const bool parse_mods);
+    void align_init(Align *self, const int parse_mods_threshold);
 
     void align_clear(Align *self);
 
-    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool, const bool parse_mods);
+    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool, const int parse_mods_threshold);
 
     void resetCovStartEnd(ReadCollection &cl);
 

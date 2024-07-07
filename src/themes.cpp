@@ -356,6 +356,7 @@ namespace Themes {
         start_index = 0;
         font_str = "Menlo";
         font_size = 14;
+        mods_qual_threshold = 50;
 
         soft_clip_threshold = 20000;
         small_indel_threshold = 100000;
@@ -581,6 +582,9 @@ namespace Themes {
             if (sub.has("font_size")) {
                 font_size = std::stoi(sub["font_size"]);
             }
+            if (sub.has("mods_qual_threshold")) {
+                mods_qual_threshold = std::stoi(sub["mods_qual_threshold"]);
+            }
         }
         if (sesh.has("view_thresholds")) {
             mINI::INIMap<std::string>& vt = sesh["view_thresholds"];
@@ -685,7 +689,6 @@ namespace Themes {
                                         std::vector<std::pair<std::string, int>>& variant_paths_info,
                                         std::vector<std::string>& commands, std::string output_session,
                                         int mode, int window_x_pos, int window_y_pos, float monitorScale) {
-        std::cout << output_session << " , " << session_file << " saving session \n";
         if (output_session.empty()) {
 
             if (session_file.empty()) {  // fill new session
@@ -774,6 +777,7 @@ namespace Themes {
         sub["tabix_track_height"] = std::to_string(tab_track_height);
         sub["font"] = font_str;
         sub["font_size"] = std::to_string(font_size);
+        sub["mods_qual_threshold"] = std::to_string(mods_qual_threshold);
 
         mINI::INIMap<std::string>& vt = seshIni["view_thresholds"];
         vt["soft_clip"] = std::to_string(soft_clip_threshold);

@@ -160,7 +160,8 @@ namespace HGW {
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, int threads, Utils::Region *region,
                                  bool coverage, std::vector<Parse::Parser> &filters, BS::thread_pool &pool,
-                                 const bool parse_mods) {
+                                 const int parse_mods_threshold) {
+
         bam1_t *src;
         hts_itr_t *iter_q;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
@@ -175,7 +176,8 @@ namespace HGW {
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
             std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
-            throw std::runtime_error("");
+            return;
+//            throw std::runtime_error("");
         }
 
         while (sam_itr_next(b, iter_q, readQueue.back().delegate) >= 0) {
@@ -191,7 +193,7 @@ namespace HGW {
             readQueue.pop_back();
         }
 
-        Segs::init_parallel(readQueue, threads, pool, parse_mods);
+        Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold);
 
         if (!filters.empty()) {
             applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
@@ -368,9 +370,12 @@ namespace HGW {
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
             std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
-            throw std::runtime_error("");
+//            throw std::runtime_error("");
+            return;
         }
         bool filter = !filters.empty();
+        const int parse_mods_threshold = (opts.parse_mods) ? 50 : 0;
+
         int j = 0;
         while (sam_itr_next(b, iter_q, readQueue[j].delegate) >= 0) {
             src = readQueue[j].delegate;
@@ -381,7 +386,7 @@ namespace HGW {
             if (j < BATCH) {
                 continue;
             }
-            Segs::init_parallel(readQueue, threads, pool, opts.parse_mods);
+            Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold);
             if (filter) {
                 applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
             }
@@ -405,7 +410,7 @@ namespace HGW {
         if (j < BATCH) {
             readQueue.erase(readQueue.begin() + j, readQueue.end());
             if (!readQueue.empty()) {
-                Segs::init_parallel(readQueue, threads, pool, opts.parse_mods);
+                Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold);
                 if (!filters.empty()) {
                     applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
                 }
@@ -432,9 +437,7 @@ namespace HGW {
                   std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
                   float trackY, float yScaling, Themes::Fonts &fonts, float refSpace,
                   float pointSlop, float textDrop, float pH, float monitorScale) {
-//        if (region->end == 0) {
-//            return;
-//        }
+
         bam1_t *src;
         hts_itr_t *iter_q;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
@@ -449,15 +452,18 @@ namespace HGW {
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
             std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
-            throw std::runtime_error("");
+//            throw std::runtime_error("");
+            return;
         }
         bool filter = !filters.empty();
+        const int parse_mods_threshold = (opts.parse_mods) ? 50 : 0;
+
         while (sam_itr_next(b, iter_q, readQueue.back().delegate) >= 0) {
             src = readQueue.back().delegate;
             if (src->core.flag & 4 || src->core.n_cigar == 0) {
                 continue;
             }
-            Segs::align_init(&readQueue.back(), opts.parse_mods);
+            Segs::align_init(&readQueue.back(), parse_mods_threshold);
             if (filter) {
                 applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
                 if (readQueue.back().y == -2) {
@@ -548,7 +554,12 @@ namespace HGW {
         Utils::Region *region = col.region;
         bool tlen_y = opts.tlen_yscale;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
+        if (tid < 0) {
+            return;
+        }
         int lastPos;
+        const int parse_mods_threshold = (opts.parse_mods) ? 50 : 0;
+
         if (!readQueue.empty()) {
             if (left) {
                 lastPos = readQueue.front().pos; // + 1;
@@ -598,7 +609,8 @@ namespace HGW {
             iter_q = sam_itr_queryi(index, tid, begin, end_r);
             if (iter_q == nullptr) {
                 std::cerr << "\nError: Null iterator when trying to fetch from HTS file in appendReadsAndCoverage (left) " << region->chrom << " " << region->start<< " " << end_r << " " << region->end << std::endl;
-                throw std::runtime_error("");
+//                throw std::runtime_error("");
+                return;
             }
             newReads.emplace_back(Segs::Align(bam_init1()));
 
@@ -647,7 +659,8 @@ namespace HGW {
             }
             if (iter_q == nullptr) {
                 std::cerr << "\nError: Null iterator when trying to fetch from HTS file in appendReadsAndCoverage (!left) " << region->chrom << " " << lastPos << " " << region->end << std::endl;
-                throw std::runtime_error("");
+//                throw std::runtime_error("");
+                return;
             }
             newReads.emplace_back(Segs::Align(bam_init1()));
 
@@ -672,7 +685,7 @@ namespace HGW {
             if (!filters.empty()) {
                 applyFilters(filters, newReads, hdr_ptr, col.bamIdx, col.regionIdx);
             }
-            Segs::init_parallel(newReads, opts.threads, pool, opts.parse_mods);
+            Segs::init_parallel(newReads, opts.threads, pool, parse_mods_threshold);
             bool findYall = false;
             if (col.vScroll == 0 && opts.link_op == 0) {  // only new reads need findY, otherwise, reset all below
                 int maxY = Segs::findY(col, newReads, opts.link_op, opts, region,  left);
