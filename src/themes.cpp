@@ -148,6 +148,11 @@ namespace Themes {
         fcMarkers.setStrokeMiter(0.1);
         fcMarkers.setStrokeWidth(0.5);
 
+        fc5mc.setAntiAlias(true);
+        fc5mc.setStrokeCap(SkPaint::kRound_Cap);
+        fc5hmc.setAntiAlias(true);
+        fc5hmc.setStrokeCap(SkPaint::kRound_Cap);
+
         for (size_t i=0; i < mate_fc.size(); ++i) {
             SkPaint p = mate_fc[i];
             mate_fc[i].setAlpha(alpha);
@@ -247,6 +252,9 @@ namespace Themes {
         fcC.setARGB(255, 66, 127, 255);
         fcG.setARGB(255, 235, 150, 23);
         fcN.setARGB(255, 128, 128, 128);
+//        fc5mc.setARGB(127, 255, 94, 0);
+        fc5mc.setARGB(127, 30, 176, 230);
+        fc5hmc.setARGB(127, 52, 255, 96);
         lcJoins.setARGB(255, 80, 80, 80);
         lcLightJoins.setARGB(255, 140, 140, 140);
         lcLabel.setARGB(255, 80, 80, 80);
@@ -282,6 +290,9 @@ namespace Themes {
         fcC.setARGB(255, 77, 125, 245);
         fcG.setARGB(255, 226, 132, 19);
         fcN.setARGB(255, 128, 128, 128);
+//        fc5mc.setARGB(127, 252, 186, 3);
+        fc5mc.setARGB(127, 30, 176, 230);
+        fc5hmc.setARGB(127, 52, 255, 96);
         lcJoins.setARGB(255, 142, 142, 142);
         lcLightJoins.setARGB(255, 82, 82, 82);
         lcLabel.setARGB(255, 182, 182, 182);
@@ -318,6 +329,9 @@ namespace Themes {
         fcC.setARGB(255, 77, 155, 245);
         fcG.setARGB(255, 226, 132, 19);
         fcN.setARGB(255, 128, 128, 128);
+//        fc5mc.setARGB(127, 252, 186, 3);
+        fc5mc.setARGB(127, 30, 176, 230);
+        fc5hmc.setARGB(127, 52, 255, 96);
         lcJoins.setARGB(255, 142, 142, 142);
         lcLightJoins.setARGB(255, 82, 82, 82);
         lcLabel.setARGB(255, 182, 182, 182);

@@ -367,7 +367,7 @@ namespace Term {
                     p += l;
                     continue;
                 }
-                started = true;
+                printed += l;
                 std::string str = std::to_string(l);
                 if (l > max) {
                     for (int n = 0; n < 100; ++n) {
@@ -392,6 +392,10 @@ namespace Term {
                     }
                 }
                 p += l;
+                if (printed > max) {
+                    out << "...";
+                    break;
+                }
 
             } else if (op == BAM_CMATCH) {
                 if (started || std::abs(pos - p)  < max / 2 || std::abs(pos - block_end) < max / 2  || overlaps) {
@@ -453,7 +457,12 @@ namespace Term {
                         }
                     } else {
                         if (mod_it != mod_end && i == mod_it->index) {
-                            out << "M";
+                            if (*target_mod == 'm') {
+                                out << termcolor::on_yellow << termcolor::grey;
+                            } else if (*target_mod == 'h') {
+                                out << termcolor::on_green << termcolor::grey;
+                            }
+                            out << "M" << termcolor::reset;
                             ++mod_it;
                         } else {
                             out << ".";
@@ -467,7 +476,7 @@ namespace Term {
                     p += 1;
 
                 }
-                if (printed > max * 2) {
+                if (printed > max) {
                     out << "...";
                     break;
                 }
@@ -506,7 +515,12 @@ namespace Term {
                         }
                     } else {
                         if (mod_it != mod_end && i == mod_it->index) {
-                            out << "M";
+                            if (*target_mod == 'm') {
+                                out << termcolor::on_yellow << termcolor::grey;
+                            } else if (*target_mod == 'h') {
+                                out << termcolor::on_green << termcolor::grey;
+                            }
+                            out << "=" << termcolor::reset;
                             ++mod_it;
                         } else {
                             out << ".";
@@ -559,7 +573,13 @@ namespace Term {
                         }
                     } else {
                         if (mod_it != mod_end && i == mod_it->index) {
-                            out << "M";
+                            char o = (op == BAM_CINS) ? 'I' : 'X';
+                            if (*target_mod == 'm') {
+                                out << termcolor::on_yellow << termcolor::grey;
+                            } else if (*target_mod == 'h') {
+                                out << termcolor::on_green << termcolor::grey;
+                            }
+                            out << o << termcolor::reset;
                             ++mod_it;
                         } else {
                             out << ".";
@@ -570,10 +590,10 @@ namespace Term {
                 if (op == BAM_CDIFF) {
                     p += l;
                 }
-//                if (op == BAM_CINS && printed > max * 2) {
-//                    out << "...";
-//                    break;
-//                }
+                if (printed > max) {
+                    out << "...";
+                    break;
+                }
 
             } else {  // soft-clips
                 if (k == 0) {
@@ -617,7 +637,7 @@ namespace Term {
                         }
                     } else {
                         if (mod_it != mod_end && i == mod_it->index) {
-                            out << "M";
+                            out << "S";
                             ++mod_it;
                         } else {
                             out << ".";
@@ -670,7 +690,7 @@ namespace Term {
             }
             for (const auto& mod_type : mods) {
 
-                out << termcolor::bold << "mod " << mod_type << "   " << termcolor::reset; printSeq(r, refSeq, refStart, refEnd, term_width, out, pos, indel_length, true, &mod_type); out << std::endl << std::endl;
+                out << termcolor::bold << "mod '" << mod_type << "'  " << termcolor::reset; printSeq(r, refSeq, refStart, refEnd, term_width, out, pos, indel_length, true, &mod_type); out << std::endl << std::endl;
             }
 //
         }

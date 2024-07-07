@@ -1023,7 +1023,7 @@ namespace Manager {
             }
             Menu::drawMenu(canvas, opts, fonts, monitorScale, fb_width, fb_height, inputText, charIndex);
 
-        // box for change in region selection using keyboard
+        // draw box when a change in region selection happens via keyboard
         } else if (regionSelectionTriggered && regions.size() > 1) {
             SkRect rect{};
             float step = (float)fb_width / (float)regions.size();
@@ -1141,9 +1141,9 @@ namespace Manager {
                         sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(Menu::commandToolTip[commandToolTipIndex], fonts.overlay);
                         SkPaint grey;
                         grey.setColor(SK_ColorGRAY);
-                        canvas->drawTextBlob(blob, x + 14 + fonts.overlayWidth + fonts.overlayWidth, yy + (fonts.overlayHeight * 1.3), grey);
+                        canvas->drawTextBlob(blob, x + 14 + fonts.overlayWidth + fonts.overlayWidth, yy + (fonts.overlayHeight * 1.3) + pad + pad, grey);
                     }
-                    yy += pad;
+                    //yy += pad;
 
                     SkPaint tip_paint = opts.theme.lcBright;
                     tip_paint.setAntiAlias(true);

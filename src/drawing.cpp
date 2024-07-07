@@ -768,7 +768,7 @@ namespace Drawing {
     void drawMods(SkCanvas *canvas, SkRect &rect, const Themes::BaseTheme &theme, const Utils::Region *region,
                   const Segs::Align &align,
                   float width, float xScaling, float xOffset, float mmPosOffset, float yScaledOffset,
-                  float pH, int l_qseq, float monitorScale) {
+                  float pH, int l_qseq, float monitorScale, SkPaint& fc5mc, SkPaint& fc5hmc, SkPaint& fcOther) {
         if (align.any_mods.empty()) {
             return;
         }
@@ -777,19 +777,8 @@ namespace Drawing {
         auto mod_it = align.any_mods.begin();
         auto mod_end = align.any_mods.end();
 
-        SkPaint painth;
-        painth.setARGB(127, 52, 255, 96);
-        painth.setStrokeWidth(std::fmin(pH / 3, 4 * monitorScale));
-        painth.setAntiAlias(true);
-        painth.setStrokeCap(SkPaint::kRound_Cap);
-
-        SkPaint paintm;
-        paintm.setARGB(127, 252, 186, 3);
-        paintm.setStrokeWidth(std::fmin(pH / 3, 4 * monitorScale));
-        paintm.setAntiAlias(true);
-        paintm.setStrokeCap(SkPaint::kRound_Cap);
-
         float top = yScaledOffset + (pH / 3);
+        float middle = yScaledOffset + pH - (pH / 2);
         float bottom = yScaledOffset + pH - (pH / 3);
 
         for (const auto& blk : align.blocks) {
@@ -805,27 +794,26 @@ namespace Drawing {
             }
             while (mod_it != mod_end && mod_it->index < idx_end) {
                 float x = (((blk.start + mod_it->index - idx_start) - region->start) * xScaling) + precalculated_xOffset_mmPosOffset;
-                for (size_t j=0; j < mod_it->n_mods; ++j) {
+                int n_mods = mod_it->n_mods;
+                for (size_t j=0; j < (size_t)n_mods; ++j) {
                     switch (mod_it->mods[j]) {
                         case 'm':  // 5mC
-                            paintm.setAlpha(mod_it->quals[j]);
-                            canvas->drawPoint(x, top, paintm);
+                            fc5mc.setAlpha(mod_it->quals[j]);
+                            canvas->drawPoint(x, (n_mods == 1) ? middle : top, fc5mc);
                             break;
                         case 'h':  // 5hmC
-                            painth.setAlpha(mod_it->quals[j]);
-                            canvas->drawPoint(x, bottom, painth);
+                            fc5mc.setAlpha(mod_it->quals[j]);
+                            canvas->drawPoint(x, (n_mods == 1) ? middle : bottom, fc5hmc);
                             break;
                         default:
-                            // todo other
-
+                            fcOther.setAlpha(mod_it->quals[j]);
+                            canvas->drawPoint(x, middle, fcOther);
                             break;
                     }
                 }
                 ++mod_it;
             }
-
         }
-
     }
 
     void drawCollection(const Themes::IniOptions &opts, Segs::ReadCollection &cl,
@@ -865,6 +853,16 @@ namespace Drawing {
         std::vector<Segs::Mismatches> &mm_vector = cl.mmVector;
 
         cl.skipDrawingReads = true;
+
+        SkPaint fc5mc, fc5hmc, fcOther;
+        if (opts.parse_mods) {
+            fc5mc = theme.fc5mc;
+            fc5hmc = theme.fc5hmc;
+            fcOther = theme.fcA;  // todo option for this
+            fc5mc.setStrokeWidth(std::fmin(pH / 3, 4 * monitorScale));
+            fc5hmc.setStrokeWidth(std::fmin(pH / 3, 4 * monitorScale));
+            fcOther.setStrokeWidth(std::fmin(pH / 3, 4 * monitorScale));
+        }
 
         for (const auto &a: cl.readQueue) {
             int Y = a.y;
@@ -1035,7 +1033,7 @@ namespace Drawing {
             }
             if (opts.parse_mods && regionLen <= opts.mod_threshold) {
                 drawMods(canvas, rect, theme, cl.region, a, (float) width, xScaling, xOffset, mmPosOffset,
-                         yScaledOffset, pH, l_qseq, monitorScale);
+                         yScaledOffset, pH, l_qseq, monitorScale, fc5mc, fc5hmc, fcOther);
             }
 
             // add insertions
@@ -1107,11 +1105,8 @@ namespace Drawing {
             canvas->drawTextBlob(t.text.get(), t.x + (monitorScale * 0.5), t.y, theme.tcDel);
         }
         for (const auto &t : text_ins) {
-
-            const SkRect& bounds = t.text->bounds();
             rect.setXYWH(t.x - monitorScale, t.box_y, t.box_w, pH);
             canvas->drawRect(rect, theme.fcIns);
-
             canvas->drawTextBlob(t.text.get(), t.x + (monitorScale * 0.5), t.y, theme.tcIns);
         }
 

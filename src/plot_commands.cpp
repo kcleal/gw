@@ -220,11 +220,7 @@ namespace Commands {
 
     Err insertions(Plot* p) {
         p->opts.small_indel_threshold = (p->opts.small_indel_threshold == 0) ? std::stoi(p->opts.myIni["view_thresholds"]["small_indel"]) : 0;
-        if (p->mode == Manager::Show::SINGLE) {
-            p->processed = true;
-        } else {
-            p->processed = false;
-        }
+        p->processed = false;
         p->redraw = true;
         p->imageCache.clear();
         return Err::NONE;
@@ -232,15 +228,7 @@ namespace Commands {
 
     Err mismatches(Plot* p) {
         p->opts.snp_threshold = (p->opts.snp_threshold == 0) ? std::stoi(p->opts.myIni["view_thresholds"]["snp"]) : 0;
-        if (p->mode == Manager::Show::SINGLE) {
-            p->processed = true;
-            for (auto &cl : p->collections) {
-                cl.skipDrawingReads = false;
-                cl.skipDrawingCoverage = false;
-            }
-        } else {
-            p->processed = false;
-        }
+        p->processed = false;
         p->redraw = true;
         p->imageCache.clear();
         return Err::NONE;
@@ -248,16 +236,7 @@ namespace Commands {
 
     Err mods(Plot* p) {
         p->opts.parse_mods = !(p->opts.parse_mods);
-//        p->opts.mod_threshold = (p->opts.mod_threshold == 0) ? std::stoi(p->opts.myIni["view_thresholds"]["mod"]) : 0;
-        if (p->mode == Manager::Show::SINGLE) {
-            p->processed = false;
-            for (auto &cl : p->collections) {
-                cl.skipDrawingReads = false;
-                cl.skipDrawingCoverage = false;
-            }
-        } else {
-            p->processed = false;
-        }
+        p->processed = false;
         p->redraw = true;
         p->imageCache.clear();
         return Err::NONE;
@@ -265,15 +244,7 @@ namespace Commands {
 
     Err edges(Plot* p) {
         p->opts.edge_highlights = (p->opts.edge_highlights == 0) ? std::stoi(p->opts.myIni["view_thresholds"]["edge_highlights"]) : 0;
-        if (p->mode == Manager::Show::SINGLE) {
-            p->processed = true;
-            for (auto & cl: p->collections) {
-                cl.skipDrawingReads = false;
-                cl.skipDrawingCoverage = true;
-            }
-        } else {
-            p->processed = false;
-        }
+        p->processed = false;
         p->redraw = true;
         p->imageCache.clear();
         return Err::NONE;
@@ -1169,6 +1140,8 @@ namespace Commands {
         else if (c == "tcBackground") { e = Themes::GwPaint::tcBackground; }
         else if (c == "fcMarkers") { e = Themes::GwPaint::fcMarkers; }
         else if (c == "fcRoi") { e = Themes::GwPaint::fcRoi; }
+        else if (c == "fc5mc") { e = Themes::GwPaint::fc5mc; }
+        else if (c == "fc5hmc") { e = Themes::GwPaint::fc5hmc; }
         else {
             return Err::OPTION_NOT_UNDERSTOOD;
         }
@@ -1288,7 +1261,11 @@ namespace Commands {
 
     // Note the function map will be cached after first call. plt is bound, but parts are updated with each call
     void run_command_map(Plot* p, std::string& command, std::ostream& out) {
-
+        if (Utils::startsWith(command, "'") || Utils::startsWith(command, "\"")) {
+            out << command << std::endl;
+            command = "";
+            return;
+        }
         std::vector<std::string> parts = Utils::split(command, ' ');
         static std::unordered_map<std::string,
                                   std::function<Err(Plot*, std::string&, std::vector<std::string>&, std::ostream& out)>> functionMap = {

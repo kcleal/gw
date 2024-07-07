@@ -72,7 +72,7 @@ namespace Themes {
         fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack, fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0,
         fcSoftClip0, fcBigWig, fcRoi, mate_fc, mate_fc0, ecMateUnmapped, ecSplit, ecSelected,
         lcJoins, lcCoverage, lcLightJoins, lcLabel, lcBright, tcDel, tcIns, tcLabels, tcBackground,
-        fcMarkers
+        fcMarkers, fc5mc, fc5hmc
     };
 
     class EXPORT BaseTheme {
@@ -84,7 +84,7 @@ namespace Themes {
         // face colours
         SkPaint bgPaint, bgMenu, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip, \
                 fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack, fcRoi;
-        SkPaint fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0, fcSoftClip0, fcBigWig;
+        SkPaint fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0, fcSoftClip0, fcBigWig, fc5mc, fc5hmc;
 
         std::vector<SkPaint> mate_fc;
         std::vector<SkPaint> mate_fc0;
