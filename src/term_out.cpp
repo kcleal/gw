@@ -347,6 +347,7 @@ namespace Term {
         int i = 0;
         int p = r->pos;
         bool started = false;
+        bool done_final_op = false;
         int printed = 0;
         for (k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
@@ -396,8 +397,12 @@ namespace Term {
                 }
                 p += l;
                 if (printed > max) {
-                    out << "...";
-                    break;
+                    if (done_final_op) {
+                        out << "...";
+                        break;
+                    } else {
+                        done_final_op = true;
+                    }
                 }
 
             } else if (op == BAM_CMATCH) {
@@ -460,15 +465,20 @@ namespace Term {
                         }
                     } else {
                         if (mod_it != mod_end && i == mod_it->index) {
-                            if (*target_mod == 'm') {
-                                out << termcolor::on_yellow << termcolor::grey;
-                            } else if (*target_mod == 'h') {
-                                out << termcolor::on_green << termcolor::grey;
+                            for (int j=0; j < mod_it->n_mods; ++j) {
+                                if (mod_it->mods[j] == *target_mod) {
+                                    if (*target_mod == 'm') {
+                                        out << termcolor::on_yellow << termcolor::grey;
+                                    } else if (*target_mod == 'h') {
+                                        out << termcolor::on_green << termcolor::grey;
+                                    }
+                                    out << "M" << termcolor::reset;
+                                }
                             }
-                            out << "M" << termcolor::reset;
+
                             ++mod_it;
                         } else {
-                            out << ".";
+                            out << "_";
                         }
                     }
 
@@ -479,9 +489,13 @@ namespace Term {
                     p += 1;
 
                 }
-                if (printed > max) {
-                    out << "...";
-                    break;
+                if (printed > max*2) {
+                    if (done_final_op) {
+                        out << "...";
+                        break;
+                    } else {
+                        done_final_op = true;
+                    }
                 }
 
             } else if (op == BAM_CEQUAL) {
@@ -518,15 +532,21 @@ namespace Term {
                         }
                     } else {
                         if (mod_it != mod_end && i == mod_it->index) {
-                            if (*target_mod == 'm') {
-                                out << termcolor::on_yellow << termcolor::grey;
-                            } else if (*target_mod == 'h') {
-                                out << termcolor::on_green << termcolor::grey;
+
+                            for (int j=0; j < mod_it->n_mods; ++j) {
+                                if (mod_it->mods[j] == *target_mod) {
+                                    if (*target_mod == 'm') {
+                                        out << termcolor::on_yellow << termcolor::grey;
+                                    } else if (*target_mod == 'h') {
+                                        out << termcolor::on_green << termcolor::grey;
+                                    }
+                                    out << "=" << termcolor::reset;
+                                }
                             }
-                            out << "=" << termcolor::reset;
+
                             ++mod_it;
                         } else {
-                            out << ".";
+                            out << "_";
                         }
                     }
                     i += 1;
@@ -535,11 +555,16 @@ namespace Term {
                 }
 //                p += l;
                 if (printed > max / 2) {
-                    out << "...";
-                    break;
+                    if (done_final_op) {
+                        out << "...";
+                        break;
+                    } else {
+                        done_final_op = true;
+                    }
                 }
 
             } else if (op == BAM_CDIFF || op == BAM_CINS) {
+
                 if (started || std::abs(pos - p)  < max / 2 || std::abs(pos - block_end) < max / 2 || overlaps) {
                     started = true;
                 } else {
@@ -549,7 +574,7 @@ namespace Term {
                     i += l;
                     continue;
                 }
-                printed += l;
+
                 if (op == BAM_CINS && l > indel_length) {
                     out << termcolor::magenta << "[" << std::to_string(l) << "]" << termcolor::reset;
                 }
@@ -577,25 +602,36 @@ namespace Term {
                     } else {
                         if (mod_it != mod_end && i == mod_it->index) {
                             char o = (op == BAM_CINS) ? 'I' : 'X';
-                            if (*target_mod == 'm') {
-                                out << termcolor::on_yellow << termcolor::grey;
-                            } else if (*target_mod == 'h') {
-                                out << termcolor::on_green << termcolor::grey;
+
+                            for (int j=0; j < mod_it->n_mods; ++j) {
+                                if (mod_it->mods[j] == *target_mod) {
+                                    if (*target_mod == 'm') {
+                                        out << termcolor::on_yellow << termcolor::grey;
+                                    } else if (*target_mod == 'h') {
+                                        out << termcolor::on_green << termcolor::grey;
+                                    }
+                                    out << o << termcolor::reset;
+                                }
                             }
-                            out << o << termcolor::reset;
+
                             ++mod_it;
                         } else {
-                            out << ".";
+                            out << "_";
                         }
                     }
                     i += 1;
                 }
                 if (op == BAM_CDIFF) {
                     p += l;
+                    printed += l;
                 }
                 if (printed > max) {
-                    out << "...";
-                    break;
+                    if (done_final_op) {
+                        out << "...";
+                        break;
+                    } else {
+                        done_final_op = true;
+                    }
                 }
 
             } else {  // soft-clips
@@ -640,10 +676,19 @@ namespace Term {
                         }
                     } else {
                         if (mod_it != mod_end && i == mod_it->index) {
-                            out << "S";
+                            for (int j=0; j < mod_it->n_mods; ++j) {
+                                if (mod_it->mods[j] == *target_mod) {
+                                    if (*target_mod == 'm') {
+                                        out << termcolor::on_yellow << termcolor::grey;
+                                    } else if (*target_mod == 'h') {
+                                        out << termcolor::on_green << termcolor::grey;
+                                    }
+                                    out << "S" << termcolor::reset;
+                                }
+                            }
                             ++mod_it;
                         } else {
-                            out << ".";
+                            out << "_";
                         }
                     }
                     i += 1;
@@ -670,7 +715,7 @@ namespace Term {
         const char *rname = sam_hdr_tid2name(hdr, r->delegate->core.tid);
         const char *rnext = sam_hdr_tid2name(hdr, r->delegate->core.mtid);
 
-        int term_width = std::max(Utils::get_terminal_width() * 2 - 9, 50);
+        int term_width = std::max(Utils::get_terminal_width() - 9, 50);
 
         out << std::endl << std::endl;
         out << termcolor::bold << "qname    " << termcolor::reset << bam_get_qname(r->delegate) << std::endl;

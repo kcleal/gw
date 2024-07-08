@@ -253,7 +253,8 @@ namespace Themes {
         fcIns.setARGB(255, 158, 112, 250);
 
         fc5mc.setARGB(127, 194, 151, 58);
-        fc5hmc.setARGB(127, 52, 255, 96);
+//        fc5hmc.setARGB(127, 52, 255, 96);
+        fc5hmc.setARGB(127, 189, 78, 23);
         lcJoins.setARGB(255, 80, 80, 80);
         lcLightJoins.setARGB(255, 140, 140, 140);
         lcLabel.setARGB(255, 80, 80, 80);
@@ -292,7 +293,8 @@ namespace Themes {
         fcIns.setARGB(255, 158, 112, 250);
 //        fc5mc.setARGB(127, 252, 186, 3);
         fc5mc.setARGB(127, 30, 176, 230);
-        fc5hmc.setARGB(127, 52, 255, 96);
+//        fc5hmc.setARGB(127, 52, 255, 96);
+        fc5hmc.setARGB(127, 215, 85, 23);
         lcJoins.setARGB(255, 142, 142, 142);
         lcLightJoins.setARGB(255, 82, 82, 82);
         lcLabel.setARGB(255, 182, 182, 182);
@@ -331,7 +333,8 @@ namespace Themes {
         fcN.setARGB(255, 128, 128, 128);
 //        fc5mc.setARGB(127, 252, 186, 3);
         fc5mc.setARGB(127, 30, 176, 230);
-        fc5hmc.setARGB(127, 52, 255, 96);
+//        fc5hmc.setARGB(127, 52, 255, 96);
+        fc5hmc.setARGB(127, 215, 85, 23);
         lcJoins.setARGB(255, 142, 142, 142);
         lcLightJoins.setARGB(255, 82, 82, 82);
         lcLabel.setARGB(255, 182, 182, 182);

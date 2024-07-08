@@ -1018,6 +1018,8 @@ namespace Drawing {
                 mmPosOffset = 0.05;
                 mmScaling = 0.9;
             } else {
+
+
                 mmPosOffset = 0;
                 mmScaling = 1;
             }
