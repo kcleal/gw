@@ -106,7 +106,7 @@ namespace Segs {
         std::vector<Mismatches> mmVector;
         std::vector<Align> readQueue;
         map_t linked;
-        float xScaling, xOffset, yOffset, yPixels;
+        float xScaling, xOffset, yOffset, yPixels, xPixels;
         float regionPixels;
 
         bool collection_processed;

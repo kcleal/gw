@@ -70,7 +70,7 @@ namespace Manager {
     // keeps track of input commands. returning GLFW_KEY_UNKNOWN stops further processing of key codes
     int GwPlot::registerKey(GLFWwindow* wind, int key, int scancode, int action, int mods) {
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
-	    if (key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_LEFT_SUPER) {
+	    if (key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_LEFT_SUPER || key == GLFW_KEY_RIGHT_CONTROL || key == GLFW_KEY_RIGHT_SUPER) {
 		    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
 			    ctrlPress = true;
 		    } else if (action == GLFW_RELEASE) {
@@ -86,6 +86,10 @@ namespace Manager {
             return key;
         } else if (action == GLFW_RELEASE) {
             return key;
+        }
+        if (ctrlPress && key == GLFW_KEY_C) {
+            triggerClose = true;
+            return GLFW_KEY_UNKNOWN;
         }
 
         if ( (key == GLFW_KEY_SLASH && !captureText) || (shiftPress && key == GLFW_KEY_SEMICOLON && !captureText)) {
@@ -169,6 +173,7 @@ namespace Manager {
                 int step_y = monitor_h / 8;
 
                 redraw = true;
+                imageCacheQueue.clear();
 
                 if (key == GLFW_KEY_RIGHT) {
                     if (current_x <= 0 && current_w < monitor_w ) {
@@ -288,6 +293,7 @@ namespace Manager {
                         redraw = true;
                         processed = true;
                         imageCache.clear();
+                        imageCacheQueue.clear();
                         commandToolTipIndex = -1;
                         out << "\n";
                         return GLFW_KEY_ENTER;
@@ -421,6 +427,7 @@ namespace Manager {
         redraw = true;
         inputText = "";
         imageCache.clear();
+        imageCacheQueue.clear();
     }
 
     void GwPlot::removeTrack(int index) {
@@ -442,6 +449,7 @@ namespace Manager {
         redraw = true;
         inputText = "";
         imageCache.clear();
+        imageCacheQueue.clear();
     }
 
     void GwPlot::removeRegion(int index) {
@@ -464,6 +472,7 @@ namespace Manager {
         redraw = true;
         inputText = "";
         imageCache.clear();
+        imageCacheQueue.clear();
     }
 
     void GwPlot::highlightQname() {
@@ -502,6 +511,7 @@ namespace Manager {
         }
         processText = false;  // text will be processed by run_command_map
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
+        glfwSetCursor(window, normalCursor);
         Commands::run_command_map(this, inputText, out);
         return true;
     }
@@ -605,6 +615,7 @@ namespace Manager {
         redraw = true;
         processed = false;
         imageCache.clear();
+        imageCacheQueue.clear();
         inputText = "";
         opts.editing_underway = false;
         textFromSettings = false;
@@ -993,6 +1004,7 @@ namespace Manager {
             std::string lk = (opts.link_op > 0) ? ((opts.link_op == 1) ? "sv" : "all") : "none";
             out << "\nLinking selection " << lk << std::endl;
             imageCache.clear();
+            imageCacheQueue.clear();
             HGW::refreshLinked(collections, opts, &samMaxY);
             redraw = true;
         }
@@ -1052,6 +1064,11 @@ namespace Manager {
             std::string pth = *paths;
             addTrack(pth);
         }
+        redraw = true;
+        processed = false;
+        imageCache.clear();
+        imageCacheQueue.clear();
+        for (auto &cl: collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
     }
 
     int GwPlot::getCollectionIdx(float x, float y) {
@@ -1326,7 +1343,6 @@ namespace Manager {
                     slop = (int)(max_bound * 0.025);
                     slop = (slop <= 0) ? 25 : slop;
                 }
-                std::cout << " level " << level << std::endl;
                 std::vector<Segs::Align>::iterator bnd;
                 bnd = std::lower_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
                                        [&](const Segs::Align &lhs, const int pos) { return (int)lhs.pos <= pos; });
@@ -1351,7 +1367,7 @@ namespace Manager {
                             redraw = true;
                             processed = true;
                             cl.skipDrawingReads = false;
-                            cl.skipDrawingCoverage = true;
+                            cl.skipDrawingCoverage = false;
                             break;
                         }
                     } else {
@@ -1374,7 +1390,7 @@ namespace Manager {
                             redraw = true;
                             processed = true;
                             cl.skipDrawingReads = false;
-                            cl.skipDrawingCoverage = true;
+                            cl.skipDrawingCoverage = false;
                         }
                     }
                     if (bnd == cl.readQueue.begin()) {
@@ -1731,6 +1747,11 @@ namespace Manager {
                         float new_boundary = fb_height - yPos_fb - refSpace;
                         opts.tab_track_height = new_boundary / drawingArea;
                         redraw = true;
+                        for (auto & cl: collections) {
+                            cl.skipDrawingCoverage = false;
+                            cl.skipDrawingReads = false;
+                        }
+                        imageCacheQueue.clear();
                         return;
                     }
                 }

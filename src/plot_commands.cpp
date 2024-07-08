@@ -105,9 +105,10 @@ namespace Commands {
         p->redraw = true;
         p->processed = false;
         p->imageCache.clear();
+        p->imageCacheQueue.clear();
         p->filters.clear();
         p->target_qname = "";
-        for (auto &cl: p->collections) { cl.vScroll = 0; }
+        for (auto &cl: p->collections) { cl.vScroll = 0; cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
         return Err::NONE;
     }
 
@@ -223,6 +224,7 @@ namespace Commands {
         p->processed = false;
         p->redraw = true;
         p->imageCache.clear();
+        p->imageCacheQueue.clear();
         return Err::NONE;
     }
 
@@ -231,6 +233,7 @@ namespace Commands {
         p->processed = false;
         p->redraw = true;
         p->imageCache.clear();
+        p->imageCacheQueue.clear();
         return Err::NONE;
     }
 
@@ -239,6 +242,7 @@ namespace Commands {
         p->processed = false;
         p->redraw = true;
         p->imageCache.clear();
+        p->imageCacheQueue.clear();
         return Err::NONE;
     }
 
@@ -247,6 +251,7 @@ namespace Commands {
         p->processed = false;
         p->redraw = true;
         p->imageCache.clear();
+        p->imageCacheQueue.clear();
         return Err::NONE;
     }
 
@@ -259,6 +264,7 @@ namespace Commands {
         }
         p->redraw = true;
         p->imageCache.clear();
+        p->imageCacheQueue.clear();
         return Err::NONE;
     }
 
@@ -275,6 +281,7 @@ namespace Commands {
             p->processed = false;
         }
         p->imageCache.clear();
+        p->imageCacheQueue.clear();
         return Err::NONE;
     }
 
@@ -287,6 +294,7 @@ namespace Commands {
             p->processed = false;
         }
         p->imageCache.clear();
+        p->imageCacheQueue.clear();
         return Err::NONE;
     }
 
@@ -324,6 +332,7 @@ namespace Commands {
         }
         if (relink) {
             p->imageCache.clear();
+            p->imageCacheQueue.clear();
             HGW::refreshLinked(p->collections, p->opts, &p->samMaxY);
             p->redraw = true;
             p->processed = true;
@@ -416,6 +425,7 @@ namespace Commands {
             }
         }
         p->imageCache.clear();
+        p->imageCacheQueue.clear();
         p->redraw = true;
         p->processed = false;
         return Err::NONE;
@@ -485,6 +495,7 @@ namespace Commands {
                     p->processed = false;
                 }
                 p->imageCache.clear();
+                p->imageCacheQueue.clear();
             } else if (command == "mate add" && p->mode == Manager::Show::SINGLE) {
                 p->regions.push_back(Utils::parseRegion(mate));
                 p->fetchRefSeq(p->regions.back());
@@ -494,6 +505,7 @@ namespace Commands {
                 p->redraw = true;
                 p->processed = true;
                 p->imageCache.clear();
+                p->imageCacheQueue.clear();
             }
         }
         return Err::NONE;
@@ -512,6 +524,7 @@ namespace Commands {
         p->redraw = true;
         p->processed = true;
         p->imageCache.clear();
+        p->imageCacheQueue.clear();
         return Err::NONE;
     }
 
@@ -529,6 +542,7 @@ namespace Commands {
             return Err::NONE;
         }
         p->imageCache.clear();
+        p->imageCacheQueue.clear();
         HGW::refreshLinked(p->collections, p->opts, &p->samMaxY);
         p->processed = true;
         p->redraw = true;
@@ -551,6 +565,7 @@ namespace Commands {
         }
         p->redraw = true;
         p->imageCache.clear();
+        p->imageCacheQueue.clear();
         return Err::NONE;
     }
 
@@ -593,6 +608,8 @@ namespace Commands {
         if (clear_filters) {
             p->filters.clear();
         }
+        p->imageCacheQueue.clear();
+        p->imageCacheQueue.clear();
         return Err::NONE;
     }
 
@@ -622,6 +639,7 @@ namespace Commands {
         p->redraw = true;
         p->processed = false;
         p->imageCache.clear();
+        p->imageCacheQueue.clear();
         return Err::NONE;
     }
 
@@ -631,11 +649,11 @@ namespace Commands {
             return Err::NONE;
         }
         if (parts.back() == "dark") {
-            p->opts.theme = Themes::DarkTheme();  p->opts.theme.setAlphas(); p->imageCache.clear(); p->opts.theme_str = "dark";
+            p->opts.theme = Themes::DarkTheme();  p->opts.theme.setAlphas(); p->imageCache.clear(); p->imageCacheQueue.clear(); p->opts.theme_str = "dark";
         } else if (parts.back() == "igv") {
-            p->opts.theme = Themes::IgvTheme(); p->opts.theme.setAlphas(); p->imageCache.clear(); p->opts.theme_str = "igv";
+            p->opts.theme = Themes::IgvTheme(); p->opts.theme.setAlphas(); p->imageCache.clear(); p->imageCacheQueue.clear(); p->opts.theme_str = "igv";
         } else if (parts.back() == "slate") {
-            p->opts.theme = Themes::SlateTheme(); p->opts.theme.setAlphas(); p->imageCache.clear(); p->opts.theme_str = "slate";
+            p->opts.theme = Themes::SlateTheme(); p->opts.theme.setAlphas(); p->imageCache.clear(); p->imageCacheQueue.clear(); p->opts.theme_str = "slate";
         } else {
             return Err::OPTION_NOT_UNDERSTOOD;
         }
@@ -709,6 +727,7 @@ namespace Commands {
         p->redraw = true;
         p->processed = false;
         p->imageCache.clear();
+        p->imageCacheQueue.clear();
         return Err::NONE;
     }
 
@@ -744,7 +763,9 @@ namespace Commands {
         p->regions.insert(p->regions.end(), new_regions.begin(), new_regions.end());
         p->redraw = true;
         p->processed = false;
+        for (auto &cl: p->collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
         p->imageCache.clear();
+        p->imageCacheQueue.clear();
         return Err::NONE;
     }
 
@@ -1005,6 +1026,7 @@ namespace Commands {
         }
         if (as_alignments(parts.back())) {
             if (parts.size() == 2) {
+                out << "Saved alignments: " << parts.back() << std::endl;
                 write_bam(p, parts.back(), targets, out);
             } else if (parts.size() == 3) {
                 if (parts[1] == ">") {
@@ -1017,6 +1039,14 @@ namespace Commands {
             } else {
                 return Err::OPTION_NOT_UNDERSTOOD;
             }
+        }
+        //  Err snapshot(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        else if (Utils::endsWith(command, ".png")) {
+            return snapshot(p, parts, out);
+        }
+        else if (Utils::endsWith(parts.back(), ".ini")) {
+            out << "Saved session: " << parts.back() << std::endl;
+            p->saveSession(parts.back());
         }
         return Err::NONE;
     }
@@ -1080,6 +1110,7 @@ namespace Commands {
             p->redraw = true;
             p->processed = false;
             p->imageCache.clear();
+            p->imageCacheQueue.clear();
         }
         return reason;
     }

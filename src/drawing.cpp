@@ -1059,7 +1059,7 @@ namespace Drawing {
                                 drawIns(canvas, Y, p, yScaling, xOffset, yOffset, theme.fcIns, rect, pH, ins_block_h, ins_block_w);
                             }
                         } else if (regionLen < opts.small_indel_threshold) {  // line only
-                            drawIns(canvas, Y, p, yScaling, xOffset, yOffset, theme.fcIns,rect, pH, ins_block_h, ins_block_w);
+                            drawIns(canvas, Y, p, yScaling, xOffset, yOffset, theme.fcIns, rect, pH, ins_block_h, ins_block_w);
                         }
                     }
                 }
@@ -1100,14 +1100,18 @@ namespace Drawing {
             }
         }
 
-        // draw text last
+        // draw text deletions + insertions
         for (const auto &t : text_del) {
             canvas->drawTextBlob(t.text.get(), t.x + (monitorScale * 0.5), t.y, theme.tcDel);
         }
         for (const auto &t : text_ins) {
-            rect.setXYWH(t.x - monitorScale, t.box_y, t.box_w, pH);
+            rect.setXYWH(t.x - monitorScale, t.box_y, t.box_w, pH);  // middle
             canvas->drawRect(rect, theme.fcIns);
-            canvas->drawTextBlob(t.text.get(), t.x + (monitorScale * 0.5), t.y, theme.tcIns);
+            rect.setXYWH(t.x - monitorScale - ins_block_h, t.box_y, t.box_w + ins_block_h + ins_block_h, ins_block_h);  // top
+            canvas->drawRect(rect, theme.fcIns);
+            rect.setXYWH(t.x - monitorScale - ins_block_h, t.box_y + pH - ins_block_h, t.box_w + ins_block_h + ins_block_h, ins_block_h);  // bottom
+            canvas->drawRect(rect, theme.fcIns);
+            canvas->drawTextBlob(t.text.get(), t.x, t.y + pH, theme.tcIns);
         }
 
         // draw connecting lines between linked alignments

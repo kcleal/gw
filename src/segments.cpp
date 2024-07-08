@@ -898,10 +898,18 @@ namespace Segs {
         // first find reads that should be linked together using qname
         if (linkType > 0) {
             lm.clear();
-            q_ptr = &rc.readQueue.front();
+            q_ptr = &rQ.front();
             // find the start and end coverage locations of aligns with same name
-            for (i=0; i < (int)rc.readQueue.size(); ++i) {
+            for (i=0; i < (int)rQ.size(); ++i) {
+                if (!(q_ptr->delegate->core.flag & 1)) {
+                    ++q_ptr;
+                    continue;
+                }
                 qname = bam_get_qname(q_ptr->delegate);
+                if (qname == nullptr) {
+                    ++q_ptr;
+                    continue;
+                }
                 if (linkType == 1) {
                     uint32_t flag = q_ptr->delegate->core.flag;
                     if (q_ptr->has_SA || ~flag & 2) {
@@ -982,7 +990,7 @@ namespace Segs {
             }
             if (linkType > 0) {
                 qname = bam_get_qname(q_ptr->delegate);
-                if (linkedSeen.find(qname) != linkedSeen.end()) {
+                if (qname != nullptr && linkedSeen.find(qname) != linkedSeen.end()) {
                     q_ptr->y = linkedSeen[qname];
                     q_ptr += move;
                     continue;
@@ -998,13 +1006,13 @@ namespace Segs {
                         if (i >= vScroll) {
                             q_ptr->y = i - vScroll;
                         }
-                        if (linkType > 0 && lm.find(qname) != lm.end()) {
+                        if (linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
                             linkedSeen[qname] = q_ptr->y;
                         }
                         break;
                     }
                 }
-                if (i == memLen && linkType > 0 && lm.find(qname) != lm.end()) {
+                if (i == memLen && linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
                      linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
                 }
                 q_ptr += move;
@@ -1019,13 +1027,13 @@ namespace Segs {
                         if (i >= vScroll) {
                             q_ptr->y = i - vScroll;
                         }
-                        if (linkType > 0 && lm.find(qname) != lm.end()) {
+                        if (linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
                             linkedSeen[qname] = q_ptr->y;
                         }
                         break;
                     }
                 }
-                if (i == memLen && linkType > 0 && lm.find(qname) != lm.end()) {
+                if (i == memLen && linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
                     linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
                 }
                 q_ptr += move;

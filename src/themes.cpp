@@ -77,7 +77,8 @@ namespace Themes {
         ecMateUnmapped.setStyle(SkPaint::kStroke_Style);
         ecMateUnmapped.setStrokeWidth(1);
 
-        fcIns.setARGB(255, 178, 77, 255);
+        fcIns.setStyle(SkPaint::kFill_Style);
+        //fcIns.setARGB(255, 178, 77, 255);
 
 
         lwMateUnmapped = 0.5;
@@ -139,9 +140,6 @@ namespace Themes {
         lcBright.setStyle(SkPaint::kStroke_Style);
         lcBright.setStrokeWidth(2);
         lcBright.setAntiAlias(true);
-
-        insF = fcIns;
-        insF.setStyle(SkPaint::kFill_Style);
 
         fcMarkers.setStyle(SkPaint::kStrokeAndFill_Style);
         fcMarkers.setAntiAlias(true);
@@ -252,8 +250,9 @@ namespace Themes {
         fcC.setARGB(255, 66, 127, 255);
         fcG.setARGB(255, 235, 150, 23);
         fcN.setARGB(255, 128, 128, 128);
-//        fc5mc.setARGB(127, 255, 94, 0);
-        fc5mc.setARGB(127, 30, 176, 230);
+        fcIns.setARGB(255, 158, 112, 250);
+
+        fc5mc.setARGB(127, 194, 151, 58);
         fc5hmc.setARGB(127, 52, 255, 96);
         lcJoins.setARGB(255, 80, 80, 80);
         lcLightJoins.setARGB(255, 140, 140, 140);
@@ -290,6 +289,7 @@ namespace Themes {
         fcC.setARGB(255, 77, 125, 245);
         fcG.setARGB(255, 226, 132, 19);
         fcN.setARGB(255, 128, 128, 128);
+        fcIns.setARGB(255, 158, 112, 250);
 //        fc5mc.setARGB(127, 252, 186, 3);
         fc5mc.setARGB(127, 30, 176, 230);
         fc5hmc.setARGB(127, 52, 255, 96);
@@ -752,7 +752,7 @@ namespace Themes {
             seshIni["show"]["var" + std::to_string(count)] = std::to_string(item.second);
             count += 1;
         }
-        seshIni["show"]["window_position"] = std::to_string(window_x_pos) + "x" + std::to_string(window_y_pos);
+
         count = 0;
         size_t last_refresh = 0;
         std::vector<std::string> keep = {"egdes", "expand-tracks", "soft-clips", "sc", "mm", "mismatches", "ins", "insertions", "mods"};
@@ -780,7 +780,7 @@ namespace Themes {
         mINI::INIMap<std::string>& sub = seshIni["general"];
         sub["theme"] = theme_str;
         sub["dimensions"] = std::to_string(screen_width) + "x" + std::to_string(screen_height);
-
+        sub["window_position"] = std::to_string(window_x_pos) + "x" + std::to_string(window_y_pos);
         sub["ylim"] = std::to_string(ylim);
         sub["coverage"] = (max_coverage) ? "true" : "false";
         sub["log2_cov"] = (log2_cov) ? "true" : "false";

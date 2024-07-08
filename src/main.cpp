@@ -153,6 +153,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("--out-labels")
             .default_value(std::string{""}).append()
             .help("Output labelling results to tab-separated FILE (use with -v or -i)");
+    program.add_argument("--session")
+            .default_value(std::string{""}).append()
+            .help("GW session file to load (.ini suffix)");
     program.add_argument("--start-index")
             .default_value(0).append().scan<'i', int>()
             .help("Start labelling from -v / -i index (zero-based)");
@@ -247,6 +250,12 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    if (program.is_used("--session")) {
+        iopts.session_file = program.get<std::string>("--session");
+        have_session_file = true;
+        use_session = true;
+    }
+
     // check if bam/cram file provided as main argument
     auto genome = program.get<std::string>("genome");
     if (Utils::endsWith(genome, ".bam") || Utils::endsWith(genome, ".cram")) {
@@ -259,7 +268,7 @@ int main(int argc, char *argv[]) {
     if (iopts.myIni["genomes"].has(genome)) {
         iopts.genome_tag = genome;
         genome = iopts.myIni["genomes"][genome];
-    } else if (genome.empty() && !program.is_used("--images") && !iopts.ini_path.empty() && !program.is_used("--no-show")) {
+    } else if (genome.empty() && !program.is_used("--images") && !iopts.ini_path.empty() && !program.is_used("--no-show") && !program.is_used("--session")) {
         // prompt for genome
         print_banner();
         show_banner = false;

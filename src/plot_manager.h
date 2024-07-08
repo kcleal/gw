@@ -123,13 +123,12 @@ namespace Manager {
 
         std::vector<Parse::Parser> filters;
 
-        std::unordered_map< int, sk_sp<SkImage>> imageCache;
+        std::unordered_map< int, sk_sp<SkImage>> imageCache;  // Cace of tiled images
+        std::deque< std::pair<long, sk_sp<SkImage> > > imageCacheQueue;  // cache of previously draw main screen images
 
         // keys are variantFilename and variantId
         ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::map< std::string, Utils::Label>> inputLabels;
         ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::set<std::string>> seenLabels;
-
-        std::deque< std::pair<long, sk_sp<SkImage> > > imageCacheQueue;
 
         Themes::IniOptions opts;
         Themes::Fonts fonts;
@@ -227,7 +226,7 @@ namespace Manager {
 
         void highlightQname();
 
-        void saveSession();
+        void saveSession(std::string out_session);
 
     private:
         long frameId;

@@ -58,7 +58,7 @@ namespace Term {
         out << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. 'rm 1'. To remove a bam \n                                 use the bam index 'rm bam1', or track 'rm track1'\n";
         out << termcolor::green << "roi              region? name?   " << termcolor::reset << "Add a region of interest\n";
         out << termcolor::green << "sam                              " << termcolor::reset << "Print selected read in sam format\n";
-        out << termcolor::green << "save             filename        " << termcolor::reset << "Save reads (.bam/.cram), snapshot (.png) or session (.xml) to file\n";
+        out << termcolor::green << "save             filename        " << termcolor::reset << "Save reads (.bam/.cram), snapshot (.png) or session (.ini) to file\n";
         out << termcolor::green << "settings                         " << termcolor::reset << "Open the settings menu'\n";
 		out << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window to png e.g. 's', or 's view.png',\n                                 or vcf columns can be used 's {pos}_{info.SU}.png'\n";
         out << termcolor::green << "soft-clips, sc                   " << termcolor::reset << "Toggle soft-clips\n";
@@ -99,6 +99,7 @@ namespace Term {
                    "        Elements are selected by name (see below) and values are in the range [0, 255].\n"
                    "        For example 'colour fcNormal 255 255 0 0' sets face-colour of normal reads to red.\n\n"
                    "          bgPaint        - background paint\n"
+                   "          bgMenu         - background of menu\n"
                    "          fcNormal       - face-colour normal reads\n"
                    "          fcDel          - face-colour deletion pattern reads\n"
                    "          fcDup          - face-colour duplication pattern reads\n"
@@ -124,6 +125,8 @@ namespace Term {
                    "          fcIns0         - face-colour insertion blocks with mapq=0\n"
                    "          fcSoftClips0   - face-colour soft-clips when zoomed-out with mapq=0\n"
                    "          fcMarkers      - face-colour of markers\n"
+                   "          fc5mc          - face-colour of 5-Methylcytosine\n"
+                   "          fc5hmc         - face-colour of 5-Hydroxymethylcytosine\n"
                    "          ecMateUnmapped - edge-colour mate unmapped reads\n"
                    "          ecSplit        - edge-colour split reads\n"
                    "          ecSelected     - edge-colour selected reads\n"
@@ -224,7 +227,7 @@ namespace Term {
                          "        'save reads.cram'       # Reads saved in cram format\n"
                          "        'save reads.sam'        # Reads saved in sam format (human readable)\n"
                          "        'save view.png'         # The current view is saved to view.png. Same functionality as 'snapshot'\n"
-                         "        'save session.xml'      # The current session will be saved, allowing this session to be revisited\n\n"
+                         "        'save session.ini'      # The current session will be saved, allowing this session to be revisited\n\n"
                          "    Notes:\n"
                          "        Any read-filters are applied when saving reads\n"
                          "        Reads are saved in sorted order, however issues may arise if different bam headers\n"
@@ -775,6 +778,9 @@ namespace Term {
 				uint8_t *ptr_seq = bam_get_seq(align.delegate);
 				uint32_t *cigar_p = bam_get_cigar(align.delegate);
                 if (cigar_p == nullptr || cigar_l == 0) {
+                    if (bnd == cl.readQueue.begin()) {
+                        break;
+                    }
                     --bnd;
                     continue;
                 }
