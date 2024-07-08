@@ -7,8 +7,9 @@
 #include <filesystem>
 #include <string>
 #include <vector>
-#include "../include/unordered_dense.h"
-
+#include "ankerl_unordered_dense.h"
+#include "export_definitions.h"
+#include "ideogram.h"
 #include "htslib/faidx.h"
 
 #if defined(_WIN32)
@@ -37,7 +38,7 @@ namespace Utils {
 
     bool is_file_exist(std::string FileName);
 
-    class TrackBlock {
+    class EXPORT TrackBlock {
     public:
         std::string chrom, name, line, vartype, parent;
         int start, end;
@@ -55,10 +56,14 @@ namespace Utils {
             coding_end = -1;
             value = 0;
             level = 0;
+            start = 0;
+            end = 0;
+            strand = 0;
+            anyToDraw = false;
         }
     };
 
-    class GFFTrackBlock {
+    class EXPORT GFFTrackBlock {
     public:
         std::string chrom, name, line, vartype;
         std::vector<std::string> parts;
@@ -66,23 +71,29 @@ namespace Utils {
         int strand;  // 0 is none, 1 forward, 2 reverse
     };
 
-    class Region {
+    class EXPORT Region {
     public:
         std::string chrom;
         int start, end;
         int markerPos, markerPosEnd;
+        int chromLength;
         const char *refSeq;
+        std::vector<uint8_t> refSeq_nibbled;
         std::vector<std::vector<Utils::TrackBlock>> featuresInView;  // one vector for each Track
         std::vector<int> featureLevels;
         Region() {
             chrom = "";
             start = -1;
             end = -1;
+            markerPos = -1;
+            markerPosEnd = -1;
+            chromLength = 0;
             refSeq = nullptr;
         }
+        std::string toString();
     };
 
-    Region parseRegion(std::string &r);
+    EXPORT Region parseRegion(std::string &r);
 
     bool parseFilenameToRegions(std::filesystem::path &path, std::vector<Region> &regions, faidx_t* fai, int pad, int split_size);
 
@@ -96,11 +107,11 @@ namespace Utils {
 
     FileNameInfo parseFilenameInfo(std::filesystem::path &path);
 
-    struct Dims {
+    struct EXPORT Dims {
         int x, y;
     };
 
-    Dims parseDimensions(std::string &s);
+    EXPORT_FUNCTION Dims parseDimensions(std::string &s);
 
     int intervalOverlap(int start1, int end1, int start2, int end2);
 
@@ -112,7 +123,7 @@ namespace Utils {
 
     std::vector<BoundingBox> imageBoundingBoxes(Dims &dims, float wndowWidth, float windowHeight, float padX=15, float padY=15, float ySpace=0);
 
-    class Label {
+    class EXPORT Label {
     public:
         Label() = default;
         ~Label() = default;
@@ -151,4 +162,5 @@ namespace Utils {
 	void ltrim(std::string &s);
 	void rtrim(std::string &s);
 	void trim(std::string &s);
+
 }

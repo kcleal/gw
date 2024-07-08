@@ -236,16 +236,451 @@ namespace Segs {
 //        }
 //    }
 
+
+    /* NOTE PARSING MODS SECTION BELOW IS FROM HTS-LIB
+     *
+     * Count frequency of A, C, G, T and N canonical bases in the sequence
+     */
+    #define MAX_BASE_MOD 256
+    struct hts_base_mod_state {
+        int type[MAX_BASE_MOD];     // char or minus-CHEBI
+        int canonical[MAX_BASE_MOD];// canonical base, as seqi (1,2,4,8,15)
+        char strand[MAX_BASE_MOD];  // strand of modification; + or -
+        int MMcount[MAX_BASE_MOD];  // no. canonical bases left until next mod
+        char *MM[MAX_BASE_MOD];     // next pos delta (string)
+        char *MMend[MAX_BASE_MOD];  // end of pos-delta string
+        uint8_t *ML[MAX_BASE_MOD];  // next qual
+        int MLstride[MAX_BASE_MOD]; // bytes between quals for this type
+        int implicit[MAX_BASE_MOD]; // treat unlisted positions as non-modified?
+        int seq_pos;                // current position along sequence
+        int nmods;                  // used array size (0 to MAX_BASE_MOD-1).
+        uint32_t flags;             // Bit-field: see HTS_MOD_REPORT_UNCHECKED
+    };
+
+    static void seq_freq(const bam1_t *b, int freq[16]) {
+        int i;
+        memset(freq, 0, 16*sizeof(*freq));
+        uint8_t *seq = bam_get_seq(b);
+        for (i = 0; i < b->core.l_qseq; i++)
+            freq[bam_seqi(seq, i)]++;
+        freq[15] = b->core.l_qseq; // all bases count as N for base mods
+    }
+
+    //0123456789ABCDEF
+    //=ACMGRSVTWYHKDBN  aka seq_nt16_str[]
+    //=TGKCYSBAWRDMHVN  comp1ement of seq_nt16_str
+    //084C2A6E195D3B7F
+    static int seqi_rc[] = { 0,8,4,12,2,10,6,14,1,9,5,13,3,11,7,15 };
+
+    /*
+     * Parse the MM and ML tags to populate the base mod state.
+     * This structure will have been previously allocated via
+     * hts_base_mod_state_alloc, but it does not need to be repeatedly
+     * freed and allocated for each new bam record. (Although obviously
+     * it requires a new call to this function.)
+     *
+     * Flags are copied into the state and used to control reporting functions.
+     * Currently the only flag is HTS_MOD_REPORT_UNCHECKED, to control whether
+     * explicit "C+m?" mods report quality HTS_MOD_UNCHECKED for the bases
+     * outside the explicitly reported region.
+     */
+    int bam_parse_basemod_gw(const bam1_t *b, hts_base_mod_state *state,
+                           uint32_t flags) {
+        // Reset position, else upcoming calls may fail on
+        // seq pos - length comparison
+        state->seq_pos = 0;
+        state->nmods = 0;
+        state->flags = flags;
+
+        // Read MM and ML tags
+        uint8_t *mm = bam_aux_get(b, "MM");
+        if (!mm) mm = bam_aux_get(b, "Mm");
+        if (!mm)
+            return 0;
+        if (mm[0] != 'Z') {
+#ifdef DEBUG
+            hts_log_error("%s: MM tag is not of type Z", bam_get_qname(b));
+#endif
+            return -1;
+        }
+
+        uint8_t *mi = bam_aux_get(b, "MN");
+        if (mi && bam_aux2i(mi) != b->core.l_qseq && b->core.l_qseq) {
+            // bam_aux2i with set errno = EINVAL and return 0 if the tag
+            // isn't integer, but 0 will be a seq-length mismatch anyway so
+            // triggers an error here too.
+#ifdef DEBUG
+            hts_log_error("%s: MM/MN data length is incompatible with"
+                          " SEQ length", bam_get_qname(b));
+#endif
+            return -1;
+        }
+
+        uint8_t *ml = bam_aux_get(b, "ML");
+        if (!ml) ml = bam_aux_get(b, "Ml");
+        if (ml && (ml[0] != 'B' || ml[1] != 'C')) {
+#ifdef DEBUG
+            hts_log_error("%s: ML tag is not of type B,C", bam_get_qname(b));
+#endif
+            return -1;
+        }
+        uint8_t *ml_end = ml ? ml+6 + le_to_u32(ml+2) : NULL;
+        if (ml) ml += 6;
+
+        // Aggregate freqs of ACGTN if reversed, to get final-delta (later)
+        int freq[16];
+        if (b->core.flag & BAM_FREVERSE)
+            Segs::seq_freq(b, freq);
+
+        char *cp = (char *)mm+1;
+        int mod_num = 0;
+        int implicit = 1;
+        while (*cp) {
+            for (; *cp; cp++) {
+                // cp should be [ACGTNU][+-]([a-zA-Z]+|[0-9]+)[.?]?(,\d+)*;
+                unsigned char btype = *cp++;
+
+                if (btype != 'A' && btype != 'C' &&
+                    btype != 'G' && btype != 'T' &&
+                    btype != 'U' && btype != 'N')
+                    return -1;
+                if (btype == 'U') btype = 'T';
+
+                btype = seq_nt16_table[btype];
+
+                // Strand
+                if (*cp != '+' && *cp != '-')
+                    return -1; // malformed
+                char strand = *cp++;
+
+                // List of modification types
+                char *ms = cp, *me; // mod code start and end
+                char *cp_end = NULL;
+                int chebi = 0;
+                if (std::isdigit(*cp)) {
+                    chebi = strtol(cp, &cp_end, 10);
+                    cp = cp_end;
+                    ms = cp-1;
+                } else {
+                    while (*cp && std::isalpha(*cp))
+                        cp++;
+                    if (*cp == '\0')
+                        return -1;
+                }
+
+                me = cp;
+
+                // Optional explicit vs implicit marker
+                implicit = 1;
+                if (*cp == '.') {
+                    // default is implicit = 1;
+                    cp++;
+                } else if (*cp == '?') {
+                    implicit = 0;
+                    cp++;
+                } else if (*cp != ',' && *cp != ';') {
+                    // parse error
+                    return -1;
+                }
+
+                long delta;
+                int n = 0; // nth symbol in a multi-mod string
+                int stride = me-ms;
+                int ndelta = 0;
+
+                if (b->core.flag & BAM_FREVERSE) {
+                    // We process the sequence in left to right order,
+                    // but delta is successive count of bases to skip
+                    // counting right to left.  This also means the number
+                    // of bases to skip at left edge is unrecorded (as it's
+                    // the remainder).
+                    //
+                    // To output mods in left to right, we step through the
+                    // MM list in reverse and need to identify the left-end
+                    // "remainder" delta.
+                    int total_seq = 0;
+                    for (;;) {
+                        cp += (*cp == ',');
+                        if (*cp == 0 || *cp == ';')
+                            break;
+
+                        delta = strtol(cp, &cp_end, 10);
+                        if (cp_end == cp) {
+#ifdef DEBUG
+                            hts_log_error("%s: Hit end of MM tag. Missing "
+                                          "semicolon?", bam_get_qname(b));
+#endif
+                            return -1;
+                        }
+
+                        cp = cp_end;
+                        total_seq += delta+1;
+                        ndelta++;
+                    }
+                    delta = freq[seqi_rc[btype]] - total_seq; // remainder
+                } else {
+                    delta = *cp == ','
+                            ? strtol(cp+1, &cp_end, 10)
+                            : 0;
+                    if (!cp_end) {
+                        // empty list
+                        delta = INT_MAX;
+                        cp_end = cp;
+                    }
+                }
+                // Now delta is first in list or computed remainder,
+                // and cp_end is either start or end of the MM list.
+                while (ms < me) {
+                    state->type     [mod_num] = chebi ? -chebi : *ms;
+                    state->strand   [mod_num] = (strand == '-');
+                    state->canonical[mod_num] = btype;
+                    state->MLstride [mod_num] = stride;
+                    state->implicit [mod_num] = implicit;
+
+                    if (delta < 0) {
+#ifdef DEBUG
+                        hts_log_error("%s: MM tag refers to bases beyond sequence "
+                                      "length", bam_get_qname(b));
+#endif
+                        return -1;
+                    }
+                    state->MMcount  [mod_num] = delta;
+                    if (b->core.flag & BAM_FREVERSE) {
+                        state->MM   [mod_num] = me+1;
+                        state->MMend[mod_num] = cp_end;
+                        state->ML   [mod_num] = ml ? ml+n +(ndelta-1)*stride: NULL;
+                    } else {
+                        state->MM   [mod_num] = cp_end;
+                        state->MMend[mod_num] = NULL;
+                        state->ML   [mod_num] = ml ? ml+n : NULL;
+                    }
+
+                    if (++mod_num >= MAX_BASE_MOD) {
+#ifdef DEBUG
+                        hts_log_error("%s: Too many base modification types",
+                                      bam_get_qname(b));
+#endif
+                        return -1;
+                    }
+                    ms++; n++;
+                }
+
+                // Skip modification deltas
+                if (ml) {
+                    if (b->core.flag & BAM_FREVERSE) {
+                        ml += ndelta*stride;
+                    } else {
+                        while (*cp && *cp != ';') {
+                            if (*cp == ',')
+                                ml+=stride;
+                            cp++;
+                        }
+                    }
+                    if (ml > ml_end) {
+#ifdef DEBUG
+                        hts_log_error("%s: Insufficient number of entries in ML "
+                                      "tag", bam_get_qname(b));
+#endif
+                        return -1;
+                    }
+                } else {
+                    // cp_end already known if FREVERSE
+                    if (cp_end && (b->core.flag & BAM_FREVERSE))
+                        cp = cp_end;
+                    else
+                        while (*cp && *cp != ';')
+                            cp++;
+                }
+                if (!*cp) {
+#ifdef DEBUG
+                    hts_log_error("%s: Hit end of MM tag. Missing semicolon?",
+                                  bam_get_qname(b));
+#endif
+                    return -1;
+                }
+            }
+        }
+        if (ml && ml != ml_end) {
+#ifdef DEBUG
+            hts_log_error("%s: Too many entries in ML tag", bam_get_qname(b));
+#endif
+            return -1;
+        }
+
+        state->nmods = mod_num;
+
+        return 0;
+    }
+
+    int bam_mods_at_next_pos(const bam1_t *b, hts_base_mod_state *state,
+                             hts_base_mod *mods, int n_mods) {
+        if (b->core.flag & BAM_FREVERSE) {
+            if (state->seq_pos < 0)
+                return -1;
+        } else {
+            if (state->seq_pos >= b->core.l_qseq)
+                return -1;
+        }
+
+        int i, j, n = 0;
+        unsigned char base = bam_seqi(bam_get_seq(b), state->seq_pos);
+        state->seq_pos++;
+        if (b->core.flag & BAM_FREVERSE)
+            base = seqi_rc[base];
+
+        for (i = 0; i < state->nmods; i++) {
+            int unchecked = 0;
+            if (state->canonical[i] != base && state->canonical[i] != 15/*N*/)
+                continue;
+
+            if (state->MMcount[i]-- > 0) {
+                if (!state->implicit[i] &&
+                    (state->flags & HTS_MOD_REPORT_UNCHECKED))
+                    unchecked = 1;
+                else
+                    continue;
+            }
+
+            char *MMptr = state->MM[i];
+            if (n < n_mods) {
+                mods[n].modified_base = state->type[i];
+                mods[n].canonical_base = seq_nt16_str[state->canonical[i]];
+                mods[n].strand = state->strand[i];
+                mods[n].qual = unchecked
+                               ? HTS_MOD_UNCHECKED
+                               : (state->ML[i] ? *state->ML[i] : HTS_MOD_UNKNOWN);
+            }
+            n++;
+
+            if (unchecked)
+                continue;
+
+            if (state->ML[i])
+                state->ML[i] += (b->core.flag & BAM_FREVERSE)
+                                ? -state->MLstride[i]
+                                : +state->MLstride[i];
+
+            if (b->core.flag & BAM_FREVERSE) {
+                // process MM list backwards
+                char *cp;
+                if (state->MMend[i]-1 < state->MM[i]) {
+                    // Should be impossible to hit if coding is correct
+#ifdef DEBUG
+                    hts_log_error("Assert failed while processing base modification states");
+#endif
+                    return -1;
+                }
+                for (cp = state->MMend[i]-1; cp != state->MM[i]; cp--)
+                    if (*cp == ',')
+                        break;
+                state->MMend[i] = cp;
+                if (cp != state->MM[i])
+                    state->MMcount[i] = strtol(cp+1, NULL, 10);
+                else
+                    state->MMcount[i] = INT_MAX;
+            } else {
+                if (*state->MM[i] == ',')
+                    state->MMcount[i] = strtol(state->MM[i]+1, &state->MM[i], 10);
+                else
+                    state->MMcount[i] = INT_MAX;
+            }
+
+            // Multiple mods at the same coords.
+            for (j=i+1; j < state->nmods && state->MM[j] == MMptr; j++) {
+                if (n < n_mods) {
+                    mods[n].modified_base = state->type[j];
+                    mods[n].canonical_base = seq_nt16_str[state->canonical[j]];
+                    mods[n].strand = state->strand[j];
+                    mods[n].qual = state->ML[j] ? *state->ML[j] : -1;
+                }
+                n++;
+                state->MMcount[j] = state->MMcount[i];
+                state->MM[j]      = state->MM[i];
+                if (state->ML[j])
+                    state->ML[j] += (b->core.flag & BAM_FREVERSE)
+                                    ? -state->MLstride[j]
+                                    : +state->MLstride[j];
+            }
+            i = j-1;
+        }
+        return n;
+    }
+
+    int bam_next_basemod(const bam1_t *b, hts_base_mod_state *state,
+                         hts_base_mod *mods, int n_mods, int *pos) {
+        // Look through state->MMcount arrays to see when the next lowest is
+        // per base type;
+        int next[16], freq[16] = {0}, i;
+        memset(next, 0x7f, 16*sizeof(*next));
+        const int unchecked = state->flags & HTS_MOD_REPORT_UNCHECKED;
+        if (b->core.flag & BAM_FREVERSE) {
+            for (i = 0; i < state->nmods; i++) {
+                if (unchecked && !state->implicit[i])
+                    next[seqi_rc[state->canonical[i]]] = 1;
+                else if (next[seqi_rc[state->canonical[i]]] > state->MMcount[i])
+                    next[seqi_rc[state->canonical[i]]] = state->MMcount[i];
+            }
+        } else {
+            for (i = 0; i < state->nmods; i++) {
+                if (unchecked && !state->implicit[i])
+                    next[state->canonical[i]] = 0;
+                else if (next[state->canonical[i]] > state->MMcount[i])
+                    next[state->canonical[i]] = state->MMcount[i];
+            }
+        }
+
+        // Now step through the sequence counting off base types.
+        for (i = state->seq_pos; i < b->core.l_qseq; i++) {
+            unsigned char bc = bam_seqi(bam_get_seq(b), i);
+            if (next[bc] <= freq[bc] || next[15] <= freq[15])
+                break;
+            freq[bc]++;
+            if (bc != 15) // N
+                freq[15]++;
+        }
+        *pos = state->seq_pos = i;
+
+        if (b->core.flag & BAM_FREVERSE) {
+            for (i = 0; i < state->nmods; i++)
+                state->MMcount[i] -= freq[seqi_rc[state->canonical[i]]];
+        } else {
+            for (i = 0; i < state->nmods; i++)
+                state->MMcount[i] -= freq[state->canonical[i]];
+        }
+
+        if (b->core.l_qseq && state->seq_pos >= b->core.l_qseq &&
+            !(b->core.flag & BAM_FREVERSE)) {
+            // Spots +ve orientation run-overs.
+            // The -ve orientation is spotted in bam_parse_basemod2
+            int i;
+            for (i = 0; i < state->nmods; i++) {
+                // Check if any remaining items in MM after hitting the end
+                // of the sequence.
+                if (state->MMcount[i] < 0x7f000000 ||
+                    (*state->MM[i]!=0 && *state->MM[i]!=';')) {
+#ifdef DEBUG
+                    hts_log_warning("MM tag refers to bases beyond sequence length");
+#endif
+                    return -1;
+                }
+            }
+            return 0;
+        }
+
+        int r = bam_mods_at_next_pos(b, state, mods, n_mods);
+        return r > 0 ? r : 0;
+    }
+
     constexpr uint32_t PP_RR_MR = 50;
 
-    constexpr std::array<Pattern, 49> posFirst = {INV_F, u, u, u, u, u, u, u,
+    alignas(64) constexpr std::array<Pattern, 49> posFirst = {INV_F, u, u, u, u, u, u, u,
                                                   u, u, u, u, u, u, u, u,
                                                   DUP, u, u, u, u, u, u, u,
                                                   u, u, u, u, u, u, u, u,
                                                   DEL, u, u, u, u, u, u, u,
                                                   u, u, u, u, u, u, u, u,
                                                   INV_R};
-    constexpr std::array<Pattern, 49> mateFirst = {INV_R, u, u, u, u, u, u, u,
+    alignas(64) constexpr std::array<Pattern, 49> mateFirst = {INV_R, u, u, u, u, u, u, u,
                                                   u, u, u, u, u, u, u, u,
                                                   DEL, u, u, u, u, u, u, u,
                                                   u, u, u, u, u, u, u, u,
@@ -253,14 +688,12 @@ namespace Segs {
                                                   u, u, u, u, u, u, u, u,
                                                   INV_F};
 
-    void align_init(Align *self) { //noexcept {
+    void align_init(Align *self, const int parse_mods_threshold) {
 //        auto start = std::chrono::high_resolution_clock::now();
+
         bam1_t *src = self->delegate;
 
         self->pos = src->core.pos;
-        self->reference_end = bam_endpos(src);  // reference_end - already checked for 0 length cigar and mapped
-        self->cov_start = (int)self->pos;
-        self->cov_end = (int)self->reference_end;
 
         uint32_t pos, l, cigar_l, op, k;
         uint32_t *cigar_p;
@@ -273,11 +706,10 @@ namespace Segs {
         self->left_soft_clip = 0;
         self->right_soft_clip = 0;
 
-        uint32_t last_op = 0;
+        uint32_t seq_index = 0;
 
         self->any_ins.reserve(cigar_l);
-        self->block_starts.reserve(cigar_l);
-        self->block_ends.reserve(cigar_l);
+        self->blocks.reserve(cigar_l);
 
         for (k = 0; k < cigar_l; k++) {
             op = cigar_p[k] & BAM_CIGAR_MASK;
@@ -285,28 +717,27 @@ namespace Segs {
 
             switch (op) {
                 case BAM_CMATCH: case BAM_CEQUAL: case BAM_CDIFF:
-                    if (last_op == BAM_CINS) {
-                        if (!self->block_ends.empty() ) {
-                            self->block_ends.back() = pos + l;
-                        }
-                    } else {
-                        self->block_starts.push_back(pos);
-                        self->block_ends.push_back(pos + l);
-                    }
+                    self->blocks.emplace_back() = {pos, pos+l, seq_index};
                     pos += l;
+                    seq_index += l;
                     break;
                 case BAM_CINS:
                     self->any_ins.push_back({pos, l});
+                    seq_index += l;
                     break;
-                case BAM_CDEL: case BAM_CREF_SKIP:
+                case BAM_CDEL:
                     pos += l;
+                    break;
+                case BAM_CREF_SKIP:
+                    op = BAM_CDEL;
+                    pos += l;
+                    seq_index += l;
                     break;
                 case BAM_CSOFT_CLIP:
                     if (k == 0) {
-                        self->cov_start -= (int)l;
                         self->left_soft_clip = (int)l;
+                        seq_index += l;
                     } else {
-                        self->cov_end += l;
                         self->right_soft_clip = (int)l;
                     }
                     break;
@@ -315,8 +746,10 @@ namespace Segs {
                 default:  // Match case --> MATCH, EQUAL, DIFF
                     break;
             }
-            last_op = op;
         }
+        self->reference_end = self->blocks.back().end;
+        self->cov_start = (int)self->pos - self->left_soft_clip;
+        self->cov_end = (int)self->reference_end + self->right_soft_clip;
 
         uint32_t flag = src->core.flag;
 
@@ -326,13 +759,43 @@ namespace Segs {
             self->has_SA = false;
         }
 
+        if (parse_mods_threshold > 0) {
+            hts_base_mod_state* mod_state = new hts_base_mod_state;
+            int res = bam_parse_basemod_gw(src, mod_state, 0);
+            if (res >= 0) {
+                hts_base_mod mods[10];
+                int pos = 0;  // position on read, not reference
+                int nm = bam_next_basemod(src, mod_state, mods, 10, &pos);
+                while (nm > 0) {
+                self->any_mods.emplace_back() = ModItem();
+                ModItem& mi = self->any_mods.back();
+                mi.index = pos;
+                size_t j=0;
+                for (size_t m=0; m < std::min((size_t)4, (size_t)nm); ++m) {
+                    if (mods[m].qual > parse_mods_threshold) {
+                        mi.mods[j] = (char)mods[m].modified_base;
+                        mi.quals[j] = (uint8_t)mods[m].qual;
+                        mi.strands[j] = (bool)mods[m].strand;
+                        j += 1;
+                    }
+                }
+                mi.n_mods = (uint8_t)j;
+                nm = bam_next_basemod(src, mod_state, mods, 10, &pos);
+                }
+            }
+            delete mod_state;
+        }
+
+
         self->y = -1;  // -1 has no level, -2 means initialized but filtered
 
         if (flag & 1) {  // paired-end
             if (src->core.tid != src->core.mtid) {
                 self->orient_pattern = TRA;
             } else {
-                uint32_t info = flag & PP_RR_MR;  // PP_RR_MR = proper-pair, read-reverse, mate-reverse flags
+                // PP_RR_MR = proper-pair, read-reverse, mate-reverse flags
+                // 00110010 = 0010       , 00010000    , 00100000
+                uint32_t info = flag & PP_RR_MR;
                 if (self->pos <= src->core.mpos) {
                     self->orient_pattern = posFirst[info];
                 } else {
@@ -343,40 +806,38 @@ namespace Segs {
             self->orient_pattern = Segs::Pattern::NORMAL;
         }
 
-        if (flag & 2048 || self->has_SA) {
+        if (self->has_SA || flag & 2048) {
             self->edge_type = 2;  // "SPLIT"
         } else if (flag & 8) {
             self->edge_type = 3;  // "MATE_UNMAPPED"
         } else {
             self->edge_type = 1;  // "NORMAL"
         }
-        self->initialized = true;
 //        auto stop = std::chrono::high_resolution_clock::now();
 //        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
     }
 
     void align_clear(Align *self) {
-        self->block_starts.clear();
-        self->block_ends.clear();
+        self->blocks.clear();
         self->any_ins.clear();
     }
 
-    void init_parallel(std::vector<Align> &aligns, int n,  BS::thread_pool &pool) {
+    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool, const int parse_mods_threshold) {
         if (n == 1) {
             for (auto &aln : aligns) {
-                align_init(&aln);
+                align_init(&aln, parse_mods_threshold);
             }
         } else {
             pool.parallelize_loop(0, aligns.size(),
-                                  [&aligns](const int a, const int b) {
+                                  [&aligns, parse_mods_threshold](const int a, const int b) {
                                       for (int i = a; i < b; ++i)
-                                          align_init(&aligns[i]);
+                                          align_init(&aligns[i], parse_mods_threshold);
                                   })
                     .wait();
         }
     }
 
-    ReadCollection::ReadCollection() {
+    EXPORT ReadCollection::ReadCollection() {
         vScroll = 0;
         collection_processed = false;
         skipDrawingReads = false;
@@ -408,14 +869,12 @@ namespace Segs {
     }
 
     void addToCovArray(std::vector<int> &arr, const Align &align, const uint32_t begin, const uint32_t end, const uint32_t l_arr) noexcept {
-        size_t n_blocks = align.block_starts.size();
+        size_t n_blocks = align.blocks.size();
         for (size_t idx=0; idx < n_blocks; ++idx) {
-            uint32_t block_s = align.block_starts[idx];
+            uint32_t block_s = align.blocks[idx].start;
             if (block_s >= end) { break; }
-            uint32_t block_e = align.block_ends[idx];
+            uint32_t block_e = align.blocks[idx].end;
             if (block_e < begin) { continue; }
-//            uint32_t s = (block_s >= begin) ? block_s - begin : 0;
-//            uint32_t e = (block_e < end) ? block_e - begin : l_arr;
             uint32_t s = std::max(block_s, begin) - begin;
             uint32_t e = std::min(block_e, end) - begin;
             arr[s] += 1;
@@ -439,10 +898,18 @@ namespace Segs {
         // first find reads that should be linked together using qname
         if (linkType > 0) {
             lm.clear();
-            q_ptr = &rc.readQueue.front();
+            q_ptr = &rQ.front();
             // find the start and end coverage locations of aligns with same name
-            for (i=0; i < (int)rc.readQueue.size(); ++i) {
+            for (i=0; i < (int)rQ.size(); ++i) {
+                if (!(q_ptr->delegate->core.flag & 1)) {
+                    ++q_ptr;
+                    continue;
+                }
                 qname = bam_get_qname(q_ptr->delegate);
+                if (qname == nullptr) {
+                    ++q_ptr;
+                    continue;
+                }
                 if (linkType == 1) {
                     uint32_t flag = q_ptr->delegate->core.flag;
                     if (q_ptr->has_SA || ~flag & 2) {
@@ -523,7 +990,7 @@ namespace Segs {
             }
             if (linkType > 0) {
                 qname = bam_get_qname(q_ptr->delegate);
-                if (linkedSeen.find(qname) != linkedSeen.end()) {
+                if (qname != nullptr && linkedSeen.find(qname) != linkedSeen.end()) {
                     q_ptr->y = linkedSeen[qname];
                     q_ptr += move;
                     continue;
@@ -539,13 +1006,13 @@ namespace Segs {
                         if (i >= vScroll) {
                             q_ptr->y = i - vScroll;
                         }
-                        if (linkType > 0 && lm.find(qname) != lm.end()) {
+                        if (linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
                             linkedSeen[qname] = q_ptr->y;
                         }
                         break;
                     }
                 }
-                if (i == memLen && linkType > 0 && lm.find(qname) != lm.end()) {
+                if (i == memLen && linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
                      linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
                 }
                 q_ptr += move;
@@ -560,13 +1027,13 @@ namespace Segs {
                         if (i >= vScroll) {
                             q_ptr->y = i - vScroll;
                         }
-                        if (linkType > 0 && lm.find(qname) != lm.end()) {
+                        if (linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
                             linkedSeen[qname] = q_ptr->y;
                         }
                         break;
                     }
                 }
-                if (i == memLen && linkType > 0 && lm.find(qname) != lm.end()) {
+                if (i == memLen && linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
                     linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
                 }
                 q_ptr += move;
@@ -576,6 +1043,47 @@ namespace Segs {
         return samMaxY;
     }
 
+    constexpr std::array<char, 256> make_lookup_ref_base() {
+        std::array<char, 256> a{};
+        for (auto& elem : a) {
+            elem = 15;  // Initialize all elements to 15
+        }
+        a['A'] = 1; a['a'] = 1;
+        a['C'] = 2; a['c'] = 2;
+        a['G'] = 4; a['g'] = 4;
+        a['T'] = 8; a['t'] = 8;
+        a['N'] = 15; a['n'] = 15;
+        return a;
+    }
+    constexpr std::array<char, 256> lookup_ref_base = make_lookup_ref_base();
+
+    void update_A(Mismatches& elem) { elem.A += 1; }
+    void update_C(Mismatches& elem) { elem.C += 1; }
+    void update_G(Mismatches& elem) { elem.G += 1; }
+    void update_T(Mismatches& elem) { elem.T += 1; }
+    void update_pass(Mismatches& elem) {}  // For N bases
+
+    // Lookup table for function pointers, initialized statically
+    void (*lookup_table_mm[16])(Mismatches&) = {
+            update_pass,     // 0
+            update_A,        // 1
+            update_C,        // 2
+            update_pass,     // 3
+            update_G,        // 4
+            update_pass,     // 5
+            update_pass,     // 6
+            update_pass,     // 7
+            update_T,        // 8
+            update_pass,     // 9
+            update_pass,     // 10
+            update_pass,     // 11
+            update_pass,     // 12
+            update_pass,     // 13
+            update_pass,     // 14
+            update_pass      // 15
+    };
+
+    // used for drawing mismatches over coverage track
     void findMismatches(const Themes::IniOptions &opts, ReadCollection &collection) {
 
         std::vector<Segs::Mismatches> &mm_array = collection.mmVector;
@@ -630,28 +1138,29 @@ namespace Segs {
 
                     case BAM_CHARD_CLIP:
                     case BAM_CEQUAL:
-                        // Nothing to do here, just continue in the loop
+                        // Nothing to do here
                         break;
                     case BAM_CDIFF:
                         for (uint32_t i = 0; i < l; ++i) {
                             if (r_pos >= rbegin && r_pos < rend && r_pos - rbegin < mm_array_len) {
                                 char bam_base = bam_seqi(ptr_seq, idx);
-                                switch (bam_base) {
-                                    case 1:
-                                        mm_array[r_pos - rbegin].A += 1;
-                                        break;
-                                    case 2:
-                                        mm_array[r_pos - rbegin].C += 1;
-                                        break;
-                                    case 4:
-                                        mm_array[r_pos - rbegin].G += 1;
-                                        break;
-                                    case 8:
-                                        mm_array[r_pos - rbegin].T += 1;
-                                        break;
-                                    default:
-                                        break;
-                                }
+                                lookup_table_mm[(size_t)bam_base](mm_array[r_pos - rbegin]);
+//                                switch (bam_base) {
+//                                    case 1:
+//                                        mm_array[r_pos - rbegin].A += 1;
+//                                        break;
+//                                    case 2:
+//                                        mm_array[r_pos - rbegin].C += 1;
+//                                        break;
+//                                    case 4:
+//                                        mm_array[r_pos - rbegin].G += 1;
+//                                        break;
+//                                    case 8:
+//                                        mm_array[r_pos - rbegin].T += 1;
+//                                        break;
+//                                    default:
+//                                        break;
+//                                }
                             }
                             idx += 1;
                             r_pos += 1;
@@ -673,48 +1182,27 @@ namespace Segs {
                                 break;
                             }
 
-                            char ref_base;
-                            switch (refSeq[r_idx]) {
-                                case 'A':
-                                case 'a':
-                                    ref_base = 1;
-                                    break;
-                                case 'C':
-                                case 'c':
-                                    ref_base = 2;
-                                    break;
-                                case 'G':
-                                case 'g':
-                                    ref_base = 4;
-                                    break;
-                                case 'T':
-                                case 't':
-                                    ref_base = 8;
-                                    break;
-                                case 'N':
-                                default:
-                                    ref_base = 15;
-                                    break;
-                            }
+                            char ref_base = lookup_ref_base[(unsigned char)refSeq[r_idx]];
 
                             char bam_base = bam_seqi(ptr_seq, idx);
                             if (bam_base != ref_base) {
-                                switch (bam_base) {
-                                    case 1:
-                                        mm_array[r_pos - rbegin].A += 1;
-                                        break;
-                                    case 2:
-                                        mm_array[r_pos - rbegin].C += 1;
-                                        break;
-                                    case 4:
-                                        mm_array[r_pos - rbegin].G += 1;
-                                        break;
-                                    case 8:
-                                        mm_array[r_pos - rbegin].T += 1;
-                                        break;
-                                    default:
-                                        break;
-                                }
+                                lookup_table_mm[(size_t)bam_base](mm_array[r_pos - rbegin]);
+//                                switch (bam_base) {
+//                                    case 1:
+//                                        mm_array[r_pos - rbegin].A += 1;
+//                                        break;
+//                                    case 2:
+//                                        mm_array[r_pos - rbegin].C += 1;
+//                                        break;
+//                                    case 4:
+//                                        mm_array[r_pos - rbegin].G += 1;
+//                                        break;
+//                                    case 8:
+//                                        mm_array[r_pos - rbegin].T += 1;
+//                                        break;
+//                                    default:
+//                                        break;
+//                                }
                             }
                             idx += 1;
                             r_pos += 1;

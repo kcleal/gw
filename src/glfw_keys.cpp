@@ -5,11 +5,11 @@
 #include <cstring>
 #include <string>
 #include <GLFW/glfw3.h>
-#include "../include/unordered_dense.h"
+#include <unordered_map>
 
 namespace Keys {
 
-    void getKeyTable(ankerl::unordered_dense::map<std::string, int>& kt) {
+    void getKeyTable(std::unordered_map<std::string, int>& kt) {
         kt["SPACE"] = GLFW_KEY_SPACE;
         kt["APOSTROPHE"] = GLFW_KEY_APOSTROPHE;
         kt[","] = GLFW_KEY_COMMA;
@@ -130,6 +130,7 @@ namespace Keys {
         kt["RIGHT_ALT"] = GLFW_KEY_RIGHT_ALT;
         kt["RIGHT_SUPER"] = GLFW_KEY_RIGHT_SUPER;
         kt["MENU"] = GLFW_KEY_MENU;
+        kt["#"] = GLFW_KEY_WORLD_1;  // Could also be GLFW_KEY_WORLD_2
     }
 
 }

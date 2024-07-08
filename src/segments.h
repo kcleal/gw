@@ -10,17 +10,18 @@
 #include <deque>
 #include <unordered_map>
 
-#include "../include/BS_thread_pool.h"
-#include "../include/unordered_dense.h"
+#include "BS_thread_pool.h"
+#include "ankerl_unordered_dense.h"
 #include "htslib/sam.h"
 
+#include "export_definitions.h"
 #include "themes.h"
 #include "utils.h"
 
 
 namespace Segs {
 
-    enum Pattern {
+    enum EXPORT Pattern {
         u = 0,
         NORMAL = 0,
         DEL = 1,
@@ -32,9 +33,30 @@ namespace Segs {
 
 //    typedef int64_t hts_pos_t;
 
-    struct InsItem {
+    struct EXPORT ABlock {
+        uint32_t start, end; // on reference
+        uint32_t seq_index;
+    };
+
+    struct EXPORT InsItem {
         uint32_t pos, length;
     };
+
+    struct EXPORT ModItem {  // up to 4 modifications
+        int index;
+        uint8_t n_mods;
+        char mods[4];  // 0 is used to indicate no more mods
+        uint8_t quals[4];
+        bool strands[4];
+        ModItem () {
+            index = -1;
+            mods[0] = 0;
+            mods[1] = 0;
+            mods[2] = 0;
+            mods[3] = 0;
+        }
+    };
+
 //
 //    struct QueueItem {
 //        uint32_t c_s_idx, l;
@@ -54,26 +76,25 @@ namespace Segs {
 //
 //    void get_mismatched_bases(std::vector<MMbase> &result, const char *md_tag, uint32_t r_pos, uint32_t ct_l, uint32_t *cigar_p);
 
-    struct Align {
+    struct EXPORT Align {
         bam1_t *delegate;
         int cov_start, cov_end, orient_pattern, left_soft_clip, right_soft_clip, y, edge_type;
         uint32_t pos, reference_end;
-        bool has_SA, initialized;
-        std::vector<uint32_t> block_starts, block_ends;
+        bool has_SA;
+        std::vector<ABlock> blocks;
         std::vector<InsItem> any_ins;
-        Align(bam1_t *src) {
-            delegate = src;
-            initialized = false;
-        }
+        std::vector<ModItem> any_mods;
+
+        Align(bam1_t *src) { delegate = src; }
     };
 
-    struct Mismatches {
+    struct EXPORT Mismatches {
         uint32_t A, T, C, G;
     };
 
     typedef ankerl::unordered_dense::map< std::string, std::vector< Align* >> map_t;
 
-    class ReadCollection {
+    class EXPORT ReadCollection {
     public:
        ReadCollection();
         ~ReadCollection() = default;
@@ -85,7 +106,7 @@ namespace Segs {
         std::vector<Mismatches> mmVector;
         std::vector<Align> readQueue;
         map_t linked;
-        float xScaling, xOffset, yOffset, yPixels;
+        float xScaling, xOffset, yOffset, yPixels, xPixels;
         float regionPixels;
 
         bool collection_processed;
@@ -98,11 +119,11 @@ namespace Segs {
         void clear();
     };
 
-    void align_init(Align *self); // noexcept;
+    void align_init(Align *self, const int parse_mods_threshold);
 
     void align_clear(Align *self);
 
-    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool);
+    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool, const int parse_mods_threshold);
 
     void resetCovStartEnd(ReadCollection &cl);
 

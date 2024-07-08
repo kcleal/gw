@@ -6,10 +6,10 @@
 #include <cstring>
 #include <string>
 #include <GLFW/glfw3.h>
-#include "../include/unordered_dense.h"
+#include <unordered_map>
 
 namespace Keys {
 
-    void getKeyTable(ankerl::unordered_dense::map<std::string, int>& kt);
+    void getKeyTable(std::unordered_map<std::string, int>& kt);
 
 }

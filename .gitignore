@@ -33,3 +33,9 @@
 /lib/libBigWig/bwValues.o
 /lib/libBigWig/bwWrite.o
 /lib/libBigWig/io.o
+/lib/libgw/
+libgw.so
+/libgw.dylib
+/gw.wasm
+/wasm_libs
+/src/plot_commands.o

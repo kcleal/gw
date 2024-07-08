@@ -21,7 +21,7 @@
 #include "hts_funcs.h"
 #include "plot_manager.h"
 #include "parser.h"
-#include "../include/unordered_dense.h"
+#include "ankerl_unordered_dense.h"
 #include "utils.h"
 #include "segments.h"
 #include "themes.h"
@@ -37,7 +37,7 @@
 
 namespace Menu {
 
-    void drawMenu(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface, Themes::IniOptions &opts, Themes::Fonts &fonts, float monitorScale, float fb_width, float fb_height, std::string inputText, int charIndex);
+    void drawMenu(SkCanvas *canvas, Themes::IniOptions &opts, Themes::Fonts &fonts, float monitorScale, float fb_width, float fb_height, std::string inputText, int charIndex);
 
     void menuMousePos(Themes::IniOptions &opts, Themes::Fonts &fonts, float xPos, float yPos, float fb_height, float fb_width, bool *redraw);
 
@@ -49,11 +49,11 @@ namespace Menu {
 
     std::vector<std::string> getCommandTip();
 
-    constexpr std::array<const char*, 26> commandToolTip = {"ylim", "var", "tlen-y", "tags", "soft-clips", "snapshot", "sam", "remove",
-                                                            "refresh", "online", "mismatches", "mate", "mate add", "log2-cov", "link", "line", "insertions", "indel-length",
+    constexpr std::array<const char*, 27> commandToolTip = {"ylim", "var", "tlen-y", "tags", "soft-clips", "snapshot", "sam", "remove",
+                                                            "refresh", "online", "mods", "mismatches", "mate", "mate add", "log2-cov", "link", "line", "insertions", "indel-length",
                                                             "grid", "find", "filter", "expand-tracks", "edges", "cov",  "count", "add"};
 
-    constexpr std::array<const char*, 15> exec = {"cov", "count", "edges", "expand-tracks", "insertions", "line", "log2-cov", "mate", "mate add", "mismatches", "tags", "soft-clips", "sam", "refresh", "tlen-y"};
+    constexpr std::array<const char*, 16> exec = {"cov", "count", "edges", "expand-tracks", "insertions", "line", "log2-cov", "mate", "mate add", "mismatches", "mods", "tags", "soft-clips", "sam", "refresh", "tlen-y"};
 
     int getCommandSwitchValue(Themes::IniOptions &opts, std::string &cmd_s, bool &drawLine);
 

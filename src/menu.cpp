@@ -32,9 +32,9 @@
 #include "glfw_keys.h"
 #include "plot_manager.h"
 #include "segments.h"
-#include "../include/ini.h"
-#include "../include/unordered_dense.h"
-#include "../include/termcolor.h"
+#include "ini.h"
+#include "ankerl_unordered_dense.h"
+#include "termcolor.h"
 #include "themes.h"
 #include "utils.h"
 #include "menu.h"
@@ -99,7 +99,7 @@ namespace Menu {
         else { return Themes::MenuTable::MAIN; }
     }
 
-    void drawMenu(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface, Themes::IniOptions &opts, Themes::Fonts &fonts, float monitorScale, float fb_width, float fb_height,
+    void drawMenu(SkCanvas *canvas, Themes::IniOptions &opts, Themes::Fonts &fonts, float monitorScale, float fb_width, float fb_height,
                   std::string inputText, int charIndex) {
         SkRect rect;
         SkPath path;
@@ -283,7 +283,7 @@ namespace Menu {
         std::string tip;
         if (opts.control_level.empty()) {
             if (opts.menu_table == Themes::MenuTable::MAIN) {
-                tip = opts.ini_path + "  v0.9.3";
+                tip = opts.ini_path + "  v0.10.0";
             }
             else if (opts.menu_table == Themes::MenuTable::GENOMES) { tip = "Use ENTER key to select genome, or RIGHT_ARROW key to edit path"; }
             else if (opts.menu_table == Themes::MenuTable::SHIFT_KEYMAP) { tip = "Change characters selected when using shift+key"; }
@@ -305,7 +305,9 @@ namespace Menu {
             else if (opts.menu_level == "small_indel") { tip = "The distance in base-pairs when small indels become visible"; }
             else if (opts.menu_level == "snp") { tip = "The distance in base-pairs when snps become visible"; }
             else if (opts.menu_level == "edge_highlights") { tip = "The distance in base-pairs when edge-highlights become visible"; }
-            else if (opts.menu_level == "low_memory") { tip = "The distance in base-pairs when using low-memory mode (reads are not buffered)"; }
+            else if (opts.menu_level == "low_memory") { tip = "The distance in base-pairs when using low-memory mode (reads are not buffered in this mode)"; }
+            else if (opts.menu_level == "mods") { tip = "Display modified bases"; }
+            else if (opts.menu_level == "mods_qual_threshold") { tip = "Threshold (>) for displaying modified bases [0-255]"; }
             else if (opts.menu_level == "scroll_right") { tip = "Keyboard key to use for scrolling right"; }
             else if (opts.menu_level == "scroll_left") { tip = "Keyboard key to use for scrolling left"; }
             else if (opts.menu_level == "scroll_down") { tip = "Keyboard key to use for scrolling down"; }
@@ -457,8 +459,7 @@ namespace Menu {
                 opts.control_level = "close";
                 opts.menu_table = Themes::MenuTable::MAIN;
                 opts.previous_level = opts.menu_level;
-                mINI::INIFile file(opts.ini_path);
-                file.write(opts.myIni);
+                opts.saveIniChanges();
                 std::cout << "Saved .gw.ini to " << opts.ini_path << std::endl;
                 return false;
             } else if (opts.control_level == "delete") {
@@ -675,13 +676,13 @@ namespace Menu {
 
     Option optionFromStr(std::string &name, Themes::MenuTable mt, std::string &value) {
         std::unordered_map<std::string, OptionKind> option_map;
-        for (const auto& v : {"indel_length", "ylim", "split_view_size", "threads", "pad", "soft_clip", "small_indel", "snp", "edge_highlights", "font_size", "variant_distance"}) {
+        for (const auto& v : {"indel_length", "ylim", "split_view_size", "threads", "pad", "soft_clip", "small_indel", "snp", "edge_highlights", "font_size", "variant_distance", "mods_qual_threshold"}) {
             option_map[v] = Int;
         }
         for (const auto& v : {"scroll_speed", "tabix_track_height"}) {
             option_map[v] = Float;
         }
-        for (const auto& v : {"coverage", "log2_cov", "expand_tracks", "vcf_as_tracks", "sv_arcs"}) {
+        for (const auto& v : {"coverage", "log2_cov", "expand_tracks", "vcf_as_tracks", "sv_arcs", "mods"}) {
             option_map[v] = Bool;
         }
         for (const auto& v : {"scroll_right", "scroll_left", "zoom_out", "zoom_in", "scroll_down", "scroll_up", "cycle_link_mode", "print_screen", "find_alignments", "delete_labels", "enter_interactive_mode"}) {
@@ -707,7 +708,7 @@ namespace Menu {
         std::string::const_iterator it = new_opt.value.begin();
         while (it != new_opt.value.end() && std::isdigit(*it)) ++it;
         if (it != new_opt.value.end()) {
-            std::cerr << termcolor::red << "Error:" << termcolor::reset << " expected an integer number, instead of " << new_opt.value << std::endl;
+            std::cerr << termcolor::red << "Error:" << termcolor::reset << " expected a positive integer number, instead of " << new_opt.value << std::endl;
         } else {
             int v = std::stoi(new_opt.value);
             if (new_opt.name == "indel_length") { opts.indel_length = std::max(1, v); }
@@ -721,6 +722,7 @@ namespace Menu {
             else if (new_opt.name == "edge_highlights") { opts.edge_highlights = std::max(1, v); }
             else if (new_opt.name == "font_size") { opts.font_size = std::max(1, v); }
             else if (new_opt.name == "variant_distance") { opts.variant_distance = std::max(1, v); }
+            else if (new_opt.name == "mods_qual_threshold") { opts.mods_qual_threshold = std::min(std::max(0, v), 255); new_opt.value = std::to_string(opts.mods_qual_threshold); }
             else { return; }
             opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
         }
@@ -755,12 +757,13 @@ namespace Menu {
         else if (new_opt.name == "vcf_as_tracks") { opts.vcf_as_tracks = v; }
         else if (new_opt.name == "coverage") { opts.max_coverage = (v) ? 1410065408 : 0; }
         else if (new_opt.name == "sv_arcs") { opts.sv_arcs = v; }
+        else if (new_opt.name == "mods") { opts.parse_mods = v; }
         else { return; }
         opts.myIni[new_opt.table][new_opt.name] = (v) ? "true" : "false";
     }
 
     void applyKeyboardKeyOption(Option &new_opt, Themes::IniOptions &opts) {
-        ankerl::unordered_dense::map<std::string, int> keys;
+        std::unordered_map<std::string, int> keys;
         Keys::getKeyTable(keys);
         std::string k = new_opt.value;
         for(auto &c : k) { c = toupper(c); }
@@ -885,8 +888,6 @@ namespace Menu {
             return (int)(opts.log2_cov);
         } else if (cmd_s == "expand-tracks") {
             return (int)(opts.expand_tracks);
-//        } else if (cmd_s == "low-mem") {
-//            return (int)(opts.low_mem);
         } else if (cmd_s == "line") {
             return (int)drawLine;
         } else if (cmd_s == "insertions") {
@@ -895,6 +896,8 @@ namespace Menu {
             return (int)(opts.edge_highlights > 0);
         } else if (cmd_s == "cov") {
             return (int)(opts.max_coverage > 0);
+        } else if (cmd_s == "mods") {
+            return (int)(opts.parse_mods);
         }
         return -1;
     }

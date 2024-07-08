@@ -9,9 +9,9 @@
 #include <mutex>
 #include <string>
 #include "argparse.h"
-#include "../include/BS_thread_pool.h"
+#include "BS_thread_pool.h"
 //#include "../include/natsort.hpp"
-#include "../include/glob_cpp.hpp"
+#include "glob_cpp.hpp"
 #include "hts_funcs.h"
 #include "parser.h"
 #include "plot_manager.h"
@@ -40,6 +40,9 @@
 #include "include/core/SkPicture.h"
 #include "include/svg/SkSVGCanvas.h"
 
+#ifdef __EMSCRIPTEN__
+    #include <emscripten.h>
+#endif
 
 // skia context has to be managed from global space to work
 GrDirectContext *sContext = nullptr;
@@ -73,13 +76,15 @@ int main(int argc, char *argv[]) {
     if (!success) {
 
     }
+    bool have_session_file = !iopts.session_file.empty();
+    bool use_session = false;
 
     static const std::vector<std::string> img_fmt = { "png", "pdf", "svg" };
     static const std::vector<std::string> img_themes = { "igv", "dark", "slate" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
     // note to developer - update version in workflows/main.yml, menu.cpp and deps/gw.desktop, and installers .md in docs
-    argparse::ArgumentParser program("gw", "0.9.3");
+    argparse::ArgumentParser program("gw", "0.10.0");
 
     program.add_argument("genome")
             .default_value(std::string{""}).append()
@@ -102,6 +107,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("-f", "--file")
             .append()
             .help("Output single image to file");
+    program.add_argument("--ideogram")
+            .append()
+            .help("Ideogram bed file (uncompressed). Any bed file should work");
     program.add_argument("-n", "--no-show")
             .default_value(false).implicit_value(true)
             .help("Don't display images to screen");
@@ -145,6 +153,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("--out-labels")
             .default_value(std::string{""}).append()
             .help("Output labelling results to tab-separated FILE (use with -v or -i)");
+    program.add_argument("--session")
+            .default_value(std::string{""}).append()
+            .help("GW session file to load (.ini suffix)");
     program.add_argument("--start-index")
             .default_value(0).append().scan<'i', int>()
             .help("Start labelling from -v / -i index (zero-based)");
@@ -175,6 +186,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("--no-soft-clips")
             .default_value(false).implicit_value(true)
             .help("Soft-clips are not shown");
+    program.add_argument("--mods")
+            .default_value(false).implicit_value(true)
+            .help("Base modifications are shown");
     program.add_argument("--low-mem")
             .default_value(false).implicit_value(true)
             .help("Reduce memory usage by discarding quality values");
@@ -208,6 +222,8 @@ int main(int argc, char *argv[]) {
             .default_value(false).implicit_value(true)
             .help("Display path of loaded .gw.ini config");
 
+    bool show_banner = true;
+
     // check input for errors and merge input options with IniOptions
     try {
         program.parse_args(argc, argv);
@@ -222,7 +238,10 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    std::vector<std::string> bam_paths;
+    std::vector<std::string> tracks;
     std::vector<Utils::Region> regions;
+
     if (program.is_used("-r")) {
         std::vector<std::string> regions_str;
         regions_str = program.get<std::vector<std::string>>("-r");
@@ -231,7 +250,11 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    std::vector<std::string> bam_paths;
+    if (program.is_used("--session")) {
+        iopts.session_file = program.get<std::string>("--session");
+        have_session_file = true;
+        use_session = true;
+    }
 
     // check if bam/cram file provided as main argument
     auto genome = program.get<std::string>("genome");
@@ -242,16 +265,15 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    bool show_banner = true;
-
     if (iopts.myIni["genomes"].has(genome)) {
         iopts.genome_tag = genome;
         genome = iopts.myIni["genomes"][genome];
-    } else if (genome.empty() && !program.is_used("--images") && !iopts.ini_path.empty() && !program.is_used("--no-show")) {
+    } else if (genome.empty() && !program.is_used("--images") && !iopts.ini_path.empty() && !program.is_used("--no-show") && !program.is_used("--session")) {
         // prompt for genome
         print_banner();
         show_banner = false;
-        std::cout << "\n Reference genomes listed in " << iopts.ini_path << std::endl << std::endl;
+
+        std::cout << "\nReference genomes listed in " << iopts.ini_path << std::endl << std::endl;
         std::string online = "https://github.com/kcleal/ref_genomes/releases/download/v0.1.0";
 #if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
         const char *block_char = "*";
@@ -261,7 +283,7 @@ int main(int argc, char *argv[]) {
         std::cout << " " << block_char << " " << online << std::endl << std::endl;
         int i = 0;
         int tag_wd = 11;
-        std::vector<std::string> vals;
+        std::vector<std::pair<std::string, std::string>> vals;
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
         std::cout << "  Number | Genome-tag | Path \n";
@@ -294,32 +316,53 @@ int main(int argc, char *argv[]) {
             } else {
                 std::cout << g_path << std::endl;
             }
-            vals.push_back(rg.second);
+            vals.push_back(rg); //rg.second);
             i += 1;
         }
-        if (i == 0) {
+        if (i == 0 && !have_session_file && !std::filesystem::exists(iopts.session_file)) {
             std::cerr << "No genomes listed, finishing\n";
             std::exit(0);
         }
-        std::cout << "\n Enter number: " << std::flush;
-        int user_i;
-        std::cin >> user_i;
-        std::cerr << std::endl;
-        assert (user_i >= 0 && (int)user_i < vals.size());
-        try {
-            genome = vals[user_i];
-        } catch (...) {
-            std::cerr << "Something went wrong\n";
-            std::exit(-1);
+
+        user_prompt:
+
+        if (have_session_file && std::filesystem::exists(iopts.session_file)) {
+            std::cout << "\nPress ENTER to load previous session or input a genome number: " << std::flush;
+        } else {
+            std::cout << "\nEnter genome number: " << std::flush;
         }
-        assert (Utils::is_file_exist(genome));
-        iopts.genome_tag = genome;
+
+        std::string user_input;
+        std::getline(std::cin, user_input);
+        size_t user_i = 0;
+        if (user_input == "q" || user_input == "quit" || user_input == "exit") {
+            std::exit(0);
+        }
+        if (user_input.empty()) {
+            have_session_file = std::filesystem::exists(iopts.session_file);
+            if (have_session_file) {
+                use_session = true;
+            } else {
+                goto user_prompt;
+            }
+        } else {
+            try {
+                user_i = std::stoi(user_input);
+                genome = vals[user_i].second;
+                iopts.genome_tag = vals[user_i].first;
+                std::cout << "Genome:  " << iopts.genome_tag << std::endl;
+            } catch (...) {
+                goto user_prompt;
+            }
+            if (user_i < 0 || user_i > vals.size() -1) {
+                goto user_prompt;
+            }
+        }
 
     } else if (!genome.empty() && !Utils::is_file_exist(genome)) {
         std::cerr << "Loading remote genome" << std::endl;
     }
 
-    std::vector<std::string> tracks;
     if (program.is_used("--track")) {
         tracks = program.get<std::vector<std::string>>("--track");
         for (auto &trk: tracks){
@@ -348,7 +391,7 @@ int main(int argc, char *argv[]) {
                 }
             }
         }
-        if (!program.is_used("genome") && genome.empty() && !bam_paths.empty()) {
+        if (!have_session_file && !program.is_used("genome") && genome.empty() && !bam_paths.empty()) {
             HGW::guessRefGenomeFromBam(genome, iopts, bam_paths, regions);
             if (genome.empty()) {
                 std::exit(0);
@@ -413,7 +456,7 @@ int main(int argc, char *argv[]) {
             iopts.link_op = 2;
         } else {
             std::cerr << "Link type not known [none/sv/all]\n";
-            std::exit(-1);
+            std::exit(-1);std::cerr << " 52 \n";
         }
     }
 
@@ -438,6 +481,9 @@ int main(int argc, char *argv[]) {
     if (program.is_used("--tlen-y")) {
         iopts.tlen_yscale = true;
     }
+    if (program.is_used("--mods")) {
+        iopts.parse_mods = true;
+    }
     if (program.is_used("--split-view-size")) {
         iopts.split_view_size = program.get<int>("--split-view-size");
     }
@@ -456,9 +502,7 @@ int main(int argc, char *argv[]) {
     if (program.is_used("--no-soft-clips")) {
         iopts.soft_clip_threshold = 0;
     }
-//    if (program.is_used("--low-mem")) {
-//        iopts.low_mem = true;
-//    }
+
     if (program.is_used("--start-index")) {
         iopts.start_index = program.get<int>("--start-index");
     }
@@ -477,7 +521,15 @@ int main(int argc, char *argv[]) {
     }
 
     if (!iopts.no_show) {  // plot something to screen
-
+        if (use_session) {
+            mINI::INIFile file(iopts.session_file);
+            file.read(iopts.seshIni);
+            if (!iopts.seshIni.has("data") || !iopts.seshIni.has("show")) {
+                std::cerr << "Error: session file is missing 'data' heading. Invalid session file\n";
+                std::exit(-1);
+            }
+            iopts.getOptionsFromSessionIni(iopts.seshIni);
+        }
         /*
          * / Gw start
          */
@@ -491,8 +543,11 @@ int main(int argc, char *argv[]) {
             plotter.addFilter(s);
         }
 
+        if (program.is_used("--ideogram")) {
+            plotter.addIdeogram(program.get("--ideogram"));
+        }
 
-        // initialize display screen
+        // initialize graphics window
         plotter.init(iopts.dimensions.x, iopts.dimensions.y);
         int fb_height, fb_width;
         glfwGetFramebufferSize(plotter.window, &fb_width, &fb_height);
@@ -549,6 +604,12 @@ int main(int argc, char *argv[]) {
             std::cerr << "ERROR: could not create a valid frame buffer\n";
             std::exit(-1);
         }
+
+        // initialize drawing surface
+        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x * plotter.monitorScale,
+                                                                        iopts.dimensions.y * plotter.monitorScale);
+        plotter.rasterCanvas = rasterSurface->getCanvas();
+        plotter.rasterSurfacePtr = &rasterSurface;
 
         // start UI here
         if (!program.is_used("--variants") && !program.is_used("--images")) {
@@ -628,6 +689,9 @@ int main(int argc, char *argv[]) {
             for (auto &s: filters) {
                 plotter.addFilter(s);
             }
+            if (program.is_used("--ideogram")) {
+                plotter.addIdeogram(program.get("--ideogram"));
+            }
 
             plotter.opts.theme.setAlphas();
 
@@ -669,7 +733,7 @@ int main(int argc, char *argv[]) {
                     SkCanvas *pageCanvas = pdfDocument->beginPage(iopts.dimensions.x, iopts.dimensions.y);
                     plotter.fb_width = iopts.dimensions.x;
                     plotter.fb_height = iopts.dimensions.y;
-                    plotter.runDraw(pageCanvas);
+                    plotter.runDrawOnCanvas(pageCanvas);
                     pdfDocument->close();
                     buffer.writeToStream(&out);
                 } else {
@@ -677,7 +741,7 @@ int main(int argc, char *argv[]) {
                     plotter.fb_height = iopts.dimensions.y;
                     SkPictureRecorder recorder;
                     SkCanvas* canvas = recorder.beginRecording(SkRect::MakeWH(iopts.dimensions.x, iopts.dimensions.y));
-                    plotter.runDraw(canvas);
+                    plotter.runDrawOnCanvas(canvas);
                     sk_sp<SkPicture> picture = recorder.finishRecordingAsPicture();
                     std::unique_ptr<SkCanvas> svgCanvas = SkSVGCanvas::Make(SkRect::MakeWH(iopts.dimensions.x, iopts.dimensions.y), &out);
                     if (svgCanvas) {
@@ -697,9 +761,9 @@ int main(int argc, char *argv[]) {
                                                                                     iopts.dimensions.y);
                     SkCanvas *canvas = rasterSurface->getCanvas();
                     if (iopts.link_op == 0) {
-                        plotter.runDrawNoBuffer(canvas);
+                        plotter.runDrawNoBufferOnCanvas(canvas);
                     } else {
-                        plotter.runDraw(canvas);
+                        plotter.runDraw();
                     }
                     img = rasterSurface->makeImageSnapshot();
 
@@ -743,6 +807,9 @@ int main(int argc, char *argv[]) {
                         for (auto &s: filters) {
                             m->addFilter(s);
                         }
+                        if (program.is_used("--ideogram")) {
+                            m->addIdeogram(program.get("--ideogram"));
+                        }
                         managers.push_back(m);
                     }
 
@@ -773,10 +840,11 @@ int main(int argc, char *argv[]) {
                                               block += 1;
                                               mtx.unlock();
                                               Manager::GwPlot *plt = managers[this_block];
+                                              plt->makeRasterSurface();
                                               std::vector<Utils::Region> &all_regions = jobs[this_block];
-                                              sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(
-                                                      iopts.dimensions.x, iopts.dimensions.y);
-                                              SkCanvas *canvas = rasterSurface->getCanvas();
+//                                              sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(
+//                                                      iopts.dimensions.x, iopts.dimensions.y);
+//                                              SkCanvas *canvas = rasterSurface->getCanvas();
                                               for (auto &rgn: all_regions) {
                                                   plt->collections.clear();
                                                   delete plt->regions[0].refSeq;
@@ -784,11 +852,11 @@ int main(int argc, char *argv[]) {
                                                   plt->regions[0].start = rgn.start;
                                                   plt->regions[0].end = rgn.end;
                                                   if (iopts.link_op == 0) {
-                                                      plt->runDrawNoBuffer(canvas);
+                                                      plt->runDrawNoBuffer();
                                                   } else {
-                                                      plt->runDraw(canvas);
+                                                      plt->runDraw();
                                                   }
-                                                  sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
+                                                  sk_sp<SkImage> img(plt->rasterSurface->makeImageSnapshot());
                                                   std::filesystem::path fname = "GW~" + plt->regions[0].chrom + "~" +
                                                                    std::to_string(plt->regions[0].start) + "~" +
                                                                    std::to_string(plt->regions[0].end) + "~.png";
@@ -854,6 +922,9 @@ int main(int argc, char *argv[]) {
                     for (auto &s: filters) {
                         m->addFilter(s);
                     }
+                    if (program.is_used("--ideogram")) {
+                        m->addIdeogram(program.get("--ideogram"));
+                    }
                     managers.push_back(m);
                 }
 
@@ -901,18 +972,19 @@ int main(int argc, char *argv[]) {
                                             block += 1;
                                             mtx.unlock();
                                             Manager::GwPlot *plt = managers[this_block];
-                                            sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
-                                            SkCanvas *canvas = rasterSurface->getCanvas();
+                                            plt->makeRasterSurface();
+//                                            sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
+//                                            SkCanvas *canvas = rasterSurface->getCanvas();
                                             for (int i = a; i < b; ++i) {
                                                 Manager::VariantJob job = jobs[i];
                                                 plt->setVariantSite(job.chrom, job.start, job.chrom2, job.stop);
-                                                plt->runDrawNoBuffer(canvas);
+                                                plt->runDrawNoBuffer();
 //                                                if (plt->opts.low_memory && plt->opts.link_op == 0) {
 //                                                    plt->runDrawNoBuffer(canvas);
 //                                                } else {
 //                                                    plt->runDraw(canvas);
 //                                                }
-                                                sk_sp<SkImage> img(rasterSurface->makeImageSnapshot());
+                                                sk_sp<SkImage> img(plt->rasterSurface->makeImageSnapshot());
                                                 std::filesystem::path fname = job.varType + "~" + job.chrom + "~" + std::to_string(job.start) + "~" + job.chrom2 + "~" + std::to_string(job.stop) + "~" + job.rid + ".png";
                                                 std::filesystem::path full_path = outdir / fname;
                                                 Manager::imageToPng(img, full_path);

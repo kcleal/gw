@@ -25,8 +25,8 @@
 #include <utility>
 #include <vector>
 
-#include "../include/unordered_dense.h"
-#include "../include/BS_thread_pool.h"
+#include "ankerl_unordered_dense.h"
+#include "BS_thread_pool.h"
 #include "drawing.h"
 #include "glfw_keys.h"
 #include "hts_funcs.h"
@@ -35,6 +35,7 @@
 #include "utils.h"
 #include "segments.h"
 #include "themes.h"
+#include "export_definitions.h"
 
 #define SK_GL
 #include "include/gpu/GrBackendSurface.h"
@@ -69,19 +70,35 @@ namespace Manager {
     /*
      * Deals with managing all data and plotting
      */
-    class GwPlot {
+    class EXPORT GwPlot {
     public:
         GwPlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opts, std::vector<Utils::Region> &regions,
                std::vector<std::string> &track_paths);
         ~GwPlot();
 
-        int fb_width, fb_height;
+        int fb_width, fb_height;  // frame buffer size
+        double xPos_fb, yPos_fb;  // mouse position in frame buffer coords
         float monitorScale, gap;
         int samMaxY;
         int regionSelection, variantFileSelection;
         bool drawToBackWindow;
+        bool triggerClose;
+        bool redraw;
+        bool processed;
+        bool drawLine;
+
+        bool terminalOutput;  // recoverable runtime errors and output sent to terminal or outStr
+        std::ostringstream outStr;
+
+        std::vector<char> pixelMemory;
 
         std::string reference;
+
+        std::string ideogram_path;
+
+        std::string inputText;
+
+        std::string target_qname;
 
         std::vector<std::string> bam_paths;
         std::vector<htsFile* > bams;
@@ -99,15 +116,19 @@ namespace Manager {
 
         std::vector<HGW::GwVariantTrack> variantTracks; // make image tiles from these
 
+        std::vector< std::string > commandHistory, commandsApplied;
+
+        HGW::GwVariantTrack *currentVarTrack;  // var track with current focus/event
+        int mouseOverTileIndex;  // tile with mouse over
+
         std::vector<Parse::Parser> filters;
 
-        ankerl::unordered_dense::map< int, sk_sp<SkImage>> imageCache;
+        std::unordered_map< int, sk_sp<SkImage>> imageCache;  // Cace of tiled images
+        std::deque< std::pair<long, sk_sp<SkImage> > > imageCacheQueue;  // cache of previously draw main screen images
 
         // keys are variantFilename and variantId
         ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::map< std::string, Utils::Label>> inputLabels;
         ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::set<std::string>> seenLabels;
-
-        std::deque< std::pair<long, sk_sp<SkImage> > > imageCacheQueue;
 
         Themes::IniOptions opts;
         Themes::Fonts fonts;
@@ -117,6 +138,8 @@ namespace Manager {
         GLFWwindow* backWindow;
 
         sk_sp<SkSurface> rasterSurface;
+        sk_sp<SkSurface>* rasterSurfacePtr;  // option to use externally managed surface (faster)
+        SkCanvas* rasterCanvas;
 
         Show mode;
         Show last_mode;
@@ -131,7 +154,23 @@ namespace Manager {
 
         void setRasterSize(int width, int height);
 
+        int makeRasterSurface();
+
+        void rasterToPng(const char* path);
+
+        void addBam(std::string &bam_path);
+
+        void removeBam(int index);
+
+        void addTrack(std::string &path, bool print_message);
+
+        void removeTrack(int index);
+
+        void removeRegion(int index);
+
         void addVariantTrack(std::string &path, int startIndex, bool cacheStdin, bool useFullPath);
+
+        void addIdeogram(std::string path);
 
         void addFilter(std::string &filter_str);
 
@@ -153,25 +192,29 @@ namespace Manager {
 
         void setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop);
 
-//        void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string & rid, std::string &label, std::string &vartype);
+        void loadSession();
 
         int startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay);
 
-        void keyPress(GLFWwindow* window, int key, int scancode, int action, int mods);
+        void keyPress(int key, int scancode, int action, int mods);
 
-        void mouseButton(GLFWwindow* wind, int button, int action, int mods);
+        void mouseButton(int button, int action, int mods);
 
-        void mousePos(GLFWwindow* wind, double x, double y);
+        void mousePos(double x, double y);
 
-        void scrollGesture(GLFWwindow* wind, double xoffset, double yoffset);
+        void scrollGesture(double xoffset, double yoffset);
 
-        void windowResize(GLFWwindow* wind, int x, int y);
+        void windowResize(int x, int y);
 
-        void pathDrop(GLFWwindow* window, int count, const char** paths);
+        void pathDrop(int count, const char** paths);
 
-        void runDraw(SkCanvas *canvas);
+        void runDraw();
 
-        void runDrawNoBuffer(SkCanvas *canvas);
+        void runDrawOnCanvas(SkCanvas *canvas);
+
+        void runDrawNoBuffer();  // draws to canvas managed by GwPlot (slower)
+
+        void runDrawNoBufferOnCanvas(SkCanvas* canvas);  // draws to external canvas (faster)
 
         sk_sp<SkImage> makeImage();
 
@@ -179,39 +222,38 @@ namespace Manager {
 
         int printRegionInfo();
 
+        bool commandProcessed();
+
+        void highlightQname();
+
+        void saveSession(std::string out_session);
 
     private:
         long frameId;
-        bool redraw;
-        bool processed;
-        bool drawLine;
         bool resizeTriggered;
         bool regionSelectionTriggered;
         bool textFromSettings;
-        bool triggerClose;
+
         std::chrono::high_resolution_clock::time_point resizeTimer, regionTimer;
 
-        std::string inputText;
-        std::string target_qname;
         std::string cursorGenomePos;
 
         int target_pos;
 
         bool captureText, shiftPress, ctrlPress, processText;
         bool tabBorderPress;
-        std::vector< std::string > commandHistory;
+
         int commandIndex, charIndex;
-        int mouseOverTileIndex;
 
         float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace, sliderSpace;
 
-        float pointSlop, textDrop, pH;
+        double pointSlop, textDrop, pH;
 
         double xDrag, xOri, lastX, yDrag, yOri, lastY;
 
-        float yScaling;
+        double yScaling;
 
-        std::vector<char> pixelMemory;
+        uint32_t minGapSize;
 
 //        std::vector<std::vector<char>> extraPixelArrays;  // one for each thread
 
@@ -222,9 +264,9 @@ namespace Manager {
         int clickedIdx;
         int commandToolTipIndex;
 
-        HGW::GwVariantTrack *currentVarTrack;
-
         std::vector<Utils::BoundingBox> bboxes;
+
+        std::unordered_map<std::string, std::vector<Themes::Band>> ideogram;
 
         BS::thread_pool pool;
 
@@ -232,7 +274,7 @@ namespace Manager {
 
         void drawScreenNoBuffer(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
-        void drawOverlay(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
+        void drawOverlay(SkCanvas* canvas);
 
         void tileDrawingThread(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
 
@@ -242,18 +284,15 @@ namespace Manager {
 
         int registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
 
-        bool commandProcessed();
-
         void updateSettings();
 
         int getCollectionIdx(float x, float y);
 
-        void highlightQname();
-
         void updateCursorGenomePos(float xOffset, float xScaling, float xPos, Utils::Region *region, int bamIdx);
-        //void updateCursorGenomePos(Segs::ReadCollection &cl, float xPos);
 
         void updateSlider(float xPos);
+
+        void drawCursorPosOnRefSlider(SkCanvas *canvas);
 
     };
 

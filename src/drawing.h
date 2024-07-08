@@ -19,10 +19,9 @@
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkSurface.h"
 
-#include "../include/BS_thread_pool.h"
-#include "../include/unordered_dense.h"
+#include "BS_thread_pool.h"
+#include "ankerl_unordered_dense.h"
 #include "hts_funcs.h"
-
 #include "utils.h"
 #include "segments.h"
 #include "themes.h"
@@ -34,7 +33,7 @@ namespace Drawing {
                       SkCanvas *canvas, const Themes::Fonts &fonts, float covY, float refSpace);
 
     void drawCollection(const Themes::IniOptions &opts, Segs::ReadCollection &cl, SkCanvas* canvas,
-                  float trackY, float yScaling, const Themes::Fonts &fonts, int linkOp, float refSpace, float pointSlop, float textDrop, float pH);
+                  float trackY, float yScaling, const Themes::Fonts &fonts, int linkOp, float refSpace, float pointSlop, float textDrop, float pH, float monitorScale);
 
     void drawRef(const Themes::IniOptions &opts, std::vector<Utils::Region> &regions, int fb_width,
                  SkCanvas *canvas, const Themes::Fonts &fonts, float refSpace, float nRegions, float gap);
@@ -49,7 +48,9 @@ namespace Drawing {
                     SkCanvas *canvas, float totalTabixY, float tabixY, std::vector<HGW::GwTrack> &tracks,
                     std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, float gap, float monitorScale);
 
-    void drawChromLocation(const Themes::IniOptions &opts, const std::vector<Segs::ReadCollection> &collections, SkCanvas* canvas,
-                           const faidx_t* fai, std::vector<sam_hdr_t* > &headers, size_t nRegions, float fb_width, float fb_height, float monitorScale);
+    void drawChromLocation(const Themes::IniOptions &opts,
+                           const std::vector<Utils::Region> &regions,
+                           const std::unordered_map<std::string, std::vector<Themes::Band>> &ideogram, SkCanvas* canvas,
+                           const faidx_t* fai, float fb_width, float fb_height, float monitorScale);
 
 }

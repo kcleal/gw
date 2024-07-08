@@ -14,11 +14,11 @@
 #include "htslib/tbx.h"
 #include "htslib/vcf.h"
 
-#include "../include/BS_thread_pool.h"
-#include "../include/termcolor.h"
-#include "../lib/libBigWig/bigWig.h"
-#include "../include/glob_cpp.hpp"
-#include "../include/natsort.hpp"
+#include "BS_thread_pool.h"
+#include "termcolor.h"
+#include "bigWig.h"
+#include "glob_cpp.hpp"
+#include "natsort.hpp"
 #include "drawing.h"
 #include "segments.h"
 #include "themes.h"
@@ -159,7 +159,9 @@ namespace HGW {
 
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, int threads, Utils::Region *region,
-                                 bool coverage, std::vector<Parse::Parser> &filters, BS::thread_pool &pool) {
+                                 bool coverage, std::vector<Parse::Parser> &filters, BS::thread_pool &pool,
+                                 const int parse_mods_threshold) {
+
         bam1_t *src;
         hts_itr_t *iter_q;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
@@ -174,7 +176,8 @@ namespace HGW {
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
             std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
-            throw std::runtime_error("");
+            return;
+//            throw std::runtime_error("");
         }
 
         while (sam_itr_next(b, iter_q, readQueue.back().delegate) >= 0) {
@@ -190,11 +193,11 @@ namespace HGW {
             readQueue.pop_back();
         }
 
+        Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold);
+
         if (!filters.empty()) {
             applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
         }
-
-        Segs::init_parallel(readQueue, threads, pool);
 
         if (coverage) {
             int l_arr = (int)col.covArr.size() - 1;
@@ -347,7 +350,8 @@ namespace HGW {
                           BS::thread_pool &pool,
                           float pointSlop,
                           float textDrop,
-                          float pH) {
+                          float pH,
+                          float monitorScale) {
         const int BATCH = 1500;
         bam1_t *src;
         hts_itr_t *iter_q;
@@ -366,9 +370,12 @@ namespace HGW {
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
             std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
-            throw std::runtime_error("");
+//            throw std::runtime_error("");
+            return;
         }
         bool filter = !filters.empty();
+        const int parse_mods_threshold = (opts.parse_mods) ? 50 : 0;
+
         int j = 0;
         while (sam_itr_next(b, iter_q, readQueue[j].delegate) >= 0) {
             src = readQueue[j].delegate;
@@ -379,7 +386,7 @@ namespace HGW {
             if (j < BATCH) {
                 continue;
             }
-            Segs::init_parallel(readQueue, threads, pool);
+            Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold);
             if (filter) {
                 applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
             }
@@ -392,7 +399,7 @@ namespace HGW {
                 }
             }
             Segs::findY(col, readQueue, opts.link_op, opts, region, false);
-            Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+            Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
 
             for (int i=0; i < BATCH; ++ i) {
                 Segs::align_clear(&readQueue[i]);
@@ -403,7 +410,7 @@ namespace HGW {
         if (j < BATCH) {
             readQueue.erase(readQueue.begin() + j, readQueue.end());
             if (!readQueue.empty()) {
-                Segs::init_parallel(readQueue, threads, pool);
+                Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold);
                 if (!filters.empty()) {
                     applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
                 }
@@ -416,7 +423,7 @@ namespace HGW {
                     }
                 }
                 Segs::findY(col, readQueue, opts.link_op, opts, region, false);
-                Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+                Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
                 for (int i=0; i < BATCH; ++ i) {
                     Segs::align_clear(&readQueue[i]);
                 }
@@ -429,10 +436,7 @@ namespace HGW {
                   bool coverage,
                   std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
                   float trackY, float yScaling, Themes::Fonts &fonts, float refSpace,
-                  float pointSlop, float textDrop, float pH) {
-//        if (region->end == 0) {
-//            return;
-//        }
+                  float pointSlop, float textDrop, float pH, float monitorScale) {
 
         bam1_t *src;
         hts_itr_t *iter_q;
@@ -448,15 +452,18 @@ namespace HGW {
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
             std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
-            throw std::runtime_error("");
+//            throw std::runtime_error("");
+            return;
         }
         bool filter = !filters.empty();
+        const int parse_mods_threshold = (opts.parse_mods) ? 50 : 0;
+
         while (sam_itr_next(b, iter_q, readQueue.back().delegate) >= 0) {
             src = readQueue.back().delegate;
             if (src->core.flag & 4 || src->core.n_cigar == 0) {
                 continue;
             }
-            Segs::align_init(&readQueue.back());
+            Segs::align_init(&readQueue.back(), parse_mods_threshold);
             if (filter) {
                 applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
                 if (readQueue.back().y == -2) {
@@ -469,7 +476,7 @@ namespace HGW {
                 Segs::addToCovArray(col.covArr, readQueue.back(), region->start, region->end, l_arr);
             }
             Segs::findY(col, readQueue, opts.link_op, opts, region, false);
-            Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH);
+            Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
             Segs::align_clear(&readQueue.back());
         }
     }
@@ -547,7 +554,12 @@ namespace HGW {
         Utils::Region *region = col.region;
         bool tlen_y = opts.tlen_yscale;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
+        if (tid < 0) {
+            return;
+        }
         int lastPos;
+        const int parse_mods_threshold = (opts.parse_mods) ? 50 : 0;
+
         if (!readQueue.empty()) {
             if (left) {
                 lastPos = readQueue.front().pos; // + 1;
@@ -597,7 +609,8 @@ namespace HGW {
             iter_q = sam_itr_queryi(index, tid, begin, end_r);
             if (iter_q == nullptr) {
                 std::cerr << "\nError: Null iterator when trying to fetch from HTS file in appendReadsAndCoverage (left) " << region->chrom << " " << region->start<< " " << end_r << " " << region->end << std::endl;
-                throw std::runtime_error("");
+//                throw std::runtime_error("");
+                return;
             }
             newReads.emplace_back(Segs::Align(bam_init1()));
 
@@ -646,7 +659,8 @@ namespace HGW {
             }
             if (iter_q == nullptr) {
                 std::cerr << "\nError: Null iterator when trying to fetch from HTS file in appendReadsAndCoverage (!left) " << region->chrom << " " << lastPos << " " << region->end << std::endl;
-                throw std::runtime_error("");
+//                throw std::runtime_error("");
+                return;
             }
             newReads.emplace_back(Segs::Align(bam_init1()));
 
@@ -671,7 +685,7 @@ namespace HGW {
             if (!filters.empty()) {
                 applyFilters(filters, newReads, hdr_ptr, col.bamIdx, col.regionIdx);
             }
-            Segs::init_parallel(newReads, opts.threads, pool);
+            Segs::init_parallel(newReads, opts.threads, pool, parse_mods_threshold);
             bool findYall = false;
             if (col.vScroll == 0 && opts.link_op == 0) {  // only new reads need findY, otherwise, reset all below
                 int maxY = Segs::findY(col, newReads, opts.link_op, opts, region,  left);
@@ -1193,6 +1207,7 @@ namespace HGW {
     void GwTrack::open(const std::string &p, bool add_to_dict=true) {
         fileIndex = 0;
         path = p;
+        done = false;
         this->add_to_dict = add_to_dict;
         if (Utils::endsWith(p, ".bed")) {
             kind = BED_NOI;
@@ -1535,7 +1550,6 @@ namespace HGW {
                     if (tp[0] == '#') {
                         continue;
                     }
-                    std::cerr << tp << std::endl;
                     std::vector<std::string> parts = Utils::split_keep_empty_str(tp, '\t');
                     chrom = parts[0];
                     chrom2 = chrom;
@@ -1915,7 +1929,7 @@ namespace HGW {
         bcf_close(fp_out);
     }
 
-    GwVariantTrack::GwVariantTrack(std::string &path, bool cacheStdin, Themes::IniOptions *t_opts, int startIndex,
+    GwVariantTrack::GwVariantTrack(std::string &path, bool cacheStdin, Themes::IniOptions *t_opts, int endIndex,
                                    std::vector<std::string> &t_labelChoices,
                                    std::shared_ptr< ankerl::unordered_dense::map< std::string, Utils::Label>>  t_inputLabels,
                                    std::shared_ptr< ankerl::unordered_dense::set<std::string>> t_seenLabels) {
@@ -1948,9 +1962,10 @@ namespace HGW {
             vcf.label_to_parse = m_opts->parse_label.c_str();
             vcf.open(path);
             trackDone = &vcf.done;
-            if (startIndex > 0) {
-                nextN(startIndex);
+            if (endIndex > 0) {
+                nextN(endIndex);
             }
+            blockStart = endIndex;
         } else if (Utils::endsWith(path, ".png") || Utils::endsWith(path, ".png'") || Utils::endsWith(path, ".png\"")) {
             type = IMAGES;
             image_glob = glob_cpp::glob(path);
@@ -1973,9 +1988,10 @@ namespace HGW {
             variantTrack.open(path, false);
             trackDone = &variantTrack.done;
             variantTrack.fetch(nullptr);  // initialize iterators
-            if (startIndex > 0) {
-                nextN(startIndex);
+            if (endIndex > 0) {
+                nextN(endIndex);
             }
+            blockStart = endIndex;
         }
         this->path = path;
         init = true;
@@ -2023,7 +2039,7 @@ namespace HGW {
         }
     }
 
-    // gets called when new image tiles are loaded, labels are parsed from filenames if possible
+    // gets called when new image tiles are loaded (pngs), labels are parsed from filenames if possible
     // variant id is either recorded in the filename, or else is the whole filename
     void GwVariantTrack::appendImageLabels(int startIdx, int number) {
         // rid is the file name for an image
@@ -2050,26 +2066,29 @@ namespace HGW {
         long rlen = stop - start;
         std::vector<Utils::Region> v;
         bool isTrans = chrom != chrom2;
+        Utils::Region* r1; Utils::Region* r2;
         if (!isTrans && rlen <= m_opts->split_view_size) {
-            Utils::Region r;
             v.resize(1);
-            v[0].chrom = chrom;
-            v[0].start = (1 > start - m_opts->pad) ? 1 : start - m_opts->pad;
-            v[0].end = stop + m_opts->pad;
-            v[0].markerPos = start;
-            v[0].markerPosEnd = stop;
+            r1 = & v[0];
+            r1->chrom = chrom;
+            r1->start = (1 > start - m_opts->pad) ? 1 : start - m_opts->pad;
+            r1->end = stop + m_opts->pad;
+            r1->markerPos = start;
+            r1->markerPosEnd = stop;
         } else {
             v.resize(2);
-            v[0].chrom = chrom;
-            v[0].start = (1 > start - m_opts->pad) ? 1 : start - m_opts->pad;
-            v[0].end = start + m_opts->pad;
-            v[0].markerPos = start;
-            v[0].markerPosEnd = start;
-            v[1].chrom = chrom2;
-            v[1].start = (1 > stop - m_opts->pad) ? 1 : stop - m_opts->pad;
-            v[1].end = stop + m_opts->pad;
-            v[1].markerPos = stop;
-            v[1].markerPosEnd = stop;
+            r1 = &v[0];
+            r1->chrom = chrom;
+            r1->start = (1 > start - m_opts->pad) ? 1 : start - m_opts->pad;
+            r1->end = start + m_opts->pad;
+            r1->markerPos = start;
+            r1->markerPosEnd = start;
+            r2 = &v[1];
+            r2->chrom = chrom2;
+            r2->start = (1 > stop - m_opts->pad) ? 1 : stop - m_opts->pad;
+            r2->end = stop + m_opts->pad;
+            r2->markerPos = stop;
+            r2->markerPosEnd = stop;
         }
         multiRegions.push_back(v);
         if (inputLabels->contains(rid)) {
@@ -2187,7 +2206,6 @@ namespace HGW {
             b->end = trk.stop;
             b->line = trk.variantString;
             b->parts = trk.parts;
-//            b->parent = trk.parent;
             b->anyToDraw = true;
             if (trk.parts.size() >= 5) {
                 b->strand = (trk.parts[5] == "+") ? 1 : (trk.parts[5] == "-") ? -1 : 0;

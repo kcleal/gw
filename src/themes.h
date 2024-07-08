@@ -39,12 +39,12 @@
 #include "include/core/SkFont.h"
 #include "include/core/SkTextBlob.h"
 
-#include "../include/argparse.h"
-#include "../include/glob_cpp.hpp"
+#include "argparse.h"
+#include "glob_cpp.hpp"
 #define MINI_CASE_SENSITIVE
-#include "../include/ini.h"
+#include "ini.h"
 #include "utils.h"
-
+#include "export_definitions.h"
 
 namespace Themes {
 
@@ -63,16 +63,28 @@ namespace Themes {
 
     constexpr float base_qual_alpha[11] = {51, 51, 51, 51, 51, 128, 128, 128, 128, 128, 255};
 
-    class BaseTheme {
+    /*
+    bg - background, fc - face color, ec - edge color, lc - line color, tc - text color
+    if an item has 0 at the end this is the color when mapq == 0
+    */
+    enum GwPaint {
+        bgPaint, bgMenu, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip,
+        fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack, fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0,
+        fcSoftClip0, fcBigWig, fcRoi, mate_fc, mate_fc0, ecMateUnmapped, ecSplit, ecSelected,
+        lcJoins, lcCoverage, lcLightJoins, lcLabel, lcBright, tcDel, tcIns, tcLabels, tcBackground,
+        fcMarkers, fc5mc, fc5hmc
+    };
+
+    class EXPORT BaseTheme {
     public:
         BaseTheme();
         ~BaseTheme() = default;
 
         std::string name;
         // face colours
-        SkPaint bgPaint, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip, \
-                fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack;
-        SkPaint fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0, fcSoftClip0, fcBigWig;
+        SkPaint bgPaint, bgMenu, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip, \
+                fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack, fcRoi;
+        SkPaint fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0, fcSoftClip0, fcBigWig, fc5mc, fc5hmc;
 
         std::vector<SkPaint> mate_fc;
         std::vector<SkPaint> mate_fc0;
@@ -84,57 +96,59 @@ namespace Themes {
         float lwMateUnmapped, lwSplit, lwCoverage;
 
         // line colours and Insertion paint
-        SkPaint lcJoins, lcCoverage, lcLightJoins, insF, insS, lcLabel, lcBright;
+        SkPaint lcJoins, lcCoverage, lcLightJoins, lcLabel, lcBright;
 
         // text colours
         SkPaint tcDel, tcIns, tcLabels, tcBackground;
 
         // Markers
-        SkPaint marker_paint;
+        SkPaint fcMarkers;
 
         uint8_t alpha, mapq0_alpha;
 
         std::array<std::array<SkPaint, 11>, 16> BasePaints;
 
         void setAlphas();
+        void setPaintARGB(int paint_enum, int alpha, int red, int green, int blue);
 
     };
 
-    class IgvTheme: public BaseTheme {
+    class EXPORT IgvTheme: public BaseTheme {
         public:
             IgvTheme();
             ~IgvTheme() = default;
     };
 
-    class DarkTheme: public BaseTheme {
+    class EXPORT DarkTheme: public BaseTheme {
         public:
             DarkTheme();
             ~DarkTheme() = default;
     };
 
-    class SlateTheme: public BaseTheme {
+    class EXPORT SlateTheme: public BaseTheme {
     public:
         SlateTheme();
         ~SlateTheme() = default;
     };
 
-    class IniOptions {
+    class EXPORT IniOptions {
     public:
         IniOptions();
         ~IniOptions() {};
 
-        mINI::INIStructure myIni;
-        ankerl::unordered_dense::map<int, std::string> shift_keymap;
+        mINI::INIStructure myIni, seshIni;
+        std::unordered_map<std::string, std::string> shift_keymap;
         BaseTheme theme;
         Utils::Dims dimensions, number;
+        std::string session_file;
         std::string genome_tag;
         std::string theme_str, font_str, parse_label, labels, link, dimensions_str, number_str, ini_path, outdir;
         std::string menu_level, control_level, previous_level;
         MenuTable menu_table;
         bool editing_underway;
         int canvas_width, canvas_height;
-        int indel_length, ylim, split_view_size, threads, pad, link_op, max_coverage, max_tlen;
-        bool no_show, log2_cov, tlen_yscale, expand_tracks, vcf_as_tracks, sv_arcs;
+        int indel_length, ylim, split_view_size, threads, pad, link_op, max_coverage, max_tlen, mods_qual_threshold;
+        bool no_show, log2_cov, tlen_yscale, expand_tracks, vcf_as_tracks, sv_arcs, parse_mods;
         float scroll_speed, tab_track_height;
         int scroll_right;
         int scroll_left;
@@ -151,17 +165,25 @@ namespace Themes {
         int enter_interactive_mode;
         int repeat_command;
         int start_index;
-        int soft_clip_threshold, small_indel_threshold, snp_threshold, variant_distance, low_memory;
+        int soft_clip_threshold, small_indel_threshold, snp_threshold, mod_threshold, variant_distance, low_memory;
         int edge_highlights;
         int font_size;
 
         bool readIni();
         static std::filesystem::path writeDefaultIni(std::filesystem::path &homedir, std::filesystem::path &home_config, std::filesystem::path &gwIni);
         void getOptionsFromIni();
+        void getOptionsFromSessionIni(mINI::INIStructure& seshIni);
+        void saveIniChanges();
+        void setTheme(std::string &theme_str);
+        void saveCurrentSession(std::string& genome_path, std::string& ideogram_path, std::vector<std::string>& bam_paths,
+                                std::vector<std::string>& track_paths, std::vector<Utils::Region>& regions,
+                                std::vector<std::pair<std::string, int>>& variant_paths_info,
+                                std::vector<std::string>& commands, std::string output_session,
+                                int mode, int window_x_pos, int window_y_pos, float monitorScale, int screen_width, int screen_height);
 
     };
 
-    class Fonts {
+    class EXPORT Fonts {
     public:
         Fonts();
         ~Fonts() = default;
@@ -177,5 +199,14 @@ namespace Themes {
         void setOverlayHeight(float yScale);
         void setFontSize(float yScaling, float yScale);
     };
+
+    struct Band {
+        int start, end, alpha, red, green, blue;
+        SkPaint paint;
+        std::string name;
+    };
+
+    void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Band>> &ideogram,
+                          Themes::BaseTheme &theme);
 
 }

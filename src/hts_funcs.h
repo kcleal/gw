@@ -15,11 +15,12 @@
 #include "htslib/tbx.h"
 
 #include "parser.h"
-#include "../include/IITree.h"
-#include "../include/unordered_dense.h"
-#include "../lib/libBigWig/bigWig.h"
-//#include "../include/strnatcmp.h"
-#include "../include/glob_cpp.hpp"
+#include "IITree.h"
+#include "ankerl_unordered_dense.h"
+#include "bigWig.h"
+//#include "../lib/libBigWig/bigWig.h"
+
+#include "glob_cpp.hpp"
 #include "segments.h"
 #include "themes.h"
 
@@ -40,6 +41,7 @@ namespace HGW {
          GTF_NOI,
          GW_LABEL,
          STDIN,
+         ROI,
     };
 
     void guessRefGenomeFromBam(std::string &inputName, Themes::IniOptions &opts, std::vector<std::string> &bam_paths, std::vector<Utils::Region> &regions);
@@ -89,7 +91,8 @@ namespace HGW {
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, int threads, Utils::Region *region,
                                  bool coverage,
-                                 std::vector<Parse::Parser> &filters, BS::thread_pool &pool);
+                                 std::vector<Parse::Parser> &filters, BS::thread_pool &pool,
+                                 const int parse_mods);
 
     void iterDrawParallel(Segs::ReadCollection &col,
                           htsFile *b,
@@ -108,13 +111,14 @@ namespace HGW {
                           BS::thread_pool &pool,
                           float pointSlop,
                           float textDrop,
-                          float pH);
+                          float pH,
+                          float monitorScale);
 
     void iterDraw(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                   hts_idx_t *index, Utils::Region *region,
                   bool coverage, std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
                   float trackY, float yScaling, Themes::Fonts &fonts, float refSpace,
-                  float pointSlop, float textDrop, float pH);
+                  float pointSlop, float textDrop, float pH, float monitorScale);
 
     void trimToRegion(Segs::ReadCollection &col, bool coverage, int snp_threshold);
 
@@ -130,6 +134,7 @@ namespace HGW {
     /*
     * VCF/BCF/BED/GFF3/LABEL file reader. No label parsing for vcf/bcf.
     * Non-indexed files are cached using TrackBlock items. Files with an index are fetched during drawing.
+    * Can also have no file associated with it, just an array of TrackBlock (used for roi drawing)
     */
     class GwTrack {
     public:
@@ -205,11 +210,11 @@ namespace HGW {
     enum TrackType {
         VCF,
         GW_TRACK,
-        IMAGES
+        IMAGES,
     };
     class GwVariantTrack {
     public:
-        GwVariantTrack(std::string &path, bool cacheStdin, Themes::IniOptions *t_opts, int startIndex,
+        GwVariantTrack(std::string &path, bool cacheStdin, Themes::IniOptions *t_opts, int endIndex,
                        std::vector<std::string> &t_labelChoices,
                        std::shared_ptr<ankerl::unordered_dense::map< std::string, Utils::Label>> t_inputLabels,
                        std::shared_ptr<ankerl::unordered_dense::set<std::string>> t_seenLabels);
