@@ -334,6 +334,7 @@ namespace Commands {
             p->imageCache.clear();
             p->imageCacheQueue.clear();
             HGW::refreshLinked(p->collections, p->opts, &p->samMaxY);
+            for (auto &cl: p->collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
             p->redraw = true;
             p->processed = true;
         }

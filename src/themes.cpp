@@ -537,6 +537,7 @@ namespace Themes {
             shift_keymap["8"] = "*";
             shift_keymap["9"] = "(";
             shift_keymap["0"] = ")";
+            shift_keymap["`"] = "~";
         }
     }
 

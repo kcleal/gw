@@ -865,6 +865,7 @@ namespace Manager {
                     continue;
                 }
                 canvasR->save();
+
                 // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
                 if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
                     if (cl.bamIdx == 0) {  // cover the ref too
@@ -876,7 +877,7 @@ namespace Manager {
                 } else if (cl.skipDrawingCoverage) {
                     clip.setXYWH(cl.xOffset, cl.yOffset + refSpace, cl.regionPixels, cl.yPixels - covY);
                     canvasR->clipRect(clip, false);
-                } else {  // skip reads
+                } else if (cl.skipDrawingReads){  // skip reads
                     clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, covY);
                     canvasR->clipRect(clip, false);
                 }
@@ -1365,7 +1366,7 @@ namespace Manager {
                     float newHeight = newWidth / ratio;
                     rect.setXYWH(b.xStart, b.yStart, newWidth, newHeight);
                 }
-
+//                canvas->drawRect(rect, opts.theme.bgPaint);
                 canvas->drawImageRect(imageCache[i], rect, sampOpts);
                 if (currentVarTrack->multiLabels.empty()) {
                     ++i; continue;
@@ -1388,8 +1389,55 @@ namespace Manager {
         processBam();
         setScaling();
         canvas->drawPaint(opts.theme.bgPaint);
+        SkRect clip;
         for (auto &cl: collections) {
-            Drawing::drawCollection(opts, cl, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
+
+            if (cl.skipDrawingCoverage && cl.skipDrawingReads) {  // keep read and coverage area
+                continue;
+            }
+            canvas->save();
+
+            // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
+            if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
+                if (cl.bamIdx == 0) {  // cover the ref too
+                    clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + covY + refSpace);
+                } else {
+                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + trackY + covY);
+                }
+                canvas->clipRect(clip, false);
+            } else if (cl.skipDrawingCoverage) {
+                clip.setXYWH(cl.xOffset, cl.yOffset + refSpace, cl.regionPixels, cl.yPixels - covY);
+                canvas->clipRect(clip, false);
+            } else if (cl.skipDrawingReads){  // skip reads
+                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, covY);
+                canvas->clipRect(clip, false);
+            }
+            canvas->drawPaint(opts.theme.bgPaint);
+
+            if (!cl.skipDrawingReads) {
+
+                if (cl.regionLen >= opts.low_memory && !bams.empty() && opts.link_op == 0) {  // low memory mode will be used
+                    cl.clear();
+                    if (opts.threads == 1) {
+                        HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                      &regions[cl.regionIdx], (bool) opts.max_coverage,
+                                      filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop,
+                                      textDrop, pH, monitorScale);
+                    } else {
+                        HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                              opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
+                                              filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool,
+                                              pointSlop, textDrop, pH, monitorScale);
+                    }
+                } else {
+                    Drawing::drawCollection(opts, cl, canvas, trackY, yScaling, fonts, opts.link_op, refSpace,
+                                            pointSlop, textDrop, pH, monitorScale);
+                }
+            }
+            canvas->restore();
+
+
+//            Drawing::drawCollection(opts, cl, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
         }
         if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
@@ -1410,7 +1458,6 @@ namespace Manager {
         if (bams.empty()) {
             return;
         }
-//        SkCanvas* canvas = rasterCanvas;
         canvas->drawPaint(opts.theme.bgPaint);
 
         fetchRefSeqs();
@@ -1444,24 +1491,73 @@ namespace Manager {
             }
         }
         setScaling();
-//        canvas->drawPaint(opts.theme.bgPaint);
-        idx = 0;
-        for (int i=0; i<(int)bams.size(); ++i) {
-            htsFile* b = bams[i];
-            sam_hdr_t *hdr_ptr = headers[i];
-            hts_idx_t *index = indexes[i];
-            for (int j=0; j<(int)regions.size(); ++j) {
-                Utils::Region *reg = &regions[j];
-                if (opts.threads == 1) {
-                    HGW::iterDraw(collections[idx], b, hdr_ptr, index, reg, (bool) opts.max_coverage,
-                                  filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop, textDrop, pH, monitorScale);
-                } else {
-                    HGW::iterDrawParallel(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool) opts.max_coverage,
-                                  filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool, pointSlop, textDrop, pH, monitorScale);
-                }
-                idx += 1;
+
+        SkRect clip;
+        for (auto &cl: collections) {
+            if (cl.skipDrawingCoverage && cl.skipDrawingReads) {  // keep read and coverage area
+                continue;
             }
+            canvas->save();
+
+            // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
+            if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
+                if (cl.bamIdx == 0) {  // cover the ref too
+                    clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + covY + refSpace);
+                } else {
+                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + trackY + covY);
+                }
+                canvas->clipRect(clip, false);
+            } else if (cl.skipDrawingCoverage) {
+                clip.setXYWH(cl.xOffset, cl.yOffset + refSpace, cl.regionPixels, cl.yPixels - covY);
+                canvas->clipRect(clip, false);
+            } else if (cl.skipDrawingReads){  // skip reads
+                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, covY);
+                canvas->clipRect(clip, false);
+            }
+            canvas->drawPaint(opts.theme.bgPaint);
+
+            if (!cl.skipDrawingReads) {
+
+                if (cl.regionLen >= opts.low_memory && !bams.empty() && opts.link_op == 0) {  // low memory mode will be used
+                    cl.clear();
+                    if (opts.threads == 1) {
+                        HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                      &regions[cl.regionIdx], (bool) opts.max_coverage,
+                                      filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop,
+                                      textDrop, pH, monitorScale);
+                    } else {
+                        HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                              opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
+                                              filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool,
+                                              pointSlop, textDrop, pH, monitorScale);
+                    }
+                } else {
+                    Drawing::drawCollection(opts, cl, canvas, trackY, yScaling, fonts, opts.link_op, refSpace,
+                                            pointSlop, textDrop, pH, monitorScale);
+                }
+            }
+            canvas->restore();
         }
+
+
+
+//        idx = 0;
+//        for (int i=0; i<(int)bams.size(); ++i) {
+//            htsFile* b = bams[i];
+//            sam_hdr_t *hdr_ptr = headers[i];
+//            hts_idx_t *index = indexes[i];
+//            for (int j=0; j<(int)regions.size(); ++j) {
+//                Utils::Region *reg = &regions[j];
+//                if (opts.threads == 1) {
+//                    HGW::iterDraw(collections[idx], b, hdr_ptr, index, reg, (bool) opts.max_coverage,
+//                                  filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop, textDrop, pH, monitorScale);
+//                } else {
+//                    HGW::iterDrawParallel(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool) opts.max_coverage,
+//                                  filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool, pointSlop, textDrop, pH, monitorScale);
+//                }
+//                idx += 1;
+//            }
+//        }
         if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
         }

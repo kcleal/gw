@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
     // note to developer - update version in workflows/main.yml, menu.cpp and deps/gw.desktop, and installers .md in docs
-    argparse::ArgumentParser program("gw", "0.10.0");
+    argparse::ArgumentParser program("gw", "0.10.1");
 
     program.add_argument("genome")
             .default_value(std::string{""}).append()

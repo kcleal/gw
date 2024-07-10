@@ -698,6 +698,7 @@ namespace Manager {
             last_mode = mode;
             mode = Show::SETTINGS;
             opts.menu_table = Themes::MenuTable::MAIN;
+            for (auto &cl: collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
             return;
         } else if (mode == Show::SETTINGS && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
             if (key == GLFW_KEY_ESCAPE && opts.menu_table == Themes::MenuTable::MAIN) {
@@ -705,6 +706,7 @@ namespace Manager {
                 redraw = true;
                 processed = false;
                 updateSettings();
+                for (auto &cl: collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
             } else {
                 bool keep_alive = Menu::navigateMenu(opts, key, action, inputText, &charIndex, &captureText, &textFromSettings, &processText, reference);
                 if (opts.editing_underway) {
@@ -1038,6 +1040,7 @@ namespace Manager {
             currentVarTrack = &variantTracks[variantFileSelection];
             currentVarTrack->blockStart = 0;
             mode = Manager::Show::TILED;
+
             if (print_message) {
                 out << termcolor::magenta << "\nFile        " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
             }
@@ -1462,6 +1465,7 @@ namespace Manager {
                 yDrag = DRAG_UNSET;
                 redraw = true;
                 processed = false;
+                for (auto &cl: collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
                 imageCacheQueue.clear();
                 if (currentVarTrack->type == HGW::TrackType::IMAGES) {
                     currentVarTrack->multiRegions.clear();
@@ -1496,6 +1500,8 @@ namespace Manager {
                                 processed = false;
                                 fetchRefSeqs();
                                 mode = Manager::SINGLE;
+                                for (auto &cl: collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
+                                imageCacheQueue.clear();
                                 glfwPostEmptyEvent();
                             }
                         }
@@ -1519,6 +1525,7 @@ namespace Manager {
                             processed = false;
                             fetchRefSeqs();
                             mode = Manager::SINGLE;
+                            for (auto &cl: collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
                             glfwPostEmptyEvent();
                         }
                     }
