@@ -48,7 +48,7 @@ namespace Term {
         out << termcolor::green << "insertions, ins                  " << termcolor::reset << "Toggle insertions\n";
         out << termcolor::green << "line                             " << termcolor::reset << "Toggle mouse position vertical line\n";
         out << termcolor::green << "link             none/sv/all     " << termcolor::reset << "Switch read-linking 'link all'\n";
-        out << termcolor::green << "load             file            " << termcolor::reset << "Load bams, tracks or session file\n";
+        out << termcolor::green << "load             type? file      " << termcolor::reset << "Load bams, tracks, tiles, session file or ideogram\n";
         out << termcolor::green << "log2-cov                         " << termcolor::reset << "Toggle scale coverage by log2\n";
         out << termcolor::green << "mate             add?            " << termcolor::reset << "Use 'mate' to navigate to mate-pair, or 'mate add' \n                                 to add a new region with mate \n";
         out << termcolor::green << "mismatches, mm                   " << termcolor::reset << "Toggle mismatches\n";
@@ -58,7 +58,7 @@ namespace Term {
         out << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. 'rm 1'. To remove a bam \n                                 use the bam index 'rm bam1', or track 'rm track1'\n";
         out << termcolor::green << "roi              region? name?   " << termcolor::reset << "Add a region of interest\n";
         out << termcolor::green << "sam                              " << termcolor::reset << "Print selected read in sam format\n";
-        out << termcolor::green << "save             filename        " << termcolor::reset << "Save reads (.bam/.cram), snapshot (.png) or session (.ini) to file\n";
+        out << termcolor::green << "save             filename        " << termcolor::reset << "Save reads (bam/cram), snapshot (png), session (ini), or labels (tsv/txt)\n";
         out << termcolor::green << "settings                         " << termcolor::reset << "Open the settings menu'\n";
 		out << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window to png e.g. 's', or 's view.png',\n                                 or vcf columns can be used 's {pos}_{info.SU}.png'\n";
         out << termcolor::green << "soft-clips, sc                   " << termcolor::reset << "Toggle soft-clips\n";
@@ -190,17 +190,22 @@ namespace Term {
         } else if (s == "link" || s == "l") {
             out << "    Link alignments.\n        This will change how alignments are linked, options are 'none', 'sv', 'all'.\n    Examples:\n        'link sv', 'link all'\n\n";
         } else if (s == "load") {
-            out << "    Load reads, tracks or session file.\n"
-                   "        The filepath extension will determine which type of file to load.\n\n"
+            out << "    Load reads, tracks, tiles, session file or ideogram.\n"
+                   "        The type identifier is optional, and if not supplied then the filepath extension will.\n"
+                   "        will determine which type of file to load.\n\n"
                    "    Examples:\n"
                    "        'load reads.bam'        # Load reads.bam file.\n"
                    "        'load reads.cram'       # Load a cram file\n"
                    "        'load repeats.bed'      # Load a bed file\n"
                    "        'load variants.vcf'     # Load a vcf file\n"
                    "        'load session.xml'      # Load a previous session\n\n"
+                   "        'load bam a.bam'        # Load alignments (bam, cram)\n"
+                   "        'load track a.bed'      # Load a track (bed, vcf/bcf, gtf/gff3)\n"
+                   "        'load tiled a.bed'      # Load a file to generate image-tiled from (vcf, bed)\n\n"
+                   "        'load ideogram a.bed'   # Load an ideogram file (bed)\n\n"
                    "    Notes:\n"
-                   "        Vcfs/bcfs can be loaded as a track or image tiles. Control this behavior using the\n"
-                   "        settings option Settings -> Interaction -> vcf_as_tracks"
+                   "        Vcfs/bcfs/beds can be loaded as a track or image tiles. Control this behavior using the\n"
+                   "        settings option Settings -> Interaction -> vcf_as_tracks and bed_as_tracks"
                    "\n\n";
         } else if (s == "log2-cov") {
             out << "    Toggle log2-coverage.\n        The coverage track will be scaled by log2.\n\n";
@@ -219,15 +224,16 @@ namespace Term {
         } else if (s == "sam") {
             out << "    Print the sam format of the read.\n        First select a read using the mouse then type ':sam'.\n\n";
         } else if (s == "save") {
-            out << "    Save reads, snapshot or session to file.\n"
+            out << "    Save reads, snapshot, session file, or labels file.\n"
                          "        The filepath extension will determine the output file type.\n\n"
                          "    Examples:\n"
                          "        'save reads.bam'        # Save visible reads to reads.bam file.\n"
-                         "        'save reads.bam [0, 1]' # Indexing can be used, here reads from row 0, column 1 will be saved\n"
+                         "        'save reads.bam [0, 1]' # Indexing can be used - here reads from row 0, column 1 will be saved\n"
                          "        'save reads.cram'       # Reads saved in cram format\n"
-                         "        'save reads.sam'        # Reads saved in sam format (human readable)\n"
+                         "        'save reads.sam'        # Reads saved in sam format (human readable)\n\n"
                          "        'save view.png'         # The current view is saved to view.png. Same functionality as 'snapshot'\n"
-                         "        'save session.ini'      # The current session will be saved, allowing this session to be revisited\n\n"
+                         "        'save session.ini'      # The current session will be saved, allowing this session to be revisited\n"
+                         "        'save labels.tsv'       # The output label file will be saved here\n\n"
                          "    Notes:\n"
                          "        Any read-filters are applied when saving reads\n"
                          "        Reads are saved in sorted order, however issues may arise if different bam headers\n"
@@ -1141,6 +1147,19 @@ namespace Term {
         out << v;
         term_space -= (int)v.size();
         out << std::flush;
+
+        if (label->comment.empty()) {
+            return;
+        }
+
+        v = "    " + label->comment;
+        if ((int)v.size() < term_space) {
+            out << v << std::flush;
+        } else if (term_space > 10) {
+            v.erase(v.begin(), v.begin() + term_space);
+            out << v << std::flush;
+        }
+
     }
 
     int check_url(const char *url) {
@@ -1314,5 +1333,59 @@ namespace Term {
             return;
         }
     }
+
+#if !defined(__EMSCRIPTEN__)
+    const char* CURRENT_VERSION = "v0.10.0";
+
+    size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
+        ((std::string*)userp)->append((char*)contents, size * nmemb);
+        return size * nmemb;
+    }
+
+    std::string getLatestVersion() {
+        CURL* curl;
+        CURLcode res;
+        std::string readBuffer;
+
+        curl = curl_easy_init();
+        if (curl) {
+            struct curl_slist* headers = nullptr;
+            headers = curl_slist_append(headers, "User-Agent: gw-app");
+
+            curl_easy_setopt(curl, CURLOPT_URL, "https://api.github.com/repos/kcleal/gw/tags");
+            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+            res = curl_easy_perform(curl);
+            curl_easy_cleanup(curl);
+            curl_slist_free_all(headers);
+
+            if (res == CURLE_OK) {
+                // Simple JSON parsing to find the latest version
+                size_t pos = readBuffer.find("\"name\"");
+                if (pos != std::string::npos) {
+                    size_t start = readBuffer.find("\"", pos + 7) + 1;
+                    size_t end = readBuffer.find("\"", start);
+                    return readBuffer.substr(start, end - start);
+                }
+            }
+        }
+        return "";
+    }
+
+    void checkVersion() {
+        std::string latestVersion = getLatestVersion();
+        if (!latestVersion.empty()) {
+            if (latestVersion != CURRENT_VERSION) {
+                std::cout << "\nVersion " << latestVersion << " is available: " << "https://github.com/kcleal/gw" << std::endl;
+            }
+        }
+    }
+
+    void startVersionCheck() {
+        std::thread versionCheckThread(checkVersion);
+        versionCheckThread.detach(); // Detach the thread to run independently
+    }
+#endif
 
 }

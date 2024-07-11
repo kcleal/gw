@@ -61,9 +61,6 @@ namespace Drawing {
         float yOffsetAll = refSpace;
 
         for (auto &cl: collections) {
-            if (cl.skipDrawingReads && cl.skipDrawingCoverage) {
-                continue;
-            }
             cl.skipDrawingCoverage = true;
             if (cl.region->markerPos != -1) {
                 float rp = refSpace + 6 + (cl.bamIdx * cl.yPixels);
@@ -1195,8 +1192,6 @@ namespace Drawing {
         float textW = fonts.overlayWidth;
         float minLetterSize = (textW > 0) ? ((float) fb_width / (float) regions.size()) / textW : 0;
         int index = 0;
-        //h *= 0.7;
-//        h = (h - 6 < 4) ? 4 : h - 6;
         float yp = h + 2;
         for (auto &rgn: regions) {
             int size = rgn.end - rgn.start;

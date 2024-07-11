@@ -17,8 +17,8 @@
 
 namespace Parse {
 
-    constexpr std::string_view numeric_like = "eq ne gt lt ge le == != > < >= <=";
-    constexpr std::string_view string_like = "eq ne contains == != omit";
+    constexpr std::string_view numeric_like = "eq ne gt lt ge le = == != > < >= <=";
+    constexpr std::string_view string_like = "eq ne contains = == != omit";
 
     Parser::Parser(std::ostream& errOutput) : out(errOutput) {
         opMap["mapq"] = MAPQ;
@@ -66,6 +66,7 @@ namespace Parse {
         opMap["ge"] = GE;
         opMap["le"] = LE;
         opMap["=="] = EQ;
+        opMap["="] = EQ;
         opMap["!="] = NE;
         opMap[">"] = GT;
         opMap["<"] = LT;
@@ -976,6 +977,14 @@ namespace Parse {
 
     void tryTabCompletion(std::string &inputText, std::ostream& out, int& charIndex) {
         std::vector<std::string> parts = Utils::split(inputText, ' ');
+        if (parts.size() == 3) {  // chunk first two options
+            std::string tmp = parts[0];
+            std::string tmp2 = parts[1];
+            std::string tmp3 = parts[2];
+            parts[0] = tmp + " " + tmp2;
+            parts[1] = tmp3;
+            parts.resize(2);
+        }
         std::string globstr;
         if (parts.back() == "./") {
             globstr = "./*";
@@ -986,6 +995,9 @@ namespace Parse {
         std::vector<std::filesystem::path> glob_paths = glob_cpp::glob(globstr);
         if (glob_paths.size() == 1) {
             inputText = parts[0] + " " + glob_paths[0].generic_string();
+            if (std::filesystem::is_directory(glob_paths[0])) {
+                inputText += std::filesystem::path::preferred_separator;
+            }
             charIndex = inputText.size();
             return;
         }
@@ -998,6 +1010,7 @@ namespace Parse {
             return;
         }
         inputText = parts[0] + " " + lcp;
+
         charIndex = inputText.size();
         size_t width = (size_t)Utils::get_terminal_width() - 1;
         size_t i = 0;
@@ -1009,18 +1022,17 @@ namespace Parse {
             } else {
                 if (width > 6 && s.size() > 6) {
                     s.erase(s.begin() + width - 4, s.end());
-                    out << s << " ...";
+                    out << s << " ..."; out.flush();
                 }
                 break;
             }
             if (i < glob_paths.size() - 2 && width > 2) {
-                out << "  ";
+                out << "  "; out.flush();
                 width -= 2;
             } else {
                 break;
             }
         }
-        out.flush();
         return;
     }
 }

@@ -160,7 +160,9 @@ namespace Manager {
         for (auto &idx: indexes) {
             hts_idx_destroy(idx);
         }
-        fai_destroy(fai);
+//        if (fai != nullptr) {
+//            fai_destroy(fai);
+//        }
     }
 
     void ErrorCallback(int, const char* err_str) {
@@ -289,16 +291,18 @@ namespace Manager {
 
     void GwPlot::fetchRefSeq(Utils::Region &rgn) {
         int rlen = rgn.end - rgn.start - 1;
-        rgn.refSeq = faidx_fetch_seq(fai, rgn.chrom.c_str(), rgn.start, rgn.end - 1, &rlen);
+        if (rlen < opts.snp_threshold || rlen < 20000) {
+            rgn.refSeq = faidx_fetch_seq(fai, rgn.chrom.c_str(), rgn.start, rgn.end - 1, &rlen);
+        }
+        if (rgn.chromLength == 0) {
+            rgn.chromLength = faidx_seq_len(fai, rgn.chrom.c_str());
+        }
     }
 
     void GwPlot::fetchRefSeqs() {
         for (auto &rgn : regions) {
-            if (rgn.end - rgn.start < opts.snp_threshold) {
+            if (rgn.end - rgn.start < opts.snp_threshold || rgn.end - rgn.start < 20000) {
                 fetchRefSeq(rgn);
-            }
-            if (rgn.chromLength == 0) {
-                rgn.chromLength = faidx_seq_len(fai, rgn.chrom.c_str());
             }
         }
     }
@@ -334,7 +338,7 @@ namespace Manager {
         std::shared_ptr<ankerl::unordered_dense::set<std::string>> sLabels = std::make_shared<ankerl::unordered_dense::set<std::string>>(seenLabels[variantFilename]);
 
         variantTracks.push_back(
-                HGW::GwVariantTrack(path, cacheStdin, &opts, startIndex + (opts.number.x * opts.number.y),
+                HGW::GwVariantTrack(path, cacheStdin, &opts, startIndex,
                                     labelChoices,
                                     inLabels,
                                     sLabels)
@@ -349,11 +353,10 @@ namespace Manager {
         if (outLabelFile.empty()) {
             return;
         }
-//        std::cout << "Saving labels to file: " << outLabelFile << std::endl;
         std::string dateStr = Utils::dateTime();
         std::ofstream f;
         f.open(outLabelFile);
-        f << "#chrom\tpos\tvariant_ID\tlabel\tvar_type\tlabelled_date\tvariant_filename\n";
+        f << "#chrom\tpos\tvariant_ID\tlabel\tvar_type\tlabelled_date\tvariant_filename\tcomment\n";
         for (auto &vf : variantTracks) {
             std::string fileName;
             if (vf.type != HGW::TrackType::IMAGES) {
@@ -552,6 +555,10 @@ namespace Manager {
         } else {
             outStr << "Type '/help' for more info\n";
         }
+
+#if !defined(__EMSCRIPTEN__)
+        Term::startVersionCheck();
+#endif
 
         vCursor = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
         setGlfwFrameBufferSize();
@@ -848,9 +855,10 @@ namespace Manager {
 
         frameId += 1;
         setGlfwFrameBufferSize();
+
         if (regions.empty()) {
             setScaling();
-
+            canvasR->drawPaint(opts.theme.bgPaint);
         } else {
             processBam();
             setScaling();
@@ -860,6 +868,10 @@ namespace Manager {
             }
             SkRect clip;
 
+            if (collections.empty()) {
+                canvasR->drawPaint(opts.theme.bgPaint);
+            }
+
             for (auto &cl: collections) {
                 if (cl.skipDrawingCoverage && cl.skipDrawingReads) {  // keep read and coverage area
                     continue;
@@ -867,7 +879,7 @@ namespace Manager {
                 canvasR->save();
 
                 // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
-                if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
+                if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads)) {// || imageCacheQueue.empty()) {
                     if (cl.bamIdx == 0) {  // cover the ref too
                         clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + covY + refSpace);
                     } else {
@@ -875,12 +887,12 @@ namespace Manager {
                     }
                     canvasR->clipRect(clip, false);
                 } else if (cl.skipDrawingCoverage) {
-                    clip.setXYWH(cl.xOffset, cl.yOffset + refSpace, cl.regionPixels, cl.yPixels - covY);
+                    clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, cl.yPixels);
                     canvasR->clipRect(clip, false);
-                } else if (cl.skipDrawingReads){  // skip reads
+                } else if (cl.skipDrawingReads){
                     clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, covY);
                     canvasR->clipRect(clip, false);
-                }
+                }  // else no clip
                 canvasR->drawPaint(opts.theme.bgPaint);
 
                 if (!cl.skipDrawingReads) {
@@ -1392,26 +1404,33 @@ namespace Manager {
         SkRect clip;
         for (auto &cl: collections) {
 
-            if (cl.skipDrawingCoverage && cl.skipDrawingReads) {  // keep read and coverage area
-                continue;
-            }
+//            if (cl.skipDrawingCoverage && cl.skipDrawingReads) {  // keep read and coverage area
+//                continue;
+//            }
             canvas->save();
 
             // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
-            if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
-                if (cl.bamIdx == 0) {  // cover the ref too
-                    clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + covY + refSpace);
-                } else {
-                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + trackY + covY);
-                }
-                canvas->clipRect(clip, false);
-            } else if (cl.skipDrawingCoverage) {
-                clip.setXYWH(cl.xOffset, cl.yOffset + refSpace, cl.regionPixels, cl.yPixels - covY);
-                canvas->clipRect(clip, false);
-            } else if (cl.skipDrawingReads){  // skip reads
-                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, covY);
-                canvas->clipRect(clip, false);
+//            if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
+//                if (cl.bamIdx == 0) {  // cover the ref too
+//                    clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + covY + refSpace);
+//                } else {
+//                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + trackY + covY);
+//                }
+//                canvas->clipRect(clip, false);
+//            } else if (cl.skipDrawingCoverage) {
+//                clip.setXYWH(cl.xOffset, cl.yOffset + refSpace, cl.regionPixels, cl.yPixels - covY);
+//                canvas->clipRect(clip, false);
+//            } else if (cl.skipDrawingReads){  // skip reads
+//                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, covY);
+//                canvas->clipRect(clip, false);
+//            }
+
+            if (cl.bamIdx == 0) {  // cover the ref too
+                clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + covY + refSpace);
+            } else {
+                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + trackY + covY);
             }
+            canvas->clipRect(clip, false);
             canvas->drawPaint(opts.theme.bgPaint);
 
             if (!cl.skipDrawingReads) {
@@ -1435,7 +1454,6 @@ namespace Manager {
                 }
             }
             canvas->restore();
-
 
 //            Drawing::drawCollection(opts, cl, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
         }

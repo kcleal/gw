@@ -334,7 +334,7 @@ namespace Commands {
             p->imageCache.clear();
             p->imageCacheQueue.clear();
             HGW::refreshLinked(p->collections, p->opts, &p->samMaxY);
-            for (auto &cl: p->collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
+            for (auto &cl: p->collections) { cl.skipDrawingCoverage = true; cl.skipDrawingReads = false;}
             p->redraw = true;
             p->processed = true;
         }
@@ -542,11 +542,12 @@ namespace Commands {
             out << termcolor::red << "Error:" << termcolor::reset << " ylim invalid value\n";
             return Err::NONE;
         }
-        p->imageCache.clear();
-        p->imageCacheQueue.clear();
-        HGW::refreshLinked(p->collections, p->opts, &p->samMaxY);
-        p->processed = true;
-        p->redraw = true;
+        refreshGw(p);
+//        p->imageCache.clear();
+//        p->imageCacheQueue.clear();
+//        HGW::refreshLinked(p->collections, p->opts, &p->samMaxY);
+//        p->processed = true;
+//        p->redraw = true;
         return Err::NONE;
     }
 
@@ -578,7 +579,7 @@ namespace Commands {
                 ind = std::stoi(parts.back());
             } catch (...) {
                 out << termcolor::red << "Error:" << termcolor::reset << " bam index not understood\n";
-                return Err::NONE;
+                return Err::SILENT;
             }
             p->removeBam(ind);
         } else if (Utils::startsWith(parts.back(), "track")) {
@@ -587,7 +588,7 @@ namespace Commands {
                 ind = std::stoi(parts.back());
             } catch (...) {
                 out << termcolor::red << "Error:" << termcolor::reset << " track index not understood\n";
-                return Err::NONE;
+                return Err::SILENT;
             }
             p->removeTrack(ind);
         } else {
@@ -595,10 +596,12 @@ namespace Commands {
                 ind = std::stoi(parts.back());
             } catch (...) {
                 out << termcolor::red << "Error:" << termcolor::reset << " region index not understood\n";
-                return Err::NONE;
+                return Err::SILENT;
             }
             p->removeRegion(ind);
+
         }
+        p->redraw = true;
         bool clear_filters = false; // removing a region can invalidate indexes so remove them
         for (auto &f : p->filters) {
             if (!f.targetIndexes.empty()) {
@@ -609,7 +612,11 @@ namespace Commands {
         if (clear_filters) {
             p->filters.clear();
         }
-        p->imageCacheQueue.clear();
+        for (auto &cl : p->collections) {
+            cl.skipDrawingReads = false;
+            cl.skipDrawingCoverage = false;
+        }
+
         p->imageCacheQueue.clear();
         return Err::NONE;
     }
@@ -1049,15 +1056,127 @@ namespace Commands {
             out << "Saved session: " << parts.back() << std::endl;
             p->saveSession(parts.back());
         }
+        else if (Utils::endsWith(parts.back(), ".tsv") || (Utils::endsWith(parts.back(), ".txt"))) {
+            out << "Output label file set as: " << parts.back() << std::endl;
+            p->setOutLabelFile(parts.back());
+            p->saveLabels();
+        } else {
+            if (parts.back() == "labels") {
+                out << "Current label path is: " << p->outLabelFile << std::endl;
+                p->saveLabels();
+                return Err::NONE;
+            }
+            return Err::INVALID_PATH;
+        }
         return Err::NONE;
     }
 
-    Err load_file(Plot* p, std::vector<std::string> parts) {
-        if (parts.size() != 2) {
+    Err load_file(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        std::string filename;
+
+        if (parts.size() == 3) {
+            filename = Parse::tilde_to_home(parts.back());
+            std::string ext = std::filesystem::path(filename).extension();
+            if (std::filesystem::is_directory(filename)) {
+                out << termcolor::red << "Error:" << termcolor::reset << " This is a folder path, not a file\n";
+                return Err::SILENT;
+            }
+            if (parts[1] == "ideogram") {
+                if (!std::filesystem::exists(parts.back())) {
+                    return Err::INVALID_PATH;
+                }
+                if (ext != ".bed") {
+                    out << termcolor::red << "Error:" << termcolor::reset << " Only .bed extension supported for ideograms\n";
+                    return Err::SILENT;
+                } else {
+                    p->addIdeogram(filename);
+                    refreshGw(p);
+                    return Err::NONE;
+                }
+            } else if (parts[1] == "track") {
+                if (!std::filesystem::exists(parts.back())) {
+                    return Err::INVALID_PATH;
+                }
+                if (ext == ".bam" || ext == ".cram") {
+                    out << termcolor::red << "Error:" << termcolor::reset << " Bam/cram can not be loaded as a track\n";
+                    return Err::SILENT;
+                } else {
+                    p->addTrack(filename, true, true, true);
+                    refreshGw(p);
+                    return Err::NONE;
+                }
+
+            } else if (parts[1] == "tiled") {
+                if (!std::filesystem::exists(parts.back())) {
+                    return Err::INVALID_PATH;
+                }
+                if (ext == ".vcf" || ext == ".vcf.gz" || ext == ".bcf" || ext == ".bed" || ext == ".bed.gz") {
+                    p->addTrack(filename, true, false, false);
+                    refreshGw(p);
+                    return Err::NONE;
+                } else {
+                    out << termcolor::red << "Error:" << termcolor::reset << " Image tiling only supported for .vcf|.vcf.gz|.bcf|.bed|.bed.gz file extensions\n";
+                    return Err::SILENT;
+                }
+            } else if (parts[1] == "bam" || parts[1] == "cram") {
+                if (!std::filesystem::exists(parts.back())) {
+                    return Err::INVALID_PATH;
+                }
+                p->addTrack(filename, true, p->opts.vcf_as_tracks, p->opts.bed_as_tracks);
+                refreshGw(p);
+                return Err::NONE;
+            } else if (parts[1] == "genome") {
+                p->loadGenome(filename, out);
+                refreshGw(p);
+                return Err::NONE;
+            } else if (parts[1] == "labels") {
+                if (!std::filesystem::exists(parts.back())) {
+                    return Err::INVALID_PATH;
+                }
+                p->seenLabels.clear();
+                std::string img;
+                std::vector<std::string> labels = Utils::split_keep_empty_str(p->opts.labels, ',');
+                Utils::openLabels(parts.back(), img, p->inputLabels, labels, p->seenLabels);
+                std::vector<std::string> current;
+                std::vector<int> idx;
+                for (auto &v : p->variantTracks) {
+                    current.push_back(v.path);
+                    idx.push_back(v.blockStart);
+                }
+                p->variantTracks.clear();
+
+                int i = 0;
+                for (auto &v : current) {
+                    p->addVariantTrack(v, idx[i], false, false);  // dont cache, dont use full path as filename
+                    i += 1;
+                }
+                refreshGw(p);
+                return Err::NONE;
+            } else {
+                return Err::OPTION_NOT_UNDERSTOOD;
+            }
+        } else if (parts.size() != 2) {
             return Err::OPTION_NOT_UNDERSTOOD;
         }
-        std::string filename = Parse::tilde_to_home(parts.back());
-        p->addTrack(filename, true);
+        if (!std::filesystem::exists(parts.back())) {
+            if (parts.back() == "labels") {
+                out << "Current label path is: " << p->outLabelFile << std::endl;
+                refreshGw(p);
+                return Err::NONE;
+            } else if (parts.back() == "genome") {
+                out << "Current genome path is: " << p->reference << std::endl;
+                refreshGw(p);
+                return Err::NONE;
+            } else if (parts.back() == "ideogram") {
+                out << "Current ideogram path is: " << p->ideogram_path << std::endl;
+                refreshGw(p);
+                return Err::NONE;
+            }
+            return Err::INVALID_PATH;
+        }
+        filename = Parse::tilde_to_home(parts.back());
+        p->addTrack(filename, true, p->opts.vcf_as_tracks, p->opts.bed_as_tracks);
+        refreshGw(p);
         return Err::NONE;
     }
 
@@ -1236,16 +1355,17 @@ namespace Commands {
         return Err::NONE;
     }
 
-    void save_command_or_handle_err(Err result, std::ostream& out,
+    void cache_command_or_handle_err(Plot* p, Err result, std::ostream& out,
                                     std::vector<std::string>* applied, std::string& command) {
         switch (result) {
             case NONE:
                 applied->push_back(command);
-                break;
+                return;
             case UNKNOWN:
                 out << termcolor::red << "Error:" << termcolor::reset << " Unknown error\n";
                 break;
-            case SILENT: break;
+            case SILENT:
+                break;
             case TOO_MANY_OPTIONS:
                 out << termcolor::red << "Error:" << termcolor::reset << " Too many options supplied\n";
                 break;
@@ -1286,6 +1406,13 @@ namespace Commands {
                 out << termcolor::red << "Error:" << termcolor::reset << " Input could not be parsed\n";
                 break;
         }
+        if (p->mode == Manager::Show::SINGLE) {
+            p->redraw = false;
+            for (auto &cl : p->collections) {
+                cl.skipDrawingReads = true;
+                cl.skipDrawingCoverage = true;
+            }
+        }
     }
 
     // Command functions capture these parameters only
@@ -1294,7 +1421,14 @@ namespace Commands {
     // Note the function map will be cached after first call. plt is bound, but parts are updated with each call
     void run_command_map(Plot* p, std::string& command, std::ostream& out) {
         if (Utils::startsWith(command, "'") || Utils::startsWith(command, "\"")) {
+            command.erase(command.begin(), command.begin() + 1);
             out << command << std::endl;
+            if (p->mode == Manager::Show::TILED && !p->variantTracks.empty() && p->currentVarTrack != nullptr) {
+                int i = p->mouseOverTileIndex + p->currentVarTrack->blockStart;
+                if (i < p->currentVarTrack->multiLabels.size()) {
+                    p->currentVarTrack->multiLabels[i].comment = command;
+                }
+            }
             command = "";
             return;
         }
@@ -1314,7 +1448,7 @@ namespace Commands {
                 {"insertions",  PARAMS { return insertions(p); }},
                 {"mm",       PARAMS { return mismatches(p); }},
                 {"mismatches",  PARAMS { return mismatches(p); }},
-                {"mods",  PARAMS { return mods(p); }},
+                {"mods",     PARAMS { return mods(p); }},
                 {"edges",    PARAMS { return edges(p); }},
                 {"soft-clips",  PARAMS { return soft_clips(p); }},
                 {"log2-cov",  PARAMS { return log2_cov(p); }},
@@ -1329,9 +1463,9 @@ namespace Commands {
                 {"v",        PARAMS { return var_info(p, command, parts, out); }},
                 {"var",      PARAMS { return var_info(p, command, parts, out); }},
                 {"save",     PARAMS { return save_command(p, command, parts, out); }},
-                {"colour",     PARAMS { return update_colour(p, command, parts, out); }},
-                {"color",     PARAMS { return update_colour(p, command, parts, out); }},
-                {"roi",     PARAMS { return add_roi(p, command, parts, out); }},
+                {"colour",   PARAMS { return update_colour(p, command, parts, out); }},
+                {"color",    PARAMS { return update_colour(p, command, parts, out); }},
+                {"roi",      PARAMS { return add_roi(p, command, parts, out); }},
 
                 {"count",    PARAMS { return count(p, command, out); }},
                 {"filter",   PARAMS { return addFilter(p, command, out); }},
@@ -1351,9 +1485,8 @@ namespace Commands {
                 {"s",        PARAMS { return snapshot(p, parts, out); }},
                 {"snapshot", PARAMS { return snapshot(p, parts, out); }},
                 {"online",   PARAMS { return online(p, parts, out); }},
-
+                {"load",     PARAMS { return load_file(p, parts, out); }},
                 {"grid",     PARAMS { return grid(p, parts); }},
-                {"load",     PARAMS { return load_file(p, parts); }},
 
         };
 
@@ -1364,13 +1497,8 @@ namespace Commands {
         } else {
             res = infer_region_or_feature(p, command, parts);
         }
-        save_command_or_handle_err(res, out, &p->commandsApplied, command);
+        cache_command_or_handle_err(p, res, out, &p->commandsApplied, command);
         p->inputText = "";
-        if (p->redraw) {
-            for (auto &cl : p->collections) {  // todo use this inside commands, not here
-                cl.skipDrawingReads = false;
-                cl.skipDrawingCoverage = false;
-            }
-        }
+
     }
 }

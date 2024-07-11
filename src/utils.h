@@ -127,7 +127,7 @@ namespace Utils {
     public:
         Label() = default;
         ~Label() = default;
-        std::string chrom, variantId, savedDate, vartype;
+        std::string chrom, variantId, savedDate, vartype, comment;
         std::vector<std::string> labels;
         int i, pos, ori_i;
         bool clicked;
@@ -141,7 +141,7 @@ namespace Utils {
     std::string dateTime();
 
     Label makeLabel(std::string &chrom, int pos, std::string &parsed, std::vector<std::string> &inputLabels, std::string &variantId, std::string &vartype,
-                    std::string savedDate, bool clicked, bool add_empty_label);
+                    std::string savedDate, bool clicked, bool add_empty_label, std::string& comment);
 
     void labelToFile(std::ofstream &f, Utils::Label &l, std::string &dateStr, std::string &variantFileName);
 

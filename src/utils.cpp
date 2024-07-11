@@ -427,13 +427,14 @@ namespace Utils {
     }
 
     Label makeLabel(std::string &chrom, int pos, std::string &parsed, std::vector<std::string> &inputLabels, std::string &variantId, std::string &vartype,
-                    std::string savedDate, bool clicked, bool add_empty_label=false) {
+                    std::string savedDate, bool clicked, bool add_empty_label, std::string& comment) {
         Label l;
         l.chrom = chrom;
         l.pos = pos;
         l.variantId = variantId;
         l.vartype = vartype;
         l.savedDate = savedDate;
+        l.comment = comment;
         l.i = 0;
         l.ori_i = 0;
         l.clicked = clicked;
@@ -492,14 +493,14 @@ namespace Utils {
     void labelToFile(std::ofstream &f, Utils::Label &l, std::string &dateStr, std::string &variantFileName) {
         f << l.chrom << "\t" << l.pos << "\t" << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" <<
         (((l.contains_parsed_label && l.i == l.ori_i) || (!l.contains_parsed_label && l.i > 0)) ? l.savedDate : dateStr) <<
-        "\t" << variantFileName <<
+        "\t" << variantFileName << "\t" << l.comment <<
         std::endl;
     }
 
     void saveLabels(Utils::Label &l, std::ofstream &fileOut, std::string &dateStr, std::string &variantFileName) {
         fileOut << l.chrom << "\t" << l.pos << "\t" << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" <<
         (((l.contains_parsed_label && l.i == l.ori_i) || (!l.contains_parsed_label && l.i > 0)) ? l.savedDate : dateStr) <<
-        "\t" << variantFileName <<
+        "\t" << variantFileName << "\t" << l.comment <<
         std::endl;
     }
 
@@ -532,7 +533,11 @@ namespace Utils {
                 if (!seenLabels[variantFilename].contains(v->at(3))) {
                     seenLabels[variantFilename].insert(v->at(3));
                 }
-                Label l = makeLabel(v->at(0), pos, v->at(3), inputLabels, v->at(2), v->at(4), savedDate, clicked);
+                std::string comment;
+                if (v->size() >= 8) {
+                    comment = v->at(7);
+                }
+                Label l = makeLabel(v->at(0), pos, v->at(3), inputLabels, v->at(2), v->at(4), savedDate, clicked, false, comment);
 
                 std::string key;
                 key = v->at(2);

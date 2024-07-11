@@ -392,6 +392,7 @@ namespace Themes {
         tlen_yscale = false;
         expand_tracks = false;
         vcf_as_tracks = false;
+        bed_as_tracks = true;
         sv_arcs = true;
         parse_mods = true;
 
@@ -506,6 +507,9 @@ namespace Themes {
         }
         if (myIni["interaction"].has("vcf_as_tracks")) {
             vcf_as_tracks = myIni["interaction"]["vcf_as_tracks"] == "true";
+        }
+        if (myIni["interaction"].has("bed_as_tracks")) {
+            bed_as_tracks = myIni["interaction"]["bed_as_tracks"] == "true";
         }
 
         number_str = myIni["labelling"]["number"];
@@ -720,7 +724,7 @@ namespace Themes {
             output_session = myIni["general"]["session_file"];
         }
         mINI::INIFile file(output_session);
-//        seshIni["data"].clear();
+
         seshIni.clear();
         seshIni["data"]["genome_tag"] = genome_tag;
         seshIni["data"]["genome_path"] = genome_path;
