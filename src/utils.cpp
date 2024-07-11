@@ -418,8 +418,8 @@ namespace Utils {
                 b.yStart = (h * (float) y) + padY + ySpace;
                 b.xEnd = b.xStart + w - padX;
                 b.yEnd = b.yStart + h - padY;
-                b.width = w - padX * 2;
-                b.height = h - padY * 2;
+                b.width = w - padX;// * 2;
+                b.height = h - padY;// * 2;
                 ++i;
             }
         }

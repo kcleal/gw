@@ -297,6 +297,11 @@ namespace Manager {
         if (rgn.chromLength == 0) {
             rgn.chromLength = faidx_seq_len(fai, rgn.chrom.c_str());
         }
+        if (rgn.end <= rgn.chromLength) {
+            rgn.refSeqLen = rgn.end - rgn.start;
+        } else {
+            rgn.refSeqLen = rgn.chromLength - rgn.start;
+        }
     }
 
     void GwPlot::fetchRefSeqs() {

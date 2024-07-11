@@ -212,6 +212,7 @@ namespace Drawing {
                 }
 
                 int i = 0;
+                int refSeqLen = cl.region->refSeqLen;
                 for (const auto &mm: mmVector) {
                     float cum_h = 0;
                     float mm_h;
@@ -251,6 +252,9 @@ namespace Drawing {
                             continue;
                         }
                         const SkPaint *paint_ref;
+                        if (i >= refSeqLen) {
+                            break;
+                        }
                         switch (refSeq[i]) {
                             case 'A':
                                 paint_ref = &theme.fcA;
@@ -501,6 +505,7 @@ namespace Drawing {
         uint8_t *ptr_qual = bam_get_qual(align.delegate);
 
         const char *refSeq = region->refSeq;
+        int refSeqLen = region->refSeqLen;
 
         float precalculated_xOffset_mmPosOffset = xOffset + mmPosOffset;
 
@@ -527,6 +532,9 @@ namespace Drawing {
             size_t ref_idx = pos_start - region->start;
 
             for (size_t i=idx_start; i < (size_t)idx_end; ++i) {
+                if (i >= refSeqLen) {
+                    break;
+                }
                 char ref_base = lookup_ref_base[(unsigned char)refSeq[ref_idx]];
                 char bam_base = bam_seqi(ptr_seq, i);
                 if (bam_base != ref_base) {
@@ -1398,7 +1406,13 @@ namespace Drawing {
         }
 
         if (label.i != label.ori_i) {
+
             canvas->drawRect(rect, opts.theme.lcJoins);
+        }
+        if (!label.comment.empty()) {
+            bg.setXYWH(rect.right() - fonts.overlayHeight - (4*pad), rect.bottom() - fonts.overlayHeight - pad - pad - pad - pad, fonts.overlayHeight,
+                       fonts.overlayHeight);
+            canvas->drawRoundRect(bg, fonts.overlayHeight, fonts.overlayHeight, opts.theme.fcG);
         }
     }
 

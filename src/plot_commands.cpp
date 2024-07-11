@@ -1076,7 +1076,7 @@ namespace Commands {
 
         if (parts.size() == 3) {
             filename = Parse::tilde_to_home(parts.back());
-            std::string ext = std::filesystem::path(filename).extension();
+            std::string ext = std::filesystem::path(filename).extension().string();
             if (std::filesystem::is_directory(filename)) {
                 out << termcolor::red << "Error:" << termcolor::reset << " This is a folder path, not a file\n";
                 return Err::SILENT;
@@ -1324,7 +1324,7 @@ namespace Commands {
                     b.start = r.start;
                     b.end = r.end;
                     good = true;
-                    s_idx += parts[1].size();
+                    s_idx += (int)parts[1].size();
                 }
             } catch (...) {
             }
@@ -1425,7 +1425,7 @@ namespace Commands {
             out << command << std::endl;
             if (p->mode == Manager::Show::TILED && !p->variantTracks.empty() && p->currentVarTrack != nullptr) {
                 int i = p->mouseOverTileIndex + p->currentVarTrack->blockStart;
-                if (i < p->currentVarTrack->multiLabels.size()) {
+                if (i < (int)p->currentVarTrack->multiLabels.size()) {
                     p->currentVarTrack->multiLabels[i].comment = command;
                 }
             }
