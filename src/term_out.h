@@ -50,4 +50,6 @@ namespace Term {
                           std::ostream& out);
 
     void updateRefGenomeSeq(Utils::Region *region, float xW, float xOffset, float xScaling, std::ostream& out);
+
+    void startVersionCheck();
 }

@@ -2043,6 +2043,7 @@ namespace HGW {
     // variant id is either recorded in the filename, or else is the whole filename
     void GwVariantTrack::appendImageLabels(int startIdx, int number) {
         // rid is the file name for an image
+        std::string empty_comment;
         for (int i=startIdx; i < startIdx + number; ++i) {
             if (i < (int)multiLabels.size()) {
                 continue;
@@ -2057,7 +2058,7 @@ namespace HGW {
             if (inputLabels->contains(key)) {
                 multiLabels.push_back((*inputLabels)[key]);
             } else {
-                multiLabels.push_back(Utils::makeLabel(info.chrom, info.pos, label, labelChoices, key, info.varType, "", false, false));
+                multiLabels.push_back(Utils::makeLabel(info.chrom, info.pos, label, labelChoices, key, info.varType, "", false, false, empty_comment));
             }
         }
     }
@@ -2067,6 +2068,7 @@ namespace HGW {
         std::vector<Utils::Region> v;
         bool isTrans = chrom != chrom2;
         Utils::Region* r1; Utils::Region* r2;
+        std::string empty_comment;
         if (!isTrans && rlen <= m_opts->split_view_size) {
             v.resize(1);
             r1 = & v[0];
@@ -2094,7 +2096,7 @@ namespace HGW {
         if (inputLabels->contains(rid)) {
             multiLabels.push_back((*inputLabels)[rid]);
         } else {
-            multiLabels.push_back(Utils::makeLabel(chrom, start, label, labelChoices, rid, vartype, "", false, false));
+            multiLabels.push_back(Utils::makeLabel(chrom, start, label, labelChoices, rid, vartype, "", false, false, empty_comment));
         }
     }
 

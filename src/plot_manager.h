@@ -158,11 +158,13 @@ namespace Manager {
 
         void rasterToPng(const char* path);
 
+        void loadGenome(std::string genome_tag_or_path, std::ostream& outerr);
+
         void addBam(std::string &bam_path);
 
         void removeBam(int index);
 
-        void addTrack(std::string &path, bool print_message);
+        void addTrack(std::string &path, bool print_message, bool vcf_as_track, bool bed_as_track);
 
         void removeTrack(int index);
 

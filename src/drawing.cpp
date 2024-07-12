@@ -61,9 +61,6 @@ namespace Drawing {
         float yOffsetAll = refSpace;
 
         for (auto &cl: collections) {
-            if (cl.skipDrawingReads && cl.skipDrawingCoverage) {
-                continue;
-            }
             cl.skipDrawingCoverage = true;
             if (cl.region->markerPos != -1) {
                 float rp = refSpace + 6 + (cl.bamIdx * cl.yPixels);
@@ -215,6 +212,7 @@ namespace Drawing {
                 }
 
                 int i = 0;
+                int refSeqLen = cl.region->refSeqLen;
                 for (const auto &mm: mmVector) {
                     float cum_h = 0;
                     float mm_h;
@@ -254,6 +252,9 @@ namespace Drawing {
                             continue;
                         }
                         const SkPaint *paint_ref;
+                        if (i >= refSeqLen) {
+                            break;
+                        }
                         switch (refSeq[i]) {
                             case 'A':
                                 paint_ref = &theme.fcA;
@@ -504,6 +505,7 @@ namespace Drawing {
         uint8_t *ptr_qual = bam_get_qual(align.delegate);
 
         const char *refSeq = region->refSeq;
+        int refSeqLen = region->refSeqLen;
 
         float precalculated_xOffset_mmPosOffset = xOffset + mmPosOffset;
 
@@ -530,6 +532,9 @@ namespace Drawing {
             size_t ref_idx = pos_start - region->start;
 
             for (size_t i=idx_start; i < (size_t)idx_end; ++i) {
+                if ((int)i >= refSeqLen) {
+                    break;
+                }
                 char ref_base = lookup_ref_base[(unsigned char)refSeq[ref_idx]];
                 char bam_base = bam_seqi(ptr_seq, i);
                 if (bam_base != ref_base) {
@@ -936,13 +941,15 @@ namespace Drawing {
                     }
                 }
 
-            } else {
+            } else if (nBlocks == 1) {
                 s = (double)a.blocks[0].start - regionBegin;
                 e = (double)a.blocks[0].end - regionBegin;
                 width = (e - s) * xScaling;
                 drawBlock(plotPointedPolygons, pointLeft, edged, (float) s * xScaling, (float) e, (float) width,
                           pointSlop, pH, yScaledOffset, xOffset, regionPixels, nBlocks, regionLen,
                           a, canvas, path, rect, faceColor, edgeColor);
+            } else {
+                continue;
             }
 
             // add soft-clip blocks
@@ -1195,8 +1202,6 @@ namespace Drawing {
         float textW = fonts.overlayWidth;
         float minLetterSize = (textW > 0) ? ((float) fb_width / (float) regions.size()) / textW : 0;
         int index = 0;
-        //h *= 0.7;
-//        h = (h - 6 < 4) ? 4 : h - 6;
         float yp = h + 2;
         for (auto &rgn: regions) {
             int size = rgn.end - rgn.start;
@@ -1403,7 +1408,13 @@ namespace Drawing {
         }
 
         if (label.i != label.ori_i) {
+
             canvas->drawRect(rect, opts.theme.lcJoins);
+        }
+        if (!label.comment.empty()) {
+            bg.setXYWH(rect.right() - fonts.overlayHeight - (4*pad), rect.bottom() - fonts.overlayHeight - pad - pad - pad - pad, fonts.overlayHeight,
+                       fonts.overlayHeight);
+            canvas->drawRoundRect(bg, fonts.overlayHeight, fonts.overlayHeight, opts.theme.fcG);
         }
     }
 
@@ -1868,8 +1879,8 @@ namespace Drawing {
         float regionIdx = 0;
         for (const auto& region: regions) {
 
-            float s = (float)region.start / (float)region.chromLength;
-            float e = (float)region.end / (float)region.chromLength;
+            float s = (float)region.start / (float)region.chromLen;
+            float e = (float)region.end / (float)region.chromLen;
             float w = (e - s) * drawWidth;
             if (w < 3) {
                 w = 3;
@@ -1885,8 +1896,8 @@ namespace Drawing {
             if (it != ideogram.end()) {
                 const std::vector<Themes::Band>& bands = it->second;
                 for (const auto& b : bands) {
-                    float sb = (float) b.start / (float)region.chromLength;
-                    float eb = (float) b.end / (float)region.chromLength;
+                    float sb = (float) b.start / (float)region.chromLen;
+                    float eb = (float) b.end / (float)region.chromLen;
                     float wb = (eb - sb) * drawWidth;
                     rect.setXYWH(xp + (sb * drawWidth),
                                  top + yh_one_third,

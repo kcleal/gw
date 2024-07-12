@@ -52,7 +52,7 @@ ifneq ($(PLATFORM), "Windows")
     else  # Darwin / Linux
     	CPPFLAGS += -I./lib/skia
         SKIA_PATH = ./lib/skia/out/Release-x64
-        LDFLAGS=
+
     endif
 endif
 

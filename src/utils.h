@@ -76,7 +76,9 @@ namespace Utils {
         std::string chrom;
         int start, end;
         int markerPos, markerPosEnd;
-        int chromLength;
+        int chromLen;
+        int refSeqLen;
+        int regionLen;
         const char *refSeq;
         std::vector<uint8_t> refSeq_nibbled;
         std::vector<std::vector<Utils::TrackBlock>> featuresInView;  // one vector for each Track
@@ -87,8 +89,9 @@ namespace Utils {
             end = -1;
             markerPos = -1;
             markerPosEnd = -1;
-            chromLength = 0;
+            chromLen = 0;
             refSeq = nullptr;
+            refSeqLen = 0;
         }
         std::string toString();
     };
@@ -127,7 +130,7 @@ namespace Utils {
     public:
         Label() = default;
         ~Label() = default;
-        std::string chrom, variantId, savedDate, vartype;
+        std::string chrom, variantId, savedDate, vartype, comment;
         std::vector<std::string> labels;
         int i, pos, ori_i;
         bool clicked;
@@ -141,7 +144,7 @@ namespace Utils {
     std::string dateTime();
 
     Label makeLabel(std::string &chrom, int pos, std::string &parsed, std::vector<std::string> &inputLabels, std::string &variantId, std::string &vartype,
-                    std::string savedDate, bool clicked, bool add_empty_label);
+                    std::string savedDate, bool clicked, bool add_empty_label, std::string& comment);
 
     void labelToFile(std::ofstream &f, Utils::Label &l, std::string &dateStr, std::string &variantFileName);
 

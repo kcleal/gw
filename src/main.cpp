@@ -66,6 +66,9 @@ void print_banner() {
 #endif
 }
 
+// note to developer - update version in workflows/main.yml, menu.cpp, term_out.cpp, and deps/gw.desktop, and installers .md in docs
+const char GW_VERSION [7] = "0.10.1";
+
 
 int main(int argc, char *argv[]) {
 
@@ -83,8 +86,7 @@ int main(int argc, char *argv[]) {
     static const std::vector<std::string> img_themes = { "igv", "dark", "slate" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
-    // note to developer - update version in workflows/main.yml, menu.cpp and deps/gw.desktop, and installers .md in docs
-    argparse::ArgumentParser program("gw", "0.10.0");
+    argparse::ArgumentParser program("gw", std::string(GW_VERSION));
 
     program.add_argument("genome")
             .default_value(std::string{""}).append()
@@ -376,6 +378,8 @@ int main(int argc, char *argv[]) {
     if (program.is_used("-b")) {
         auto bam_paths_temp = program.get<std::vector<std::string>>("-b");
         for (auto &item : bam_paths_temp) {
+            bam_paths.push_back(item);
+            continue;
             if (std::filesystem::exists(item)) {
                 bam_paths.push_back(item);
                 std::cerr << item << std::endl;
@@ -529,6 +533,8 @@ int main(int argc, char *argv[]) {
                 std::exit(-1);
             }
             iopts.getOptionsFromSessionIni(iopts.seshIni);
+        } else {
+            iopts.session_file = "";
         }
         /*
          * / Gw start
@@ -659,7 +665,6 @@ int main(int argc, char *argv[]) {
             if (program.is_used("--out-labels")) {
                 plotter.setOutLabelFile(program.get<std::string>("--out-labels"));
             }
-
             plotter.addVariantTrack(img, iopts.start_index, false, true);
             if (plotter.variantTracks.back().image_glob.size() == 1) {
                 plotter.opts.number.x = 1; plotter.opts.number.y = 1;
@@ -933,6 +938,7 @@ int main(int argc, char *argv[]) {
                 std::string dateStr;
 
                 std::string fileName;
+                std::string empty_comment;
                 std::filesystem::path fsp(vcf.path);
 #if defined(_WIN32) || defined(_WIN64)
                 const wchar_t* pc = fsp.filename().c_str();
@@ -956,7 +962,7 @@ int main(int argc, char *argv[]) {
                     job.rid = vcf.rid;
                     jobs.push_back(job);
                     if (writeLabel) {
-                        Utils::Label l = Utils::makeLabel(vcf.chrom, vcf.start, vcf.label, empty_labels, vcf.rid, vcf.vartype, "", false, false);
+                        Utils::Label l = Utils::makeLabel(vcf.chrom, vcf.start, vcf.label, empty_labels, vcf.rid, vcf.vartype, "", false, false, empty_comment);
                         Utils::labelToFile(fLabels, l, dateStr, fileName);
                     }
                 }
