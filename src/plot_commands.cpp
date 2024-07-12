@@ -108,6 +108,7 @@ namespace Commands {
         p->imageCacheQueue.clear();
         p->filters.clear();
         p->target_qname = "";
+        p->sortReadsBy = Manager::SortType::NONE;
         for (auto &cl: p->collections) { cl.vScroll = 0; cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
         return Err::NONE;
     }
@@ -333,7 +334,7 @@ namespace Commands {
         if (relink) {
             p->imageCache.clear();
             p->imageCacheQueue.clear();
-            HGW::refreshLinked(p->collections, p->opts, &p->samMaxY);
+            HGW::refreshLinked(p->collections, p->opts, &p->samMaxY, p->sortReadsBy);
             for (auto &cl: p->collections) { cl.skipDrawingCoverage = true; cl.skipDrawingReads = false;}
             p->redraw = true;
             p->processed = true;
@@ -953,7 +954,7 @@ namespace Commands {
             bam1_t* a = bam_init1();
             if (sam_itr_next(file_ptrs[i], region_iters[i], a) >= 0) {
                 Segs::Align alignment = Segs::Align(a);
-                Segs::align_init(&alignment, 0);  // no need to parse mods here
+                Segs::align_init(&alignment, 0, false);  // no need to parse mods/tags here
                 pq.push({std::move(alignment), file_ptrs[i], region_iters[i], i});
             } else {
                 bam_destroy1(a);
@@ -987,7 +988,7 @@ namespace Commands {
                 }
             }
             if (sam_itr_next(item.file_ptr, item.bam_iter, item.align.delegate) >= 0) {
-                Segs::align_init(&item.align, p->opts.parse_mods);
+                Segs::align_init(&item.align, 0, false);
                 pq.push(item);
             } else {
                 bam_destroy1(item.align.delegate);
@@ -1366,27 +1367,35 @@ namespace Commands {
 
     Err sort_command(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
         if (parts.size() == 1) {
-
+            p->sortReadsBy = Manager::SortType::NONE;
+            refreshGw(p);
             return Err::NONE;
+        }
+        if (parts.size() > 2) {
+            return Err::TOO_MANY_OPTIONS;
         }
         if (parts[1] != "hap" && parts[1] != "strand") {
             return Err::OPTION_NOT_SUPPORTED;
         }
-
-        if (parts.size() == 2) {
-            int n_groups = 2;
-            std::vector<int> groups = {0, 1};
-        } else {
-            std::vector<int> groups;
-            for (int i=2; i < (int)parts.size(); ++i) {
-                try {
-                    groups.push_back(std::stoi(parts[i]));
-                } catch (...) {
-                    return Err::OPTION_NOT_UNDERSTOOD;
-                }
-            }
-            int n_groups = (int)groups.size();
-
+        if (parts[1] == "strand") {
+            p->sortReadsBy = Manager::SortType::STRAND;
+//            std::vector<int> groups = {0, 1};
+//            int n_groups = 2;
+        } else if (p->opts.myIni["general"].has("haplotags")) {
+            p->sortReadsBy = Manager::SortType::HP;
+//            std::vector<int> groups;
+//
+//            for (int i=2; i < (int)parts.size(); ++i) {
+//                try {
+//                    groups.push_back(std::stoi(parts[i]));
+//                    if (groups.back() < 0) {
+//                        return Err::OPTION_NOT_UNDERSTOOD;
+//                    }
+//                } catch (...) {
+//                    return Err::OPTION_NOT_UNDERSTOOD;
+//                }
+//            }
+//            int n_groups = (int)groups.size();
         }
         return Err::NONE;
     }
@@ -1508,7 +1517,7 @@ namespace Commands {
                 {"colour",   PARAMS { return update_colour(p, command, parts, out); }},
                 {"color",    PARAMS { return update_colour(p, command, parts, out); }},
                 {"roi",      PARAMS { return add_roi(p, command, parts, out); }},
-                {"group",    PARAMS { return sort_command(p, command, parts, out); }},
+                {"sort",    PARAMS { return sort_command(p, command, parts, out); }},
 
                 {"count",    PARAMS { return count(p, command, out); }},
                 {"filter",   PARAMS { return addFilter(p, command, out); }},

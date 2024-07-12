@@ -78,7 +78,7 @@ namespace Segs {
 
     struct EXPORT Align {
         bam1_t *delegate;
-        int cov_start, cov_end, orient_pattern, left_soft_clip, right_soft_clip, y, edge_type;
+        int cov_start, cov_end, orient_pattern, left_soft_clip, right_soft_clip, y, edge_type, haplotag;
         uint32_t pos, reference_end;
         bool has_SA;
         std::vector<ABlock> blocks;
@@ -106,6 +106,7 @@ namespace Segs {
         std::vector<Mismatches> mmVector;
         std::vector<Align> readQueue;
         map_t linked;
+        ankerl::unordered_dense::map< int, int > sortLevels;  // For working out sort level
         float xScaling, xOffset, yOffset, yPixels, xPixels;
         float regionPixels;
 
@@ -119,17 +120,17 @@ namespace Segs {
         void clear();
     };
 
-    void align_init(Align *self, const int parse_mods_threshold);
+    void align_init(Align *self, const int parse_mods_threshold, const bool fetch_hap_tag);
 
     void align_clear(Align *self);
 
-    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool, const int parse_mods_threshold);
+    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool, const int parse_mods_threshold, bool fetch_hap_tag);
 
     void resetCovStartEnd(ReadCollection &cl);
 
     void addToCovArray(std::vector<int> &arr, const Align &align, const uint32_t begin, const uint32_t end, const uint32_t l_arr) noexcept;
 
-    int findY(ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, Utils::Region *region, bool joinLeft);
+    int findY(ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, bool joinLeft, int sortReadsBy);
 
     void findMismatches(const Themes::IniOptions &opts, ReadCollection &collection);
 

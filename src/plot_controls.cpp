@@ -810,7 +810,7 @@ namespace Manager {
                                 if (cl.regionLen < opts.low_memory) {
                                     HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                                 indexes[cl.bamIdx], opts, (bool)opts.max_coverage, false,
-                                                                &samMaxY, filters, pool);
+                                                                &samMaxY, filters, pool, sortReadsBy);
                                     processed = true;
                                     redraw = true;
                                 } else {
@@ -846,8 +846,7 @@ namespace Manager {
                                 if (cl.regionLen < opts.low_memory) {
                                     HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                                 indexes[cl.bamIdx], opts, (bool) opts.max_coverage,
-                                                                true,
-                                                                &samMaxY, filters, pool);
+                                                                true, &samMaxY, filters, pool, sortReadsBy);
                                     processed = true;
                                     redraw = true;
                                 } else {
@@ -883,9 +882,9 @@ namespace Manager {
                                 cl.skipDrawingCoverage = false;
                                 if (cl.regionLen < opts.low_memory && region.end - region.start < opts.low_memory) {
                                     HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                                                opts, false, true,  &samMaxY, filters, pool);
+                                                                opts, false, true,  &samMaxY, filters, pool, sortReadsBy);
                                     HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                                                opts, false, false, &samMaxY, filters, pool);
+                                                                opts, false, false, &samMaxY, filters, pool, sortReadsBy);
                                     if (opts.max_coverage) {  // re process coverage for all reads
                                         cl.covArr.resize(cl.region->end - cl.region->start + 1);
                                         std::fill(cl.covArr.begin(), cl.covArr.end(), 0);
@@ -914,7 +913,7 @@ namespace Manager {
                         }
                     }
                     if (opts.link_op != 0) {
-                        HGW::refreshLinked(collections, opts, &samMaxY);
+                        HGW::refreshLinked(collections, opts, &samMaxY, sortReadsBy);
                     }
                     printRegionInfo();
 
@@ -932,8 +931,8 @@ namespace Manager {
                                 if (!bams.empty() && cl.regionLen >= opts.low_memory && region.end - region.start < opts.low_memory) {
                                     cl.clear();
                                     const int parse_mods_threshold = (opts.parse_mods) ? opts.mods_qual_threshold: 0;
-                                    HGW::collectReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts.threads, &region, (bool)opts.max_coverage, filters, pool, parse_mods_threshold);
-                                    int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, &region, false);
+                                    HGW::collectReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts.threads, &region, (bool)opts.max_coverage, filters, pool, parse_mods_threshold, sortReadsBy);
+                                    int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sortReadsBy);
                                     if (maxY > samMaxY) {
                                         samMaxY = maxY;
                                     }
@@ -957,7 +956,7 @@ namespace Manager {
                         }
 
                         if (opts.link_op != 0) {
-                            HGW::refreshLinked(collections, opts, &samMaxY);
+                            HGW::refreshLinked(collections, opts, &samMaxY, sortReadsBy);
                         }
                         printRegionInfo();
                     }
@@ -989,7 +988,7 @@ namespace Manager {
                             cl.skipDrawingReads = false;
                             cl.skipDrawingCoverage = false;
                             for (auto &itm: cl.readQueue) { itm.y = -1; }
-                            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, cl.region,  false);
+                            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sortReadsBy);
                             samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
                         }
                     }
@@ -1009,7 +1008,7 @@ namespace Manager {
                             cl.skipDrawingReads = false;
                             cl.skipDrawingCoverage = false;
                             for (auto &itm: cl.readQueue) { itm.y = -1; }
-                            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, cl.region, false);
+                            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sortReadsBy);
                             samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
                         }
                     }
@@ -1074,7 +1073,7 @@ namespace Manager {
             out << "\nLinking selection " << lk << std::endl;
             imageCache.clear();
             imageCacheQueue.clear();
-            HGW::refreshLinked(collections, opts, &samMaxY);
+            HGW::refreshLinked(collections, opts, &samMaxY, sortReadsBy);
             redraw = true;
         }
     }
@@ -1515,7 +1514,7 @@ namespace Manager {
                                 col.skipDrawingCoverage = false;
                                 HGW::appendReadsAndCoverage(col, bams[col.bamIdx], headers[col.bamIdx],
                                                             indexes[col.bamIdx], opts, (bool) opts.max_coverage,
-                                                            lt_last, &samMaxY, filters, pool);
+                                                            lt_last, &samMaxY, filters, pool, sortReadsBy);
                             }
                         }
                     }
@@ -1863,7 +1862,7 @@ namespace Manager {
                                 cl.skipDrawingCoverage = false;
                                 HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                             indexes[cl.bamIdx], opts, (bool)opts.max_coverage, !lt_last,
-                                                            &samMaxY, filters, pool);
+                                                            &samMaxY, filters, pool, sortReadsBy);
 
                             }
                         }
@@ -1906,7 +1905,7 @@ namespace Manager {
                             cl.levelsEnd.clear();
                             cl.linked.clear();
                             for (auto &itm: cl.readQueue) { itm.y = -1; }
-                            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, cl.region, false);
+                            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sortReadsBy);
                             samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
                             yOri = yPos;
                         }

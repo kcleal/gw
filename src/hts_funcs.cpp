@@ -160,7 +160,7 @@ namespace HGW {
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, int threads, Utils::Region *region,
                                  bool coverage, std::vector<Parse::Parser> &filters, BS::thread_pool &pool,
-                                 const int parse_mods_threshold) {
+                                 const int parse_mods_threshold, int sortReadsBy) {
 
         bam1_t *src;
         hts_itr_t *iter_q;
@@ -193,7 +193,7 @@ namespace HGW {
             readQueue.pop_back();
         }
 
-        Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold);
+        Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold, sortReadsBy == 2);
 
         if (!filters.empty()) {
             applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
@@ -386,7 +386,7 @@ namespace HGW {
             if (j < BATCH) {
                 continue;
             }
-            Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold);
+            Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold, false);
             if (filter) {
                 applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
             }
@@ -398,7 +398,7 @@ namespace HGW {
                     }
                 }
             }
-            Segs::findY(col, readQueue, opts.link_op, opts, region, false);
+            Segs::findY(col, readQueue, opts.link_op, opts, false, 0);
             Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
 
             for (int i=0; i < BATCH; ++ i) {
@@ -410,7 +410,7 @@ namespace HGW {
         if (j < BATCH) {
             readQueue.erase(readQueue.begin() + j, readQueue.end());
             if (!readQueue.empty()) {
-                Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold);
+                Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold, false);
                 if (!filters.empty()) {
                     applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
                 }
@@ -422,7 +422,7 @@ namespace HGW {
                         }
                     }
                 }
-                Segs::findY(col, readQueue, opts.link_op, opts, region, false);
+                Segs::findY(col, readQueue, opts.link_op, opts, false, 0);
                 Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
                 for (int i=0; i < BATCH; ++ i) {
                     Segs::align_clear(&readQueue[i]);
@@ -463,7 +463,7 @@ namespace HGW {
             if (src->core.flag & 4 || src->core.n_cigar == 0) {
                 continue;
             }
-            Segs::align_init(&readQueue.back(), parse_mods_threshold);
+            Segs::align_init(&readQueue.back(), parse_mods_threshold, false);
             if (filter) {
                 applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
                 if (readQueue.back().y == -2) {
@@ -475,7 +475,7 @@ namespace HGW {
                 int l_arr = (int)col.covArr.size() - 1;
                 Segs::addToCovArray(col.covArr, readQueue.back(), region->start, region->end, l_arr);
             }
-            Segs::findY(col, readQueue, opts.link_op, opts, region, false);
+            Segs::findY(col, readQueue, opts.link_op, opts, false, 0);
             Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
             Segs::align_clear(&readQueue.back());
         }
@@ -528,26 +528,26 @@ namespace HGW {
         }
     }
 
-    void refreshLinkedCollection(Segs::ReadCollection &cl, Themes::IniOptions &opts, int *samMaxY) {
+    void refreshLinkedCollection(Segs::ReadCollection &cl, Themes::IniOptions &opts, int *samMaxY, int sortReadsBy) {
         Segs::resetCovStartEnd(cl);
         cl.levelsStart.clear();
         cl.levelsEnd.clear();
         cl.linked.clear();
         cl.skipDrawingReads = false;
         for (auto &itm: cl.readQueue) { itm.y = -1; }
-        int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, cl.region, false);
+        int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sortReadsBy);
         *samMaxY = (maxY > *samMaxY || opts.tlen_yscale) ? maxY : *samMaxY;
     }
 
-    void refreshLinked(std::vector<Segs::ReadCollection> &collections, Themes::IniOptions &opts, int *samMaxY) {
+    void refreshLinked(std::vector<Segs::ReadCollection> &collections, Themes::IniOptions &opts, int *samMaxY, int sortReadsBy) {
         for (auto &cl : collections) {
-            refreshLinkedCollection(cl, opts, samMaxY);
+            refreshLinkedCollection(cl, opts, samMaxY, sortReadsBy);
         }
     }
 
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *samMaxY,
-                                std::vector<Parse::Parser> &filters, BS::thread_pool &pool) {
+                                std::vector<Parse::Parser> &filters, BS::thread_pool &pool, int sortReadsBy) {
         bam1_t *src;
         hts_itr_t *iter_q;
         std::vector<Segs::Align>& readQueue = col.readQueue;
@@ -685,10 +685,10 @@ namespace HGW {
             if (!filters.empty()) {
                 applyFilters(filters, newReads, hdr_ptr, col.bamIdx, col.regionIdx);
             }
-            Segs::init_parallel(newReads, opts.threads, pool, parse_mods_threshold);
+            Segs::init_parallel(newReads, opts.threads, pool, parse_mods_threshold, sortReadsBy == 2);
             bool findYall = false;
             if (col.vScroll == 0 && opts.link_op == 0) {  // only new reads need findY, otherwise, reset all below
-                int maxY = Segs::findY(col, newReads, opts.link_op, opts, region,  left);
+                int maxY = Segs::findY(col, newReads, opts.link_op, opts, left, sortReadsBy);
                 if (maxY > *samMaxY) {
                     *samMaxY = maxY;
                 }
@@ -703,7 +703,7 @@ namespace HGW {
                 col.readQueue = newReads;
             }
             if (findYall) {
-                refreshLinkedCollection(col, opts, samMaxY);
+                refreshLinkedCollection(col, opts, samMaxY, sortReadsBy);
             }
             if (opts.link_op > 0) {
                 // move of data will invalidate some pointers, so reset

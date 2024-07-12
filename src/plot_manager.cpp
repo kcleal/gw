@@ -764,11 +764,13 @@ namespace Manager {
                             collections[idx].mmVector.clear();
                         }
                     }
-                    if (reg->end - reg->start < opts.low_memory || opts.link_op != 0) {
+
+                    if (reg->end - reg->start < opts.low_memory || opts.link_op != 0 || sortReadsBy != SortType::NONE) {
                         HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg,
-                                                     (bool) opts.max_coverage, filters, pool, parse_mods_threshold);
-                        int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts, reg,
-                                               false);
+                                                     (bool) opts.max_coverage, filters, pool, parse_mods_threshold, sortReadsBy);
+
+                        int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts,
+                                               false, sortReadsBy);
                         if (maxY > samMaxY) {
                             samMaxY = maxY;
                         }
@@ -899,12 +901,12 @@ namespace Manager {
 
         frameId += 1;
         setGlfwFrameBufferSize();
-
         if (regions.empty() || bams.empty()) {
             canvasR->drawPaint(opts.theme.bgPaint);
         } else {
-            processBam();
+            processBam();  // Reads may be buffered here, or else streamed using the runDrawNoBuffer functions below
             setScaling();
+
             if (yScaling == 0) {
                 return;
             }
@@ -946,24 +948,28 @@ namespace Manager {
                 canvasR->drawPaint(opts.theme.bgPaint);
 
                 if (!cl.skipDrawingReads) {
-
-                    if (cl.regionLen >= opts.low_memory && !bams.empty() && opts.link_op == 0) {  // low memory mode will be used
-                        cl.clear();
-                        if (opts.threads == 1) {
-                            HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                          &regions[cl.regionIdx], (bool) opts.max_coverage,
-                                          filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pointSlop,
-                                          textDrop, pH, monitorScale);
+                    if (sortReadsBy == SortType::NONE) {
+                        if (cl.regionLen >= opts.low_memory && !bams.empty() && opts.link_op == 0) {  // low memory mode will be used
+                            cl.clear();
+                            if (opts.threads == 1) {
+                                HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                              &regions[cl.regionIdx], (bool) opts.max_coverage,
+                                              filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pointSlop,
+                                              textDrop, pH, monitorScale);
+                            } else {
+                                HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                                      opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
+                                                      filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pool,
+                                                      pointSlop, textDrop, pH, monitorScale);
+                            }
                         } else {
-                            HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                                  opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
-                                                  filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pool,
-                                                  pointSlop, textDrop, pH, monitorScale);
+                            Drawing::drawCollection(opts, cl, canvasR, trackY, yScaling, fonts, opts.link_op, refSpace,
+                                                    pointSlop, textDrop, pH, monitorScale);
                         }
                     } else {
-                        Drawing::drawCollection(opts, cl, canvasR, trackY, yScaling, fonts, opts.link_op, refSpace,
-                                                pointSlop, textDrop, pH, monitorScale);
+
                     }
+
                 }
                 canvasR->restore();
             }
