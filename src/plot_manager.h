@@ -59,6 +59,12 @@ namespace Manager {
         SETTINGS
     };
 
+    enum SortType {
+        NONE,
+        STRAND,
+        HP
+    };
+
     class HiddenWindow {
     public:
         HiddenWindow () = default;
@@ -88,6 +94,9 @@ namespace Manager {
         bool drawLine;
 
         bool terminalOutput;  // recoverable runtime errors and output sent to terminal or outStr
+
+        SortType sortReadsBy;
+
         std::ostringstream outStr;
 
         std::vector<char> pixelMemory;

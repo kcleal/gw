@@ -58,6 +58,7 @@ namespace Parse {
         opMap["AS"] = AS;
         opMap["BX"] = BX;
         opMap["RX"] = RX;
+        opMap["HP"] = HP;
 
         opMap["eq"] = EQ;
         opMap["ne"] = NE;
@@ -133,6 +134,7 @@ namespace Parse {
         permit[TC] = numeric_like;
         permit[UQ] = numeric_like;
         permit[AS] = numeric_like;
+        permit[HP] = numeric_like;
 
         permit[PATTERN] = string_like;
 
@@ -610,6 +612,9 @@ namespace Parse {
                         break;
                     case AS:
                         getIntTag("AS", int_val, aln);
+                        break;
+                    case HP:
+                        getIntTag("HP", int_val, aln);
                         break;
                     case CIGAR:
                          getCigarStr(str_val, aln);

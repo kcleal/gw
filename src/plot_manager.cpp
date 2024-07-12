@@ -142,6 +142,7 @@ namespace Manager {
             pool.reset(opts.threads);
         }
         triggerClose = false;
+        sortReadsBy = Manager::SortType::NONE;
     }
 
     GwPlot::~GwPlot() {

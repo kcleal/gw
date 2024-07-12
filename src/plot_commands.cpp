@@ -1364,6 +1364,33 @@ namespace Commands {
         return Err::NONE;
     }
 
+    Err sort_command(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
+        if (parts.size() == 1) {
+
+            return Err::NONE;
+        }
+        if (parts[1] != "hap" && parts[1] != "strand") {
+            return Err::OPTION_NOT_SUPPORTED;
+        }
+
+        if (parts.size() == 2) {
+            int n_groups = 2;
+            std::vector<int> groups = {0, 1};
+        } else {
+            std::vector<int> groups;
+            for (int i=2; i < (int)parts.size(); ++i) {
+                try {
+                    groups.push_back(std::stoi(parts[i]));
+                } catch (...) {
+                    return Err::OPTION_NOT_UNDERSTOOD;
+                }
+            }
+            int n_groups = (int)groups.size();
+
+        }
+        return Err::NONE;
+    }
+
     void cache_command_or_handle_err(Plot* p, Err result, std::ostream& out,
                                     std::vector<std::string>* applied, std::string& command) {
         switch (result) {
@@ -1481,6 +1508,7 @@ namespace Commands {
                 {"colour",   PARAMS { return update_colour(p, command, parts, out); }},
                 {"color",    PARAMS { return update_colour(p, command, parts, out); }},
                 {"roi",      PARAMS { return add_roi(p, command, parts, out); }},
+                {"group",    PARAMS { return sort_command(p, command, parts, out); }},
 
                 {"count",    PARAMS { return count(p, command, out); }},
                 {"filter",   PARAMS { return addFilter(p, command, out); }},
