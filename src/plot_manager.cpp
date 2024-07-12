@@ -49,14 +49,14 @@ namespace Manager {
 
     void HiddenWindow::init(int width, int height) {
         if (!glfwInit()) {
-            std::cerr<< "ERROR: could not initialize GLFW3" <<std::endl;
+            std::cerr << "ERROR: could not initialize GLFW3" << std::endl;
             std::exit(-1);
         }
         glfwWindowHint(GLFW_STENCIL_BITS, 8);
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
         window = glfwCreateWindow(width, height, "GW", NULL, NULL);
         if (!window) {
-            std::cerr<< "ERROR: could not create back window with GLFW3" <<std::endl;
+            std::cerr << "ERROR: could not create back window with GLFW3" << std::endl;
             glfwTerminate();
             std::exit(-1);
         }
@@ -64,8 +64,9 @@ namespace Manager {
 
     }
 
-    EXPORT GwPlot::GwPlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opt, std::vector<Utils::Region> &regions,
-                   std::vector<std::string> &track_paths) {
+    EXPORT GwPlot::GwPlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opt,
+                          std::vector<Utils::Region> &regions,
+                          std::vector<std::string> &track_paths) {
         this->reference = reference;
         this->bam_paths = bampaths;
         this->regions = regions;
@@ -93,20 +94,20 @@ namespace Manager {
             }
         }
         for (auto &fn: bampaths) {
-            htsFile* f = sam_open(fn.c_str(), "r");
+            htsFile *f = sam_open(fn.c_str(), "r");
             hts_set_fai_filename(f, reference.c_str());
             hts_set_threads(f, opt.threads);
             bams.push_back(f);
             sam_hdr_t *hdr_ptr = sam_hdr_read(f);
             headers.push_back(hdr_ptr);
-            hts_idx_t* idx = sam_index_load(f, fn.c_str());
+            hts_idx_t *idx = sam_index_load(f, fn.c_str());
             indexes.push_back(idx);
         }
 
         if (!opts.genome_tag.empty() && !opts.ini_path.empty() && opts.myIni["tracks"].has(opts.genome_tag)) {
             std::vector<std::string> track_paths_temp = Utils::split(opts.myIni["tracks"][opts.genome_tag], ',');
             tracks.reserve(track_paths.size() + track_paths_temp.size());
-            for (const auto &trk_item : track_paths_temp) {
+            for (const auto &trk_item: track_paths_temp) {
                 if (!Utils::is_file_exist(trk_item)) {
                     if (terminalOutput) {
                         std::cerr << "Warning: track file does not exists - " << trk_item << std::endl;
@@ -151,7 +152,7 @@ namespace Manager {
             glfwDestroyWindow(backWindow);
         }
         glfwTerminate();
-        for (auto &bm : bams) {
+        for (auto &bm: bams) {
             hts_close(bm);
         }
         for (auto &hd: headers) {
@@ -165,17 +166,18 @@ namespace Manager {
 //        }
     }
 
-    void ErrorCallback(int, const char* err_str) {
-        std::cout << "GLFW Error: " << err_str << std::endl;
+    void ErrorCallback(int, const char *err_str) {
+        std::cerr << "GLFW Error: " << err_str << std::endl;
     }
 
     int GwPlot::makeRasterSurface() {
-        SkImageInfo info = SkImageInfo::MakeN32Premul(opts.dimensions.x * monitorScale, opts.dimensions.y * monitorScale);
+        SkImageInfo info = SkImageInfo::MakeN32Premul(opts.dimensions.x * monitorScale,
+                                                      opts.dimensions.y * monitorScale);
         size_t rowBytes = info.minRowBytes();
         size_t size = info.computeByteSize(rowBytes);
         this->pixelMemory.resize(size);
         this->rasterSurface = SkSurface::MakeRasterDirect(
-            info, &pixelMemory[0], rowBytes);
+                info, &pixelMemory[0], rowBytes);
         rasterCanvas = rasterSurface->getCanvas();
         rasterSurfacePtr = &rasterSurface;
         return pixelMemory.size();
@@ -217,42 +219,42 @@ namespace Manager {
             std::cerr << "ERROR: glfwCreateWindow failed\n";
             std::exit(-1);
         }
-        #if defined(_WIN32) || defined(_WIN64)
-            GLFWimage iconimage;
-            getWindowIconImage(&iconimage);
-	          glfwSetWindowIcon(window, 1, &iconimage);
-        #endif
+#if defined(_WIN32) || defined(_WIN64)
+        GLFWimage iconimage;
+        getWindowIconImage(&iconimage);
+          glfwSetWindowIcon(window, 1, &iconimage);
+#endif
 
         // https://stackoverflow.com/questions/7676971/pointing-to-a-function-that-is-a-class-member-glfw-setkeycallback/28660673#28660673
         glfwSetWindowUserPointer(window, this);
 
-        auto func_key = [](GLFWwindow* w, int k, int s, int a, int m){
-            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->keyPress(k, s, a, m);
+        auto func_key = [](GLFWwindow *w, int k, int s, int a, int m) {
+            static_cast<GwPlot *>(glfwGetWindowUserPointer(w))->keyPress(k, s, a, m);
         };
         glfwSetKeyCallback(window, func_key);
 
-        auto func_drop = [](GLFWwindow* w, int c, const char**paths){
-            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->pathDrop(c, paths);
+        auto func_drop = [](GLFWwindow *w, int c, const char **paths) {
+            static_cast<GwPlot *>(glfwGetWindowUserPointer(w))->pathDrop(c, paths);
         };
         glfwSetDropCallback(window, func_drop);
 
-        auto func_mouse = [](GLFWwindow* w, int b, int a, int m){
-            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->mouseButton(b, a, m);
+        auto func_mouse = [](GLFWwindow *w, int b, int a, int m) {
+            static_cast<GwPlot *>(glfwGetWindowUserPointer(w))->mouseButton(b, a, m);
         };
         glfwSetMouseButtonCallback(window, func_mouse);
 
-        auto func_pos = [](GLFWwindow* w, double x, double y){
-            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->mousePos(x, y);
+        auto func_pos = [](GLFWwindow *w, double x, double y) {
+            static_cast<GwPlot *>(glfwGetWindowUserPointer(w))->mousePos(x, y);
         };
         glfwSetCursorPosCallback(window, func_pos);
 
-        auto func_scroll = [](GLFWwindow* w, double x, double y){
-            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->scrollGesture(x, y);
+        auto func_scroll = [](GLFWwindow *w, double x, double y) {
+            static_cast<GwPlot *>(glfwGetWindowUserPointer(w))->scrollGesture(x, y);
         };
         glfwSetScrollCallback(window, func_scroll);
 
-        auto func_resize = [](GLFWwindow* w, int x, int y){
-            static_cast<GwPlot*>(glfwGetWindowUserPointer(w))->windowResize(x, y);
+        auto func_resize = [](GLFWwindow *w, int x, int y) {
+            static_cast<GwPlot *>(glfwGetWindowUserPointer(w))->windowResize(x, y);
         };
         glfwSetWindowSizeCallback(window, func_resize);
 
@@ -289,37 +291,39 @@ namespace Manager {
         setGlfwFrameBufferSize();
     }
 
-    void GwPlot::fetchRefSeq(Utils::Region &rgn) {
-        int rlen = rgn.end - rgn.start - 1;
-        if (rlen < opts.snp_threshold || rlen < 20000) {
-            rgn.refSeq = faidx_fetch_seq(fai, rgn.chrom.c_str(), rgn.start, rgn.end - 1, &rlen);
+    void GwPlot::fetchRefSeq(Utils::Region & rgn) {
+        // This will be called for every new region visited
+        assert (rgn.start >= 0);
+        rgn.regionLen = rgn.end - rgn.start;
+        if (rgn.chromLen == 0) {
+            rgn.chromLen = faidx_seq_len(fai, rgn.chrom.c_str());
         }
-        if (rgn.chromLength == 0) {
-            rgn.chromLength = faidx_seq_len(fai, rgn.chrom.c_str());
-        }
-        if (rgn.end <= rgn.chromLength) {
-            rgn.refSeqLen = rgn.end - rgn.start;
+        if (rgn.regionLen < opts.snp_threshold || rgn.regionLen < 20000) {
+            rgn.refSeq = faidx_fetch_seq(fai, rgn.chrom.c_str(), rgn.start, rgn.end - 1, &rgn.regionLen - 1);
+            if (rgn.end <= rgn.chromLen) {
+                rgn.refSeqLen = rgn.end - rgn.start;
+            } else {
+                rgn.refSeqLen = rgn.chromLen - rgn.start;
+            }
         } else {
-            rgn.refSeqLen = rgn.chromLength - rgn.start;
+            rgn.refSeqLen = 0;
         }
     }
 
     void GwPlot::fetchRefSeqs() {
-        for (auto &rgn : regions) {
-            if (rgn.end - rgn.start < opts.snp_threshold || rgn.end - rgn.start < 20000) {
-                fetchRefSeq(rgn);
-            }
+        for (auto &rgn: regions) {
+            fetchRefSeq(rgn);
         }
     }
 
     void GwPlot::addBam(std::string &bam_path) {
-        htsFile* f = sam_open(bam_path.c_str(), "r");
+        htsFile *f = sam_open(bam_path.c_str(), "r");
         hts_set_fai_filename(f, reference.c_str());
         hts_set_threads(f, opts.threads);
         bams.push_back(f);
         sam_hdr_t *hdr_ptr = sam_hdr_read(f);
         headers.push_back(hdr_ptr);
-        hts_idx_t* idx = sam_index_load(f, bam_path.c_str());
+        hts_idx_t *idx = sam_index_load(f, bam_path.c_str());
         indexes.push_back(idx);
     }
 
@@ -339,8 +343,12 @@ namespace Manager {
             variantFilename = path;
         }
 
-        std::shared_ptr<ankerl::unordered_dense::map< std::string, Utils::Label>> inLabels = std::make_shared<ankerl::unordered_dense::map< std::string, Utils::Label>>(inputLabels[variantFilename]);
-        std::shared_ptr<ankerl::unordered_dense::set<std::string>> sLabels = std::make_shared<ankerl::unordered_dense::set<std::string>>(seenLabels[variantFilename]);
+        std::shared_ptr<ankerl::unordered_dense::map < std::string, Utils::Label>>
+        inLabels = std::make_shared<ankerl::unordered_dense::map < std::string, Utils::Label>>
+        (inputLabels[variantFilename]);
+        std::shared_ptr<ankerl::unordered_dense::set < std::string>>
+        sLabels = std::make_shared<ankerl::unordered_dense::set < std::string>>
+        (seenLabels[variantFilename]);
 
         variantTracks.push_back(
                 HGW::GwVariantTrack(path, cacheStdin, &opts, startIndex,
@@ -362,7 +370,7 @@ namespace Manager {
         std::ofstream f;
         f.open(outLabelFile);
         f << "#chrom\tpos\tvariant_ID\tlabel\tvar_type\tlabelled_date\tvariant_filename\tcomment\n";
-        for (auto &vf : variantTracks) {
+        for (auto &vf: variantTracks) {
             std::string fileName;
             if (vf.type != HGW::TrackType::IMAGES) {
                 std::filesystem::path fsp(vf.path);
@@ -376,7 +384,7 @@ namespace Manager {
 #endif
             }
             int i = 0;
-            for (auto &l : vf.multiLabels) {
+            for (auto &l: vf.multiLabels) {
                 if (vf.type == HGW::TrackType::IMAGES) {
                     std::filesystem::path fsp(vf.image_glob[i]);
 #if defined(_WIN32) || defined(_WIN64)
@@ -454,7 +462,11 @@ namespace Manager {
         reference = opts.seshIni["data"]["genome_path"];
         opts.genome_tag = opts.seshIni["data"]["genome_tag"];
         if (opts.seshIni["data"].has("ideogram_path")) {
-            addIdeogram(opts.seshIni["data"]["ideogram_path"]);
+            if (std::filesystem::exists(opts.seshIni["data"]["ideogram_path"])) {
+                addIdeogram(opts.seshIni["data"]["ideogram_path"]);
+            } else {
+                std::cerr << "Ideogram file does not exists: " << opts.seshIni["data"]["ideogram_path"] << std::endl;
+            }
         }
         if (opts.seshIni["data"].has("mode")) {
             mode = (opts.seshIni["data"]["mode"] == "tiled") ? Show::TILED : Show::SINGLE;
@@ -473,9 +485,23 @@ namespace Manager {
             setLabelChoices(labels);
         }
 
-        bam_paths.clear(); tracks.clear(); regions.clear(); filters.clear(); variantTracks.clear();
-        bams.clear(); headers.clear(); indexes.clear(); collections.clear();
-        for (const auto& item : opts.seshIni["data"]) {
+        bam_paths.clear();
+        tracks.clear();
+        regions.clear();
+        filters.clear();
+        variantTracks.clear();
+        bams.clear();
+        headers.clear();
+        indexes.clear();
+        collections.clear();
+        for (const auto &item: opts.seshIni["data"]) {
+            if (Utils::startsWith(item.first, "ideogram") || Utils::startsWith(item.first, "genome")) {
+                continue;
+            }
+            if (!std::filesystem::exists(item.second)) {
+                std::cerr << item.first << " data file does not exists: " << item.second << std::endl;
+                continue;
+            }
             if (Utils::startsWith(item.first, "bam")) {
                 bam_paths.push_back(item.second);
             } else if (Utils::startsWith(item.first, "track")) {
@@ -491,7 +517,7 @@ namespace Manager {
             }
         }
         size_t count = 0;
-        for (const auto& item : opts.seshIni["show"]) {
+        for (const auto &item: opts.seshIni["show"]) {
             if (Utils::startsWith(item.first, "region")) {
                 std::string rgn = item.second;
                 regions.push_back(Utils::parseRegion(rgn));
@@ -507,13 +533,13 @@ namespace Manager {
         fonts.setTypeface(opts.font_str, opts.font_size);
 
         for (auto &fn: bam_paths) {
-            htsFile* f = sam_open(fn.c_str(), "r");
+            htsFile *f = sam_open(fn.c_str(), "r");
             hts_set_fai_filename(f, reference.c_str());
             hts_set_threads(f, opts.threads);
             bams.push_back(f);
             sam_hdr_t *hdr_ptr = sam_hdr_read(f);
             headers.push_back(hdr_ptr);
-            hts_idx_t* idx = sam_index_load(f, fn.c_str());
+            hts_idx_t *idx = sam_index_load(f, fn.c_str());
             indexes.push_back(idx);
         }
         if (opts.seshIni.has("commands")) {
@@ -531,32 +557,33 @@ namespace Manager {
         redraw = true;
     }
 
-    void GwPlot::saveSession(std::string output_session="") {
+    void GwPlot::saveSession(std::string output_session = "") {
         std::vector<std::string> track_paths;
-        for (const auto& item: tracks) {
+        for (const auto &item: tracks) {
             if (item.kind != HGW::FType::ROI) {
                 track_paths.push_back(item.path);
             }
         }
         std::vector<std::pair<std::string, int>> variant_paths_info;
-        for (const auto& item: variantTracks) {
+        for (const auto &item: variantTracks) {
             variant_paths_info.push_back({item.path, item.blockStart});
         }
         int xpos, ypos;
         glfwGetWindowPos(window, &xpos, &ypos);
         int windX, windY;
         glfwGetWindowSize(window, &windX, &windY);
-        opts.saveCurrentSession(reference, ideogram_path, bam_paths, track_paths, regions, variant_paths_info, commandsApplied,
+        opts.saveCurrentSession(reference, ideogram_path, bam_paths, track_paths, regions, variant_paths_info,
+                                commandsApplied,
                                 output_session, mode, xpos, ypos, monitorScale, windX, windY);
     }
 
-    int GwPlot::startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay) {
+    int GwPlot::startUI(GrDirectContext *sContext, SkSurface *sSurface, int delay) {
         if (!opts.session_file.empty() && reference.empty()) {
             std::cout << "Loading session: " << opts.session_file << std::endl;
             loadSession();
         }
         if (terminalOutput) {
-            std::cerr << "\nType" << termcolor::green << " '/help'" << termcolor::reset << " for more info\n";
+            std::cout << "\nType" << termcolor::green << " '/help'" << termcolor::reset << " for more info\n";
         } else {
             outStr << "Type '/help' for more info\n";
         }
@@ -570,14 +597,15 @@ namespace Manager {
 
         fetchRefSeqs();
         opts.theme.setAlphas();
-        GLFWwindow * wind = this->window;
+        GLFWwindow *wind = this->window;
         if (mode == Show::SINGLE) {
             printRegionInfo();
         } else {
             mouseOverTileIndex = 0;
-            bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
+            bboxes = Utils::imageBoundingBoxes(opts.number, (float) fb_width, (float) fb_height);
             if (terminalOutput) {
-                std::cout << termcolor::magenta << "File    " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
+                std::cout << termcolor::magenta << "File    " << termcolor::reset
+                          << variantTracks[variantFileSelection].path << "\n";
             } else {
                 outStr << "File    " << variantTracks[variantFileSelection].path << "\n";
             }
@@ -610,14 +638,15 @@ namespace Manager {
 //                sSurface->getCanvas()->drawImage(imageCacheQueue.back().second, 0, 0);
 //            }
 
-            if (resizeTriggered && std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - resizeTimer) > 100ms) {
+            if (resizeTriggered && std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::high_resolution_clock::now() - resizeTimer) > 100ms) {
                 imageCache.clear();
                 redraw = true;
                 processed = false;
                 wasResized = true;
                 setGlfwFrameBufferSize();
                 setScaling();
-                bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
+                bboxes = Utils::imageBoundingBoxes(opts.number, (float) fb_width, (float) fb_height);
 
                 resizeTriggered = false;
 
@@ -643,18 +672,23 @@ namespace Manager {
                                                                   nullptr,
                                                                   nullptr).release();
                 if (!sSurface) {
-                    std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
+                    std::cerr
+                            << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
                     std::exit(-1);
                 }
 
-                rasterSurface = SkSurface::MakeRasterN32Premul(fb_width,fb_height);
+                rasterSurface = SkSurface::MakeRasterN32Premul(fb_width, fb_height);
                 rasterCanvas = rasterSurface->getCanvas();
                 rasterSurfacePtr = &rasterSurface;
+
+                imageCache.clear();
+                imageCacheQueue.clear();
 
                 resizeTimer = std::chrono::high_resolution_clock::now();
 
             }
-            if (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - autoSaveTimer) > 1min) {
+            if (std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::high_resolution_clock::now() - autoSaveTimer) > 1min) {
                 saveLabels();
                 autoSaveTimer = std::chrono::high_resolution_clock::now();
             }
@@ -675,8 +709,8 @@ namespace Manager {
 
     void GwPlot::clearCollections() {
         regions.clear();
-        for (auto & cl : collections) {
-            for (auto & a : cl.readQueue) {
+        for (auto &cl: collections) {
+            for (auto &a: cl.readQueue) {
                 bam_destroy1(a.delegate);
             }
         }
@@ -684,12 +718,12 @@ namespace Manager {
     }
 
     void GwPlot::processBam() {  // collect reads, calc coverage and find y positions on plot
-        const int parse_mods_threshold = (opts.parse_mods) ? opts.mods_qual_threshold: 0;
+        const int parse_mods_threshold = (opts.parse_mods) ? opts.mods_qual_threshold : 0;
         if (!processed) {
             int idx = 0;
 
             for (auto &cl: collections) {
-                for (auto &aln : cl.readQueue) {
+                for (auto &aln: cl.readQueue) {
                     bam_destroy1(aln.delegate);
                 }
                 cl.readQueue.clear();
@@ -705,19 +739,20 @@ namespace Manager {
                 collections.resize(bams.size() * regions.size());
             }
 
-            for (int i=0; i<(int)bams.size(); ++i) {
-                htsFile* b = bams[i];
+            for (int i = 0; i < (int) bams.size(); ++i) {
+                htsFile *b = bams[i];
                 sam_hdr_t *hdr_ptr = headers[i];
                 hts_idx_t *index = indexes[i];
 
-                for (int j=0; j<(int)regions.size(); ++j) {
-                    Utils::Region *reg = &regions[j];
-                    if (collections[idx].skipDrawingReads) {
-                        continue;
-                    }
+                for (int j = 0; j < (int) regions.size(); ++j) {
+                    Utils::Region * reg = &regions[j];
+
                     collections[idx].bamIdx = i;
                     collections[idx].regionIdx = j;
                     collections[idx].region = &regions[j];
+                    if (collections[idx].skipDrawingReads) {
+                        continue;
+                    }
                     if (opts.max_coverage) {
                         collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
                         if (opts.snp_threshold > reg->end - reg->start) {
@@ -729,8 +764,10 @@ namespace Manager {
                         }
                     }
                     if (reg->end - reg->start < opts.low_memory || opts.link_op != 0) {
-                        HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool)opts.max_coverage, filters, pool, parse_mods_threshold);
-                        int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts, reg, false);
+                        HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg,
+                                                     (bool) opts.max_coverage, filters, pool, parse_mods_threshold);
+                        int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts, reg,
+                                               false);
                         if (maxY > samMaxY) {
                             samMaxY = maxY;
                         }
@@ -744,7 +781,7 @@ namespace Manager {
 
             if (bams.empty()) {
                 collections.resize(regions.size());
-                for (int j=0; j<(int)regions.size(); ++j) {
+                for (int j = 0; j < (int) regions.size(); ++j) {
                     collections[idx].bamIdx = -1;
                     collections[idx].regionIdx = j;
                     collections[idx].region = &regions[j];
@@ -768,20 +805,20 @@ namespace Manager {
             monitorScale = 1;
             glfwGetFramebufferSize(backWindow, &fb_width, &fb_height);
         }
-        gap = std::fmax(5, fb_height * 0.01 * monitorScale);
+        gap = std::fmin(std::fmax(5, fb_height * 0.01 * monitorScale), monitorScale * 10);
     }
 
     void GwPlot::setRasterSize(int width, int height) {
-        monitorScale = 1;
+//        monitorScale = 1;
         fb_width = width;
         fb_height = height;
-        gap = std::fmax(5, fb_height * 0.01 * monitorScale);
+        gap = std::fmin(std::fmax(5, fb_height * 0.01 * monitorScale), monitorScale * 10);
     }
 
     void GwPlot::setScaling() {  // sets z_scaling, y_scaling trackY and regionWidth
         fonts.setOverlayHeight(monitorScale);
         refSpace =  fonts.overlayHeight * 1.25;
-        sliderSpace = std::fmax((float)(fb_height * 0.0175), 10*monitorScale); //refSpace + (gap * 0.5); // + gap + gap;
+        sliderSpace = std::fmax((float)(fb_height * 0.0175), 10*monitorScale);
         auto fbh = (float) fb_height;
         auto fbw = (float) fb_width;
         if (bams.empty()) {
@@ -800,7 +837,7 @@ namespace Manager {
             totalTabixY = (fbh - refSpace - sliderSpace) * (float)opts.tab_track_height;
             tabixY = totalTabixY / (float)tracks.size();
         }
-        if (nbams > 0) {
+        if (nbams > 0 && samMaxY > 0) {
             trackY = (fbh - totalCovY - totalTabixY - refSpace - sliderSpace) / nbams;
 
             yScaling = ( (fbh - totalCovY - totalTabixY - refSpace - sliderSpace - (gap * nbams)) / (double)samMaxY) / nbams;
@@ -811,6 +848,7 @@ namespace Manager {
             trackY = 0;
             yScaling = 0;
         }
+
         fonts.setFontSize(yScaling, monitorScale);
         regionWidth = fbw / (float)regions.size();
         bamHeight = covY + trackY;
@@ -861,12 +899,14 @@ namespace Manager {
         frameId += 1;
         setGlfwFrameBufferSize();
 
-        if (regions.empty()) {
-            setScaling();
+        if (regions.empty() || bams.empty()) {
             canvasR->drawPaint(opts.theme.bgPaint);
         } else {
             processBam();
             setScaling();
+            if (yScaling == 0) {
+                return;
+            }
 
             if (!imageCacheQueue.empty() && collections.size() > 1) {
                 canvasR->drawImage(imageCacheQueue.back().second, 0, 0);
@@ -884,11 +924,15 @@ namespace Manager {
                 canvasR->save();
 
                 // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
-                if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads)) {// || imageCacheQueue.empty()) {
-                    if (cl.bamIdx == 0) {  // cover the ref too
+                if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
+                    if (bams.size() == 1) {
+                        clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + totalTabixY + covY + refSpace);
+                    } else if (cl.bamIdx == 0) {  // top bam, cover the ref too
                         clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + covY + refSpace);
-                    } else {
-                        clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + trackY + covY);
+                    } else if (cl.bamIdx == (int)bams.size() - 1) { // bottom bam
+                        clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + trackY + covY + totalTabixY);
+                    } else {  //middle bam
+                        clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + covY);
                     }
                     canvasR->clipRect(clip, false);
                 } else if (cl.skipDrawingCoverage) {
@@ -974,7 +1018,7 @@ namespace Manager {
         if (xPos_fb < xp || xPos_fb > xp + drawWidth) {
             return;
         }
-        int pos = (int)(((xPos_fb - xp) / drawWidth) * (float)regions[regionSelection].chromLength);
+        int pos = (int)(((xPos_fb - xp) / drawWidth) * (float)regions[regionSelection].chromLen);
         std::string s = Term::intToStringCommas(pos);
 
         float estimatedTextWidth = (float) s.size() * fonts.overlayWidth;
@@ -1002,7 +1046,7 @@ namespace Manager {
         }
 
         // slider overlay
-        if (mode == Show::SINGLE) {
+        if (mode == Show::SINGLE && bams.size() > 0) {
             drawCursorPosOnRefSlider(canvas);
         }
 
@@ -1405,6 +1449,9 @@ namespace Manager {
         fetchRefSeqs();
         processBam();
         setScaling();
+        if (yScaling == 0) {
+            return;
+        }
         canvas->drawPaint(opts.theme.bgPaint);
         SkRect clip;
         for (auto &cl: collections) {
@@ -1524,19 +1571,24 @@ namespace Manager {
 
             // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
             if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
-                if (cl.bamIdx == 0) {  // cover the ref too
+                if (bams.size() == 1) {
+                    clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + totalTabixY + covY + refSpace);
+                } else if (cl.bamIdx == 0) {  // top bam, cover the ref too
                     clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + covY + refSpace);
-                } else {
-                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + trackY + covY);
+                } else if (cl.bamIdx == (int)bams.size() - 1) { // bottom bam
+                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + trackY + covY + totalTabixY);
+                } else {  //middle bam
+                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + covY);
                 }
                 canvas->clipRect(clip, false);
             } else if (cl.skipDrawingCoverage) {
-                clip.setXYWH(cl.xOffset, cl.yOffset + refSpace, cl.regionPixels, cl.yPixels - covY);
+                clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, cl.yPixels);
                 canvas->clipRect(clip, false);
-            } else if (cl.skipDrawingReads){  // skip reads
+            } else if (cl.skipDrawingReads){
                 clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, covY);
                 canvas->clipRect(clip, false);
-            }
+            }  // else no clip
+
             canvas->drawPaint(opts.theme.bgPaint);
 
             if (!cl.skipDrawingReads) {

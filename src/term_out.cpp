@@ -770,6 +770,12 @@ namespace Term {
         float min_x = xOffset;
         float max_x = xScaling * ((float)(region->end - region->start)) + min_x;
         int size = region->end - region->start;
+
+        if (region->end - region->start > region->refSeqLen) {
+            if (region->end < region->chromLen) {
+                return;  // refseq not fully loaded from region. user needs to zoom in to fetch refseq
+            }
+        }
         if (x > min_x && x < max_x && size <= 20000) {
             const char * s = region->refSeq;
             out << "\n\n" << region->chrom << ":" << region->start << "-" << region->end << "\n";
@@ -1288,6 +1294,16 @@ namespace Term {
     }
 
     void updateRefGenomeSeq(Utils::Region *region, float xW, float xOffset, float xScaling, std::ostream& out) {
+        if (region->refSeqLen == 0) {
+            return;
+        }
+
+        if ((region->end - region->start) < region->refSeqLen) {
+            if (region->end < region->chromLen) {
+                return;  // refseq not fully loaded from region. user needs to zoom in to fetch refseq
+            }
+        }
+
         float min_x = xOffset;
         float max_x = xScaling * ((float)(region->end - region->start)) + min_x;
         if (xW > min_x && xW < max_x) {

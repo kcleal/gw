@@ -428,6 +428,7 @@ namespace Manager {
             return col.bamIdx == index;
         }), collections.end());
         bams.erase(bams.begin() + index, bams.begin() + index + 1);
+        bam_paths.erase(bam_paths.begin() + index, bam_paths.begin() + index + 1);
         indexes.erase(indexes.begin() + index, indexes.begin() + index + 1);
         headers.erase(headers.begin() + index, headers.begin() + index + 1);
         processed = false;
@@ -620,7 +621,6 @@ namespace Manager {
     void GwPlot::loadGenome(std::string genome_tag_or_path, std::ostream& outerr) {
 
         if (opts.myIni.get("genomes").has(genome_tag_or_path) && reference != opts.myIni["genomes"][genome_tag_or_path]) {
-            std::cout << opts.myIni["genomes"][opts.genome_tag] << std::endl;
             faidx_t *fai_test = fai_load(opts.myIni["genomes"][genome_tag_or_path].c_str());
             if (fai_test != nullptr) {
                 reference = opts.myIni["genomes"][genome_tag_or_path];

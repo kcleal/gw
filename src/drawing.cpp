@@ -1877,8 +1877,8 @@ namespace Drawing {
         float regionIdx = 0;
         for (const auto& region: regions) {
 
-            float s = (float)region.start / (float)region.chromLength;
-            float e = (float)region.end / (float)region.chromLength;
+            float s = (float)region.start / (float)region.chromLen;
+            float e = (float)region.end / (float)region.chromLen;
             float w = (e - s) * drawWidth;
             if (w < 3) {
                 w = 3;
@@ -1894,8 +1894,8 @@ namespace Drawing {
             if (it != ideogram.end()) {
                 const std::vector<Themes::Band>& bands = it->second;
                 for (const auto& b : bands) {
-                    float sb = (float) b.start / (float)region.chromLength;
-                    float eb = (float) b.end / (float)region.chromLength;
+                    float sb = (float) b.start / (float)region.chromLen;
+                    float eb = (float) b.end / (float)region.chromLen;
                     float wb = (eb - sb) * drawWidth;
                     rect.setXYWH(xp + (sb * drawWidth),
                                  top + yh_one_third,

@@ -759,7 +759,7 @@ namespace Commands {
                 if (res <= 0) {
                     return Err::CHROM_NOT_IN_REFERENCE;
                 } else {
-                    dummy_region.chromLength = faidx_seq_len(p->fai, dummy_region.chrom.c_str());
+                    dummy_region.chromLen = faidx_seq_len(p->fai, dummy_region.chrom.c_str());
                     new_regions.push_back(dummy_region);
                     p->fetchRefSeq(new_regions.back());
                 }
@@ -1078,15 +1078,18 @@ namespace Commands {
             filename = Parse::tilde_to_home(parts.back());
             std::string ext = std::filesystem::path(filename).extension().string();
             if (std::filesystem::is_directory(filename)) {
+                p->redraw = true;
                 out << termcolor::red << "Error:" << termcolor::reset << " This is a folder path, not a file\n";
                 return Err::SILENT;
             }
             if (parts[1] == "ideogram") {
                 if (!std::filesystem::exists(parts.back())) {
+                    p->redraw = true;
                     return Err::INVALID_PATH;
                 }
                 if (ext != ".bed") {
                     out << termcolor::red << "Error:" << termcolor::reset << " Only .bed extension supported for ideograms\n";
+                    p->redraw = true;
                     return Err::SILENT;
                 } else {
                     p->addIdeogram(filename);
@@ -1095,6 +1098,7 @@ namespace Commands {
                 }
             } else if (parts[1] == "track") {
                 if (!std::filesystem::exists(parts.back())) {
+                    p->redraw = true;
                     return Err::INVALID_PATH;
                 }
                 if (ext == ".bam" || ext == ".cram") {
@@ -1108,6 +1112,7 @@ namespace Commands {
 
             } else if (parts[1] == "tiled") {
                 if (!std::filesystem::exists(parts.back())) {
+                    p->redraw = true;
                     return Err::INVALID_PATH;
                 }
                 if (ext == ".vcf" || ext == ".vcf.gz" || ext == ".bcf" || ext == ".bed" || ext == ".bed.gz") {
@@ -1116,10 +1121,12 @@ namespace Commands {
                     return Err::NONE;
                 } else {
                     out << termcolor::red << "Error:" << termcolor::reset << " Image tiling only supported for .vcf|.vcf.gz|.bcf|.bed|.bed.gz file extensions\n";
+                    p->redraw = true;
                     return Err::SILENT;
                 }
             } else if (parts[1] == "bam" || parts[1] == "cram") {
                 if (!std::filesystem::exists(parts.back())) {
+                    p->redraw = true;
                     return Err::INVALID_PATH;
                 }
                 p->addTrack(filename, true, p->opts.vcf_as_tracks, p->opts.bed_as_tracks);
@@ -1131,6 +1138,7 @@ namespace Commands {
                 return Err::NONE;
             } else if (parts[1] == "labels") {
                 if (!std::filesystem::exists(parts.back())) {
+                    p->redraw = true;
                     return Err::INVALID_PATH;
                 }
                 p->seenLabels.clear();
@@ -1172,6 +1180,7 @@ namespace Commands {
                 refreshGw(p);
                 return Err::NONE;
             }
+            p->redraw = true;
             return Err::INVALID_PATH;
         }
         filename = Parse::tilde_to_home(parts.back());
@@ -1197,7 +1206,7 @@ namespace Commands {
             if (p->regions.empty()) {
                 p->regions.push_back(rgn);
                 p->fetchRefSeq(p->regions.back());
-                p->regions.back().chromLength = faidx_seq_len(p->fai, p->regions.back().chrom.c_str());
+                p->regions.back().chromLen = faidx_seq_len(p->fai, p->regions.back().chrom.c_str());
             } else {
                 if (p->regions[p->regionSelection].chrom == rgn.chrom) {
                     rgn.markerPos = p->regions[p->regionSelection].markerPos;
@@ -1205,7 +1214,7 @@ namespace Commands {
                 }
                 p->regions[p->regionSelection] = rgn;
                 p->fetchRefSeq(p->regions[p->regionSelection]);
-                p->regions[p->regionSelection].chromLength = faidx_seq_len(p->fai, p->regions[p->regionSelection].chrom.c_str());
+                p->regions[p->regionSelection].chromLen = faidx_seq_len(p->fai, p->regions[p->regionSelection].chrom.c_str());
             }
         } else {  // search all tracks for matching name, slow but ok for small tracks
             if (!p->tracks.empty()) {
@@ -1406,8 +1415,8 @@ namespace Commands {
                 out << termcolor::red << "Error:" << termcolor::reset << " Input could not be parsed\n";
                 break;
         }
+        p->redraw = false;
         if (p->mode == Manager::Show::SINGLE) {
-            p->redraw = false;
             for (auto &cl : p->collections) {
                 cl.skipDrawingReads = true;
                 cl.skipDrawingCoverage = true;
@@ -1427,6 +1436,12 @@ namespace Commands {
                 int i = p->mouseOverTileIndex + p->currentVarTrack->blockStart;
                 if (i < (int)p->currentVarTrack->multiLabels.size()) {
                     p->currentVarTrack->multiLabels[i].comment = command;
+                    p->redraw = true;
+                    p->processed = false;
+                    for (auto &cl : p->collections) {
+                        cl.skipDrawingReads = false;
+                        cl.skipDrawingCoverage = false;
+                    };
                 }
             }
             command = "";
