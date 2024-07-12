@@ -1432,7 +1432,7 @@ namespace Commands {
         if (Utils::startsWith(command, "'") || Utils::startsWith(command, "\"")) {
             command.erase(command.begin(), command.begin() + 1);
             out << command << std::endl;
-            if (p->mode == Manager::Show::TILED && !p->variantTracks.empty() && p->currentVarTrack != nullptr) {
+            if (!p->variantTracks.empty() && p->currentVarTrack != nullptr) {
                 int i = p->mouseOverTileIndex + p->currentVarTrack->blockStart;
                 if (i < (int)p->currentVarTrack->multiLabels.size()) {
                     p->currentVarTrack->multiLabels[i].comment = command;

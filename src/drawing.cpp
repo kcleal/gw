@@ -532,7 +532,7 @@ namespace Drawing {
             size_t ref_idx = pos_start - region->start;
 
             for (size_t i=idx_start; i < (size_t)idx_end; ++i) {
-                if (i >= refSeqLen) {
+                if ((int)i >= refSeqLen) {
                     break;
                 }
                 char ref_base = lookup_ref_base[(unsigned char)refSeq[ref_idx]];
@@ -941,13 +941,15 @@ namespace Drawing {
                     }
                 }
 
-            } else {
+            } else if (nBlocks == 1) {
                 s = (double)a.blocks[0].start - regionBegin;
                 e = (double)a.blocks[0].end - regionBegin;
                 width = (e - s) * xScaling;
                 drawBlock(plotPointedPolygons, pointLeft, edged, (float) s * xScaling, (float) e, (float) width,
                           pointSlop, pH, yScaledOffset, xOffset, regionPixels, nBlocks, regionLen,
                           a, canvas, path, rect, faceColor, edgeColor);
+            } else {
+                continue;
             }
 
             // add soft-clip blocks

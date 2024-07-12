@@ -818,7 +818,7 @@ namespace Manager {
     void GwPlot::setScaling() {  // sets z_scaling, y_scaling trackY and regionWidth
         fonts.setOverlayHeight(monitorScale);
         refSpace =  fonts.overlayHeight * 1.25;
-        sliderSpace = std::fmax((float)(fb_height * 0.0175), 10*monitorScale);
+        sliderSpace = std::fmax((float)(fb_height * 0.0175), 10*monitorScale) + (gap * 0.5);
         auto fbh = (float) fb_height;
         auto fbw = (float) fb_width;
         if (bams.empty()) {
@@ -839,11 +839,11 @@ namespace Manager {
         }
         if (nbams > 0 && samMaxY > 0) {
             trackY = (fbh - totalCovY - totalTabixY - refSpace - sliderSpace) / nbams;
-
-            yScaling = ( (fbh - totalCovY - totalTabixY - refSpace - sliderSpace - (gap * nbams)) / (double)samMaxY) / nbams;
+            yScaling = (trackY - (gap * nbams)) / (double)samMaxY;
             if (yScaling > 3 * monitorScale) {
                 yScaling = (int)yScaling;
             }
+
         } else {
             trackY = 0;
             yScaling = 0;
@@ -1384,7 +1384,7 @@ namespace Manager {
         setGlfwFrameBufferSize();
         setScaling();
         float y_gap = (variantTracks.size() <= 1) ? 0 : (10 * monitorScale);
-        bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height, 15, 15, y_gap);
+        bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height, 6 * monitorScale, 6 * monitorScale, y_gap);
         if (currentVarTrack->image_glob.empty()) {
             tileDrawingThread(canvas, sContext, sSurface);  // draws images from variant file
         } else {
@@ -1515,6 +1515,7 @@ namespace Manager {
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
+        Drawing::drawChromLocation(opts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale);
     }
 
     void GwPlot::runDraw() {

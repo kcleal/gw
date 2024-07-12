@@ -103,7 +103,7 @@ namespace Manager {
             if (variantTracks.empty()) {
                 return GLFW_KEY_UNKNOWN;
             }
-
+            assert (variantFileSelection < variantTracks.size());
             currentVarTrack = &variantTracks[variantFileSelection];
             if (currentVarTrack == nullptr) {
                 return key;
@@ -123,6 +123,7 @@ namespace Manager {
                 processed = false;
                 imageCacheQueue.clear();
                 if (currentVarTrack->blockStart < (int)currentVarTrack->multiRegions.size()) {
+                    assert (!currentVarTrack->multiRegions[currentVarTrack->blockStart].empty());
                     if (currentVarTrack->multiRegions[currentVarTrack->blockStart][0].chrom.empty()) {
                         return key; // check for "" no chrom set
                     } else {
@@ -1787,7 +1788,7 @@ namespace Manager {
             commandToolTipIndex = -1;
         }
 
-        float trackBoundary = totalCovY + refSpace + (trackY*(float)headers.size());
+        float trackBoundary = totalCovY + refSpace + (trackY*(float)headers.size()) + (gap * 0.5);
         if (!tracks.empty()) {
             if (std::fabs(yPos_fb - trackBoundary) < 5 * monitorScale) {
                 glfwSetCursor(window, vCursor);
@@ -1939,8 +1940,14 @@ namespace Manager {
 							return;
 						}
                         int targetIndex = (rs * -1) -3;
+                        if (targetIndex >= (int)tracks.size()) {
+                            return;
+                        }
                         HGW::GwTrack &targetTrack = tracks[targetIndex];
                         float stepY =  (totalTabixY) / (float)tracks.size();
+                        if (regionSelection >= (int)regions.size() || targetIndex >= (int)regions[regionSelection].featureLevels.size()) {
+                            return;
+                        }
                         float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[targetIndex]);
                         float y = fb_height - totalTabixY - refSpace;  // start of tracks on canvas
                         int featureLevel = (int)(yPos_fb - y - (targetIndex * stepY)) / step_track;
@@ -1948,6 +1955,9 @@ namespace Manager {
 		            }
 	            }
                 if (rs < 0) { // print reference info
+                    if (regionSelection >= (int)regions.size()) {
+                        return;
+                    }
                     float xScaling = (float)((regionWidth - gap - gap) / ((double)(regions[regionSelection].end -regions[regionSelection].start)));
                     float xOffset = (regionWidth * (float)regionSelection) + gap;
                     if (rs == REFERENCE_TRACK) {
@@ -1968,7 +1978,7 @@ namespace Manager {
                     }
                     return;
                 }
-
+                assert (rs < collections.size());
                 Segs::ReadCollection &cl = collections[rs];
                 regionSelection = cl.regionIdx;
 	            int pos = (int) ((((double)xPos_fb - (double)cl.xOffset) / (double)cl.xScaling) + (double)cl.region->start);
@@ -1981,7 +1991,9 @@ namespace Manager {
 	            }
                 updateCursorGenomePos(cl.xOffset, cl.xScaling, (float)xPos_fb, cl.region, cl.bamIdx);
             } else if (mode == TILED) {
+                assert (variantFileSelection < variantTracks.size());
                 currentVarTrack = &variantTracks[variantFileSelection];
+                assert (currentVarTrack != nullptr);
                 int i = 0;
                 for (auto &b: bboxes) {
                     if (xPos_fb > b.xStart && xPos_fb < b.xEnd && yPos_fb > b.yStart && yPos_fb < b.yEnd) {
