@@ -87,9 +87,55 @@ namespace Manager {
         } else if (action == GLFW_RELEASE) {
             return key;
         }
-        if (ctrlPress && key == GLFW_KEY_C) {
-            triggerClose = true;
-            return GLFW_KEY_UNKNOWN;
+        // intercept a few shortcuts here
+        if (ctrlPress) {
+            bool reset = false;
+            if (key == GLFW_KEY_C) {
+                triggerClose = true;
+                return GLFW_KEY_UNKNOWN;
+            } else if (key == GLFW_KEY_KP_ADD || key == GLFW_KEY_EQUAL) {
+                int step = std::max(2, (int)(opts.ylim * 0.1));
+                if (!opts.tlen_yscale) {
+                    opts.ylim += step;
+                    samMaxY = opts.ylim;
+                } else {
+                    opts.max_tlen += step;
+                    samMaxY = opts.max_tlen;
+                }
+                reset = true;
+            } else if (key == GLFW_KEY_MINUS) {
+                int new_y = std::max(1, opts.ylim - std::max((int)(opts.ylim * 0.1), 2));
+                if (!opts.tlen_yscale) {
+                    opts.ylim = new_y;
+                    samMaxY = opts.ylim;
+                } else {
+                    opts.max_tlen = new_y;
+                    samMaxY = opts.max_tlen;
+                }
+                reset = true;
+            } else if (key == GLFW_KEY_LEFT_BRACKET && !collections.empty()) {
+                for (auto & cl: collections) {
+                    cl.vScroll = std::max(0, cl.vScroll - std::max((int)(opts.ylim * 0.1), 2));
+                }
+                reset = true;
+            } else if (key == GLFW_KEY_RIGHT_BRACKET && !collections.empty()) {
+                for (auto & cl: collections) {
+                    cl.vScroll += std::max((int)(opts.ylim * 0.1), 2);
+                }
+                reset = true;
+            }
+            if (reset) {
+                reset = true;
+                redraw = true;
+                processed = false;
+                imageCacheQueue.clear();
+                for (auto & cl : collections) {
+                    cl.skipDrawingReads = false;
+                    cl.skipDrawingCoverage = false;
+                }
+                return GLFW_KEY_UNKNOWN;
+            }
+            // Fall though to other functions
         }
 
         if ( (key == GLFW_KEY_SLASH && !captureText) || (shiftPress && key == GLFW_KEY_SEMICOLON && !captureText)) {

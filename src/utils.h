@@ -156,6 +156,7 @@ namespace Utils {
                     ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::set<std::string>> &seenLabels
                     );
 
+    std::string removeZeros(float value);
     std::string getSize(long num);
 
     void parseMateLocation(std::string &selectedAlign, std::string &mate, std::string &target_qname);

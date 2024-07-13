@@ -809,6 +809,7 @@ namespace Manager {
             glfwGetFramebufferSize(backWindow, &fb_width, &fb_height);
         }
         gap = std::fmin(std::fmax(5, fb_height * 0.01 * monitorScale), monitorScale * 10);
+
     }
 
     void GwPlot::setRasterSize(int width, int height) {
@@ -818,7 +819,8 @@ namespace Manager {
         gap = std::fmin(std::fmax(5, fb_height * 0.01 * monitorScale), monitorScale * 10);
     }
 
-    void GwPlot::setScaling() {  // sets z_scaling, y_scaling trackY and regionWidth
+    // sets scaling of y-position for various elements
+    void GwPlot::setScaling() {  // todo only call this function when needed - fb size change, or when plot items are added or removed
         fonts.setOverlayHeight(monitorScale);
         refSpace =  fonts.overlayHeight * 1.25;
         sliderSpace = std::fmax((float)(fb_height * 0.0175), 10*monitorScale) + (gap * 0.5);
@@ -889,6 +891,14 @@ namespace Manager {
             pH = std::fmax(pH, 8);
         }
         minGapSize = (uint32_t)(fb_width * 0.005);
+        if (opts.parse_mods) {
+            for (size_t i=0; i < 4; ++i) {
+                opts.theme.ModPaints[0][i].setStrokeWidth(std::fmin(pH / 3, 4 * monitorScale));
+                opts.theme.ModPaints[0][i].setStrokeWidth(std::fmin(pH / 3, 4 * monitorScale));
+                opts.theme.ModPaints[0][i].setStrokeWidth(std::fmin(pH / 3, 4 * monitorScale));
+            }
+        }
+
     }
 
     void GwPlot::drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
@@ -980,7 +990,7 @@ namespace Manager {
             Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, refSpace, (float)regions.size(), gap);
             Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
             Drawing::drawTracks(opts, fb_width, fb_height, canvasR, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
-            Drawing::drawChromLocation(opts, regions, ideogram, canvasR, fai, fb_width, fb_height, monitorScale);
+            Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, fai, fb_width, fb_height, monitorScale);
 
         }
 
@@ -1522,7 +1532,7 @@ namespace Manager {
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
-        Drawing::drawChromLocation(opts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale);
+        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale);
     }
 
     void GwPlot::runDraw() {
@@ -1648,7 +1658,7 @@ namespace Manager {
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
-        Drawing::drawChromLocation(opts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale);
+        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale);
 //        std::cerr << " time runDrawNoBuffer " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
 

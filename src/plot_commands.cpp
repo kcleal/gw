@@ -1303,6 +1303,7 @@ namespace Commands {
         else if (c == "fcRoi") { e = Themes::GwPaint::fcRoi; }
         else if (c == "fc5mc") { e = Themes::GwPaint::fc5mc; }
         else if (c == "fc5hmc") { e = Themes::GwPaint::fc5hmc; }
+        else if (c == "fcOther") { e = Themes::GwPaint::fcOther; }
         else {
             return Err::OPTION_NOT_UNDERSTOOD;
         }

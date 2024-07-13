@@ -72,7 +72,7 @@ namespace Themes {
         fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack, fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0,
         fcSoftClip0, fcBigWig, fcRoi, mate_fc, mate_fc0, ecMateUnmapped, ecSplit, ecSelected,
         lcJoins, lcCoverage, lcLightJoins, lcLabel, lcBright, tcDel, tcIns, tcLabels, tcBackground,
-        fcMarkers, fc5mc, fc5hmc
+        fcMarkers, fc5mc, fc5hmc, fcOther
     };
 
     class EXPORT BaseTheme {
@@ -84,10 +84,10 @@ namespace Themes {
         // face colours
         SkPaint bgPaint, bgMenu, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip, \
                 fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack, fcRoi;
-        SkPaint fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0, fcSoftClip0, fcBigWig, fc5mc, fc5hmc;
+        SkPaint fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0, fcSoftClip0, fcBigWig, fc5mc, fc5hmc, fcOther;
 
-        std::vector<SkPaint> mate_fc;
-        std::vector<SkPaint> mate_fc0;
+        std::array<SkPaint, 50> mate_fc;
+        std::array<SkPaint, 50> mate_fc0;
 
         // edge colours
         SkPaint ecMateUnmapped, ecSplit, ecSelected;
@@ -107,6 +107,7 @@ namespace Themes {
         uint8_t alpha, mapq0_alpha;
 
         std::array<std::array<SkPaint, 11>, 16> BasePaints;
+        std::array<std::array<SkPaint, 4>, 3> ModPaints;  // Only 3 at the moment, 5mc, 5hm, Other
 
         void setAlphas();
         void setPaintARGB(int paint_enum, int alpha, int red, int green, int blue);

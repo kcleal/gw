@@ -49,6 +49,7 @@ namespace Drawing {
                     std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, float gap, float monitorScale);
 
     void drawChromLocation(const Themes::IniOptions &opts,
+                           const Themes::Fonts &fonts,
                            const std::vector<Utils::Region> &regions,
                            const std::unordered_map<std::string, std::vector<Themes::Band>> &ideogram, SkCanvas* canvas,
                            const faidx_t* fai, float fb_width, float fb_height, float monitorScale);

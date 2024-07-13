@@ -71,11 +71,13 @@ namespace Term {
         out << termcolor::underline << "\nHot keys                      \n" << termcolor::reset;
         out << "scroll left          " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_left, out); out << "\n" << termcolor::reset;
         out << "scroll right         " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_right, out); out << "\n" << termcolor::reset;
-        out << "scroll down          " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_down, out); out << "\n" << termcolor::reset;
-        out << "scroll up            " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_up, out); out << "\n" << termcolor::reset;
+        out << "scroll down          " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_down, out); out << ", CTRL + [\n" << termcolor::reset;
+        out << "scroll up            " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_up, out); out << ", CTRL + ]\n" << termcolor::reset;
         out << "zoom in              " << termcolor::bright_yellow; Term::printKeyFromValue(opts.zoom_in, out); out << "\n" << termcolor::reset;
         out << "zoom out             " << termcolor::bright_yellow; Term::printKeyFromValue(opts.zoom_out, out); out << "\n" << termcolor::reset;
         out << "zoom to cursor       " << termcolor::bright_yellow; out << "CTRL + LEFT_MOUSE" << "\n" << termcolor::reset;
+        out << "decrease ylim        " << termcolor::bright_yellow; out << "CTRL + KEY_MINUS" << "\n" << termcolor::reset;
+        out << "increase ylim        " << termcolor::bright_yellow; out << "CTRL + KEY_EQUALS" << "\n" << termcolor::reset;
         out << "next region view     " << termcolor::bright_yellow; Term::printKeyFromValue(opts.next_region_view, out); out << "\n" << termcolor::reset;
         out << "previous region view " << termcolor::bright_yellow; Term::printKeyFromValue(opts.previous_region_view, out); out << "\n" << termcolor::reset;
         out << "cycle link mode      " << termcolor::bright_yellow; Term::printKeyFromValue(opts.cycle_link_mode, out); out << "\n" << termcolor::reset;

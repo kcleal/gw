@@ -773,7 +773,7 @@ namespace Drawing {
     void drawMods(SkCanvas *canvas, SkRect &rect, const Themes::BaseTheme &theme, const Utils::Region *region,
                   const Segs::Align &align,
                   float width, float xScaling, float xOffset, float mmPosOffset, float yScaledOffset,
-                  float pH, int l_qseq, float monitorScale, SkPaint& fc5mc, SkPaint& fc5hmc, SkPaint& fcOther) {
+                  float pH, int l_qseq, float monitorScale) { //SkPaint& fc5mc, SkPaint& fc5hmc, SkPaint& fcOther) {
         if (align.any_mods.empty()) {
             return;
         }
@@ -803,16 +803,13 @@ namespace Drawing {
                 for (size_t j=0; j < (size_t)n_mods; ++j) {
                     switch (mod_it->mods[j]) {
                         case 'm':  // 5mC
-                            fc5mc.setAlpha(mod_it->quals[j]);
-                            canvas->drawPoint(x, (n_mods == 1) ? middle : top, fc5mc);
+                            canvas->drawPoint(x, (n_mods == 1) ? middle : top, theme.ModPaints[0][mod_it->quals[j] % 48]);
                             break;
                         case 'h':  // 5hmC
-                            fc5mc.setAlpha(mod_it->quals[j]);
-                            canvas->drawPoint(x, (n_mods == 1) ? middle : bottom, fc5hmc);
+                            canvas->drawPoint(x, (n_mods == 1) ? middle : bottom, theme.ModPaints[1][mod_it->quals[j] % 48]);
                             break;
                         default:
-                            fcOther.setAlpha(mod_it->quals[j]);
-                            canvas->drawPoint(x, middle, fcOther);
+                            canvas->drawPoint(x, middle, theme.ModPaints[2][mod_it->quals[j] % 48]);
                             break;
                     }
                 }
@@ -851,30 +848,20 @@ namespace Drawing {
 
         int min_gap_size = 1 + (1 / (cl.regionPixels / regionLen));
 
-        bool plotSoftClipAsBlock = cl.plotSoftClipAsBlock; //regionLen > opts.soft_clip_threshold;
-        bool plotPointedPolygons = cl.plotPointedPolygons; // regionLen < 50000;
-        bool drawEdges = cl.drawEdges; //regionLen < opts.edge_highlights;
+        bool plotSoftClipAsBlock = cl.plotSoftClipAsBlock;
+        bool plotPointedPolygons = cl.plotPointedPolygons;
+        bool drawEdges = cl.drawEdges;
 
         std::vector<Segs::Mismatches> &mm_vector = cl.mmVector;
 
         cl.skipDrawingReads = true;
-
-        SkPaint fc5mc, fc5hmc, fcOther;
-        if (opts.parse_mods) {
-            fc5mc = theme.fc5mc;
-            fc5hmc = theme.fc5hmc;
-            fcOther = theme.fcA;  // todo option for this
-            fc5mc.setStrokeWidth(std::fmin(pH / 3, 4 * monitorScale));
-            fc5hmc.setStrokeWidth(std::fmin(pH / 3, 4 * monitorScale));
-            fcOther.setStrokeWidth(std::fmin(pH / 3, 4 * monitorScale));
-        }
 
         for (const auto &a: cl.readQueue) {
             int Y = a.y;
             if (Y < 0) {
                 continue;
             }
-            bool indelTextFits = fonts.overlayHeight < yScaling; //fonts.overlayHeight * 0.7 < yScaling;
+            bool indelTextFits = fonts.overlayHeight < yScaling;
             int mapq = a.delegate->core.qual;
             float yScaledOffset = (Y * yScaling) + yOffset;
             chooseFacecolors(mapq, a, faceColor, theme);
@@ -894,10 +881,10 @@ namespace Drawing {
             double width, s, e, textW;
             int lastEnd = 1215752191;
             int starti = 0;
-//            bool line_only;
 
             size_t idx;
             // draw gapped
+            assert (nBlocks >= 1);
             if (nBlocks > 1) {
                 idx = 1;
                 size_t idx_begin = 0;
@@ -941,15 +928,13 @@ namespace Drawing {
                     }
                 }
 
-            } else if (nBlocks == 1) {
+            } else {
                 s = (double)a.blocks[0].start - regionBegin;
                 e = (double)a.blocks[0].end - regionBegin;
                 width = (e - s) * xScaling;
                 drawBlock(plotPointedPolygons, pointLeft, edged, (float) s * xScaling, (float) e, (float) width,
                           pointSlop, pH, yScaledOffset, xOffset, regionPixels, nBlocks, regionLen,
                           a, canvas, path, rect, faceColor, edgeColor);
-            } else {
-                continue;
             }
 
             // add soft-clip blocks
@@ -1011,12 +996,7 @@ namespace Drawing {
                 }
             }
 
-
-
             // add mismatches
-//            if (regionLen > opts.snp_threshold && plotSoftClipAsBlock) {
-//                continue;
-//            }
             if (l_seq == 0) {
                 continue;
             }
@@ -1025,8 +1005,6 @@ namespace Drawing {
                 mmPosOffset = 0.05;
                 mmScaling = 0.9;
             } else {
-
-
                 mmPosOffset = 0;
                 mmScaling = 1;
             }
@@ -1042,7 +1020,7 @@ namespace Drawing {
             }
             if (opts.parse_mods && regionLen <= opts.mod_threshold) {
                 drawMods(canvas, rect, theme, cl.region, a, (float) width, xScaling, xOffset, mmPosOffset,
-                         yScaledOffset, pH, l_qseq, monitorScale, fc5mc, fc5hmc, fcOther);
+                         yScaledOffset, pH, l_qseq, monitorScale); //, theme.fc5mc, theme.fc5hmc, theme.fcOther);
             }
 
             // add insertions
@@ -1492,11 +1470,6 @@ namespace Drawing {
         }
     }
 
-    int getPt( int n1 , int n2 , float perc ) {
-        int diff = n2 - n1;
-        return n1 + ( diff * perc );
-    }
-
     void drawTrackBlock(int start, int stop, std::string &rid, const Utils::Region &rgn, SkRect &rect, SkPath &path,
                         float padX, float padY,
                         float y, float h, float stepX, float stepY, float gap, float gap2, float xScaling, float t,
@@ -1838,7 +1811,47 @@ namespace Drawing {
 
     }
 
+    void posToText(int num, int regionLen, std::string &a) {
+        int rounding = std::min(std::ceil(std::log10(num)), std::ceil(std::log10(regionLen)));
+        double d;
+        switch (rounding) {
+            case 0:
+            case 1:
+            case 2:
+                a = std::to_string(num);
+                a += " bp";
+                break;
+            case 3:
+                d = (double)num / 1e3;
+                d = std::ceil(d * 10) / 10;
+                a = Utils::removeZeros((float)d);
+                a += " kb";
+                break;
+            case 4:
+            case 5:
+                d = (double)num / 1e3;
+                d = std::ceil(d * 10) / 10;
+                a = std::to_string((int)d);
+                a += " kb";
+                break;
+            case 6:
+                d = (double)num / 1e6;
+                d = std::ceil(d * 10) / 10;
+                a = Utils::removeZeros((float)d);
+                a += " mb";
+                break;
+            default:
+                d = (double)num / 1e6;
+                d = std::ceil(d * 10) / 10;
+                a = std::to_string((int)d);
+                a += " mb";
+                break;
+
+        }
+    }
+
     void drawChromLocation(const Themes::IniOptions &opts,
+                           const Themes::Fonts &fonts,
                            const std::vector<Utils::Region> &regions,
                            const std::unordered_map<std::string, std::vector<Themes::Band>> &ideogram,
                            SkCanvas *canvas,
@@ -1846,11 +1859,7 @@ namespace Drawing {
                            float fb_height, float monitorScale) {
         SkPaint paint, light_paint, line;
         paint.setARGB(255, 240, 32, 73);
-//        if (opts.theme_str == "igv") {
-//            paint.setARGB(255, 87, 95, 107);
-//        } else {
-//            paint.setARGB(255, 149, 149, 163);
-//        }
+
         paint.setStrokeWidth(2);
         paint.setStyle(SkPaint::kStroke_Style);
 
@@ -1868,8 +1877,8 @@ namespace Drawing {
 
         const float top = fb_height - (yh * 2);
         const float colWidth = (float) fb_width / (float) regions.size();
-        const float gap = 50;
-        const float gap2 = 100;
+        const float gap = 25 * monitorScale;
+        const float gap2 = 50 * monitorScale;
         const float drawWidth = colWidth - gap2;
 
         if (drawWidth < 0) {
@@ -1915,7 +1924,38 @@ namespace Drawing {
                          yh + yh_one_third);
             canvas->drawRect(rect, paint);
 
+            // draw scale bar
+            if (true) {
+                float top2 = top - yh * 2;
+                int num_divisions = 10; // You can adjust this value based on your preference
+                long interval = region.regionLen / num_divisions;
+                interval = (interval / 10) * 10;
+                int tick = ((region.start / 10) * 10);
+
+                std::string text;
+
+                for (int i = 0; i <= num_divisions; ++i) {
+
+                    int position = tick + i * interval;
+
+
+                    posToText(position, region.regionLen, text);
+                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(text.c_str(), fonts.overlay);
+                    float text_width = fonts.overlay.measureText(text.c_str(), text.length(), SkTextEncoding::kUTF8);
+
+                    float x_pos = xp + ((float)i / num_divisions * drawWidth);
+
+                    canvas->drawTextBlob(blob, x_pos, top2, opts.theme.tcDel);
+
+                }
+
+                canvas->drawLine(xp, top2, xp + drawWidth, top2, opts.theme.lcJoins);
+
+            }
+
+
             regionIdx += 1;
         }
     }
+
 }

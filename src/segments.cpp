@@ -794,6 +794,9 @@ namespace Segs {
 
 
         self->y = -1;  // -1 has no level, -2 means initialized but filtered
+        if (self->blocks.empty()) {
+            self->y = -2;
+        }
 
         if (flag & 1) {  // paired-end
             if (src->core.tid != src->core.mtid) {

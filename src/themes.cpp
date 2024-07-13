@@ -15,63 +15,116 @@ namespace Themes {
 
         fcCoverage.setStyle(SkPaint::kStrokeAndFill_Style);
         fcCoverage.setStrokeWidth(0);
-//        fcCoverage.setAntiAlias(true);
 
-        std::vector<std::vector<int>> tmp = {{158, 1,   66},
-                                             {179, 24,  71},
-                                             {203, 51,  76},
-                                             {220, 73,  75},
-                                             {233, 92,  71},
-                                             {244, 114, 69},
-                                             {248, 142, 82},
-                                             {252, 167, 94},
-                                             {253, 190, 110},
-                                             {253, 212, 129},
-                                             {254, 228, 147},
-                                             {254, 242, 169},
-                                             {254, 254, 190},
-                                             {244, 250, 174},
-                                             {233, 246, 158},
-                                             {213, 238, 155},
-                                             {190, 229, 160},
-                                             {164, 218, 164},
-                                             {134, 206, 164},
-                                             {107, 196, 164},
-                                             {83,  173, 173},
-                                             {61,  148, 183},
-                                             {57,  125, 184},
-                                             {76,  101, 172},
-                                             {94,  79,  162},
-                                             {255, 255, 229},
-                                             {252, 254, 215},
-                                             {249, 253, 200},
-                                             {246, 251, 184},
-                                             {237, 248, 178},
-                                             {227, 244, 170},
-                                             {216, 239, 162},
-                                             {202, 233, 156},
-                                             {187, 227, 149},
-                                             {172, 220, 141},
-                                             {155, 213, 135},
-                                             {137, 205, 127},
-                                             {119, 197, 120},
-                                             {101, 189, 111},
-                                             {82,  179, 102},
-                                             {64,  170, 92},
-                                             {55,  158, 84},
-                                             {44,  144, 75},
-                                             {34,  131, 66},
-                                             {23,  122, 62},
-                                             {11,  112, 58},
-                                             {0,   103, 54},
-                                             {0,   92,  50},
-                                             {0,   79,  45},
-                                             {0,   69,  41}};
-        for (size_t i = 0; i < tmp.size(); ++i) {
-            SkPaint p;
-            p.setARGB(255, tmp[i][0], tmp[i][1], tmp[i][2]);
-            mate_fc.push_back(p);
-        }
+//        mate_fc.resize(50);
+
+        // Set ARGB values directly for each SkPaint object in the mate_fc vector
+        mate_fc[0].setARGB(255, 158, 1, 66);
+        mate_fc[1].setARGB(255, 179, 24, 71);
+        mate_fc[2].setARGB(255, 203, 51, 76);
+        mate_fc[3].setARGB(255, 220, 73, 75);
+        mate_fc[4].setARGB(255, 233, 92, 71);
+        mate_fc[5].setARGB(255, 244, 114, 69);
+        mate_fc[6].setARGB(255, 248, 142, 82);
+        mate_fc[7].setARGB(255, 252, 167, 94);
+        mate_fc[8].setARGB(255, 253, 190, 110);
+        mate_fc[9].setARGB(255, 253, 212, 129);
+        mate_fc[10].setARGB(255, 254, 228, 147);
+        mate_fc[11].setARGB(255, 254, 242, 169);
+        mate_fc[12].setARGB(255, 254, 254, 190);
+        mate_fc[13].setARGB(255, 244, 250, 174);
+        mate_fc[14].setARGB(255, 233, 246, 158);
+        mate_fc[15].setARGB(255, 213, 238, 155);
+        mate_fc[16].setARGB(255, 190, 229, 160);
+        mate_fc[17].setARGB(255, 164, 218, 164);
+        mate_fc[18].setARGB(255, 134, 206, 164);
+        mate_fc[19].setARGB(255, 107, 196, 164);
+        mate_fc[20].setARGB(255, 83, 173, 173);
+        mate_fc[21].setARGB(255, 61, 148, 183);
+        mate_fc[22].setARGB(255, 57, 125, 184);
+        mate_fc[23].setARGB(255, 76, 101, 172);
+        mate_fc[24].setARGB(255, 94, 79, 162);
+        mate_fc[25].setARGB(255, 255, 255, 229);
+        mate_fc[26].setARGB(255, 252, 254, 215);
+        mate_fc[27].setARGB(255, 249, 253, 200);
+        mate_fc[28].setARGB(255, 246, 251, 184);
+        mate_fc[29].setARGB(255, 237, 248, 178);
+        mate_fc[30].setARGB(255, 227, 244, 170);
+        mate_fc[31].setARGB(255, 216, 239, 162);
+        mate_fc[32].setARGB(255, 202, 233, 156);
+        mate_fc[33].setARGB(255, 187, 227, 149);
+        mate_fc[34].setARGB(255, 172, 220, 141);
+        mate_fc[35].setARGB(255, 155, 213, 135);
+        mate_fc[36].setARGB(255, 137, 205, 127);
+        mate_fc[37].setARGB(255, 119, 197, 120);
+        mate_fc[38].setARGB(255, 101, 189, 111);
+        mate_fc[39].setARGB(255, 82, 179, 102);
+        mate_fc[40].setARGB(255, 64, 170, 92);
+        mate_fc[41].setARGB(255, 55, 158, 84);
+        mate_fc[42].setARGB(255, 44, 144, 75);
+        mate_fc[43].setARGB(255, 34, 131, 66);
+        mate_fc[44].setARGB(255, 23, 122, 62);
+        mate_fc[45].setARGB(255, 11, 112, 58);
+        mate_fc[46].setARGB(255, 0, 103, 54);
+        mate_fc[47].setARGB(255, 0, 92, 50);
+        mate_fc[48].setARGB(255, 0, 79, 45);
+        mate_fc[49].setARGB(255, 0, 69, 41);
+
+//        std::vector<std::vector<int>> tmp = {{158, 1,   66},
+//                                             {179, 24,  71},
+//                                             {203, 51,  76},
+//                                             {220, 73,  75},
+//                                             {233, 92,  71},
+//                                             {244, 114, 69},
+//                                             {248, 142, 82},
+//                                             {252, 167, 94},
+//                                             {253, 190, 110},
+//                                             {253, 212, 129},
+//                                             {254, 228, 147},
+//                                             {254, 242, 169},
+//                                             {254, 254, 190},
+//                                             {244, 250, 174},
+//                                             {233, 246, 158},
+//                                             {213, 238, 155},
+//                                             {190, 229, 160},
+//                                             {164, 218, 164},
+//                                             {134, 206, 164},
+//                                             {107, 196, 164},
+//                                             {83,  173, 173},
+//                                             {61,  148, 183},
+//                                             {57,  125, 184},
+//                                             {76,  101, 172},
+//                                             {94,  79,  162},
+//                                             {255, 255, 229},
+//                                             {252, 254, 215},
+//                                             {249, 253, 200},
+//                                             {246, 251, 184},
+//                                             {237, 248, 178},
+//                                             {227, 244, 170},
+//                                             {216, 239, 162},
+//                                             {202, 233, 156},
+//                                             {187, 227, 149},
+//                                             {172, 220, 141},
+//                                             {155, 213, 135},
+//                                             {137, 205, 127},
+//                                             {119, 197, 120},
+//                                             {101, 189, 111},
+//                                             {82,  179, 102},
+//                                             {64,  170, 92},
+//                                             {55,  158, 84},
+//                                             {44,  144, 75},
+//                                             {34,  131, 66},
+//                                             {23,  122, 62},
+//                                             {11,  112, 58},
+//                                             {0,   103, 54},
+//                                             {0,   92,  50},
+//                                             {0,   79,  45},
+//                                             {0,   69,  41}};
+//        for (size_t i = 0; i < tmp.size(); ++i) {
+//            SkPaint p;
+//            p.setARGB(255, tmp[i][0], tmp[i][1], tmp[i][2]);
+//            mate_fc.push_back(p);
+//        }
 
         ecMateUnmapped.setARGB(255, 255, 0, 0);
         ecMateUnmapped.setStyle(SkPaint::kStroke_Style);
@@ -150,12 +203,17 @@ namespace Themes {
         fc5mc.setStrokeCap(SkPaint::kRound_Cap);
         fc5hmc.setAntiAlias(true);
         fc5hmc.setStrokeCap(SkPaint::kRound_Cap);
+        fcOther.setAntiAlias(true);
+        fcOther.setStrokeCap(SkPaint::kRound_Cap);
+        fcOther.setARGB(127, 255, 0, 0);
 
+        mate_fc0 = mate_fc;
         for (size_t i=0; i < mate_fc.size(); ++i) {
-            SkPaint p = mate_fc[i];
+//            SkPaint p = mate_fc[i];
             mate_fc[i].setAlpha(alpha);
-            p.setAlpha(mapq0_alpha);
-            mate_fc0.push_back(p);
+            mate_fc0[i].setAlpha(mapq0_alpha);
+//            p.setAlpha(mapq0_alpha);
+//            mate_fc0.emplace_back(p);
         }
         SkPaint p;
         // A==1, C==2, G==4, T==8, N==>8
@@ -186,6 +244,24 @@ namespace Themes {
             BasePaints[14][i] = p;
             BasePaints[15][i] = p;
         }
+        int alph = 63;
+        for (size_t i=0; i < 4; ++i) {
+            ModPaints[0][i] = fc5mc;
+            ModPaints[0][i].setAlpha(alph);
+            alph += 64;
+        }
+        alph = 0;
+        for (size_t i=0; i < 4; ++i) {
+            ModPaints[1][i] = fc5hmc;
+            ModPaints[1][i].setAlpha(alph);
+            alph += 64;
+        }
+        alph = 0;
+        for (size_t i=0; i < 4; ++i) {
+            ModPaints[2][i] = fcOther;
+            ModPaints[2][i].setAlpha(alph);
+            alph += 64;
+        }
     }
 
     void BaseTheme::setPaintARGB(int paint_enum, int a, int r, int g, int b) {
@@ -204,6 +280,9 @@ namespace Themes {
             case GwPaint::fcC: this->fcC.setARGB(a, r, g, b); break;
             case GwPaint::fcG: this->fcG.setARGB(a, r, g, b); break;
             case GwPaint::fcN: this->fcN.setARGB(a, r, g, b); break;
+            case GwPaint::fc5mc: this->fc5mc.setARGB(a, r, g, b); break;
+            case GwPaint::fc5hmc: this->fc5hmc.setARGB(a, r, g, b); break;
+            case GwPaint::fcOther: this->fcOther.setARGB(a, r, g, b); break;
             case GwPaint::fcCoverage: this->fcCoverage.setARGB(a, r, g, b); break;
             case GwPaint::fcTrack: this->fcTrack.setARGB(a, r, g, b); break;
             case GwPaint::fcNormal0: this->fcNormal0.setARGB(a, r, g, b); break;
