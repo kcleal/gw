@@ -106,7 +106,8 @@ namespace Segs {
         std::vector<Mismatches> mmVector;
         std::vector<Align> readQueue;
         map_t linked;
-        ankerl::unordered_dense::map< int, int > sortLevels;  // For working out sort level
+        //ankerl::unordered_dense::map< int, int > sortLevels;  // For working out sort level
+        std::vector<int> sortLevels;
         float xScaling, xOffset, yOffset, yPixels, xPixels;
         float regionPixels;
 

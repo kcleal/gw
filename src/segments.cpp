@@ -891,10 +891,12 @@ namespace Segs {
         }
     }
 
-    void findYWithSort(ReadCollection &rc, std::vector<int> &ls, std::vector<int> &le, bool joinLeft,
+    void findYWithSort(ReadCollection &rc, std::vector<Align> &rQ, std::vector<int> &ls, std::vector<int> &le, bool joinLeft,
                        int vScroll, Segs::map_t &lm, ankerl::unordered_dense::map< std::string, int > linkedSeen,
-                       int linkType, int sortReadsBy) {
+                       int linkType, int sortReadsBy, int ylim) {
 
+        bool re_sort = false;
+        int n_cats = 0;
         for (const auto& r : rc.readQueue) {
             int cat;
             if (sortReadsBy == Manager::SortType::STRAND) {
@@ -902,14 +904,144 @@ namespace Segs {
             } else {
                 cat = r.haplotag;
             }
-//            if (r.sortLevels.containe(cat))
+            bool has = false;
+            for (const auto & c : rc.sortLevels) {
+                if (c == cat) {
+                    has = true;
+                    break;
+                }
+            }
+            if (!has) {
+                rc.sortLevels.push_back(cat);
+                re_sort = true;
+            }
+        }
+        n_cats = (int)rc.sortLevels.size();
+        std::cout << n_cats << std::endl;
+        if (n_cats == 0) {
+            return;
+        }
+        if (re_sort) {
+            std::sort(rc.sortLevels.begin(), rc.sortLevels.end());
+        }
+        if (ls.size() != ylim + (vScroll * n_cats)) {
+            ls.resize(ylim + (vScroll * n_cats), 1215752191);
+            le.resize(ylim + (vScroll * n_cats), 0);
+        }
+
+        size_t start_index = 0;
+        size_t step;
+
+//        step = (ls.size() - vScroll) / rc.sortLevels.size();
+        step = (ls.size() - (vScroll * n_cats)) / n_cats;
+//        std::cout << " step is " <<step << " " << ls.size() << " " << vScroll << std::endl;
+
+        if ( step == 0) {
+            return;
+        }
+
+        ankerl::unordered_dense::map< int, int > to_level;
+        int v = 0;
+
+        for (const auto & c: rc.sortLevels) {
+            to_level[c] = v * step;
+            ++v;
+        }
+
+        // The ls and le arrays will be partitioned into each sort level.
+        int qLen = (int)rQ.size();
+        int stopCondition, move, si;
+//        int memLen = (int)ls.size();
+        Align *q_ptr;
+        const char *qname = nullptr;
+        if (!joinLeft) {
+            si = 0;
+            stopCondition = qLen;
+            move = 1;
+            q_ptr = &rQ.front();
+        } else {
+            si = qLen - 1;
+            stopCondition = -1;
+            move = -1;
+            q_ptr = &rQ.back();
+        }
+        int i;
+        assert (q_ptr->y < 0);
+        while (si != stopCondition) {
+            si += move;
+            if (q_ptr->y == -2) {
+                q_ptr += move;
+                continue;
+            }
+            if (linkType > 0) {
+                qname = bam_get_qname(q_ptr->delegate);
+                if (qname != nullptr && linkedSeen.find(qname) != linkedSeen.end()) {
+                    q_ptr->y = linkedSeen[qname];
+                    q_ptr += move;
+                    continue;
+                }
+            }
+            if (!joinLeft) {
+                int cat;  //todo move cat to align_init
+                if (sortReadsBy == Manager::SortType::STRAND) {
+                    cat = (q_ptr->delegate->core.flag & BAM_FREVERSE) ? 1 : 0;
+                } else {
+                    cat = q_ptr->haplotag;
+                }
+                int start_i = to_level[cat] + vScroll;// + (cat * vScroll);  // start of the range
+                int vScroll_level = start_i + vScroll;  // if y >= this level then they will be displayed
+                int end_i = start_i + step; // + vScroll - 1;  // end of the range for this cat
+//                std::cout << start_i << ":" << end_i << " cat=" << cat << " scroll-level=" << vScroll_level << " vScroll=" << vScroll << " ls.size=" << ls.size() << std::endl;
+                for (i=start_i; i < end_i; ++i) {
+                    if (q_ptr->cov_start > le[i]) {
+                        le[i] = q_ptr->cov_end;
+                        if (q_ptr->cov_start < ls[i]) {
+                            ls[i] = q_ptr->cov_start;
+                        }
+                        if (i >= vScroll_level) {
+                            q_ptr->y = i; // - vScroll;
+
+//                            std::cout << i << " starti=" << start_i << " " << vScroll << " " << vScroll_level << std::endl;
+                        }
+                        if (linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
+                            linkedSeen[qname] = q_ptr->y;
+                        }
+                        break;
+                    }
+                }
+                if (i == end_i && linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
+                    linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
+                }
+                q_ptr += move;
+
+            } else {
+//                for (i=0; i < memLen; ++i) {
+//                    if (q_ptr->cov_end < ls[i]) {
+//                        ls[i] = q_ptr->cov_start;
+//                        if (q_ptr->cov_end > le[i]) {
+//                            le[i] = q_ptr->cov_end;
+//                        }
+//                        if (i >= vScroll) {
+//                            q_ptr->y = i - vScroll;
+//                        }
+//                        if (linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
+//                            linkedSeen[qname] = q_ptr->y;
+//                        }
+//                        break;
+//                    }
+//                }
+//                if (i == memLen && linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
+//                    linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
+//                }
+//                q_ptr += move;
+            }
         }
     }
+
 
     void findYNoSort(std::vector<Align> &rQ, std::vector<int> &ls, std::vector<int> &le, bool joinLeft,
                      int vScroll, Segs::map_t &lm, ankerl::unordered_dense::map< std::string, int > linkedSeen,
                      int linkType) {
-        int i;
         int qLen = (int)rQ.size();
         int stopCondition, move, si;
         int memLen = (int)ls.size();
@@ -926,7 +1058,7 @@ namespace Segs {
             move = -1;
             q_ptr = &rQ.back();
         }
-
+        int i;
         while (si != stopCondition) {
             si += move;
             if (q_ptr->y == -2) {
@@ -987,6 +1119,7 @@ namespace Segs {
     }
 
     int findY(ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, bool joinLeft, int sortReadsBy) {
+//        sortReadsBy = 1;
         if (rQ.empty()) {
             return 0;
         }
@@ -1065,91 +1198,16 @@ namespace Segs {
         std::vector<int> &ls = rc.levelsStart;
         std::vector<int> &le = rc.levelsEnd;
 
-        if (ls.empty()) {
-            ls.resize(opts.ylim + vScroll, 1215752191);
-            le.resize(opts.ylim + vScroll, 0);
-        }
-
         if (sortReadsBy == 0) {
+            if (ls.empty()) {
+                ls.resize(opts.ylim + vScroll, 1215752191);
+                le.resize(opts.ylim + vScroll, 0);
+            }
             findYNoSort(rQ, ls, le, joinLeft, vScroll, lm, linkedSeen, linkType);
         } else {
-            findYWithSort(rc, ls, le, joinLeft, vScroll, lm, linkedSeen, linkType, sortReadsBy);
+            findYWithSort(rc, rQ, ls, le, joinLeft, vScroll, lm, linkedSeen, linkType, sortReadsBy, opts.ylim);
         }
 
-
-//        int qLen = (int)rQ.size();
-//        int stopCondition, move, si;
-//        int memLen = (int)ls.size();
-//
-//        if (!joinLeft) {
-//            si = 0;
-//            stopCondition = qLen;
-//            move = 1;
-//            q_ptr = &rQ.front();
-//        } else {
-//            si = qLen - 1;
-//            stopCondition = -1;
-//            move = -1;
-//            q_ptr = &rQ.back();
-//        }
-//
-//        while (si != stopCondition) {
-//            si += move;
-//            if (q_ptr->y == -2) {
-//                q_ptr += move;
-//                continue;
-//            }
-//            if (linkType > 0) {
-//                qname = bam_get_qname(q_ptr->delegate);
-//                if (qname != nullptr && linkedSeen.find(qname) != linkedSeen.end()) {
-//                    q_ptr->y = linkedSeen[qname];
-//                    q_ptr += move;
-//                    continue;
-//                }
-//            }
-//            if (!joinLeft) {
-//                for (i=0; i < memLen; ++i) {
-//                    if (q_ptr->cov_start > le[i]) {
-//                        le[i] = q_ptr->cov_end;
-//                        if (q_ptr->cov_start < ls[i]) {
-//                            ls[i] = q_ptr->cov_start;
-//                        }
-//                        if (i >= vScroll) {
-//                            q_ptr->y = i - vScroll;
-//                        }
-//                        if (linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
-//                            linkedSeen[qname] = q_ptr->y;
-//                        }
-//                        break;
-//                    }
-//                }
-//                if (i == memLen && linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
-//                     linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
-//                }
-//                q_ptr += move;
-//
-//            } else {
-//                for (i=0; i < memLen; ++i) {
-//                    if (q_ptr->cov_end < ls[i]) {
-//                        ls[i] = q_ptr->cov_start;
-//                        if (q_ptr->cov_end > le[i]) {
-//                            le[i] = q_ptr->cov_end;
-//                        }
-//                        if (i >= vScroll) {
-//                            q_ptr->y = i - vScroll;
-//                        }
-//                        if (linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
-//                            linkedSeen[qname] = q_ptr->y;
-//                        }
-//                        break;
-//                    }
-//                }
-//                if (i == memLen && linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
-//                    linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
-//                }
-//                q_ptr += move;
-//            }
-//        }
         samMaxY = (int)ls.size() - vScroll;
         return samMaxY;
     }

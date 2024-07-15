@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "include/core/SkColorSpace.h"
+
 #include "htslib/faidx.h"
 #include "htslib/hfile.h"
 #include "htslib/hts.h"
@@ -182,6 +184,7 @@ namespace HGW {
         bool done;
 		std::string variantString;
 
+        SkPaint faceColour;
 
         void open(const std::string &p, bool add_to_dict);
         void close();

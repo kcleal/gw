@@ -99,7 +99,10 @@ namespace Term {
         } else if (s == "colour" || s == "color") {
             out << "    Set the (alpha, red, green, blue) colour for one of the plot elements.\n"
                    "        Elements are selected by name (see below) and values are in the range [0, 255].\n"
-                   "        For example 'colour fcNormal 255 255 0 0' sets face-colour of normal reads to red.\n\n"
+                   "        For example 'colour fcNormal 255 255 0 0' sets face-colour of normal reads to red.\n"
+                   "        Also, tracks can be coloured using thier index e.g. 'colour track0 255 0 200 0' sets \n"
+                   "        the face-colour of track 0 to green.\n\n"
+                   "          track[index]   - Paint for track at index, e.g. track0 or track1 etc\n\n"
                    "          bgPaint        - background paint\n"
                    "          bgMenu         - background of menu\n"
                    "          fcNormal       - face-colour normal reads\n"

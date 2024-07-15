@@ -117,6 +117,11 @@ namespace Manager {
                     tracks.back().genome_tag = opts.genome_tag;
                     tracks.back().open(trk_item, true);
                     tracks.back().variant_distance = &opts.variant_distance;
+                    if (tracks.back().kind == HGW::FType::BIGWIG) {
+                        tracks.back().faceColour = opts.theme.fcBigWig;
+                    } else {
+                        tracks.back().faceColour = opts.theme.fcTrack;
+                    }
                 }
             }
         } else {
@@ -126,6 +131,11 @@ namespace Manager {
             tracks.emplace_back() = HGW::GwTrack();
             tracks.back().open(tp, true);
             tracks.back().variant_distance = &opts.variant_distance;
+            if (tracks.back().kind == HGW::FType::BIGWIG) {
+                tracks.back().faceColour = opts.theme.fcBigWig;
+            } else {
+                tracks.back().faceColour = opts.theme.fcTrack;
+            }
         }
         samMaxY = 0;
         yScaling = 0;
@@ -506,8 +516,13 @@ namespace Manager {
             if (Utils::startsWith(item.first, "bam")) {
                 bam_paths.push_back(item.second);
             } else if (Utils::startsWith(item.first, "track")) {
-                tracks.push_back(HGW::GwTrack());
+                tracks.emplace_back(HGW::GwTrack());
                 tracks.back().open(item.second, true);
+                if (tracks.back().kind == HGW::FType::BIGWIG) {
+                    tracks.back().faceColour = opts.theme.fcBigWig;
+                } else {
+                    tracks.back().faceColour = opts.theme.fcTrack;
+                }
                 tracks.back().variant_distance = &opts.variant_distance;
             } else if (Utils::startsWith(item.first, "region")) {
                 std::string rgn = item.second;
@@ -842,17 +857,63 @@ namespace Manager {
             totalTabixY = (fbh - refSpace - sliderSpace) * (float)opts.tab_track_height;
             tabixY = totalTabixY / (float)tracks.size();
         }
+
         if (nbams > 0 && samMaxY > 0) {
             trackY = (fbh - totalCovY - totalTabixY - refSpace - sliderSpace) / nbams;
             yScaling = (trackY - (gap * nbams)) / (double)samMaxY;
-            if (yScaling > 3 * monitorScale) {
+
+            // Ensure yScaling is an integer if possible
+            if (yScaling > 1) {
                 yScaling = (int)yScaling;
             }
-
         } else {
             trackY = 0;
             yScaling = 0;
         }
+
+        if (opts.tlen_yscale) {
+            pH = trackY / (float) opts.ylim;
+            yScaling *= 0.95;
+        } else {
+            if (yScaling > 3) {
+                pH = yScaling * 0.85;  // polygonHeight
+            } else {
+                pH = yScaling;
+            }
+        }
+
+        if (pH > 8) {  // scale to pixel boundary
+            pH = (float)(int)pH;
+        } else if (opts.tlen_yscale) {
+            pH = std::fmax(pH, 8);
+        }
+//        if (nbams > 0 && samMaxY > 0) {
+//            trackY = (fbh - totalCovY - totalTabixY - refSpace - sliderSpace) / nbams;
+//            yScaling = (trackY - (gap * nbams)) / (double)samMaxY;
+//            if (yScaling > 3 * monitorScale) {
+//                yScaling = (int)yScaling;
+//            }
+//
+//        } else {
+//            trackY = 0;
+//            yScaling = 0;
+//        }
+//
+//        if (yScaling > 3) {
+//            pH = yScaling * 0.85;  // polygonHeight
+//        } else {
+//            pH = yScaling;
+//        }
+//
+//        if (opts.tlen_yscale) {
+//            pH = trackY / (float) opts.ylim;
+//            yScaling *= 0.95;
+//        }
+//        if (pH > 8) {  // scale to pixel boundary
+//            pH = (float) (int) pH;
+//        } else if (opts.tlen_yscale) {
+//            pH = std::fmax(pH, 8);
+//        }
 
         fonts.setFontSize(yScaling, monitorScale);
         regionWidth = fbw / (float)regions.size();
@@ -875,21 +936,6 @@ namespace Manager {
         pointSlop = (tan(0.42) * (yScaling * 0.5));  // radians
         textDrop = std::fmax(0, (yScaling - fonts.fontHeight) * 0.5);
 
-        if (yScaling > 3) {
-            pH = yScaling * 0.85;  // polygonHeight
-        } else {
-            pH = yScaling;
-        }
-
-        if (opts.tlen_yscale) {
-            pH = trackY / (float) opts.ylim;
-            yScaling *= 0.95;
-        }
-        if (pH > 8) {  // scale to pixel boundary
-            pH = (float) (int) pH;
-        } else if (opts.tlen_yscale) {
-            pH = std::fmax(pH, 8);
-        }
         minGapSize = (uint32_t)(fb_width * 0.005);
         if (opts.parse_mods) {
             for (size_t i=0; i < 4; ++i) {
@@ -989,8 +1035,8 @@ namespace Manager {
             }
             Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, refSpace, (float)regions.size(), gap);
             Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
-            Drawing::drawTracks(opts, fb_width, fb_height, canvasR, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
-            Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, fai, fb_width, fb_height, monitorScale);
+            Drawing::drawTracks(opts, fb_width, fb_height, canvasR, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
+            Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, fai, fb_width, fb_height, monitorScale, gap);
 
         }
 
@@ -1028,8 +1074,8 @@ namespace Manager {
             return;
         }
         const float colWidth = (float) fb_width / (float) regions.size();
-        const float gap = 50;
-        const float gap2 = 100;
+        const float gap = 25 * monitorScale;
+        const float gap2 = 50 * monitorScale;
         const float drawWidth = colWidth - gap2;
         float xp = ((float)regionSelection * colWidth) + gap;
         if (xPos_fb < xp || xPos_fb > xp + drawWidth) {
@@ -1531,8 +1577,8 @@ namespace Manager {
         }
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
-        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
-        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale);
+        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
+        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale, gap);
     }
 
     void GwPlot::runDraw() {
@@ -1657,8 +1703,8 @@ namespace Manager {
 
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
-        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale);
-        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale);
+        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
+        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale, gap);
 //        std::cerr << " time runDrawNoBuffer " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
 

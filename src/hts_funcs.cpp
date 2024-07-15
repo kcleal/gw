@@ -130,7 +130,7 @@ namespace HGW {
                       int bamIdx, int regionIdx) {
         auto end = readQueue.end();
         auto rm_iter = readQueue.begin();
-        const auto pred = [&](const Segs::Align &align){
+        const auto pred = [&](const Segs::Align &align) {
             if (rm_iter == end) { return false; }
             bool drop = false;
             for (auto &f: filters) {
@@ -682,10 +682,11 @@ namespace HGW {
         }
 
         if (!newReads.empty()) {
+            Segs::init_parallel(newReads, opts.threads, pool, parse_mods_threshold, sortReadsBy == 2);
             if (!filters.empty()) {
                 applyFilters(filters, newReads, hdr_ptr, col.bamIdx, col.regionIdx);
             }
-            Segs::init_parallel(newReads, opts.threads, pool, parse_mods_threshold, sortReadsBy == 2);
+
             bool findYall = false;
             if (col.vScroll == 0 && opts.link_op == 0) {  // only new reads need findY, otherwise, reset all below
                 int maxY = Segs::findY(col, newReads, opts.link_op, opts, left, sortReadsBy);

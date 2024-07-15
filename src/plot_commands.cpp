@@ -115,7 +115,7 @@ namespace Commands {
 
     Err line(Plot* p) {
         p->drawLine = !p->drawLine;
-        p->redraw = true;
+        p->redraw = false;
         p->processed = true;
         return Err::NONE;
     }
@@ -1247,6 +1247,7 @@ namespace Commands {
 
     Err update_colour(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
         if (parts.size() != 6) {
+
             return Err::OPTION_NOT_UNDERSTOOD;
         }
         int alpha, red, green, blue;
@@ -1258,7 +1259,7 @@ namespace Commands {
         } catch (...) {
             return Err::OPTION_NOT_UNDERSTOOD;
         }
-        Themes::GwPaint e;
+        Themes::GwPaint e{};
         std::string &c = parts[1];
         if (c == "bgPaint") { e = Themes::GwPaint::bgPaint; }
         else if (c == "bgMenu") { e = Themes::GwPaint::bgMenu; }
@@ -1304,6 +1305,23 @@ namespace Commands {
         else if (c == "fc5mc") { e = Themes::GwPaint::fc5mc; }
         else if (c == "fc5hmc") { e = Themes::GwPaint::fc5hmc; }
         else if (c == "fcOther") { e = Themes::GwPaint::fcOther; }
+        else if (Utils::startsWith(c, "track") && c != "track") {
+            c.erase(0, 5);
+            int ind = 0;
+            try {
+                ind = std::stoi(c);
+            } catch (...) {
+                out << termcolor::red << "Error:" << termcolor::reset << " track index not understood\n";
+                return Err::SILENT;
+            }
+            if (ind > (int)p->tracks.size()) {
+                out << termcolor::red << "Error:" << termcolor::reset << " track index out of range\n";
+                return Err::SILENT;
+            }
+            p->tracks[ind].faceColour.setARGB(alpha, red, green, blue);
+            refreshGw(p);
+            return Err::NONE;
+        }
         else {
             return Err::OPTION_NOT_UNDERSTOOD;
         }
@@ -1362,6 +1380,7 @@ namespace Commands {
             p->tracks.back().add_to_dict = true;
             p->tracks.back().allBlocks[b.chrom].add(b.start, b.end, b);
             p->tracks.back().allBlocks[b.chrom].index();
+            p->tracks.back().faceColour = p->opts.theme.fcRoi;
         }
         return Err::NONE;
     }
@@ -1398,6 +1417,14 @@ namespace Commands {
 //            }
 //            int n_groups = (int)groups.size();
         }
+
+        p->redraw = true;
+        p->processed = false;
+        p->imageCache.clear();
+        p->imageCacheQueue.clear();
+        p->filters.clear();
+        p->target_qname = "";
+        for (auto &cl: p->collections) { cl.vScroll = 0; cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
         return Err::NONE;
     }
 

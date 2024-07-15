@@ -25,6 +25,7 @@
 #include "ankerl_unordered_dense.h"
 #include "hts_funcs.h"
 #include "drawing.h"
+#include "term_out.h"
 
 
 namespace Drawing {
@@ -1398,7 +1399,7 @@ namespace Drawing {
 
     void drawTrackBigWig(HGW::GwTrack &trk, const Utils::Region &rgn, SkRect &rect, float padX, float padY,
                          float y, float stepX, float stepY, float gap, float gap2, float xScaling, float t,
-                         Themes::IniOptions &opts, SkCanvas *canvas, const Themes::Fonts &fonts) {
+                         Themes::IniOptions &opts, SkCanvas *canvas, const Themes::Fonts &fonts, SkPaint &faceColour) {
         if (trk.bigWig_intervals == nullptr || trk.bigWig_intervals->l == 0) {
             return;
         }
@@ -1472,22 +1473,23 @@ namespace Drawing {
 
     void drawTrackBlock(int start, int stop, std::string &rid, const Utils::Region &rgn, SkRect &rect, SkPath &path,
                         float padX, float padY,
-                        float y, float h, float stepX, float stepY, float gap, float gap2, float xScaling, float t,
+                        float y, float h, float stepX, float stepY, float gap, float gap2, float xScaling,
                         Themes::IniOptions &opts, SkCanvas *canvas, const Themes::Fonts &fonts,
                         bool add_text, bool add_rect, bool v_line, bool shaded, float *labelsEnd, std::string &vartype,
-                        float monitorScale, std::vector<TextItem> &text, bool addArc, bool isRoi) {
+                        float monitorScale, std::vector<TextItem> &text, bool addArc, bool isRoi, SkPaint &faceColour) {
         float x = 0;
         float w;
 
-        SkPaint faceColour, arcColour;
+        SkPaint arcColour;
+//        SkPaint faceColour, arcColour;
 
         if (isRoi) {
-            faceColour = opts.theme.fcRoi;
+//            faceColour = opts.theme.fcRoi;
         } else {
             if (shaded) {
                 faceColour = opts.theme.fcCoverage;
             } else {
-                faceColour = opts.theme.fcTrack;
+//                faceColour = opts.theme.fcTrack;
             }
         }
 
@@ -1621,8 +1623,8 @@ namespace Drawing {
                               const std::vector<Utils::Region> &regions, const Themes::Fonts &fonts,
                               float gap, Utils::TrackBlock &trk, bool any_text, const Utils::Region &rgn, SkRect &rect,
                               SkPath &path, SkPath &path2, float padX, float padY, float stepX, float stepY,
-                              float y, float h, float h2, float h4, float gap2, float xScaling, float t, int nLevels,
-                              float *labelsEnd, std::vector<TextItem> &text, bool vline) {
+                              float y, float h, float h2, float h4, float gap2, float xScaling, int nLevels,
+                              float *labelsEnd, std::vector<TextItem> &text, bool vline, SkPaint &faceColour) {
 
         int target = (int) trk.s.size();
         int stranded = trk.strand;
@@ -1631,8 +1633,8 @@ namespace Drawing {
         std::string empty_str;
         if (any_text) {
             drawTrackBlock(trk.start, trk.end, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2,
-                           xScaling, t,
-                           opts, canvas, fonts, true, false, false, false, labelsEnd, empty_str, 0, text, false, false);
+                           xScaling,
+                           opts, canvas, fonts, true, false, false, false, labelsEnd, empty_str, 0, text, false, false, faceColour);
         }
         for (int i = 0; i < target; ++i) {
             int s, e;
@@ -1653,17 +1655,17 @@ namespace Drawing {
 
                 if (s < trk.coding_end && e > trk.coding_end) { //overlaps, split in to two blocks!
                     drawTrackBlock(s, trk.coding_end, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap,
-                                   gap2, xScaling, t,opts, canvas, fonts, false, true, add_line, false, labelsEnd, empty_str, 0, text, false, false);
+                                   gap2, xScaling, opts, canvas, fonts, false, true, add_line, false, labelsEnd, empty_str, 0, text, false, false, faceColour);
                     drawTrackBlock(trk.coding_end, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap,
-                                   gap2, xScaling, t,opts, canvas, fonts, false, true, add_line, true, labelsEnd, empty_str, 0, text, false, false);
+                                   gap2, xScaling, opts, canvas, fonts, false, true, add_line, true, labelsEnd, empty_str, 0, text, false, false,  faceColour);
                 }
 
                 else if (thickness == 1) {
                     drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2, xScaling,
-                                   t,opts, canvas, fonts, false, true, add_line, true, labelsEnd, empty_str, 0, text, false, false);
+                                   opts, canvas, fonts, false, true, add_line, true, labelsEnd, empty_str, 0, text, false, false, faceColour);
                 } else {
                     drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2, xScaling,
-                                   t,opts, canvas, fonts, false, true, add_line, false, labelsEnd, empty_str, 0, text, false, false);
+                                   opts, canvas, fonts, false, true, add_line, false, labelsEnd, empty_str, 0, text, false, false, faceColour);
                 }
             }
             float x, yy, w;
@@ -1702,19 +1704,19 @@ namespace Drawing {
 
     void drawTracks(Themes::IniOptions &opts, float fb_width, float fb_height,
                     SkCanvas *canvas, float totalTabixY, float tabixY, std::vector<HGW::GwTrack> &tracks,
-                    std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, float gap, float monitorScale) {
+                    std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, float gap, float monitorScale, float sliderSpace) {
         // All tracks are converted to TrackBlocks and then drawn
-        if (tracks.empty() || regions.empty()) {
+        if (tracks.empty() || regions.empty() || tabixY <= 0) {
             return;
         }
         float gap2 = 2 * gap;
         float padX = gap;
 
         float stepX = fb_width / (float) regions.size();
-        float refSpace = fonts.overlayHeight;
-        float stepY = (totalTabixY) / (float) tracks.size();
+        float stepY = tabixY;
+        stepY -= sliderSpace - gap;  // todo this should not be needed
 
-        float y = fb_height - totalTabixY - refSpace;  // start of tracks on canvas
+        float y = fb_height - totalTabixY - sliderSpace + gap;  // start of tracks on canvas
         float t = (float) 0.005 * fb_width;
 
         SkRect rect{};
@@ -1737,13 +1739,16 @@ namespace Drawing {
             rgn.featureLevels.resize(tracks.size());
             for (auto &trk: tracks) {
 
+                SkPaint faceColour = trk.faceColour;
+//                SkPaint faceColour;
+//                faceColour.setARGB(255, 0, 222, 0);
                 float right = ((float) (rgn.end - rgn.start) * xScaling) + padX;
                 canvas->save();
                 canvas->clipRect({padX, y + padY, right, y + padY + stepY}, false);
                 trk.fetch(&rgn);
                 if (trk.kind == HGW::BIGWIG) {
                     drawTrackBigWig(trk, rgn, rect, padX, padY, y + (stepY * trackIdx), stepX, stepY, gap, gap2,
-                                    xScaling, t, opts, canvas, fonts);
+                                    xScaling, t, opts, canvas, fonts, faceColour);
                     trackIdx += 1;
                     canvas->restore();
                     continue;
@@ -1768,10 +1773,10 @@ namespace Drawing {
 
                 float blockStep = ((stepY) / (float) nLevels);
                 float blockSpace = blockStep * 0.35;
-                float h = std::fmin(blockSpace, 20);
+                float h = std::fmin(blockSpace, 10 * monitorScale);
                 float h2 = h * 0.5;
                 float h4 = h2 * 0.5;
-                float step_track = (stepY - gap2) / ((float) nLevels);
+                float step_track = (tabixY - gap2) / ((float) nLevels);
                 bool isBed12 = !trk.parts.empty() && trk.parts.size() >= 12;
                 float textLevelEnd = 0;  // makes sure text doesnt overlap on same level
 
@@ -1786,17 +1791,17 @@ namespace Drawing {
                                              fonts, gap,
                                              f, any_text, rgn, rect, path, path2, padX, padY_track, stepX, step_track,
                                              y, h, h2, h4, gap2,
-                                             xScaling, t, nLevels, fLevelEnd, text, add_line);
+                                             xScaling, nLevels, fLevelEnd, text, add_line, faceColour);
 
                     } else {
                         drawTrackBlock(f.start, f.end, f.name, rgn, rect, path, padX, padY_track, y, h, stepX, stepY,
                                        gap, gap2,
-                                       xScaling, t, opts, canvas, fonts, any_text, true, add_line, false, fLevelEnd, f.vartype, monitorScale,
-                                       text, opts.sv_arcs, trk.kind == HGW::FType::ROI);
+                                       xScaling, opts, canvas, fonts, any_text, true, add_line, false, fLevelEnd, f.vartype, monitorScale,
+                                       text, opts.sv_arcs, trk.kind == HGW::FType::ROI, faceColour);
                     }
                 }
                 trackIdx += 1;
-                padY += stepY;
+                padY += tabixY;
                 if (fonts.overlayHeight * nLevels * 2 < stepY && features.size() < 500) {
                     for (const auto&t: text) {
                         canvas->drawTextBlob(t.text, t.x, t.y, opts.theme.tcDel);
@@ -1811,8 +1816,29 @@ namespace Drawing {
 
     }
 
+
+    std::string floatToStringCommas(float num, int precision=1) {
+        std::stringstream stream;
+        stream << std::fixed << std::setprecision(precision) << num;
+        std::string s = stream.str();
+        size_t dotPos = s.find('.');
+        int n = dotPos - 3;
+        int end = (num >= 0) ? 0 : 1;
+        while (n > end) {
+            s.insert(n, ",");
+            n -= 3;
+        }
+        return s;
+    }
+
     void posToText(int num, int regionLen, std::string &a) {
+        assert (num >= 0);
+        if (num == 0) {
+            a = "0";
+            return;
+        }
         int rounding = std::min(std::ceil(std::log10(num)), std::ceil(std::log10(regionLen)));
+
         double d;
         switch (rounding) {
             case 0:
@@ -1822,32 +1848,67 @@ namespace Drawing {
                 a += " bp";
                 break;
             case 3:
+            case 4:
                 d = (double)num / 1e3;
-                d = std::ceil(d * 10) / 10;
+                d = std::floor(d * 10) / 10;
                 a = Utils::removeZeros((float)d);
                 a += " kb";
                 break;
-            case 4:
             case 5:
                 d = (double)num / 1e3;
-                d = std::ceil(d * 10) / 10;
-                a = std::to_string((int)d);
+                d = std::floor(d * 10) / 10;
+                a = Term::intToStringCommas((int)d - 1);
                 a += " kb";
                 break;
             case 6:
                 d = (double)num / 1e6;
-                d = std::ceil(d * 10) / 10;
+                d = std::floor(d * 10) / 10;
                 a = Utils::removeZeros((float)d);
                 a += " mb";
                 break;
             default:
                 d = (double)num / 1e6;
                 d = std::ceil(d * 10) / 10;
-                a = std::to_string((int)d);
+                a = floatToStringCommas(d);
                 a += " mb";
                 break;
-
         }
+    }
+
+    double NiceNumber (const double Value, const int Round) {  // https://stackoverflow.com/questions/4947682/intelligently-calculating-chart-tick-positions
+        int    Exponent;
+        double Fraction;
+        double NiceFraction;
+        Exponent = (int) floor(log10(Value));
+        Fraction = Value/pow(10, (double)Exponent);
+        if (Round) {
+            if (Fraction < 1.5)
+                NiceFraction = 1.0;
+            else if (Fraction < 3.0)
+                NiceFraction = 2.0;
+            else if (Fraction < 7.0)
+                NiceFraction = 5.0;
+            else
+                NiceFraction = 10.0;
+        }
+        else {
+            if (Fraction <= 1.0)
+                NiceFraction = 1.0;
+            else if (Fraction <= 2.0)
+                NiceFraction = 2.0;
+            else if (Fraction <= 5.0)
+                NiceFraction = 5.0;
+            else
+                NiceFraction = 10.0;
+        }
+
+        return NiceFraction*pow(10, (double)Exponent);
+    }
+
+    int calculateInterval(int regionLen) {
+        assert (regionLen > 0);
+        int interval = std::pow(10, std::floor(std::log10(regionLen)) - 1);
+        return interval;
     }
 
     void drawChromLocation(const Themes::IniOptions &opts,
@@ -1856,7 +1917,7 @@ namespace Drawing {
                            const std::unordered_map<std::string, std::vector<Themes::Band>> &ideogram,
                            SkCanvas *canvas,
                            const faidx_t *fai, float fb_width,
-                           float fb_height, float monitorScale) {
+                           float fb_height, float monitorScale, float plot_gap) {
         SkPaint paint, light_paint, line;
         paint.setARGB(255, 240, 32, 73);
 
@@ -1880,6 +1941,7 @@ namespace Drawing {
         const float gap = 25 * monitorScale;
         const float gap2 = 50 * monitorScale;
         const float drawWidth = colWidth - gap2;
+        const float scaleWidth = colWidth - gap - gap;
 
         if (drawWidth < 0) {
             return;
@@ -1927,29 +1989,60 @@ namespace Drawing {
             // draw scale bar
             if (true) {
                 float top2 = top - yh * 2;
-                int num_divisions = 10; // You can adjust this value based on your preference
-                long interval = region.regionLen / num_divisions;
-                interval = (interval / 10) * 10;
-                int tick = ((region.start / 10) * 10);
+                xp = (regionIdx * colWidth) + plot_gap;
+
+                double nice_range = NiceNumber((double)region.regionLen, 0);
+                double nice_tick = NiceNumber(nice_range/(10 - 1), 1) * 2;
+                if (nice_tick < 1) {
+                    return;
+                }
+
+                int position = (region.start / (int)nice_tick) * (int)nice_tick;
+                int num_divisions = nice_range / nice_tick;
 
                 std::string text;
-
+                std::string last;
+                SkPath path;
+                double xScaling = (scaleWidth / (double)region.regionLen);
                 for (int i = 0; i <= num_divisions; ++i) {
+                    if (position < 0) {
+                        position += nice_tick;
+                        continue;
+                    }
 
-                    int position = tick + i * interval;
+
+                    float x_pos = gap + ((position - region.start - 0.5) * xScaling);
+
+                    if (x_pos < xp || x_pos > xp + scaleWidth) {
+                        position += nice_tick;
+                        continue;
+                    }
+
+                    path.moveTo(x_pos, top2 + yh*0.5);
+                    path.lineTo(x_pos, top2 + yh);
+                    canvas->drawPath(path, opts.theme.lcJoins);
 
 
                     posToText(position, region.regionLen, text);
+                    if (text == last) {
+                        position += nice_tick;
+                        continue;
+                    }
                     sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(text.c_str(), fonts.overlay);
                     float text_width = fonts.overlay.measureText(text.c_str(), text.length(), SkTextEncoding::kUTF8);
+                    float t_half = text_width * 0.5;
+                    if (x_pos - t_half < xp) {
+                        position += nice_tick;
+                        continue;
+                    }
 
-                    float x_pos = xp + ((float)i / num_divisions * drawWidth);
+                    canvas->drawTextBlob(blob, x_pos - t_half, top2, opts.theme.tcDel);
 
-                    canvas->drawTextBlob(blob, x_pos, top2, opts.theme.tcDel);
+                    last = text;
+                    position += nice_tick;
+
 
                 }
-
-                canvas->drawLine(xp, top2, xp + drawWidth, top2, opts.theme.lcJoins);
 
             }
 

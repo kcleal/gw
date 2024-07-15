@@ -305,7 +305,7 @@ namespace Manager {
                     captureText = false;
                     processText = true;
                     shiftPress = false;
-                    redraw = true;  // todo set to false here?
+                    redraw = false;
                     processed = true;
                     commandToolTipIndex = -1;
                     out << "\n";
@@ -1164,6 +1164,12 @@ namespace Manager {
             try {
                 tracks.back().open(path, true);
                 tracks.back().variant_distance = &opts.variant_distance;
+                if (tracks.back().kind == HGW::FType::BIGWIG) {
+                    tracks.back().faceColour = opts.theme.fcBigWig;
+                } else {
+                    tracks.back().faceColour = opts.theme.fcTrack;
+                }
+
                 if (print_message) {
                     out << termcolor::magenta << "\nTrack       " << termcolor::reset << path << "\n";
                 }
@@ -1989,7 +1995,7 @@ namespace Manager {
                             return;
                         }
                         HGW::GwTrack &targetTrack = tracks[targetIndex];
-                        float stepY =  (totalTabixY) / (float)tracks.size();
+                        float stepY =  ((totalTabixY) / (float)tracks.size()) - sliderSpace - gap;  // todo not sure why sliderSpace is needed here
                         if (regionSelection >= (int)regions.size() || targetIndex >= (int)regions[regionSelection].featureLevels.size()) {
                             return;
                         }
