@@ -468,7 +468,7 @@ namespace Themes {
         vcf_as_tracks = false;
         bed_as_tracks = true;
         sv_arcs = true;
-        parse_mods = true;
+        parse_mods = false;
 
         scroll_speed = 0.15;
         tab_track_height = 0.05;
