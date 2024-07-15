@@ -180,7 +180,8 @@ namespace Themes {
                                 std::vector<std::string>& track_paths, std::vector<Utils::Region>& regions,
                                 std::vector<std::pair<std::string, int>>& variant_paths_info,
                                 std::vector<std::string>& commands, std::string output_session,
-                                int mode, int window_x_pos, int window_y_pos, float monitorScale, int screen_width, int screen_height);
+                                int mode, int window_x_pos, int window_y_pos, float monitorScale, int screen_width, int screen_height,
+                                int sortReadsBy);
 
     };
 

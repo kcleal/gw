@@ -310,7 +310,6 @@ namespace Menu {
             else if (opts.menu_level == "low_memory") { tip = "The distance in base-pairs when using low-memory mode (reads are not buffered in this mode)"; }
             else if (opts.menu_level == "mods") { tip = "Display modified bases"; }
             else if (opts.menu_level == "mods_qual_threshold") { tip = "Threshold (>) for displaying modified bases [0-255]"; }
-            else if (opts.menu_level == "haplotags") { tip = "Comma-seperated list of haplotype tags to display, derived from the HP bam-tag"; }
             else if (opts.menu_level == "scroll_right") { tip = "Keyboard key to use for scrolling right"; }
             else if (opts.menu_level == "scroll_left") { tip = "Keyboard key to use for scrolling left"; }
             else if (opts.menu_level == "scroll_down") { tip = "Keyboard key to use for scrolling down"; }

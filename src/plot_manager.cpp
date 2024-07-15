@@ -482,6 +482,15 @@ namespace Manager {
         if (opts.seshIni["data"].has("mode")) {
             mode = (opts.seshIni["data"]["mode"] == "tiled") ? Show::TILED : Show::SINGLE;
         }
+        if (opts.seshIni["show"].has("sort")) {
+            if (opts.seshIni["show"]["sort"] == "none") {
+                sortReadsBy = SortType::NONE;
+            } else if (opts.seshIni["show"]["sort"] == "strand") {
+                sortReadsBy = SortType::STRAND;
+            } else if (opts.seshIni["show"]["sort"] == "hap") {
+                sortReadsBy = SortType::HP;
+            }
+        }
         if (!reference.empty()) {
             fai = fai_load(reference.c_str());
             if (fai == nullptr) {
@@ -590,7 +599,7 @@ namespace Manager {
         glfwGetWindowSize(window, &windX, &windY);
         opts.saveCurrentSession(reference, ideogram_path, bam_paths, track_paths, regions, variant_paths_info,
                                 commandsApplied,
-                                output_session, mode, xpos, ypos, monitorScale, windX, windY);
+                                output_session, mode, xpos, ypos, monitorScale, windX, windY, sortReadsBy);
     }
 
     int GwPlot::startUI(GrDirectContext *sContext, SkSurface *sSurface, int delay) {
@@ -786,9 +795,9 @@ namespace Manager {
 
                         int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts,
                                                false, sortReadsBy);
-                        if (maxY > samMaxY) {
+//                        if (maxY > samMaxY) {
                             samMaxY = maxY;
-                        }
+//                        }
                     } else {
                         samMaxY = opts.ylim;
                     }
@@ -857,13 +866,12 @@ namespace Manager {
             totalTabixY = (fbh - refSpace - sliderSpace) * (float)opts.tab_track_height;
             tabixY = totalTabixY / (float)tracks.size();
         }
-
         if (nbams > 0 && samMaxY > 0) {
             trackY = (fbh - totalCovY - totalTabixY - refSpace - sliderSpace) / nbams;
             yScaling = (trackY - (gap * nbams)) / (double)samMaxY;
 
             // Ensure yScaling is an integer if possible
-            if (yScaling > 1) {
+            if (yScaling > 1 && sortReadsBy == SortType::NONE) {
                 yScaling = (int)yScaling;
             }
         } else {
@@ -881,39 +889,11 @@ namespace Manager {
                 pH = yScaling;
             }
         }
-
-        if (pH > 8) {  // scale to pixel boundary
+        if (pH > 8 && sortReadsBy == SortType::NONE) {  // scale to pixel boundary
             pH = (float)(int)pH;
         } else if (opts.tlen_yscale) {
             pH = std::fmax(pH, 8);
         }
-//        if (nbams > 0 && samMaxY > 0) {
-//            trackY = (fbh - totalCovY - totalTabixY - refSpace - sliderSpace) / nbams;
-//            yScaling = (trackY - (gap * nbams)) / (double)samMaxY;
-//            if (yScaling > 3 * monitorScale) {
-//                yScaling = (int)yScaling;
-//            }
-//
-//        } else {
-//            trackY = 0;
-//            yScaling = 0;
-//        }
-//
-//        if (yScaling > 3) {
-//            pH = yScaling * 0.85;  // polygonHeight
-//        } else {
-//            pH = yScaling;
-//        }
-//
-//        if (opts.tlen_yscale) {
-//            pH = trackY / (float) opts.ylim;
-//            yScaling *= 0.95;
-//        }
-//        if (pH > 8) {  // scale to pixel boundary
-//            pH = (float) (int) pH;
-//        } else if (opts.tlen_yscale) {
-//            pH = std::fmax(pH, 8);
-//        }
 
         fonts.setFontSize(yScaling, monitorScale);
         regionWidth = fbw / (float)regions.size();
@@ -1011,28 +991,24 @@ namespace Manager {
                 canvasR->drawPaint(opts.theme.bgPaint);
 
                 if (!cl.skipDrawingReads) {
-                    if (sortReadsBy == SortType::NONE) {
-                        if (cl.regionLen >= opts.low_memory && !bams.empty() && opts.link_op == 0) {  // low memory mode will be used
-                            cl.clear();
-                            if (opts.threads == 1) {
-                                HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                              &regions[cl.regionIdx], (bool) opts.max_coverage,
-                                              filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pointSlop,
-                                              textDrop, pH, monitorScale);
-                            } else {
-                                HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                                      opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
-                                                      filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pool,
-                                                      pointSlop, textDrop, pH, monitorScale);
-                            }
+                    if (cl.regionLen >= opts.low_memory && !bams.empty() && opts.link_op == 0 && sortReadsBy == SortType::NONE) {
+                        // low memory mode will be used
+                        cl.clear();
+                        if (opts.threads == 1) {
+                            HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                          &regions[cl.regionIdx], (bool) opts.max_coverage,
+                                          filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pointSlop,
+                                          textDrop, pH, monitorScale);
                         } else {
-                            Drawing::drawCollection(opts, cl, canvasR, trackY, yScaling, fonts, opts.link_op, refSpace,
-                                                    pointSlop, textDrop, pH, monitorScale);
+                            HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                                  opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
+                                                  filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pool,
+                                                  pointSlop, textDrop, pH, monitorScale);
                         }
                     } else {
-
+                        Drawing::drawCollection(opts, cl, canvasR, trackY, yScaling, fonts, opts.link_op, refSpace,
+                                                pointSlop, textDrop, pH, monitorScale);
                     }
-
                 }
                 canvasR->restore();
             }

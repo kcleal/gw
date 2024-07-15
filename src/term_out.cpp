@@ -62,6 +62,7 @@ namespace Term {
         out << termcolor::green << "settings                         " << termcolor::reset << "Open the settings menu'\n";
 		out << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window to png e.g. 's', or 's view.png',\n                                 or vcf columns can be used 's {pos}_{info.SU}.png'\n";
         out << termcolor::green << "soft-clips, sc                   " << termcolor::reset << "Toggle soft-clips\n";
+        out << termcolor::green << "sort             strand/hap      " << termcolor::reset << "Sort reads by strand or haplotype\n";
         out << termcolor::green << "tags                             " << termcolor::reset << "Print selected sam tags\n";
         out << termcolor::green << "theme            igv/dark/slate  " << termcolor::reset << "Switch color theme e.g. 'theme dark'\n";
         out << termcolor::green << "tlen-y                           " << termcolor::reset << "Toggle --tlen-y option\n";
@@ -261,6 +262,11 @@ namespace Term {
                          "        command over and over.\n\n";
         } else if (s == "soft-clips" || s == "sc") {
             out << "    Toggle soft-clips.\n        Soft-clipped bases or hard-clips are turned on or off.\n\n";
+        } else if (s == "sort") {
+            out << "    Sort reads by strand or haplotype (defined by HP tag in bam file).\n\n"
+                   "    Examples:\n"
+                   "        sort hap\n"
+                   "        sort strand\n\n";
         } else if (s == "tags") {
             out << "    Print selected sam tags.\n        This will print all the tags of the selected read\n\n";
         } else if (s == "theme") {

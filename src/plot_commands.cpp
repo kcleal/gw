@@ -38,8 +38,8 @@
 /* Notes for adding new commands:
  * 1. Make a new function, accepting a pointer to a GwPlot instance and any other args
  * 2. Add function to run_command_map below
- * 3. Add documentation in term_out.cpp - quick help text as well as a manual
- * 4. Register command in the menu functions:
+ * 3. Add documentation in term_out.cpp - quick help in menu.cpp text as well as a manual in term_out.cpp
+ * 4. Register command in the menu functions if needed:
  *     register with optionFromStr fucntion
  *     add to relevant functions
  *         getCommandSwitchValue applyBoolOption, applyKeyboardKeyOption etc
@@ -1408,7 +1408,7 @@ namespace Commands {
     }
 
     Err sort_command(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
-        if (parts.size() == 1) {
+        if (parts.size() == 1 || (parts.size() == 2 && parts[1] == "none")) {
             p->sortReadsBy = Manager::SortType::NONE;
             refreshGw(p);
             return Err::NONE;
@@ -1421,23 +1421,9 @@ namespace Commands {
         }
         if (parts[1] == "strand") {
             p->sortReadsBy = Manager::SortType::STRAND;
-//            std::vector<int> groups = {0, 1};
-//            int n_groups = 2;
+
         } else if (p->opts.myIni["general"].has("haplotags")) {
             p->sortReadsBy = Manager::SortType::HP;
-//            std::vector<int> groups;
-//
-//            for (int i=2; i < (int)parts.size(); ++i) {
-//                try {
-//                    groups.push_back(std::stoi(parts[i]));
-//                    if (groups.back() < 0) {
-//                        return Err::OPTION_NOT_UNDERSTOOD;
-//                    }
-//                } catch (...) {
-//                    return Err::OPTION_NOT_UNDERSTOOD;
-//                }
-//            }
-//            int n_groups = (int)groups.size();
         }
 
         p->redraw = true;

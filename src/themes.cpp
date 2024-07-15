@@ -785,7 +785,7 @@ namespace Themes {
                                         std::vector<std::pair<std::string, int>>& variant_paths_info,
                                         std::vector<std::string>& commands, std::string output_session,
                                         int mode, int window_x_pos, int window_y_pos, float monitorScale,
-                                        int screen_width, int screen_height) {
+                                        int screen_width, int screen_height, int sortReadsBy) {
         if (output_session.empty()) {
 
             if (session_file.empty()) {  // fill new session
@@ -829,6 +829,14 @@ namespace Themes {
             count += 1;
         }
         seshIni["show"]["mode"] = (mode == 1) ? "tiled" : "single";
+        if (sortReadsBy == 0) {
+            seshIni["show"]["sort"] = "none";
+        } else if (sortReadsBy == 1) {
+            seshIni["show"]["sort"] = "strand";
+        } else if (sortReadsBy == 2) {
+            seshIni["show"]["sort"] = "hap";
+        }
+
         count = 0;
         for (auto& item: variant_paths_info) {
             seshIni["show"]["var" + std::to_string(count)] = std::to_string(item.second);
