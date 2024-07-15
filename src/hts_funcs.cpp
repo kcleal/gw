@@ -559,7 +559,6 @@ namespace HGW {
         }
         int lastPos;
         const int parse_mods_threshold = (opts.parse_mods) ? 50 : 0;
-
         if (!readQueue.empty()) {
             if (left) {
                 lastPos = readQueue.front().pos; // + 1;
@@ -600,7 +599,25 @@ namespace HGW {
             } else {
                 end_r = readQueue.front().reference_end;
                 if (end_r < region->start) {
-                    return; // reads are already in the queue
+                    // reads are already in the queue, no need to collect
+                    // recalculate coverage - even though no reads collected, region may still have changed
+                    if (coverage) {
+                        col.covArr.resize(region->end - region->start + 1);
+                        std::fill(col.covArr.begin(), col.covArr.end(), 0);
+                        int l_arr = (int)col.covArr.size() - 1;
+                        for (auto &i : readQueue) {
+                            Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
+                        }
+                        if (opts.snp_threshold > region->end - region->start) {
+                            col.mmVector.resize(region->end - region->start + 1);
+                            Segs::Mismatches empty_mm{};
+                            std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
+                        } else {
+                            col.mmVector.clear();
+                        }
+                    }
+                    col.collection_processed = false;
+                    return;
                 }
             }
 

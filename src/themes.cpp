@@ -248,18 +248,13 @@ namespace Themes {
         for (size_t i=0; i < 4; ++i) {
             ModPaints[0][i] = fc5mc;
             ModPaints[0][i].setAlpha(alph);
-            alph += 64;
-        }
-        alph = 0;
-        for (size_t i=0; i < 4; ++i) {
+
             ModPaints[1][i] = fc5hmc;
             ModPaints[1][i].setAlpha(alph);
-            alph += 64;
-        }
-        alph = 0;
-        for (size_t i=0; i < 4; ++i) {
+
             ModPaints[2][i] = fcOther;
             ModPaints[2][i].setAlpha(alph);
+
             alph += 64;
         }
     }

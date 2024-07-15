@@ -841,9 +841,7 @@ namespace Manager {
                 Utils::Region &region = regions[regionSelection];
                 if (key == opts.scroll_right) {
                     int shift = (int)(((float)region.end - (float)region.start) * opts.scroll_speed);
-//                    if (region.refSeq != nullptr) {
-//                        delete region.refSeq;
-//                    }
+
                     region.start = std::max(0, region.start + shift);
                     region.end = std::max(region.start + 1, region.end + shift);
                     fetchRefSeq(region);
@@ -877,9 +875,7 @@ namespace Manager {
                     if (shift == 0) {
                         return;
                     }
-//                    if (region.refSeq != nullptr) {
-//                        delete region.refSeq;
-//                    }
+
                     region.start = std::max(0, region.start - shift);
                     region.end = std::max(region.start + 1, region.end - shift);
                     fetchRefSeq(region);
@@ -913,9 +909,7 @@ namespace Manager {
                     if (shift == 0) {
                         return;
                     }
-//                    if (region.refSeq != nullptr) {
-//                        delete region.refSeq;
-//                    }
+
                     region.start = std::max(0, region.start - shift_left);
                     region.end = std::max(region.start + 1, region.end + shift);
                     fetchRefSeq(region);
@@ -966,9 +960,7 @@ namespace Manager {
                 } else if (key == opts.zoom_in) {
                     if (region.end - region.start > 50) {
                         int shift = (int)(((float)region.end - (float)region.start) * opts.scroll_speed);
-//                        if (region.refSeq != nullptr) {
-//                            delete region.refSeq;
-//                        }
+
                         region.start = std::max(0, region.start + shift);
                         region.end = std::max(region.start + 1, region.end - shift);
                         fetchRefSeq(region);
@@ -1905,7 +1897,7 @@ namespace Manager {
                     if (region.start < 1 || region.end < 1) {
                         return;
                     }
-//                    delete region.refSeq;
+
                     fetchRefSeq(region);
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
@@ -1915,7 +1907,6 @@ namespace Manager {
                                 HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                             indexes[cl.bamIdx], opts, (bool)opts.max_coverage, !lt_last,
                                                             &samMaxY, filters, pool, sortReadsBy);
-
                             }
                         }
                     }

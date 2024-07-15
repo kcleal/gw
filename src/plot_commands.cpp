@@ -1268,7 +1268,7 @@ namespace Commands {
         else if (c == "fcDup") { e = Themes::GwPaint::fcDup; }
         else if (c == "fcInvF") { e = Themes::GwPaint::fcInvF; }
         else if (c == "fcInvR") { e = Themes::GwPaint::fcInvR; }
-        else if (c == "fcTra") { e = Themes::GwPaint::fcTra; }
+        else if (c == "fcT ra") { e = Themes::GwPaint::fcTra; }
         else if (c == "fcIns") { e = Themes::GwPaint::fcIns; }
         else if (c == "fcSoftClip") { e = Themes::GwPaint::fcSoftClip; }
         else if (c == "fcA") { e = Themes::GwPaint::fcA; }
@@ -1302,9 +1302,30 @@ namespace Commands {
         else if (c == "tcBackground") { e = Themes::GwPaint::tcBackground; }
         else if (c == "fcMarkers") { e = Themes::GwPaint::fcMarkers; }
         else if (c == "fcRoi") { e = Themes::GwPaint::fcRoi; }
-        else if (c == "fc5mc") { e = Themes::GwPaint::fc5mc; }
-        else if (c == "fc5hmc") { e = Themes::GwPaint::fc5hmc; }
-        else if (c == "fcOther") { e = Themes::GwPaint::fcOther; }
+        else if (c =="fc5mc") {
+            e = Themes::GwPaint::fc5mc;
+            alpha = 63;
+            for (size_t i=0; i < 4; ++i) {
+                p->opts.theme.ModPaints[0][i].setARGB(alpha, red, green, blue);
+                alpha += 64;
+            }
+        }
+        else if (c == "fc5hmc") {
+            e = Themes::GwPaint::fc5hmc;
+            alpha = 63;
+            for (size_t i=0; i < 4; ++i) {
+                p->opts.theme.ModPaints[1][i].setARGB(alpha, red, green, blue);
+                alpha += 64;
+            }
+        }
+        else if (c == "fcOther") {
+            e = Themes::GwPaint::fcOther;
+            alpha = 63;
+            for (size_t i=0; i < 4; ++i) {
+                p->opts.theme.ModPaints[2][i].setARGB(alpha, red, green, blue);
+                alpha += 64;
+            }
+        }
         else if (Utils::startsWith(c, "track") && c != "track") {
             c.erase(0, 5);
             int ind = 0;
@@ -1326,6 +1347,7 @@ namespace Commands {
             return Err::OPTION_NOT_UNDERSTOOD;
         }
         p->opts.theme.setPaintARGB(e, alpha, red, green, blue);
+        refreshGw(p);
         return Err::NONE;
     }
 

@@ -778,6 +778,7 @@ namespace Drawing {
         if (align.any_mods.empty()) {
             return;
         }
+
         float precalculated_xOffset_mmPosOffset = xOffset + mmPosOffset + (0.5 * xScaling) - 2;
 
         auto mod_it = align.any_mods.begin();
@@ -786,7 +787,6 @@ namespace Drawing {
         float top = yScaledOffset + (pH / 3);
         float middle = yScaledOffset + pH - (pH / 2);
         float bottom = yScaledOffset + pH - (pH / 3);
-
         for (const auto& blk : align.blocks) {
             if ((int)blk.end < region->start) {
                 continue;
@@ -799,18 +799,22 @@ namespace Drawing {
                 ++mod_it;
             }
             while (mod_it != mod_end && mod_it->index < idx_end) {
-                float x = (((blk.start + mod_it->index - idx_start) - region->start) * xScaling) + precalculated_xOffset_mmPosOffset;
+                float x = ((((int)blk.start + (int)mod_it->index - idx_start) - region->start) * xScaling) + precalculated_xOffset_mmPosOffset;
+                if (x < 0) {
+                    ++mod_it;
+                    continue;
+                }
                 int n_mods = mod_it->n_mods;
                 for (size_t j=0; j < (size_t)n_mods; ++j) {
                     switch (mod_it->mods[j]) {
                         case 'm':  // 5mC
-                            canvas->drawPoint(x, (n_mods == 1) ? middle : top, theme.ModPaints[0][mod_it->quals[j] % 48]);
+                            canvas->drawPoint(x, (n_mods == 1) ? middle : top, theme.ModPaints[0][ mod_it->quals[j] % 4 ]);
                             break;
                         case 'h':  // 5hmC
-                            canvas->drawPoint(x, (n_mods == 1) ? middle : bottom, theme.ModPaints[1][mod_it->quals[j] % 48]);
+                            canvas->drawPoint(x, (n_mods == 1) ? middle : bottom, theme.ModPaints[1][ mod_it->quals[j] % 4 ]);
                             break;
                         default:
-                            canvas->drawPoint(x, middle, theme.ModPaints[2][mod_it->quals[j] % 48]);
+                            canvas->drawPoint(x, middle, theme.ModPaints[2][ mod_it->quals[j] % 4 ]);
                             break;
                     }
                 }
@@ -1155,7 +1159,7 @@ namespace Drawing {
                                     break;
                             }
                             paint.setStyle(SkPaint::kStroke_Style);
-                            paint.setStrokeWidth(2);
+                            paint.setStrokeWidth(monitorScale);
                             path.reset();
                             path.moveTo(x_a, y);
                             path.lineTo(x_b, y);
@@ -1921,7 +1925,7 @@ namespace Drawing {
         SkPaint paint, light_paint, line;
         paint.setARGB(255, 240, 32, 73);
 
-        paint.setStrokeWidth(2);
+        paint.setStrokeWidth(monitorScale);
         paint.setStyle(SkPaint::kStroke_Style);
 
         light_paint = opts.theme.lcLightJoins;

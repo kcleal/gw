@@ -924,7 +924,7 @@ namespace Segs {
         if (re_sort) {
             std::sort(rc.sortLevels.begin(), rc.sortLevels.end());
         }
-        if (ls.size() != ylim + (vScroll * n_cats)) {
+        if ((int)ls.size() != ylim + (vScroll * n_cats)) {
             ls.resize(ylim + (vScroll * n_cats), 1215752191);
             le.resize(ylim + (vScroll * n_cats), 0);
         }

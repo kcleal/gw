@@ -938,10 +938,19 @@ namespace Manager {
 
         minGapSize = (uint32_t)(fb_width * 0.005);
         if (opts.parse_mods) {
+            float sw = std::fmin(pH / 3, 4 * monitorScale);
             for (size_t i=0; i < 4; ++i) {
-                opts.theme.ModPaints[0][i].setStrokeWidth(std::fmin(pH / 3, 4 * monitorScale));
-                opts.theme.ModPaints[0][i].setStrokeWidth(std::fmin(pH / 3, 4 * monitorScale));
-                opts.theme.ModPaints[0][i].setStrokeWidth(std::fmin(pH / 3, 4 * monitorScale));
+                opts.theme.ModPaints[0][i].setStrokeWidth(sw);
+                opts.theme.ModPaints[0][i].setStrokeWidth(sw);
+                opts.theme.ModPaints[0][i].setStrokeWidth(sw);
+
+                opts.theme.ModPaints[1][i].setStrokeWidth(sw);
+                opts.theme.ModPaints[1][i].setStrokeWidth(sw);
+                opts.theme.ModPaints[1][i].setStrokeWidth(sw);
+
+                opts.theme.ModPaints[2][i].setStrokeWidth(sw);
+                opts.theme.ModPaints[2][i].setStrokeWidth(sw);
+                opts.theme.ModPaints[2][i].setStrokeWidth(sw);
             }
         }
 
@@ -962,7 +971,6 @@ namespace Manager {
         } else {
             processBam();  // Reads may be buffered here, or else streamed using the runDrawNoBuffer functions below
             setScaling();
-
             if (yScaling == 0) {
                 return;
             }
@@ -981,7 +989,6 @@ namespace Manager {
                     continue;
                 }
                 canvasR->save();
-
                 // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
                 if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
                     if (bams.size() == 1) {
@@ -1029,7 +1036,6 @@ namespace Manager {
                 }
                 canvasR->restore();
             }
-
             if (opts.max_coverage) {
                 Drawing::drawCoverage(opts, collections, canvasR, fonts, covY, refSpace);
             }

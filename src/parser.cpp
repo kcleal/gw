@@ -524,6 +524,7 @@ namespace Parse {
                         break;
                     case TLEN:
                         int_val = aln.delegate->core.isize;
+
                         break;
                     case ABS_TLEN:
                         int_val = std::abs(aln.delegate->core.isize);
