@@ -863,6 +863,7 @@ namespace Drawing {
 
         for (const auto &a: cl.readQueue) {
             int Y = a.y;
+            assert (Y >= -2);
             if (Y < 0) {
                 continue;
             }
@@ -877,6 +878,7 @@ namespace Drawing {
                 pointLeft = false;
             }
             size_t nBlocks = a.blocks.size();
+            assert (nBlocks >= 1);
             if (drawEdges && a.edge_type != 1) {
                 edged = true;
                 chooseEdgeColor(a.edge_type, edgeColor, theme);
@@ -886,10 +888,9 @@ namespace Drawing {
             double width, s, e, textW;
             int lastEnd = 1215752191;
             int starti = 0;
-
             size_t idx;
+
             // draw gapped
-            assert (nBlocks >= 1);
             if (nBlocks > 1) {
                 idx = 1;
                 size_t idx_begin = 0;
@@ -897,7 +898,7 @@ namespace Drawing {
                     starti = (int) a.blocks[idx].start;
                     lastEnd = (int) a.blocks[idx - 1].end;
                     if (starti - lastEnd == 0) {
-                        continue;  // insertion
+                        continue;  // insertion, draw over the top later on
                     }
                     if (starti - lastEnd >= min_gap_size) {
                         s = (double)a.blocks[idx_begin].start - regionBegin;
@@ -909,6 +910,7 @@ namespace Drawing {
                         idx_begin = idx;
                     }
                 }
+                // Draw final block
                 s = (double)a.blocks[idx_begin].start - regionBegin;
                 e = (double)a.blocks[idx - 1].end - regionBegin;
                 width = (e - s) * xScaling;

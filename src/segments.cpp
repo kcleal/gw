@@ -515,6 +515,7 @@ namespace Segs {
 
     int bam_mods_at_next_pos(const bam1_t *b, hts_base_mod_state *state,
                              hts_base_mod *mods, int n_mods) {
+
         if (b->core.flag & BAM_FREVERSE) {
             if (state->seq_pos < 0)
                 return -1;
@@ -571,9 +572,33 @@ namespace Segs {
 #endif
                     return -1;
                 }
-                for (cp = state->MMend[i]-1; cp != state->MM[i]; cp--)
-                    if (*cp == ',')
-                        break;
+
+//                if (i == 0) {
+//                    cp = state->MM[i];
+//                } else {
+
+                    if (i > 0) {
+                        char *cp_begin = state->MMend[0];
+                        char *cp2 = state->MMend[i];
+                        cp = state->MMend[i]-1;
+                        while (cp != cp_begin && (cp == cp2 || *cp != ',')) {
+                            --cp;
+                            --cp2;
+                        }
+                    } else {
+                        return -1;
+                    }
+
+
+//                    for (cp = state->MMend[i]-1; cp != state->MM[i]; cp--) {
+//                        std::cout << (cp == nullptr) << " " <<  i << "  5a2.\n";
+//                        if (i < 1 || *cp == ',') {
+//                            break;
+//                        }
+//                        std::cout << "  5a2.\n";
+//                    }
+//                }
+
                 state->MMend[i] = cp;
                 if (cp != state->MM[i])
                     state->MMcount[i] = strtol(cp+1, NULL, 10);
@@ -611,6 +636,7 @@ namespace Segs {
                          hts_base_mod *mods, int n_mods, int *pos) {
         // Look through state->MMcount arrays to see when the next lowest is
         // per base type;
+
         int next[16], freq[16] = {0}, i;
         memset(next, 0x7f, 16*sizeof(*next));
         const int unchecked = state->flags & HTS_MOD_REPORT_UNCHECKED;
@@ -773,23 +799,25 @@ namespace Segs {
                 int pos = 0;  // position on read, not reference
                 int nm = bam_next_basemod(src, mod_state, mods, 10, &pos);
                 while (nm > 0) {
-                self->any_mods.emplace_back() = ModItem();
-                ModItem& mi = self->any_mods.back();
-                mi.index = pos;
-                size_t j=0;
-                for (size_t m=0; m < std::min((size_t)4, (size_t)nm); ++m) {
-                    if (mods[m].qual > parse_mods_threshold) {
-                        mi.mods[j] = (char)mods[m].modified_base;
-                        mi.quals[j] = (uint8_t)mods[m].qual;
-                        mi.strands[j] = (bool)mods[m].strand;
-                        j += 1;
+                    self->any_mods.emplace_back() = ModItem();
+                    ModItem& mi = self->any_mods.back();
+                    mi.index = pos;
+                    size_t j=0;
+                    for (size_t m=0; m < std::min((size_t)4, (size_t)nm); ++m) {
+                        if (mods[m].qual > parse_mods_threshold) {
+                            mi.mods[j] = (char)mods[m].modified_base;
+                            mi.quals[j] = (uint8_t)mods[m].qual;
+                            mi.strands[j] = (bool)mods[m].strand;
+                            j += 1;
+                        }
                     }
+                    mi.n_mods = (uint8_t)j;
+                    nm = bam_next_basemod(src, mod_state, mods, 10, &pos);
                 }
-                mi.n_mods = (uint8_t)j;
-                nm = bam_next_basemod(src, mod_state, mods, 10, &pos);
-                }
+
             }
             delete mod_state;
+
         }
 
 

@@ -1084,8 +1084,11 @@ namespace Manager {
     void GwPlot::drawOverlay(SkCanvas *canvas) {
 
         if (!imageCacheQueue.empty()) {
-            while (imageCacheQueue.front().first != frameId) {
+            while (!imageCacheQueue.empty() && imageCacheQueue.front().first != frameId) {
                 imageCacheQueue.pop_front();
+            }
+            if (imageCacheQueue.empty()) {
+                return;
             }
             canvas->drawImage(imageCacheQueue.back().second, 0, 0);
         }
