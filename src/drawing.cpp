@@ -384,41 +384,109 @@ namespace Drawing {
         canvas->drawRect(rect, faceColor);
     }
 
-    inline void
-    drawLeftPointedRectangle(SkCanvas *canvas, const float polygonH, const float yScaledOffset, float start,
-                             float width, const float maxX, const float xOffset, const SkPaint &faceColor,
-                             SkPath &path, const float slop, bool edged, SkPaint &edgeColor) {
+    SkPoint points[5];
+
+    inline void drawLeftPointedRectangle(SkCanvas *canvas, const float polygonH, const float yScaledOffset, float start,
+                                         float width, const float maxX, const float xOffset, const SkPaint &faceColor,
+                                         SkPath &path, const float slop, bool edged, SkPaint &edgeColor) {
+        const float startX = start + xOffset;
+        const float midY = yScaledOffset + (polygonH * 0.5);
+        const float endY = yScaledOffset + polygonH;
+        const float endX = start + width + xOffset;
+        const float slopedStartX = start - slop + xOffset;
+        points[0] = SkPoint::Make(startX, yScaledOffset);
+        points[1] = SkPoint::Make(slopedStartX, midY);
+        points[2] = SkPoint::Make(startX, endY);
+        points[3] = SkPoint::Make(endX, endY);
+        points[4] = SkPoint::Make(endX, yScaledOffset);
         path.reset();
-        path.moveTo(start + xOffset, yScaledOffset);
-        path.lineTo(start - slop + xOffset, yScaledOffset + (polygonH * 0.5));
-        path.lineTo(start + xOffset, yScaledOffset + polygonH);
-        path.lineTo(start + width + xOffset, yScaledOffset + polygonH);
-        path.lineTo(start + width + xOffset, yScaledOffset);
-        path.close();
+        path.addPoly(points, 5, true);
         canvas->drawPath(path, faceColor);
         if (edged) {
+            points[0].fY += 0.5;
+            points[4].fY += 0.5;
+            path.reset();
+            path.addPoly(points, 5, true);
             canvas->drawPath(path, edgeColor);
         }
     }
 
-    inline void
-    drawRightPointedRectangle(SkCanvas *canvas, const float polygonH, const float yScaledOffset, float start,
-                              float width, const float maxX, const float xOffset, const SkPaint &faceColor,
-                              SkPath &path,
-                              const float slop,
-                              bool edged, SkPaint &edgeColor) {
+    inline void drawRightPointedRectangle(SkCanvas *canvas, const float polygonH, const float yScaledOffset, float start,
+                                          float width, const float maxX, const float xOffset, const SkPaint &faceColor,
+                                          SkPath &path, const float slop, bool edged, SkPaint &edgeColor) {
+
+        const float startX = start + xOffset;
+        const float endY = yScaledOffset + polygonH;
+        const float midY = yScaledOffset + (polygonH * 0.5);
+        const float endX = start + width + xOffset;
+        const float slopedEndX = endX + slop;
+        points[0] = SkPoint::Make(startX, yScaledOffset);
+        points[1] = SkPoint::Make(startX, endY);
+        points[2] = SkPoint::Make(endX, endY);
+        points[3] = SkPoint::Make(slopedEndX, midY);
+        points[4] = SkPoint::Make(endX, yScaledOffset);
         path.reset();
-        path.moveTo(start + xOffset, yScaledOffset);
-        path.lineTo(start + xOffset, yScaledOffset + polygonH);
-        path.lineTo(start + width + xOffset, yScaledOffset + polygonH);
-        path.lineTo(start + width + slop + xOffset, yScaledOffset + (polygonH * 0.5));
-        path.lineTo(start + width + xOffset, yScaledOffset);
-        path.close();
+        path.addPoly(points, 5, true);
         canvas->drawPath(path, faceColor);
         if (edged) {
+            points[0].fY += 0.5;
+            points[4].fY += 0.5;
+            path.reset();
+            path.addPoly(points, 5, true);
             canvas->drawPath(path, edgeColor);
         }
     }
+
+
+//    inline void
+//    drawLeftPointedRectangle(SkCanvas *canvas, const float polygonH, const float yScaledOffset, float start,
+//                             float width, const float maxX, const float xOffset, const SkPaint &faceColor,
+//                             SkPath &path, const float slop, bool edged, SkPaint &edgeColor) {
+//        path.reset();
+//        path.moveTo(start + xOffset, yScaledOffset);
+//        path.lineTo(start - slop + xOffset, yScaledOffset + (polygonH * 0.5));
+//        path.lineTo(start + xOffset, yScaledOffset + polygonH);
+//        path.lineTo(start + width + xOffset, yScaledOffset + polygonH);
+//        path.lineTo(start + width + xOffset, yScaledOffset);
+//        path.close();
+//        canvas->drawPath(path, faceColor);
+//        if (edged) {
+//            path.reset();
+//            path.moveTo(start + xOffset, yScaledOffset + 1);
+//            path.lineTo(start - slop + xOffset, yScaledOffset + (polygonH * 0.5));
+//            path.lineTo(start + xOffset, yScaledOffset + polygonH);
+//            path.lineTo(start + width + xOffset, yScaledOffset + polygonH);
+//            path.lineTo(start + width + xOffset, yScaledOffset + 1);
+//            path.close();
+//            canvas->drawPath(path, edgeColor);
+//        }
+//    }
+
+//    inline void
+//    drawRightPointedRectangle(SkCanvas *canvas, const float polygonH, const float yScaledOffset, float start,
+//                              float width, const float maxX, const float xOffset, const SkPaint &faceColor,
+//                              SkPath &path,
+//                              const float slop,
+//                              bool edged, SkPaint &edgeColor) {
+//        path.reset();
+//        path.moveTo(start + xOffset, yScaledOffset);
+//        path.lineTo(start + xOffset, yScaledOffset + polygonH);
+//        path.lineTo(start + width + xOffset, yScaledOffset + polygonH);
+//        path.lineTo(start + width + slop + xOffset, yScaledOffset + (polygonH * 0.5));
+//        path.lineTo(start + width + xOffset, yScaledOffset);
+//        path.close();
+//        canvas->drawPath(path, faceColor);
+//        if (edged) {
+//            path.reset();
+//            path.moveTo(start + xOffset, yScaledOffset + 1);
+//            path.lineTo(start + xOffset, yScaledOffset + polygonH);
+//            path.lineTo(start + width + xOffset, yScaledOffset + polygonH);
+//            path.lineTo(start + width + slop + xOffset, yScaledOffset + (polygonH * 0.5));
+//            path.lineTo(start + width + xOffset, yScaledOffset + 1);
+//            path.close();
+//            canvas->drawPath(path, edgeColor);
+//        }
+//    }
 
     inline void
     drawHLine(SkCanvas *canvas, SkPath &path, const SkPaint &lc, const float startX, const float y, const float endX) {
@@ -1175,7 +1243,8 @@ namespace Drawing {
 
     void drawRef(const Themes::IniOptions &opts,
                  std::vector<Utils::Region> &regions, int fb_width,
-                 SkCanvas *canvas, const Themes::Fonts &fonts, float h, float nRegions, float gap) {
+                 SkCanvas *canvas, const Themes::Fonts &fonts, float h, float nRegions, float gap, float monitorScale,
+                 bool scale_bar) {
         if (regions.empty()) {
             return;
         }
@@ -1187,7 +1256,17 @@ namespace Drawing {
         float textW = fonts.overlayWidth;
         float minLetterSize = (textW > 0) ? ((float) fb_width / (float) regions.size()) / textW : 0;
         int index = 0;
-        float yp = h + 2;
+        float yp;
+        double mmPosOffset;
+        if (scale_bar) {
+            mmPosOffset = h + monitorScale;
+            yp = h + monitorScale;
+            h /= 2;
+        } else {
+            mmPosOffset = monitorScale;
+            yp = h + monitorScale;
+        }
+
         for (auto &rgn: regions) {
             int size = rgn.end - rgn.start;
             double xScaling = xPixels / size;
@@ -1195,12 +1274,11 @@ namespace Drawing {
             if (ref == nullptr) {
                 continue;
             }
-            double mmPosOffset, mmScaling;
+            double mmScaling;
             if (size < 250) {
-                mmPosOffset = 2;// 0.05;
                 mmScaling = 0.9 * xScaling;
             } else {
-                mmPosOffset = 2; //h * 0.2;
+
                 mmScaling = 1 * xScaling;
             }
             double i = regionW * index;
@@ -1993,8 +2071,10 @@ namespace Drawing {
             canvas->drawRect(rect, paint);
 
             // draw scale bar
-            if (true) {
-                float top2 = top - yh * 2;
+            if (opts.scale_bar) {
+
+//                float top2 = top - yh * 2;
+                float top2 = 25;
                 xp = (regionIdx * colWidth) + plot_gap;
 
                 double nice_range = NiceNumber((double)region.regionLen, 0);
@@ -2015,19 +2095,14 @@ namespace Drawing {
                         position += nice_tick;
                         continue;
                     }
-
-
                     float x_pos = gap + ((position - region.start - 0.5) * xScaling);
-
                     if (x_pos < xp || x_pos > xp + scaleWidth) {
                         position += nice_tick;
                         continue;
                     }
-
                     path.moveTo(x_pos, top2 + yh*0.5);
                     path.lineTo(x_pos, top2 + yh);
                     canvas->drawPath(path, opts.theme.lcJoins);
-
 
                     posToText(position, region.regionLen, text);
                     if (text == last) {
@@ -2041,18 +2116,11 @@ namespace Drawing {
                         position += nice_tick;
                         continue;
                     }
-
                     canvas->drawTextBlob(blob, x_pos - t_half, top2, opts.theme.tcDel);
-
                     last = text;
                     position += nice_tick;
-
-
                 }
-
             }
-
-
             regionIdx += 1;
         }
     }

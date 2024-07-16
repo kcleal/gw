@@ -194,6 +194,9 @@ namespace Themes {
         lcBright.setStrokeWidth(2);
         lcBright.setAntiAlias(true);
 
+        ecSelected.setAntiAlias(true);
+        ecSplit.setAntiAlias(true);
+
         fcMarkers.setStyle(SkPaint::kStrokeAndFill_Style);
         fcMarkers.setAntiAlias(true);
         fcMarkers.setStrokeMiter(0.1);
@@ -318,7 +321,8 @@ namespace Themes {
         fcInvF.setARGB(255, 0, 199, 50);
         fcInvR.setARGB(255, 0, 199, 50);
         fcTra.setARGB(255, 255, 105, 180);
-        fcSoftClip.setARGB(255, 0, 128, 128);
+        fcSoftClip.setARGB(255, 96,160,176);
+//        fcSoftClip.setARGB(255, 0, 128, 128);
         fcA.setARGB(255, 109, 230, 64);
         fcT.setARGB(255, 255, 0, 107);
         fcC.setARGB(255, 66, 127, 255);
@@ -469,6 +473,7 @@ namespace Themes {
         bed_as_tracks = true;
         sv_arcs = true;
         parse_mods = false;
+        scale_bar = true;
 
         scroll_speed = 0.15;
         tab_track_height = 0.05;
@@ -537,6 +542,9 @@ namespace Themes {
         }
         if (myIni["general"].has("expand_tracks")) {
             expand_tracks = myIni["general"]["expand_tracks"] == "true";
+        }
+        if (myIni["general"].has("scale_bar")) {
+            scale_bar = myIni["general"]["scale_bar"] == "true";
         }
         if (myIni["general"].has("sv_arcs")) {
             sv_arcs = myIni["general"]["sv_arcs"] == "true";
@@ -651,6 +659,9 @@ namespace Themes {
             }
             if (sub.has("expand_tracks")) {
                 expand_tracks = sub["expand_tracks"] == "true";
+            }
+            if (sub.has("scale_bar")) {
+                scale_bar = sub["scale_bar"] == "true";
             }
             if (sub.has("link")) {
                 link = sub["link"] == "true";
@@ -829,6 +840,7 @@ namespace Themes {
             count += 1;
         }
         seshIni["show"]["mode"] = (mode == 1) ? "tiled" : "single";
+
         if (sortReadsBy == 0) {
             seshIni["show"]["sort"] = "none";
         } else if (sortReadsBy == 1) {
@@ -875,6 +887,7 @@ namespace Themes {
         sub["coverage"] = (max_coverage) ? "true" : "false";
         sub["log2_cov"] = (log2_cov) ? "true" : "false";
         sub["expand_tracks"] = (expand_tracks) ? "true" : "false";
+        sub["scale_bar"] = (scale_bar) ? "true" : "false";
         sub["mods"] = (parse_mods) ? "true" : "false";
         sub["link"] = link;
         sub["split_view_size"] = std::to_string(split_view_size);

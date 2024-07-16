@@ -36,7 +36,7 @@ namespace Drawing {
                   float trackY, float yScaling, const Themes::Fonts &fonts, int linkOp, float refSpace, float pointSlop, float textDrop, float pH, float monitorScale);
 
     void drawRef(const Themes::IniOptions &opts, std::vector<Utils::Region> &regions, int fb_width,
-                 SkCanvas *canvas, const Themes::Fonts &fonts, float refSpace, float nRegions, float gap);
+                 SkCanvas *canvas, const Themes::Fonts &fonts, float refSpace, float nRegions, float gap, float monitorScale, bool scale_bar);
 
     void drawBorders(const Themes::IniOptions &opts, float fb_width, float fb_height,
                      SkCanvas *canvas, size_t nregions, size_t nbams, float trackY, float covY, int nTracks, float totalTabixY, float refSpace, float gap);

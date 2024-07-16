@@ -295,6 +295,7 @@ namespace Menu {
             else if (opts.menu_level == "coverage") { tip = "Turn coverage on or off [true, false]"; }
             else if (opts.menu_level == "log2_cov") { tip = "Change the y-scale of the coverage track to log2 [true, false]"; }
             else if (opts.menu_level == "expand_tracks") { tip = "Expand overlapping track features [true, false]"; }
+            else if (opts.menu_level == "scale_bar") { tip = "Add scale bars [true, false]"; }
             else if (opts.menu_level == "vcf_as_tracks") { tip = "Drag-and-dropped vcf/bcf files will be added as a track if true, or image-tiles otherwise [true, false]"; }
             else if (opts.menu_level == "bed_as_tracks") { tip = "Drag-and-dropped bed files will be added as a track if true, or image-tiles otherwise [true, false]"; }
             else if (opts.menu_level == "link") { tip = "Change which reads are linked [none, sv, all]"; }
@@ -684,7 +685,7 @@ namespace Menu {
         for (const auto& v : {"scroll_speed", "tabix_track_height"}) {
             option_map[v] = Float;
         }
-        for (const auto& v : {"coverage", "log2_cov", "expand_tracks", "vcf_as_tracks", "bed_as_tracks", "sv_arcs", "mods"}) {
+        for (const auto& v : {"coverage", "log2_cov", "expand_tracks", "scale_bar", "vcf_as_tracks", "bed_as_tracks", "sv_arcs", "mods"}) {
             option_map[v] = Bool;
         }
         for (const auto& v : {"scroll_right", "scroll_left", "zoom_out", "zoom_in", "scroll_down", "scroll_up", "cycle_link_mode", "print_screen", "find_alignments", "delete_labels", "enter_interactive_mode"}) {
@@ -756,6 +757,7 @@ namespace Menu {
         else if (new_opt.name == "tabix_track_height") { opts.tab_track_height = v; }
         else if (new_opt.name == "log2_cov") { opts.log2_cov = v; }
         else if (new_opt.name == "expand_tracks") { opts.expand_tracks = v; }
+        else if (new_opt.name == "scale_bar") { opts.scale_bar = v; }
         else if (new_opt.name == "vcf_as_tracks") { opts.vcf_as_tracks = v; }
         else if (new_opt.name == "bed_as_tracks") { opts.bed_as_tracks = v; }
         else if (new_opt.name == "coverage") { opts.max_coverage = (v) ? 1410065408 : 0; }
@@ -890,7 +892,7 @@ namespace Menu {
         } else if (cmd_s == "log2-cov") {
             return (int)(opts.log2_cov);
         } else if (cmd_s == "expand-tracks") {
-            return (int)(opts.expand_tracks);
+            return (int) (opts.expand_tracks);
         } else if (cmd_s == "line") {
             return (int)drawLine;
         } else if (cmd_s == "insertions") {
