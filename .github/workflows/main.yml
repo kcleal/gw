@@ -52,7 +52,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install graphicsmagick dylibbundler glfw fontconfig
+          brew install imagemagick graphicsmagick dylibbundler glfw fontconfig
           # npm broken for python3.12 so use this as work around
           brew list | grep python@
           # brew unlink python@3.12
@@ -128,6 +128,8 @@ jobs:
           sudo codesign --remove-signature ./gw.app
           sudo codesign --force --deep -s - gw.app -v
           sudo codesign --verify -vvvv gw.app
+          
+          ls $brew_bin
           PATH="$PATH:$brew_bin" create-dmg 'gw.app' || true
           ls
           mv gw\ undefined.dmg gw_macos_${{ matrix.arch }}.dmg
