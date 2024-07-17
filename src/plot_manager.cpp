@@ -1030,7 +1030,7 @@ namespace Manager {
         if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvasR, fonts, covY, refSpace);
         }
-        Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, refSpace, (float)regions.size(), gap);
+        Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, refSpace, (float)regions.size(), gap, monitorScale, opts.scale_bar);
         Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
         Drawing::drawTracks(opts, fb_width, fb_height, canvasR, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, fai, fb_width, fb_height, monitorScale, gap);

@@ -35,10 +35,20 @@ jobs:
          name: mingw-${{ matrix.sys }}
          path: ${{ github.workspace }}/*.exe
 
-  macos-intel:
-    runs-on: macos-12
+  macos-package:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ macos-12, macos-14 ]
+        include:
+          - os: macos-12
+            arch: intel
+          - os: macos-14
+            arch: m1
+
     steps:
       - uses: actions/checkout@v3
+
       - name: Install dependencies
         run: |
           brew install graphicsmagick dylibbundler glfw fontconfig
@@ -48,45 +58,45 @@ jobs:
           shopt -s expand_aliases
           alias python=$(brew --prefix)/bin/python3.11
           alias python3=$(brew --prefix)/bin/python3.11
-
+          
           sudo rm -rf /Library/Frameworks/Python.framework/Versions/3.12
           sudo rm -f /usr/local/bin/python3
           sudo rm -f /Library/Frameworks/Python.framework/Versions/Current/bin/python
-
+          
           which python && python --version
           which python3 && python --version
           python -m pip install packaging
           python3 -m pip install packaging
-
+          
           npm install --global create-dmg
 
       - name: package
         run: |
           make prep
-
+          
           osacompile -o gw.app deps/gw_applescript_prog.txt
           cp deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
-
+          
           git clone --depth 1 https://github.com/ebiggers/libdeflate.git
           cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
           cp build/libdeflate.a /usr/local/lib && cp libdeflate.h /usr/local/include && cd ../
-
+          
           wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.18/htslib-1.18.tar.bz2
           tar -xvf htslib.tar.bz2 && mv htslib-* htslib && rm htslib.tar.bz2 && cd htslib
           ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
           make && make install && cd ../
-
+          
           echo "BUILDING GW"
           make
           mv gw ./gw.app/Contents/MacOS
           rm -rf include lib src Makefile
-
+          
           dylibbundler -od -b -x ./gw.app/Contents/MacOS/gw -d ./gw.app/Contents/libs/ -p @executable_path/../libs/
-
+          
           echo "VALIDATION"
           otool -L gw.app/Contents/MacOS/gw
           echo ""
-
+          
           echo "CODE SIGNING"
           ls -l
           sudo chown -R $(whoami) ./gw.app
@@ -96,14 +106,14 @@ jobs:
           codesign --verify -vvvv gw.app
           create-dmg 'gw.app' || true
           ls
-          mv gw\ undefined.dmg gw_macos_intel.dmg
+          mv gw\ undefined.dmg gw_macos_${{ matrix.arch }}.dmg
           ls
           pwd
 
       - name: upload
         uses: actions/upload-artifact@v3
         with:
-          name: gw_macos_intel
+          name: gw_macos_${{ matrix.arch }}
           path: ./*.dmg
 
   deb-package:

@@ -20,7 +20,6 @@
 #include "IITree.h"
 #include "ankerl_unordered_dense.h"
 #include "bigWig.h"
-//#include "../lib/libBigWig/bigWig.h"
 
 #include "glob_cpp.hpp"
 #include "segments.h"
@@ -162,7 +161,8 @@ namespace HGW {
         tbx_t *t;
         hts_itr_t *iter_q;
 
-        std::shared_ptr<std::ifstream> fpu;
+//        std::shared_ptr<std::ifstream> fpu;
+        std::shared_ptr<std::istream> fpu;
         std::string tp;
 
         int current_iter_index;

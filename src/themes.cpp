@@ -8,6 +8,11 @@
 #include "defaultIni.hpp"
 #include "ankerl_unordered_dense.h"
 
+#if !defined(__EMSCRIPTEN__)
+    #include <curl/curl.h>
+    #include <curl/easy.h>
+#endif
+
 
 namespace Themes {
 
@@ -998,15 +1003,37 @@ namespace Themes {
 
     void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Band>> &ideogram,
                           Themes::BaseTheme &theme) {
-        std::ifstream band_file(file_path);
-        if (!band_file) {
-            throw std::runtime_error("Failed to open input files");
+        std::shared_ptr<std::istream> fpu;
+#if !defined(__EMSCRIPTEN__)
+
+        if (Utils::startsWith(file_path, "http") || Utils::startsWith(file_path, "ftp")) {
+            std::string content = Utils::fetchOnlineFileContent(file_path);
+            fpu = std::make_shared<std::istringstream>(content);
+        } else {
+            auto file_stream = std::make_shared<std::ifstream>(file_path);
+            if (!file_stream->is_open()) {
+                std::cerr << "Error: opening ideogram file " << file_path << std::endl;
+                throw std::runtime_error("Error opening file");
+            }
+            fpu = file_stream;
         }
+#else
+        fpu = std::make_shared<std::ifstream>();
+            fpu->open(p);
+            if (!fpu->is_open()) {
+                std::cerr << "Error: opening track file " << file_path << std::endl;
+                throw std::exception();
+            }
+#endif
+//        std::ifstream band_file(file_path);
+//        if (!band_file) {
+//            throw std::runtime_error("Failed to open input files");
+//        }
         std::unordered_map<std::string, Band> custom;
         std::string line, token, chrom, name, property;
         int acen = theme.fcT.getColor();
         int gvar = theme.fcC.getColor();
-        while (std::getline(band_file, line)) {
+        while (std::getline(*fpu, line)) {
             std::istringstream iss(line);
             if (line[0] == '#') {
                 if (Utils::startsWith(line, "#gw ")) {

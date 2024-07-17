@@ -20,6 +20,12 @@
 #include <sys/ioctl.h>
 #endif // Windows/Linux
 
+#if !defined(__EMSCRIPTEN__)
+    #include <curl/curl.h>
+    #include <curl/easy.h>
+#endif
+
+
 namespace Utils {
 
 
@@ -166,5 +172,9 @@ namespace Utils {
 	void ltrim(std::string &s);
 	void rtrim(std::string &s);
 	void trim(std::string &s);
+
+#if !defined(__EMSCRIPTEN__)
+    std::string fetchOnlineFileContent(const std::string& url);
+#endif
 
 }

@@ -1281,12 +1281,30 @@ namespace HGW {
                 allBlocks[b.chrom].add(b.start, b.end, b);
             }
         } else if (kind == BED_NOI || kind == GW_LABEL) {
+
+#if !defined(__EMSCRIPTEN__)
+
+            if (Utils::startsWith(path, "http") || Utils::startsWith(path, "ftp")) {
+                std::string content = Utils::fetchOnlineFileContent(path);
+                fpu = std::make_shared<std::istringstream>(content);
+            } else {
+                auto file_stream = std::make_shared<std::ifstream>(path);
+                if (!file_stream->is_open()) {
+                    std::cerr << "Error: opening track file " << path << std::endl;
+                    throw std::runtime_error("Error opening file");
+                }
+                fpu = file_stream;
+            }
+#else
             fpu = std::make_shared<std::ifstream>();
             fpu->open(p);
             if (!fpu->is_open()) {
                 std::cerr << "Error: opening track file " << path << std::endl;
                 throw std::exception();
             }
+#endif
+
+
             if (!add_to_dict) {
                 return;
             }
@@ -1337,12 +1355,29 @@ namespace HGW {
                 throw std::exception();
             }
         } else if (kind == GFF3_NOI || kind == GTF_NOI) {
+
+#if !defined(__EMSCRIPTEN__)
+
+            if (Utils::startsWith(path, "http") || Utils::startsWith(path, "ftp")) {
+                std::string content = Utils::fetchOnlineFileContent(path);
+                fpu = std::make_shared<std::istringstream>(content);
+            } else {
+                auto file_stream = std::make_shared<std::ifstream>(path);
+                if (!file_stream->is_open()) {
+                    std::cerr << "Error: opening track file " << path << std::endl;
+                    throw std::runtime_error("Error opening file");
+                }
+                fpu = file_stream;
+            }
+#else
             fpu = std::make_shared<std::ifstream>();
             fpu->open(p);
             if (!fpu->is_open()) {
                 std::cerr << "Error: opening track file " << path << std::endl;
                 throw std::exception();
             }
+#endif
+
             if (!add_to_dict) {
                 return;
             }
@@ -1861,10 +1896,26 @@ namespace HGW {
 
         ankerl::unordered_dense::map< std::string, std::vector<std::string>> label_dict;
         ankerl::unordered_dense::set<std::string> seen_labels;
-        std::ifstream fs;
-        fs.open(labels_path);
+
+#if !defined(__EMSCRIPTEN__)
+        std::shared_ptr<std::istream> fpu;
+        if (Utils::startsWith(labels_path, "http") || Utils::startsWith(labels_path, "ftp")) {
+            std::string content = Utils::fetchOnlineFileContent(labels_path);
+            fpu = std::make_shared<std::istringstream>(content);
+        } else {
+            auto file_stream = std::make_shared<std::ifstream>(labels_path);
+            if (!file_stream->is_open()) {
+                std::cerr << "Error: opening track file " << labels_path << std::endl;
+                throw std::runtime_error("Error opening file");
+            }
+            fpu = file_stream;
+        }
+#else
+        fpu = std::make_shared<std::ifstream>();
+#endif
+
         std::string s;
-        while (std::getline(fs, s)) {
+        while (std::getline(*fpu, s)) {
             if (Utils::startsWith(s, "#")) {
                 continue;
             }

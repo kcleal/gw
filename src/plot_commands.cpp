@@ -1074,17 +1074,20 @@ namespace Commands {
 
     Err load_file(Plot* p, std::vector<std::string> parts, std::ostream& out) {
         std::string filename;
-
+        if (parts.empty()) {
+            return Err::OPTION_NOT_UNDERSTOOD;
+        }
+        bool maybe_online = (Utils::startsWith(parts.back(), "http") || Utils::startsWith(parts.back(), "ftp"));
         if (parts.size() == 3) {
             filename = Parse::tilde_to_home(parts.back());
             std::string ext = std::filesystem::path(filename).extension().string();
-            if (std::filesystem::is_directory(filename)) {
+            if (!maybe_online && std::filesystem::is_directory(filename)) {
                 p->redraw = true;
                 out << termcolor::red << "Error:" << termcolor::reset << " This is a folder path, not a file\n";
                 return Err::SILENT;
             }
             if (parts[1] == "ideogram") {
-                if (!std::filesystem::exists(parts.back())) {
+                if (!maybe_online && !std::filesystem::exists(parts.back())) {
                     p->redraw = true;
                     return Err::INVALID_PATH;
                 }
@@ -1098,7 +1101,7 @@ namespace Commands {
                     return Err::NONE;
                 }
             } else if (parts[1] == "track") {
-                if (!std::filesystem::exists(parts.back())) {
+                if (!maybe_online && !std::filesystem::exists(parts.back())) {
                     p->redraw = true;
                     return Err::INVALID_PATH;
                 }
@@ -1112,11 +1115,11 @@ namespace Commands {
                 }
 
             } else if (parts[1] == "tiled") {
-                if (!std::filesystem::exists(parts.back())) {
+                if (!maybe_online && !std::filesystem::exists(parts.back())) {
                     p->redraw = true;
                     return Err::INVALID_PATH;
                 }
-                if (ext == ".vcf" || ext == ".vcf.gz" || ext == ".bcf" || ext == ".bed" || ext == ".bed.gz") {
+                if (ext == ".vcf" || ext == ".gz" || ext == ".bcf" || ext == ".bed") {
                     p->addTrack(filename, true, false, false);
                     refreshGw(p);
                     return Err::NONE;
@@ -1126,7 +1129,7 @@ namespace Commands {
                     return Err::SILENT;
                 }
             } else if (parts[1] == "bam" || parts[1] == "cram") {
-                if (!std::filesystem::exists(parts.back())) {
+                if (!maybe_online && !std::filesystem::exists(parts.back())) {
                     p->redraw = true;
                     return Err::INVALID_PATH;
                 }
@@ -1138,7 +1141,7 @@ namespace Commands {
                 refreshGw(p);
                 return Err::NONE;
             } else if (parts[1] == "labels") {
-                if (!std::filesystem::exists(parts.back())) {
+                if (!maybe_online && !std::filesystem::exists(parts.back())) {
                     p->redraw = true;
                     return Err::INVALID_PATH;
                 }
@@ -1167,7 +1170,7 @@ namespace Commands {
         } else if (parts.size() != 2) {
             return Err::OPTION_NOT_UNDERSTOOD;
         }
-        if (!std::filesystem::exists(parts.back())) {
+        if (!maybe_online && !std::filesystem::exists(parts.back())) {
             if (parts.back() == "labels") {
                 out << "Current label path is: " << p->outLabelFile << std::endl;
                 refreshGw(p);
