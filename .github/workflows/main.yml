@@ -84,7 +84,7 @@ jobs:
           ls ../htslib
 
           cd ../htslib
-          LDFLAGS="-L./" CPPFLAGS="-I./" ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
+          LDFLAGS="$LDFLAGS -L./" CPPFLAGS="$CPPFLAGS -I./" ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
           make
           sudo make install
 
