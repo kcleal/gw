@@ -102,6 +102,7 @@ jobs:
           
           brew_lib=$(brew --prefix)/lib
           brew_include=$(brew --prefix)/include
+          brew_bin=$(brew --prefix)/bin
           
           echo $brew_lib
           ls $brew_lib
@@ -114,7 +115,7 @@ jobs:
           mv gw ./gw.app/Contents/MacOS
           rm -rf include lib src Makefile
           
-          dylibbundler -od -b -x ./gw.app/Contents/MacOS/gw -d ./gw.app/Contents/libs/ -p @executable_path/../libs/
+          PATH="$PATH:$brew_bin" dylibbundler -od -b -x ./gw.app/Contents/MacOS/gw -d ./gw.app/Contents/libs/ -p @executable_path/../libs/
           
           echo "VALIDATION"
           otool -L gw.app/Contents/MacOS/gw
@@ -127,7 +128,7 @@ jobs:
           sudo codesign --remove-signature ./gw.app
           sudo codesign --force --deep -s - gw.app -v
           sudo codesign --verify -vvvv gw.app
-          create-dmg 'gw.app' || true
+          PATH="$PATH:$brew_bin" create-dmg 'gw.app' || true
           ls
           mv gw\ undefined.dmg gw_macos_${{ matrix.arch }}.dmg
           ls

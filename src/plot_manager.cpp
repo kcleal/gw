@@ -1121,6 +1121,8 @@ namespace Manager {
                 SkPaint bg = opts.theme.bgPaint;
                 bg.setAlpha(220);
                 canvas->drawPaint(bg);
+            } else {
+                canvas->drawPaint(opts.theme.bgPaint);
             }
             Menu::drawMenu(canvas, opts, fonts, monitorScale, fb_width, fb_height, inputText, charIndex);
 

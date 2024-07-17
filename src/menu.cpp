@@ -470,9 +470,6 @@ namespace Menu {
                 opts.control_level = "close";
                 opts.previous_level = opts.menu_level;
                 opts.myIni[(opts.menu_table == Themes::MenuTable::GENOMES) ? "genomes" : "tracks"].remove(opts.genome_tag);
-                if (opts.menu_table == Themes::MenuTable::GENOMES) {
-                    warnRestart();
-                }
             } else if (opts.control_level == "add") {
                 opts.editing_underway = !opts.editing_underway;
             }
@@ -624,7 +621,6 @@ namespace Menu {
                     *textFromSettings = false;
                     inputText = "";
                     opts.editing_underway = false;
-                    opts.menu_table = getMenuLevel(opts.previous_level);
                     return true;
                 } else {
                     bool keep_alive = Menu::menuSelect(opts);
