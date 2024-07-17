@@ -955,8 +955,12 @@ namespace Manager {
 
         frameId += 1;
         setGlfwFrameBufferSize();
-        if (regions.empty() || bams.empty()) {
+        if (bams.empty() && !regions.empty()) {
             canvasR->drawPaint(opts.theme.bgPaint);
+            setScaling();
+            if (!regions.empty()) {
+                fetchRefSeqs();
+            }
         } else {
             processBam();  // Reads may be buffered here, or else streamed using the runDrawNoBuffer functions below
             setScaling();
@@ -1021,15 +1025,15 @@ namespace Manager {
                 }
                 canvasR->restore();
             }
-            if (opts.max_coverage) {
-                Drawing::drawCoverage(opts, collections, canvasR, fonts, covY, refSpace);
-            }
-            Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, refSpace, (float)regions.size(), gap, monitorScale, opts.scale_bar);
-            Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
-            Drawing::drawTracks(opts, fb_width, fb_height, canvasR, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
-            Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, fai, fb_width, fb_height, monitorScale, gap);
-
         }
+
+        if (opts.max_coverage) {
+            Drawing::drawCoverage(opts, collections, canvasR, fonts, covY, refSpace);
+        }
+        Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, refSpace, (float)regions.size(), gap);
+        Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
+        Drawing::drawTracks(opts, fb_width, fb_height, canvasR, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
+        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, fai, fb_width, fb_height, monitorScale, gap);
 
         imageCacheQueue.emplace_back(frameId, rasterSurfacePtr[0]->makeImageSnapshot());
         canvas->drawImage(imageCacheQueue.back().second, 0, 0);

@@ -867,6 +867,10 @@ namespace Manager {
                             }
                         }
                     }
+                    if (collections.empty()) {
+                        processed = false;
+                        redraw = true;
+                    }
                     printRegionInfo();
 
                 } else if (key == opts.scroll_left) {
@@ -900,6 +904,10 @@ namespace Manager {
                                 redraw = true;
                             }
                         }
+                    }
+                    if (collections.empty()) {
+                        processed = false;
+                        redraw = true;
                     }
                     printRegionInfo();
 
@@ -952,6 +960,10 @@ namespace Manager {
                             }
                         }
                     }
+                    if (collections.empty()) {
+                        processed = false;
+                        redraw = true;
+                    }
                     if (opts.link_op != 0) {
                         HGW::refreshLinked(collections, opts, &samMaxY, sortReadsBy);
                     }
@@ -985,7 +997,7 @@ namespace Manager {
                                 cl.collection_processed = false;
                             }
                         }
-                        if (bams.empty()) {
+                        if (collections.empty()) {
                             processed = false;
                             redraw = true;
                         } else {
@@ -1915,6 +1927,10 @@ namespace Manager {
                     glfwPostEmptyEvent();
                     return;
                 } else {
+                    if (collections.empty()) {
+                        redraw = false;
+                        return;
+                    }
                     if (idx < 0) {
                         return;
                     }
@@ -2020,7 +2036,12 @@ namespace Manager {
                     }
                     return;
                 }
+                if (collections.empty()) {
+                    redraw = false;
+                    return;
+                }
                 assert (rs < collections.size());
+                assert (!cl.levelsStart.empty());
                 Segs::ReadCollection &cl = collections[rs];
                 regionSelection = cl.regionIdx;
 	            int pos = (int) ((((double)xPos_fb - (double)cl.xOffset) / (double)cl.xScaling) + (double)cl.region->start);
@@ -2034,8 +2055,8 @@ namespace Manager {
                 updateCursorGenomePos(cl.xOffset, cl.xScaling, (float)xPos_fb, cl.region, cl.bamIdx);
             } else if (mode == TILED) {
                 assert (variantFileSelection < variantTracks.size());
-                currentVarTrack = &variantTracks[variantFileSelection];
                 assert (currentVarTrack != nullptr);
+                currentVarTrack = &variantTracks[variantFileSelection];
                 int i = 0;
                 for (auto &b: bboxes) {
                     if (xPos_fb > b.xStart && xPos_fb < b.xEnd && yPos_fb > b.yStart && yPos_fb < b.yEnd) {
