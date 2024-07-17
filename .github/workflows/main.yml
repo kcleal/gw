@@ -8,38 +8,38 @@ env:
   version: 0.10.1
 
 jobs:
-  mingw:
-   strategy:
-     fail-fast: false
-     matrix:
-       sys: [ucrt64]  # clang64,
-   name: ${{ matrix.sys }}
-   runs-on: windows-latest
-   defaults:
-     run:
-       shell: msys2 {0}
-   steps:
-     - uses: actions/checkout@v3
-     - uses: msys2/setup-msys2@v2
-       with:
-         msystem: ${{ matrix.sys }}
-         update: true
-         install: make
-         pacboy: toolchain:p glfw:p skia:p htslib:p freeglut:p glew:p ncurses:p fontconfig:p dlfcn:p libpng:p
-     - name: build
-       run: |
-         make
-     - name: upload
-       uses: actions/upload-artifact@v3
-       with:
-         name: mingw-${{ matrix.sys }}
-         path: ${{ github.workspace }}/*.exe
+#  mingw:
+#   strategy:
+#     fail-fast: false
+#     matrix:
+#       sys: [ucrt64]  # clang64,
+#   name: ${{ matrix.sys }}
+#   runs-on: windows-latest
+#   defaults:
+#     run:
+#       shell: msys2 {0}
+#   steps:
+#     - uses: actions/checkout@v3
+#     - uses: msys2/setup-msys2@v2
+#       with:
+#         msystem: ${{ matrix.sys }}
+#         update: true
+#         install: make
+#         pacboy: toolchain:p glfw:p skia:p htslib:p freeglut:p glew:p ncurses:p fontconfig:p dlfcn:p libpng:p
+#     - name: build
+#       run: |
+#         make
+#     - name: upload
+#       uses: actions/upload-artifact@v3
+#       with:
+#         name: mingw-${{ matrix.sys }}
+#         path: ${{ github.workspace }}/*.exe
 
   macos-package:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ macos-12, macos-14 ]
+        os: [ macos-14 ]  # macos-12,
         include:
           - os: macos-12
             arch: intel
@@ -70,23 +70,31 @@ jobs:
           
           npm install --global create-dmg
 
+      - name: Build and install libdeflate
+        run: |
+          git clone --depth 1 https://github.com/ebiggers/libdeflate.git
+          cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
+          sudo cp build/libdeflate.a /usr/local/lib
+          sudo cp libdeflate.h /usr/local/include
+
+      - name: Build and install htslib
+        run: |
+          wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.18/htslib-1.18.tar.bz2
+          tar -xvf htslib.tar.bz2 && mv htslib-* htslib && rm htslib.tar.bz2
+          cd htslib
+          LDFLAGS="-L/usr/local/lib" CPPFLAGS="-I/usr/local/include" ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
+          make
+          sudo make install
+
       - name: Make Prep
-        run: make prep
+        run: |
+          make prep
 
       - name: package
         run: |
           
           osacompile -o gw.app deps/gw_applescript_prog.txt
           cp deps/gw_droplet.icns gw.app/Contents/Resources/droplet.icns
-          
-          git clone --depth 1 https://github.com/ebiggers/libdeflate.git
-          cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
-          sudo cp build/libdeflate.a /usr/local/lib && sudo cp libdeflate.h /usr/local/include && cd ../
-          
-          wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.18/htslib-1.18.tar.bz2
-          tar -xvf htslib.tar.bz2 && mv htslib-* htslib && rm htslib.tar.bz2 && cd htslib
-          ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
-          make && sudo make install && cd ../
           
           echo "BUILDING GW"
           make
@@ -118,85 +126,85 @@ jobs:
           name: gw_macos_${{ matrix.arch }}
           path: ./*.dmg
 
-  deb-package:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt-get install dh-make build-essential debhelper dh-virtualenv
-          sudo apt-get install debugedit devscripts fakeroot debootstrap pbuilder autotools-dev
-          sudo apt install zlib1g-dev libbz2-dev liblzma-dev libncurses5-dev libncursesw5-dev libssl-dev 
-          sudo apt install libgl1-mesa-dev libfontconfig-dev libcurl4-openssl-dev libglfw3 libglfw3-dev
-      - name: build
-        run: |
-          
-          BUILD_DIR=$(pwd)
-          
-          mkdir -p usr/bin
-          mkdir -p usr/lib/x86_64-linux-gnu
-          mkdir -p usr/lib/gwhts
-          mkdir -p usr/include/gwhts
-          mkdir -p usr/share/icons
-          mkdir -p usr/share/icons/hicolor/512x512/apps/
-          mkdir -p usr/share/applications
-          
-          sudo mkdir -p /usr/lib/gwhts
-          sudo mkdir -p /usr/include/gwhts/htslib
-          sudo cp /usr/lib/x86_64-linux-gnu/libglfw* usr/lib/x86_64-linux-gnu/.
-          
-          git clone --depth 1 https://github.com/ebiggers/libdeflate.git
-          cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
-          sudo cp build/libdeflate.a /usr/local/lib && sudo cp libdeflate.h /usr/local/include
-          echo "LIBDEFLATE BUILT" && pwd
-          cd ${BUILD_DIR}
-          
-          wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.20/htslib-1.20.tar.bz2
-          tar -xvf htslib.tar.bz2
-          mv htslib-1.20 htslib && rm htslib.tar.bz2 && cd htslib
-          sed -i 's/ -g -Wall/ -Wall/' Makefile  # strip debug information
-          ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
-          make -j3
-          echo "HTSLIB BUILT" && pwd
-          cp -rf htslib ../include
-          sudo cp libhts.* /usr/lib/gwhts 
-          sudo cp htslib/*.h /usr/include/gwhts/htslib
-          cp libhts.* ${BUILD_DIR}/usr/lib/gwhts
-          
-          cd ${BUILD_DIR}
-          
-          sed -i '133 i \\t-mv gw usr/bin' Makefile
-          sed -i 's@-L/usr/local/lib@-L/usr/local/lib -L/usr/lib/gwhts@g' Makefile
-          
-          make prep
-          
-          cp include/gw_icon.png usr/share/icons/
-          cp include/gw_icon.png usr/share/icons/hicolor/512x512/apps/
-          cp deps/gw.desktop usr/share/applications/
-
-      - name: package
-        run: |
-          dh_make --single --createorig --packagename gw_${version} --email clealk@cardiff.ac.uk --yes --native
-          
-          printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop\nusr/lib/gwhts/\nusr/lib/x86_64-linux-gnu/libglfw.so.3\nusr/lib/x86_64-linux-gnu/libglfw.so.3.3" > debian/install
-          
-          export LDFLAGS="$LDFLAGS -L./lib/skia/out/Release-x64 -L/usr/local/lib -L/usr/lib -L./usr/lib/gwhts -Wl,-rpath,'$ORIGIN/../lib/gwhts'"
-          
-          sed -i '/^Section/c\Section: Bioinformatics' debian/control
-          sed -i '/^Homepage/c\Homepage: https://github.com/kcleal/gw' debian/control
-          sed -i '/^Description/c\Description: Genome browser and variant annotation' debian/control
-          sed -i '/<insert long/d' debian/control
-          printf "Conflicts: libglfw3 (<< 3.3)\nReplaces: libglfw3\n" >> debian/control
-          
-          # Override dh_shlibdeps to include /usr/lib/gwhts
-          printf '#!/usr/bin/make -f\n%%:\n\tdh $@\n\nclean:\n\tdh_clean\n\noverride_dh_shlibdeps:\n\tdh_shlibdeps -l/usr/lib/gwhts\n' > debian/rules
-          chmod +x debian/rules
-          
-          dpkg-buildpackage -us -uc
-
-      - name: upload
-        uses: actions/upload-artifact@v3
-        with:
-          name: debian-package
-          path: /home/runner/work/gw/*.deb
+#  deb-package:
+#    runs-on: ubuntu-22.04
+#    steps:
+#      - uses: actions/checkout@v3
+#      - name: Install dependencies
+#        run: |
+#          sudo apt update
+#          sudo apt-get install dh-make build-essential debhelper dh-virtualenv
+#          sudo apt-get install debugedit devscripts fakeroot debootstrap pbuilder autotools-dev
+#          sudo apt install zlib1g-dev libbz2-dev liblzma-dev libncurses5-dev libncursesw5-dev libssl-dev
+#          sudo apt install libgl1-mesa-dev libfontconfig-dev libcurl4-openssl-dev libglfw3 libglfw3-dev
+#      - name: build
+#        run: |
+#
+#          BUILD_DIR=$(pwd)
+#
+#          mkdir -p usr/bin
+#          mkdir -p usr/lib/x86_64-linux-gnu
+#          mkdir -p usr/lib/gwhts
+#          mkdir -p usr/include/gwhts
+#          mkdir -p usr/share/icons
+#          mkdir -p usr/share/icons/hicolor/512x512/apps/
+#          mkdir -p usr/share/applications
+#
+#          sudo mkdir -p /usr/lib/gwhts
+#          sudo mkdir -p /usr/include/gwhts/htslib
+#          sudo cp /usr/lib/x86_64-linux-gnu/libglfw* usr/lib/x86_64-linux-gnu/.
+#
+#          git clone --depth 1 https://github.com/ebiggers/libdeflate.git
+#          cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
+#          sudo cp build/libdeflate.a /usr/local/lib && sudo cp libdeflate.h /usr/local/include
+#          echo "LIBDEFLATE BUILT" && pwd
+#          cd ${BUILD_DIR}
+#
+#          wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.20/htslib-1.20.tar.bz2
+#          tar -xvf htslib.tar.bz2
+#          mv htslib-1.20 htslib && rm htslib.tar.bz2 && cd htslib
+#          sed -i 's/ -g -Wall/ -Wall/' Makefile  # strip debug information
+#          ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
+#          make -j3
+#          echo "HTSLIB BUILT" && pwd
+#          cp -rf htslib ../include
+#          sudo cp libhts.* /usr/lib/gwhts
+#          sudo cp htslib/*.h /usr/include/gwhts/htslib
+#          cp libhts.* ${BUILD_DIR}/usr/lib/gwhts
+#
+#          cd ${BUILD_DIR}
+#
+#          sed -i '133 i \\t-mv gw usr/bin' Makefile
+#          sed -i 's@-L/usr/local/lib@-L/usr/local/lib -L/usr/lib/gwhts@g' Makefile
+#
+#          make prep
+#
+#          cp include/gw_icon.png usr/share/icons/
+#          cp include/gw_icon.png usr/share/icons/hicolor/512x512/apps/
+#          cp deps/gw.desktop usr/share/applications/
+#
+#      - name: package
+#        run: |
+#          dh_make --single --createorig --packagename gw_${version} --email clealk@cardiff.ac.uk --yes --native
+#
+#          printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop\nusr/lib/gwhts/\nusr/lib/x86_64-linux-gnu/libglfw.so.3\nusr/lib/x86_64-linux-gnu/libglfw.so.3.3" > debian/install
+#
+#          export LDFLAGS="$LDFLAGS -L./lib/skia/out/Release-x64 -L/usr/local/lib -L/usr/lib -L./usr/lib/gwhts -Wl,-rpath,'$ORIGIN/../lib/gwhts'"
+#
+#          sed -i '/^Section/c\Section: Bioinformatics' debian/control
+#          sed -i '/^Homepage/c\Homepage: https://github.com/kcleal/gw' debian/control
+#          sed -i '/^Description/c\Description: Genome browser and variant annotation' debian/control
+#          sed -i '/<insert long/d' debian/control
+#          printf "Conflicts: libglfw3 (<< 3.3)\nReplaces: libglfw3\n" >> debian/control
+#
+#          # Override dh_shlibdeps to include /usr/lib/gwhts
+#          printf '#!/usr/bin/make -f\n%%:\n\tdh $@\n\nclean:\n\tdh_clean\n\noverride_dh_shlibdeps:\n\tdh_shlibdeps -l/usr/lib/gwhts\n' > debian/rules
+#          chmod +x debian/rules
+#
+#          dpkg-buildpackage -us -uc
+#
+#      - name: upload
+#        uses: actions/upload-artifact@v3
+#        with:
+#          name: debian-package
+#          path: /home/runner/work/gw/*.deb
