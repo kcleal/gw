@@ -92,6 +92,11 @@ jobs:
         run: |
           make prep
 
+      - name: Set up GLFW3 paths
+        run: |
+          echo "export LDFLAGS=\"-L$(brew --prefix)/Cellar/glfw/3.3.5/lib\" \$LDFLAGS" >> $GITHUB_ENV
+          echo "export CPPFLAGS=\"-I$(brew --prefix)/Cellar/glfw/3.3.5/include\" \$CPPFLAGS" >> $GITHUB_ENV
+
       - name: package
         run: |
           
