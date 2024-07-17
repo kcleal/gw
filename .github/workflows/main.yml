@@ -71,19 +71,19 @@ jobs:
           
           npm install --global create-dmg
 
-      - name: Build and install libdeflate
+      - name: Build and install htslib with libdeflate
         run: |
+          
+          wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.20/htslib-1.20.tar.bz2
+          tar -xvf htslib.tar.bz2 && mv htslib-* htslib && rm htslib.tar.bz2
+          
           git clone --depth 1 https://github.com/ebiggers/libdeflate.git
           cd libdeflate && CFLAGS+=' -fPIC -O3 ' cmake -B build && CFLAGS+=' -fPIC -O3 ' cmake --build build
-          sudo cp build/libdeflate.a /usr/local/lib
-          sudo cp libdeflate.h /usr/local/include
+          cp build/libdeflate.a ../htslib
+          cp libdeflate.h ../htslib
 
-      - name: Build and install htslib
-        run: |
-          wget -O htslib.tar.bz2 https://github.com/samtools/htslib/releases/download/1.18/htslib-1.18.tar.bz2
-          tar -xvf htslib.tar.bz2 && mv htslib-* htslib && rm htslib.tar.bz2
-          cd htslib
-          LDFLAGS="-L/usr/local/lib" CPPFLAGS="-I/usr/local/include" ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
+          cd ../htslib
+          ./configure --enable-libcurl --enable-s3 --enable-lzma --enable-bz2 --with-libdeflate
           make
           sudo make install
 
