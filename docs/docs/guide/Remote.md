@@ -5,11 +5,18 @@ parent: User guide
 nav_order: 9
 ---
 
-# Remote
+# Loading remote data
+
+GW can open reference genomes, bam files and data tracks from remote servers. Just supply a suitable path starting
+with `http` or `ftp` and GW will attempt to load the file. 
+
+
+# Using GW on remote machines
 
 GW can be used on remote servers by using `ssh -X` when logging on to the server, and a 
 GW window will show up on your local screen. This should work seamlessly with 
-linux server-client machines, although there are known issues with Mac-Linux server-client interfaces.
+linux server-client machines, although there are known issues with Mac-Linux server-client interfaces (although these
+still work sometimes).
 
 
 We also recommend adding an update delay (in miliseconds) using `gw --delay 100` which can help prevent bandwidth/latency issues.

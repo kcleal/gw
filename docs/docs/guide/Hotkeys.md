@@ -14,11 +14,13 @@ GW has a number of hotkeys to make things quicker for advanced users. These are 
 |--------------------------|---
 | scroll left              |LEFT
 | scroll right             |RIGHT
-| scroll down              |PAGE_DOWN
-| scroll up                |PAGE_UP
+| scroll down              |PAGE_DOWN or CTRL + [
+| scroll up                |PAGE_UP or CTRL + ]
 | zoom in                  |UP
 | zoom out                 |DOWN
 | zoom to cursor           |CTRL + LEFT_MOUSE
+| decrase ylim             |CTRL + KEY_MINUS
+| increase ylim            |CTRL + KEY_EQUALS
 | next region view         |]
 | previous region view     |[
 | cycle link mode          |L

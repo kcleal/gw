@@ -529,7 +529,7 @@ int main(int argc, char *argv[]) {
             mINI::INIFile file(iopts.session_file);
             file.read(iopts.seshIni);
             if (!iopts.seshIni.has("data") || !iopts.seshIni.has("show")) {
-                std::cerr << "Error: session file is missing 'data' heading. Invalid session file\n";
+                std::cerr << "Error: session file is missing 'data' or 'show' headings. Invalid session file\n";
                 std::exit(-1);
             }
             iopts.getOptionsFromSessionIni(iopts.seshIni);

@@ -1,5 +1,5 @@
 ---
-title: Variant data
+title: Image tiles
 layout: home
 parent: User guide
 nav_order: 3
@@ -7,24 +7,22 @@ nav_order: 3
 
 # Variant data and image tiles
 
-One or more variant data files can be loaded into GW by dragging-and-dropping files into the main window,
-or by using the `--var` command-line option.
+One or more variant data files can be loaded into GW which will result in variants being draw as image tiles -
+one static image will be drawn for each variant in the file. Images can be scrolled using mouse or arrow
+keys.
 
-Variant data files are only used for drawing image tiles. To draw the locations of variants, add the variant
-data track using the `--track` option.
-
-Currently, the following file formats are supported:
+The following file formats are supported for image-tiling:
 
 | Data option | File formats supported
 |---	|---
 | `--var`   | VCF, BCF, BED, GW_LABEL
 
+Load data can be achieved by either dragging-and-dropping files into the main window, using the load
+command or by using the `--var/-v` command-line option. Dragging and dropping vcf/bcf files can result
+in files being added as image tiles or a track, this option is controlled by the `vcf_as_tracks` option
+in the Settings->Interaction menu.
 
-## Loading variant data
 
-```shell
-gw hg19 -b HG002.bwa.bam -v HG002.dysgu.vcf
-```
 
 ![Alt text](/assets/images/tiles1.png "GW")
 

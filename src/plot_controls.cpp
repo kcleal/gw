@@ -1145,7 +1145,7 @@ namespace Manager {
             hts_idx_t* idx = sam_index_load(f, path.c_str());
             indexes.push_back(idx);
         } else if ((!vcf_as_track && (Utils::endsWith(path, ".vcf.gz") || Utils::endsWith(path, ".vcf") || Utils::endsWith(path, ".bcf")))
-         || (!bed_as_track && (Utils::endsWith(path, ".bed") || Utils::endsWith(path, ".bed.gz")))){
+         || (!bed_as_track && (Utils::endsWith(path, ".bed") || Utils::endsWith(path, ".bed.gz")))) {
             good = true;
             std::vector<std::string> labels = Utils::split(opts.labels, ',');
             setLabelChoices(labels);
@@ -1162,7 +1162,21 @@ namespace Manager {
                 out << termcolor::magenta << "\nFile        " << termcolor::reset
                     << variantTracks[variantFileSelection].path << "\n";
             }
-
+        } else if (Utils::endsWith(path, ".ini")) {  // Assume session file
+            opts.session_file = path;
+            mINI::INIFile file(opts.session_file);
+            file.read(opts.seshIni);
+            if (!opts.seshIni.has("data") || !opts.seshIni.has("show")) {
+                if (print_message) {
+                    outStr << termcolor::red << "Error:" << termcolor::reset << " session file is missing 'data' or 'show' headings. Invalid session file\n";
+                }
+                return;
+            }
+            opts.getOptionsFromSessionIni(opts.seshIni);
+            opts.theme.setAlphas();
+            loadSession();
+            fetchRefSeqs();
+            good = true;
         } else {
             tracks.push_back(HGW::GwTrack());
             try {
@@ -1185,6 +1199,8 @@ namespace Manager {
         if (good) {
             processed = false;
             redraw = true;
+            imageCacheQueue.clear();
+            imageCache.clear();
         } else {
             redraw = false;
         }

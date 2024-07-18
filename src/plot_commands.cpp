@@ -1077,9 +1077,10 @@ namespace Commands {
         if (parts.empty()) {
             return Err::OPTION_NOT_UNDERSTOOD;
         }
-        bool maybe_online = (Utils::startsWith(parts.back(), "http") || Utils::startsWith(parts.back(), "ftp"));
+        filename = Parse::tilde_to_home(parts.back());
+        bool maybe_online = (Utils::startsWith(filename, "http") || Utils::startsWith(filename, "ftp"));
         if (parts.size() == 3) {
-            filename = Parse::tilde_to_home(parts.back());
+
             std::string ext = std::filesystem::path(filename).extension().string();
             if (!maybe_online && std::filesystem::is_directory(filename)) {
                 p->redraw = true;
@@ -1087,7 +1088,7 @@ namespace Commands {
                 return Err::SILENT;
             }
             if (parts[1] == "ideogram") {
-                if (!maybe_online && !std::filesystem::exists(parts.back())) {
+                if (!maybe_online && !std::filesystem::exists(filename)) {
                     p->redraw = true;
                     return Err::INVALID_PATH;
                 }
@@ -1101,7 +1102,7 @@ namespace Commands {
                     return Err::NONE;
                 }
             } else if (parts[1] == "track") {
-                if (!maybe_online && !std::filesystem::exists(parts.back())) {
+                if (!maybe_online && !std::filesystem::exists(filename)) {
                     p->redraw = true;
                     return Err::INVALID_PATH;
                 }
@@ -1115,7 +1116,7 @@ namespace Commands {
                 }
 
             } else if (parts[1] == "tiled") {
-                if (!maybe_online && !std::filesystem::exists(parts.back())) {
+                if (!maybe_online && !std::filesystem::exists(filename)) {
                     p->redraw = true;
                     return Err::INVALID_PATH;
                 }
@@ -1129,7 +1130,7 @@ namespace Commands {
                     return Err::SILENT;
                 }
             } else if (parts[1] == "bam" || parts[1] == "cram") {
-                if (!maybe_online && !std::filesystem::exists(parts.back())) {
+                if (!maybe_online && !std::filesystem::exists(filename)) {
                     p->redraw = true;
                     return Err::INVALID_PATH;
                 }
@@ -1141,7 +1142,7 @@ namespace Commands {
                 refreshGw(p);
                 return Err::NONE;
             } else if (parts[1] == "labels") {
-                if (!maybe_online && !std::filesystem::exists(parts.back())) {
+                if (!maybe_online && !std::filesystem::exists(filename)) {
                     p->redraw = true;
                     return Err::INVALID_PATH;
                 }
@@ -1164,6 +1165,23 @@ namespace Commands {
                 }
                 refreshGw(p);
                 return Err::NONE;
+            } else if (parts[1] == "session") {
+                if (maybe_online || std::filesystem::exists(filename)) {
+                    p->opts.session_file = filename;
+                    mINI::INIFile file(p->opts.session_file);
+                    file.read(p->opts.seshIni);
+                    if (!p->opts.seshIni.has("data") || !p->opts.seshIni.has("show")) {
+                        out << "Error: session file is missing 'data' or 'show' headings. Invalid session file\n";
+                        return Err::SILENT;
+                    }
+                    p->opts.getOptionsFromSessionIni(p->opts.seshIni);
+                    p->opts.theme.setAlphas();
+                    p->loadSession();
+                    p->fetchRefSeqs();
+                    refreshGw(p);
+                } else {
+                    return Err::INVALID_PATH;
+                }
             } else {
                 return Err::OPTION_NOT_UNDERSTOOD;
             }
@@ -1183,11 +1201,15 @@ namespace Commands {
                 out << "Current ideogram path is: " << p->ideogram_path << std::endl;
                 refreshGw(p);
                 return Err::NONE;
+            } else if (parts.back() == "session") {
+                out << "Current session path is: " << p->opts.session_file << std::endl;
+                refreshGw(p);
+                return Err::NONE;
+            } else {
+                p->redraw = true;
+                return Err::INVALID_PATH;
             }
-            p->redraw = true;
-            return Err::INVALID_PATH;
         }
-        filename = Parse::tilde_to_home(parts.back());
         p->addTrack(filename, true, p->opts.vcf_as_tracks, p->opts.bed_as_tracks);
         refreshGw(p);
         return Err::NONE;

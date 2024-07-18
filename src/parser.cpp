@@ -982,6 +982,7 @@ namespace Parse {
     }
 
     void tryTabCompletion(std::string &inputText, std::ostream& out, int& charIndex) {
+
         std::vector<std::string> parts = Utils::split(inputText, ' ');
         if (parts.size() == 3) {  // chunk first two options
             std::string tmp = parts[0];
@@ -991,12 +992,11 @@ namespace Parse {
             parts[1] = tmp3;
             parts.resize(2);
         }
-        std::string globstr;
-        if (parts.back() == "./") {
-            globstr = "./*";
-        } else {
-            globstr = parts.back() + "*";
+        if (parts.back()[0] == '~') {
+            parts.back() = tilde_to_home(parts.back());
+            charIndex = parts.front().size() + parts.back().size();
         }
+        std::string globstr = parts.back() + "*";
         parts.back() = tilde_to_home(parts.back());
         std::vector<std::filesystem::path> glob_paths = glob_cpp::glob(globstr);
         if (glob_paths.size() == 1) {
