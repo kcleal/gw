@@ -419,6 +419,21 @@ namespace Manager {
         Themes::readIdeogramFile(path, ideogram, opts.theme);
     }
 
+    void GwPlot::loadIdeogramTag() {
+        const unsigned char* ptr;
+        size_t size = 0;
+        if (opts.genome_tag == "hg19") {
+            Ideo::get_hg19_cytoBand_bed(ptr, size);
+            Themes::readIdeogramData(ptr, size, ideogram, opts.theme);
+        } else if (opts.genome_tag == "hg38") {
+            Ideo::get_hg38_cytoBand_bed(ptr, size);
+            Themes::readIdeogramData(ptr, size, ideogram, opts.theme);
+        } else if (opts.genome_tag == "t2t") {
+            Ideo::get_t2t_cytoBand_bed(ptr, size);
+            Themes::readIdeogramData(ptr, size, ideogram, opts.theme);
+        }
+    }
+
     void GwPlot::addFilter(std::string &filter_str) {
         Parse::Parser p = Parse::Parser(outStr);
         if (p.set_filter(filter_str, bams.size(), regions.size()) > 0) {

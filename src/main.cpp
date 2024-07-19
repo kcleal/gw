@@ -551,6 +551,8 @@ int main(int argc, char *argv[]) {
 
         if (program.is_used("--ideogram")) {
             plotter.addIdeogram(program.get("--ideogram"));
+        } else if (!iopts.genome_tag.empty()) {
+            plotter.loadIdeogramTag();
         }
 
         // initialize graphics window

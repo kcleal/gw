@@ -45,6 +45,8 @@
 #include "ini.h"
 #include "utils.h"
 #include "export_definitions.h"
+#include "ideogram.h"
+
 
 namespace Themes {
 
@@ -202,13 +204,10 @@ namespace Themes {
         void setFontSize(float yScaling, float yScale);
     };
 
-    struct Band {
-        int start, end, alpha, red, green, blue;
-        SkPaint paint;
-        std::string name;
-    };
+    void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
+                          Themes::BaseTheme &theme);
 
-    void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Band>> &ideogram,
+    void readIdeogramData(const unsigned char *data, size_t size, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
                           Themes::BaseTheme &theme);
 
 }

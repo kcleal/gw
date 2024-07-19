@@ -676,6 +676,7 @@ namespace Manager {
                 for (auto &bm: bams) {
                     hts_set_fai_filename(bm, reference.c_str());
                 }
+                loadIdeogramTag();
                 outerr << termcolor::bold << "\n" << opts.genome_tag << termcolor::reset << " loaded from " << reference << std::endl;
             } else {
                 outerr << termcolor::red << "Error:" << termcolor::reset << " could not open tag " << opts.myIni["genomes"][opts.genome_tag].c_str() << std::endl;

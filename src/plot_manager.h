@@ -183,6 +183,8 @@ namespace Manager {
 
         void addIdeogram(std::string path);
 
+        void loadIdeogramTag();
+
         void addFilter(std::string &filter_str);
 
         void setOutLabelFile(const std::string &path);
@@ -277,7 +279,7 @@ namespace Manager {
 
         std::vector<Utils::BoundingBox> bboxes;
 
-        std::unordered_map<std::string, std::vector<Themes::Band>> ideogram;
+        std::unordered_map<std::string, std::vector<Ideo::Band>> ideogram;
 
         BS::thread_pool pool;
 
