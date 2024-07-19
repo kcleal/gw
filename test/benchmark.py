@@ -53,7 +53,7 @@ def plot_gw(chrom, start, end, args, timef, threads, extra_args):
         line = open('gwtime.txt', 'r').readlines()[0].strip().split("\t")
         m = float(line[1])
 
-    com = "hyperfine -w 3 -r 3 --export-csv ./gwtime.txt '{gw} {genome} {extra_args} -t {threads} -b {bam} -r {chrom}:{start}-{end} --file images/gw.png --no-show -d 1500x1500'" \
+    com = "hyperfine -w 0 -r 1 --export-csv ./gwtime.txt '{gw} {genome} {extra_args} -t {threads} -b {bam} -r {chrom}:{start}-{end} --file images/gw.png --no-show -d 1500x1500'" \
         .format(gw=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end, extra_args=extra_args, threads=threads)
     run(com, shell=True)
     line = open('gwtime.txt', 'r').readlines()[1].strip().split(",")
@@ -197,7 +197,24 @@ def plot_genomeview(chrom, start, end, args, timef, threads=1):
     return t, m
 
 
+def plot_samtools(chrom, start, end, args, timef, threads=1):
+    # com = timef + " -o samtoolstime.txt samtools view -@{threads} -c {bam} {chrom}:{start}-{end}" \
+    #     .format(threads=threads, bam=args.bam, chrom=chrom, start=start, end=end)
+    # run(com, shell=True)
+    # line = open('samtoolstime.txt', 'r').readlines()[0].strip().split("\t")
+    # m = float(line[1])
+    m = 0.1
+    com = "hyperfine -w 0 -r 1 --export-csv samtoolstime.txt 'samtools view -@{threads} -c {bam} {chrom}:{start}-{end}'" \
+        .format(threads=threads, bam=args.bam, chrom=chrom, start=start, end=end)
+    run(com, shell=True)
+    line = open('samtoolstime.txt', 'r').readlines()[1].strip().split(",")
+    t = float(line[1])
+
+    return t, m
+
+
 def samtools_count(chrom, start, end, args, timef, threads):
+    return 1, 1
     p = Popen(f'samtools view -@{threads} -c {args.bam} {chrom}:{start}-{end}', stdout=PIPE, stderr=PIPE, shell=True)
     out, err = p.communicate()
     reads = int(out.decode('ascii').strip())
@@ -227,7 +244,7 @@ if __name__ == "__main__":
     parser.add_argument('bam')
     parser.add_argument('tool_path')
     parser.add_argument('tool_name', choices=['gw', 'igv', 'samplot', 'jb2export', 'bamsnap',
-                                              'genomeview'])
+                                              'genomeview', 'samtools'])
     parser.add_argument('threads')
     parser.add_argument('extra_args')
     args = parser.parse_args()
@@ -272,7 +289,10 @@ if __name__ == "__main__":
                     20_000,
                     200_000,
                     2_000_000
-                    ]#[::-1]
+                    ]
+    import numpy as np
+    region_sizes = list(int(i) for i in np.logspace(1, 7, 50))
+
     max_size = 20_000_000
     fai = {}
     with open(args.ref_genome + ".fai", "r") as fin:
@@ -284,15 +304,18 @@ if __name__ == "__main__":
 
     results = []
     progs = {'gw': plot_gw, 'igv': plot_igv, 'samplot': plot_samplot, 'jb2export': plot_jbrowse2, 'bamsnap': plot_bamsnap,
-             'genomeview': plot_genomeview}
+             'genomeview': plot_genomeview, 'samtools': plot_samtools}
     name = args.tool_name
     extra_args = args.extra_args
     threads = args.threads
     prog = progs[name]
 
     # Select some random regions
-    chroms = list(fai.keys())
-    print(chroms)
+    chroms = []
+    for i in range(100):
+        chroms += list(fai.keys())
+    print(list(fai.keys()))
+
     for size in region_sizes:
         print('Size: ', size)
         half_size = int(size * 0.5)
@@ -343,7 +366,7 @@ if __name__ == "__main__":
                 avg_time, maxRSS = prog(chrom, start, end, args, timef, threads, extra_args)
             else:
                 avg_time, maxRSS = prog(chrom, start, end, args, timef, threads)
-            print('TIME', avg_time, 'MEMORY', maxRSS)
+            print('TIME', avg_time, 'MEMORY', maxRSS, 'SIZE', size)
 
             results.append({'name': name, 'region': f'{chrom}:{start}-{end}', 'time (s)': avg_time,
                             'region size (bp)': end - start, 'RSS': maxRSS,
