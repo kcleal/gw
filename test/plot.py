@@ -106,7 +106,6 @@ for item in ['total_time', 'relative_time', 'render', 'relative_render_time', 't
                     x='region size (bp)', y=item, hue='name',
                     alpha=0.6, palette=colors, ax=ax)
                     # kind='point', alpha=0.6, palette=colors, ax=ax)
-
     # g.ax.set_xlabel("Region size (bp)", fontsize=14)
     # label = list(item.replace('_', ' '))
     # label[0] = label[0].upper()
