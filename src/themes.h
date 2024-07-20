@@ -208,6 +208,6 @@ namespace Themes {
                           Themes::BaseTheme &theme);
 
     void readIdeogramData(const unsigned char *data, size_t size, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
-                          Themes::BaseTheme &theme);
+                          Themes::BaseTheme &theme, bool strip_chr);
 
 }

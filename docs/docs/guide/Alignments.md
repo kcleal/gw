@@ -2,7 +2,7 @@
 title: Alignment data
 layout: home
 parent: User guide
-nav_order: 1
+nav_order: 3
 ---
 
 # Alignment data

@@ -13,11 +13,10 @@
 #include "include/core/SkPaint.h"
 
 
-/* A collection of ideograms for the preset reference genome tags
+/* A collection of embedded ideograms for the preset reference genome tags
+ * collected from ucsc table browser
  */
 namespace Ideo {
-
-
 
     struct EXPORT Band {
         int start, end, alpha, red, green, blue;
@@ -25,14 +24,17 @@ namespace Ideo {
         std::string name;
     };
 
-    void printIdeogram(const std::unordered_map<std::string, std::vector<Ideo::Band>> &bands);
-
     void get_hg19_cytoBand_bed(const unsigned char*& ptr, size_t& size);
 
     void get_hg38_cytoBand_bed(const unsigned char*& ptr, size_t& size);
 
     void get_t2t_cytoBand_bed(const unsigned char*& ptr, size_t& size);
 
+    void get_mm39_cytoBand_bed(const unsigned char*& ptr, size_t& size);
+
+    void get_ce11_cytoBand_bed(const unsigned char*& ptr, size_t& size);
+
+    void get_danrer11_cytoBand_bed(const unsigned char*& ptr, size_t& size);
 
 
 } // namespace Cyto

@@ -2,7 +2,7 @@
 title: Image tiles
 layout: home
 parent: User guide
-nav_order: 3
+nav_order: 5
 ---
 
 # Variant data and image tiles

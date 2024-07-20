@@ -676,7 +676,15 @@ namespace Manager {
                 for (auto &bm: bams) {
                     hts_set_fai_filename(bm, reference.c_str());
                 }
-                loadIdeogramTag();
+                if (opts.myIni["tracks"].has(opts.genome_tag + "_ideogram")) {
+                    ideogram.clear();
+                    ideogram_path = opts.genome_tag + "_ideogram";
+                    addIdeogram(opts.myIni["tracks"][ideogram_path]);
+                } else {
+                    ideogram.clear();
+                    loadIdeogramTag();
+                }
+
                 outerr << termcolor::bold << "\n" << opts.genome_tag << termcolor::reset << " loaded from " << reference << std::endl;
             } else {
                 outerr << termcolor::red << "Error:" << termcolor::reset << " could not open tag " << opts.myIni["genomes"][opts.genome_tag].c_str() << std::endl;
@@ -1121,7 +1129,8 @@ namespace Manager {
                 opts.link_op += 1;
             }
             std::string lk = (opts.link_op > 0) ? ((opts.link_op == 1) ? "sv" : "all") : "none";
-            out << "\nLinking selection " << lk << std::endl;
+            Term::clearLine(out);
+            out << "\rLinking selection " << lk << std::flush;
             imageCache.clear();
             imageCacheQueue.clear();
             HGW::refreshLinked(collections, opts, &samMaxY, sortReadsBy);

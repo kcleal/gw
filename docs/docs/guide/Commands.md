@@ -156,7 +156,8 @@ This is a shorthand for `filter flag & proper-pair`. For the inverse (keeping di
     filter ~proper-pair
 
 
-The `pattern` property can accept the values:
+The `pattern` property can accept the values `deletion`, `duplication`, `translocation`, `inversion_forward`, or
+`inversion_reverse`. These pattern can also be used with a shorthand name e.g.:
 
     filter pattern == del    # deletion pattern
     filter pattern == dup    # duplication pattern

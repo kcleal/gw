@@ -920,7 +920,7 @@ namespace Segs {
     }
 
     void findYWithSort(ReadCollection &rc, std::vector<Align> &rQ, std::vector<int> &ls, std::vector<int> &le, bool joinLeft,
-                       int vScroll, Segs::map_t &lm, ankerl::unordered_dense::map< std::string, int > linkedSeen,
+                       int vScroll, Segs::map_t &lm, ankerl::unordered_dense::map< std::string, int >& linkedSeen,
                        int linkType, int sortReadsBy, int ylim) {
 
         bool re_sort = false;
@@ -1058,7 +1058,7 @@ namespace Segs {
 
 
     void findYNoSort(std::vector<Align> &rQ, std::vector<int> &ls, std::vector<int> &le, bool joinLeft,
-                     int vScroll, Segs::map_t &lm, ankerl::unordered_dense::map< std::string, int > linkedSeen,
+                     int vScroll, Segs::map_t &lm, ankerl::unordered_dense::map< std::string, int >& linkedSeen,
                      int linkType) {
         int qLen = (int)rQ.size();
         int stopCondition, move, si;

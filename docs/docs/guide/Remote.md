@@ -2,7 +2,7 @@
 title: Remote
 layout: home
 parent: User guide
-nav_order: 9
+nav_order: 11
 ---
 
 # Loading remote data

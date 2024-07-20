@@ -1,0 +1,121 @@
+chr1	0	110000	p	gneg
+chr1	110000	1555000	cen	acen
+chr1	1555000	3000000	cen	acen
+chr1	3000000	195154279	q	gneg
+chr2	0	110000	p	gneg
+chr2	110000	1555000	cen	acen
+chr2	1555000	3000000	cen	acen
+chr2	3000000	181755017	q	gneg
+chr3	0	110000	p	gneg
+chr3	110000	1555000	cen	acen
+chr3	1555000	3000000	cen	acen
+chr3	3000000	159745316	q	gneg
+chr4	0	110000	p	gneg
+chr4	110000	1555000	cen	acen
+chr4	1555000	3000000	cen	acen
+chr4	3000000	156860686	q	gneg
+chr5	0	110000	p	gneg
+chr5	110000	1555000	cen	acen
+chr5	1555000	3000000	cen	acen
+chr5	3000000	151758149	q	gneg
+chr6	0	110000	p	gneg
+chr6	110000	1555000	cen	acen
+chr6	1555000	3000000	cen	acen
+chr6	3000000	149588044	q	gneg
+chr7	0	110000	p	gneg
+chr7	110000	1555000	cen	acen
+chr7	1555000	3000000	cen	acen
+chr7	3000000	144995196	q	gneg
+chr8	0	110000	p	gneg
+chr8	110000	1555000	cen	acen
+chr8	1555000	3000000	cen	acen
+chr8	3000000	130127694	q	gneg
+chr9	0	110000	p	gneg
+chr9	110000	1555000	cen	acen
+chr9	1555000	3000000	cen	acen
+chr9	3000000	124359700	q	gneg
+chrM	0	16299		gneg
+chrX	0	110000	p	gneg
+chrX	110000	1555000	cen	acen
+chrX	1555000	3000000	cen	acen
+chrX	3000000	169476592	q	gneg
+chrY	0	91455967		gneg
+chr10	0	110000	p	gneg
+chr10	110000	1555000	cen	acen
+chr10	1555000	3000000	cen	acen
+chr10	3000000	130530862	q	gneg
+chr11	0	110000	p	gneg
+chr11	110000	1555000	cen	acen
+chr11	1555000	3000000	cen	acen
+chr11	3000000	121973369	q	gneg
+chr12	0	110000	p	gneg
+chr12	110000	1555000	cen	acen
+chr12	1555000	3000000	cen	acen
+chr12	3000000	120092757	q	gneg
+chr13	0	110000	p	gneg
+chr13	110000	1555000	cen	acen
+chr13	1555000	3000000	cen	acen
+chr13	3000000	120883175	q	gneg
+chr14	0	110000	p	gneg
+chr14	110000	1555000	cen	acen
+chr14	1555000	3000000	cen	acen
+chr14	3000000	125139656	q	gneg
+chr15	0	110000	p	gneg
+chr15	110000	1555000	cen	acen
+chr15	1555000	3000000	cen	acen
+chr15	3000000	104073951	q	gneg
+chr16	0	110000	p	gneg
+chr16	110000	1555000	cen	acen
+chr16	1555000	3000000	cen	acen
+chr16	3000000	98008968	q	gneg
+chr17	0	110000	p	gneg
+chr17	110000	1555000	cen	acen
+chr17	1555000	3000000	cen	acen
+chr17	3000000	95294699	q	gneg
+chr18	0	110000	p	gneg
+chr18	110000	1555000	cen	acen
+chr18	1555000	3000000	cen	acen
+chr18	3000000	90720763	q	gneg
+chr19	0	110000	p	gneg
+chr19	110000	1555000	cen	acen
+chr19	1555000	3000000	cen	acen
+chr19	3000000	61420004	q	gneg
+chrUn_GL456359v1	0	22974		gneg
+chrUn_GL456360v1	0	31704		gneg
+chrUn_GL456366v1	0	47073		gneg
+chrUn_GL456367v1	0	42057		gneg
+chrUn_GL456368v1	0	20208		gneg
+chrUn_GL456370v1	0	26764		gneg
+chrUn_GL456372v1	0	28664		gneg
+chrUn_GL456378v1	0	31602		gneg
+chrUn_GL456379v1	0	72385		gneg
+chrUn_GL456381v1	0	25871		gneg
+chrUn_GL456382v1	0	23158		gneg
+chrUn_GL456383v1	0	38659		gneg
+chrUn_GL456385v1	0	35240		gneg
+chrUn_GL456387v1	0	24685		gneg
+chrUn_GL456389v1	0	28772		gneg
+chrUn_GL456390v1	0	24668		gneg
+chrUn_GL456392v1	0	23629		gneg
+chrUn_GL456394v1	0	24323		gneg
+chrUn_GL456396v1	0	21240		gneg
+chrUn_JH584304v1	0	114452		gneg
+chrUn_MU069435v1	0	31129		gneg
+chr1_GL456210v1_random	0	169725		gneg
+chr1_GL456211v1_random	0	241735		gneg
+chr1_GL456212v1_random	0	153618		gneg
+chr1_GL456221v1_random	0	206961		gneg
+chr1_GL456239v1_random	0	40056		gneg
+chr1_MU069434v1_random	0	8412		gneg
+chr4_JH584295v1_random	0	1976		gneg
+chr5_GL456354v1_random	0	195993		gneg
+chr5_JH584296v1_random	0	199368		gneg
+chr5_JH584297v1_random	0	205776		gneg
+chr5_JH584298v1_random	0	184189		gneg
+chr5_JH584299v1_random	0	953012		gneg
+chr7_GL456219v1_random	0	175968		gneg
+chrX_GL456233v2_random	0	559103		gneg
+chrY_JH584300v1_random	0	182347		gneg
+chrY_JH584301v1_random	0	259875		gneg
+chrY_JH584302v1_random	0	155838		gneg
+chrY_JH584303v1_random	0	158099		gneg

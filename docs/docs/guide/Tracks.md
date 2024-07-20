@@ -2,7 +2,7 @@
 title: Tracks
 layout: home
 parent: User guide
-nav_order: 3
+nav_order: 7
 ---
 
 # Tracks

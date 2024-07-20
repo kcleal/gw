@@ -103,8 +103,9 @@ namespace Manager {
             hts_idx_t *idx = sam_index_load(f, fn.c_str());
             indexes.push_back(idx);
         }
-
-        if (!opts.genome_tag.empty() && !opts.ini_path.empty() && opts.myIni["tracks"].has(opts.genome_tag)) {
+        std::cout << opts.genome_tag << " " << (opts.myIni["tracks"].has(opts.genome_tag)) << " YOO\n";
+        if (!opts.genome_tag.empty() && !opts.ini_path.empty() && opts.myIni["tracks"].size() > 0 && (opts.myIni["tracks"].has(opts.genome_tag) || opts.myIni["tracks"].has(opts.genome_tag + "_ideogram"))) {
+            std::cout << opts.genome_tag << " " << (opts.myIni["tracks"].has(opts.genome_tag)) << " YOO\n";
             std::vector<std::string> track_paths_temp = Utils::split(opts.myIni["tracks"][opts.genome_tag], ',');
             tracks.reserve(track_paths.size() + track_paths_temp.size());
             for (const auto &trk_item: track_paths_temp) {
@@ -123,6 +124,10 @@ namespace Manager {
                         tracks.back().faceColour = opts.theme.fcTrack;
                     }
                 }
+            }
+            if (opts.myIni["tracks"].has(opts.genome_tag + "_ideogram")) {
+                ideogram_path = opts.genome_tag + "_ideogram";
+                addIdeogram(opts.myIni["tracks"][ideogram_path]);
             }
         } else {
             tracks.reserve(track_paths.size());
@@ -153,6 +158,7 @@ namespace Manager {
         }
         triggerClose = false;
         sortReadsBy = Manager::SortType::NONE;
+
     }
 
     GwPlot::~GwPlot() {
@@ -424,13 +430,28 @@ namespace Manager {
         size_t size = 0;
         if (opts.genome_tag == "hg19") {
             Ideo::get_hg19_cytoBand_bed(ptr, size);
-            Themes::readIdeogramData(ptr, size, ideogram, opts.theme);
+            Themes::readIdeogramData(ptr, size, ideogram, opts.theme, false);
         } else if (opts.genome_tag == "hg38") {
             Ideo::get_hg38_cytoBand_bed(ptr, size);
-            Themes::readIdeogramData(ptr, size, ideogram, opts.theme);
+            Themes::readIdeogramData(ptr, size, ideogram, opts.theme, false);
         } else if (opts.genome_tag == "t2t") {
             Ideo::get_t2t_cytoBand_bed(ptr, size);
-            Themes::readIdeogramData(ptr, size, ideogram, opts.theme);
+            Themes::readIdeogramData(ptr, size, ideogram, opts.theme, false);
+        } else if (opts.genome_tag == "grch37") {
+            Ideo::get_hg19_cytoBand_bed(ptr, size);
+            Themes::readIdeogramData(ptr, size, ideogram, opts.theme, true);
+        } else if (opts.genome_tag == "grch38") {
+            Ideo::get_hg38_cytoBand_bed(ptr, size);
+            Themes::readIdeogramData(ptr, size, ideogram, opts.theme, true);
+        } else if (opts.genome_tag == "mm39") {
+            Ideo::get_mm39_cytoBand_bed(ptr, size);
+            Themes::readIdeogramData(ptr, size, ideogram, opts.theme, false);
+        } else if (opts.genome_tag == "ce11") {
+            Ideo::get_ce11_cytoBand_bed(ptr, size);
+            Themes::readIdeogramData(ptr, size, ideogram, opts.theme, false);
+        } else if (opts.genome_tag == "danrer11") {
+            Ideo::get_danrer11_cytoBand_bed(ptr, size);
+            Themes::readIdeogramData(ptr, size, ideogram, opts.theme, false);
         }
     }
 
@@ -815,9 +836,7 @@ namespace Manager {
 
                         int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts,
                                                false, sortReadsBy);
-//                        if (maxY > samMaxY) {
-                            samMaxY = maxY;
-//                        }
+                        samMaxY = maxY;
                     } else {
                         samMaxY = opts.ylim;
                     }

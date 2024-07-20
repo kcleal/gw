@@ -1083,7 +1083,7 @@ namespace Themes {
 
 
     void readIdeogramData(const unsigned char *data, size_t size, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
-                          Themes::BaseTheme &theme) {
+                          Themes::BaseTheme &theme, bool strip_chr) {
         if (size == 0) {
             return;
         }
@@ -1110,6 +1110,9 @@ namespace Themes {
 
             next_t;
             chrom = token;
+            if (strip_chr) {
+                chrom.erase(chrom.begin(), chrom.begin() + 3);
+            }
             next_t;
             int start = std::stoi(token);
             next_t;

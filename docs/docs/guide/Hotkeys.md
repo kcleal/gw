@@ -2,7 +2,7 @@
 title: Hot keys
 layout: home
 parent: User guide
-nav_order: 8
+nav_order: 10
 ---
 
 # Hot keys and shortcuts
