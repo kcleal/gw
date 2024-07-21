@@ -312,7 +312,8 @@ namespace Manager {
                     return key;
                 } else if (key == GLFW_KEY_TAB) {
                     if (mode != SETTINGS) {
-                        if (Utils::startsWith(inputText, "load ") && !(inputText == "load ")) {
+                        if ((Utils::startsWith(inputText, "load ") && !(inputText == "load ")) ||
+                                (Utils::startsWith(inputText, "save ") && !(inputText == "save "))) {
                             Term::clearLine(out);
                             Parse::tryTabCompletion(inputText, out, charIndex);
                             commandToolTipIndex = -1;

@@ -424,34 +424,44 @@ namespace Manager {
         Themes::readIdeogramFile(path, ideogram, opts.theme);
     }
 
-    void GwPlot::loadIdeogramTag() {
+    bool GwPlot::loadIdeogramTag() {
         const unsigned char* ptr;
         size_t size = 0;
+        bool good = false;
         if (opts.genome_tag == "hg19") {
             Ideo::get_hg19_cytoBand_bed(ptr, size);
             Themes::readIdeogramData(ptr, size, ideogram, opts.theme, false);
+            good = true;
         } else if (opts.genome_tag == "hg38") {
             Ideo::get_hg38_cytoBand_bed(ptr, size);
             Themes::readIdeogramData(ptr, size, ideogram, opts.theme, false);
+            good = true;
         } else if (opts.genome_tag == "t2t") {
             Ideo::get_t2t_cytoBand_bed(ptr, size);
             Themes::readIdeogramData(ptr, size, ideogram, opts.theme, false);
+            good = true;
         } else if (opts.genome_tag == "grch37") {
             Ideo::get_hg19_cytoBand_bed(ptr, size);
             Themes::readIdeogramData(ptr, size, ideogram, opts.theme, true);
+            good = true;
         } else if (opts.genome_tag == "grch38") {
             Ideo::get_hg38_cytoBand_bed(ptr, size);
             Themes::readIdeogramData(ptr, size, ideogram, opts.theme, true);
+            good = true;
         } else if (opts.genome_tag == "mm39") {
             Ideo::get_mm39_cytoBand_bed(ptr, size);
             Themes::readIdeogramData(ptr, size, ideogram, opts.theme, false);
+            good = true;
         } else if (opts.genome_tag == "ce11") {
             Ideo::get_ce11_cytoBand_bed(ptr, size);
             Themes::readIdeogramData(ptr, size, ideogram, opts.theme, false);
+            good = true;
         } else if (opts.genome_tag == "danrer11") {
             Ideo::get_danrer11_cytoBand_bed(ptr, size);
             Themes::readIdeogramData(ptr, size, ideogram, opts.theme, false);
+            good = true;
         }
+        return good;
     }
 
     void GwPlot::addFilter(std::string &filter_str) {
@@ -555,7 +565,8 @@ namespace Manager {
             if (Utils::startsWith(item.first, "ideogram") || Utils::startsWith(item.first, "genome")) {
                 continue;
             }
-            if (!std::filesystem::exists(item.second)) {
+            bool maybe_online = (Utils::startsWith(item.second, "http") || Utils::startsWith(item.second, "ftp"));
+            if (!maybe_online && !std::filesystem::exists(item.second)) {
                 std::cerr << item.first << " data file does not exists: " << item.second << std::endl;
                 continue;
             }
@@ -635,8 +646,7 @@ namespace Manager {
         int windX, windY;
         glfwGetWindowSize(window, &windX, &windY);
         opts.saveCurrentSession(reference, ideogram_path, bam_paths, track_paths, regions, variant_paths_info,
-                                commandsApplied,
-                                output_session, mode, xpos, ypos, monitorScale, windX, windY, sortReadsBy);
+                                commandsApplied, output_session, mode, xpos, ypos, monitorScale, windX, windY, sortReadsBy);
     }
 
     int GwPlot::startUI(GrDirectContext *sContext, SkSurface *sSurface, int delay) {
@@ -1065,7 +1075,7 @@ namespace Manager {
         }
 
         if (opts.max_coverage) {
-            Drawing::drawCoverage(opts, collections, canvasR, fonts, covY, refSpace);
+            Drawing::drawCoverage(opts, collections, canvasR, fonts, covY, refSpace, gap);
         }
         Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, fonts.overlayHeight, (float)regions.size(), gap, monitorScale, opts.scale_bar);
         Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
@@ -1614,9 +1624,9 @@ namespace Manager {
 //            Drawing::drawCollection(opts, cl, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
         }
         if (opts.max_coverage) {
-            Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
+            Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace, gap);
         }
-        Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap, monitorScale, opts.scale_bar);
+        Drawing::drawRef(opts, regions, fb_width, canvas, fonts, fonts.overlayHeight, (float)regions.size(), gap, monitorScale, opts.scale_bar);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale, gap);
@@ -1739,10 +1749,10 @@ namespace Manager {
 //            }
 //        }
         if (opts.max_coverage) {
-            Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace);
+            Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace, gap);
         }
 
-        Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap, monitorScale, opts.scale_bar);
+        Drawing::drawRef(opts, regions, fb_width, canvas, fonts, fonts.overlayHeight, (float)regions.size(), gap, monitorScale, opts.scale_bar);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale, gap);

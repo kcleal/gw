@@ -183,7 +183,7 @@ namespace Manager {
 
         void addIdeogram(std::string path);
 
-        void loadIdeogramTag();
+        bool loadIdeogramTag();
 
         void addFilter(std::string &filter_str);
 

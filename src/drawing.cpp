@@ -46,7 +46,7 @@ namespace Drawing {
     };
 
     void drawCoverage(const Themes::IniOptions &opts, std::vector<Segs::ReadCollection> &collections,
-                      SkCanvas *canvas, const Themes::Fonts &fonts, const float covYh, const float refSpace) {
+                      SkCanvas *canvas, const Themes::Fonts &fonts, const float covYh, const float refSpace, const float gap) {
 
         const Themes::BaseTheme &theme = opts.theme;
         SkPaint paint = theme.fcCoverage;
@@ -64,14 +64,20 @@ namespace Drawing {
         for (auto &cl: collections) {
             cl.skipDrawingCoverage = true;
             if (cl.region->markerPos != -1) {
-                float rp = refSpace + 6 + (cl.bamIdx * cl.yPixels);
-                float xp = refSpace * 0.2;
+                float rp;
+
+                if (opts.scale_bar) {
+                    rp = gap + fonts.overlayHeight + gap + fonts.overlayHeight + gap + (cl.bamIdx * cl.yPixels);
+                } else {
+                    rp = gap + fonts.overlayHeight + gap + (cl.bamIdx * cl.yPixels);
+                }
+                float xp = fonts.overlayHeight * 0.5;
                 float markerP = (cl.xScaling * (float) (cl.region->markerPos - cl.region->start)) + cl.xOffset;
                 if (markerP > cl.xOffset && markerP < cl.regionPixels - cl.xOffset) {
                     path.reset();
                     path.moveTo(markerP, rp);
                     path.lineTo(markerP - xp, rp);
-                    path.lineTo(markerP, rp + (refSpace*0.7));
+                    path.lineTo(markerP, rp + (fonts.overlayHeight));
                     path.lineTo(markerP + xp, rp);
                     path.lineTo(markerP, rp);
                     canvas->drawPath(path, theme.fcMarkers);
@@ -81,7 +87,7 @@ namespace Drawing {
                     path.reset();
                     path.moveTo(markerP2, rp);
                     path.lineTo(markerP2 - xp, rp);
-                    path.lineTo(markerP2, rp + (refSpace*0.7));
+                    path.lineTo(markerP2, rp + (fonts.overlayHeight));
                     path.lineTo(markerP2 + xp, rp);
                     path.lineTo(markerP2, rp);
                     canvas->drawPath(path, theme.fcMarkers);

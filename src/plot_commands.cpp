@@ -1074,27 +1074,32 @@ namespace Commands {
 
     Err load_file(Plot* p, std::vector<std::string> parts, std::ostream& out) {
         std::string filename;
+        p->redraw = true;
         if (parts.empty()) {
             return Err::OPTION_NOT_UNDERSTOOD;
         }
         filename = Parse::tilde_to_home(parts.back());
         bool maybe_online = (Utils::startsWith(filename, "http") || Utils::startsWith(filename, "ftp"));
         if (parts.size() == 3) {
-
             std::string ext = std::filesystem::path(filename).extension().string();
             if (!maybe_online && std::filesystem::is_directory(filename)) {
-                p->redraw = true;
                 out << termcolor::red << "Error:" << termcolor::reset << " This is a folder path, not a file\n";
                 return Err::SILENT;
             }
             if (parts[1] == "ideogram") {
                 if (!maybe_online && !std::filesystem::exists(filename)) {
-                    p->redraw = true;
-                    return Err::INVALID_PATH;
+                    std::string g = p->opts.genome_tag;
+                    p->opts.genome_tag = parts.back();
+                    bool success = p->loadIdeogramTag();
+                    if (success) {
+                        return Err::NONE;
+                    } else {
+                        p->opts.genome_tag = g;
+                        return Err::INVALID_PATH;
+                    }
                 }
                 if (ext != ".bed") {
                     out << termcolor::red << "Error:" << termcolor::reset << " Only .bed extension supported for ideograms\n";
-                    p->redraw = true;
                     return Err::SILENT;
                 } else {
                     p->addIdeogram(filename);
@@ -1103,7 +1108,6 @@ namespace Commands {
                 }
             } else if (parts[1] == "track") {
                 if (!maybe_online && !std::filesystem::exists(filename)) {
-                    p->redraw = true;
                     return Err::INVALID_PATH;
                 }
                 if (ext == ".bam" || ext == ".cram") {
@@ -1117,7 +1121,6 @@ namespace Commands {
 
             } else if (parts[1] == "tiled") {
                 if (!maybe_online && !std::filesystem::exists(filename)) {
-                    p->redraw = true;
                     return Err::INVALID_PATH;
                 }
                 if (ext == ".vcf" || ext == ".gz" || ext == ".bcf" || ext == ".bed") {
@@ -1126,12 +1129,10 @@ namespace Commands {
                     return Err::NONE;
                 } else {
                     out << termcolor::red << "Error:" << termcolor::reset << " Image tiling only supported for .vcf|.vcf.gz|.bcf|.bed|.bed.gz file extensions\n";
-                    p->redraw = true;
                     return Err::SILENT;
                 }
             } else if (parts[1] == "bam" || parts[1] == "cram") {
                 if (!maybe_online && !std::filesystem::exists(filename)) {
-                    p->redraw = true;
                     return Err::INVALID_PATH;
                 }
                 p->addTrack(filename, true, p->opts.vcf_as_tracks, p->opts.bed_as_tracks);
@@ -1143,7 +1144,6 @@ namespace Commands {
                 return Err::NONE;
             } else if (parts[1] == "labels") {
                 if (!maybe_online && !std::filesystem::exists(filename)) {
-                    p->redraw = true;
                     return Err::INVALID_PATH;
                 }
                 p->seenLabels.clear();
@@ -1226,7 +1226,7 @@ namespace Commands {
         if (reason == Err::NONE) {
             int res = faidx_has_seq(p->fai, rgn.chrom.c_str());
             if (res <= 0) {
-                return Err::OPTION_NOT_UNDERSTOOD;
+                reason = Err::OPTION_NOT_UNDERSTOOD;
             }
             if (p->mode != Manager::Show::SINGLE) { p->mode = Manager::Show::SINGLE; }
             if (p->regions.empty()) {
@@ -1262,9 +1262,9 @@ namespace Commands {
             }
         }
         if (reason == Err::NONE) {
-            p->redraw = true;
             p->processed = false;
             p->imageCache.clear();
+            p->redraw = true;
             p->imageCacheQueue.clear();
         }
         return reason;
@@ -1512,7 +1512,7 @@ namespace Commands {
                 out << termcolor::red << "Error:" << termcolor::reset << " Input could not be parsed\n";
                 break;
         }
-        p->redraw = false;
+        p->redraw = true;
         if (p->mode == Manager::Show::SINGLE) {
             for (auto &cl : p->collections) {
                 cl.skipDrawingReads = true;

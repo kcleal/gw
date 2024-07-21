@@ -829,7 +829,6 @@ namespace Themes {
         }
         count = 0;
         for (const auto& item : track_paths) {
-            std::cout << " track " << std::endl;
             seshIni["data"]["track" + std::to_string(count)] = item;
             count += 1;
         }
