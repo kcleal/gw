@@ -1562,7 +1562,7 @@ namespace Manager {
             } else if (action == GLFW_RELEASE) {
                 Utils::Region &region = regions[regionSelection];
                 auto w = (float)(region.end - region.start) * (float) regions.size();
-                if (w >= 50000) {
+                if (w >= 75000) {
                     int travel = (int) (w * (xDrag / windowW));
                     int old_start = region.start;
                     if (region.start - travel < 0) {
@@ -1920,7 +1920,7 @@ namespace Manager {
                 int windowW, windowH;
                 glfwGetWindowSize(wind, &windowW, &windowH);
                 Utils::Region &region = regions[regionSelection];
-                if (std::fabs(xDrag) > std::fabs(yDrag) && region.end - region.start < 50000) {
+                if (std::fabs(xDrag) > std::fabs(yDrag) && region.end - region.start < 75000) {
                     printRegionInfo();
                     auto w = (float) (region.end - region.start) * (float) regions.size();
                     int travel = (int) (w * (xDrag / windowW));
@@ -2073,7 +2073,7 @@ namespace Manager {
 	            int pos = (int) ((((double)xPos_fb - (double)cl.xOffset) / (double)cl.xScaling) + (double)cl.region->start);
                 float f_level = ((yPos_fb - (float) cl.yOffset) / (trackY / (float)(cl.levelsStart.size() - cl.vScroll )));
 	            int level = (f_level < 0) ? -1 : (int)(f_level);
-	            if (level < 0 && cl.region->end - cl.region->start < 50000) {
+	            if (level < 0 && cl.region->end - cl.region->start < 75000) {
 		            Term::clearLine(out);
 		            Term::printCoverage(pos, cl, out);
 		            return;

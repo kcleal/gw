@@ -1256,18 +1256,18 @@ namespace Drawing {
         float textW = fonts.overlayWidth;
         float minLetterSize = (textW > 0) ? ((float) fb_width / (float) regions.size()) / textW : 0;
         int index = 0;
-        float yp;
-        double mmPosOffset;
+        float yp;  // for text only.
+        double mmPosOffset = monitorScale;  // draw position of boxes
         if (scale_bar) {
-            mmPosOffset = h + monitorScale;
-            yp = h + monitorScale;
-            h /= 2;
+            mmPosOffset = gap + h + gap + monitorScale + (gap*0.25);
+            yp = gap + h + gap + h + monitorScale;
         } else {
-            mmPosOffset = monitorScale;
-            yp = h + monitorScale;
+            mmPosOffset = monitorScale + monitorScale;
+            yp = h + monitorScale + monitorScale;
         }
 
         for (auto &rgn: regions) {
+
             int size = rgn.end - rgn.start;
             double xScaling = xPixels / size;
             const char *ref = rgn.refSeq;
@@ -1921,8 +1921,9 @@ namespace Drawing {
             a = "0";
             return;
         }
-        int rounding = std::min(std::ceil(std::log10(num)), std::ceil(std::log10(regionLen)));
-
+//        int rounding = std::min(std::ceil(std::log10(num)), std::ceil(std::log10(regionLen)));
+        int rounding = std::ceil(std::log10(regionLen));
+//        std::cout << num << " " << (std::ceil(std::log10(num))) << " " << (std::ceil(std::log10(regionLen))) << std::endl;
         double d;
         switch (rounding) {
             case 0:
@@ -1995,6 +1996,7 @@ namespace Drawing {
         return interval;
     }
 
+    // draw scale bar and ideogram
     void drawChromLocation(const Themes::IniOptions &opts,
                            const Themes::Fonts &fonts,
                            const std::vector<Utils::Region> &regions,
@@ -2014,6 +2016,7 @@ namespace Drawing {
         line.setStrokeWidth(monitorScale);
         line.setStyle(SkPaint::kStroke_Style);
         SkRect rect{};
+        SkRect clip{};
         SkPath path{};
 
         const float yh = std::fmax((float) (fb_height * 0.0175), 10 * monitorScale);
@@ -2022,10 +2025,10 @@ namespace Drawing {
 
         const float top = fb_height - (yh * 2);
         const float colWidth = (float) fb_width / (float) regions.size();
-        const float gap = 25 * monitorScale;
+        const float gap = 25 * monitorScale;  // ideogram is smaller than the full page width, by this ammount
         const float gap2 = 50 * monitorScale;
         const float drawWidth = colWidth - gap2;
-        const float scaleWidth = colWidth - gap - gap;
+        const float scaleWidth = colWidth - plot_gap - plot_gap;
 
         if (drawWidth < 0) {
             return;
@@ -2073,15 +2076,19 @@ namespace Drawing {
             // draw scale bar
             if (opts.scale_bar) {
 
-//                float top2 = top - yh * 2;
-                float top2 = 25;
+                float top2 = fonts.overlayHeight + plot_gap;
                 xp = (regionIdx * colWidth) + plot_gap;
 
                 double nice_range = NiceNumber((double)region.regionLen, 0);
                 double nice_tick = NiceNumber(nice_range/(10 - 1), 1) * 2;
                 if (nice_tick < 1) {
-                    return;
+                    continue;
                 }
+
+                canvas->save();
+                clip.setXYWH(plot_gap + (regionIdx * colWidth), 1, scaleWidth, fonts.overlayHeight * 2 + plot_gap);
+                canvas->clipRect(clip, SkClipOp::kIntersect );
+                canvas->drawRect(clip, opts.theme.bgPaint);
 
                 int position = (region.start / (int)nice_tick) * (int)nice_tick;
                 int num_divisions = nice_range / nice_tick;
@@ -2090,36 +2097,34 @@ namespace Drawing {
                 std::string last;
                 SkPath path;
                 double xScaling = (scaleWidth / (double)region.regionLen);
+                float xOffset = gap + (colWidth * regionIdx);
+                float last_x = -1;
                 for (int i = 0; i <= num_divisions; ++i) {
-                    if (position < 0) {
-                        position += nice_tick;
-                        continue;
-                    }
-                    float x_pos = gap + ((position - region.start - 0.5) * xScaling);
-                    if (x_pos < xp || x_pos > xp + scaleWidth) {
-                        position += nice_tick;
-                        continue;
-                    }
-                    path.moveTo(x_pos, top2 + yh*0.5);
-                    path.lineTo(x_pos, top2 + yh);
+
+                    float x_pos = xOffset + ((position - region.start) * xScaling) - xScaling;
+                    last_x = last_x + ((x_pos - last_x) * 0.5);
+
+                    path.moveTo(last_x, top2 + yh*0.2);
+                    path.lineTo(last_x, top2 + yh*0.70);
                     canvas->drawPath(path, opts.theme.lcJoins);
 
+                    path.moveTo(x_pos, top2 + yh*0.2);
+                    path.lineTo(x_pos, top2 + yh*0.70);
+                    canvas->drawPath(path, opts.theme.lcJoins);
+
+                    last_x = x_pos;
+
                     posToText(position, region.regionLen, text);
-                    if (text == last) {
-                        position += nice_tick;
-                        continue;
-                    }
+
                     sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(text.c_str(), fonts.overlay);
                     float text_width = fonts.overlay.measureText(text.c_str(), text.length(), SkTextEncoding::kUTF8);
                     float t_half = text_width * 0.5;
-                    if (x_pos - t_half < xp) {
-                        position += nice_tick;
-                        continue;
-                    }
                     canvas->drawTextBlob(blob, x_pos - t_half, top2, opts.theme.tcDel);
                     last = text;
                     position += nice_tick;
                 }
+                canvas->restore();
+
             }
             regionIdx += 1;
         }

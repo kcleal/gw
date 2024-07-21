@@ -103,9 +103,8 @@ namespace Manager {
             hts_idx_t *idx = sam_index_load(f, fn.c_str());
             indexes.push_back(idx);
         }
-        std::cout << opts.genome_tag << " " << (opts.myIni["tracks"].has(opts.genome_tag)) << " YOO\n";
+
         if (!opts.genome_tag.empty() && !opts.ini_path.empty() && opts.myIni["tracks"].size() > 0 && (opts.myIni["tracks"].has(opts.genome_tag) || opts.myIni["tracks"].has(opts.genome_tag + "_ideogram"))) {
-            std::cout << opts.genome_tag << " " << (opts.myIni["tracks"].has(opts.genome_tag)) << " YOO\n";
             std::vector<std::string> track_paths_temp = Utils::split(opts.myIni["tracks"][opts.genome_tag], ',');
             tracks.reserve(track_paths.size() + track_paths_temp.size());
             for (const auto &trk_item: track_paths_temp) {
@@ -514,6 +513,8 @@ namespace Manager {
             } else {
                 std::cerr << "Ideogram file does not exists: " << opts.seshIni["data"]["ideogram_path"] << std::endl;
             }
+        } else {
+            loadIdeogramTag();
         }
         if (opts.seshIni["data"].has("mode")) {
             mode = (opts.seshIni["data"]["mode"] == "tiled") ? Show::TILED : Show::SINGLE;
@@ -886,9 +887,11 @@ namespace Manager {
     void GwPlot::setScaling() {  // todo only call this function when needed - fb size change, or when plot items are added or removed
         fonts.setOverlayHeight(monitorScale);
 //        refSpace =  fonts.overlayHeight + gap;
-        refSpace =  fonts.overlayHeight * 1.25;
+//        refSpace =  fonts.overlayHeight + gap + gap;//* 1.25;
+        refSpace =  fonts.overlayHeight + gap;//* 1.25;
         if (opts.scale_bar) {
-            refSpace *= 2;
+//            refSpace *=  + gap + gap;
+            refSpace += fonts.overlayHeight + gap;
         }
         sliderSpace = std::fmax((float)(fb_height * 0.0175), 10*monitorScale) + (gap * 0.5);
         auto fbh = (float) fb_height;
@@ -1064,7 +1067,7 @@ namespace Manager {
         if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvasR, fonts, covY, refSpace);
         }
-        Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, refSpace, (float)regions.size(), gap, monitorScale, opts.scale_bar);
+        Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, fonts.overlayHeight, (float)regions.size(), gap, monitorScale, opts.scale_bar);
         Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap);
         Drawing::drawTracks(opts, fb_width, fb_height, canvasR, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, fai, fb_width, fb_height, monitorScale, gap);
@@ -1174,8 +1177,12 @@ namespace Manager {
             box.setStrokeWidth(monitorScale);
             box.setAntiAlias(true);
             box.setStyle(SkPaint::kStroke_Style);
-            rect.setXYWH((float)regionSelection * step + gap, y + gap, step - gap - gap, height);
-            canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, box);
+            if (opts.scale_bar) {
+                rect.setXYWH((float)regionSelection * step + gap, gap, step - gap - gap, height + gap);
+            } else {
+                rect.setXYWH((float)regionSelection * step + gap, y + gap, step - gap - gap, height);
+            }
+            canvas->drawRoundRect(rect, 2 * monitorScale, 2 * monitorScale, box);
         }
 
         // icon information for vcf-file
