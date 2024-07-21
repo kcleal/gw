@@ -1375,7 +1375,7 @@ namespace Drawing {
 
     void drawBorders(const Themes::IniOptions &opts, float fb_width, float fb_height,
                      SkCanvas *canvas, size_t nRegions, size_t nbams, float trackY, float covY, int nTracks,
-                     float totalTabixY, float refSpace, float gap) {
+                     float totalTabixY, float refSpace, float gap, float totalCovY) {
         SkPath path;
         if (nRegions > 1) {
             float x = fb_width / nRegions;
@@ -1401,7 +1401,8 @@ namespace Drawing {
             canvas->drawPath(path, opts.theme.lcLightJoins);
         }
         if (nTracks > 0) {
-            float y = fb_height - totalTabixY - refSpace;
+            float y = totalCovY + refSpace + (trackY*(float)nbams) + (gap * 0.5);
+//            float y = fb_height - totalTabixY - refSpace;
             float step = totalTabixY / (float) nTracks;
             path.reset();
             for (int i = 0; i < (int) nTracks; ++i) {

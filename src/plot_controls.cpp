@@ -800,7 +800,7 @@ namespace Manager {
 
     void GwPlot::keyPress(int key, int scancode, int action, int mods) {
         // Decide if the key is part of a user input command (inputText) or a request to process a command / refresh screen
-        // Of note, mouseButton events may be translated into keyPress events and processed here
+        // Of note, mouse Button events may be translated into keyPress events and processed here
         // For example, clicking on a commands from the menu pop-up will translate into a keyPress ENTER and
         // processed using registerKey
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
@@ -1436,7 +1436,8 @@ namespace Manager {
                         HGW::GwTrack &targetTrack = tracks[trackIdx];
                         float stepY =  (totalTabixY) / (float)tracks.size();
                         float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[trackIdx]);
-                        float y = fb_height - totalTabixY - refSpace;  // start of tracks on canvas
+                        float y = totalCovY + refSpace + (trackY*(float)headers.size()) + (gap * 0.5);
+//                        float y = fb_height - totalTabixY - refSpace;  // start of tracks on canvas
                         int featureLevel = (int)(yW - y - (trackIdx * stepY)) / step_track;
                         Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx, target_qname, &target_pos, out);
                     }
@@ -1898,14 +1899,13 @@ namespace Manager {
                     return;
                 }
                 if (!tracks.empty()) {
-                    float trackBoundary = fb_height - totalTabixY - refSpace;
                     if (tabBorderPress || (std::fabs(yPos_fb - trackBoundary) < 5 * monitorScale && xDrag < 5 && yDrag < 5)) {
                         if (yPos_fb <= refSpace + totalCovY + 10) {
                             return;
                         }
                         tabBorderPress = true;
-                        float drawingArea = ((float)fb_height - refSpace - sliderSpace);
-                        float new_boundary = fb_height - yPos_fb - refSpace;
+                        float drawingArea = ((float)fb_height);
+                        float new_boundary = fb_height - yPos_fb;
                         opts.tab_track_height = new_boundary / drawingArea;
                         redraw = true;
                         for (auto & cl: collections) {
