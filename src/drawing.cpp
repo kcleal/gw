@@ -1903,10 +1903,24 @@ namespace Drawing {
 
     std::string floatToStringCommas(float num, int precision=1) {
         std::stringstream stream;
-        stream << std::fixed << std::setprecision(precision) << num;
-        std::string s = stream.str();
-        size_t dotPos = s.find('.');
-        int n = dotPos - 3;
+        std::string s;
+        int n;
+        if ((float)((int)num) == num) {
+            precision = 0;
+        }
+        if (precision > 0) {
+            stream << std::fixed << std::setprecision(precision) << num;
+            s = stream.str();
+            size_t dotPos = s.find('.');
+            if (dotPos != std::string::npos) {
+                n = dotPos - 3;
+            } else {
+                n = s.size() - 3;
+            }
+        } else {
+            s = std::to_string(int(num));
+            n = s.size() - 3;
+        }
         int end = (num >= 0) ? 0 : 1;
         while (n > end) {
             s.insert(n, ",");
@@ -1923,20 +1937,20 @@ namespace Drawing {
         }
 //        int rounding = std::min(std::ceil(std::log10(num)), std::ceil(std::log10(regionLen)));
         int rounding = std::ceil(std::log10(regionLen));
-//        std::cout << num << " " << (std::ceil(std::log10(num))) << " " << (std::ceil(std::log10(regionLen))) << std::endl;
         double d;
         switch (rounding) {
             case 0:
             case 1:
             case 2:
-                a = std::to_string(num);
+                a = floatToStringCommas(num, 0);
                 a += " bp";
                 break;
             case 3:
             case 4:
                 d = (double)num / 1e3;
                 d = std::floor(d * 10) / 10;
-                a = Utils::removeZeros((float)d);
+                a = floatToStringCommas((float)d, 1);
+//                a = Utils::removeZeros((float)d);
                 a += " kb";
                 break;
             case 5:
@@ -2077,7 +2091,7 @@ namespace Drawing {
             if (opts.scale_bar) {
 
                 float top2 = fonts.overlayHeight + plot_gap;
-                xp = (regionIdx * colWidth) + plot_gap;
+                //xp = (regionIdx * colWidth);// + plot_gap;
 
                 double nice_range = NiceNumber((double)region.regionLen, 0);
                 double nice_tick = NiceNumber(nice_range/(10 - 1), 1) * 2;
@@ -2097,16 +2111,25 @@ namespace Drawing {
                 std::string last;
                 SkPath path;
                 double xScaling = (scaleWidth / (double)region.regionLen);
-                float xOffset = gap + (colWidth * regionIdx);
+
+                float xOffset = plot_gap + (colWidth * regionIdx);
                 float last_x = -1;
+
                 for (int i = 0; i <= num_divisions; ++i) {
 
-                    float x_pos = xOffset + ((position - region.start) * xScaling) - xScaling;
+                    float x_pos = xOffset + ((position - region.start) * xScaling) - (xScaling*0.5);
+                    if (position == 0) {
+                        last_x = x_pos;
+                        position += nice_tick;
+                        continue;
+                    }
                     last_x = last_x + ((x_pos - last_x) * 0.5);
 
-                    path.moveTo(last_x, top2 + yh*0.2);
-                    path.lineTo(last_x, top2 + yh*0.70);
-                    canvas->drawPath(path, opts.theme.lcJoins);
+                    if (last_x > 0) {
+                        path.moveTo(last_x, top2 + yh*0.2);
+                        path.lineTo(last_x, top2 + yh*0.70);
+                        canvas->drawPath(path, opts.theme.lcJoins);
+                    }
 
                     path.moveTo(x_pos, top2 + yh*0.2);
                     path.lineTo(x_pos, top2 + yh*0.70);
