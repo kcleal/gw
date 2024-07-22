@@ -607,7 +607,7 @@ namespace Drawing {
             size_t ref_idx = pos_start - region->start;
 
             for (size_t i=idx_start; i < (size_t)idx_end; ++i) {
-                if ((int)i >= refSeqLen) {
+                if ((int)ref_idx >= refSeqLen) {
                     break;
                 }
                 char ref_base = lookup_ref_base[(unsigned char)refSeq[ref_idx]];
