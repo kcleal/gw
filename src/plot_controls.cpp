@@ -1230,7 +1230,7 @@ namespace Manager {
     }
 
     int GwPlot::getCollectionIdx(float x, float y) {
-        if (y <= refSpace) {
+        if (y <= refSpace + gap) {
             return REFERENCE_TRACK; //-2
         } else if (!tracks.empty() && y >= refSpace + totalCovY + (trackY*(float)headers.size()) && y < (float)fb_height - refSpace) {
 			int index = -3;

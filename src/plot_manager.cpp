@@ -937,8 +937,10 @@ namespace Manager {
             pH = trackY / (float) opts.ylim;
             yScaling *= 0.95;
         } else {
-            if (yScaling > 3) {
-                pH = yScaling * 0.825; //0.85;  // polygonHeight
+            if (yScaling > 9*monitorScale) {
+                pH = yScaling - (2 * monitorScale);//* 0.85;  // polygonHeight
+            } else if (yScaling > 2*monitorScale) {
+                pH = yScaling - monitorScale;
             } else {
                 pH = yScaling;
             }
@@ -1808,7 +1810,7 @@ namespace Manager {
 	        std::cerr << "Error: attempting to write to a bad PIPE. This is unsupported on Windows" <<  std::endl;
             std::exit(-1);
         }
-#endif	    
+#endif
         fwrite(png->data(), 1, png->size(), fout);
         fclose(fout);
     }
