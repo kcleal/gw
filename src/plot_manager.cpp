@@ -1092,6 +1092,8 @@ namespace Manager {
     }
 
     void GwPlot::drawScreenNoBuffer(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
+        //        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
+
         canvas->drawPaint(opts.theme.bgPaint);
         frameId += 1;
         if (regions.empty()) {
@@ -1104,6 +1106,8 @@ namespace Manager {
         sContext->flush();
         glfwSwapBuffers(window);
         redraw = false;
+//                std::cerr << " time " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
+
     }
 
     void GwPlot::drawCursorPosOnRefSlider(SkCanvas *canvas) {
@@ -1720,25 +1724,6 @@ namespace Manager {
             canvas->restore();
         }
 
-
-
-//        idx = 0;
-//        for (int i=0; i<(int)bams.size(); ++i) {
-//            htsFile* b = bams[i];
-//            sam_hdr_t *hdr_ptr = headers[i];
-//            hts_idx_t *index = indexes[i];
-//            for (int j=0; j<(int)regions.size(); ++j) {
-//                Utils::Region *reg = &regions[j];
-//                if (opts.threads == 1) {
-//                    HGW::iterDraw(collections[idx], b, hdr_ptr, index, reg, (bool) opts.max_coverage,
-//                                  filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop, textDrop, pH, monitorScale);
-//                } else {
-//                    HGW::iterDrawParallel(collections[idx], b, hdr_ptr, index, opts.threads, reg, (bool) opts.max_coverage,
-//                                  filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool, pointSlop, textDrop, pH, monitorScale);
-//                }
-//                idx += 1;
-//            }
-//        }
         if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace, gap);
         }
@@ -1747,7 +1732,7 @@ namespace Manager {
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale, gap);
-//        std::cerr << " time runDrawNoBuffer " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
+//        std::cout << " time runDrawNoBufferOnCanvas " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
 
     void GwPlot::runDrawNoBuffer() {

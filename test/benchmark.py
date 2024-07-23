@@ -17,10 +17,13 @@ Mac requirements
 ----------------
 gnu-time, install using 'brew install gnu-time'
 
+Final arg is for extra-args to add to command for gw or IGV-batch-script only
+
 example usage
 -------------
 python3 --help
-python3 benchmark.py $HG19 NA12878.bam ../gw gw 1 ''
+python3 benchmark.py $HG19 ref_gaps.bed NA12878.bam ../gw gw 1 20 ''
+python3 benchmark.py $HG19 ref_gaps.bed NA12878.bam ../gw gw 1 20 '--mods'
 
 
 Output
@@ -35,6 +38,7 @@ try:
     import pandas as pd
     have_pandas = True
 except ImportError:
+    print("WARNING no pandas imported")
     have_pandas = False
 import os
 import platform
@@ -53,7 +57,7 @@ def plot_gw(chrom, start, end, args, timef, threads, extra_args):
         line = open('gwtime.txt', 'r').readlines()[0].strip().split("\t")
         m = float(line[1])
 
-    com = "hyperfine -w 0 -r 1 --export-csv ./gwtime.txt '{gw} {genome} {extra_args} -t {threads} -b {bam} -r {chrom}:{start}-{end} --file images/gw.png --no-show -d 1500x1500'" \
+    com = "hyperfine --show-output -w 0 -r 1 --export-csv ./gwtime.txt '{gw} {genome} {extra_args} -t {threads} -b {bam} -r {chrom}:{start}-{end} --file images/gw.png --no-show -d 1500x1500'" \
         .format(gw=args.tool_path, genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end, extra_args=extra_args, threads=threads)
     run(com, shell=True)
     line = open('gwtime.txt', 'r').readlines()[1].strip().split(",")
@@ -62,7 +66,7 @@ def plot_gw(chrom, start, end, args, timef, threads, extra_args):
     return t, m
 
 
-def plot_igv(chrom, start, end, args, timef, threads):
+def plot_igv(chrom, start, end, args, timef, threads, extra_args):
     t, m = -1, -1
     # Configure igv max visibility range to 250000000
     # also remove hg19.json from ~/igv/genomes
@@ -89,7 +93,8 @@ load {bam}
 snapshotDirectory images
 goto {chrom}:{start}-{end}
 snapshot igv.png
-exit""".format(genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end)
+{extra_args}
+exit""".format(genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, end=end, extra_args=extra_args)
     with open("igv_batch.bat", "w") as b:
         b.write(v)
 
@@ -107,7 +112,7 @@ exit""".format(genome=args.ref_genome, bam=args.bam, chrom=chrom, start=start, e
     return t, m
 
 
-def plot_jbrowse2(chrom, start, end, args, timef, threads=1):
+def plot_jbrowse2(chrom, start, end, args, timef, threads=1, extra_args=None):
     t, m = -1, -1
 
     com = "export NODE_OPTIONS=--max_old_space_size=320000; " + timef + " -o jbrowse2time.txt  {jb2export} --fasta {genome} --bam {bam} force:true --loc {chrom}:{start}-{end} --out images/jb2_image.svg" \
@@ -125,7 +130,7 @@ def plot_jbrowse2(chrom, start, end, args, timef, threads=1):
     return t, m
 
 
-def plot_samplot(chrom, start, end, args, timef, threads=1):
+def plot_samplot(chrom, start, end, args, timef, threads=1, extra_args=None):
     t, m = -1, -1
 
     com = timef + " -o samplottime.txt {samplot} plot -r {genome} -b {bam} -c {chrom} -s {start} -e {end} -o images/samplot_image.png -W 5 -H 5" \
@@ -143,7 +148,7 @@ def plot_samplot(chrom, start, end, args, timef, threads=1):
     return t, m
 
 
-def plot_bamsnap(chrom, start, end, args, timef, threads=1):
+def plot_bamsnap(chrom, start, end, args, timef, threads=1, extra_args=None):
     t, m = -1, -1
     if os.path.exists("images/bamsnap_image.png"):
         run("rm images/bamsnap_image.png", shell=True)
@@ -167,7 +172,7 @@ def plot_bamsnap(chrom, start, end, args, timef, threads=1):
     return t, m
 
 
-def plot_genomeview(chrom, start, end, args, timef, threads=1):
+def plot_genomeview(chrom, start, end, args, timef, threads=1, extra_args=None):
     t, m = -1, -1
     if os.path.exists("images/genomeview_image.png"):
         run("rm images/genomeview_image.png", shell=True)
@@ -197,7 +202,7 @@ def plot_genomeview(chrom, start, end, args, timef, threads=1):
     return t, m
 
 
-def plot_samtools(chrom, start, end, args, timef, threads=1):
+def plot_samtools(chrom, start, end, args, timef, threads=1, extra_args=None):
     # com = timef + " -o samtoolstime.txt samtools view -@{threads} -c {bam} {chrom}:{start}-{end}" \
     #     .format(threads=threads, bam=args.bam, chrom=chrom, start=start, end=end)
     # run(com, shell=True)
@@ -214,7 +219,7 @@ def plot_samtools(chrom, start, end, args, timef, threads=1):
 
 
 def samtools_count(chrom, start, end, args, timef, threads):
-    return 1, 1
+    # return 1, 1
     p = Popen(f'samtools view -@{threads} -c {args.bam} {chrom}:{start}-{end}', stdout=PIPE, stderr=PIPE, shell=True)
     out, err = p.communicate()
     reads = int(out.decode('ascii').strip())
@@ -236,7 +241,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog='GW benchmark',
         description="Test GW vs other genome visualization tools "
-                    "benchmark.py hg19.fasta gaps.bed HG002.bam gw gw 1 ''",
+                    "benchmark.py hg19.fasta gaps.bed HG002.bam gw gw 1 20''",
     )
 
     parser.add_argument('ref_genome')
@@ -246,6 +251,7 @@ if __name__ == "__main__":
     parser.add_argument('tool_name', choices=['gw', 'igv', 'samplot', 'jb2export', 'bamsnap',
                                               'genomeview', 'samtools'])
     parser.add_argument('threads')
+    parser.add_argument('n_reps')
     parser.add_argument('extra_args')
     args = parser.parse_args()
 
@@ -290,8 +296,8 @@ if __name__ == "__main__":
                     200_000,
                     2_000_000
                     ]
-    import numpy as np
-    region_sizes = list(int(i) for i in np.logspace(1, 7, 50))
+    # import numpy as np
+    # region_sizes = list(int(i) for i in np.logspace(1, 7, 50))
 
     max_size = 20_000_000
     fai = {}
@@ -325,11 +331,12 @@ if __name__ == "__main__":
         start = None
         end = None
         reads = 0
-        while N < 19:
+        while N < int(args.n_reps):
+            print(c)
             chrom = chroms[c]
             good = False
             st_t = 0
-            for j in range(10):  # 10 tried to find an interval without overlapping a gap
+            for j in range(10):  # 10 tries to find an interval without overlapping a gap
                 pos = random.randint(half_size, fai[chrom] - half_size)
                 start = pos - half_size
                 end = pos + half_size
@@ -345,27 +352,24 @@ if __name__ == "__main__":
                             break
                     if not good:
                         continue
-                st_t, reads = samtools_count(chrom, start, end, args, timef, threads)
-                if reads > 0:
-                    good = True
-                    break
+                good = True
+                break
 
-            if not good or not st_t:
+            if not good:
                 c += 1
                 continue
             N += 1
             c += 1
             if N >= len(chroms):
-                raise ValueError('Error: ran out of chroms to plot')
+                raise ValueError(f'Error: ran out of chroms to plot, N={N}, len(chroms)={len(chroms)}')
             if start is None:
                 raise ValueError('Error: couldnt find an interval with reads')
 
-            print('Region:', chrom, start, end, 'n_reads:', reads)
+            print('Region:', chrom, start, end)
 
-            if name == "gw":
-                avg_time, maxRSS = prog(chrom, start, end, args, timef, threads, extra_args)
-            else:
-                avg_time, maxRSS = prog(chrom, start, end, args, timef, threads)
+            avg_time, maxRSS = prog(chrom, start, end, args, timef, threads, extra_args)
+
+            st_t, reads = samtools_count(chrom, start, end, args, timef, threads)
             print('TIME', avg_time, 'MEMORY', maxRSS, 'SIZE', size)
 
             results.append({'name': name, 'region': f'{chrom}:{start}-{end}', 'time (s)': avg_time,
@@ -373,6 +377,7 @@ if __name__ == "__main__":
                             'samtools_count (s)': st_t, 'reads': reads, 'threads': threads})
 
     cols = ['name', 'region', 'reads', 'region size (bp)', 'samtools_count (s)', 'time (s)', 'RSS', 'threads']
+
     if have_pandas:
         df = pd.DataFrame.from_records(results)
         df = df[cols]

@@ -31,8 +31,7 @@ for p in tables:
 df = pd.concat(dfs)
 df['RSS'] = df['RSS'] / 1e6
 print(df.columns)
-print(df.name)
-
+print(set(df.name))
 gw_times = {}
 gw_mem = {}
 samtools = {}
@@ -42,9 +41,9 @@ for idx, grp in df[(df['name'] == 'gw') & (df['threads'] == 1)].groupby('region 
 for idx, grp in df.groupby(['region size (bp)', 'threads']):
     samtools[idx] = grp['samtools_count (s)'].mean()
 
-print(gw_times)
 # use the mean time of 2bp region as start_time
 min_load_time = {k: dd['time (s)'].min() for k, dd in df[df['region size (bp)'] == df['region size (bp)'].min()].groupby('name')}
+print(min_load_time)
 min_memory = {k: dd['RSS'].min() for k, dd in df[df['region size (bp)'] == df['region size (bp)'].min()].groupby('name')}
 df['total_time'] = df['time (s)']
 df['start_time'] = [min_load_time[k] for k in df['name']]
@@ -78,7 +77,7 @@ df2['relative_render_time'] = [k / gw_render_times[s] if gw_render_times[s] > 0 
 df2 = df2[['name', 'region size (bp)', 'samtools', 'total_time', 'relative_time',
            'start_time', 'render', 'relative_render_time', 'total_mem', 'start_mem', 'relative_mem']]
 
-order = {'gw': 0, 'gw -t4': 0.5, 'igv': 1, 'igv -t4': 1.5, 'jb2export': 2, 'samplot': 3, 'wally': 4, 'bamsnap': 5, 'genomeview': 6, 'samtools': 7}
+order = {'gw': 0, 'gw -t4': 0.5, 'igv': 1, 'igv -t4': 1.5, 'jb2export': 2, 'samplot': 3, 'wally': 4, 'bamsnap': 5, 'genomeview': 6, 'samtools': 7, 'samtools -t4': 8}
 df2['srt'] = [order[k] for k in df2['name']]
 df2.sort_values(['srt', 'name'], inplace=True)
 del df2['srt']
@@ -98,25 +97,26 @@ for clr, name in zip(palette, ('gw', 'gw -t4', 'igv', 'igv -t4', 'jb2export', 's
 
 #
 for item in ['total_time', 'relative_time', 'render', 'relative_render_time', 'total_mem', 'relative_mem']:
-    sns.set_style('ticks')
+
     fig, ax = plt.subplots()
-    # the size of A4 paper
-    fig.set_size_inches(20, 8.27)
+    fig.set_size_inches(7, 6)
     g = sns.pointplot(data=df2,
                     x='region size (bp)', y=item, hue='name',
                     alpha=0.6, palette=colors, ax=ax)
                     # kind='point', alpha=0.6, palette=colors, ax=ax)
-    # g.ax.set_xlabel("Region size (bp)", fontsize=14)
-    # label = list(item.replace('_', ' '))
-    # label[0] = label[0].upper()
-    # g.ax.set_ylabel(''.join(label), fontsize=14)
-    # g.ax.tick_params(labelsize=15)
-    # g.ax.set_yscale('log')
+    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
+    ax.set_xlabel("Region size (bp)", fontsize=14)
+    label = list(item.replace('_', ' '))
+    label[0] = label[0].upper()
+    ax.set_ylabel(''.join(label), fontsize=14)
+    ax.tick_params(labelsize=15)
+    ax.set_yscale('log')
     # g.set_xticklabels(rotation=30)
     plt.xticks(rotation=30)
     plt.subplots_adjust(left=0.15)
+    plt.subplots_adjust(right=0.75)
     plt.subplots_adjust(bottom=0.25)
-    # plt.grid(True, which="major", ls="-", c='gray', alpha=0.2)
+    plt.grid(True, which="major", ls="-", c='gray', alpha=0.2)
     # labels = [item.get_text() for item in g.ax.get_xticklabels()]
     # labels = ["{:,}".format(int(l)) for l in labels]
     # g.ax.set_xticklabels(labels)
