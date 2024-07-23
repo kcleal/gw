@@ -40,6 +40,7 @@ namespace HGW {
          BED_NOI,
          GFF3_NOI,
          GTF_NOI,
+         PAF_NOI,
          GW_LABEL,
          STDIN,
          ROI,

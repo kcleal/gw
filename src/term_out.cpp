@@ -224,7 +224,13 @@ namespace Term {
         } else if (s == "refresh" || s == "r") {
             out << "    Refresh the drawing.\n        All filters will be removed any everything will be redrawn.\n\n";
         } else if (s == "remove" || s == "rm") {
-            out << "    Remove a region, bam or track.\n        Remove a region, bam or track by index. To remove a bam or track add a 'bam' or 'track' prefix.\n    Examples:\n        'rm 0', 'rm bam1', 'rm track2'\n\n";
+            out << "    Remove a region, bam, ideogram or track.\n"
+                   "        Remove a region, bam, track or ideogram. To remove a bam or track add a 'bam' or 'track' prefix.\n"
+                   "    Examples:\n"
+                   "        'rm 0'         # This will remove region 0 (left-most region)\n"
+                   "        'rm bam1'      # This will remove bam index 1 (second from top)'\n"
+                   "        'rm track2'    # This will remove track 2 (3rd from top)\n"
+                   "        'rm ideogram'  # This will remove the ideogram\n\n";
         } else if (s == "roi") {
             out << "    Add a region of interest as a new track. If no region is supplied, the visible active window is used\n    Examples:\n        'roi', 'roi chr1:1-20000'\n\n";
         } else if (s == "sam") {

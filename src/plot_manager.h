@@ -125,6 +125,8 @@ namespace Manager {
 
         std::vector<HGW::GwVariantTrack> variantTracks; // make image tiles from these
 
+        std::unordered_map<std::string, std::vector<Ideo::Band>> ideogram;
+
         std::vector< std::string > commandHistory, commandsApplied;
 
         HGW::GwVariantTrack *currentVarTrack;  // var track with current focus/event
@@ -278,8 +280,6 @@ namespace Manager {
         int commandToolTipIndex;
 
         std::vector<Utils::BoundingBox> bboxes;
-
-        std::unordered_map<std::string, std::vector<Ideo::Band>> ideogram;
 
         BS::thread_pool pool;
 

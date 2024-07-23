@@ -1231,13 +1231,12 @@ namespace Manager {
 
     int GwPlot::getCollectionIdx(float x, float y) {
         if (y <= refSpace + gap) {
-            return REFERENCE_TRACK; //-2
-        } else if (!tracks.empty() && y >= refSpace + totalCovY + (trackY*(float)headers.size()) && y < (float)fb_height - refSpace) {
+            return REFERENCE_TRACK; // -2
+        } else if (!tracks.empty() && y >= refSpace + totalCovY + (trackY*(float)headers.size()) && y < (float)fb_height - sliderSpace - gap) {
 			int index = -3;
-			float trackSpace = (float)fb_height - totalCovY - refSpace - sliderSpace - (trackY*(float)headers.size());
-			trackSpace = trackSpace / (float)tracks.size();
-			float cIdx = (y - (refSpace + totalCovY + (trackY*(float)headers.size()))) / trackSpace;
-			index -= int(cIdx);
+            float top_y = (float)fb_height - sliderSpace - totalTabixY + (gap);
+            float step = tabixY;
+            index -= (int)((y - top_y) / step);
 			if ((index * -1) - 3 > (int)tracks.size()) {
 				index = -1;
 			}
@@ -1809,6 +1808,14 @@ namespace Manager {
                 return;
             }
             out << base_filename << std::flush;
+            term_width_remaining -= base_filename.size();
+            if (bam_paths.size() > 1) {
+                std::string bidx = "    bam" + std::to_string(bamIdx);
+                if (term_width_remaining < (int)bidx.size()) {
+                    return;
+                }
+                out << termcolor::bold << bidx << termcolor::reset << std::flush;
+            }
         }
     }
 
@@ -2009,6 +2016,7 @@ namespace Manager {
                     return;
                 }
                 int rs = getCollectionIdx((float)xPos_fb, (float)yPos_fb);
+
 	            if (rs <= TRACK) {  // print track info
                     if (tracks.empty()) {
                         return;
@@ -2029,13 +2037,14 @@ namespace Manager {
                             return;
                         }
                         HGW::GwTrack &targetTrack = tracks[targetIndex];
-                        float stepY =  ((totalTabixY) / (float)tracks.size()) - sliderSpace - gap;  // todo not sure why sliderSpace is needed here
+
+                        float stepY = tabixY;
                         if (regionSelection >= (int)regions.size() || targetIndex >= (int)regions[regionSelection].featureLevels.size()) {
                             return;
                         }
                         float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[targetIndex]);
-                        float y = fb_height - totalTabixY - refSpace;  // start of tracks on canvas
-                        int featureLevel = (int)(yPos_fb - y - (targetIndex * stepY)) / step_track;
+                        float y = fb_height - totalTabixY - sliderSpace;  // start of tracks on canvas
+                        int featureLevel = (int)(yPos_fb - y - (targetIndex * stepY) + gap) / step_track;
 			            Term::printTrack(relX, targetTrack, &regions[tIdx], true, featureLevel, targetIndex, target_qname, &target_pos, out);
 		            }
 	            }

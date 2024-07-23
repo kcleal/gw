@@ -592,6 +592,8 @@ namespace Commands {
                 return Err::SILENT;
             }
             p->removeTrack(ind);
+        } else if (Utils::startsWith(parts.back(), "ideogram")) {
+            p->ideogram.clear();
         } else {
             try {
                 ind = std::stoi(parts.back());
@@ -1092,6 +1094,7 @@ namespace Commands {
                     p->opts.genome_tag = parts.back();
                     bool success = p->loadIdeogramTag();
                     if (success) {
+                        refreshGw(p);
                         return Err::NONE;
                     } else {
                         p->opts.genome_tag = g;

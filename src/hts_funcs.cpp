@@ -1249,6 +1249,8 @@ namespace HGW {
             kind = BIGWIG;
         } else if (Utils::endsWith(p, ".bigbed") || Utils::endsWith(p, ".bb")) {
             kind = BIGBED;
+        } else if (Utils::endsWith(p, ".paf")) {
+            kind = PAF_NOI;
         } else {
             kind = GW_LABEL;
         }
@@ -1340,6 +1342,62 @@ namespace HGW {
                     }
                 } else { // assume gw_label file
                     b.end = b.start + 1;
+                }
+                allBlocks[b.chrom].add(b.start, b.end, b);
+            }
+        } else if (kind == PAF_NOI) {
+#if !defined(__EMSCRIPTEN__)
+            if (Utils::startsWith(path, "http") || Utils::startsWith(path, "ftp")) {
+                std::string content = Utils::fetchOnlineFileContent(path);
+                fpu = std::make_shared<std::istringstream>(content);
+            } else {
+                auto file_stream = std::make_shared<std::ifstream>(path);
+                if (!file_stream->is_open()) {
+                    std::cerr << "Error: opening track file " << path << std::endl;
+                    throw std::runtime_error("Error opening file");
+                }
+                fpu = file_stream;
+            }
+#else
+            fpu = std::make_shared<std::ifstream>();
+            fpu->open(p);
+            if (!fpu->is_open()) {
+                std::cerr << "Error: opening track file " << path << std::endl;
+                throw std::exception();
+            }
+#endif
+
+            if (!add_to_dict) {
+                return;
+            }
+            while (true) {
+                auto got_line = (bool)getline(*fpu, tp);
+                if (!got_line) {
+                    done = true;
+                    break;
+                }
+                if (tp[0] == '#') {
+                    continue;
+                }
+                std::vector<std::string> parts = Utils::split(tp, '\t');
+                Utils::TrackBlock b;
+                b.line = tp;
+                b.chrom = parts[5];
+                b.start = std::stoi(parts[7]);
+                b.strand = (parts[4] == "+") ? 1 : 0;
+                b.end = std::stoi(parts[8]);
+                if (parts.size() > 3) {
+                    b.name = parts[3];
+                    if (parts.size() >= 6) {
+                        if (parts[5] == "+") {
+                            b.strand = 1;
+                        } else if (parts[5] == "-") {
+                            b.strand = 2;
+                        }
+                    }
+                } else {
+                    b.name = std::to_string(fileIndex);
+                    fileIndex += 1;
                 }
                 allBlocks[b.chrom].add(b.start, b.end, b);
             }

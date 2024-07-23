@@ -1262,18 +1262,9 @@ namespace Manager {
 
             if (x < w) {
                 float y = fb_height - (fb_height * 0.025);
-//                float y2 = fb_height - (height_f * 2.25);
                 float y2 = fb_height - (height_f * 2.5);
                 float yy = (y2 < y) ? y2 : y;
                 float to_cursor_width = fonts.overlay.measureText(inputText.substr(0, charIndex).c_str(), charIndex, SkTextEncoding::kUTF8);
-//                SkPaint box{};
-//                box.setColor(SK_ColorGRAY);
-//                box.setStrokeWidth(monitorScale);
-//                box.setAntiAlias(true);
-//                box.setStyle(SkPaint::kStroke_Style);
-//                rect.setXYWH(x, yy, w, height_f);
-//                canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, opts.theme.bgPaint);
-//                canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, box);
 
                 rect.setXYWH(0, yy, fb_width, fb_height);
 
