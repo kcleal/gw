@@ -459,7 +459,7 @@ namespace Commands {
         Utils::parseMateLocation(p->selectedAlign, mate, p->target_qname);
         if (mate.empty()) {
             out << termcolor::red << "Error:" << termcolor::reset << " could not parse mate location\n";
-            return Err::NONE;
+            return Err::SILENT;
         }
         if (p->regionSelection >= 0 && p->regionSelection < (int)p->regions.size()) {
             if (command == "mate") {
@@ -702,6 +702,7 @@ namespace Commands {
                 if (!p->tracks.empty()) {
                     bool res = HGW::searchTracks(p->tracks, parts[1], rgn);
                     if (res) {
+                        reason = Err::NONE;
                         if (p->mode != Manager::Show::SINGLE) { p->mode = Manager::Show::SINGLE; }
                         if (p->regions.empty()) {
                             p->regions.push_back(rgn);
@@ -719,10 +720,9 @@ namespace Commands {
             }
         }
         if (reason == Err::NONE) {
-            p->redraw = true;
-            p->processed = false;
+            refreshGw(p);
         }
-        return Err::NONE;
+        return reason;
     }
 
     Err grid(Plot* p, std::vector<std::string> parts) {
@@ -1468,56 +1468,57 @@ namespace Commands {
                 return;
             case UNKNOWN:
                 out << termcolor::red << "Error:" << termcolor::reset << " Unknown error\n";
-                break;
+                return;
             case SILENT:
-                break;
+                return;
             case TOO_MANY_OPTIONS:
                 out << termcolor::red << "Error:" << termcolor::reset << " Too many options supplied\n";
-                break;
+                return;
             case CHROM_NOT_IN_REFERENCE:
                 out << termcolor::red << "Error:" << termcolor::reset << " chromosome not in reference\n";
-                break;
+                return;
             case FEATURE_NOT_IN_TRACKS:
                 out << termcolor::red << "Error:" << termcolor::reset << " Feature not in tracks\n";
-                break;
+                return;
             case BAD_REGION:
                 out << termcolor::red << "Error:" << termcolor::reset << " Region not understood\n";
-                break;
+                return;
             case OPTION_NOT_SUPPORTED:
                 out << termcolor::red << "Error:" << termcolor::reset << " Option not supported\n";
-                break;
+                return;
             case OPTION_NOT_UNDERSTOOD:
                 out << termcolor::red << "Error:" << termcolor::reset << " Option not understood\n";
-                break;
+                return;
             case INVALID_PATH:
                 out << termcolor::red << "Error:" << termcolor::reset << " Path was invalid\n";
-                break;
+                return;
             case EMPTY_TRACKS:
                 out << termcolor::red << "Error:" << termcolor::reset << " tracks are empty (add a track first)\n";
-                break;
+                return;
             case EMPTY_BAMS:
                 out << termcolor::red << "Error:" << termcolor::reset << " Bams are empty (add a bam first)\n";
-                break;
+                return;
             case EMPTY_REGIONS:
                 out << termcolor::red << "Error:" << termcolor::reset << " Regions are empty (add a region first)\n";
-                break;
+                return;
             case EMPTY_VARIANTS:
                 out << termcolor::red << "Error:" << termcolor::reset << " No variant file (add a variant file first)\n";
-                break;
+                return;
             case PARSE_VCF:
                 out << termcolor::red << "Error:" << termcolor::reset << " Vcf parsing error\n";
-                break;
+                return;
             case PARSE_INPUT:
                 out << termcolor::red << "Error:" << termcolor::reset << " Input could not be parsed\n";
-                break;
+                return;
         }
-        p->redraw = true;
-        if (p->mode == Manager::Show::SINGLE) {
-            for (auto &cl : p->collections) {
-                cl.skipDrawingReads = true;
-                cl.skipDrawingCoverage = true;
-            }
-        }
+        return;
+//        p->redraw = true;
+//        if (p->mode == Manager::Show::SINGLE) {
+//            for (auto &cl : p->collections) {
+//                cl.skipDrawingReads = true;
+//                cl.skipDrawingCoverage = true;
+//            }
+//        }
     }
 
     // Command functions capture these parameters only

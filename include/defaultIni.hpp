@@ -31,6 +31,7 @@ namespace DefaultIni {
                "[tracks]\n"
                "# add comma separated list of bed/gtf files to add to each reference genome listed above:\n"
                "# hg38=/home/hg38.refseq_genes.gtf.gz,/home/hg38.repeats.bed.gz\n"
+               "hg19=\n"
                "\n"
                "[general]\n"
                "theme=dark\n"

@@ -345,25 +345,40 @@ namespace Manager {
                 }
             } else {
                 if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER ) {
-                    inputText = Menu::commandToolTip[commandToolTipIndex];
-                    charIndex = (int)inputText.size();
-                    // immediately execute functions that don't need additional args
-                    if (std::find( Menu::exec.begin(), Menu::exec.end(), inputText) != Menu::exec.end() || (inputText == "online" && !opts.genome_tag.empty())) {
+                    std::string inputText2 = Menu::commandToolTip[commandToolTipIndex];
+                    int charIndex2 = (int)inputText2.size();
+                    if (Utils::startsWith(inputText2, inputText)) {
+                        // immediately execute functions that don't need additional args
+                        if ( std::find( Menu::exec.begin(), Menu::exec.end(), inputText2) != Menu::exec.end() || (inputText2 == "online" && !opts.genome_tag.empty())) {
+                            captureText = false;
+                            processText = true;
+                            shiftPress = false;
+                            redraw = true;
+                            processed = true;
+                            inputText = inputText2;
+                            charIndex = charIndex2;
+                            commandToolTipIndex = -1;
+                            out << "\n";
+                            return GLFW_KEY_ENTER;
+                        }
+
+                    }
+//                     else {
                         captureText = false;
                         processText = true;
                         shiftPress = false;
                         redraw = true;
                         processed = true;
-//                        imageCache.clear();
-//                        imageCacheQueue.clear();
+                        charIndex = inputText.size();
                         commandToolTipIndex = -1;
                         out << "\n";
+
                         return GLFW_KEY_ENTER;
-                    }
-                    inputText += " ";
-                    charIndex += 1;
-                    commandToolTipIndex = -1;
-                    return GLFW_KEY_UNKNOWN;
+//                    }
+//                    inputText += " ";
+//                    charIndex += 1;
+//                    commandToolTipIndex = -1;
+//                    return GLFW_KEY_UNKNOWN;
                 }
             }
 
@@ -1177,7 +1192,7 @@ namespace Manager {
         }
     }
 
-    void GwPlot::addTrack(std::string &path, bool print_message=true, bool vcf_as_track=false, bool bed_as_track=false) {
+    void GwPlot::addTrack(std::string &path, bool print_message=true, bool vcf_as_track=false, bool bed_as_track=true) {
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
         bool good = false;
         if (Utils::endsWith(path, ".bam") || Utils::endsWith(path, ".cram")) {
@@ -1194,8 +1209,8 @@ namespace Manager {
             hts_idx_t* idx = sam_index_load(f, path.c_str());
             indexes.push_back(idx);
         } else if (
-                (vcf_as_track && (Utils::endsWith(path, ".vcf.gz") || Utils::endsWith(path, ".vcf") || Utils::endsWith(path, ".bcf")))
-             || (bed_as_track && (Utils::endsWith(path, ".bed") || Utils::endsWith(path, ".bed.gz")))) {
+                (!vcf_as_track && (Utils::endsWith(path, ".vcf.gz") || Utils::endsWith(path, ".vcf") || Utils::endsWith(path, ".bcf")))
+             || (!bed_as_track && (Utils::endsWith(path, ".bed") || Utils::endsWith(path, ".bed.gz")))) {
             good = true;
 
             std::vector<std::string> labels = Utils::split(opts.labels, ',');

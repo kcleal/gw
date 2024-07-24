@@ -120,7 +120,7 @@ namespace Menu {
         } else {
             bg.setARGB(255, 255, 255, 255);
             tcMenu.setARGB(255, 0, 0, 0);
-            menuBg.setARGB(255, 215, 215, 255);
+            menuBg.setARGB(255, 225, 225, 215);
         }
         tcMenu.setStyle(SkPaint::kStrokeAndFill_Style);
         tcMenu.setAntiAlias(true);

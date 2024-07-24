@@ -1707,8 +1707,7 @@ namespace Drawing {
         std::string empty_str;
         if (any_text) {
             drawTrackBlock(trk.start, trk.end, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2,
-                           xScaling,
-                           opts, canvas, fonts, true, false, false, false, labelsEnd, empty_str, 0, text, false, false, faceColour, pointSlop, strand);
+                           xScaling, opts, canvas, fonts, true, false, false, false, labelsEnd, empty_str, 0, text, false, false, faceColour, pointSlop, strand);
         }
         for (int i = 0; i < target; ++i) {
             int s, e;
@@ -1778,8 +1777,7 @@ namespace Drawing {
 
     void drawTracks(Themes::IniOptions &opts, float fb_width, float fb_height,
                     SkCanvas *canvas, float totalTabixY, float tabixY, std::vector<HGW::GwTrack> &tracks,
-                    std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, float gap, float monitorScale, float sliderSpace,
-                    float pointSlop) {
+                    std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, float gap, float monitorScale, float sliderSpace) {
         // All tracks are converted to TrackBlocks and then drawn
         if (tracks.empty() || regions.empty() || tabixY <= 0) {
             return;
@@ -1791,7 +1789,7 @@ namespace Drawing {
         float stepY = tabixY;
         stepY -= sliderSpace - gap;  // todo this should not be needed
 
-        float y = fb_height - totalTabixY - sliderSpace + gap;  // start of tracks on canvas
+        float y = fb_height - totalTabixY - sliderSpace; // + gap;  // start of tracks on canvas
         float t = (float) 0.005 * fb_width;
 
         SkRect rect{};
@@ -1815,8 +1813,7 @@ namespace Drawing {
             for (auto &trk: tracks) {
 
                 SkPaint faceColour = trk.faceColour;
-//                SkPaint faceColour;
-//                faceColour.setARGB(255, 0, 222, 0);
+
                 float right = ((float) (rgn.end - rgn.start) * xScaling) + padX;
                 canvas->save();
                 canvas->clipRect({padX, y + padY, right, y + padY + stepY}, false);
@@ -1849,8 +1846,11 @@ namespace Drawing {
                 float blockStep = ((stepY) / (float) nLevels);
                 float blockSpace = blockStep * 0.35;
                 float h = std::fmin(blockSpace, 10 * monitorScale);
+
                 float h2 = h * 0.5;
                 float h4 = h2 * 0.5;
+
+                float pointSlop = (tan(0.6) * (h2));
                 float step_track = (tabixY - gap2) / ((float) nLevels);
                 bool isBed12 = !trk.parts.empty() && trk.parts.size() >= 12;
                 float textLevelEnd = 0;  // makes sure text doesnt overlap on same level

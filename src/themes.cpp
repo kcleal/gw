@@ -22,8 +22,6 @@ namespace Themes {
         fcCoverage.setStyle(SkPaint::kStrokeAndFill_Style);
         fcCoverage.setStrokeWidth(0);
 
-//        mate_fc.resize(50);
-
         // Set ARGB values directly for each SkPaint object in the mate_fc vector
         mate_fc[0].setARGB(255, 158, 1, 66);
         mate_fc[1].setARGB(255, 179, 24, 71);
@@ -76,69 +74,11 @@ namespace Themes {
         mate_fc[48].setARGB(255, 0, 79, 45);
         mate_fc[49].setARGB(255, 0, 69, 41);
 
-//        std::vector<std::vector<int>> tmp = {{158, 1,   66},
-//                                             {179, 24,  71},
-//                                             {203, 51,  76},
-//                                             {220, 73,  75},
-//                                             {233, 92,  71},
-//                                             {244, 114, 69},
-//                                             {248, 142, 82},
-//                                             {252, 167, 94},
-//                                             {253, 190, 110},
-//                                             {253, 212, 129},
-//                                             {254, 228, 147},
-//                                             {254, 242, 169},
-//                                             {254, 254, 190},
-//                                             {244, 250, 174},
-//                                             {233, 246, 158},
-//                                             {213, 238, 155},
-//                                             {190, 229, 160},
-//                                             {164, 218, 164},
-//                                             {134, 206, 164},
-//                                             {107, 196, 164},
-//                                             {83,  173, 173},
-//                                             {61,  148, 183},
-//                                             {57,  125, 184},
-//                                             {76,  101, 172},
-//                                             {94,  79,  162},
-//                                             {255, 255, 229},
-//                                             {252, 254, 215},
-//                                             {249, 253, 200},
-//                                             {246, 251, 184},
-//                                             {237, 248, 178},
-//                                             {227, 244, 170},
-//                                             {216, 239, 162},
-//                                             {202, 233, 156},
-//                                             {187, 227, 149},
-//                                             {172, 220, 141},
-//                                             {155, 213, 135},
-//                                             {137, 205, 127},
-//                                             {119, 197, 120},
-//                                             {101, 189, 111},
-//                                             {82,  179, 102},
-//                                             {64,  170, 92},
-//                                             {55,  158, 84},
-//                                             {44,  144, 75},
-//                                             {34,  131, 66},
-//                                             {23,  122, 62},
-//                                             {11,  112, 58},
-//                                             {0,   103, 54},
-//                                             {0,   92,  50},
-//                                             {0,   79,  45},
-//                                             {0,   69,  41}};
-//        for (size_t i = 0; i < tmp.size(); ++i) {
-//            SkPaint p;
-//            p.setARGB(255, tmp[i][0], tmp[i][1], tmp[i][2]);
-//            mate_fc.push_back(p);
-//        }
-
         ecMateUnmapped.setARGB(255, 255, 0, 0);
         ecMateUnmapped.setStyle(SkPaint::kStroke_Style);
         ecMateUnmapped.setStrokeWidth(1);
 
         fcIns.setStyle(SkPaint::kFill_Style);
-        //fcIns.setARGB(255, 178, 77, 255);
-
 
         lwMateUnmapped = 0.5;
         lwSplit = 0.5;
@@ -322,7 +262,7 @@ namespace Themes {
         fcTrack.setARGB(200, 20, 20, 20);
         bgPaint.setARGB(255, 255, 255, 255);
         bgPaintTiled.setARGB(255, 235, 235, 235);
-        bgMenu.setARGB(255, 250, 250, 250);
+        bgMenu.setARGB(255, 248, 248, 246);
         fcNormal.setARGB(255, 202, 202, 202);
         fcDel.setARGB(255, 225, 19, 67);
         fcDup.setARGB(255, 0, 54, 205);
@@ -446,7 +386,7 @@ namespace Themes {
         theme_str = "dark";
         dimensions_str = "1366x768";
         dimensions = {1366, 768};
-        link = "None";
+        link = "none";
         link_op = 0;
         number_str = "3x3";
         number = {3, 3};
@@ -471,7 +411,7 @@ namespace Themes {
         variant_distance = 100000;
         low_memory = 1500000;
 
-        max_coverage = 10000000;
+        max_coverage = 100000;
         max_tlen = 2000;
 
         editing_underway = false;
@@ -486,7 +426,7 @@ namespace Themes {
         scale_bar = true;
 
         scroll_speed = 0.15;
-        tab_track_height = 0.05;
+        tab_track_height = 0.25;
         scroll_right = GLFW_KEY_RIGHT;
         scroll_left = GLFW_KEY_LEFT;
         scroll_down = GLFW_KEY_PAGE_DOWN;
@@ -520,12 +460,14 @@ namespace Themes {
         std::unordered_map<std::string, int> key_table;
         Keys::getKeyTable(key_table);
 
-        theme_str = myIni["general"]["theme"];
+        mINI::INIMap<std::string>& sub = myIni["general"];
+
+        theme_str = sub["theme"];
         if (theme_str == "dark") { theme = Themes::DarkTheme(); } else if (theme_str == "slate") { theme = Themes::SlateTheme(); } else { theme = Themes::IgvTheme(); }
-        dimensions_str = myIni["general"]["dimensions"];
+        dimensions_str = sub["dimensions"];
         dimensions = Utils::parseDimensions(dimensions_str);
 
-        link = myIni["general"]["link"];
+        link = sub["link"];
         link_op = 0;
         if (link == "sv") {
             link_op = 1;
@@ -535,82 +477,93 @@ namespace Themes {
             link = "none";
         }
 
-        indel_length = std::stoi(myIni["general"]["indel_length"]);
-        ylim = std::stoi(myIni["general"]["ylim"]);
-        split_view_size = std::stoi(myIni["general"]["split_view_size"]);
-        threads = std::stoi(myIni["general"]["threads"]);
-        pad = std::stoi(myIni["general"]["pad"]);
-        max_coverage = (myIni["general"]["coverage"] == "true") ? 100000 : 0;
-        log2_cov = myIni["general"]["log2_cov"] == "true";
-        scroll_speed = std::stof(myIni["general"]["scroll_speed"]);
-        tab_track_height = std::stof(myIni["general"]["tabix_track_height"]);
-        if (myIni["general"].has("font")) {
-            font_str = myIni["general"]["font"];
+        indel_length = std::stoi(sub["indel_length"]);
+        ylim = std::stoi(sub["ylim"]);
+        split_view_size = std::stoi(sub["split_view_size"]);
+        threads = std::stoi(sub["threads"]);
+        pad = std::stoi(sub["pad"]);
+        max_coverage = (sub["coverage"] == "true") ? 100000 : 0;
+        log2_cov = sub["log2_cov"] == "true";
+        scroll_speed = std::stof(sub["scroll_speed"]);
+        tab_track_height = std::stof(sub["tabix_track_height"]);
+        if (sub.has("font")) {
+            font_str = sub["font"];
         }
-        if (myIni["general"].has("font_size")) {
-            font_size = std::stoi(myIni["general"]["font_size"]);
+
+        if (sub.has("font_size")) {
+            font_size = std::stoi(sub["font_size"]);
         }
-        if (myIni["general"].has("expand_tracks")) {
-            expand_tracks = myIni["general"]["expand_tracks"] == "true";
+        if (sub.has("expand_tracks")) {
+            expand_tracks = sub["expand_tracks"] == "true";
         }
-        if (myIni["general"].has("scale_bar")) {
-            scale_bar = myIni["general"]["scale_bar"] == "true";
+        if (sub.has("scale_bar")) {
+            scale_bar = sub["scale_bar"] == "true";
         }
-        if (myIni["general"].has("sv_arcs")) {
+        if (sub.has("sv_arcs")) {
             sv_arcs = myIni["general"]["sv_arcs"] == "true";
         }
-        if (myIni["general"].has("mods")) {
-            parse_mods = myIni["general"]["mods"] == "true";
+        if (sub.has("mods")) {
+            parse_mods = sub["mods"] == "true";
         }
-        if (myIni["general"].has("session_file")) {
-            session_file = myIni["general"]["session_file"];
+        if (sub.has("session_file")) {
+            session_file = sub["session_file"];
         }
 
-        soft_clip_threshold = std::stoi(myIni["view_thresholds"]["soft_clip"]);
-        small_indel_threshold = std::stoi(myIni["view_thresholds"]["small_indel"]);
-        snp_threshold = std::stoi(myIni["view_thresholds"]["snp"]);
-        edge_highlights = std::stoi(myIni["view_thresholds"]["edge_highlights"]);
-        if (myIni["view_thresholds"].has("variant_distance")) {
-            variant_distance = std::stoi(myIni["view_thresholds"]["variant_distance"]);
+        mINI::INIMap<std::string>& vt = myIni["view_thresholds"];
+
+        soft_clip_threshold = std::stoi(vt["soft_clip"]);
+        small_indel_threshold = std::stoi(vt["small_indel"]);
+        snp_threshold = std::stoi(vt["snp"]);
+        if (vt.has("edge_highlights")) {
+            edge_highlights = std::stoi(vt["edge_highlights"]);
         }
-        if (myIni["view_thresholds"].has("low_memory")) {
-            low_memory = std::stoi(myIni["view_thresholds"]["low_memory"]);
+        if (vt.has("variant_distance")) {
+            variant_distance = std::stoi(vt["variant_distance"]);
         }
-        if (myIni["view_thresholds"].has("mod_threshold")) {
-            mod_threshold = std::stoi(myIni["view_thresholds"]["mod_threshold"]);
+        if (vt.has("low_memory")) {
+            low_memory = std::stoi(vt["low_memory"]);
+        }
+        if (vt.has("mod_threshold")) {
+            mod_threshold = std::stoi(vt["mod_threshold"]);
         } else {
-            myIni["view_thresholds"]["mod"] = "1000000";
+            vt["mod"] = "1000000";
         }
 
-        scroll_right = key_table[myIni["navigation"]["scroll_right"]];
-        scroll_left = key_table[myIni["navigation"]["scroll_left"]];
-        scroll_up = key_table[myIni["navigation"]["scroll_up"]];
-        scroll_down = key_table[myIni["navigation"]["scroll_down"]];
-        zoom_out = key_table[myIni["navigation"]["zoom_out"]];
-        zoom_in = key_table[myIni["navigation"]["zoom_in"]];
+        mINI::INIMap<std::string>& ng = myIni["navigation"];
 
-        cycle_link_mode = key_table[myIni["interaction"]["cycle_link_mode"]];
-        print_screen = key_table[myIni["interaction"]["print_screen"]];
-        if (myIni["interaction"].has("find_alignments")) {
-            find_alignments = key_table[myIni["interaction"]["find_alignments"]];
+        scroll_right = key_table[ng["scroll_right"]];
+        scroll_left = key_table[ng["scroll_left"]];
+        scroll_up = key_table[ng["scroll_up"]];
+        scroll_down = key_table[ng["scroll_down"]];
+        zoom_out = key_table[ng["zoom_out"]];
+        zoom_in = key_table[ng["zoom_in"]];
+
+        mINI::INIMap<std::string>& ia = myIni["interaction"];
+
+        cycle_link_mode = key_table[ia["cycle_link_mode"]];
+        print_screen = key_table[ia["print_screen"]];
+        if (ia.has("find_alignments")) {
+            find_alignments = key_table[ia["find_alignments"]];
         }
-        if (myIni["interaction"].has("repeat_command")) {
-            repeat_command = key_table[myIni["interaction"]["repeat_command"]];
+        if (ia.has("repeat_command")) {
+            repeat_command = key_table[ia["repeat_command"]];
         }
-        if (myIni["interaction"].has("vcf_as_tracks")) {
-            vcf_as_tracks = myIni["interaction"]["vcf_as_tracks"] == "true";
+        if (ia.has("vcf_as_tracks")) {
+            vcf_as_tracks = ia["vcf_as_tracks"] == "true";
         }
-        if (myIni["interaction"].has("bed_as_tracks")) {
-            bed_as_tracks = myIni["interaction"]["bed_as_tracks"] == "true";
+        if (ia.has("bed_as_tracks")) {
+            bed_as_tracks = ia["bed_as_tracks"] == "true";
         }
 
-        number_str = myIni["labelling"]["number"];
+        mINI::INIMap<std::string>& lb = myIni["labelling"];
+
+        number_str = lb["number"];
         number = Utils::parseDimensions(number_str);
-        parse_label = myIni["labelling"]["parse_label"];
+        parse_label = lb["parse_label"];
 
-        labels = myIni["labelling"]["labels"];
-        delete_labels = key_table[myIni["labelling"]["delete_labels"]];
-        enter_interactive_mode = key_table[myIni["labelling"]["enter_interactive_mode"]];
+        labels = lb["labels"];
+        delete_labels = key_table[lb["delete_labels"]];
+        enter_interactive_mode = key_table[lb["enter_interactive_mode"]];
 
         if (myIni.has("shift_keymap")) {
             shift_keymap["\\"] = "|";
@@ -784,6 +737,7 @@ namespace Themes {
                     if (path.empty()) {
                         std::cerr << "Error: .gw.ini file could not be read or created. Unexpected behavior may arise\n";
                         theme = Themes::DarkTheme();
+
                         return false;
                     }
                 }
@@ -798,7 +752,7 @@ namespace Themes {
 
     void IniOptions::saveIniChanges() {
         mINI::INIFile file(ini_path);
-        file.generate(myIni);
+        file.write(myIni, true);
     }
 
     void IniOptions::saveCurrentSession(std::string& genome_path, std::string& ideogram_path, std::vector<std::string>& bam_paths,
@@ -813,7 +767,7 @@ namespace Themes {
                 std::filesystem::path gwini(ini_path);
                 std::filesystem::path sesh(".gw_session.ini");
                 std::filesystem::path sesh_path = gwini.parent_path() / sesh;
-                myIni["general"].set("session_file", sesh_path.string());
+                myIni["general"]["session_file"] = sesh_path.string();
                 saveIniChanges();
             }
             output_session = myIni["general"]["session_file"];
