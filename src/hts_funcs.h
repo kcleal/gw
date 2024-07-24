@@ -145,6 +145,7 @@ namespace HGW {
         std::string path, genome_tag;
         std::string chrom, chrom2, rid, vartype, parent;
         int start, stop;
+        int strand;
         int fetch_start, fetch_end;
         int *variant_distance;
         float value;  // for continuous data
@@ -189,6 +190,7 @@ namespace HGW {
 
         void open(const std::string &p, bool add_to_dict);
         void close();
+        void clear();
         void fetch(const Utils::Region *rgn);
         void next();
         bool findFeature(std::string &feature, Utils::Region &region);

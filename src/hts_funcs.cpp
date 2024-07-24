@@ -1160,6 +1160,11 @@ namespace HGW {
         }
     }
 
+    void GwTrack::clear() {
+        allBlocks_flat.clear();
+        allBlocks.clear();
+    }
+
     void GwTrack::parseVcfRecord(Utils::TrackBlock &b) {
         kstring_t kstr = {0,0,0};
         bcf_unpack(v, BCF_UN_INFO);
@@ -1324,7 +1329,6 @@ namespace HGW {
                 b.line = tp;
                 b.chrom = parts[0];
                 b.start = std::stoi(parts[1]);
-                b.strand = 0;
                 if (kind == BED_NOI) {  // bed
                     b.end = std::stoi(parts[2]);
                     if (parts.size() > 3) {
@@ -1382,23 +1386,11 @@ namespace HGW {
                 std::vector<std::string> parts = Utils::split(tp, '\t');
                 Utils::TrackBlock b;
                 b.line = tp;
+                b.name = parts[0];
                 b.chrom = parts[5];
                 b.start = std::stoi(parts[7]);
-                b.strand = (parts[4] == "+") ? 1 : 0;
+                b.strand = (parts[4] == "+") ? 1 : 2;
                 b.end = std::stoi(parts[8]);
-                if (parts.size() > 3) {
-                    b.name = parts[3];
-                    if (parts.size() >= 6) {
-                        if (parts[5] == "+") {
-                            b.strand = 1;
-                        } else if (parts[5] == "-") {
-                            b.strand = 2;
-                        }
-                    }
-                } else {
-                    b.name = std::to_string(fileIndex);
-                    fileIndex += 1;
-                }
                 allBlocks[b.chrom].add(b.start, b.end, b);
             }
         } else if (kind == GFF3_IDX || kind == GTF_IDX) {
@@ -1647,7 +1639,7 @@ namespace HGW {
         if (done) {
             return;
         }
-
+        strand = 0;
         if (kind > BCF_IDX) {  // non indexed cached VCF_NOI / BED_NOI / GFF3 (todo) / GW_LABEL / STDIN?
             // add_to_dict==false, only BED and GW_LABEL files supported (iterate whole file)
             if (!add_to_dict) {
@@ -1669,6 +1661,13 @@ namespace HGW {
                         stop = std::stoi(parts[2]);
                         if (parts.size() > 3) {
                             rid = parts[3];
+                            if (parts.size() >= 6) {
+                                if (parts[5] == "+") {
+                                    strand = 1;
+                                } else if (parts[5] == "-") {
+                                    strand = 2;
+                                }
+                            }
                         } else {
                             rid = std::to_string(fileIndex);
                         }
@@ -1695,6 +1694,7 @@ namespace HGW {
                         rid = iter_blk->name;
                         parent = iter_blk->parent;
                         vartype = iter_blk->vartype;
+                        strand = iter_blk->strand;
                         variantString = iter_blk->line;
                         parts = iter_blk->parts;
                         ++iter_blk;
@@ -1787,6 +1787,13 @@ namespace HGW {
                 stop = std::stoi(parts[2]);
                 if (parts.size() > 2) {
                     rid = parts[3];
+                    if (parts.size() >= 6) {
+                        if (parts[5] == "+") {
+                            strand = 1;
+                        } else if (parts[5] == "-") {
+                            strand = 2;
+                        }
+                    }
                 } else {
                     rid = std::to_string(fileIndex);
                     fileIndex += 1;
@@ -1798,6 +1805,11 @@ namespace HGW {
                 chrom = parts[0];
                 start = std::stoi(parts[3]);
                 stop = std::stoi(parts[4]);
+                if (parts[6] == "+") {
+                    strand = 1;
+                } else {
+                    strand = 2;
+                }
                 vartype = parts[2];
                 rid.clear();
                 parent.clear();
@@ -2291,6 +2303,7 @@ namespace HGW {
                 track.parts.push_back("\n");
                 track.s.push_back(g->start);
                 track.e.push_back(g->end);
+
                 if (restAreThin) {
                     track.drawThickness.push_back(1);
                 } else if (g->vartype == "exon" || g->vartype == "CDS") {
@@ -2335,18 +2348,21 @@ namespace HGW {
             b->end = trk.stop;
             b->line = trk.variantString;
             b->parts = trk.parts;
+
             b->anyToDraw = true;
-            if (trk.parts.size() >= 5) {
-                b->strand = (trk.parts[5] == "+") ? 1 : (trk.parts[5] == "-") ? -1 : 0;
-            }
+            b->strand = trk.strand;
+//            if (kind)
+//            if (trk.parts.size() >= 5 && b->strand == 0) {
+//                b->strand = (trk.parts[5] == "+") ? 1 : (trk.parts[5] == "-") ? 2 : 0;
+//            }
             if (isVCF) {
                 b->vartype = trk.vartype;
             }
             if (trk.kind == BIGBED) {
                 if (trk.parts[2] == "-") {
-                    b->strand = -1;
-                } else if (trk.parts[2] == "+") {
                     b->strand = 1;
+                } else if (trk.parts[2] == "+") {
+                    b->strand = 2;
                 } else {
                     b->strand = 0;
                 }

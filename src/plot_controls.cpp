@@ -499,6 +499,7 @@ namespace Manager {
         tracks[index].close();
         tracks.erase(tracks.begin() + index, tracks.begin() + index + 1);
         for (auto &trk: tracks) {
+            trk.clear();
             trk.open(trk.path, true);
         }
         processed = false;

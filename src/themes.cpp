@@ -170,7 +170,7 @@ namespace Themes {
         fcSoftClip0 = fcSoftClip;
 
         bgPaint.setStyle(SkPaint::kStrokeAndFill_Style);
-        bgPaint.setStrokeWidth(2);
+        bgPaint.setStrokeWidth(0);
 
         fcNormal.setAlpha(alpha);
 
@@ -183,7 +183,7 @@ namespace Themes {
         fcSoftClip0.setAlpha(mapq0_alpha);
 
         fcTrack.setStyle(SkPaint::kStrokeAndFill_Style);
-        fcTrack.setStrokeWidth(2);
+        fcTrack.setStrokeWidth(0);
         fcTrack.setAntiAlias(true);
 
         lcJoins.setStyle(SkPaint::kStroke_Style);
@@ -318,7 +318,7 @@ namespace Themes {
     EXPORT IgvTheme::IgvTheme() {
         name = "igv";
         fcCoverage.setARGB(255, 195, 195, 195);
-        fcTrack.setARGB(200, 0, 0, 0);
+        fcTrack.setARGB(200, 20, 20, 20);
         bgPaint.setARGB(255, 255, 255, 255);
         bgMenu.setARGB(255, 250, 250, 250);
         fcNormal.setARGB(255, 202, 202, 202);
@@ -336,9 +336,9 @@ namespace Themes {
         fcN.setARGB(255, 128, 128, 128);
         fcIns.setARGB(255, 158, 112, 250);
 
-        fc5mc.setARGB(127, 194, 151, 58);
+        fc5mc.setARGB(227, 194, 151, 58);
 //        fc5hmc.setARGB(127, 52, 255, 96);
-        fc5hmc.setARGB(127, 189, 78, 23);
+        fc5hmc.setARGB(227, 189, 78, 23);
         lcJoins.setARGB(255, 80, 80, 80);
         lcLightJoins.setARGB(255, 140, 140, 140);
         lcLabel.setARGB(255, 80, 80, 80);
@@ -376,9 +376,9 @@ namespace Themes {
         fcN.setARGB(255, 128, 128, 128);
         fcIns.setARGB(255, 158, 112, 250);
 //        fc5mc.setARGB(127, 252, 186, 3);
-        fc5mc.setARGB(127, 30, 176, 230);
+        fc5mc.setARGB(227, 30, 176, 230);
 //        fc5hmc.setARGB(127, 52, 255, 96);
-        fc5hmc.setARGB(127, 215, 85, 23);
+        fc5hmc.setARGB(227, 215, 85, 23);
         lcJoins.setARGB(255, 142, 142, 142);
         lcLightJoins.setARGB(255, 82, 82, 82);
         lcLabel.setARGB(255, 182, 182, 182);
@@ -416,9 +416,9 @@ namespace Themes {
         fcG.setARGB(255, 226, 132, 19);
         fcN.setARGB(255, 128, 128, 128);
 //        fc5mc.setARGB(127, 252, 186, 3);
-        fc5mc.setARGB(127, 30, 176, 230);
+        fc5mc.setARGB(227, 30, 176, 230);
 //        fc5hmc.setARGB(127, 52, 255, 96);
-        fc5hmc.setARGB(127, 215, 85, 23);
+        fc5hmc.setARGB(227, 215, 85, 23);
         lcJoins.setARGB(255, 142, 142, 142);
         lcLightJoins.setARGB(255, 82, 82, 82);
         lcLabel.setARGB(255, 182, 182, 182);
