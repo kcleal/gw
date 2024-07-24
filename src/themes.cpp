@@ -674,7 +674,7 @@ namespace Themes {
                 scale_bar = sub["scale_bar"] == "true";
             }
             if (sub.has("link")) {
-                link = sub["link"] == "true";
+                link = sub["link"];
                 link_op = 0;
                 if (link == "sv") {
                     link_op = 1;

@@ -179,6 +179,8 @@ namespace Manager {
 
         void removeTrack(int index);
 
+        void removeVariantTrack(int index);
+
         void removeRegion(int index);
 
         void addVariantTrack(std::string &path, int startIndex, bool cacheStdin, bool useFullPath);

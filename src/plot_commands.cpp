@@ -258,14 +258,7 @@ namespace Commands {
 
     Err soft_clips(Plot* p) {
         p->opts.soft_clip_threshold = (p->opts.soft_clip_threshold == 0) ? std::stoi(p->opts.myIni["view_thresholds"]["soft_clip"]) : 0;
-        if (p->mode == Manager::Show::SINGLE) {
-            p->processed = true;
-        } else {
-            p->processed = false;
-        }
-        p->redraw = true;
-        p->imageCache.clear();
-        p->imageCacheQueue.clear();
+        refreshGw(p);
         return Err::NONE;
     }
 
@@ -288,14 +281,7 @@ namespace Commands {
 
     Err expand_tracks(Plot* p) {
         p->opts.expand_tracks = !(p->opts.expand_tracks);
-        p->redraw = true;
-        if (p->mode == Manager::Show::SINGLE) {
-            p->processed = true;
-        } else {
-            p->processed = false;
-        }
-        p->imageCache.clear();
-        p->imageCacheQueue.clear();
+        refreshGw(p);
         return Err::NONE;
     }
 
@@ -592,6 +578,16 @@ namespace Commands {
                 return Err::SILENT;
             }
             p->removeTrack(ind);
+
+        } else if (Utils::startsWith(parts.back(), "var")) {
+            parts.back().erase(0, 3);
+            try {
+                ind = std::stoi(parts.back());
+            } catch (...) {
+                out << termcolor::red << "Error:" << termcolor::reset << " var index not understood\n";
+                return Err::SILENT;
+            }
+            p->removeVariantTrack(ind);
         } else if (Utils::startsWith(parts.back(), "ideogram")) {
             p->ideogram.clear();
         } else {

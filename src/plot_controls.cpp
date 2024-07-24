@@ -93,7 +93,7 @@ namespace Manager {
             if (key == GLFW_KEY_C) {
                 triggerClose = true;
                 return GLFW_KEY_UNKNOWN;
-            } else if (key == GLFW_KEY_KP_ADD || key == GLFW_KEY_EQUAL) {
+            } else if ((key == GLFW_KEY_KP_ADD || key == GLFW_KEY_EQUAL) && !regions.empty()) {
                 int step = std::max(2, (int)(opts.ylim * 0.1));
                 if (!opts.tlen_yscale) {
                     opts.ylim += step;
@@ -103,7 +103,7 @@ namespace Manager {
                     samMaxY = opts.max_tlen;
                 }
                 reset = true;
-            } else if (key == GLFW_KEY_MINUS) {
+            } else if (key == GLFW_KEY_MINUS && !regions.empty()) {
                 int new_y = std::max(1, opts.ylim - std::max((int)(opts.ylim * 0.1), 2));
                 if (!opts.tlen_yscale) {
                     opts.ylim = new_y;
@@ -113,25 +113,32 @@ namespace Manager {
                     samMaxY = opts.max_tlen;
                 }
                 reset = true;
-            } else if (key == GLFW_KEY_LEFT_BRACKET && !collections.empty()) {
+            } else if (key == GLFW_KEY_LEFT_BRACKET && !collections.empty() && !regions.empty()) {
                 for (auto & cl: collections) {
                     cl.vScroll = std::max(0, cl.vScroll - std::max((int)(opts.ylim * 0.1), 2));
                 }
                 reset = true;
-            } else if (key == GLFW_KEY_RIGHT_BRACKET && !collections.empty()) {
+            } else if (key == GLFW_KEY_RIGHT_BRACKET && !collections.empty() && !regions.empty()) {
                 for (auto & cl: collections) {
                     cl.vScroll += std::max((int)(opts.ylim * 0.1), 2);
                 }
                 reset = true;
             }
             if (reset) {
-                reset = true;
                 redraw = true;
-                processed = false;
+                processed = true;
                 imageCacheQueue.clear();
-                for (auto & cl : collections) {
-                    cl.skipDrawingReads = false;
-                    cl.skipDrawingCoverage = false;
+                if (!collections.empty()) {
+                    for (auto & cl : collections) {
+                        cl.skipDrawingReads = false;
+                        cl.skipDrawingCoverage = false;
+                        cl.levelsStart.clear();
+                        cl.levelsEnd.clear();
+                        cl.linked.clear();
+                        for (auto &itm: cl.readQueue) { itm.y = -1; }
+                        int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sortReadsBy);
+                        samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
+                    }
                 }
                 return GLFW_KEY_UNKNOWN;
             }
@@ -347,8 +354,8 @@ namespace Manager {
                         shiftPress = false;
                         redraw = true;
                         processed = true;
-                        imageCache.clear();
-                        imageCacheQueue.clear();
+//                        imageCache.clear();
+//                        imageCacheQueue.clear();
                         commandToolTipIndex = -1;
                         out << "\n";
                         return GLFW_KEY_ENTER;
@@ -502,6 +509,35 @@ namespace Manager {
             trk.clear();
             trk.open(trk.path, true);
         }
+        processed = false;
+        redraw = true;
+        inputText = "";
+        imageCache.clear();
+        imageCacheQueue.clear();
+    }
+
+    void GwPlot::removeVariantTrack(int index) {
+        if (index >= (int)variantTracks.size()) {
+            std::ostream& outerr = (terminalOutput) ? std::cerr : outStr;
+            outerr << termcolor::red << "Error:" << termcolor::reset << " var index is out of range. Use 0-based indexing\n";
+            return;
+        }
+        for (auto &rgn : regions) {
+            rgn.featuresInView.clear();
+            rgn.featureLevels.clear();
+        }
+//        variantTracks[index].close();
+        variantTracks.erase(variantTracks.begin() + index, variantTracks.begin() + index + 1);
+        if (variantTracks.empty()) {
+            variantFileSelection = -1;
+            mode = Show::SINGLE;
+        } else if (variantFileSelection > variantTracks.size()) {
+            variantFileSelection = 0;
+        }
+//        for (auto &trk: variantTracks) {
+//            trk.clear();
+//            trk.open(trk.path, true);
+//        }
         processed = false;
         redraw = true;
         inputText = "";
@@ -1133,6 +1169,7 @@ namespace Manager {
             std::string lk = (opts.link_op > 0) ? ((opts.link_op == 1) ? "sv" : "all") : "none";
             Term::clearLine(out);
             out << "\rLinking selection " << lk << std::flush;
+            opts.link = lk;
             imageCache.clear();
             imageCacheQueue.clear();
             HGW::refreshLinked(collections, opts, &samMaxY, sortReadsBy);

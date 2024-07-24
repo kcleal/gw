@@ -1247,7 +1247,7 @@ namespace Manager {
             SkRect rect{};
             for (int i=0; i < (int)variantTracks.size(); ++i) {
                 if (x_val - gap <= xposm && x_val + tile_box_w >= xposm) {
-                    std::string &fname = variantTracks[i].path;
+                    std::string fname = "var" + std::to_string(i) + " - " + variantTracks[i].path;
                     rect.setXYWH(x_val, h, fname.size() * fonts.overlayWidth + gap + gap, fonts.overlayHeight*2);
                     canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale,opts.theme.bgPaint);
                     sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(fname.c_str(), fonts.overlay);
