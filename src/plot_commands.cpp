@@ -1127,7 +1127,7 @@ namespace Commands {
                     return Err::INVALID_PATH;
                 }
                 if (ext == ".vcf" || ext == ".gz" || ext == ".bcf" || ext == ".bed") {
-                    p->addTrack(filename, true, false, false);
+                    p->addTrack(filename, true, true, true);
                     refreshGw(p);
                     return Err::NONE;
                 } else {

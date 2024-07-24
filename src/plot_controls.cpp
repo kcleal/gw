@@ -1156,9 +1156,11 @@ namespace Manager {
             headers.push_back(hdr_ptr);
             hts_idx_t* idx = sam_index_load(f, path.c_str());
             indexes.push_back(idx);
-        } else if ((!vcf_as_track && (Utils::endsWith(path, ".vcf.gz") || Utils::endsWith(path, ".vcf") || Utils::endsWith(path, ".bcf")))
-         || (!bed_as_track && (Utils::endsWith(path, ".bed") || Utils::endsWith(path, ".bed.gz")))) {
+        } else if (
+                (vcf_as_track && (Utils::endsWith(path, ".vcf.gz") || Utils::endsWith(path, ".vcf") || Utils::endsWith(path, ".bcf")))
+             || (bed_as_track && (Utils::endsWith(path, ".bed") || Utils::endsWith(path, ".bed.gz")))) {
             good = true;
+
             std::vector<std::string> labels = Utils::split(opts.labels, ',');
             setLabelChoices(labels);
             mouseOverTileIndex = 0;
@@ -1221,7 +1223,7 @@ namespace Manager {
     void GwPlot::pathDrop(int count, const char** paths) {
         for (int i=0; i < count; ++ i) {
             std::string pth = *paths;
-            addTrack(pth);
+            addTrack(pth, true, opts.vcf_as_tracks, false);
         }
         redraw = true;
         processed = false;
@@ -1437,7 +1439,7 @@ namespace Manager {
                         float stepY =  (totalTabixY) / (float)tracks.size();
                         float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[trackIdx]);
                         float y = totalCovY + refSpace + (trackY*(float)headers.size()) + (gap * 0.5);
-//                        float y = fb_height - totalTabixY - refSpace;  // start of tracks on canvas
+
                         int featureLevel = (int)(yW - y - (trackIdx * stepY)) / step_track;
                         Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx, target_qname, &target_pos, out);
                     }
@@ -1862,10 +1864,10 @@ namespace Manager {
                 return;
             }
             float y = fb_height - (fb_height * 0.025);
-            float y2 = fb_height - (height_f * 2.25);
+            float y2 = fb_height - (height_f * 2.5);
             float yy = (y2 < y) ? y2 : y;
-            int pad = fonts.overlayHeight * 0.3;
-            yy -= pad + pad;
+            float padT = fonts.overlayHeight * 0.3;
+
             for (int idx=0; idx < (int)Menu::commandToolTip.size(); idx++) {
                 if (!inputText.empty() && (idx < tip_lb || idx > tip_ub)) {
                     continue;
@@ -1874,7 +1876,7 @@ namespace Manager {
                     commandToolTipIndex = idx;
                     break;
                 }
-                yy -= fonts.overlayHeight + pad;
+                yy -= fonts.overlayHeight + padT;
             }
         }
         else {

@@ -589,6 +589,11 @@ namespace Manager {
                 addVariantTrack(v, 0, false, true);
             }
         }
+
+        if (mode == Show::TILED && variantTracks.empty()) {
+            mode = Show::SINGLE;
+        }
+
         size_t count = 0;
         for (const auto &item: opts.seshIni["show"]) {
             if (Utils::startsWith(item.first, "region")) {
@@ -957,7 +962,7 @@ namespace Manager {
         for (auto &cl: collections) {
             cl.xScaling = (float)((regionWidth - gap - gap) / ((double)(cl.region->end - cl.region->start)));
             cl.xOffset = (regionWidth * (float)cl.regionIdx) + gap;
-            cl.yOffset = (float)cl.bamIdx * bamHeight + covY + refSpace;
+            cl.yOffset = (float)cl.bamIdx * bamHeight + covY + refSpace + ((totalCovY == 0) ? fonts.overlayHeight: 0);
             cl.yPixels = trackY + covY;
             cl.xPixels = regionWidth;
 
@@ -1260,15 +1265,13 @@ namespace Manager {
             SkRect rect{};
             float height_f = fonts.overlayHeight * 2;
             float x = 50;
-//            float w = fb_width - 100;
-
             SkPaint bg = opts.theme.bgMenu;
-
-
             float y = fb_height - (fb_height * 0.025);
             float y2 = fb_height - (height_f * 2.5);
             float yy = (y2 < y) ? y2 : y;
+            float padT = fonts.overlayHeight * 0.3;
 
+            // Command Box text width
             float txt_w = fonts.overlay.measureText(inputText.c_str(), inputText.size(), SkTextEncoding::kUTF8);
             float max_w = fb_width - 14 - (fonts.overlayWidth*5);
             std::string inputText2 = inputText;
@@ -1286,29 +1289,26 @@ namespace Manager {
                 charIndex2 = charIndex - i;
             }
             float to_cursor_width = fonts.overlay.measureText(inputText2.substr(0, charIndex2).c_str(), charIndex2, SkTextEncoding::kUTF8);
-
             rect.setXYWH(0, yy, fb_width, fb_height);
-
             canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, bg);
-            float pad = fonts.overlayHeight * 0.3;
 
             // Cursor and text
             SkPath path;
-            path.moveTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 0.3) + pad + pad);
-            path.lineTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 1.5) + pad + pad);
+            path.moveTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 0.3) + padT + padT);
+            path.lineTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 1.5) + padT + padT);
             canvas->drawPath(path, opts.theme.lcBright);
             if (!inputText2.empty()) {
 
                 sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(inputText2.c_str(), fonts.overlay);
-                canvas->drawTextBlob(blob, x + 14, yy + (fonts.overlayHeight * 1.3) + pad + pad, opts.theme.tcDel);
+                canvas->drawTextBlob(blob, x + 14, yy + (fonts.overlayHeight * 1.3) + padT + padT, opts.theme.tcDel);
             }
             if (mode != SETTINGS && (commandToolTipIndex != -1 || !inputText.empty())) {
 
-                if (inputText.empty() && yy - (Menu::commandToolTip.size() * (fonts.overlayHeight+ pad)) < covY) {
+                if (inputText.empty() && yy - (Menu::commandToolTip.size() * (fonts.overlayHeight+ padT)) < covY) {
                     sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(Menu::commandToolTip[commandToolTipIndex], fonts.overlay);
                     SkPaint grey;
                     grey.setColor(SK_ColorGRAY);
-                    canvas->drawTextBlob(blob, x + 14 + fonts.overlayWidth + fonts.overlayWidth, yy + (fonts.overlayHeight * 1.3) + pad + pad, grey);
+                    canvas->drawTextBlob(blob, x + 14 + fonts.overlayWidth + fonts.overlayWidth, yy + (fonts.overlayHeight * 1.3) + padT + padT, grey);
                 }
 
                 SkPaint tip_paint = opts.theme.lcBright;
@@ -1326,9 +1326,9 @@ namespace Manager {
                     n += 1;
                 }
                 if (n > 0) {
-                    float step = fonts.overlayHeight + pad;
+                    float step = fonts.overlayHeight + padT;
                     float top = yy - (n * step);
-                    rect.setXYWH(0, top, x + fonts.overlayWidth * 18, (n * step) + pad + pad);
+                    rect.setXYWH(0, top, x + fonts.overlayWidth * 18, (n * step) + padT + padT);
                     canvas->drawRoundRect(rect, 10, 10, bg);
                 }
 
@@ -1357,7 +1357,7 @@ namespace Manager {
                         path.lineTo(x + (2.75*fonts.overlayWidth), yy - (fonts.overlayHeight*0.75));
                         canvas->drawPath(path, tip_paint);
                     }
-                    yy -= fonts.overlayHeight + pad;
+                    yy -= fonts.overlayHeight + padT;
                     if (yy < covY) {
                         break;
                     }
@@ -1447,7 +1447,7 @@ namespace Manager {
         for (int i=bStart; i<endIdx; ++i) {
             bool c = imageCache.find(i) != imageCache.end();
             if (!c && i < (int)currentVarTrack->multiRegions.size() && !bams.empty()) {
-                regions = currentVarTrack->multiRegions[i];
+                this->regions = currentVarTrack->multiRegions[i];
                 runDrawOnCanvas(canvas);
                 sContext->flush();
                 sk_sp<SkImage> img(sSurface->makeImageSnapshot());
@@ -1508,7 +1508,7 @@ namespace Manager {
         setGlfwFrameBufferSize();
         setScaling();
         float y_gap = (variantTracks.size() <= 1) ? 0 : (10 * monitorScale);
-        bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height, 6 * monitorScale, 6 * monitorScale, y_gap);
+        bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height - 6 * monitorScale, 6 * monitorScale, 6 * monitorScale, y_gap);
         if (currentVarTrack->image_glob.empty()) {
             tileDrawingThread(canvas, sContext, sSurface);  // draws images from variant file
         } else {
@@ -1530,7 +1530,8 @@ namespace Manager {
             std::rotate(srtLabels.begin(), pivot, pivot + 1);
         }
 
-        canvas->drawPaint(opts.theme.bgPaint);
+//        canvas->drawPaint(opts.theme.bgPaint);
+        canvas->drawPaint(opts.theme.bgPaintTiled);
         SkSamplingOptions sampOpts = SkSamplingOptions();
         int i = bStart;
         for (auto &b : bboxes) {

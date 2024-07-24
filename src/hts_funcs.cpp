@@ -1689,6 +1689,7 @@ namespace HGW {
                 while (true) {
                     if (iter_blk != vals_end) {
                         chrom = iter_blk->chrom;
+                        chrom2 = chrom;
                         start = iter_blk->start;
                         stop = iter_blk->end;
                         rid = iter_blk->name;
@@ -1783,6 +1784,7 @@ namespace HGW {
                 parts.clear();
                 parts = Utils::split(str.s, '\t');
                 chrom = parts[0];
+                chrom2 = chrom;
                 start = std::stoi(parts[1]);
                 stop = std::stoi(parts[2]);
                 if (parts.size() > 2) {
@@ -1803,6 +1805,7 @@ namespace HGW {
                 parts.clear();
                 parts = Utils::split(str.s, '\t');
                 chrom = parts[0];
+                chrom2 = chrom;
                 start = std::stoi(parts[3]);
                 stop = std::stoi(parts[4]);
                 if (parts[6] == "+") {
@@ -1848,6 +1851,7 @@ namespace HGW {
                 rid = parts[0];
             }
             current_iter_index += 1;
+            chrom2 = chrom;
         }
     }
 

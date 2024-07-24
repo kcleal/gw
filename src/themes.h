@@ -70,7 +70,7 @@ namespace Themes {
     if an item has 0 at the end this is the color when mapq == 0
     */
     enum GwPaint {
-        bgPaint, bgMenu, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip,
+        bgPaint, bgPaintTiled, bgMenu, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip,
         fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack, fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0,
         fcSoftClip0, fcBigWig, fcRoi, mate_fc, mate_fc0, ecMateUnmapped, ecSplit, ecSelected,
         lcJoins, lcCoverage, lcLightJoins, lcLabel, lcBright, tcDel, tcIns, tcLabels, tcBackground,
@@ -84,7 +84,7 @@ namespace Themes {
 
         std::string name;
         // face colours
-        SkPaint bgPaint, bgMenu, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip, \
+        SkPaint bgPaint, bgPaintTiled, bgMenu, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip, \
                 fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack, fcRoi;
         SkPaint fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0, fcSoftClip0, fcBigWig, fc5mc, fc5hmc, fcOther;
 

@@ -271,6 +271,7 @@ namespace Themes {
     void BaseTheme::setPaintARGB(int paint_enum, int a, int r, int g, int b) {
         switch (paint_enum) {
             case GwPaint::bgPaint: this->bgPaint.setARGB(a, r, g, b); break;
+            case GwPaint::bgPaintTiled: this->bgPaintTiled.setARGB(a, r, g, b); break;
             case GwPaint::fcNormal: this->fcNormal.setARGB(a, r, g, b); break;
             case GwPaint::fcDel: this->fcDel.setARGB(a, r, g, b); break;
             case GwPaint::fcDup: this->fcDup.setARGB(a, r, g, b); break;
@@ -320,6 +321,7 @@ namespace Themes {
         fcCoverage.setARGB(255, 195, 195, 195);
         fcTrack.setARGB(200, 20, 20, 20);
         bgPaint.setARGB(255, 255, 255, 255);
+        bgPaintTiled.setARGB(255, 235, 235, 235);
         bgMenu.setARGB(255, 250, 250, 250);
         fcNormal.setARGB(255, 202, 202, 202);
         fcDel.setARGB(255, 225, 19, 67);
@@ -361,6 +363,7 @@ namespace Themes {
         fcCoverage.setARGB(255, 95, 95, 105);
         fcTrack.setARGB(200, 227, 232, 255);
         bgPaint.setARGB(255, 10, 10, 20);
+        bgPaintTiled.setARGB(255, 40, 40, 40);
         bgMenu.setARGB(255, 20, 20, 30);
         fcNormal.setARGB(255, 90, 90, 95);
         fcDel.setARGB(255, 185, 25, 25);
@@ -401,6 +404,7 @@ namespace Themes {
         fcCoverage.setARGB(255, 103, 102, 109);
         fcTrack.setARGB(200, 227, 232, 255);
         bgPaint.setARGB(255, 45, 45, 48);
+        bgPaintTiled.setARGB(255, 25, 25, 28);
         bgMenu.setARGB(255, 0, 0, 0);
         fcNormal.setARGB(255, 93, 92, 99);
         fcDel.setARGB(255, 185, 25, 25);
@@ -476,7 +480,7 @@ namespace Themes {
         tlen_yscale = false;
         expand_tracks = false;
         vcf_as_tracks = false;
-        bed_as_tracks = true;
+        bed_as_tracks = false;
         sv_arcs = true;
         parse_mods = false;
         scale_bar = true;

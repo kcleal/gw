@@ -419,12 +419,12 @@ namespace Utils {
         for (int x = 0; x < dims.x; ++x) {
             for (int y = 0; y < dims.y; ++y) {
                 BoundingBox &b = bboxes[i];
-                b.xStart = (w * (float) x) + padX;
+                b.xStart = (w * (float) x) + padX + (padX * 0.5);
                 b.yStart = (h * (float) y) + padY + ySpace;
                 b.xEnd = b.xStart + w - padX;
                 b.yEnd = b.yStart + h - padY;
-                b.width = w - padX;// * 2;
-                b.height = h - padY;// * 2;
+                b.width = w;
+                b.height = h - padY;
                 ++i;
             }
         }
