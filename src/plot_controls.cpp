@@ -1525,8 +1525,10 @@ namespace Manager {
                             }
                             redraw = true;
                             processed = true;
-                            cl.skipDrawingReads = false;
-                            cl.skipDrawingCoverage = false;
+                            for (auto &cl2 : collections) {
+                                cl2.skipDrawingReads = false;
+                                cl2.skipDrawingCoverage = false;
+                            }
                             break;
                         }
                     } else {

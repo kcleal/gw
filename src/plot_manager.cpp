@@ -921,8 +921,8 @@ namespace Manager {
             tabixY = totalTabixY / (float)tracks.size();
         }
         if (nbams > 0 && samMaxY > 0) {
-            trackY = (fbh - totalCovY - totalTabixY - refSpace - sliderSpace) / nbams;
-            yScaling = (trackY - (gap * nbams)) / (double)samMaxY;
+            trackY = (fbh - totalCovY - totalTabixY - refSpace - sliderSpace - gap) / nbams;
+            yScaling = (trackY - gap) / (double)samMaxY;
 
             // Ensure yScaling is an integer if possible
             if (yScaling > 1 && sortReadsBy == SortType::NONE) {
@@ -1260,91 +1260,106 @@ namespace Manager {
             SkRect rect{};
             float height_f = fonts.overlayHeight * 2;
             float x = 50;
-            float w = fb_width - 100;
+//            float w = fb_width - 100;
 
             SkPaint bg = opts.theme.bgMenu;
 
-            if (x < w) {
-                float y = fb_height - (fb_height * 0.025);
-                float y2 = fb_height - (height_f * 2.5);
-                float yy = (y2 < y) ? y2 : y;
-                float to_cursor_width = fonts.overlay.measureText(inputText.substr(0, charIndex).c_str(), charIndex, SkTextEncoding::kUTF8);
 
-                rect.setXYWH(0, yy, fb_width, fb_height);
+            float y = fb_height - (fb_height * 0.025);
+            float y2 = fb_height - (height_f * 2.5);
+            float yy = (y2 < y) ? y2 : y;
 
-                canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, bg);
-                float pad = fonts.overlayHeight * 0.3;
-
-                // Cursor and text
-                SkPath path;
-                path.moveTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 0.3) + pad + pad);
-                path.lineTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 1.5) + pad + pad);
-                canvas->drawPath(path, opts.theme.lcBright);
-                if (!inputText.empty()) {
-                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(inputText.c_str(), fonts.overlay);
-                    canvas->drawTextBlob(blob, x + 14, yy + (fonts.overlayHeight * 1.3) + pad + pad, opts.theme.tcDel);
+            float txt_w = fonts.overlay.measureText(inputText.c_str(), inputText.size(), SkTextEncoding::kUTF8);
+            float max_w = fb_width - 14 - (fonts.overlayWidth*5);
+            std::string inputText2 = inputText;
+            int charIndex2 = charIndex;
+            if (txt_w > max_w) {
+                std::string sub;
+                int i = 0;
+                for ( ; i < charIndex; ++i) {
+                    sub = inputText2.substr(i, inputText2.size());
+                    if (fonts.overlay.measureText(sub.c_str(), sub.size(), SkTextEncoding::kUTF8) < max_w) {
+                        break;
+                    }
                 }
-                if (mode != SETTINGS && (commandToolTipIndex != -1 || !inputText.empty())) {
+                inputText2 = inputText2.substr(i, inputText2.size());;
+                charIndex2 = charIndex - i;
+            }
+            float to_cursor_width = fonts.overlay.measureText(inputText2.substr(0, charIndex2).c_str(), charIndex2, SkTextEncoding::kUTF8);
 
-                    if (inputText.empty() && yy - (Menu::commandToolTip.size() * (fonts.overlayHeight+ pad)) < covY) {
-                        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(Menu::commandToolTip[commandToolTipIndex], fonts.overlay);
-                        SkPaint grey;
-                        grey.setColor(SK_ColorGRAY);
-                        canvas->drawTextBlob(blob, x + 14 + fonts.overlayWidth + fonts.overlayWidth, yy + (fonts.overlayHeight * 1.3) + pad + pad, grey);
+            rect.setXYWH(0, yy, fb_width, fb_height);
+
+            canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, bg);
+            float pad = fonts.overlayHeight * 0.3;
+
+            // Cursor and text
+            SkPath path;
+            path.moveTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 0.3) + pad + pad);
+            path.lineTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 1.5) + pad + pad);
+            canvas->drawPath(path, opts.theme.lcBright);
+            if (!inputText2.empty()) {
+
+                sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(inputText2.c_str(), fonts.overlay);
+                canvas->drawTextBlob(blob, x + 14, yy + (fonts.overlayHeight * 1.3) + pad + pad, opts.theme.tcDel);
+            }
+            if (mode != SETTINGS && (commandToolTipIndex != -1 || !inputText.empty())) {
+
+                if (inputText.empty() && yy - (Menu::commandToolTip.size() * (fonts.overlayHeight+ pad)) < covY) {
+                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(Menu::commandToolTip[commandToolTipIndex], fonts.overlay);
+                    SkPaint grey;
+                    grey.setColor(SK_ColorGRAY);
+                    canvas->drawTextBlob(blob, x + 14 + fonts.overlayWidth + fonts.overlayWidth, yy + (fonts.overlayHeight * 1.3) + pad + pad, grey);
+                }
+
+                SkPaint tip_paint = opts.theme.lcBright;
+                tip_paint.setAntiAlias(true);
+                float n = 0;
+                for (const auto &cmd : Menu::commandToolTip) {
+                    std::string cmd_s = cmd;
+                    if (!inputText.empty() && !Utils::startsWith(cmd_s, inputText)) {
+                        continue;
                     }
-                    //yy += pad;
-
-                    SkPaint tip_paint = opts.theme.lcBright;
-                    tip_paint.setAntiAlias(true);
-                    float n = 0;
-                    for (const auto &cmd : Menu::commandToolTip) {
-                        std::string cmd_s = cmd;
-                        if (!inputText.empty() && !Utils::startsWith(cmd_s, inputText)) {
-                            continue;
-                        }
-                        if (cmd_s == inputText) {
-                            n = 0;
-                            break;
-                        }
-                        n += 1;
+                    if (cmd_s == inputText) {
+                        n = 0;
+                        break;
                     }
-                    if (n > 0) {
-                        float step = fonts.overlayHeight + pad;
-                        float top = yy - (n * step);
-                        rect.setXYWH(0, top, x + fonts.overlayWidth * 18, (n * step) + pad + pad);
-                        canvas->drawRoundRect(rect, 10, 10, bg);
+                    n += 1;
+                }
+                if (n > 0) {
+                    float step = fonts.overlayHeight + pad;
+                    float top = yy - (n * step);
+                    rect.setXYWH(0, top, x + fonts.overlayWidth * 18, (n * step) + pad + pad);
+                    canvas->drawRoundRect(rect, 10, 10, bg);
+                }
+
+
+                for (const auto &cmd : Menu::commandToolTip) {
+                    std::string cmd_s = cmd;
+                    if (!inputText.empty() && !Utils::startsWith(cmd_s, inputText)) {
+                        continue;
+                    }
+                    if (cmd_s == inputText) {
+                        break;
                     }
 
-
-                    for (const auto &cmd : Menu::commandToolTip) {
-                        std::string cmd_s = cmd;
-                        if (!inputText.empty() && !Utils::startsWith(cmd_s, inputText)) {
-                            continue;
-                        }
-                        if (cmd_s == inputText) {
-                            break;
-                        }
-//                        rect.setXYWH(x, yy - fonts.overlayHeight - pad, fonts.overlayWidth * 18, fonts.overlayHeight + pad + pad);
-//                        canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, opts.theme.bgPaint);
-                        sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(cmd, fonts.overlay);
-                        canvas->drawTextBlob(blob, x + (fonts.overlayWidth * 3), yy, opts.theme.tcDel);
-                        tip_paint.setStyle(SkPaint::kStrokeAndFill_Style);
-                        if (commandToolTipIndex >= 0 && Menu::commandToolTip[commandToolTipIndex] == cmd) {
-                            canvas->drawCircle(x + (fonts.overlayWidth), yy - (fonts.overlayHeight*0.5), 3, tip_paint);
-                        }
-                        tip_paint.setStyle(SkPaint::kStroke_Style);
-                        int cs_val = Menu::getCommandSwitchValue(opts, cmd_s, drawLine);
-                        if (cs_val == 1) {
-                            path.reset();
-                            path.moveTo(x + (2.*fonts.overlayWidth), yy - (fonts.overlayHeight*0.25));
-                            path.lineTo(x + (2.25*fonts.overlayWidth), yy);
-                            path.lineTo(x + (2.75*fonts.overlayWidth), yy - (fonts.overlayHeight*0.75));
-                            canvas->drawPath(path, tip_paint);
-                        }
-                        yy -= fonts.overlayHeight + pad;
-                        if (yy < covY) {
-                            break;
-                        }
+                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(cmd, fonts.overlay);
+                    canvas->drawTextBlob(blob, x + (fonts.overlayWidth * 3), yy, opts.theme.tcDel);
+                    tip_paint.setStyle(SkPaint::kStrokeAndFill_Style);
+                    if (commandToolTipIndex >= 0 && Menu::commandToolTip[commandToolTipIndex] == cmd) {
+                        canvas->drawCircle(x + (fonts.overlayWidth), yy - (fonts.overlayHeight*0.5), 3, tip_paint);
+                    }
+                    tip_paint.setStyle(SkPaint::kStroke_Style);
+                    int cs_val = Menu::getCommandSwitchValue(opts, cmd_s, drawLine);
+                    if (cs_val == 1) {
+                        path.reset();
+                        path.moveTo(x + (2.*fonts.overlayWidth), yy - (fonts.overlayHeight*0.25));
+                        path.lineTo(x + (2.25*fonts.overlayWidth), yy);
+                        path.lineTo(x + (2.75*fonts.overlayWidth), yy - (fonts.overlayHeight*0.75));
+                        canvas->drawPath(path, tip_paint);
+                    }
+                    yy -= fonts.overlayHeight + pad;
+                    if (yy < covY) {
+                        break;
                     }
                 }
             }

@@ -1224,12 +1224,12 @@ namespace Commands {
         try {
             rgn = Utils::parseRegion(command);
         } catch (...) {
-            reason = Err::BAD_REGION;
+            return Err::BAD_REGION;
         }
         if (reason == Err::NONE) {
             int res = faidx_has_seq(p->fai, rgn.chrom.c_str());
             if (res <= 0) {
-                reason = Err::OPTION_NOT_UNDERSTOOD;
+                return Err::OPTION_NOT_UNDERSTOOD;
             }
             if (p->mode != Manager::Show::SINGLE) { p->mode = Manager::Show::SINGLE; }
             if (p->regions.empty()) {
