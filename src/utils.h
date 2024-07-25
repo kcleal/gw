@@ -9,7 +9,7 @@
 #include <vector>
 #include "ankerl_unordered_dense.h"
 #include "export_definitions.h"
-#include "ideogram.h"
+//#include "ideogram.h"
 #include "htslib/faidx.h"
 
 #if defined(_WIN32)
@@ -19,6 +19,12 @@
 #elif defined(__linux__)
 #include <sys/ioctl.h>
 #endif // Windows/Linux
+
+#if !defined(__EMSCRIPTEN__)
+    #include <curl/curl.h>
+    #include <curl/easy.h>
+#endif
+
 
 namespace Utils {
 
@@ -156,6 +162,7 @@ namespace Utils {
                     ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::set<std::string>> &seenLabels
                     );
 
+    std::string removeZeros(float value);
     std::string getSize(long num);
 
     void parseMateLocation(std::string &selectedAlign, std::string &mate, std::string &target_qname);
@@ -165,5 +172,9 @@ namespace Utils {
 	void ltrim(std::string &s);
 	void rtrim(std::string &s);
 	void trim(std::string &s);
+
+#if !defined(__EMSCRIPTEN__)
+    std::string fetchOnlineFileContent(const std::string& url);
+#endif
 
 }

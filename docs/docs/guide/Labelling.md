@@ -2,13 +2,13 @@
 title: Labelling
 layout: home
 parent: User guide
-nav_order: 4
+nav_order: 6
 ---
 
 # Labelling
 
 GW is designed to make manually labelling 100s - 1000s of variants as pain free as possible. 
-Using the command-line interface, labels can be saved to a tab-separated file and opened 
+Using the save/load commands or command-line interface, labels can be saved to a tab-separated file and opened 
 at a later date to support labelling over multiple sessions.
 GW can also write a modified VCF, updating the filter column with curated labels.
 
@@ -30,7 +30,6 @@ For example, the `SU` tag can be parsed from the info column using:
 ```shell
 gw hg38.fa -b your.bam -v variants.vcf --parse-label info.SU
 ```
-    
 
 Image tiles can then be clicked-on using the mouse to modify the label,
 choosing between PASS/FAIL by default. To provide a list of alternate labels, use the `--labels` option:
@@ -38,11 +37,18 @@ choosing between PASS/FAIL by default. To provide a list of alternate labels, us
 ```shell
 gw hg38.fa -b your.bam -v variants.vcf --labels Yes,No,Maybe
 ```
-    
 
 Now, when you left-click on a tiled image, you can cycle through this list.
 
-To save or open a list of annotations, use the `--in-labels` and `--out-labels` options.
+You can also add comments to labels. To use this feature move the mouse to the image-tile of interest,
+then open the command box and type a single quotation mart `"` or `'`, followed by your comment. The
+comment will be added to the label and appear as an orange dot on the screen. The comment will also be saved
+in the output.
+
+---
+
+To save or open a list of annotations, use the `save/open` GW commands or the
+`--in-labels` and `--out-labels` command-line options.
 This makes it straightforward to keep track of labelling progress between sessions.
 Only variants that have been displayed to screen will be appended to the results in `--out-labels` file.
 The same file can be used for in and out labels, if desired:
@@ -50,15 +56,14 @@ The same file can be used for in and out labels, if desired:
 ```shell
 gw hg38 -b your.bam -v variants.vcf --in-labels labels.tsv --out-labels labels.tsv
 ```
-    
 
 Labels are output as a tab-separated file with the following format:
 
 
-|chrom|pos|variant_ID|label|var_type|labelled_date|variant_filename
-|--|--|---|---|---|---|---
-|chr1|200000|27390|PASS|DEL||test.vcf
-|chr1|250000|2720|FAIL|SNP|14-10-2022 16-05-46|test.vcf
+|chrom|pos|variant_ID|label|var_type|labelled_date|variant_filename|comment
+|--|--|---|---|---|---|---|---
+|chr1|200000|27390|PASS|DEL||test.vcf|
+|chr1|250000|2720|FAIL|SNP|14-10-2022 16-05-46|test.vcf|
 
 The labelled_date column is only filled out if one of the tiled images was manually clicked - 
 if this field is blank then the `--parsed-label` was used.
@@ -74,4 +79,4 @@ gw -v input_variants.vcf --in-labels labels.tsv --out-vcf output_variants.vcf
 ```
 
 Note, the `--in-labels` option is not required here, but could be used if labelling over multiple sessions, for example.
-Also, a GW window will still pop-up here, but this could be supressed using the `--no-show` option.
+Also, a GW window will still pop-up here, but this could be suppressed using the `--no-show` option.

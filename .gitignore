@@ -39,4 +39,5 @@ libgw.so
 /gw.wasm
 /wasm_libs
 /src/plot_commands.o
+/src/ideogram.o
 /.gw_session.ini

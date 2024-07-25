@@ -87,9 +87,62 @@ namespace Manager {
         } else if (action == GLFW_RELEASE) {
             return key;
         }
-        if (ctrlPress && key == GLFW_KEY_C) {
-            triggerClose = true;
-            return GLFW_KEY_UNKNOWN;
+        // intercept a few shortcuts here
+        if (ctrlPress) {
+            bool reset = false;
+            if (key == GLFW_KEY_C) {
+                triggerClose = true;
+                return GLFW_KEY_UNKNOWN;
+            } else if ((key == GLFW_KEY_KP_ADD || key == GLFW_KEY_EQUAL) && !regions.empty()) {
+                int step = std::max(2, (int)(opts.ylim * 0.1));
+                if (!opts.tlen_yscale) {
+                    opts.ylim += step;
+                    samMaxY = opts.ylim;
+                } else {
+                    opts.max_tlen += step;
+                    samMaxY = opts.max_tlen;
+                }
+                reset = true;
+            } else if (key == GLFW_KEY_MINUS && !regions.empty()) {
+                int new_y = std::max(1, opts.ylim - std::max((int)(opts.ylim * 0.1), 2));
+                if (!opts.tlen_yscale) {
+                    opts.ylim = new_y;
+                    samMaxY = opts.ylim;
+                } else {
+                    opts.max_tlen = new_y;
+                    samMaxY = opts.max_tlen;
+                }
+                reset = true;
+            } else if (key == GLFW_KEY_LEFT_BRACKET && !collections.empty() && !regions.empty()) {
+                for (auto & cl: collections) {
+                    cl.vScroll = std::max(0, cl.vScroll - std::max((int)(opts.ylim * 0.1), 2));
+                }
+                reset = true;
+            } else if (key == GLFW_KEY_RIGHT_BRACKET && !collections.empty() && !regions.empty()) {
+                for (auto & cl: collections) {
+                    cl.vScroll += std::max((int)(opts.ylim * 0.1), 2);
+                }
+                reset = true;
+            }
+            if (reset) {
+                redraw = true;
+                processed = true;
+                imageCacheQueue.clear();
+                if (!collections.empty()) {
+                    for (auto & cl : collections) {
+                        cl.skipDrawingReads = false;
+                        cl.skipDrawingCoverage = false;
+                        cl.levelsStart.clear();
+                        cl.levelsEnd.clear();
+                        cl.linked.clear();
+                        for (auto &itm: cl.readQueue) { itm.y = -1; }
+                        int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sortReadsBy);
+                        samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
+                    }
+                }
+                return GLFW_KEY_UNKNOWN;
+            }
+            // Fall though to other functions
         }
 
         if ( (key == GLFW_KEY_SLASH && !captureText) || (shiftPress && key == GLFW_KEY_SEMICOLON && !captureText)) {
@@ -237,6 +290,8 @@ namespace Manager {
                 processText = false;
                 shiftPress = false;
                 commandToolTipIndex = -1;
+                xDrag = -1000000;
+                yDrag = -1000000;
                 if (mode == SETTINGS) {
                     if (opts.editing_underway) {
                         opts.editing_underway = false;
@@ -253,20 +308,21 @@ namespace Manager {
             }
 
             const bool no_command_selected = commandToolTipIndex == -1;
-//            std::cerr << Utils::startsWith() << std::endl;
+
             if (no_command_selected) {
                 if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
                     captureText = false;
                     processText = true;
                     shiftPress = false;
-                    redraw = true;  // todo set to false here?
+                    redraw = false;
                     processed = true;
                     commandToolTipIndex = -1;
                     out << "\n";
                     return key;
                 } else if (key == GLFW_KEY_TAB) {
                     if (mode != SETTINGS) {
-                        if (Utils::startsWith(inputText, "load ") && !(inputText == "load ")) {
+                        if ((Utils::startsWith(inputText, "load ") && !(inputText == "load ")) ||
+                                (Utils::startsWith(inputText, "save ") && !(inputText == "save "))) {
                             Term::clearLine(out);
                             Parse::tryTabCompletion(inputText, out, charIndex);
                             commandToolTipIndex = -1;
@@ -291,25 +347,40 @@ namespace Manager {
                 }
             } else {
                 if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER ) {
-                    inputText = Menu::commandToolTip[commandToolTipIndex];
-                    charIndex = (int)inputText.size();
-                    // immediately execute functions that don't need additional args
-                    if (std::find( Menu::exec.begin(), Menu::exec.end(), inputText) != Menu::exec.end() || (inputText == "online" && !opts.genome_tag.empty())) {
+                    std::string inputText2 = Menu::commandToolTip[commandToolTipIndex];
+                    int charIndex2 = (int)inputText2.size();
+                    if (Utils::startsWith(inputText2, inputText)) {
+                        // immediately execute functions that don't need additional args
+                        if ( std::find( Menu::exec.begin(), Menu::exec.end(), inputText2) != Menu::exec.end() || (inputText2 == "online" && !opts.genome_tag.empty())) {
+                            captureText = false;
+                            processText = true;
+                            shiftPress = false;
+                            redraw = true;
+                            processed = true;
+                            inputText = inputText2;
+                            charIndex = charIndex2;
+                            commandToolTipIndex = -1;
+                            out << "\n";
+                            return GLFW_KEY_ENTER;
+                        }
+
+                    }
+//                     else {
                         captureText = false;
                         processText = true;
                         shiftPress = false;
                         redraw = true;
                         processed = true;
-                        imageCache.clear();
-                        imageCacheQueue.clear();
+                        charIndex = inputText.size();
                         commandToolTipIndex = -1;
                         out << "\n";
+
                         return GLFW_KEY_ENTER;
-                    }
-                    inputText += " ";
-                    charIndex += 1;
-                    commandToolTipIndex = -1;
-                    return GLFW_KEY_UNKNOWN;
+//                    }
+//                    inputText += " ";
+//                    charIndex += 1;
+//                    commandToolTipIndex = -1;
+//                    return GLFW_KEY_UNKNOWN;
                 }
             }
 
@@ -452,8 +523,38 @@ namespace Manager {
         tracks[index].close();
         tracks.erase(tracks.begin() + index, tracks.begin() + index + 1);
         for (auto &trk: tracks) {
+            trk.clear();
             trk.open(trk.path, true);
         }
+        processed = false;
+        redraw = true;
+        inputText = "";
+        imageCache.clear();
+        imageCacheQueue.clear();
+    }
+
+    void GwPlot::removeVariantTrack(int index) {
+        if (index >= (int)variantTracks.size()) {
+            std::ostream& outerr = (terminalOutput) ? std::cerr : outStr;
+            outerr << termcolor::red << "Error:" << termcolor::reset << " var index is out of range. Use 0-based indexing\n";
+            return;
+        }
+        for (auto &rgn : regions) {
+            rgn.featuresInView.clear();
+            rgn.featureLevels.clear();
+        }
+//        variantTracks[index].close();
+        variantTracks.erase(variantTracks.begin() + index, variantTracks.begin() + index + 1);
+        if (variantTracks.empty()) {
+            variantFileSelection = -1;
+            mode = Show::SINGLE;
+        } else if (variantFileSelection > variantTracks.size()) {
+            variantFileSelection = 0;
+        }
+//        for (auto &trk: variantTracks) {
+//            trk.clear();
+//            trk.open(trk.path, true);
+//        }
         processed = false;
         redraw = true;
         inputText = "";
@@ -630,6 +731,15 @@ namespace Manager {
                 for (auto &bm: bams) {
                     hts_set_fai_filename(bm, reference.c_str());
                 }
+                if (opts.myIni["tracks"].has(opts.genome_tag + "_ideogram")) {
+                    ideogram.clear();
+                    ideogram_path = opts.genome_tag + "_ideogram";
+                    addIdeogram(opts.myIni["tracks"][ideogram_path]);
+                } else {
+                    ideogram.clear();
+                    loadIdeogramTag();
+                }
+
                 outerr << termcolor::bold << "\n" << opts.genome_tag << termcolor::reset << " loaded from " << reference << std::endl;
             } else {
                 outerr << termcolor::red << "Error:" << termcolor::reset << " could not open tag " << opts.myIni["genomes"][opts.genome_tag].c_str() << std::endl;
@@ -744,7 +854,7 @@ namespace Manager {
 
     void GwPlot::keyPress(int key, int scancode, int action, int mods) {
         // Decide if the key is part of a user input command (inputText) or a request to process a command / refresh screen
-        // Of note, mouseButton events may be translated into keyPress events and processed here
+        // Of note, mouse Button events may be translated into keyPress events and processed here
         // For example, clicking on a commands from the menu pop-up will translate into a keyPress ENTER and
         // processed using registerKey
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
@@ -776,6 +886,8 @@ namespace Manager {
                 for (auto &cl: collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
             } else {
                 bool keep_alive = Menu::navigateMenu(opts, key, action, inputText, &charIndex, &captureText, &textFromSettings, &processText, reference);
+                xDrag = DRAG_UNSET;
+                yDrag = DRAG_UNSET;
                 if (opts.editing_underway) {
                     textFromSettings = true;
                 }
@@ -795,9 +907,7 @@ namespace Manager {
                 Utils::Region &region = regions[regionSelection];
                 if (key == opts.scroll_right) {
                     int shift = (int)(((float)region.end - (float)region.start) * opts.scroll_speed);
-//                    if (region.refSeq != nullptr) {
-//                        delete region.refSeq;
-//                    }
+
                     region.start = std::max(0, region.start + shift);
                     region.end = std::max(region.start + 1, region.end + shift);
                     fetchRefSeq(region);
@@ -810,7 +920,7 @@ namespace Manager {
                                 if (cl.regionLen < opts.low_memory) {
                                     HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                                 indexes[cl.bamIdx], opts, (bool)opts.max_coverage, false,
-                                                                &samMaxY, filters, pool);
+                                                                &samMaxY, filters, pool, sortReadsBy);
                                     processed = true;
                                     redraw = true;
                                 } else {
@@ -823,6 +933,10 @@ namespace Manager {
                             }
                         }
                     }
+                    if (collections.empty()) {
+                        processed = false;
+                        redraw = true;
+                    }
                     printRegionInfo();
 
                 } else if (key == opts.scroll_left) {
@@ -831,9 +945,7 @@ namespace Manager {
                     if (shift == 0) {
                         return;
                     }
-//                    if (region.refSeq != nullptr) {
-//                        delete region.refSeq;
-//                    }
+
                     region.start = std::max(0, region.start - shift);
                     region.end = std::max(region.start + 1, region.end - shift);
                     fetchRefSeq(region);
@@ -846,8 +958,7 @@ namespace Manager {
                                 if (cl.regionLen < opts.low_memory) {
                                     HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                                 indexes[cl.bamIdx], opts, (bool) opts.max_coverage,
-                                                                true,
-                                                                &samMaxY, filters, pool);
+                                                                true, &samMaxY, filters, pool, sortReadsBy);
                                     processed = true;
                                     redraw = true;
                                 } else {
@@ -860,6 +971,10 @@ namespace Manager {
                             }
                         }
                     }
+                    if (collections.empty()) {
+                        processed = false;
+                        redraw = true;
+                    }
                     printRegionInfo();
 
                 } else if (key == opts.zoom_out) {
@@ -868,9 +983,7 @@ namespace Manager {
                     if (shift == 0) {
                         return;
                     }
-//                    if (region.refSeq != nullptr) {
-//                        delete region.refSeq;
-//                    }
+
                     region.start = std::max(0, region.start - shift_left);
                     region.end = std::max(region.start + 1, region.end + shift);
                     fetchRefSeq(region);
@@ -883,9 +996,9 @@ namespace Manager {
                                 cl.skipDrawingCoverage = false;
                                 if (cl.regionLen < opts.low_memory && region.end - region.start < opts.low_memory) {
                                     HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                                                opts, false, true,  &samMaxY, filters, pool);
+                                                                opts, false, true,  &samMaxY, filters, pool, sortReadsBy);
                                     HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                                                opts, false, false, &samMaxY, filters, pool);
+                                                                opts, false, false, &samMaxY, filters, pool, sortReadsBy);
                                     if (opts.max_coverage) {  // re process coverage for all reads
                                         cl.covArr.resize(cl.region->end - cl.region->start + 1);
                                         std::fill(cl.covArr.begin(), cl.covArr.end(), 0);
@@ -913,17 +1026,19 @@ namespace Manager {
                             }
                         }
                     }
+                    if (collections.empty()) {
+                        processed = false;
+                        redraw = true;
+                    }
                     if (opts.link_op != 0) {
-                        HGW::refreshLinked(collections, opts, &samMaxY);
+                        HGW::refreshLinked(collections, opts, &samMaxY, sortReadsBy);
                     }
                     printRegionInfo();
 
                 } else if (key == opts.zoom_in) {
                     if (region.end - region.start > 50) {
                         int shift = (int)(((float)region.end - (float)region.start) * opts.scroll_speed);
-//                        if (region.refSeq != nullptr) {
-//                            delete region.refSeq;
-//                        }
+
                         region.start = std::max(0, region.start + shift);
                         region.end = std::max(region.start + 1, region.end - shift);
                         fetchRefSeq(region);
@@ -932,8 +1047,8 @@ namespace Manager {
                                 if (!bams.empty() && cl.regionLen >= opts.low_memory && region.end - region.start < opts.low_memory) {
                                     cl.clear();
                                     const int parse_mods_threshold = (opts.parse_mods) ? opts.mods_qual_threshold: 0;
-                                    HGW::collectReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts.threads, &region, (bool)opts.max_coverage, filters, pool, parse_mods_threshold);
-                                    int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, &region, false);
+                                    HGW::collectReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts.threads, &region, (bool)opts.max_coverage, filters, pool, parse_mods_threshold, sortReadsBy);
+                                    int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sortReadsBy);
                                     if (maxY > samMaxY) {
                                         samMaxY = maxY;
                                     }
@@ -948,7 +1063,7 @@ namespace Manager {
                                 cl.collection_processed = false;
                             }
                         }
-                        if (bams.empty()) {
+                        if (collections.empty()) {
                             processed = false;
                             redraw = true;
                         } else {
@@ -957,7 +1072,7 @@ namespace Manager {
                         }
 
                         if (opts.link_op != 0) {
-                            HGW::refreshLinked(collections, opts, &samMaxY);
+                            HGW::refreshLinked(collections, opts, &samMaxY, sortReadsBy);
                         }
                         printRegionInfo();
                     }
@@ -989,7 +1104,7 @@ namespace Manager {
                             cl.skipDrawingReads = false;
                             cl.skipDrawingCoverage = false;
                             for (auto &itm: cl.readQueue) { itm.y = -1; }
-                            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, cl.region,  false);
+                            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sortReadsBy);
                             samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
                         }
                     }
@@ -1009,7 +1124,7 @@ namespace Manager {
                             cl.skipDrawingReads = false;
                             cl.skipDrawingCoverage = false;
                             for (auto &itm: cl.readQueue) { itm.y = -1; }
-                            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, cl.region, false);
+                            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sortReadsBy);
                             samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
                         }
                     }
@@ -1041,6 +1156,7 @@ namespace Manager {
                     }
                     currentVarTrack->blockStart = (currentVarTrack->blockStart - bLen > 0) ? currentVarTrack->blockStart - bLen : 0;
                     redraw = true;
+                    (*currentVarTrack->trackDone) = false;
                 } else if (key == opts.zoom_out) {
                     opts.number.x += 1;
                     opts.number.y += 1;
@@ -1071,33 +1187,39 @@ namespace Manager {
                 opts.link_op += 1;
             }
             std::string lk = (opts.link_op > 0) ? ((opts.link_op == 1) ? "sv" : "all") : "none";
-            out << "\nLinking selection " << lk << std::endl;
+            Term::clearLine(out);
+            out << "\rLinking selection " << lk << std::flush;
+            opts.link = lk;
             imageCache.clear();
             imageCacheQueue.clear();
-            HGW::refreshLinked(collections, opts, &samMaxY);
+            HGW::refreshLinked(collections, opts, &samMaxY, sortReadsBy);
             redraw = true;
         }
     }
 
-    void GwPlot::addTrack(std::string &path, bool print_message=true, bool vcf_as_track=false, bool bed_as_track=false) {
+    void GwPlot::addTrack(std::string &path, bool print_message=true, bool vcf_as_track=false, bool bed_as_track=true) {
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
         bool good = false;
         if (Utils::endsWith(path, ".bam") || Utils::endsWith(path, ".cram")) {
-            good = true;
-            if (print_message) {
-                out << termcolor::magenta << "\nAlignments  " << termcolor::reset << path << "\n";
-            }
-            bam_paths.push_back(path);
             htsFile* f = sam_open(path.c_str(), "r");
             hts_set_threads(f, opts.threads);
-            bams.push_back(f);
             sam_hdr_t *hdr_ptr = sam_hdr_read(f);
-            headers.push_back(hdr_ptr);
             hts_idx_t* idx = sam_index_load(f, path.c_str());
-            indexes.push_back(idx);
-        } else if ((!vcf_as_track && (Utils::endsWith(path, ".vcf.gz") || Utils::endsWith(path, ".vcf") || Utils::endsWith(path, ".bcf")))
-         || (!bed_as_track && (Utils::endsWith(path, ".bed") || Utils::endsWith(path, ".bed.gz")))){
+            if (idx != nullptr) {
+                good = true;
+                if (print_message) {
+                    out << termcolor::magenta << "\nAlignments  " << termcolor::reset << path << "\n";
+                }
+                bam_paths.push_back(path);
+                bams.push_back(f);
+                headers.push_back(hdr_ptr);
+                indexes.push_back(idx);
+            }
+        } else if (
+                (!vcf_as_track && (Utils::endsWith(path, ".vcf.gz") || Utils::endsWith(path, ".vcf") || Utils::endsWith(path, ".bcf")))
+             || (!bed_as_track && (Utils::endsWith(path, ".bed") || Utils::endsWith(path, ".bed.gz")))) {
             good = true;
+
             std::vector<std::string> labels = Utils::split(opts.labels, ',');
             setLabelChoices(labels);
             mouseOverTileIndex = 0;
@@ -1113,12 +1235,32 @@ namespace Manager {
                 out << termcolor::magenta << "\nFile        " << termcolor::reset
                     << variantTracks[variantFileSelection].path << "\n";
             }
-
+        } else if (Utils::endsWith(path, ".ini")) {  // Assume session file
+            opts.session_file = path;
+            mINI::INIFile file(opts.session_file);
+            file.read(opts.seshIni);
+            if (!opts.seshIni.has("data") || !opts.seshIni.has("show")) {
+                if (print_message) {
+                    outStr << termcolor::red << "Error:" << termcolor::reset << " session file is missing 'data' or 'show' headings. Invalid session file\n";
+                }
+                return;
+            }
+            opts.getOptionsFromSessionIni(opts.seshIni);
+            opts.theme.setAlphas();
+            loadSession();
+            fetchRefSeqs();
+            good = true;
         } else {
             tracks.push_back(HGW::GwTrack());
             try {
                 tracks.back().open(path, true);
                 tracks.back().variant_distance = &opts.variant_distance;
+                if (tracks.back().kind == HGW::FType::BIGWIG) {
+                    tracks.back().faceColour = opts.theme.fcBigWig;
+                } else {
+                    tracks.back().faceColour = opts.theme.fcTrack;
+                }
+
                 if (print_message) {
                     out << termcolor::magenta << "\nTrack       " << termcolor::reset << path << "\n";
                 }
@@ -1130,6 +1272,8 @@ namespace Manager {
         if (good) {
             processed = false;
             redraw = true;
+            imageCacheQueue.clear();
+            imageCache.clear();
         } else {
             redraw = false;
         }
@@ -1138,7 +1282,7 @@ namespace Manager {
     void GwPlot::pathDrop(int count, const char** paths) {
         for (int i=0; i < count; ++ i) {
             std::string pth = *paths;
-            addTrack(pth);
+            addTrack(pth, true, opts.vcf_as_tracks, false);
         }
         redraw = true;
         processed = false;
@@ -1148,14 +1292,13 @@ namespace Manager {
     }
 
     int GwPlot::getCollectionIdx(float x, float y) {
-        if (y <= refSpace) {
-            return REFERENCE_TRACK; //-2
-        } else if (!tracks.empty() && y >= refSpace + totalCovY + (trackY*(float)headers.size()) && y < (float)fb_height - refSpace) {
+        if (y <= refSpace + gap) {
+            return REFERENCE_TRACK; // -2
+        } else if (!tracks.empty() && y >= refSpace + totalCovY + (trackY*(float)headers.size()) && y < (float)fb_height - sliderSpace - gap) {
 			int index = -3;
-			float trackSpace = (float)fb_height - totalCovY - refSpace - sliderSpace - (trackY*(float)headers.size());
-			trackSpace = trackSpace / (float)tracks.size();
-			float cIdx = (y - (refSpace + totalCovY + (trackY*(float)headers.size()))) / trackSpace;
-			index -= int(cIdx);
+            float top_y = (float)fb_height - sliderSpace - totalTabixY + (gap);
+            float step = tabixY;
+            index -= (int)((y - top_y) / step);
 			if ((index * -1) - 3 > (int)tracks.size()) {
 				index = -1;
 			}
@@ -1289,6 +1432,8 @@ namespace Manager {
             double xPos_fb = x;
             double yPos_fb = y;
             convertScreenCoordsToFrameBufferCoords(wind, &xPos_fb, &yPos_fb, fb_width, fb_height);
+            xDrag = DRAG_UNSET;
+            yDrag = DRAG_UNSET;
             if (xPos_fb > 50 && xPos_fb < 50 + fonts.overlayWidth * 20 && action == GLFW_RELEASE) {
                 keyPress(GLFW_KEY_ENTER, 0, GLFW_PRESS, 0);
                 return;
@@ -1308,6 +1453,8 @@ namespace Manager {
         // custom clicks for each mode SINGLE/TILED/SETTINGS. Menu navigation is deferred to Menu::navigateMenu
         if (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_LEFT) {
             if (regions.empty()) {
+                xDrag = DRAG_UNSET;
+                yDrag = DRAG_UNSET;
                 return;
             }
 
@@ -1354,7 +1501,8 @@ namespace Manager {
                         HGW::GwTrack &targetTrack = tracks[trackIdx];
                         float stepY =  (totalTabixY) / (float)tracks.size();
                         float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[trackIdx]);
-                        float y = fb_height - totalTabixY - refSpace;  // start of tracks on canvas
+                        float y = totalCovY + refSpace + (trackY*(float)headers.size()) + (gap * 0.5);
+
                         int featureLevel = (int)(yW - y - (trackIdx * stepY)) / step_track;
                         Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx, target_qname, &target_pos, out);
                     }
@@ -1377,6 +1525,8 @@ namespace Manager {
                 }
             }
             if (idx < 0) {
+                xDrag = DRAG_UNSET;
+                yDrag = DRAG_UNSET;
                 return;
             }
 
@@ -1402,11 +1552,15 @@ namespace Manager {
                 if (!opts.tlen_yscale) {
                     if (yW < cl.yOffset) {
                         out << std::endl;
+                        xDrag = DRAG_UNSET;
+                        yDrag = DRAG_UNSET;
                         return;
                     }
                     level = ((yW - (float) cl.yOffset) / yScaling);
                     if (level < 0) {  // print coverage info (mouse Pos functions already prints out cov info to console)
                         out << std::endl;
+                        xDrag = DRAG_UNSET;
+                        yDrag = DRAG_UNSET;
                         return;
                     }
                     level = (int)level;
@@ -1442,8 +1596,10 @@ namespace Manager {
                             }
                             redraw = true;
                             processed = true;
-                            cl.skipDrawingReads = false;
-                            cl.skipDrawingCoverage = false;
+                            for (auto &cl2 : collections) {
+                                cl2.skipDrawingReads = false;
+                                cl2.skipDrawingCoverage = false;
+                            }
                             break;
                         }
                     } else {
@@ -1481,7 +1637,7 @@ namespace Manager {
             } else if (action == GLFW_RELEASE) {
                 Utils::Region &region = regions[regionSelection];
                 auto w = (float)(region.end - region.start) * (float) regions.size();
-                if (w >= 50000) {
+                if (w >= 75000) {
                     int travel = (int) (w * (xDrag / windowW));
                     int old_start = region.start;
                     if (region.start - travel < 0) {
@@ -1493,6 +1649,8 @@ namespace Manager {
                         region.end = clicked.end - travel;
                     }
                     if (region.start < 0 || region.end < 0) {
+                        xDrag = DRAG_UNSET;
+                        yDrag = DRAG_UNSET;
                         return;
                     }
 //                    delete region.refSeq;
@@ -1506,6 +1664,8 @@ namespace Manager {
                         processed = true;
                         redraw = true;
                         if (bams.empty()) {
+                            xDrag = DRAG_UNSET;
+                            yDrag = DRAG_UNSET;
                             return;
                         }
                         for (auto &col : collections) {
@@ -1515,7 +1675,7 @@ namespace Manager {
                                 col.skipDrawingCoverage = false;
                                 HGW::appendReadsAndCoverage(col, bams[col.bamIdx], headers[col.bamIdx],
                                                             indexes[col.bamIdx], opts, (bool) opts.max_coverage,
-                                                            lt_last, &samMaxY, filters, pool);
+                                                            lt_last, &samMaxY, filters, pool, sortReadsBy);
                             }
                         }
                     }
@@ -1529,6 +1689,8 @@ namespace Manager {
 
         } else if (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
             if (regions.empty() || variantTracks.empty()) {
+                xDrag = DRAG_UNSET;
+                yDrag = DRAG_UNSET;
                 return;
             }
             currentVarTrack = &variantTracks[variantFileSelection];
@@ -1566,6 +1728,8 @@ namespace Manager {
                     if (i < (int)currentVarTrack->multiRegions.size() && !bams.empty()) {
                         if (currentVarTrack->blockStart + i < (int)currentVarTrack->multiRegions.size()) {
                             if (currentVarTrack->multiRegions[currentVarTrack->blockStart + i][0].chrom.empty()) {
+                                xDrag = DRAG_UNSET;
+                                yDrag = DRAG_UNSET;
                                 return; // check for "" no chrom set
                             } else {
                                 regions = currentVarTrack->multiRegions[currentVarTrack->blockStart + i];
@@ -1636,34 +1800,27 @@ namespace Manager {
                         scroll_left = false;
                     }
                     if (!scroll_left) {
-//                        size_t currentSize = (currentVarTrack->image_glob.empty()) ? currentVarTrack->multiRegions.size() : currentVarTrack->image_glob.size();
-////                        if (currentVarTrack->blockStart + nmb > (int)currentSize) {
-////                            currentVarTrack->blockStart += nmb;
-////                        }
                         if (currentVarTrack->type == HGW::TrackType::IMAGES ) {
                             if (currentVarTrack->blockStart + nmb > (int)currentVarTrack->image_glob.size() - nmb) {
+                                xDrag = DRAG_UNSET;
+                                yDrag = DRAG_UNSET;
                                 return;
                             }
                         } else if (*currentVarTrack->trackDone) {
+                            xDrag = DRAG_UNSET;
+                            yDrag = DRAG_UNSET;
                             return;
                         }
                         currentVarTrack->blockStart += nmb;
                         redraw = true;
 
-//                        if (!*currentVarTrack->trackDone && currentVarTrack->blockStart + nmb > (int)currentSize) {
-//                            if (currentVarTrack->type == HGW::TrackType::IMAGES && currentVarTrack->blockStart + nmb > currentVarTrack->image_glob.size() - nmb) {
-//                                return;
-//                            }
-//                            currentVarTrack->blockStart += nmb;
-//                            redraw = true;
-//                        }
                     } else {
-
                         if (currentVarTrack->blockStart == 0) {
                             return;
                         }
                         currentVarTrack->blockStart = (currentVarTrack->blockStart - nmb > 0) ? currentVarTrack->blockStart - nmb : 0;
                         redraw = true;
+                        (*currentVarTrack->trackDone) = false;
 
                     }
                 } else if (std::fabs(xDrag) < 5) {
@@ -1695,7 +1852,9 @@ namespace Manager {
             }
         } else if (mode == Manager::SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
             bool keep_alive = Menu::navigateMenu(opts, GLFW_KEY_ENTER, GLFW_PRESS, inputText, &charIndex, &captureText, &textFromSettings, &processText, reference);
-           redraw = true;
+            xDrag = DRAG_UNSET;
+            yDrag = DRAG_UNSET;
+            redraw = true;
             if (opts.editing_underway) {
                 textFromSettings = true;
             }
@@ -1726,6 +1885,14 @@ namespace Manager {
                 return;
             }
             out << base_filename << std::flush;
+            term_width_remaining -= base_filename.size();
+            if (bam_paths.size() > 1) {
+                std::string bidx = "    bam" + std::to_string(bamIdx);
+                if (term_width_remaining < (int)bidx.size()) {
+                    return;
+                }
+                out << termcolor::bold << bidx << termcolor::reset << std::flush;
+            }
         }
     }
 
@@ -1769,10 +1936,10 @@ namespace Manager {
                 return;
             }
             float y = fb_height - (fb_height * 0.025);
-            float y2 = fb_height - (height_f * 2.25);
+            float y2 = fb_height - (height_f * 2.5);
             float yy = (y2 < y) ? y2 : y;
-            int pad = fonts.overlayHeight * 0.3;
-            yy -= pad + pad;
+            float padT = fonts.overlayHeight * 0.3;
+
             for (int idx=0; idx < (int)Menu::commandToolTip.size(); idx++) {
                 if (!inputText.empty() && (idx < tip_lb || idx > tip_ub)) {
                     continue;
@@ -1781,7 +1948,7 @@ namespace Manager {
                     commandToolTipIndex = idx;
                     break;
                 }
-                yy -= fonts.overlayHeight + pad;
+                yy -= fonts.overlayHeight + padT;
             }
         }
         else {
@@ -1816,14 +1983,13 @@ namespace Manager {
                     return;
                 }
                 if (!tracks.empty()) {
-                    float trackBoundary = fb_height - totalTabixY - refSpace;
                     if (tabBorderPress || (std::fabs(yPos_fb - trackBoundary) < 5 * monitorScale && xDrag < 5 && yDrag < 5)) {
                         if (yPos_fb <= refSpace + totalCovY + 10) {
                             return;
                         }
                         tabBorderPress = true;
-                        float drawingArea = ((float)fb_height - refSpace - sliderSpace);
-                        float new_boundary = fb_height - yPos_fb - refSpace;
+                        float drawingArea = ((float)fb_height);
+                        float new_boundary = fb_height - yPos_fb;
                         opts.tab_track_height = new_boundary / drawingArea;
                         redraw = true;
                         for (auto & cl: collections) {
@@ -1839,7 +2005,7 @@ namespace Manager {
                 int windowW, windowH;
                 glfwGetWindowSize(wind, &windowW, &windowH);
                 Utils::Region &region = regions[regionSelection];
-                if (std::fabs(xDrag) > std::fabs(yDrag) && region.end - region.start < 50000) {
+                if (std::fabs(xDrag) > std::fabs(yDrag) && region.end - region.start < 75000) {
                     printRegionInfo();
                     auto w = (float) (region.end - region.start) * (float) regions.size();
                     int travel = (int) (w * (xDrag / windowW));
@@ -1854,7 +2020,7 @@ namespace Manager {
                     if (region.start < 1 || region.end < 1) {
                         return;
                     }
-//                    delete region.refSeq;
+
                     fetchRefSeq(region);
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
@@ -1863,8 +2029,7 @@ namespace Manager {
                                 cl.skipDrawingCoverage = false;
                                 HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                             indexes[cl.bamIdx], opts, (bool)opts.max_coverage, !lt_last,
-                                                            &samMaxY, filters, pool);
-
+                                                            &samMaxY, filters, pool, sortReadsBy);
                             }
                         }
                     }
@@ -1873,6 +2038,10 @@ namespace Manager {
                     glfwPostEmptyEvent();
                     return;
                 } else {
+                    if (collections.empty()) {
+                        redraw = false;
+                        return;
+                    }
                     if (idx < 0) {
                         return;
                     }
@@ -1906,7 +2075,7 @@ namespace Manager {
                             cl.levelsEnd.clear();
                             cl.linked.clear();
                             for (auto &itm: cl.readQueue) { itm.y = -1; }
-                            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, cl.region, false);
+                            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sortReadsBy);
                             samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
                             yOri = yPos;
                         }
@@ -1924,6 +2093,7 @@ namespace Manager {
                     return;
                 }
                 int rs = getCollectionIdx((float)xPos_fb, (float)yPos_fb);
+
 	            if (rs <= TRACK) {  // print track info
                     if (tracks.empty()) {
                         return;
@@ -1944,13 +2114,14 @@ namespace Manager {
                             return;
                         }
                         HGW::GwTrack &targetTrack = tracks[targetIndex];
-                        float stepY =  (totalTabixY) / (float)tracks.size();
+
+                        float stepY = tabixY;
                         if (regionSelection >= (int)regions.size() || targetIndex >= (int)regions[regionSelection].featureLevels.size()) {
                             return;
                         }
                         float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[targetIndex]);
-                        float y = fb_height - totalTabixY - refSpace;  // start of tracks on canvas
-                        int featureLevel = (int)(yPos_fb - y - (targetIndex * stepY)) / step_track;
+                        float y = fb_height - totalTabixY - sliderSpace;  // start of tracks on canvas
+                        int featureLevel = (int)(yPos_fb - y - (targetIndex * stepY) + gap) / step_track;
 			            Term::printTrack(relX, targetTrack, &regions[tIdx], true, featureLevel, targetIndex, target_qname, &target_pos, out);
 		            }
 	            }
@@ -1978,13 +2149,18 @@ namespace Manager {
                     }
                     return;
                 }
+                if (collections.empty()) {
+                    redraw = false;
+                    return;
+                }
                 assert (rs < collections.size());
+                assert (!cl.levelsStart.empty());
                 Segs::ReadCollection &cl = collections[rs];
                 regionSelection = cl.regionIdx;
 	            int pos = (int) ((((double)xPos_fb - (double)cl.xOffset) / (double)cl.xScaling) + (double)cl.region->start);
                 float f_level = ((yPos_fb - (float) cl.yOffset) / (trackY / (float)(cl.levelsStart.size() - cl.vScroll )));
 	            int level = (f_level < 0) ? -1 : (int)(f_level);
-	            if (level < 0 && cl.region->end - cl.region->start < 50000) {
+	            if (level < 0 && cl.region->end - cl.region->start < 75000) {
 		            Term::clearLine(out);
 		            Term::printCoverage(pos, cl, out);
 		            return;
@@ -1992,8 +2168,8 @@ namespace Manager {
                 updateCursorGenomePos(cl.xOffset, cl.xScaling, (float)xPos_fb, cl.region, cl.bamIdx);
             } else if (mode == TILED) {
                 assert (variantFileSelection < variantTracks.size());
-                currentVarTrack = &variantTracks[variantFileSelection];
                 assert (currentVarTrack != nullptr);
+                currentVarTrack = &variantTracks[variantFileSelection];
                 int i = 0;
                 for (auto &b: bboxes) {
                     if (xPos_fb > b.xStart && xPos_fb < b.xEnd && yPos_fb > b.yStart && yPos_fb < b.yEnd) {

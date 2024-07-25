@@ -15,7 +15,7 @@ GW
 .. |Dl badge| image:: https://img.shields.io/conda/dn/bioconda/gw.svg
    :target: http://bioconda.github.io/recipes/gw/README.html
 
-.. image:: include/banner.png
+.. image:: include/resources/images/banner.png
     :align: center
 
 
@@ -102,7 +102,7 @@ To view a genomic region e.g. chr1:1-20000, supply an indexed reference genome a
 
     gw hg38 -b your.bam -r chr1:1-20000
 
-.. image:: include/chr1.png
+.. image:: include/resources/images/chr1.png
     :align: center
 
 
@@ -112,7 +112,7 @@ A variant file in .vcf/.bcf format can be opened in a GW window by either draggi
 
     gw hg38.fa -b your.bam -v variants.vcf
 
-.. image:: include/tiles.png
+.. image:: include/resources/images/tiles.png
     :align: center
 
 

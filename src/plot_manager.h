@@ -59,6 +59,12 @@ namespace Manager {
         SETTINGS
     };
 
+    enum SortType {
+        NONE,
+        STRAND,
+        HP
+    };
+
     class HiddenWindow {
     public:
         HiddenWindow () = default;
@@ -88,6 +94,9 @@ namespace Manager {
         bool drawLine;
 
         bool terminalOutput;  // recoverable runtime errors and output sent to terminal or outStr
+
+        SortType sortReadsBy;
+
         std::ostringstream outStr;
 
         std::vector<char> pixelMemory;
@@ -115,6 +124,8 @@ namespace Manager {
         std::vector<Segs::ReadCollection> collections;  // stores alignments
 
         std::vector<HGW::GwVariantTrack> variantTracks; // make image tiles from these
+
+        std::unordered_map<std::string, std::vector<Ideo::Band>> ideogram;
 
         std::vector< std::string > commandHistory, commandsApplied;
 
@@ -168,11 +179,15 @@ namespace Manager {
 
         void removeTrack(int index);
 
+        void removeVariantTrack(int index);
+
         void removeRegion(int index);
 
         void addVariantTrack(std::string &path, int startIndex, bool cacheStdin, bool useFullPath);
 
         void addIdeogram(std::string path);
+
+        bool loadIdeogramTag();
 
         void addFilter(std::string &filter_str);
 
@@ -267,8 +282,6 @@ namespace Manager {
         int commandToolTipIndex;
 
         std::vector<Utils::BoundingBox> bboxes;
-
-        std::unordered_map<std::string, std::vector<Themes::Band>> ideogram;
 
         BS::thread_pool pool;
 

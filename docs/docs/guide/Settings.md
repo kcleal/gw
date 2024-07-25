@@ -2,7 +2,7 @@
 title: Settings
 layout: home
 parent: User guide
-nav_order: 7
+nav_order: 9
 ---
 
 # Settings and config
@@ -34,3 +34,9 @@ hg19=a.bed,b.gff3
 ```
 
 This line will tell GW to load a bed file and a gff3 track file when the `hg19` genome-tag is used.
+
+Ideograms can be configured by appending `_ideogram` to the tag e.g.:
+
+```shell
+hg19_ideogram=hg19.ideogram.bed
+```

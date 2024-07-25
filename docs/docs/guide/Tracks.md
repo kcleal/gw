@@ -2,17 +2,17 @@
 title: Tracks
 layout: home
 parent: User guide
-nav_order: 3
+nav_order: 7
 ---
 
 # Tracks
 
 One or more data tracks can be loaded into GW by dragging-and-dropping files into the main window,
-or by using the `--track` command-line option.
+or by using the `--track` command-line option, or using the `load` GW command.
 
-Data tracks (`--track`) appear below alignments towards the bottom of the screen.
+Data tracks appear below alignments towards the bottom of the screen.
 
-Currently, the following file formats are supported:
+The following file formats are supported:
 
 | Data option | File formats supported
 |---	|---

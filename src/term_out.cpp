@@ -44,6 +44,7 @@ namespace Term {
         out << termcolor::green << "find, f          qname?          " << termcolor::reset << "To find other alignments from selected read use 'find'\n                                 Or use 'find [QNAME]' to find target read'\n";
         out << termcolor::green << "goto             loci/feature    " << termcolor::reset << "e.g. 'goto chr1:1-20000'. 'goto hTERT' \n";
         out << termcolor::green << "grid             width x height  " << termcolor::reset << "Set the grid size for --variant images 'grid 8x8' \n";
+        out << termcolor::green << "header           names?          " << termcolor::reset << "Prints the header of the current bam to terminal\n";
         out << termcolor::green << "indel-length     int             " << termcolor::reset << "Label indels >= length\n";
         out << termcolor::green << "insertions, ins                  " << termcolor::reset << "Toggle insertions\n";
         out << termcolor::green << "line                             " << termcolor::reset << "Toggle mouse position vertical line\n";
@@ -57,11 +58,12 @@ namespace Term {
         out << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
         out << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. 'rm 1'. To remove a bam \n                                 use the bam index 'rm bam1', or track 'rm track1'\n";
         out << termcolor::green << "roi              region? name?   " << termcolor::reset << "Add a region of interest\n";
-        out << termcolor::green << "sam                              " << termcolor::reset << "Print selected read in sam format\n";
+        out << termcolor::green << "sam                              " << termcolor::reset << "Print selected read to screen or save to file\n";
         out << termcolor::green << "save             filename        " << termcolor::reset << "Save reads (bam/cram), snapshot (png), session (ini), or labels (tsv/txt)\n";
         out << termcolor::green << "settings                         " << termcolor::reset << "Open the settings menu'\n";
 		out << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window to png e.g. 's', or 's view.png',\n                                 or vcf columns can be used 's {pos}_{info.SU}.png'\n";
         out << termcolor::green << "soft-clips, sc                   " << termcolor::reset << "Toggle soft-clips\n";
+        out << termcolor::green << "sort             strand/hap      " << termcolor::reset << "Sort reads by strand or haplotype\n";
         out << termcolor::green << "tags                             " << termcolor::reset << "Print selected sam tags\n";
         out << termcolor::green << "theme            igv/dark/slate  " << termcolor::reset << "Switch color theme e.g. 'theme dark'\n";
         out << termcolor::green << "tlen-y                           " << termcolor::reset << "Toggle --tlen-y option\n";
@@ -71,11 +73,13 @@ namespace Term {
         out << termcolor::underline << "\nHot keys                      \n" << termcolor::reset;
         out << "scroll left          " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_left, out); out << "\n" << termcolor::reset;
         out << "scroll right         " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_right, out); out << "\n" << termcolor::reset;
-        out << "scroll down          " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_down, out); out << "\n" << termcolor::reset;
-        out << "scroll up            " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_up, out); out << "\n" << termcolor::reset;
+        out << "scroll down          " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_down, out); out << ", CTRL + [\n" << termcolor::reset;
+        out << "scroll up            " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_up, out); out << ", CTRL + ]\n" << termcolor::reset;
         out << "zoom in              " << termcolor::bright_yellow; Term::printKeyFromValue(opts.zoom_in, out); out << "\n" << termcolor::reset;
         out << "zoom out             " << termcolor::bright_yellow; Term::printKeyFromValue(opts.zoom_out, out); out << "\n" << termcolor::reset;
         out << "zoom to cursor       " << termcolor::bright_yellow; out << "CTRL + LEFT_MOUSE" << "\n" << termcolor::reset;
+        out << "decrease ylim        " << termcolor::bright_yellow; out << "CTRL + KEY_MINUS" << "\n" << termcolor::reset;
+        out << "increase ylim        " << termcolor::bright_yellow; out << "CTRL + KEY_EQUALS" << "\n" << termcolor::reset;
         out << "next region view     " << termcolor::bright_yellow; Term::printKeyFromValue(opts.next_region_view, out); out << "\n" << termcolor::reset;
         out << "previous region view " << termcolor::bright_yellow; Term::printKeyFromValue(opts.previous_region_view, out); out << "\n" << termcolor::reset;
         out << "cycle link mode      " << termcolor::bright_yellow; Term::printKeyFromValue(opts.cycle_link_mode, out); out << "\n" << termcolor::reset;
@@ -97,7 +101,10 @@ namespace Term {
         } else if (s == "colour" || s == "color") {
             out << "    Set the (alpha, red, green, blue) colour for one of the plot elements.\n"
                    "        Elements are selected by name (see below) and values are in the range [0, 255].\n"
-                   "        For example 'colour fcNormal 255 255 0 0' sets face-colour of normal reads to red.\n\n"
+                   "        For example 'colour fcNormal 255 255 0 0' sets face-colour of normal reads to red.\n"
+                   "        Also, tracks can be coloured using thier index e.g. 'colour track0 255 0 200 0' sets \n"
+                   "        the face-colour of track 0 to green.\n\n"
+                   "          track[index]   - Paint for track at index, e.g. track0 or track1 etc\n\n"
                    "          bgPaint        - background paint\n"
                    "          bgMenu         - background of menu\n"
                    "          fcNormal       - face-colour normal reads\n"
@@ -181,6 +188,9 @@ namespace Term {
             out << "    Navigate to a locus or track feature.\n        This moves the current region to a new view point. You can specify a genome locus, or a feature name from one of the loaded tracks\n    Examples:\n        'goto chr1'   \n        'goto hTERT'   # this will search all tracks for an entry called 'hTERT' \n\n";
         } else if (s == "grid") {
             out << "    Set the grid size.\n        Set the number of images displayed in a grid when using --variant option\n    Examples:\n        'grid 8x8'   # this will display 64 image tiles\n\n";
+        } else if (s == "header") {
+            out << "    Prints the header of the current selected bam to the terminal.\n"
+                   "    Using 'header names' will only print the SQ lines of the header\n\n";
         } else if (s == "indel-length") {
             out << "    Set the minimum indel-length.\n        Indels (gaps in alignments) will be labelled with text if they have length >= 'indel-length'\n    Examples:\n        'indel-length 30'\n\n";
         } else if (s == "insertions" || s == "ins") {
@@ -218,11 +228,24 @@ namespace Term {
         } else if (s == "refresh" || s == "r") {
             out << "    Refresh the drawing.\n        All filters will be removed any everything will be redrawn.\n\n";
         } else if (s == "remove" || s == "rm") {
-            out << "    Remove a region, bam or track.\n        Remove a region, bam or track by index. To remove a bam or track add a 'bam' or 'track' prefix.\n    Examples:\n        'rm 0', 'rm bam1', 'rm track2'\n\n";
+            out << "    Remove a region, bam, ideogram or track.\n"
+                   "        Remove a region, bam, track or ideogram. To remove a bam or track add a 'bam' or 'track' prefix.\n"
+                   "    Examples:\n"
+                   "        'rm 0'         # This will remove region 0 (left-most region)\n"
+                   "        'rm bam1'      # This will remove bam index 1 (second from top)'\n"
+                   "        'rm track2'    # This will remove track 2 (3rd from top)\n"
+                   "        'rm ideogram'  # This will remove the ideogram\n\n";
         } else if (s == "roi") {
             out << "    Add a region of interest as a new track. If no region is supplied, the visible active window is used\n    Examples:\n        'roi', 'roi chr1:1-20000'\n\n";
         } else if (s == "sam") {
-            out << "    Print the sam format of the read.\n        First select a read using the mouse then type ':sam'.\n\n";
+            out << "    Print the sam format of the read.\n"
+                   "        First select a read using the mouse then type 'sam'.\n"
+                   "        The selected read can also be written or appended to a file:\n"
+                   "    Examples:\n"
+                   "        sam\n"
+                   "        sam > single_read.sam   # Save read to a file - the header will be written\n"
+                   "        sam >> collection.bam   # Append reads to an unsorted bam file\n"
+                   "        sam >> collection.cram  # save reads in cram format\n\n";
         } else if (s == "save") {
             out << "    Save reads, snapshot, session file, or labels file.\n"
                          "        The filepath extension will determine the output file type.\n\n"
@@ -256,6 +279,11 @@ namespace Term {
                          "        command over and over.\n\n";
         } else if (s == "soft-clips" || s == "sc") {
             out << "    Toggle soft-clips.\n        Soft-clipped bases or hard-clips are turned on or off.\n\n";
+        } else if (s == "sort") {
+            out << "    Sort reads by strand or haplotype (defined by HP tag in bam file).\n\n"
+                   "    Examples:\n"
+                   "        sort hap\n"
+                   "        sort strand\n\n";
         } else if (s == "tags") {
             out << "    Print selected sam tags.\n        This will print all the tags of the selected read\n\n";
         } else if (s == "theme") {
@@ -1351,7 +1379,7 @@ namespace Term {
     }
 
 #if !defined(__EMSCRIPTEN__)
-    const char* CURRENT_VERSION = "v0.10.0";
+    const char* CURRENT_VERSION = "v1.0.0";
 
     size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
         ((std::string*)userp)->append((char*)contents, size * nmemb);

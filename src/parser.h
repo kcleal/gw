@@ -43,7 +43,7 @@ namespace Parse {
         ABS_TLEN = 3007,
         SEQ_LEN = 3008,
         NM = 3009, CM = 3010, FI = 3011, HO = 3012, MQ = 3013, SM = 3014, TC = 3015, UQ = 3016, AS = 3017,
-        TID = 3018, MID = 3019,
+        TID = 3018, MID = 3019, HP = 3020,
 
         // Patterns
         PATTERN = 3500,

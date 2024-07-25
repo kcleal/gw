@@ -52,6 +52,11 @@
 
 #endif
 
+#if !defined(__EMSCRIPTEN__)
+    #include <curl/curl.h>
+    #include <curl/easy.h>
+#endif
+
 namespace Utils {
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -112,7 +117,7 @@ namespace Utils {
     }
 
     bool startsWith(const std::string &mainStr, const std::string &toMatch) {
-        if (mainStr.size() >= toMatch.size() && mainStr.compare(0, toMatch.size(), toMatch) == 0)
+        if (mainStr.size() >= toMatch.size() && mainStr.find(toMatch) == 0)
             return true;
         else
             return false;
@@ -414,12 +419,12 @@ namespace Utils {
         for (int x = 0; x < dims.x; ++x) {
             for (int y = 0; y < dims.y; ++y) {
                 BoundingBox &b = bboxes[i];
-                b.xStart = (w * (float) x) + padX;
+                b.xStart = (w * (float) x) + padX + (padX * 0.5);
                 b.yStart = (h * (float) y) + padY + ySpace;
                 b.xEnd = b.xStart + w - padX;
                 b.yEnd = b.yStart + h - padY;
-                b.width = w - padX;// * 2;
-                b.height = h - padY;// * 2;
+                b.width = w;
+                b.height = h - padY;
                 ++i;
             }
         }
@@ -642,5 +647,36 @@ namespace Utils {
     	rtrim(s);
     	ltrim(s);
 	}
+
+#if !defined(__EMSCRIPTEN__)
+    size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
+        ((std::stringstream*)userp)->write((char*)contents, size * nmemb);
+        return size * nmemb;
+    }
+
+    std::string fetchOnlineFileContent(const std::string& url) {
+        CURL* curl;
+        CURLcode res;
+        std::stringstream ss;
+
+        curl = curl_easy_init();
+        if(curl) {
+            curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &ss);
+            res = curl_easy_perform(curl);
+            curl_easy_cleanup(curl);
+
+            if(res != CURLE_OK) {
+                std::cerr << "Error: fetching URL " << url << " failed with error: " << curl_easy_strerror(res) << std::endl;
+                throw std::runtime_error("Error fetching URL");
+            }
+        } else {
+            throw std::runtime_error("Error initializing curl");
+        }
+
+        return ss.str();
+    }
+#endif
 
 }

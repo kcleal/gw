@@ -10,7 +10,6 @@
 #include <string>
 #include "argparse.h"
 #include "BS_thread_pool.h"
-//#include "../include/natsort.hpp"
 #include "glob_cpp.hpp"
 #include "hts_funcs.h"
 #include "parser.h"
@@ -18,6 +17,7 @@
 #include "themes.h"
 #include "utils.h"
 
+#include "termcolor.h"
 #include "GLFW/glfw3.h"
 
 #ifdef __APPLE__
@@ -67,7 +67,12 @@ void print_banner() {
 }
 
 // note to developer - update version in workflows/main.yml, menu.cpp, term_out.cpp, and deps/gw.desktop, and installers .md in docs
-const char GW_VERSION [7] = "0.10.1";
+const char GW_VERSION [7] = "1.0.0";
+
+
+bool str_is_number(const std::string &s) {
+    return !s.empty() && std::all_of(s.begin(), s.end(), ::isdigit);
+}
 
 
 int main(int argc, char *argv[]) {
@@ -300,7 +305,7 @@ int main(int argc, char *argv[]) {
 #if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
             std::cout << "    " << i << ((i < 10) ? "    " : "   ")  << "| " << tag;
 #else
-            std::cout << "    " << i << ((i < 10) ? "    " : "   ")  << "│ " << tag;
+            std::cout << "    " << termcolor::bold << i << termcolor::reset  << ((i < 10) ? "    " : "   ")  << "│ " << tag;
 #endif
 
             for (int j=0; j < tag_wd - (int)tag.size(); ++j) {
@@ -329,9 +334,9 @@ int main(int argc, char *argv[]) {
         user_prompt:
 
         if (have_session_file && std::filesystem::exists(iopts.session_file)) {
-            std::cout << "\nPress ENTER to load previous session or input a genome number: " << std::flush;
+            std::cout << "\nPress ENTER to load previous session \nInput a genome number, path, or session: " << std::flush;
         } else {
-            std::cout << "\nEnter genome number: " << std::flush;
+            std::cout << "\nEnter genome number, path or session: " << std::flush;
         }
 
         std::string user_input;
@@ -340,6 +345,7 @@ int main(int argc, char *argv[]) {
         if (user_input == "q" || user_input == "quit" || user_input == "exit") {
             std::exit(0);
         }
+
         if (user_input.empty()) {
             have_session_file = std::filesystem::exists(iopts.session_file);
             if (have_session_file) {
@@ -348,17 +354,27 @@ int main(int argc, char *argv[]) {
                 goto user_prompt;
             }
         } else {
-            try {
-                user_i = std::stoi(user_input);
-                genome = vals[user_i].second;
-                iopts.genome_tag = vals[user_i].first;
-                std::cout << "Genome:  " << iopts.genome_tag << std::endl;
-            } catch (...) {
-                goto user_prompt;
+            bool is_number = str_is_number(user_input);
+            if (Utils::endsWith(user_input, ".ini")) {  // Assume session
+                iopts.session_file = user_input;
+                have_session_file = true;
+                use_session = true;
+            } else if (is_number) {
+                try {
+                    user_i = std::stoi(user_input);
+                    genome = vals[user_i].second;
+                    iopts.genome_tag = vals[user_i].first;
+                    std::cout << "Genome:  " << iopts.genome_tag << std::endl;
+                } catch (...) {
+                    goto user_prompt;
+                }
+                if (user_i < 0 || user_i > vals.size() -1) {
+                    goto user_prompt;
+                }
+            } else {  // try path
+                genome = user_input;
             }
-            if (user_i < 0 || user_i > vals.size() -1) {
-                goto user_prompt;
-            }
+
         }
 
     } else if (!genome.empty() && !Utils::is_file_exist(genome)) {
@@ -529,7 +545,7 @@ int main(int argc, char *argv[]) {
             mINI::INIFile file(iopts.session_file);
             file.read(iopts.seshIni);
             if (!iopts.seshIni.has("data") || !iopts.seshIni.has("show")) {
-                std::cerr << "Error: session file is missing 'data' heading. Invalid session file\n";
+                std::cerr << "Error: session file is missing 'data' or 'show' headings. Invalid session file\n";
                 std::exit(-1);
             }
             iopts.getOptionsFromSessionIni(iopts.seshIni);
@@ -551,6 +567,8 @@ int main(int argc, char *argv[]) {
 
         if (program.is_used("--ideogram")) {
             plotter.addIdeogram(program.get("--ideogram"));
+        } else if (!iopts.genome_tag.empty() && plotter.ideogram_path.empty()) {
+            plotter.loadIdeogramTag();
         }
 
         // initialize graphics window

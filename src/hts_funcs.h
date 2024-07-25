@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "include/core/SkColorSpace.h"
+
 #include "htslib/faidx.h"
 #include "htslib/hfile.h"
 #include "htslib/hts.h"
@@ -18,7 +20,6 @@
 #include "IITree.h"
 #include "ankerl_unordered_dense.h"
 #include "bigWig.h"
-//#include "../lib/libBigWig/bigWig.h"
 
 #include "glob_cpp.hpp"
 #include "segments.h"
@@ -39,6 +40,7 @@ namespace HGW {
          BED_NOI,
          GFF3_NOI,
          GTF_NOI,
+         PAF_NOI,
          GW_LABEL,
          STDIN,
          ROI,
@@ -90,9 +92,8 @@ namespace HGW {
 
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, int threads, Utils::Region *region,
-                                 bool coverage,
-                                 std::vector<Parse::Parser> &filters, BS::thread_pool &pool,
-                                 const int parse_mods);
+                                 bool coverage, std::vector<Parse::Parser> &filters, BS::thread_pool &pool,
+                                 const int parse_mods, int sortReadsBy);
 
     void iterDrawParallel(Segs::ReadCollection &col,
                           htsFile *b,
@@ -122,11 +123,11 @@ namespace HGW {
 
     void trimToRegion(Segs::ReadCollection &col, bool coverage, int snp_threshold);
 
-    void refreshLinked(std::vector<Segs::ReadCollection> &collections, Themes::IniOptions &opts, int *samMaxY);
+    void refreshLinked(std::vector<Segs::ReadCollection> &collections, Themes::IniOptions &opts, int *samMaxY, int sortReadsBy);
 
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
                                 hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *samMaxY,
-                                std::vector<Parse::Parser> &filters, BS::thread_pool &pool);
+                                std::vector<Parse::Parser> &filters, BS::thread_pool &pool, int sortReadsBy);
 
     struct EndIdx {
         int end, size, index;
@@ -144,6 +145,7 @@ namespace HGW {
         std::string path, genome_tag;
         std::string chrom, chrom2, rid, vartype, parent;
         int start, stop;
+        int strand;
         int fetch_start, fetch_end;
         int *variant_distance;
         float value;  // for continuous data
@@ -161,7 +163,8 @@ namespace HGW {
         tbx_t *t;
         hts_itr_t *iter_q;
 
-        std::shared_ptr<std::ifstream> fpu;
+//        std::shared_ptr<std::ifstream> fpu;
+        std::shared_ptr<std::istream> fpu;
         std::string tp;
 
         int current_iter_index;
@@ -183,9 +186,11 @@ namespace HGW {
         bool done;
 		std::string variantString;
 
+        SkPaint faceColour;
 
         void open(const std::string &p, bool add_to_dict);
         void close();
+        void clear();
         void fetch(const Utils::Region *rgn);
         void next();
         bool findFeature(std::string &feature, Utils::Region &region);
@@ -222,6 +227,8 @@ namespace HGW {
         bool init;
         TrackType type;
         bool *trackDone;
+
+        size_t max_index;
 //        bool image_name_valid;  // the region and variant id can be parsed from filename
         int mouseOverTileIndex;
         int blockStart;

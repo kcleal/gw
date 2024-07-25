@@ -45,6 +45,8 @@
 #include "ini.h"
 #include "utils.h"
 #include "export_definitions.h"
+#include "ideogram.h"
+
 
 namespace Themes {
 
@@ -68,11 +70,11 @@ namespace Themes {
     if an item has 0 at the end this is the color when mapq == 0
     */
     enum GwPaint {
-        bgPaint, bgMenu, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip,
+        bgPaint, bgPaintTiled, bgMenu, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip,
         fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack, fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0,
         fcSoftClip0, fcBigWig, fcRoi, mate_fc, mate_fc0, ecMateUnmapped, ecSplit, ecSelected,
         lcJoins, lcCoverage, lcLightJoins, lcLabel, lcBright, tcDel, tcIns, tcLabels, tcBackground,
-        fcMarkers, fc5mc, fc5hmc
+        fcMarkers, fc5mc, fc5hmc, fcOther
     };
 
     class EXPORT BaseTheme {
@@ -82,12 +84,12 @@ namespace Themes {
 
         std::string name;
         // face colours
-        SkPaint bgPaint, bgMenu, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip, \
+        SkPaint bgPaint, bgPaintTiled, bgMenu, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip, \
                 fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack, fcRoi;
-        SkPaint fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0, fcSoftClip0, fcBigWig, fc5mc, fc5hmc;
+        SkPaint fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0, fcSoftClip0, fcBigWig, fc5mc, fc5hmc, fcOther;
 
-        std::vector<SkPaint> mate_fc;
-        std::vector<SkPaint> mate_fc0;
+        std::array<SkPaint, 50> mate_fc;
+        std::array<SkPaint, 50> mate_fc0;
 
         // edge colours
         SkPaint ecMateUnmapped, ecSplit, ecSelected;
@@ -107,6 +109,7 @@ namespace Themes {
         uint8_t alpha, mapq0_alpha;
 
         std::array<std::array<SkPaint, 11>, 16> BasePaints;
+        std::array<std::array<SkPaint, 4>, 3> ModPaints;  // Only 3 at the moment, 5mc, 5hm, Other
 
         void setAlphas();
         void setPaintARGB(int paint_enum, int alpha, int red, int green, int blue);
@@ -148,7 +151,7 @@ namespace Themes {
         bool editing_underway;
         int canvas_width, canvas_height;
         int indel_length, ylim, split_view_size, threads, pad, link_op, max_coverage, max_tlen, mods_qual_threshold;
-        bool no_show, log2_cov, tlen_yscale, expand_tracks, vcf_as_tracks, bed_as_tracks, sv_arcs, parse_mods;
+        bool no_show, log2_cov, tlen_yscale, expand_tracks, vcf_as_tracks, bed_as_tracks, sv_arcs, parse_mods, scale_bar;
         float scroll_speed, tab_track_height;
         int scroll_right;
         int scroll_left;
@@ -160,9 +163,7 @@ namespace Themes {
         int zoom_in;
         int cycle_link_mode;
         int find_alignments;
-        int print_screen;
-        int delete_labels;
-        int enter_interactive_mode;
+
         int repeat_command;
         int start_index;
         int soft_clip_threshold, small_indel_threshold, snp_threshold, mod_threshold, variant_distance, low_memory;
@@ -179,7 +180,8 @@ namespace Themes {
                                 std::vector<std::string>& track_paths, std::vector<Utils::Region>& regions,
                                 std::vector<std::pair<std::string, int>>& variant_paths_info,
                                 std::vector<std::string>& commands, std::string output_session,
-                                int mode, int window_x_pos, int window_y_pos, float monitorScale, int screen_width, int screen_height);
+                                int mode, int window_x_pos, int window_y_pos, float monitorScale, int screen_width, int screen_height,
+                                int sortReadsBy);
 
     };
 
@@ -200,13 +202,10 @@ namespace Themes {
         void setFontSize(float yScaling, float yScale);
     };
 
-    struct Band {
-        int start, end, alpha, red, green, blue;
-        SkPaint paint;
-        std::string name;
-    };
-
-    void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Band>> &ideogram,
+    void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
                           Themes::BaseTheme &theme);
+
+    void readIdeogramData(const unsigned char *data, size_t size, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
+                          Themes::BaseTheme &theme, bool strip_chr);
 
 }

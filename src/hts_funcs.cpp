@@ -130,7 +130,7 @@ namespace HGW {
                       int bamIdx, int regionIdx) {
         auto end = readQueue.end();
         auto rm_iter = readQueue.begin();
-        const auto pred = [&](const Segs::Align &align){
+        const auto pred = [&](const Segs::Align &align) {
             if (rm_iter == end) { return false; }
             bool drop = false;
             for (auto &f: filters) {
@@ -160,7 +160,7 @@ namespace HGW {
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, int threads, Utils::Region *region,
                                  bool coverage, std::vector<Parse::Parser> &filters, BS::thread_pool &pool,
-                                 const int parse_mods_threshold) {
+                                 const int parse_mods_threshold, int sortReadsBy) {
 
         bam1_t *src;
         hts_itr_t *iter_q;
@@ -193,7 +193,7 @@ namespace HGW {
             readQueue.pop_back();
         }
 
-        Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold);
+        Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold, sortReadsBy == 2);
 
         if (!filters.empty()) {
             applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
@@ -386,7 +386,7 @@ namespace HGW {
             if (j < BATCH) {
                 continue;
             }
-            Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold);
+            Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold, false);
             if (filter) {
                 applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
             }
@@ -398,7 +398,7 @@ namespace HGW {
                     }
                 }
             }
-            Segs::findY(col, readQueue, opts.link_op, opts, region, false);
+            Segs::findY(col, readQueue, opts.link_op, opts, false, 0);
             Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
 
             for (int i=0; i < BATCH; ++ i) {
@@ -410,7 +410,7 @@ namespace HGW {
         if (j < BATCH) {
             readQueue.erase(readQueue.begin() + j, readQueue.end());
             if (!readQueue.empty()) {
-                Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold);
+                Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold, false);
                 if (!filters.empty()) {
                     applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
                 }
@@ -422,7 +422,7 @@ namespace HGW {
                         }
                     }
                 }
-                Segs::findY(col, readQueue, opts.link_op, opts, region, false);
+                Segs::findY(col, readQueue, opts.link_op, opts, false, 0);
                 Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
                 for (int i=0; i < BATCH; ++ i) {
                     Segs::align_clear(&readQueue[i]);
@@ -463,7 +463,7 @@ namespace HGW {
             if (src->core.flag & 4 || src->core.n_cigar == 0) {
                 continue;
             }
-            Segs::align_init(&readQueue.back(), parse_mods_threshold);
+            Segs::align_init(&readQueue.back(), parse_mods_threshold, false);
             if (filter) {
                 applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
                 if (readQueue.back().y == -2) {
@@ -475,7 +475,7 @@ namespace HGW {
                 int l_arr = (int)col.covArr.size() - 1;
                 Segs::addToCovArray(col.covArr, readQueue.back(), region->start, region->end, l_arr);
             }
-            Segs::findY(col, readQueue, opts.link_op, opts, region, false);
+            Segs::findY(col, readQueue, opts.link_op, opts, false, 0);
             Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
             Segs::align_clear(&readQueue.back());
         }
@@ -528,26 +528,26 @@ namespace HGW {
         }
     }
 
-    void refreshLinkedCollection(Segs::ReadCollection &cl, Themes::IniOptions &opts, int *samMaxY) {
+    void refreshLinkedCollection(Segs::ReadCollection &cl, Themes::IniOptions &opts, int *samMaxY, int sortReadsBy) {
         Segs::resetCovStartEnd(cl);
         cl.levelsStart.clear();
         cl.levelsEnd.clear();
         cl.linked.clear();
         cl.skipDrawingReads = false;
         for (auto &itm: cl.readQueue) { itm.y = -1; }
-        int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, cl.region, false);
+        int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sortReadsBy);
         *samMaxY = (maxY > *samMaxY || opts.tlen_yscale) ? maxY : *samMaxY;
     }
 
-    void refreshLinked(std::vector<Segs::ReadCollection> &collections, Themes::IniOptions &opts, int *samMaxY) {
+    void refreshLinked(std::vector<Segs::ReadCollection> &collections, Themes::IniOptions &opts, int *samMaxY, int sortReadsBy) {
         for (auto &cl : collections) {
-            refreshLinkedCollection(cl, opts, samMaxY);
+            refreshLinkedCollection(cl, opts, samMaxY, sortReadsBy);
         }
     }
 
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *samMaxY,
-                                std::vector<Parse::Parser> &filters, BS::thread_pool &pool) {
+                                std::vector<Parse::Parser> &filters, BS::thread_pool &pool, int sortReadsBy) {
         bam1_t *src;
         hts_itr_t *iter_q;
         std::vector<Segs::Align>& readQueue = col.readQueue;
@@ -559,7 +559,6 @@ namespace HGW {
         }
         int lastPos;
         const int parse_mods_threshold = (opts.parse_mods) ? 50 : 0;
-
         if (!readQueue.empty()) {
             if (left) {
                 lastPos = readQueue.front().pos; // + 1;
@@ -600,7 +599,25 @@ namespace HGW {
             } else {
                 end_r = readQueue.front().reference_end;
                 if (end_r < region->start) {
-                    return; // reads are already in the queue
+                    // reads are already in the queue, no need to collect
+                    // recalculate coverage - even though no reads collected, region may still have changed
+                    if (coverage) {
+                        col.covArr.resize(region->end - region->start + 1);
+                        std::fill(col.covArr.begin(), col.covArr.end(), 0);
+                        int l_arr = (int)col.covArr.size() - 1;
+                        for (auto &i : readQueue) {
+                            Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
+                        }
+                        if (opts.snp_threshold > region->end - region->start) {
+                            col.mmVector.resize(region->end - region->start + 1);
+                            Segs::Mismatches empty_mm{};
+                            std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
+                        } else {
+                            col.mmVector.clear();
+                        }
+                    }
+                    col.collection_processed = false;
+                    return;
                 }
             }
 
@@ -682,13 +699,14 @@ namespace HGW {
         }
 
         if (!newReads.empty()) {
+            Segs::init_parallel(newReads, opts.threads, pool, parse_mods_threshold, sortReadsBy == 2);
             if (!filters.empty()) {
                 applyFilters(filters, newReads, hdr_ptr, col.bamIdx, col.regionIdx);
             }
-            Segs::init_parallel(newReads, opts.threads, pool, parse_mods_threshold);
+
             bool findYall = false;
             if (col.vScroll == 0 && opts.link_op == 0) {  // only new reads need findY, otherwise, reset all below
-                int maxY = Segs::findY(col, newReads, opts.link_op, opts, region,  left);
+                int maxY = Segs::findY(col, newReads, opts.link_op, opts, left, sortReadsBy);
                 if (maxY > *samMaxY) {
                     *samMaxY = maxY;
                 }
@@ -703,7 +721,7 @@ namespace HGW {
                 col.readQueue = newReads;
             }
             if (findYall) {
-                refreshLinkedCollection(col, opts, samMaxY);
+                refreshLinkedCollection(col, opts, samMaxY, sortReadsBy);
             }
             if (opts.link_op > 0) {
                 // move of data will invalidate some pointers, so reset
@@ -1142,6 +1160,11 @@ namespace HGW {
         }
     }
 
+    void GwTrack::clear() {
+        allBlocks_flat.clear();
+        allBlocks.clear();
+    }
+
     void GwTrack::parseVcfRecord(Utils::TrackBlock &b) {
         kstring_t kstr = {0,0,0};
         bcf_unpack(v, BCF_UN_INFO);
@@ -1231,6 +1254,8 @@ namespace HGW {
             kind = BIGWIG;
         } else if (Utils::endsWith(p, ".bigbed") || Utils::endsWith(p, ".bb")) {
             kind = BIGBED;
+        } else if (Utils::endsWith(p, ".paf")) {
+            kind = PAF_NOI;
         } else {
             kind = GW_LABEL;
         }
@@ -1263,12 +1288,30 @@ namespace HGW {
                 allBlocks[b.chrom].add(b.start, b.end, b);
             }
         } else if (kind == BED_NOI || kind == GW_LABEL) {
+
+#if !defined(__EMSCRIPTEN__)
+
+            if (Utils::startsWith(path, "http") || Utils::startsWith(path, "ftp")) {
+                std::string content = Utils::fetchOnlineFileContent(path);
+                fpu = std::make_shared<std::istringstream>(content);
+            } else {
+                auto file_stream = std::make_shared<std::ifstream>(path);
+                if (!file_stream->is_open()) {
+                    std::cerr << "Error: opening track file " << path << std::endl;
+                    throw std::runtime_error("Error opening file");
+                }
+                fpu = file_stream;
+            }
+#else
             fpu = std::make_shared<std::ifstream>();
             fpu->open(p);
             if (!fpu->is_open()) {
                 std::cerr << "Error: opening track file " << path << std::endl;
                 throw std::exception();
             }
+#endif
+
+
             if (!add_to_dict) {
                 return;
             }
@@ -1286,7 +1329,6 @@ namespace HGW {
                 b.line = tp;
                 b.chrom = parts[0];
                 b.start = std::stoi(parts[1]);
-                b.strand = 0;
                 if (kind == BED_NOI) {  // bed
                     b.end = std::stoi(parts[2]);
                     if (parts.size() > 3) {
@@ -1307,6 +1349,50 @@ namespace HGW {
                 }
                 allBlocks[b.chrom].add(b.start, b.end, b);
             }
+        } else if (kind == PAF_NOI) {
+#if !defined(__EMSCRIPTEN__)
+            if (Utils::startsWith(path, "http") || Utils::startsWith(path, "ftp")) {
+                std::string content = Utils::fetchOnlineFileContent(path);
+                fpu = std::make_shared<std::istringstream>(content);
+            } else {
+                auto file_stream = std::make_shared<std::ifstream>(path);
+                if (!file_stream->is_open()) {
+                    std::cerr << "Error: opening track file " << path << std::endl;
+                    throw std::runtime_error("Error opening file");
+                }
+                fpu = file_stream;
+            }
+#else
+            fpu = std::make_shared<std::ifstream>();
+            fpu->open(p);
+            if (!fpu->is_open()) {
+                std::cerr << "Error: opening track file " << path << std::endl;
+                throw std::exception();
+            }
+#endif
+
+            if (!add_to_dict) {
+                return;
+            }
+            while (true) {
+                auto got_line = (bool)getline(*fpu, tp);
+                if (!got_line) {
+                    done = true;
+                    break;
+                }
+                if (tp[0] == '#') {
+                    continue;
+                }
+                std::vector<std::string> parts = Utils::split(tp, '\t');
+                Utils::TrackBlock b;
+                b.line = tp;
+                b.name = parts[0];
+                b.chrom = parts[5];
+                b.start = std::stoi(parts[7]);
+                b.strand = (parts[4] == "+") ? 1 : 2;
+                b.end = std::stoi(parts[8]);
+                allBlocks[b.chrom].add(b.start, b.end, b);
+            }
         } else if (kind == GFF3_IDX || kind == GTF_IDX) {
             fp = hts_open(p.c_str(), "r");
             if (!fp) {
@@ -1319,12 +1405,29 @@ namespace HGW {
                 throw std::exception();
             }
         } else if (kind == GFF3_NOI || kind == GTF_NOI) {
+
+#if !defined(__EMSCRIPTEN__)
+
+            if (Utils::startsWith(path, "http") || Utils::startsWith(path, "ftp")) {
+                std::string content = Utils::fetchOnlineFileContent(path);
+                fpu = std::make_shared<std::istringstream>(content);
+            } else {
+                auto file_stream = std::make_shared<std::ifstream>(path);
+                if (!file_stream->is_open()) {
+                    std::cerr << "Error: opening track file " << path << std::endl;
+                    throw std::runtime_error("Error opening file");
+                }
+                fpu = file_stream;
+            }
+#else
             fpu = std::make_shared<std::ifstream>();
             fpu->open(p);
             if (!fpu->is_open()) {
                 std::cerr << "Error: opening track file " << path << std::endl;
                 throw std::exception();
             }
+#endif
+
             if (!add_to_dict) {
                 return;
             }
@@ -1536,7 +1639,7 @@ namespace HGW {
         if (done) {
             return;
         }
-
+        strand = 0;
         if (kind > BCF_IDX) {  // non indexed cached VCF_NOI / BED_NOI / GFF3 (todo) / GW_LABEL / STDIN?
             // add_to_dict==false, only BED and GW_LABEL files supported (iterate whole file)
             if (!add_to_dict) {
@@ -1558,6 +1661,13 @@ namespace HGW {
                         stop = std::stoi(parts[2]);
                         if (parts.size() > 3) {
                             rid = parts[3];
+                            if (parts.size() >= 6) {
+                                if (parts[5] == "+") {
+                                    strand = 1;
+                                } else if (parts[5] == "-") {
+                                    strand = 2;
+                                }
+                            }
                         } else {
                             rid = std::to_string(fileIndex);
                         }
@@ -1579,11 +1689,13 @@ namespace HGW {
                 while (true) {
                     if (iter_blk != vals_end) {
                         chrom = iter_blk->chrom;
+                        chrom2 = chrom;
                         start = iter_blk->start;
                         stop = iter_blk->end;
                         rid = iter_blk->name;
                         parent = iter_blk->parent;
                         vartype = iter_blk->vartype;
+                        strand = iter_blk->strand;
                         variantString = iter_blk->line;
                         parts = iter_blk->parts;
                         ++iter_blk;
@@ -1672,10 +1784,18 @@ namespace HGW {
                 parts.clear();
                 parts = Utils::split(str.s, '\t');
                 chrom = parts[0];
+                chrom2 = chrom;
                 start = std::stoi(parts[1]);
                 stop = std::stoi(parts[2]);
                 if (parts.size() > 2) {
                     rid = parts[3];
+                    if (parts.size() >= 6) {
+                        if (parts[5] == "+") {
+                            strand = 1;
+                        } else if (parts[5] == "-") {
+                            strand = 2;
+                        }
+                    }
                 } else {
                     rid = std::to_string(fileIndex);
                     fileIndex += 1;
@@ -1685,8 +1805,14 @@ namespace HGW {
                 parts.clear();
                 parts = Utils::split(str.s, '\t');
                 chrom = parts[0];
+                chrom2 = chrom;
                 start = std::stoi(parts[3]);
                 stop = std::stoi(parts[4]);
+                if (parts[6] == "+") {
+                    strand = 1;
+                } else {
+                    strand = 2;
+                }
                 vartype = parts[2];
                 rid.clear();
                 parent.clear();
@@ -1725,6 +1851,7 @@ namespace HGW {
                 rid = parts[0];
             }
             current_iter_index += 1;
+            chrom2 = chrom;
         }
     }
 
@@ -1843,10 +1970,26 @@ namespace HGW {
 
         ankerl::unordered_dense::map< std::string, std::vector<std::string>> label_dict;
         ankerl::unordered_dense::set<std::string> seen_labels;
-        std::ifstream fs;
-        fs.open(labels_path);
+
+#if !defined(__EMSCRIPTEN__)
+        std::shared_ptr<std::istream> fpu;
+        if (Utils::startsWith(labels_path, "http") || Utils::startsWith(labels_path, "ftp")) {
+            std::string content = Utils::fetchOnlineFileContent(labels_path);
+            fpu = std::make_shared<std::istringstream>(content);
+        } else {
+            auto file_stream = std::make_shared<std::ifstream>(labels_path);
+            if (!file_stream->is_open()) {
+                std::cerr << "Error: opening track file " << labels_path << std::endl;
+                throw std::runtime_error("Error opening file");
+            }
+            fpu = file_stream;
+        }
+#else
+        fpu = std::make_shared<std::ifstream>();
+#endif
+
         std::string s;
-        while (std::getline(fs, s)) {
+        while (std::getline(*fpu, s)) {
             if (Utils::startsWith(s, "#")) {
                 continue;
             }
@@ -1939,6 +2082,7 @@ namespace HGW {
         mouseOverTileIndex = -1;
         blockStart = 0;
         m_opts = t_opts;
+        max_index = SIZE_MAX;
 
         std::filesystem::path fsp(path);
 #if defined(_WIN32) || defined(_WIN64)
@@ -2164,6 +2308,7 @@ namespace HGW {
                 track.parts.push_back("\n");
                 track.s.push_back(g->start);
                 track.e.push_back(g->end);
+
                 if (restAreThin) {
                     track.drawThickness.push_back(1);
                 } else if (g->vartype == "exon" || g->vartype == "CDS") {
@@ -2208,18 +2353,21 @@ namespace HGW {
             b->end = trk.stop;
             b->line = trk.variantString;
             b->parts = trk.parts;
+
             b->anyToDraw = true;
-            if (trk.parts.size() >= 5) {
-                b->strand = (trk.parts[5] == "+") ? 1 : (trk.parts[5] == "-") ? -1 : 0;
-            }
+            b->strand = trk.strand;
+//            if (kind)
+//            if (trk.parts.size() >= 5 && b->strand == 0) {
+//                b->strand = (trk.parts[5] == "+") ? 1 : (trk.parts[5] == "-") ? 2 : 0;
+//            }
             if (isVCF) {
                 b->vartype = trk.vartype;
             }
             if (trk.kind == BIGBED) {
                 if (trk.parts[2] == "-") {
-                    b->strand = -1;
-                } else if (trk.parts[2] == "+") {
                     b->strand = 1;
+                } else if (trk.parts[2] == "+") {
+                    b->strand = 2;
                 } else {
                     b->strand = 0;
                 }

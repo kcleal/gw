@@ -114,13 +114,13 @@ namespace Menu {
         SkPaint menuBg;
         SkPaint tcMenu;
         if (opts.theme_str != "igv") {
-            bg.setARGB(255, 15, 15, 25);
+            bg.setARGB(255, 35, 35, 45);
             tcMenu.setARGB(255, 255, 255, 255);
             menuBg = opts.theme.fcDup;
         } else {
             bg.setARGB(255, 255, 255, 255);
             tcMenu.setARGB(255, 0, 0, 0);
-            menuBg.setARGB(255, 215, 215, 255);
+            menuBg.setARGB(255, 235, 235, 235);
         }
         tcMenu.setStyle(SkPaint::kStrokeAndFill_Style);
         tcMenu.setAntiAlias(true);
@@ -284,7 +284,7 @@ namespace Menu {
 
         if (opts.control_level.empty()) {
             if (opts.menu_table == Themes::MenuTable::MAIN) {
-                tip = opts.ini_path + "  v0.10.1";
+                tip = opts.ini_path + "  v1.0.0";
             }
             else if (opts.menu_table == Themes::MenuTable::GENOMES) { tip = "Use ENTER key to select genome, or RIGHT_ARROW key to edit path"; }
             else if (opts.menu_table == Themes::MenuTable::SHIFT_KEYMAP) { tip = "Change characters selected when using shift+key"; }
@@ -295,6 +295,7 @@ namespace Menu {
             else if (opts.menu_level == "coverage") { tip = "Turn coverage on or off [true, false]"; }
             else if (opts.menu_level == "log2_cov") { tip = "Change the y-scale of the coverage track to log2 [true, false]"; }
             else if (opts.menu_level == "expand_tracks") { tip = "Expand overlapping track features [true, false]"; }
+            else if (opts.menu_level == "scale_bar") { tip = "Add scale bars [true, false]"; }
             else if (opts.menu_level == "vcf_as_tracks") { tip = "Drag-and-dropped vcf/bcf files will be added as a track if true, or image-tiles otherwise [true, false]"; }
             else if (opts.menu_level == "bed_as_tracks") { tip = "Drag-and-dropped bed files will be added as a track if true, or image-tiles otherwise [true, false]"; }
             else if (opts.menu_level == "link") { tip = "Change which reads are linked [none, sv, all]"; }
@@ -317,13 +318,10 @@ namespace Menu {
             else if (opts.menu_level == "zoom_in") { tip = "Keyboard key to use for zooming in"; }
             else if (opts.menu_level == "zoom_out") { tip = "Keyboard key to use for zooming out"; }
             else if (opts.menu_level == "cycle_link_mode") { tip = "Keyboard key to use for cycling link mode"; }
-            else if (opts.menu_level == "print_screen") { tip = "Keyboard key to use for printing screen (saves a .png file of the screen)"; }
             else if (opts.menu_level == "find_alignments") { tip = "Keyboard key to use for highlighting all alignments from template"; }
             else if (opts.menu_level == "number") { tip = "The number of images to show at one time"; }
             else if (opts.menu_level == "parse_label") { tip = "Information to parse from vcf file"; }
             else if (opts.menu_level == "labels") { tip = "Choice of labels to use"; }
-            else if (opts.menu_level == "delete_labels") { tip = "Keyboard key to remove all labels on screen"; }
-            else if (opts.menu_level == "delete_labels") { tip = "Keyboard key to switch to the interactive alignment-view mode"; }
             else if (opts.menu_level == "font") { tip = "Change the font"; }
             else if (opts.menu_level == "font_size") { tip = "Change the font size"; }
             else if (opts.menu_level == "variant_distance") { tip = "For VCF/BCF tracks, ignore variants with start and end further than this distance"; }
@@ -469,9 +467,6 @@ namespace Menu {
                 opts.control_level = "close";
                 opts.previous_level = opts.menu_level;
                 opts.myIni[(opts.menu_table == Themes::MenuTable::GENOMES) ? "genomes" : "tracks"].remove(opts.genome_tag);
-                if (opts.menu_table == Themes::MenuTable::GENOMES) {
-                    warnRestart();
-                }
             } else if (opts.control_level == "add") {
                 opts.editing_underway = !opts.editing_underway;
             }
@@ -596,6 +591,8 @@ namespace Menu {
                 return keep_alive;
             } else if (key == GLFW_KEY_ESCAPE) {
                 opts.menu_table = Themes::MenuTable::MAIN;
+                opts.editing_underway = false;
+                *captureText = false;
             }
 
         } else if (action == GLFW_PRESS) {
@@ -623,7 +620,6 @@ namespace Menu {
                     *textFromSettings = false;
                     inputText = "";
                     opts.editing_underway = false;
-                    opts.menu_table = getMenuLevel(opts.previous_level);
                     return true;
                 } else {
                     bool keep_alive = Menu::menuSelect(opts);
@@ -684,10 +680,10 @@ namespace Menu {
         for (const auto& v : {"scroll_speed", "tabix_track_height"}) {
             option_map[v] = Float;
         }
-        for (const auto& v : {"coverage", "log2_cov", "expand_tracks", "vcf_as_tracks", "bed_as_tracks", "sv_arcs", "mods"}) {
+        for (const auto& v : {"coverage", "log2_cov", "expand_tracks", "scale_bar", "vcf_as_tracks", "bed_as_tracks", "sv_arcs", "mods"}) {
             option_map[v] = Bool;
         }
-        for (const auto& v : {"scroll_right", "scroll_left", "zoom_out", "zoom_in", "scroll_down", "scroll_up", "cycle_link_mode", "print_screen", "find_alignments", "delete_labels", "enter_interactive_mode"}) {
+        for (const auto& v : {"scroll_right", "scroll_left", "zoom_out", "zoom_in", "scroll_down", "scroll_up", "cycle_link_mode", "find_alignments"}) {
             option_map[v] = KeyboardKey;
         }
         option_map["font"] = String;
@@ -756,6 +752,7 @@ namespace Menu {
         else if (new_opt.name == "tabix_track_height") { opts.tab_track_height = v; }
         else if (new_opt.name == "log2_cov") { opts.log2_cov = v; }
         else if (new_opt.name == "expand_tracks") { opts.expand_tracks = v; }
+        else if (new_opt.name == "scale_bar") { opts.scale_bar = v; }
         else if (new_opt.name == "vcf_as_tracks") { opts.vcf_as_tracks = v; }
         else if (new_opt.name == "bed_as_tracks") { opts.bed_as_tracks = v; }
         else if (new_opt.name == "coverage") { opts.max_coverage = (v) ? 1410065408 : 0; }
@@ -782,10 +779,7 @@ namespace Menu {
         else if (new_opt.name == "scroll_down") { opts.scroll_down = v; }
         else if (new_opt.name == "scroll_up") { opts.scroll_up = v; }
         else if (new_opt.name == "cycle_link_mode") { opts.cycle_link_mode = v; }
-        else if (new_opt.name == "print_screen") { opts.print_screen = v; }
         else if (new_opt.name == "find_alignments") { opts.find_alignments = v; }
-        else if (new_opt.name == "delete_labels") { opts.delete_labels = v; }
-        else if (new_opt.name == "enter_interactive_mode") { opts.enter_interactive_mode = v; }
         else { return; }
         opts.myIni[new_opt.table][new_opt.name] = k;
     }
@@ -890,7 +884,7 @@ namespace Menu {
         } else if (cmd_s == "log2-cov") {
             return (int)(opts.log2_cov);
         } else if (cmd_s == "expand-tracks") {
-            return (int)(opts.expand_tracks);
+            return (int) (opts.expand_tracks);
         } else if (cmd_s == "line") {
             return (int)drawLine;
         } else if (cmd_s == "insertions") {

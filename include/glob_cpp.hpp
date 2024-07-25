@@ -227,12 +227,12 @@ namespace glob_cpp {
             std::vector<std::filesystem::path> result;
             auto names = iter_directory(dirname, dironly);
             for (auto &x : names) {
-                if (!is_hidden(x.string())) {
+//                if (!is_hidden(x.string())) {
                     result.push_back(x);
                     for (auto &y : rlistdir(x, dironly)) {
                         result.push_back(y);
                     }
-                }
+//                }
             }
             return result;
         }
@@ -261,7 +261,7 @@ namespace glob_cpp {
             auto names = iter_directory(dirname, dironly);
             std::vector<std::filesystem::path> filtered_names;
             for (auto &n : names) {
-                if (!is_hidden(n.string())) {
+//                if (!is_hidden(n.string())) {
                     filtered_names.push_back(n.filename());
                     // if (n.is_relative()) {
                     //   // std::cout << "Filtered (Relative): " << n << "\n";
@@ -270,7 +270,7 @@ namespace glob_cpp {
                     //   // std::cout << "Filtered (Absolute): " << n << "\n";
                     //   filtered_names.push_back(n.filename());
                     // }
-                }
+//                }
             }
             std::vector<std::filesystem::path> result = filter(filtered_names, pattern);
 

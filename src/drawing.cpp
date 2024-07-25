@@ -25,6 +25,7 @@
 #include "ankerl_unordered_dense.h"
 #include "hts_funcs.h"
 #include "drawing.h"
+#include "term_out.h"
 
 
 namespace Drawing {
@@ -45,7 +46,7 @@ namespace Drawing {
     };
 
     void drawCoverage(const Themes::IniOptions &opts, std::vector<Segs::ReadCollection> &collections,
-                      SkCanvas *canvas, const Themes::Fonts &fonts, const float covYh, const float refSpace) {
+                      SkCanvas *canvas, const Themes::Fonts &fonts, const float covYh, const float refSpace, const float gap) {
 
         const Themes::BaseTheme &theme = opts.theme;
         SkPaint paint = theme.fcCoverage;
@@ -63,14 +64,20 @@ namespace Drawing {
         for (auto &cl: collections) {
             cl.skipDrawingCoverage = true;
             if (cl.region->markerPos != -1) {
-                float rp = refSpace + 6 + (cl.bamIdx * cl.yPixels);
-                float xp = refSpace * 0.2;
+                float rp;
+
+                if (opts.scale_bar) {
+                    rp = gap + fonts.overlayHeight + gap + fonts.overlayHeight + gap + (cl.bamIdx * cl.yPixels);
+                } else {
+                    rp = gap + fonts.overlayHeight + gap + (cl.bamIdx * cl.yPixels);
+                }
+                float xp = fonts.overlayHeight * 0.5;
                 float markerP = (cl.xScaling * (float) (cl.region->markerPos - cl.region->start)) + cl.xOffset;
                 if (markerP > cl.xOffset && markerP < cl.regionPixels - cl.xOffset) {
                     path.reset();
                     path.moveTo(markerP, rp);
                     path.lineTo(markerP - xp, rp);
-                    path.lineTo(markerP, rp + (refSpace*0.7));
+                    path.lineTo(markerP, rp + (fonts.overlayHeight));
                     path.lineTo(markerP + xp, rp);
                     path.lineTo(markerP, rp);
                     canvas->drawPath(path, theme.fcMarkers);
@@ -80,7 +87,7 @@ namespace Drawing {
                     path.reset();
                     path.moveTo(markerP2, rp);
                     path.lineTo(markerP2 - xp, rp);
-                    path.lineTo(markerP2, rp + (refSpace*0.7));
+                    path.lineTo(markerP2, rp + (fonts.overlayHeight));
                     path.lineTo(markerP2 + xp, rp);
                     path.lineTo(markerP2, rp);
                     canvas->drawPath(path, theme.fcMarkers);
@@ -206,7 +213,7 @@ namespace Drawing {
                 float width;
                 if ((int) mmVector.size() <= opts.snp_threshold) {
                     float mms = xScaling * mmScaling;
-                    width = (mmVector.size() < 500000) ? ((1. > mms) ? 1. : mms) : xScaling;
+                    width = (mmVector.size() < opts.snp_threshold) ? ((1. > mms) ? 1. : mms) : xScaling;
                 } else {
                     width = xScaling;
                 }
@@ -383,38 +390,91 @@ namespace Drawing {
         canvas->drawRect(rect, faceColor);
     }
 
-    inline void
-    drawLeftPointedRectangle(SkCanvas *canvas, const float polygonH, const float yScaledOffset, float start,
-                             float width, const float maxX, const float xOffset, const SkPaint &faceColor,
-                             SkPath &path, const float slop, bool edged, SkPaint &edgeColor) {
+    SkPoint points[5];
+
+    inline void drawLeftPointedRectangleNoEdge(SkCanvas *canvas, const float polygonH, const float yScaledOffset, float start,
+                                         float width, const float xOffset, const SkPaint &faceColor,
+                                         SkPath &path, const float slop) {
+        const float startX = start + xOffset;
+        const float midY = yScaledOffset + (polygonH * 0.5);
+        const float endY = yScaledOffset + polygonH;
+        const float endX = start + width + xOffset;
+        const float slopedStartX = start - slop + xOffset;
+        points[0] = SkPoint::Make(startX, yScaledOffset);
+        points[1] = SkPoint::Make(slopedStartX, midY);
+        points[2] = SkPoint::Make(startX, endY);
+        points[3] = SkPoint::Make(endX, endY);
+        points[4] = SkPoint::Make(endX, yScaledOffset);
         path.reset();
-        path.moveTo(start + xOffset, yScaledOffset);
-        path.lineTo(start - slop + xOffset, yScaledOffset + (polygonH * 0.5));
-        path.lineTo(start + xOffset, yScaledOffset + polygonH);
-        path.lineTo(start + width + xOffset, yScaledOffset + polygonH);
-        path.lineTo(start + width + xOffset, yScaledOffset);
-        path.close();
+        path.addPoly(points, 5, true);
+        canvas->drawPath(path, faceColor);
+    }
+
+    inline void drawRightPointedRectangleNoEdge(SkCanvas *canvas, const float polygonH, const float yScaledOffset, float start,
+                                          float width, const float xOffset, const SkPaint &faceColor,
+                                          SkPath &path, const float slop) {
+        const float startX = start + xOffset;
+        const float endY = yScaledOffset + polygonH;
+        const float midY = yScaledOffset + (polygonH * 0.5);
+        const float endX = start + width + xOffset;
+        const float slopedEndX = endX + slop;
+        points[0] = SkPoint::Make(startX, yScaledOffset);
+        points[1] = SkPoint::Make(startX, endY);
+        points[2] = SkPoint::Make(endX, endY);
+        points[3] = SkPoint::Make(slopedEndX, midY);
+        points[4] = SkPoint::Make(endX, yScaledOffset);
+        path.reset();
+        path.addPoly(points, 5, true);
+        canvas->drawPath(path, faceColor);
+    }
+
+    inline void drawLeftPointedRectangle(SkCanvas *canvas, const float polygonH, const float yScaledOffset, float start,
+                                         float width, const float xOffset, const SkPaint &faceColor,
+                                         SkPath &path, const float slop, bool edged, SkPaint &edgeColor) {
+        const float startX = start + xOffset;
+        const float midY = yScaledOffset + (polygonH * 0.5);
+        const float endY = yScaledOffset + polygonH;
+        const float endX = start + width + xOffset;
+        const float slopedStartX = start - slop + xOffset;
+        points[0] = SkPoint::Make(startX, yScaledOffset);
+        points[1] = SkPoint::Make(slopedStartX, midY);
+        points[2] = SkPoint::Make(startX, endY);
+        points[3] = SkPoint::Make(endX, endY);
+        points[4] = SkPoint::Make(endX, yScaledOffset);
+        path.reset();
+        path.addPoly(points, 5, true);
         canvas->drawPath(path, faceColor);
         if (edged) {
+            points[0].fY += 0.5;
+            points[4].fY += 0.5;
+            path.reset();
+            path.addPoly(points, 5, true);
             canvas->drawPath(path, edgeColor);
         }
     }
 
-    inline void
-    drawRightPointedRectangle(SkCanvas *canvas, const float polygonH, const float yScaledOffset, float start,
-                              float width, const float maxX, const float xOffset, const SkPaint &faceColor,
-                              SkPath &path,
-                              const float slop,
-                              bool edged, SkPaint &edgeColor) {
+    inline void drawRightPointedRectangle(SkCanvas *canvas, const float polygonH, const float yScaledOffset, float start,
+                                          float width, const float xOffset, const SkPaint &faceColor,
+                                          SkPath &path, const float slop, bool edged, SkPaint &edgeColor) {
+
+        const float startX = start + xOffset;
+        const float endY = yScaledOffset + polygonH;
+        const float midY = yScaledOffset + (polygonH * 0.5);
+        const float endX = start + width + xOffset;
+        const float slopedEndX = endX + slop;
+        points[0] = SkPoint::Make(startX, yScaledOffset);
+        points[1] = SkPoint::Make(startX, endY);
+        points[2] = SkPoint::Make(endX, endY);
+        points[3] = SkPoint::Make(slopedEndX, midY);
+        points[4] = SkPoint::Make(endX, yScaledOffset);
         path.reset();
-        path.moveTo(start + xOffset, yScaledOffset);
-        path.lineTo(start + xOffset, yScaledOffset + polygonH);
-        path.lineTo(start + width + xOffset, yScaledOffset + polygonH);
-        path.lineTo(start + width + slop + xOffset, yScaledOffset + (polygonH * 0.5));
-        path.lineTo(start + width + xOffset, yScaledOffset);
-        path.close();
+        path.addPoly(points, 5, true);
         canvas->drawPath(path, faceColor);
         if (edged) {
+            points[0].fY += 0.5;
+            points[4].fY += 0.5;
+            path.reset();
+            path.addPoly(points, 5, true);
             canvas->drawPath(path, edgeColor);
         }
     }
@@ -532,7 +592,7 @@ namespace Drawing {
             size_t ref_idx = pos_start - region->start;
 
             for (size_t i=idx_start; i < (size_t)idx_end; ++i) {
-                if ((int)i >= refSeqLen) {
+                if ((int)ref_idx >= refSeqLen) {
                     break;
                 }
                 char ref_base = lookup_ref_base[(unsigned char)refSeq[ref_idx]];
@@ -695,20 +755,18 @@ namespace Drawing {
         }
     }
 
-    void drawBlock(bool plotPointedPolygons, bool pointLeft, bool edged, float s, float e, float width,
-                   float pointSlop, float pH, float yScaledOffset, float xOffset, float regionPixels,
-                   size_t nBlocks, int regionLen,
-                   const Segs::Align &a, SkCanvas *canvas, SkPath &path, SkRect &rect, SkPaint &faceColor,
-                   SkPaint &edgeColor) {
+    void drawBlock(bool plotPointedPolygons, bool pointLeft, bool edged, float s, float width,
+                   float pointSlop, float pH, float yScaledOffset, float xOffset,
+                   SkCanvas *canvas, SkPath &path, SkRect &rect, SkPaint &faceColor, SkPaint &edgeColor) {
 
         if (plotPointedPolygons) {
             if (pointLeft) {
                 drawLeftPointedRectangle(canvas, pH, yScaledOffset, s, width,
-                                         regionPixels, xOffset, faceColor, path, pointSlop, edged, edgeColor);
+                                         xOffset, faceColor, path, pointSlop, edged, edgeColor);
 
             } else {
                 drawRightPointedRectangle(canvas, pH, yScaledOffset, s, width,
-                                          regionPixels, xOffset, faceColor, path, pointSlop, edged, edgeColor);
+                                          xOffset, faceColor, path, pointSlop, edged, edgeColor);
 
             }
         } else {
@@ -773,10 +831,11 @@ namespace Drawing {
     void drawMods(SkCanvas *canvas, SkRect &rect, const Themes::BaseTheme &theme, const Utils::Region *region,
                   const Segs::Align &align,
                   float width, float xScaling, float xOffset, float mmPosOffset, float yScaledOffset,
-                  float pH, int l_qseq, float monitorScale, SkPaint& fc5mc, SkPaint& fc5hmc, SkPaint& fcOther) {
+                  float pH, int l_qseq, float monitorScale) { //SkPaint& fc5mc, SkPaint& fc5hmc, SkPaint& fcOther) {
         if (align.any_mods.empty()) {
             return;
         }
+
         float precalculated_xOffset_mmPosOffset = xOffset + mmPosOffset + (0.5 * xScaling) - 2;
 
         auto mod_it = align.any_mods.begin();
@@ -785,7 +844,6 @@ namespace Drawing {
         float top = yScaledOffset + (pH / 3);
         float middle = yScaledOffset + pH - (pH / 2);
         float bottom = yScaledOffset + pH - (pH / 3);
-
         for (const auto& blk : align.blocks) {
             if ((int)blk.end < region->start) {
                 continue;
@@ -798,21 +856,22 @@ namespace Drawing {
                 ++mod_it;
             }
             while (mod_it != mod_end && mod_it->index < idx_end) {
-                float x = (((blk.start + mod_it->index - idx_start) - region->start) * xScaling) + precalculated_xOffset_mmPosOffset;
+                float x = ((((int)blk.start + (int)mod_it->index - idx_start) - region->start) * xScaling) + precalculated_xOffset_mmPosOffset;
+                if (x < 0) {
+                    ++mod_it;
+                    continue;
+                }
                 int n_mods = mod_it->n_mods;
                 for (size_t j=0; j < (size_t)n_mods; ++j) {
                     switch (mod_it->mods[j]) {
                         case 'm':  // 5mC
-                            fc5mc.setAlpha(mod_it->quals[j]);
-                            canvas->drawPoint(x, (n_mods == 1) ? middle : top, fc5mc);
+                            canvas->drawPoint(x, (n_mods == 1) ? middle : top, theme.ModPaints[0][ mod_it->quals[j] % 4 ]);
                             break;
                         case 'h':  // 5hmC
-                            fc5mc.setAlpha(mod_it->quals[j]);
-                            canvas->drawPoint(x, (n_mods == 1) ? middle : bottom, fc5hmc);
+                            canvas->drawPoint(x, (n_mods == 1) ? middle : bottom, theme.ModPaints[1][ mod_it->quals[j] % 4 ]);
                             break;
                         default:
-                            fcOther.setAlpha(mod_it->quals[j]);
-                            canvas->drawPoint(x, middle, fcOther);
+                            canvas->drawPoint(x, middle, theme.ModPaints[2][ mod_it->quals[j] % 4 ]);
                             break;
                     }
                 }
@@ -851,30 +910,21 @@ namespace Drawing {
 
         int min_gap_size = 1 + (1 / (cl.regionPixels / regionLen));
 
-        bool plotSoftClipAsBlock = cl.plotSoftClipAsBlock; //regionLen > opts.soft_clip_threshold;
-        bool plotPointedPolygons = cl.plotPointedPolygons; // regionLen < 50000;
-        bool drawEdges = cl.drawEdges; //regionLen < opts.edge_highlights;
+        bool plotSoftClipAsBlock = cl.plotSoftClipAsBlock;
+        bool plotPointedPolygons = cl.plotPointedPolygons;
+        bool drawEdges = cl.drawEdges;
 
         std::vector<Segs::Mismatches> &mm_vector = cl.mmVector;
 
         cl.skipDrawingReads = true;
 
-        SkPaint fc5mc, fc5hmc, fcOther;
-        if (opts.parse_mods) {
-            fc5mc = theme.fc5mc;
-            fc5hmc = theme.fc5hmc;
-            fcOther = theme.fcA;  // todo option for this
-            fc5mc.setStrokeWidth(std::fmin(pH / 3, 4 * monitorScale));
-            fc5hmc.setStrokeWidth(std::fmin(pH / 3, 4 * monitorScale));
-            fcOther.setStrokeWidth(std::fmin(pH / 3, 4 * monitorScale));
-        }
-
         for (const auto &a: cl.readQueue) {
             int Y = a.y;
+            assert (Y >= -2);
             if (Y < 0) {
                 continue;
             }
-            bool indelTextFits = fonts.overlayHeight < yScaling; //fonts.overlayHeight * 0.7 < yScaling;
+            bool indelTextFits = fonts.overlayHeight < yScaling;
             int mapq = a.delegate->core.qual;
             float yScaledOffset = (Y * yScaling) + yOffset;
             chooseFacecolors(mapq, a, faceColor, theme);
@@ -885,6 +935,7 @@ namespace Drawing {
                 pointLeft = false;
             }
             size_t nBlocks = a.blocks.size();
+            assert (nBlocks >= 1);
             if (drawEdges && a.edge_type != 1) {
                 edged = true;
                 chooseEdgeColor(a.edge_type, edgeColor, theme);
@@ -894,9 +945,8 @@ namespace Drawing {
             double width, s, e, textW;
             int lastEnd = 1215752191;
             int starti = 0;
-//            bool line_only;
-
             size_t idx;
+
             // draw gapped
             if (nBlocks > 1) {
                 idx = 1;
@@ -905,24 +955,23 @@ namespace Drawing {
                     starti = (int) a.blocks[idx].start;
                     lastEnd = (int) a.blocks[idx - 1].end;
                     if (starti - lastEnd == 0) {
-                        continue;  // insertion
+                        continue;  // insertion, draw over the top later on
                     }
                     if (starti - lastEnd >= min_gap_size) {
                         s = (double)a.blocks[idx_begin].start - regionBegin;
                         e = (double)a.blocks[idx - 1].end - regionBegin;
                         width = (e - s) * xScaling;
-                        drawBlock(plotPointedPolygons, pointLeft, edged, (float) s * xScaling, (float) e, (float) width,
-                                  pointSlop, pH, yScaledOffset, xOffset, regionPixels, nBlocks, regionLen,
-                                  a, canvas, path, rect, faceColor, edgeColor);
+                        drawBlock(plotPointedPolygons, pointLeft, edged, (float) s * xScaling, (float) width,
+                                  pointSlop, pH, yScaledOffset, xOffset, canvas, path, rect, faceColor, edgeColor);
                         idx_begin = idx;
                     }
                 }
+                // Draw final block
                 s = (double)a.blocks[idx_begin].start - regionBegin;
                 e = (double)a.blocks[idx - 1].end - regionBegin;
                 width = (e - s) * xScaling;
-                drawBlock(plotPointedPolygons, pointLeft, edged, (float) s * xScaling, (float) e, (float) width,
-                          pointSlop, pH, yScaledOffset, xOffset, regionPixels, nBlocks, regionLen,
-                          a, canvas, path, rect, faceColor, edgeColor);
+                drawBlock(plotPointedPolygons, pointLeft, edged, (float) s * xScaling, (float) width,
+                          pointSlop, pH, yScaledOffset, xOffset, canvas, path, rect, faceColor, edgeColor);
                 idx_begin = idx;
 
                 idx = 1;
@@ -941,15 +990,12 @@ namespace Drawing {
                     }
                 }
 
-            } else if (nBlocks == 1) {
+            } else {
                 s = (double)a.blocks[0].start - regionBegin;
                 e = (double)a.blocks[0].end - regionBegin;
                 width = (e - s) * xScaling;
-                drawBlock(plotPointedPolygons, pointLeft, edged, (float) s * xScaling, (float) e, (float) width,
-                          pointSlop, pH, yScaledOffset, xOffset, regionPixels, nBlocks, regionLen,
-                          a, canvas, path, rect, faceColor, edgeColor);
-            } else {
-                continue;
+                drawBlock(plotPointedPolygons, pointLeft, edged, (float) s * xScaling, (float) width,
+                          pointSlop, pH, yScaledOffset, xOffset, canvas, path, rect, faceColor, edgeColor);
             }
 
             // add soft-clip blocks
@@ -971,8 +1017,7 @@ namespace Drawing {
                     if (e > 0 && s < regionLen && width > 0) {
                         if (pointLeft && plotPointedPolygons) {
                             drawLeftPointedRectangle(canvas, pH, yScaledOffset, s * xScaling, width * xScaling,
-                                                     regionPixels, xOffset,
-                                                     (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip,
+                                                     xOffset, (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip,
                                                      path, pointSlop, false, edgeColor);
                         } else {
                             drawRectangle(canvas, pH, yScaledOffset, (s * xScaling) + xOffset, width * xScaling,
@@ -1000,8 +1045,7 @@ namespace Drawing {
                     if (s < regionLen && e > 0) {
                         if (!pointLeft && plotPointedPolygons) {
                             drawRightPointedRectangle(canvas, pH, yScaledOffset, s * xScaling, width * xScaling,
-                                                      regionPixels, xOffset,
-                                                      (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip, path,
+                                                      xOffset, (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip, path,
                                                       pointSlop, false, edgeColor);
                         } else {
                             drawRectangle(canvas, pH, yScaledOffset, (s * xScaling) + xOffset, width * xScaling,
@@ -1011,12 +1055,7 @@ namespace Drawing {
                 }
             }
 
-
-
             // add mismatches
-//            if (regionLen > opts.snp_threshold && plotSoftClipAsBlock) {
-//                continue;
-//            }
             if (l_seq == 0) {
                 continue;
             }
@@ -1025,8 +1064,6 @@ namespace Drawing {
                 mmPosOffset = 0.05;
                 mmScaling = 0.9;
             } else {
-
-
                 mmPosOffset = 0;
                 mmScaling = 1;
             }
@@ -1042,7 +1079,7 @@ namespace Drawing {
             }
             if (opts.parse_mods && regionLen <= opts.mod_threshold) {
                 drawMods(canvas, rect, theme, cl.region, a, (float) width, xScaling, xOffset, mmPosOffset,
-                         yScaledOffset, pH, l_qseq, monitorScale, fc5mc, fc5hmc, fcOther);
+                         yScaledOffset, pH, l_qseq, monitorScale); //, theme.fc5mc, theme.fc5hmc, theme.fcOther);
             }
 
             // add insertions
@@ -1176,7 +1213,7 @@ namespace Drawing {
                                     break;
                             }
                             paint.setStyle(SkPaint::kStroke_Style);
-                            paint.setStrokeWidth(2);
+                            paint.setStrokeWidth(monitorScale);
                             path.reset();
                             path.moveTo(x_a, y);
                             path.lineTo(x_b, y);
@@ -1190,7 +1227,8 @@ namespace Drawing {
 
     void drawRef(const Themes::IniOptions &opts,
                  std::vector<Utils::Region> &regions, int fb_width,
-                 SkCanvas *canvas, const Themes::Fonts &fonts, float h, float nRegions, float gap) {
+                 SkCanvas *canvas, const Themes::Fonts &fonts, float h, float nRegions, float gap, float monitorScale,
+                 bool scale_bar) {
         if (regions.empty()) {
             return;
         }
@@ -1202,20 +1240,29 @@ namespace Drawing {
         float textW = fonts.overlayWidth;
         float minLetterSize = (textW > 0) ? ((float) fb_width / (float) regions.size()) / textW : 0;
         int index = 0;
-        float yp = h + 2;
+        float yp;  // for text only.
+        double mmPosOffset = monitorScale;  // draw position of boxes
+        if (scale_bar) {
+            mmPosOffset = gap + h + gap + monitorScale + (gap*0.25);
+            yp = gap + h + gap + h + monitorScale;
+        } else {
+            mmPosOffset = monitorScale + monitorScale;
+            yp = h + monitorScale + monitorScale;
+        }
+
         for (auto &rgn: regions) {
+
             int size = rgn.end - rgn.start;
             double xScaling = xPixels / size;
             const char *ref = rgn.refSeq;
             if (ref == nullptr) {
                 continue;
             }
-            double mmPosOffset, mmScaling;
+            double mmScaling;
             if (size < 250) {
-                mmPosOffset = 2;// 0.05;
                 mmScaling = 0.9 * xScaling;
             } else {
-                mmPosOffset = 2; //h * 0.2;
+
                 mmScaling = 1 * xScaling;
             }
             double i = regionW * index;
@@ -1306,7 +1353,7 @@ namespace Drawing {
 
     void drawBorders(const Themes::IniOptions &opts, float fb_width, float fb_height,
                      SkCanvas *canvas, size_t nRegions, size_t nbams, float trackY, float covY, int nTracks,
-                     float totalTabixY, float refSpace, float gap) {
+                     float totalTabixY, float refSpace, float gap, float totalCovY) {
         SkPath path;
         if (nRegions > 1) {
             float x = fb_width / nRegions;
@@ -1332,7 +1379,8 @@ namespace Drawing {
             canvas->drawPath(path, opts.theme.lcLightJoins);
         }
         if (nTracks > 0) {
-            float y = fb_height - totalTabixY - refSpace;
+            float y = totalCovY + refSpace + (trackY*(float)nbams) + (gap * 0.5);
+//            float y = fb_height - totalTabixY - refSpace;
             float step = totalTabixY / (float) nTracks;
             path.reset();
             for (int i = 0; i < (int) nTracks; ++i) {
@@ -1420,7 +1468,7 @@ namespace Drawing {
 
     void drawTrackBigWig(HGW::GwTrack &trk, const Utils::Region &rgn, SkRect &rect, float padX, float padY,
                          float y, float stepX, float stepY, float gap, float gap2, float xScaling, float t,
-                         Themes::IniOptions &opts, SkCanvas *canvas, const Themes::Fonts &fonts) {
+                         Themes::IniOptions &opts, SkCanvas *canvas, const Themes::Fonts &fonts, SkPaint &faceColour) {
         if (trk.bigWig_intervals == nullptr || trk.bigWig_intervals->l == 0) {
             return;
         }
@@ -1492,24 +1540,19 @@ namespace Drawing {
         }
     }
 
-    int getPt( int n1 , int n2 , float perc ) {
-        int diff = n2 - n1;
-        return n1 + ( diff * perc );
-    }
-
     void drawTrackBlock(int start, int stop, std::string &rid, const Utils::Region &rgn, SkRect &rect, SkPath &path,
                         float padX, float padY,
-                        float y, float h, float stepX, float stepY, float gap, float gap2, float xScaling, float t,
+                        float y, float h, float stepX, float stepY, float gap, float gap2, float xScaling,
                         Themes::IniOptions &opts, SkCanvas *canvas, const Themes::Fonts &fonts,
                         bool add_text, bool add_rect, bool v_line, bool shaded, float *labelsEnd, std::string &vartype,
-                        float monitorScale, std::vector<TextItem> &text, bool addArc, bool isRoi) {
+                        float monitorScale, std::vector<TextItem> &text, bool addArc, bool isRoi, SkPaint &faceColour, float pointSlop, float strand) {
         float x = 0;
         float w;
 
-        SkPaint faceColour, arcColour;
-
+        SkPaint arcColour;
+//        SkPaint faceColour, arcColour;
         if (isRoi) {
-            faceColour = opts.theme.fcRoi;
+//            faceColour = opts.theme.fcRoi;
         } else {
             if (shaded) {
                 faceColour = opts.theme.fcCoverage;
@@ -1553,12 +1596,12 @@ namespace Drawing {
         }
 
         x = (float) (start - rgn.start) * xScaling;
-        w = (float) (stop - start) * xScaling;
+        w = std::fmax(monitorScale, (float) (stop - start) * xScaling);
         rect.setXYWH(x + padX, y + padY, w, h);
 
-        if (rect.bottom() == 0) {
-            return;
-        }
+//        if (rect.bottom() == 0) {
+//            return;
+//        }
         if (addArc) {
             arcColour.setStyle(SkPaint::kStroke_Style);
             arcColour.setStrokeWidth(monitorScale);
@@ -1600,16 +1643,22 @@ namespace Drawing {
 
         }
         else if (add_rect) {
+            if (strand == 1) {  // +
+                drawRightPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, opts.theme.lcBright, path, pointSlop);
+            } else if (strand == 2) {  // -
+                drawLeftPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, opts.theme.lcBright, path, pointSlop);
+            }
             canvas->drawRect(rect, faceColour);
+
             if (shaded) {
                 canvas->drawRect(rect, opts.theme.lcLightJoins);
             }
         }
-        if (v_line && x != 0) {
-            path.moveTo(x + padX, y + padY);
-            path.lineTo(x + padX, y + h + padY);
-            canvas->drawPath(path, opts.theme.lcLightJoins);
-        }
+//        if (v_line && x != 0) {
+//            path.moveTo(x + padX, y + padY);
+//            path.lineTo(x + padX, y + h + padY);
+//            canvas->drawPath(path, opts.theme.lcLightJoins);
+//        }
 
         if (!add_text) {
             return;
@@ -1648,8 +1697,8 @@ namespace Drawing {
                               const std::vector<Utils::Region> &regions, const Themes::Fonts &fonts,
                               float gap, Utils::TrackBlock &trk, bool any_text, const Utils::Region &rgn, SkRect &rect,
                               SkPath &path, SkPath &path2, float padX, float padY, float stepX, float stepY,
-                              float y, float h, float h2, float h4, float gap2, float xScaling, float t, int nLevels,
-                              float *labelsEnd, std::vector<TextItem> &text, bool vline) {
+                              float y, float h, float h2, float h4, float gap2, float xScaling, int nLevels,
+                              float *labelsEnd, std::vector<TextItem> &text, bool vline, SkPaint &faceColour, float pointSlop, int strand) {
 
         int target = (int) trk.s.size();
         int stranded = trk.strand;
@@ -1658,8 +1707,7 @@ namespace Drawing {
         std::string empty_str;
         if (any_text) {
             drawTrackBlock(trk.start, trk.end, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2,
-                           xScaling, t,
-                           opts, canvas, fonts, true, false, false, false, labelsEnd, empty_str, 0, text, false, false);
+                           xScaling, opts, canvas, fonts, true, false, false, false, labelsEnd, empty_str, 0, text, false, false, faceColour, pointSlop, strand);
         }
         for (int i = 0; i < target; ++i) {
             int s, e;
@@ -1669,8 +1717,8 @@ namespace Drawing {
                 continue;
             }
             bool add_line = (i == 0 && vline);  // vertical line at start of interval
+            assert (i < trk.drawThickness.size());
             uint8_t thickness = trk.drawThickness[i];
-
             if (thickness && s < rgn.end && e > rgn.start) {
 
                 if ((trk.coding_end != -1 && s >= trk.coding_end) ||
@@ -1678,19 +1726,19 @@ namespace Drawing {
                     thickness = 1;
                 }
 
-                if (s < trk.coding_end && e > trk.coding_end) { //overlaps, split in to two blocks!
+                if (s < trk.coding_end && e > trk.coding_end) { //overlaps, split into two blocks!
                     drawTrackBlock(s, trk.coding_end, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap,
-                                   gap2, xScaling, t,opts, canvas, fonts, false, true, add_line, false, labelsEnd, empty_str, 0, text, false, false);
+                                   gap2, xScaling, opts, canvas, fonts, false, true, add_line, false, labelsEnd, empty_str, 0, text, false, false, faceColour, pointSlop, strand);
                     drawTrackBlock(trk.coding_end, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap,
-                                   gap2, xScaling, t,opts, canvas, fonts, false, true, add_line, true, labelsEnd, empty_str, 0, text, false, false);
+                                   gap2, xScaling, opts, canvas, fonts, false, true, add_line, true, labelsEnd, empty_str, 0, text, false, false,  faceColour, pointSlop, strand);
                 }
 
                 else if (thickness == 1) {
                     drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2, xScaling,
-                                   t,opts, canvas, fonts, false, true, add_line, true, labelsEnd, empty_str, 0, text, false, false);
+                                   opts, canvas, fonts, false, true, add_line, true, labelsEnd, empty_str, 0, text, false, false, faceColour, pointSlop, strand);
                 } else {
                     drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2, xScaling,
-                                   t,opts, canvas, fonts, false, true, add_line, false, labelsEnd, empty_str, 0, text, false, false);
+                                   opts, canvas, fonts, false, true, add_line, false, labelsEnd, empty_str, 0, text, false, false, faceColour, pointSlop, strand);
                 }
             }
             float x, yy, w;
@@ -1729,19 +1777,19 @@ namespace Drawing {
 
     void drawTracks(Themes::IniOptions &opts, float fb_width, float fb_height,
                     SkCanvas *canvas, float totalTabixY, float tabixY, std::vector<HGW::GwTrack> &tracks,
-                    std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, float gap, float monitorScale) {
+                    std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, float gap, float monitorScale, float sliderSpace) {
         // All tracks are converted to TrackBlocks and then drawn
-        if (tracks.empty() || regions.empty()) {
+        if (tracks.empty() || regions.empty() || tabixY <= 0) {
             return;
         }
         float gap2 = 2 * gap;
         float padX = gap;
 
         float stepX = fb_width / (float) regions.size();
-        float refSpace = fonts.overlayHeight;
-        float stepY = (totalTabixY) / (float) tracks.size();
+        float stepY = tabixY;
+        stepY -= sliderSpace - gap;  // todo this should not be needed
 
-        float y = fb_height - totalTabixY - refSpace;  // start of tracks on canvas
+        float y = fb_height - totalTabixY - sliderSpace; // + gap;  // start of tracks on canvas
         float t = (float) 0.005 * fb_width;
 
         SkRect rect{};
@@ -1764,13 +1812,15 @@ namespace Drawing {
             rgn.featureLevels.resize(tracks.size());
             for (auto &trk: tracks) {
 
+                SkPaint faceColour = trk.faceColour;
+
                 float right = ((float) (rgn.end - rgn.start) * xScaling) + padX;
                 canvas->save();
                 canvas->clipRect({padX, y + padY, right, y + padY + stepY}, false);
                 trk.fetch(&rgn);
                 if (trk.kind == HGW::BIGWIG) {
                     drawTrackBigWig(trk, rgn, rect, padX, padY, y + (stepY * trackIdx), stepX, stepY, gap, gap2,
-                                    xScaling, t, opts, canvas, fonts);
+                                    xScaling, t, opts, canvas, fonts, faceColour);
                     trackIdx += 1;
                     canvas->restore();
                     continue;
@@ -1795,16 +1845,20 @@ namespace Drawing {
 
                 float blockStep = ((stepY) / (float) nLevels);
                 float blockSpace = blockStep * 0.35;
-                float h = std::fmin(blockSpace, 20);
+                float h = std::fmin(blockSpace, 10 * monitorScale);
+
                 float h2 = h * 0.5;
                 float h4 = h2 * 0.5;
-                float step_track = (stepY - gap2) / ((float) nLevels);
+
+                float pointSlop = (tan(0.6) * (h2));
+                float step_track = (tabixY - gap2) / ((float) nLevels);
                 bool isBed12 = !trk.parts.empty() && trk.parts.size() >= 12;
                 float textLevelEnd = 0;  // makes sure text doesnt overlap on same level
 
                 for (auto &f: features) {
                     float padY_track = padY + (step_track * f.level);
                     float *fLevelEnd = (nLevels > 1) ? &labelsEndLevels[f.level] : &textLevelEnd;
+                    int strand = f.strand;
                     if (isGFF || isBed12) {
                         if (!f.anyToDraw || f.start > rgn.end || f.end < rgn.start) {
                             continue;
@@ -1813,17 +1867,17 @@ namespace Drawing {
                                              fonts, gap,
                                              f, any_text, rgn, rect, path, path2, padX, padY_track, stepX, step_track,
                                              y, h, h2, h4, gap2,
-                                             xScaling, t, nLevels, fLevelEnd, text, add_line);
+                                             xScaling, nLevels, fLevelEnd, text, add_line, faceColour, pointSlop, strand);
 
                     } else {
                         drawTrackBlock(f.start, f.end, f.name, rgn, rect, path, padX, padY_track, y, h, stepX, stepY,
                                        gap, gap2,
-                                       xScaling, t, opts, canvas, fonts, any_text, true, add_line, false, fLevelEnd, f.vartype, monitorScale,
-                                       text, opts.sv_arcs, trk.kind == HGW::FType::ROI);
+                                       xScaling, opts, canvas, fonts, any_text, true, add_line, false, fLevelEnd, f.vartype, monitorScale,
+                                       text, opts.sv_arcs, trk.kind == HGW::FType::ROI, faceColour, pointSlop, strand);
                     }
                 }
                 trackIdx += 1;
-                padY += stepY;
+                padY += tabixY;
                 if (fonts.overlayHeight * nLevels * 2 < stepY && features.size() < 500) {
                     for (const auto&t: text) {
                         canvas->drawTextBlob(t.text, t.x, t.y, opts.theme.tcDel);
@@ -1838,20 +1892,128 @@ namespace Drawing {
 
     }
 
+
+    std::string floatToStringCommas(float num, int precision=1) {
+        std::stringstream stream;
+        std::string s;
+        int n;
+        if ((float)((int)num) == num) {
+            precision = 0;
+        }
+        if (precision > 0) {
+            stream << std::fixed << std::setprecision(precision) << num;
+            s = stream.str();
+            size_t dotPos = s.find('.');
+            if (dotPos != std::string::npos) {
+                n = dotPos - 3;
+            } else {
+                n = s.size() - 3;
+            }
+        } else {
+            s = std::to_string(int(num));
+            n = s.size() - 3;
+        }
+        int end = (num >= 0) ? 0 : 1;
+        while (n > end) {
+            s.insert(n, ",");
+            n -= 3;
+        }
+        return s;
+    }
+
+    void posToText(int num, int regionLen, std::string &a) {
+        assert (num >= 0);
+        if (num == 0) {
+            a = "0";
+            return;
+        }
+//        int rounding = std::min(std::ceil(std::log10(num)), std::ceil(std::log10(regionLen)));
+        int rounding = std::ceil(std::log10(regionLen));
+        double d;
+        switch (rounding) {
+            case 0:
+            case 1:
+            case 2:
+                a = floatToStringCommas(num, 0);
+                a += " bp";
+                break;
+            case 3:
+            case 4:
+                d = (double)num / 1e3;
+                d = std::floor(d * 10) / 10;
+                a = floatToStringCommas((float)d, 1);
+//                a = Utils::removeZeros((float)d);
+                a += " kb";
+                break;
+            case 5:
+                d = (double)num / 1e3;
+                d = std::floor(d * 10) / 10;
+                a = Term::intToStringCommas((int)d - 1);
+                a += " kb";
+                break;
+            case 6:
+                d = (double)num / 1e6;
+                d = std::floor(d * 10) / 10;
+                a = Utils::removeZeros((float)d);
+                a += " mb";
+                break;
+            default:
+                d = (double)num / 1e6;
+                d = std::ceil(d * 10) / 10;
+                a = floatToStringCommas(d);
+                a += " mb";
+                break;
+        }
+    }
+
+    double NiceNumber (const double Value, const int Round) {  // https://stackoverflow.com/questions/4947682/intelligently-calculating-chart-tick-positions
+        int    Exponent;
+        double Fraction;
+        double NiceFraction;
+        Exponent = (int) floor(log10(Value));
+        Fraction = Value/pow(10, (double)Exponent);
+        if (Round) {
+            if (Fraction < 1.5)
+                NiceFraction = 1.0;
+            else if (Fraction < 3.0)
+                NiceFraction = 2.0;
+            else if (Fraction < 7.0)
+                NiceFraction = 5.0;
+            else
+                NiceFraction = 10.0;
+        }
+        else {
+            if (Fraction <= 1.0)
+                NiceFraction = 1.0;
+            else if (Fraction <= 2.0)
+                NiceFraction = 2.0;
+            else if (Fraction <= 5.0)
+                NiceFraction = 5.0;
+            else
+                NiceFraction = 10.0;
+        }
+
+        return NiceFraction*pow(10, (double)Exponent);
+    }
+
+    int calculateInterval(int regionLen) {
+        assert (regionLen > 0);
+        int interval = std::pow(10, std::floor(std::log10(regionLen)) - 1);
+        return interval;
+    }
+
+    // draw scale bar and ideogram
     void drawChromLocation(const Themes::IniOptions &opts,
+                           const Themes::Fonts &fonts,
                            const std::vector<Utils::Region> &regions,
-                           const std::unordered_map<std::string, std::vector<Themes::Band>> &ideogram,
+                           const std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
                            SkCanvas *canvas,
                            const faidx_t *fai, float fb_width,
-                           float fb_height, float monitorScale) {
+                           float fb_height, float monitorScale, float plot_gap) {
         SkPaint paint, light_paint, line;
         paint.setARGB(255, 240, 32, 73);
-//        if (opts.theme_str == "igv") {
-//            paint.setARGB(255, 87, 95, 107);
-//        } else {
-//            paint.setARGB(255, 149, 149, 163);
-//        }
-        paint.setStrokeWidth(2);
+
+        paint.setStrokeWidth(monitorScale);
         paint.setStyle(SkPaint::kStroke_Style);
 
         light_paint = opts.theme.lcLightJoins;
@@ -1860,6 +2022,7 @@ namespace Drawing {
         line.setStrokeWidth(monitorScale);
         line.setStyle(SkPaint::kStroke_Style);
         SkRect rect{};
+        SkRect clip{};
         SkPath path{};
 
         const float yh = std::fmax((float) (fb_height * 0.0175), 10 * monitorScale);
@@ -1868,9 +2031,10 @@ namespace Drawing {
 
         const float top = fb_height - (yh * 2);
         const float colWidth = (float) fb_width / (float) regions.size();
-        const float gap = 50;
-        const float gap2 = 100;
+        const float gap = 25 * monitorScale;  // ideogram is smaller than the full page width, by this ammount
+        const float gap2 = 50 * monitorScale;
         const float drawWidth = colWidth - gap2;
+        const float scaleWidth = colWidth - plot_gap - plot_gap;
 
         if (drawWidth < 0) {
             return;
@@ -1894,7 +2058,7 @@ namespace Drawing {
 
             auto it = ideogram.find(region.chrom);
             if (it != ideogram.end()) {
-                const std::vector<Themes::Band>& bands = it->second;
+                const std::vector<Ideo::Band>& bands = it->second;
                 for (const auto& b : bands) {
                     float sb = (float) b.start / (float)region.chromLen;
                     float eb = (float) b.end / (float)region.chromLen;
@@ -1915,7 +2079,70 @@ namespace Drawing {
                          yh + yh_one_third);
             canvas->drawRect(rect, paint);
 
+            // draw scale bar
+            if (opts.scale_bar) {
+
+                float top2 = fonts.overlayHeight + plot_gap;
+                //xp = (regionIdx * colWidth);// + plot_gap;
+
+                double nice_range = NiceNumber((double)region.regionLen, 0);
+                double nice_tick = NiceNumber(nice_range/(10 - 1), 1) * 2;
+                if (nice_tick < 1) {
+                    continue;
+                }
+
+                canvas->save();
+                clip.setXYWH(plot_gap + (regionIdx * colWidth), 1, scaleWidth, fonts.overlayHeight * 2 + plot_gap);
+                canvas->clipRect(clip, SkClipOp::kIntersect );
+                canvas->drawRect(clip, opts.theme.bgPaint);
+
+                int position = (region.start / (int)nice_tick) * (int)nice_tick;
+                int num_divisions = nice_range / nice_tick;
+
+                std::string text;
+                std::string last;
+                SkPath path;
+                double xScaling = (scaleWidth / (double)region.regionLen);
+
+                float xOffset = plot_gap + (colWidth * regionIdx);
+                float last_x = -1;
+
+                for (int i = 0; i <= num_divisions; ++i) {
+
+                    float x_pos = xOffset + ((position - region.start) * xScaling) - (xScaling*0.5);
+                    if (position == 0) {
+                        last_x = x_pos;
+                        position += nice_tick;
+                        continue;
+                    }
+                    last_x = last_x + ((x_pos - last_x) * 0.5);
+
+                    if (last_x > 0) {
+                        path.moveTo(last_x, top2 + yh*0.2);
+                        path.lineTo(last_x, top2 + yh*0.70);
+                        canvas->drawPath(path, opts.theme.lcJoins);
+                    }
+
+                    path.moveTo(x_pos, top2 + yh*0.2);
+                    path.lineTo(x_pos, top2 + yh*0.70);
+                    canvas->drawPath(path, opts.theme.lcJoins);
+
+                    last_x = x_pos;
+
+                    posToText(position, region.regionLen, text);
+
+                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(text.c_str(), fonts.overlay);
+                    float text_width = fonts.overlay.measureText(text.c_str(), text.length(), SkTextEncoding::kUTF8);
+                    float t_half = text_width * 0.5;
+                    canvas->drawTextBlob(blob, x_pos - t_half, top2, opts.theme.tcDel);
+                    last = text;
+                    position += nice_tick;
+                }
+                canvas->restore();
+
+            }
             regionIdx += 1;
         }
     }
+
 }

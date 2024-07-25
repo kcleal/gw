@@ -6,6 +6,7 @@ tag
 
 Usage
 -----
+Dont forget quotes around glob:
 
 python3 plot.py '*1.benchmark.csv' threads_1
 python3 plot.py '*.benchmark.csv' threads_1_or_4
@@ -30,6 +31,7 @@ for p in tables:
 df = pd.concat(dfs)
 df['RSS'] = df['RSS'] / 1e6
 print(df.columns)
+print(set(df.name))
 gw_times = {}
 gw_mem = {}
 samtools = {}
@@ -39,10 +41,10 @@ for idx, grp in df[(df['name'] == 'gw') & (df['threads'] == 1)].groupby('region 
 for idx, grp in df.groupby(['region size (bp)', 'threads']):
     samtools[idx] = grp['samtools_count (s)'].mean()
 
-print(gw_times)
 # use the mean time of 2bp region as start_time
-min_load_time = {k: dd['time (s)'].min() for k, dd in df[df['region size (bp)'] == 2].groupby('name')}
-min_memory = {k: dd['RSS'].min() for k, dd in df[df['region size (bp)'] == 2].groupby('name')}
+min_load_time = {k: dd['time (s)'].min() for k, dd in df[df['region size (bp)'] == df['region size (bp)'].min()].groupby('name')}
+print(min_load_time)
+min_memory = {k: dd['RSS'].min() for k, dd in df[df['region size (bp)'] == df['region size (bp)'].min()].groupby('name')}
 df['total_time'] = df['time (s)']
 df['start_time'] = [min_load_time[k] for k in df['name']]
 df['total_mem'] = df['RSS']
@@ -75,7 +77,7 @@ df2['relative_render_time'] = [k / gw_render_times[s] if gw_render_times[s] > 0 
 df2 = df2[['name', 'region size (bp)', 'samtools', 'total_time', 'relative_time',
            'start_time', 'render', 'relative_render_time', 'total_mem', 'start_mem', 'relative_mem']]
 
-order = {'gw': 0, 'gw -t4': 0.5, 'igv': 1, 'igv -t4': 1.5, 'jb2export': 2, 'samplot': 3, 'wally': 4, 'bamsnap': 5, 'genomeview': 6}
+order = {'gw': 0, 'gw -t4': 0.5, 'igv': 1, 'igv -t4': 1.5, 'jb2export': 2, 'samplot': 3, 'wally': 4, 'bamsnap': 5, 'genomeview': 6, 'samtools': 7, 'samtools -t4': 8}
 df2['srt'] = [order[k] for k in df2['name']]
 df2.sort_values(['srt', 'name'], inplace=True)
 del df2['srt']
@@ -88,30 +90,36 @@ with open(f'benchmark.{tag}.md', 'w') as b:
 custom_params = {"axes.spines.right": False, "axes.spines.top": False}
 sns.set_theme(style="ticks", rc=custom_params)
 
-palette = sns.color_palette('tab10', n_colors=8)
+palette = sns.color_palette('tab10', n_colors=10)
 colors = {}
-for clr, name in zip(palette, ('gw', 'gw -t4', 'igv', 'igv -t4', 'jb2export', 'samplot', 'bamsnap', 'genomeview')):
+for clr, name in zip(palette, ('gw', 'gw -t4', 'igv', 'igv -t4', 'jb2export', 'samplot', 'bamsnap', 'genomeview', 'samtools', 'samtools -t4')):
     colors[name] = clr
 
 #
 for item in ['total_time', 'relative_time', 'render', 'relative_render_time', 'total_mem', 'relative_mem']:
-    g = sns.catplot(data=df2,
-                    x='region size (bp)', y=item, hue='name',
-                    kind='point', alpha=0.6, palette=colors)
 
-    g.ax.set_xlabel("Region size (bp)", fontsize=14)
+    fig, ax = plt.subplots()
+    fig.set_size_inches(7, 6)
+    g = sns.pointplot(data=df2,
+                    x='region size (bp)', y=item, hue='name',
+                    alpha=0.6, palette=colors, ax=ax)
+                    # kind='point', alpha=0.6, palette=colors, ax=ax)
+    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
+    ax.set_xlabel("Region size (bp)", fontsize=14)
     label = list(item.replace('_', ' '))
     label[0] = label[0].upper()
-    g.ax.set_ylabel(''.join(label), fontsize=14)
-    g.ax.tick_params(labelsize=15)
-    g.ax.set_yscale('log')
-    g.set_xticklabels(rotation=30)
+    ax.set_ylabel(''.join(label), fontsize=14)
+    ax.tick_params(labelsize=15)
+    ax.set_yscale('log')
+    # g.set_xticklabels(rotation=30)
+    plt.xticks(rotation=30)
     plt.subplots_adjust(left=0.15)
+    plt.subplots_adjust(right=0.75)
     plt.subplots_adjust(bottom=0.25)
     plt.grid(True, which="major", ls="-", c='gray', alpha=0.2)
-    labels = [item.get_text() for item in g.ax.get_xticklabels()]
-    labels = ["{:,}".format(int(l)) for l in labels]
-    g.ax.set_xticklabels(labels)
+    # labels = [item.get_text() for item in g.ax.get_xticklabels()]
+    # labels = ["{:,}".format(int(l)) for l in labels]
+    # g.ax.set_xticklabels(labels)
     plt.savefig(f'plots/benchmark_{item}_log.pdf')
     plt.close()
 # plt.show()

@@ -58,6 +58,7 @@ namespace Parse {
         opMap["AS"] = AS;
         opMap["BX"] = BX;
         opMap["RX"] = RX;
+        opMap["HP"] = HP;
 
         opMap["eq"] = EQ;
         opMap["ne"] = NE;
@@ -90,10 +91,15 @@ namespace Parse {
         opMap["supplementary"] = SUPPLEMENTARY;
 
         opMap["del"] = Property::DEL;
+        opMap["deletion"] = Property::DEL;
         opMap["inv_f"] = Property::INV_F;
+        opMap["inversion_forward"] = Property::INV_F;
         opMap["inv_r"] = Property::INV_R;
+        opMap["inversion_reverse"] = Property::INV_R;
         opMap["dup"] = Property::DUP;
+        opMap["duplication"] = Property::DUP;
         opMap["tra"] = Property::TRA;
+        opMap["translocation"] = Property::TRA;
         opMap["pattern"] = Property::PATTERN;
 
         permit[MAPQ] = numeric_like;
@@ -133,6 +139,7 @@ namespace Parse {
         permit[TC] = numeric_like;
         permit[UQ] = numeric_like;
         permit[AS] = numeric_like;
+        permit[HP] = numeric_like;
 
         permit[PATTERN] = string_like;
 
@@ -346,15 +353,15 @@ namespace Parse {
             try {
                 e.ival = std::stoi(output.back());
             } catch (...) {
-                if (output.back() == "del") {
+                if (output.back() == "del" || output.back() == "deletion") {
                     e.ival = Segs::Pattern::DEL;
-                } else if (output.back() == "inv_f") {
+                } else if (output.back() == "inv_f" || output.back() == "inversion_forward") {
                     e.ival = Segs::Pattern::INV_F;
-                } else if (output.back() == "inv_r") {
+                } else if (output.back() == "inv_r" || output.back() == "inversion_reverse") {
                     e.ival = Segs::Pattern::INV_R;
-                } else if (output.back() == "dup") {
+                } else if (output.back() == "dup" || output.back() == "duplication") {
                     e.ival = Segs::Pattern::DUP;
-                } else if (output.back() == "tra") {
+                } else if (output.back() == "tra" || output.back() == "translocation") {
                     e.ival = Segs::Pattern::TRA;
                 } else if (output.back() == "paired") {
                     e.ival = Property::PAIRED;
@@ -522,6 +529,7 @@ namespace Parse {
                         break;
                     case TLEN:
                         int_val = aln.delegate->core.isize;
+
                         break;
                     case ABS_TLEN:
                         int_val = std::abs(aln.delegate->core.isize);
@@ -610,6 +618,9 @@ namespace Parse {
                         break;
                     case AS:
                         getIntTag("AS", int_val, aln);
+                        break;
+                    case HP:
+                        getIntTag("HP", int_val, aln);
                         break;
                     case CIGAR:
                          getCigarStr(str_val, aln);
@@ -976,6 +987,7 @@ namespace Parse {
     }
 
     void tryTabCompletion(std::string &inputText, std::ostream& out, int& charIndex) {
+
         std::vector<std::string> parts = Utils::split(inputText, ' ');
         if (parts.size() == 3) {  // chunk first two options
             std::string tmp = parts[0];
@@ -985,12 +997,11 @@ namespace Parse {
             parts[1] = tmp3;
             parts.resize(2);
         }
-        std::string globstr;
-        if (parts.back() == "./") {
-            globstr = "./*";
-        } else {
-            globstr = parts.back() + "*";
+        if (parts.back()[0] == '~') {
+            parts.back() = tilde_to_home(parts.back());
+            charIndex = parts.front().size() + parts.back().size();
         }
+        std::string globstr = parts.back() + "*";
         parts.back() = tilde_to_home(parts.back());
         std::vector<std::filesystem::path> glob_paths = glob_cpp::glob(globstr);
         if (glob_paths.size() == 1) {
