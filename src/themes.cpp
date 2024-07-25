@@ -304,7 +304,7 @@ namespace Themes {
         fcTrack.setARGB(200, 227, 232, 255);
         bgPaint.setARGB(255, 10, 10, 20);
         bgPaintTiled.setARGB(255, 40, 40, 40);
-        bgMenu.setARGB(255, 20, 20, 30);
+        bgMenu.setARGB(255, 30, 30, 40);
         fcNormal.setARGB(255, 90, 90, 95);
         fcDel.setARGB(255, 185, 25, 25);
         fcDup.setARGB(255, 24, 100, 198);

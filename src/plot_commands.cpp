@@ -129,19 +129,24 @@ namespace Commands {
     }
 
     Err sam(Plot* p, std::string& command, std::vector<std::string>& parts, std::ostream& out) {
+        p->redraw = true;
         if (!p->selectedAlign.empty()) {
             if (command == "sam") {
                 Term::printSelectedSam(p->selectedAlign, out);
             } else if (parts.size() == 3 && (Utils::endsWith(parts[2], ".sam") || Utils::endsWith(parts[2], ".bam") || Utils::endsWith(parts[2], ".cram"))) {
                 std::string o_str = parts[2];
-                sam_hdr_t* hdr = p->headers[p->regionSelection];
+                if (p->headers.empty() || p->regionSelection >= p->headers.size()) {
+                    return Err::SILENT;
+                }
+                sam_hdr_t *hdr = sam_hdr_dup(p->headers[p->regionSelection]);
+
                 cram_fd* fc = nullptr;
                 htsFile *h_out = nullptr;
                 bool write_cram = false;
                 int res;
                 std::string full_path = Parse::tilde_to_home(parts[2]);
                 const char* outf = full_path.c_str();
-                if (parts[1] == ">") {
+                if (parts[1] == ">" || !Utils::is_file_exist(full_path)) {
                     out << "Creating new file: " << outf << "\n";
                     if (Utils::endsWith(o_str, ".sam")) {
                         h_out = hts_open(outf, "w");
@@ -215,7 +220,6 @@ namespace Commands {
                 sam_close(h_out);
             }
         }
-        p->redraw = false;
         p->processed = true;
         return Err::NONE;
     }
@@ -329,6 +333,7 @@ namespace Commands {
     }
 
     Err var_info(Plot* p, std::string& command, std::vector<std::string>& parts, std::ostream& out) {
+        p->redraw = true;
         if (p->variantTracks.empty()) {
             return Err::EMPTY_VARIANTS;
         }
@@ -390,15 +395,16 @@ namespace Commands {
     }
 
     Err count(Plot* p, std::string& command, std::ostream& out) {
+        p->redraw = true;
         std::string str = command;
         str.erase(0, 6);
         Parse::countExpression(p->collections, str, p->headers, p->bam_paths, (int)p->bams.size(), (int)p->regions.size(), out);
-        p->redraw = false;
         p->processed = true;
         return Err::NONE;
     }
 
     Err addFilter(Plot* p, std::string& command, std::ostream& out) {
+        p->redraw = true;
         std::string str = command;
         str.erase(0, 7);
         if (str.empty()) {
@@ -414,12 +420,12 @@ namespace Commands {
         }
         p->imageCache.clear();
         p->imageCacheQueue.clear();
-        p->redraw = true;
         p->processed = false;
         return Err::NONE;
     }
 
     Err tags(Plot* p, std::string& command, std::ostream& out) {
+        p->redraw = true;
         if (!p->selectedAlign.empty()) {
             std::string str = command;
             str.erase(0, 4);
@@ -449,12 +455,12 @@ namespace Commands {
                 out << std::endl;
             }
         }
-        p->redraw = false;
         p->processed = true;
         return Err::NONE;
     }
 
     Err mate(Plot* p, std::string& command, std::ostream& out) {
+        p->redraw = true;
         std::string mate;
         Utils::parseMateLocation(p->selectedAlign, mate, p->target_qname);
         if (mate.empty()) {
@@ -500,6 +506,7 @@ namespace Commands {
     }
 
     Err findRead(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        p->redraw = true;
         if (!p->target_qname.empty() && parts.size() == 1) {
             return Err::NONE;
         } else if (parts.size() == 2) {
@@ -509,7 +516,6 @@ namespace Commands {
             return Err::NONE;
         }
         p->highlightQname();
-        p->redraw = true;
         p->processed = true;
         p->imageCache.clear();
         p->imageCacheQueue.clear();
@@ -517,6 +523,7 @@ namespace Commands {
     }
 
     Err setYlim(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        p->redraw = true;
         try {
             if (!p->opts.tlen_yscale) {
                 p->opts.ylim = std::stoi(parts.back());
@@ -530,15 +537,11 @@ namespace Commands {
             return Err::NONE;
         }
         refreshGw(p);
-//        p->imageCache.clear();
-//        p->imageCacheQueue.clear();
-//        HGW::refreshLinked(p->collections, p->opts, &p->samMaxY);
-//        p->processed = true;
-//        p->redraw = true;
         return Err::NONE;
     }
 
     Err indelLength(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        p->redraw = true;
         int indel_length;
         try {
             indel_length = std::stoi(parts.back());
@@ -552,7 +555,7 @@ namespace Commands {
         } else {
             p->processed = false;
         }
-        p->redraw = true;
+
         p->imageCache.clear();
         p->imageCacheQueue.clear();
         return Err::NONE;
@@ -560,6 +563,7 @@ namespace Commands {
 
     Err remove(Plot* p, std::vector<std::string> parts, std::ostream& out) {
         int ind = 0;
+        p->redraw = true;
         if (Utils::startsWith(parts.back(), "bam")) {
             parts.back().erase(0, 3);
             try {
@@ -600,7 +604,7 @@ namespace Commands {
             p->removeRegion(ind);
 
         }
-        p->redraw = true;
+
         bool clear_filters = false; // removing a region can invalidate indexes so remove them
         for (auto &f : p->filters) {
             if (!f.targetIndexes.empty()) {
@@ -621,6 +625,7 @@ namespace Commands {
     }
 
     Err cov(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        p->redraw = true;
         if (parts.size() > 2) {
             out << termcolor::red << "Error:" << termcolor::reset << " cov must be either 'cov' to toggle coverage or 'cov NUMBER' to set max coverage\n";
             return Err::NONE;
@@ -643,7 +648,6 @@ namespace Commands {
             cl.skipDrawingCoverage = false;
         }
         p->opts.max_coverage = std::max(0, p->opts.max_coverage);
-        p->redraw = true;
         p->processed = false;
         p->imageCache.clear();
         p->imageCacheQueue.clear();
@@ -651,6 +655,7 @@ namespace Commands {
     }
 
     Err theme(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        p->redraw = true;
         if (parts.size() != 2) {
             out << termcolor::red << "Error:" << termcolor::reset << " theme must be either 'igv', 'dark' or 'slate'\n";
             return Err::NONE;
@@ -665,12 +670,12 @@ namespace Commands {
             return Err::OPTION_NOT_UNDERSTOOD;
         }
         p->processed = false;
-        p->redraw = true;
         return Err::NONE;
     }
 
     Err goto_command(Plot* p, std::vector<std::string> parts) {
         Err reason = Err::NONE;
+        p->redraw = true;
         if (parts.size() > 1 && parts.size() < 4) {
             int index = p->regionSelection;
             Utils::Region rgn;
@@ -726,12 +731,12 @@ namespace Commands {
     }
 
     Err grid(Plot* p, std::vector<std::string> parts) {
+        p->redraw = true;
         try {
             p->opts.number = Utils::parseDimensions(parts[1]);
         } catch (...) {
             return Err::PARSE_INPUT;
         }
-        p->redraw = true;
         p->processed = false;
         p->imageCache.clear();
         p->imageCacheQueue.clear();
@@ -739,6 +744,7 @@ namespace Commands {
     }
 
     Err add_region(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        p->redraw = true;
         if (p->mode != Manager::Show::SINGLE) {
             return Err::NONE;
         }
@@ -768,7 +774,6 @@ namespace Commands {
             }
         }
         p->regions.insert(p->regions.end(), new_regions.begin(), new_regions.end());
-        p->redraw = true;
         p->processed = false;
         for (auto &cl: p->collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
         p->imageCache.clear();
@@ -777,6 +782,7 @@ namespace Commands {
     }
 
     Err snapshot(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        p->redraw = true;
         if (parts.size() > 2) {
             return Err::TOO_MANY_OPTIONS;
         }
@@ -1123,7 +1129,7 @@ namespace Commands {
                     return Err::INVALID_PATH;
                 }
                 if (ext == ".vcf" || ext == ".gz" || ext == ".bcf" || ext == ".bed") {
-                    p->addTrack(filename, true, true, true);
+                    p->addTrack(filename, true, false, false);
                     refreshGw(p);
                     return Err::NONE;
                 } else {
@@ -1214,17 +1220,33 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err infer_region_or_feature(Plot* p, std::string& command, std::vector<std::string> parts) {
+    Err infer_region_or_feature(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
         Utils::Region rgn;
         Err reason = Err::NONE;
         try {
             rgn = Utils::parseRegion(command);
         } catch (...) {
+            p->redraw = true;
             return Err::BAD_REGION;
         }
         if (reason == Err::NONE) {
             int res = faidx_has_seq(p->fai, rgn.chrom.c_str());
             if (res <= 0) {
+                p->redraw = true;
+                int num_sequences = faidx_nseq(p->fai);
+                out << "Chromosome names in the fasta index:" << std::endl;
+                for (int i = 0; i < num_sequences; ++i) {
+                    const char* seq_name = faidx_iseq(p->fai, i);
+                    out << seq_name;
+                    if (i < num_sequences - 1) {
+                        out << ", ";
+                    }
+                    if (i > 25) {
+                        out << " ... ";
+                        break;
+                    }
+                }
+                out << std::endl << std::endl;
                 return Err::OPTION_NOT_UNDERSTOOD;
             }
             if (p->mode != Manager::Show::SINGLE) { p->mode = Manager::Show::SINGLE; }
@@ -1256,6 +1278,7 @@ namespace Commands {
                         }
                     }
                 } else {
+                    p->redraw = true;
                     reason = Err::SILENT;
                 }
             }
@@ -1270,8 +1293,8 @@ namespace Commands {
     }
 
     Err update_colour(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
+        p->redraw = true;
         if (parts.size() != 6) {
-
             return Err::OPTION_NOT_UNDERSTOOD;
         }
         int alpha, red, green, blue;
@@ -1283,6 +1306,7 @@ namespace Commands {
         } catch (...) {
             return Err::OPTION_NOT_UNDERSTOOD;
         }
+        refreshGw(p);
         Themes::GwPaint e{};
         std::string &c = parts[1];
         if (c == "bgPaint") { e = Themes::GwPaint::bgPaint; }
@@ -1371,11 +1395,12 @@ namespace Commands {
             return Err::OPTION_NOT_UNDERSTOOD;
         }
         p->opts.theme.setPaintARGB(e, alpha, red, green, blue);
-        refreshGw(p);
+
         return Err::NONE;
     }
 
     Err add_roi(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
+        p->redraw = true;
         if (p->regions.empty()) {
             return Err::SILENT;
         }
@@ -1428,6 +1453,7 @@ namespace Commands {
             p->tracks.back().allBlocks[b.chrom].index();
             p->tracks.back().faceColour = p->opts.theme.fcRoi;
         }
+        refreshGw(p);
         return Err::NONE;
     }
 
@@ -1457,6 +1483,38 @@ namespace Commands {
         p->filters.clear();
         p->target_qname = "";
         for (auto &cl: p->collections) { cl.vScroll = 0; cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
+        return Err::NONE;
+    }
+
+    Err header_command(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
+        p->redraw = true;
+        if (p->headers.empty() || p->regionSelection >= p->headers.size()) {
+            return Err::SILENT;
+        }
+        sam_hdr_t *hdr = p->headers[p->regionSelection];
+        const char* header_text = sam_hdr_str(hdr);
+        std::string header_string(header_text);
+        if (parts.size() == 1) {
+            out << header_string << std::endl;
+        } else if (parts.size() > 3) {
+            return Err::OPTION_NOT_UNDERSTOOD;
+        } else if (parts.back() != "names") {
+            return Err::OPTION_NOT_SUPPORTED;
+        }
+        std::istringstream header_stream(header_string);
+        std::string line;
+        while (std::getline(header_stream, line)) {
+            if (line.rfind("@SQ", 0) == 0) {
+                std::vector<std::string> sq_lines = Utils::split(line, '\t');
+                int i = 0;
+                for (auto & t: sq_lines) {
+                    out << t << "\t";
+                    if (i == 2) {
+                        break;
+                    } ++i;
+                } out << "\n";
+            }
+        }
         return Err::NONE;
     }
 
@@ -1579,6 +1637,7 @@ namespace Commands {
                 {"color",    PARAMS { return update_colour(p, command, parts, out); }},
                 {"roi",      PARAMS { return add_roi(p, command, parts, out); }},
                 {"sort",    PARAMS { return sort_command(p, command, parts, out); }},
+                {"header",    PARAMS { return header_command(p, command, parts, out); }},
 
                 {"count",    PARAMS { return count(p, command, out); }},
                 {"filter",   PARAMS { return addFilter(p, command, out); }},
@@ -1608,7 +1667,7 @@ namespace Commands {
         if (it != functionMap.end()) {
             res = it->second(p, command, parts, out);  // Execute the mapped function
         } else {
-            res = infer_region_or_feature(p, command, parts);
+            res = infer_region_or_feature(p, command, parts, out);
         }
         cache_command_or_handle_err(p, res, out, &p->commandsApplied, command);
         p->inputText = "";

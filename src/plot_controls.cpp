@@ -886,6 +886,8 @@ namespace Manager {
                 for (auto &cl: collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
             } else {
                 bool keep_alive = Menu::navigateMenu(opts, key, action, inputText, &charIndex, &captureText, &textFromSettings, &processText, reference);
+                xDrag = DRAG_UNSET;
+                yDrag = DRAG_UNSET;
                 if (opts.editing_underway) {
                     textFromSettings = true;
                 }
@@ -1199,18 +1201,20 @@ namespace Manager {
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
         bool good = false;
         if (Utils::endsWith(path, ".bam") || Utils::endsWith(path, ".cram")) {
-            good = true;
-            if (print_message) {
-                out << termcolor::magenta << "\nAlignments  " << termcolor::reset << path << "\n";
-            }
-            bam_paths.push_back(path);
             htsFile* f = sam_open(path.c_str(), "r");
             hts_set_threads(f, opts.threads);
-            bams.push_back(f);
             sam_hdr_t *hdr_ptr = sam_hdr_read(f);
-            headers.push_back(hdr_ptr);
             hts_idx_t* idx = sam_index_load(f, path.c_str());
-            indexes.push_back(idx);
+            if (idx != nullptr) {
+                good = true;
+                if (print_message) {
+                    out << termcolor::magenta << "\nAlignments  " << termcolor::reset << path << "\n";
+                }
+                bam_paths.push_back(path);
+                bams.push_back(f);
+                headers.push_back(hdr_ptr);
+                indexes.push_back(idx);
+            }
         } else if (
                 (!vcf_as_track && (Utils::endsWith(path, ".vcf.gz") || Utils::endsWith(path, ".vcf") || Utils::endsWith(path, ".bcf")))
              || (!bed_as_track && (Utils::endsWith(path, ".bed") || Utils::endsWith(path, ".bed.gz")))) {
@@ -1428,6 +1432,8 @@ namespace Manager {
             double xPos_fb = x;
             double yPos_fb = y;
             convertScreenCoordsToFrameBufferCoords(wind, &xPos_fb, &yPos_fb, fb_width, fb_height);
+            xDrag = DRAG_UNSET;
+            yDrag = DRAG_UNSET;
             if (xPos_fb > 50 && xPos_fb < 50 + fonts.overlayWidth * 20 && action == GLFW_RELEASE) {
                 keyPress(GLFW_KEY_ENTER, 0, GLFW_PRESS, 0);
                 return;
@@ -1447,6 +1453,8 @@ namespace Manager {
         // custom clicks for each mode SINGLE/TILED/SETTINGS. Menu navigation is deferred to Menu::navigateMenu
         if (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_LEFT) {
             if (regions.empty()) {
+                xDrag = DRAG_UNSET;
+                yDrag = DRAG_UNSET;
                 return;
             }
 
@@ -1517,6 +1525,8 @@ namespace Manager {
                 }
             }
             if (idx < 0) {
+                xDrag = DRAG_UNSET;
+                yDrag = DRAG_UNSET;
                 return;
             }
 
@@ -1542,11 +1552,15 @@ namespace Manager {
                 if (!opts.tlen_yscale) {
                     if (yW < cl.yOffset) {
                         out << std::endl;
+                        xDrag = DRAG_UNSET;
+                        yDrag = DRAG_UNSET;
                         return;
                     }
                     level = ((yW - (float) cl.yOffset) / yScaling);
                     if (level < 0) {  // print coverage info (mouse Pos functions already prints out cov info to console)
                         out << std::endl;
+                        xDrag = DRAG_UNSET;
+                        yDrag = DRAG_UNSET;
                         return;
                     }
                     level = (int)level;
@@ -1635,6 +1649,8 @@ namespace Manager {
                         region.end = clicked.end - travel;
                     }
                     if (region.start < 0 || region.end < 0) {
+                        xDrag = DRAG_UNSET;
+                        yDrag = DRAG_UNSET;
                         return;
                     }
 //                    delete region.refSeq;
@@ -1648,6 +1664,8 @@ namespace Manager {
                         processed = true;
                         redraw = true;
                         if (bams.empty()) {
+                            xDrag = DRAG_UNSET;
+                            yDrag = DRAG_UNSET;
                             return;
                         }
                         for (auto &col : collections) {
@@ -1671,6 +1689,8 @@ namespace Manager {
 
         } else if (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
             if (regions.empty() || variantTracks.empty()) {
+                xDrag = DRAG_UNSET;
+                yDrag = DRAG_UNSET;
                 return;
             }
             currentVarTrack = &variantTracks[variantFileSelection];
@@ -1708,6 +1728,8 @@ namespace Manager {
                     if (i < (int)currentVarTrack->multiRegions.size() && !bams.empty()) {
                         if (currentVarTrack->blockStart + i < (int)currentVarTrack->multiRegions.size()) {
                             if (currentVarTrack->multiRegions[currentVarTrack->blockStart + i][0].chrom.empty()) {
+                                xDrag = DRAG_UNSET;
+                                yDrag = DRAG_UNSET;
                                 return; // check for "" no chrom set
                             } else {
                                 regions = currentVarTrack->multiRegions[currentVarTrack->blockStart + i];
@@ -1780,9 +1802,13 @@ namespace Manager {
                     if (!scroll_left) {
                         if (currentVarTrack->type == HGW::TrackType::IMAGES ) {
                             if (currentVarTrack->blockStart + nmb > (int)currentVarTrack->image_glob.size() - nmb) {
+                                xDrag = DRAG_UNSET;
+                                yDrag = DRAG_UNSET;
                                 return;
                             }
                         } else if (*currentVarTrack->trackDone) {
+                            xDrag = DRAG_UNSET;
+                            yDrag = DRAG_UNSET;
                             return;
                         }
                         currentVarTrack->blockStart += nmb;
@@ -1826,7 +1852,9 @@ namespace Manager {
             }
         } else if (mode == Manager::SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
             bool keep_alive = Menu::navigateMenu(opts, GLFW_KEY_ENTER, GLFW_PRESS, inputText, &charIndex, &captureText, &textFromSettings, &processText, reference);
-           redraw = true;
+            xDrag = DRAG_UNSET;
+            yDrag = DRAG_UNSET;
+            redraw = true;
             if (opts.editing_underway) {
                 textFromSettings = true;
             }

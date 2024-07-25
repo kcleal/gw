@@ -10,7 +10,6 @@
 #include <string>
 #include "argparse.h"
 #include "BS_thread_pool.h"
-//#include "../include/natsort.hpp"
 #include "glob_cpp.hpp"
 #include "hts_funcs.h"
 #include "parser.h"
@@ -68,7 +67,7 @@ void print_banner() {
 }
 
 // note to developer - update version in workflows/main.yml, menu.cpp, term_out.cpp, and deps/gw.desktop, and installers .md in docs
-const char GW_VERSION [7] = "0.10.1";
+const char GW_VERSION [7] = "1.0.0";
 
 
 bool str_is_number(const std::string &s) {

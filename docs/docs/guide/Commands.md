@@ -270,6 +270,12 @@ Set the grid size for viewing image tiles.
 
     grid 8x8   # this will display 64 image tiles
 
+- ## header
+
+Prints the header of the current selected bam to the terminal. Use `header names` to print only the @SQ lines.
+
+    header        # print the full header
+    header names  # prints only the @SQ lines (chromosome names)
 
 - ## indel-length
 
@@ -375,9 +381,16 @@ Add a region of interest. If no arguments are added, the visible region will be 
 
 - ## sam
 
-Print the entire seclected read in sam format to the terminal.
+Print the selected read to the terminal, or save in a file.
 
-First select a read using the mouse then type `sam`
+First select a read using the mouse then type `sam`. Alternatively, use the the `>` key to redirect to a file, or `>>`
+to append to a file. Note, the header will also be written, and the output file will be unsorted:
+
+    sam
+    sam > single_read.sam       # save in sam format
+    sam >> multiple_reads.bam   # Append read to a bam file
+    sam >> multiple_reads.cram  # Append in cram format
+
 <br>
 
 - ## save

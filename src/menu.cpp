@@ -114,7 +114,7 @@ namespace Menu {
         SkPaint menuBg;
         SkPaint tcMenu;
         if (opts.theme_str != "igv") {
-            bg.setARGB(255, 15, 15, 25);
+            bg.setARGB(255, 35, 35, 45);
             tcMenu.setARGB(255, 255, 255, 255);
             menuBg = opts.theme.fcDup;
         } else {
@@ -284,7 +284,7 @@ namespace Menu {
 
         if (opts.control_level.empty()) {
             if (opts.menu_table == Themes::MenuTable::MAIN) {
-                tip = opts.ini_path + "  v0.10.1";
+                tip = opts.ini_path + "  v1.0.0";
             }
             else if (opts.menu_table == Themes::MenuTable::GENOMES) { tip = "Use ENTER key to select genome, or RIGHT_ARROW key to edit path"; }
             else if (opts.menu_table == Themes::MenuTable::SHIFT_KEYMAP) { tip = "Change characters selected when using shift+key"; }
