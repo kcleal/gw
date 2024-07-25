@@ -120,7 +120,7 @@ namespace Menu {
         } else {
             bg.setARGB(255, 255, 255, 255);
             tcMenu.setARGB(255, 0, 0, 0);
-            menuBg.setARGB(255, 225, 225, 215);
+            menuBg.setARGB(255, 235, 235, 235);
         }
         tcMenu.setStyle(SkPaint::kStrokeAndFill_Style);
         tcMenu.setAntiAlias(true);
@@ -318,13 +318,10 @@ namespace Menu {
             else if (opts.menu_level == "zoom_in") { tip = "Keyboard key to use for zooming in"; }
             else if (opts.menu_level == "zoom_out") { tip = "Keyboard key to use for zooming out"; }
             else if (opts.menu_level == "cycle_link_mode") { tip = "Keyboard key to use for cycling link mode"; }
-            else if (opts.menu_level == "print_screen") { tip = "Keyboard key to use for printing screen (saves a .png file of the screen)"; }
             else if (opts.menu_level == "find_alignments") { tip = "Keyboard key to use for highlighting all alignments from template"; }
             else if (opts.menu_level == "number") { tip = "The number of images to show at one time"; }
             else if (opts.menu_level == "parse_label") { tip = "Information to parse from vcf file"; }
             else if (opts.menu_level == "labels") { tip = "Choice of labels to use"; }
-            else if (opts.menu_level == "delete_labels") { tip = "Keyboard key to remove all labels on screen"; }
-            else if (opts.menu_level == "delete_labels") { tip = "Keyboard key to switch to the interactive alignment-view mode"; }
             else if (opts.menu_level == "font") { tip = "Change the font"; }
             else if (opts.menu_level == "font_size") { tip = "Change the font size"; }
             else if (opts.menu_level == "variant_distance") { tip = "For VCF/BCF tracks, ignore variants with start and end further than this distance"; }
@@ -594,6 +591,8 @@ namespace Menu {
                 return keep_alive;
             } else if (key == GLFW_KEY_ESCAPE) {
                 opts.menu_table = Themes::MenuTable::MAIN;
+                opts.editing_underway = false;
+                *captureText = false;
             }
 
         } else if (action == GLFW_PRESS) {
@@ -684,7 +683,7 @@ namespace Menu {
         for (const auto& v : {"coverage", "log2_cov", "expand_tracks", "scale_bar", "vcf_as_tracks", "bed_as_tracks", "sv_arcs", "mods"}) {
             option_map[v] = Bool;
         }
-        for (const auto& v : {"scroll_right", "scroll_left", "zoom_out", "zoom_in", "scroll_down", "scroll_up", "cycle_link_mode", "print_screen", "find_alignments", "delete_labels", "enter_interactive_mode"}) {
+        for (const auto& v : {"scroll_right", "scroll_left", "zoom_out", "zoom_in", "scroll_down", "scroll_up", "cycle_link_mode", "find_alignments"}) {
             option_map[v] = KeyboardKey;
         }
         option_map["font"] = String;
@@ -780,10 +779,7 @@ namespace Menu {
         else if (new_opt.name == "scroll_down") { opts.scroll_down = v; }
         else if (new_opt.name == "scroll_up") { opts.scroll_up = v; }
         else if (new_opt.name == "cycle_link_mode") { opts.cycle_link_mode = v; }
-        else if (new_opt.name == "print_screen") { opts.print_screen = v; }
         else if (new_opt.name == "find_alignments") { opts.find_alignments = v; }
-        else if (new_opt.name == "delete_labels") { opts.delete_labels = v; }
-        else if (new_opt.name == "enter_interactive_mode") { opts.enter_interactive_mode = v; }
         else { return; }
         opts.myIni[new_opt.table][new_opt.name] = k;
     }

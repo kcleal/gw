@@ -2082,6 +2082,7 @@ namespace HGW {
         mouseOverTileIndex = -1;
         blockStart = 0;
         m_opts = t_opts;
+        max_index = SIZE_MAX;
 
         std::filesystem::path fsp(path);
 #if defined(_WIN32) || defined(_WIN64)

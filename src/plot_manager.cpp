@@ -775,6 +775,13 @@ namespace Manager {
             sContext->flush();
             glfwSwapBuffers(window);
 
+            while (imageCacheQueue.size() > 100) {
+                imageCacheQueue.pop_front();
+            }
+            if (imageCache.size() > 1000) {
+                imageCache.clear();
+            }
+
         }
         saveLabels();
         saveSession();

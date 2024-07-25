@@ -227,6 +227,8 @@ namespace HGW {
         bool init;
         TrackType type;
         bool *trackDone;
+
+        size_t max_index;
 //        bool image_name_valid;  // the region and variant id can be parsed from filename
         int mouseOverTileIndex;
         int blockStart;

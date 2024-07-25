@@ -290,6 +290,8 @@ namespace Manager {
                 processText = false;
                 shiftPress = false;
                 commandToolTipIndex = -1;
+                xDrag = -1000000;
+                yDrag = -1000000;
                 if (mode == SETTINGS) {
                     if (opts.editing_underway) {
                         opts.editing_underway = false;
@@ -306,7 +308,7 @@ namespace Manager {
             }
 
             const bool no_command_selected = commandToolTipIndex == -1;
-//            std::cerr << Utils::startsWith() << std::endl;
+
             if (no_command_selected) {
                 if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
                     captureText = false;
@@ -1152,6 +1154,7 @@ namespace Manager {
                     }
                     currentVarTrack->blockStart = (currentVarTrack->blockStart - bLen > 0) ? currentVarTrack->blockStart - bLen : 0;
                     redraw = true;
+                    (*currentVarTrack->trackDone) = false;
                 } else if (key == opts.zoom_out) {
                     opts.number.x += 1;
                     opts.number.y += 1;
@@ -1775,10 +1778,6 @@ namespace Manager {
                         scroll_left = false;
                     }
                     if (!scroll_left) {
-//                        size_t currentSize = (currentVarTrack->image_glob.empty()) ? currentVarTrack->multiRegions.size() : currentVarTrack->image_glob.size();
-////                        if (currentVarTrack->blockStart + nmb > (int)currentSize) {
-////                            currentVarTrack->blockStart += nmb;
-////                        }
                         if (currentVarTrack->type == HGW::TrackType::IMAGES ) {
                             if (currentVarTrack->blockStart + nmb > (int)currentVarTrack->image_glob.size() - nmb) {
                                 return;
@@ -1789,20 +1788,13 @@ namespace Manager {
                         currentVarTrack->blockStart += nmb;
                         redraw = true;
 
-//                        if (!*currentVarTrack->trackDone && currentVarTrack->blockStart + nmb > (int)currentSize) {
-//                            if (currentVarTrack->type == HGW::TrackType::IMAGES && currentVarTrack->blockStart + nmb > currentVarTrack->image_glob.size() - nmb) {
-//                                return;
-//                            }
-//                            currentVarTrack->blockStart += nmb;
-//                            redraw = true;
-//                        }
                     } else {
-
                         if (currentVarTrack->blockStart == 0) {
                             return;
                         }
                         currentVarTrack->blockStart = (currentVarTrack->blockStart - nmb > 0) ? currentVarTrack->blockStart - nmb : 0;
                         redraw = true;
+                        (*currentVarTrack->trackDone) = false;
 
                     }
                 } else if (std::fabs(xDrag) < 5) {

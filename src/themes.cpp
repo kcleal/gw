@@ -436,9 +436,6 @@ namespace Themes {
         zoom_out = GLFW_KEY_DOWN;
         zoom_in = GLFW_KEY_UP;
         cycle_link_mode = GLFW_KEY_L;
-        print_screen = GLFW_KEY_PRINT_SCREEN;
-        delete_labels = GLFW_KEY_DELETE;
-        enter_interactive_mode = GLFW_KEY_ENTER;
         find_alignments=GLFW_KEY_F;
         repeat_command=GLFW_KEY_R;
     }
@@ -459,6 +456,7 @@ namespace Themes {
 
         std::unordered_map<std::string, int> key_table;
         Keys::getKeyTable(key_table);
+        bool update_ini = false;
 
         mINI::INIMap<std::string>& sub = myIni["general"];
 
@@ -488,26 +486,43 @@ namespace Themes {
         tab_track_height = std::stof(sub["tabix_track_height"]);
         if (sub.has("font")) {
             font_str = sub["font"];
+        } else {
+            sub["font"] = "Menlo";
+            update_ini = true;
         }
-
         if (sub.has("font_size")) {
             font_size = std::stoi(sub["font_size"]);
+        } else {
+            sub["font_size"] = "14";
+            update_ini = true;
         }
         if (sub.has("expand_tracks")) {
             expand_tracks = sub["expand_tracks"] == "true";
+        } else {
+            sub["expand_tracks"] = "true";
+            update_ini = true;
         }
         if (sub.has("scale_bar")) {
             scale_bar = sub["scale_bar"] == "true";
+        } else {
+            sub["scale_bar"] = "true";
+            update_ini = true;
         }
         if (sub.has("sv_arcs")) {
-            sv_arcs = myIni["general"]["sv_arcs"] == "true";
+            sv_arcs = sub["sv_arcs"] == "true";
+        } else {
+            sub["sv_arcs"] = "true";
+            update_ini = true;
         }
         if (sub.has("mods")) {
             parse_mods = sub["mods"] == "true";
+        } else {
+            sub["mods"] = "false";
+            update_ini = true;
         }
         if (sub.has("session_file")) {
             session_file = sub["session_file"];
-        }
+        }  // defer update to saveCurrentSession
 
         mINI::INIMap<std::string>& vt = myIni["view_thresholds"];
 
@@ -516,12 +531,21 @@ namespace Themes {
         snp_threshold = std::stoi(vt["snp"]);
         if (vt.has("edge_highlights")) {
             edge_highlights = std::stoi(vt["edge_highlights"]);
+        } else {
+            vt["edge_highlights"] = "1000000";
+            update_ini = true;
         }
         if (vt.has("variant_distance")) {
             variant_distance = std::stoi(vt["variant_distance"]);
+        } else {
+            vt["variant_distance"] = "100000";
+            update_ini = true;
         }
         if (vt.has("low_memory")) {
             low_memory = std::stoi(vt["low_memory"]);
+        } else {
+            vt["low_memory"] = "1500000";
+            update_ini = true;
         }
         if (vt.has("mod_threshold")) {
             mod_threshold = std::stoi(vt["mod_threshold"]);
@@ -541,18 +565,30 @@ namespace Themes {
         mINI::INIMap<std::string>& ia = myIni["interaction"];
 
         cycle_link_mode = key_table[ia["cycle_link_mode"]];
-        print_screen = key_table[ia["print_screen"]];
+
         if (ia.has("find_alignments")) {
             find_alignments = key_table[ia["find_alignments"]];
+        } else {
+            ia["find_alignments"] = "F";
+            update_ini = true;
         }
         if (ia.has("repeat_command")) {
             repeat_command = key_table[ia["repeat_command"]];
+        } else {
+            ia["repeat_command"] = "R";
+            update_ini = true;
         }
         if (ia.has("vcf_as_tracks")) {
             vcf_as_tracks = ia["vcf_as_tracks"] == "true";
+        } else {
+            ia["vcf_as_tracks"] = "false";
+            update_ini = true;
         }
         if (ia.has("bed_as_tracks")) {
             bed_as_tracks = ia["bed_as_tracks"] == "true";
+        } else {
+            ia["bed_as_tracks"] = "true";
+            update_ini = true;
         }
 
         mINI::INIMap<std::string>& lb = myIni["labelling"];
@@ -562,31 +598,92 @@ namespace Themes {
         parse_label = lb["parse_label"];
 
         labels = lb["labels"];
-        delete_labels = key_table[lb["delete_labels"]];
-        enter_interactive_mode = key_table[lb["enter_interactive_mode"]];
 
         if (myIni.has("shift_keymap")) {
-            shift_keymap["\\"] = "|";
-            shift_keymap[";"] = ":";
-            shift_keymap["["] = "{";
-            shift_keymap["]"] = "}";
-            shift_keymap["."] = ">";
-            shift_keymap[","] = "<";
-            shift_keymap["#"] = "~";
-            shift_keymap["-"] = "_";
+
+            mINI::INIMap<std::string>& km = myIni["shift_keymap"];
+
             shift_keymap["'"] = "@";
             shift_keymap["="] = "+";
-            shift_keymap["1"] = "!";
             shift_keymap["2"] = "\"";
             shift_keymap["3"] = "£";
-            shift_keymap["4"] = "$";
             shift_keymap["5"] = "%";
             shift_keymap["6"] = "^";
-            shift_keymap["7"] = "&";
             shift_keymap["8"] = "*";
             shift_keymap["9"] = "(";
             shift_keymap["0"] = ")";
             shift_keymap["`"] = "~";
+
+            if (km.has("ampersand")) {
+                shift_keymap[km["ampersand"]] = "&";
+            } else {
+                shift_keymap["7"] = "&";
+                update_ini = true;
+            }
+            if (km.has("bar")) {
+                shift_keymap[km["bar"]] = "|";
+            } else {
+                shift_keymap["\\"] = "|";
+                update_ini = true;
+            }
+            if (km.has("colon")) {
+                shift_keymap[km["colon"]] = ";";
+            } else {
+                shift_keymap[";"] = ":";
+                update_ini = true;
+            }
+            if (km.has("curly_open")) {
+                shift_keymap[km["curly_open"]] = "{";
+            } else {
+                shift_keymap["["] = "{";
+                update_ini = true;
+            }
+            if (km.has("curly_close")) {
+                shift_keymap[km["curly_close"]] = "{";
+            } else {
+                shift_keymap["]"] = "}";
+                update_ini = true;
+            }
+            if (km.has("dollar")) {
+                shift_keymap[km["dollar"]] = "$";
+            } else {
+                shift_keymap["4"] = "$";
+                update_ini = true;
+            }
+            if (km.has("exclamation")) {
+                shift_keymap[km["exclamation"]] = "!";
+            } else {
+                shift_keymap["1"] = "!";
+                update_ini = true;
+            }
+            if (km.has("greater_than")) {
+                shift_keymap[km["greater_than"]] = ">";
+            } else {
+                shift_keymap["."] = ">";
+                update_ini = true;
+            }
+            if (km.has("less_than")) {
+                shift_keymap[km["less_than"]] = "<";
+            } else {
+                shift_keymap[","] = "<";
+                update_ini = true;
+            }
+            if (km.has("tilde")) {
+                shift_keymap[km["tilde"]] = "~";
+            } else {
+                shift_keymap["`"] = "~";
+                update_ini = true;
+            }
+            if (km.has("underscore")) {
+                shift_keymap[km["underscore"]] = "_";
+            } else {
+                shift_keymap["-"] = "_";
+                update_ini = true;
+            }
+
+        }
+        if (update_ini) {
+            saveIniChanges();
         }
     }
 
