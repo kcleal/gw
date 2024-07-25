@@ -795,6 +795,9 @@ namespace Term {
     }
 
     void printRefSeq(Utils::Region *region, float x, float xOffset, float xScaling, std::ostream& out) {
+        if (region == nullptr) {
+            return;
+        }
         float min_x = xOffset;
         float max_x = xScaling * ((float)(region->end - region->start)) + min_x;
         int size = region->end - region->start;
@@ -805,7 +808,10 @@ namespace Term {
             }
         }
         if (x > min_x && x < max_x && size <= 20000) {
-            const char * s = region->refSeq;
+            const char *s = region->refSeq;
+            if (s == nullptr) {
+                return;
+            }
             out << "\n\n" << region->chrom << ":" << region->start << "-" << region->end << "\n";
             while (*s) {
                 switch ((unsigned int)*s) {

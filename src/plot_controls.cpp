@@ -1225,6 +1225,7 @@ namespace Manager {
             mouseOverTileIndex = 0;
             bboxes = Utils::imageBoundingBoxes(opts.number, (float) fb_width, (float) fb_height);
             imageCache.clear();
+
             addVariantTrack(path, opts.start_index, false, false);
             variantFileSelection = (int) variantTracks.size() - 1;
             currentVarTrack = &variantTracks[variantFileSelection];
@@ -1282,7 +1283,7 @@ namespace Manager {
     void GwPlot::pathDrop(int count, const char** paths) {
         for (int i=0; i < count; ++ i) {
             std::string pth = *paths;
-            addTrack(pth, true, opts.vcf_as_tracks, false);
+            addTrack(pth, true, opts.vcf_as_tracks, opts.bed_as_tracks);
         }
         redraw = true;
         processed = false;
@@ -1786,6 +1787,8 @@ namespace Manager {
                         if (x_val - gap <= xW && x_val + tile_box_w >= xW) {
                             variantFileSelection = i;
                             redraw = true;
+                            processed = false;
+                            imageCache.clear();
                             break;
                         }
                         x_val += tile_box_w + gap;

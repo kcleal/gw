@@ -16,7 +16,16 @@ installers below, or head over to the GitHub [Releases page](https://github.com/
 [GW Apple arm64 mac dmg installer](https://github.com/kcleal/gw/releases/download/v1.0.0/gw_macos_m1.dmg)
 
 
-GW can be copied to your bin directory to make it available as a command-line tool:
+To install the desktop app, open one of the dmg files above then drop GW into your Applications folder, then perform the
+following:
+
+- In the Finder on your Mac, locate the app you want to open.
+Don’t use Launchpad to locate the app.
+- Control-click the GW app icon, then choose Open from the shortcut menu.
+- Click Open.
+
+
+GW can also be copied to your bin directory if needs be to make it available as a command-line tool:
 ```shell
 cp /Applications/gw.app/Contents/MacOS/gw /usr/local/bin
 ```

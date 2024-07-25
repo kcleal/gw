@@ -270,7 +270,6 @@ namespace Themes {
         fcInvR.setARGB(255, 0, 199, 50);
         fcTra.setARGB(255, 255, 105, 180);
         fcSoftClip.setARGB(255, 96,160,176);
-//        fcSoftClip.setARGB(255, 0, 128, 128);
         fcA.setARGB(255, 109, 230, 64);
         fcT.setARGB(255, 255, 0, 107);
         fcC.setARGB(255, 66, 127, 255);
@@ -278,9 +277,10 @@ namespace Themes {
         fcN.setARGB(255, 128, 128, 128);
         fcIns.setARGB(255, 158, 112, 250);
 
-        fc5mc.setARGB(227, 194, 151, 58);
-//        fc5hmc.setARGB(127, 52, 255, 96);
-        fc5hmc.setARGB(227, 189, 78, 23);
+        fc5mc.setARGB(255, 155, 20, 15);
+//        fc5mc.setARGB(227, 194, 151, 58);
+//        fc5hmc.setARGB(227, 189, 78, 23);
+        fc5hmc.setARGB(255, 10, 100, 250);
         lcJoins.setARGB(255, 80, 80, 80);
         lcLightJoins.setARGB(255, 140, 140, 140);
         lcLabel.setARGB(255, 80, 80, 80);
@@ -627,7 +627,7 @@ namespace Themes {
                 update_ini = true;
             }
             if (km.has("colon")) {
-                shift_keymap[km["colon"]] = ";";
+                shift_keymap[km["colon"]] = ":";
             } else {
                 shift_keymap[";"] = ":";
                 update_ini = true;
@@ -751,6 +751,9 @@ namespace Themes {
             }
             if (sub.has("mods_qual_threshold")) {
                 mods_qual_threshold = std::stoi(sub["mods_qual_threshold"]);
+            }
+            if (sub.has("mods")) {
+                parse_mods = sub["mods"] == "true";
             }
         }
         if (sesh.has("view_thresholds")) {
