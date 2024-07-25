@@ -66,6 +66,55 @@ This will add a new region view to the right-hand-side of your screen.
 add chr1:1-20000
 ```
 
+- ## colour
+
+Set the (alpha, red, green, blue) colour for one of the plot elements.
+Elements are selected by name (see below) and values are in the range [0, 255].
+For example `colour fcNormal 255 255 0 0` sets face-colour of normal reads to red.
+```
+bgPaint        - background paint
+bgMenu         - background of menu
+fcNormal       - face-colour normal reads
+fcDel          - face-colour deletion pattern reads
+fcDup          - face-colour duplication pattern reads
+fcInvF         - face-colour inversion-forward pattern reads
+fcInvR         - face-colour inversion-reverse pattern reads
+fcTra          - face-colour translocation pattern reads
+fcIns          - face-colour insertion blocks
+fcSoftClips    - face-colour soft-clips when zoomed-out
+fcA            - face-colour A mismatch
+fcT            - face-colour T mismatch
+fcC            - face-colour C mismatch
+fcG            - face-colour G mismatch
+fcN            - face-colour N mismatch
+fcCoverage     - face-colour coverage track
+fcTrack        - face-colour tracks
+fcBigWig       - face-colour bigWig files
+fcNormal0      - face-colour normal reads with mapq=0
+fcDel0         - face-colour deletion pattern reads with mapq=0
+fcDup0         - face-colour duplication pattern reads with mapq=0
+fcInvF0        - face-colour inversion-forward pattern reads with mapq=0
+fcInvR0        - face-colour inversion-reverse pattern reads with mapq=0
+fcTra0         - face-colour translocation pattern reads with mapq=0
+fcIns0         - face-colour insertion blocks with mapq=0
+fcSoftClips0   - face-colour soft-clips when zoomed-out with mapq=0
+fcMarkers      - face-colour of markers
+fc5mc          - face-colour of 5-Methylcytosine
+fc5hmc         - face-colour of 5-Hydroxymethylcytosine
+ecMateUnmapped - edge-colour mate unmapped reads
+ecSplit        - edge-colour split reads
+ecSelected     - edge-colour selected reads
+lcJoins        - line-colour of joins
+lcCoverage     - line-colour of coverage profile
+lcLightJoins   - line-colour of lighter joins
+lcLabel        - line-colour of labels
+lcBright       - line-colour of bright edges
+tcDel          - text-colour of deletions
+tcIns          - text-colour of insertions
+tcLabels       - text-colour of labels
+tcBackground   - text-colour of background
+```
+<br>
 
 - ## count
 
@@ -270,6 +319,11 @@ Either moves the current view to the mate locus, or adds a new view of the mate 
 Toggle mismatches. Mismatches with the reference genome are turned on or off.
 <br>
 
+- ## mods
+
+Toggle base modifications. Mods are turned on or off.
+<br>
+
 - ## online
 
 Show links to online browsers for the current region.
@@ -312,6 +366,12 @@ To remove a bam or track add a 'bam' or 'track' prefix.
     rm bam1     # this will remove BAM FILE at index 1
     rm track2   # removes track at index 2
 
+- ## roi
+
+Add a region of interest. If no arguments are added, the visible region will be added to the roi track.
+
+    roi
+    roi chr1:1-20000
 
 - ## sam
 
@@ -319,6 +379,18 @@ Print the entire seclected read in sam format to the terminal.
 
 First select a read using the mouse then type `sam`
 <br>
+
+- ## save
+
+This command can be used to save visible reads, a snapshot, or a session file. The suffix is used to determine the output format:
+
+    save reads.bam   # visible reads output to bam file
+    save reads.cram  # saved in cram format
+    save reads.bam [:, 1]  # Pane-indexing supported, see filter command for more details
+    
+    save region.png  # Image saved, same as snapshot command
+
+    save current_session.ini  # Save a session file
 
 - ## settings
 
