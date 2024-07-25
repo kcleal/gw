@@ -986,7 +986,7 @@ namespace Manager {
 
         minGapSize = (uint32_t)(fb_width * 0.005);
         if (opts.parse_mods) {
-            float sw = std::fmin(pH / 3, 4 * monitorScale);
+            float sw = std::fmin(pH * 0.333, 6 * monitorScale);
             for (size_t i=0; i < 4; ++i) {
                 opts.theme.ModPaints[0][i].setStrokeWidth(sw);
                 opts.theme.ModPaints[0][i].setStrokeWidth(sw);

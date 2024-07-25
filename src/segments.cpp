@@ -791,7 +791,7 @@ namespace Segs {
             self->haplotag = (HP_tag != nullptr) ? (int) bam_aux2i(HP_tag) : 0;
         }
 
-        if (parse_mods_threshold > 0) {
+        if (parse_mods_threshold >= 0) {
             hts_base_mod_state* mod_state = new hts_base_mod_state;
             int res = bam_parse_basemod_gw(src, mod_state, 0);
             if (res >= 0) {
@@ -804,7 +804,7 @@ namespace Segs {
                     mi.index = pos;
                     size_t j=0;
                     for (size_t m=0; m < std::min((size_t)4, (size_t)nm); ++m) {
-                        if (mods[m].qual > parse_mods_threshold) {
+                        if (mods[m].qual >= parse_mods_threshold) {
                             mi.mods[j] = (char)mods[m].modified_base;
                             mi.quals[j] = (uint8_t)mods[m].qual;
                             mi.strands[j] = (bool)mods[m].strand;

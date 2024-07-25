@@ -334,9 +334,9 @@ int main(int argc, char *argv[]) {
         user_prompt:
 
         if (have_session_file && std::filesystem::exists(iopts.session_file)) {
-            std::cout << "\nPress ENTER to load previous session \nInput a genome number, path, or session: " << std::flush;
+            std::cout << "\nPress ENTER to load previous session \nInput a genome number/tag, path, or session: " << std::flush;
         } else {
-            std::cout << "\nEnter genome number, path or session: " << std::flush;
+            std::cout << "\nEnter genome number/tag, path or session: " << std::flush;
         }
 
         std::string user_input;
@@ -371,10 +371,20 @@ int main(int argc, char *argv[]) {
                 if (user_i < 0 || user_i > vals.size() -1) {
                     goto user_prompt;
                 }
-            } else {  // try path
-                genome = user_input;
+            } else {  // try tag or path
+                bool found_tag = false;
+                for (auto &rg: iopts.myIni["genomes"]) {
+                    std::string tag = rg.first;
+                    if (tag == user_input) {
+                        genome = rg.second;
+                        found_tag = true;
+                        break;
+                    }
+                }
+                if (!found_tag) {
+                    genome = user_input;
+                }
             }
-
         }
 
     } else if (!genome.empty() && !Utils::is_file_exist(genome)) {

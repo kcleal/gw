@@ -288,13 +288,15 @@ namespace mINI
                 return PDataType::PDATA_NONE;
             }
             char firstCharacter = line[0];
-            if (firstCharacter == ';' || firstCharacter == '#')
+//            if (firstCharacter == ';' || firstCharacter == '#')
+            if (firstCharacter == '#')
             {
                 return PDataType::PDATA_COMMENT;
             }
             if (firstCharacter == '[')
             {
-                auto commentAt = line.find_first_of(';');
+//                auto commentAt = line.find_first_of(';');
+                auto commentAt = line.find_first_of('#');
                 if (commentAt != std::string::npos)
                 {
                     line = line.substr(0, commentAt);

@@ -841,9 +841,9 @@ namespace Drawing {
         auto mod_it = align.any_mods.begin();
         auto mod_end = align.any_mods.end();
 
-        float top = yScaledOffset + (pH / 3);
-        float middle = yScaledOffset + pH - (pH / 2);
-        float bottom = yScaledOffset + pH - (pH / 3);
+        float top = yScaledOffset + (pH * 0.3333);
+        float middle = yScaledOffset + pH - (pH * 0.5);
+        float bottom = yScaledOffset + pH - (pH * 0.3333);
         for (const auto& blk : align.blocks) {
             if ((int)blk.end < region->start) {
                 continue;
