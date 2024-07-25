@@ -1,0 +1,187 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##source=DYSGU
+##FILTER=<ID=lowProb,Description="Probability below threshold set with --thresholds">
+##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">
+##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Difference in length between REF and ALT alleles">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##INFO=<ID=CHR2,Number=1,Type=String,Description="Chromosome for END coordinate in case of a translocation">
+##INFO=<ID=CHR2_POS,Number=1,Type=Integer,Description="Chromosome position for END coordinate in case of a translocation">
+##INFO=<ID=GRP,Number=1,Type=Integer,Description="Group id for complex SVs">
+##INFO=<ID=NGRP,Number=1,Type=Integer,Description="Number of SVs in group">
+##INFO=<ID=RT,Number=1,Type=String,Description="Type of input reads, 1=paired-end, 2=pacbio, 3=nanopore">
+##INFO=<ID=CT,Number=1,Type=String,Description="Paired-end signature induced connection type">
+##INFO=<ID=CIPOS95,Number=1,Type=Integer,Description="Confidence interval size (95%) around POS for imprecise variants">
+##INFO=<ID=CIEND95,Number=1,Type=Integer,Description="Confidence interval size (95%) around END for imprecise variants">
+##INFO=<ID=SVMETHOD,Number=1,Type=String,Description="Type of approach used to detect SV">
+##INFO=<ID=KIND,Number=1,Type=String,Description="Kind of join with respect to input regions">
+##INFO=<ID=SU,Number=1,Type=Integer,Description="Number of pieces of evidence supporting the variant across all samples">
+##INFO=<ID=WR,Number=1,Type=Integer,Description="Number of reads that have SV within-read">
+##INFO=<ID=PE,Number=1,Type=Integer,Description="Number of paired-end reads supporting the variant across all samples">
+##INFO=<ID=SR,Number=1,Type=Integer,Description="Number of supplementary reads supporting the variant across all samples">
+##INFO=<ID=SC,Number=1,Type=Integer,Description="Number of soft-clip reads supporting the variant across all samples">
+##INFO=<ID=BND,Number=1,Type=Integer,Description="Number of break-end alignments supporting the variant">
+##INFO=<ID=CONTIGA,Number=1,Type=String,Description="Contig from CHROM POS">
+##INFO=<ID=CONTIGB,Number=1,Type=String,Description="Contig from CHR2 END">
+##INFO=<ID=GC,Number=1,Type=Float,Description="GC% of assembled contigs">
+##INFO=<ID=REP,Number=1,Type=Float,Description="Repeat score for contigs aligned bases">
+##INFO=<ID=REPSC,Number=1,Type=Float,Description="Repeat score for contigs soft-clipped bases">
+##INFO=<ID=LPREC,Number=1,Type=Integer,Description="SV length precise=1, inferred=0">
+##INFO=<ID=NEXP,Number=1,Type=Integer,Description="Number of expanded repeat bases at break">
+##INFO=<ID=STRIDE,Number=1,Type=Integer,Description="Repeat expansion stride or period">
+##INFO=<ID=EXPSEQ,Number=1,Type=String,Description="Expansion sequence">
+##INFO=<ID=RPOLY,Number=1,Type=Integer,Description="Number of reference polymer bases">
+##INFO=<ID=OL,Number=1,Type=Integer,Description="Query overlap in bp">
+##INFO=<ID=SVINSSEQ,Number=.,Type=String,Description="Sequence of insertion">
+##INFO=<ID=LEFT_SVINSSEQ,Number=.,Type=String,Description="Known left side of insertion for an insertion of unknown length">
+##INFO=<ID=RIGHT_SVINSSEQ,Number=.,Type=String,Description="Known right side of insertion for an insertion of unknown length">
+##INFO=<ID=MeanPROB,Number=1,Type=Float,Description="Mean probability of event being true across samples">
+##INFO=<ID=MaxPROB,Number=1,Type=Float,Description="Max probability of event being true across samples">
+##ALT=<ID=DEL,Description="Deletion">
+##ALT=<ID=DUP,Description="Duplication">
+##ALT=<ID=INV,Description="Inversion">
+##ALT=<ID=TRA,Description="Translocation">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=GQ,Number=1,Type=Float,Description="Genotype quality phred scaled">
+##FORMAT=<ID=NMP,Number=1,Type=Float,Description="Mean edit distance for primary alignments supporting the variant">
+##FORMAT=<ID=NMS,Number=1,Type=Float,Description="Mean edit distance for supplementary alignments supporting the variant">
+##FORMAT=<ID=NMB,Number=1,Type=Float,Description="Mean basic, edit distance. Gaps >= 30 bp are ignored">
+##FORMAT=<ID=MAPQP,Number=1,Type=Float,Description="Mean MAPQ for primary reads supporting the variant">
+##FORMAT=<ID=MAPQS,Number=1,Type=Float,Description="Mean MAPQ for supplementary reads supporting the variant">
+##FORMAT=<ID=NP,Number=1,Type=Integer,Description="Number of alignments in normal-pair orientation supporting the variant">
+##FORMAT=<ID=MAS,Number=1,Type=Integer,Description="Maximum alignment score of supplementary reads supporting the variant">
+##FORMAT=<ID=SU,Number=1,Type=Integer,Description="Number of pieces of evidence supporting the variant">
+##FORMAT=<ID=WR,Number=1,Type=Integer,Description="Number of reads that have SV within-read">
+##FORMAT=<ID=PE,Number=1,Type=Integer,Description="Number of paired reads supporting the variant">
+##FORMAT=<ID=SR,Number=1,Type=Integer,Description="Number of supplementary alignments supporting the variant">
+##FORMAT=<ID=SC,Number=1,Type=Integer,Description="Number of soft-clipped alignments supporting the variant">
+##FORMAT=<ID=BND,Number=1,Type=Integer,Description="Number of break-end alignments supporting the variant">
+##FORMAT=<ID=SQC,Number=1,Type=Float,Description="Soft-clip quality value correlation between reads">
+##FORMAT=<ID=SCW,Number=1,Type=Float,Description="Soft-clip quality weight value">
+##FORMAT=<ID=SQR,Number=1,Type=Float,Description="Soft-clip base-quality ratio wrt to aligned bases">
+##FORMAT=<ID=BE,Number=1,Type=Integer,Description="Block edge metric">
+##FORMAT=<ID=COV,Number=1,Type=Float,Description="Mean read coverage +/- 10kb around break site at A or B">
+##FORMAT=<ID=MCOV,Number=1,Type=Float,Description="Maximum read coverage +/- 10kb around break site at A or B">
+##FORMAT=<ID=LNK,Number=1,Type=Integer,Description="Contig A and contig B overlap">
+##FORMAT=<ID=NEIGH,Number=1,Type=Integer,Description="Number of other break points within 1 bp of break site">
+##FORMAT=<ID=NEIGH10,Number=1,Type=Integer,Description="Number of other break points within 10 kp of break site">
+##FORMAT=<ID=RB,Number=1,Type=Integer,Description="Number of reference bases in contigs">
+##FORMAT=<ID=PS,Number=1,Type=Integer,Description="Number of reads on plus strand">
+##FORMAT=<ID=MS,Number=1,Type=Integer,Description="Number of reads on minus strand">
+##FORMAT=<ID=SBT,Number=1,Type=Float,Description="Strand-bias, one-sided binomial test p-value">
+##FORMAT=<ID=NG,Number=1,Type=Float,Description="Mean number of small gaps < 30 bp">
+##FORMAT=<ID=NSA,Number=1,Type=Float,Description="Mean number of SA tags per read">
+##FORMAT=<ID=NXA,Number=1,Type=Float,Description="Mean number of XA tags per read">
+##FORMAT=<ID=NMU,Number=1,Type=Float,Description="Mean number of mates unmapped per read">
+##FORMAT=<ID=NDC,Number=1,Type=Integer,Description="Number of double-clips, alignments with left and right clips">
+##FORMAT=<ID=RMS,Number=1,Type=Integer,Description="Remapping score">
+##FORMAT=<ID=RED,Number=1,Type=Integer,Description="Remapping edit distance">
+##FORMAT=<ID=BCC,Number=1,Type=Integer,Description="Bad soft-clip count within +/- 500 bp">
+##FORMAT=<ID=FCC,Number=1,Type=Float,Description="Fold-coverage change for SVs">
+##FORMAT=<ID=STL,Number=1,Type=Integer,Description="N reads with small TLEN below 0.05% of distribution">
+##FORMAT=<ID=RAS,Number=1,Type=Integer,Description="Reverse soft-clip to alignment score">
+##FORMAT=<ID=FAS,Number=1,Type=Integer,Description="Forward soft-clip to alignment score">
+##FORMAT=<ID=ICN,Number=1,Type=Float,Description="Inner copy number">
+##FORMAT=<ID=OCN,Number=1,Type=Float,Description="Outer copy number">
+##FORMAT=<ID=CMP,Number=1,Type=Float,Description="Compression ratio of contigs">
+##FORMAT=<ID=RR,Number=1,Type=Float,Description="Repeat score for reference">
+##FORMAT=<ID=JIT,Number=1,Type=Float,Description="SV length jitter">
+##FORMAT=<ID=PROB,Number=1,Type=Float,Description="Probability of event being true">
+##contig=<ID=chrM,length=16571>
+##contig=<ID=chr1,length=249250621>
+##contig=<ID=chr2,length=243199373>
+##contig=<ID=chr3,length=198022430>
+##contig=<ID=chr4,length=191154276>
+##contig=<ID=chr5,length=180915260>
+##contig=<ID=chr6,length=171115067>
+##contig=<ID=chr7,length=159138663>
+##contig=<ID=chr8,length=146364022>
+##contig=<ID=chr9,length=141213431>
+##contig=<ID=chr10,length=135534747>
+##contig=<ID=chr11,length=135006516>
+##contig=<ID=chr12,length=133851895>
+##contig=<ID=chr13,length=115169878>
+##contig=<ID=chr14,length=107349540>
+##contig=<ID=chr15,length=102531392>
+##contig=<ID=chr16,length=90354753>
+##contig=<ID=chr17,length=81195210>
+##contig=<ID=chr18,length=78077248>
+##contig=<ID=chr19,length=59128983>
+##contig=<ID=chr20,length=63025520>
+##contig=<ID=chr21,length=48129895>
+##contig=<ID=chr22,length=51304566>
+##contig=<ID=chrX,length=155270560>
+##contig=<ID=chrY,length=59373566>
+##contig=<ID=chr1_gl000191_random,length=106433>
+##contig=<ID=chr1_gl000192_random,length=547496>
+##contig=<ID=chr4_ctg9_hap1,length=590426>
+##contig=<ID=chr4_gl000193_random,length=189789>
+##contig=<ID=chr4_gl000194_random,length=191469>
+##contig=<ID=chr6_apd_hap1,length=4622290>
+##contig=<ID=chr6_cox_hap2,length=4795371>
+##contig=<ID=chr6_dbb_hap3,length=4610396>
+##contig=<ID=chr6_mann_hap4,length=4683263>
+##contig=<ID=chr6_mcf_hap5,length=4833398>
+##contig=<ID=chr6_qbl_hap6,length=4611984>
+##contig=<ID=chr6_ssto_hap7,length=4928567>
+##contig=<ID=chr7_gl000195_random,length=182896>
+##contig=<ID=chr8_gl000196_random,length=38914>
+##contig=<ID=chr8_gl000197_random,length=37175>
+##contig=<ID=chr9_gl000198_random,length=90085>
+##contig=<ID=chr9_gl000199_random,length=169874>
+##contig=<ID=chr9_gl000200_random,length=187035>
+##contig=<ID=chr9_gl000201_random,length=36148>
+##contig=<ID=chr11_gl000202_random,length=40103>
+##contig=<ID=chr17_ctg5_hap1,length=1680828>
+##contig=<ID=chr17_gl000203_random,length=37498>
+##contig=<ID=chr17_gl000204_random,length=81310>
+##contig=<ID=chr17_gl000205_random,length=174588>
+##contig=<ID=chr17_gl000206_random,length=41001>
+##contig=<ID=chr18_gl000207_random,length=4262>
+##contig=<ID=chr19_gl000208_random,length=92689>
+##contig=<ID=chr19_gl000209_random,length=159169>
+##contig=<ID=chr21_gl000210_random,length=27682>
+##contig=<ID=chrUn_gl000211,length=166566>
+##contig=<ID=chrUn_gl000212,length=186858>
+##contig=<ID=chrUn_gl000213,length=164239>
+##contig=<ID=chrUn_gl000214,length=137718>
+##contig=<ID=chrUn_gl000215,length=172545>
+##contig=<ID=chrUn_gl000216,length=172294>
+##contig=<ID=chrUn_gl000217,length=172149>
+##contig=<ID=chrUn_gl000218,length=161147>
+##contig=<ID=chrUn_gl000219,length=179198>
+##contig=<ID=chrUn_gl000220,length=161802>
+##contig=<ID=chrUn_gl000221,length=155397>
+##contig=<ID=chrUn_gl000222,length=186861>
+##contig=<ID=chrUn_gl000223,length=180455>
+##contig=<ID=chrUn_gl000224,length=179693>
+##contig=<ID=chrUn_gl000225,length=211173>
+##contig=<ID=chrUn_gl000226,length=15008>
+##contig=<ID=chrUn_gl000227,length=128374>
+##contig=<ID=chrUn_gl000228,length=129120>
+##contig=<ID=chrUn_gl000229,length=19913>
+##contig=<ID=chrUn_gl000230,length=43691>
+##contig=<ID=chrUn_gl000231,length=27386>
+##contig=<ID=chrUn_gl000232,length=40652>
+##contig=<ID=chrUn_gl000233,length=45941>
+##contig=<ID=chrUn_gl000234,length=40531>
+##contig=<ID=chrUn_gl000235,length=34474>
+##contig=<ID=chrUn_gl000236,length=41934>
+##contig=<ID=chrUn_gl000237,length=45867>
+##contig=<ID=chrUn_gl000238,length=39939>
+##contig=<ID=chrUn_gl000239,length=33824>
+##contig=<ID=chrUn_gl000240,length=41933>
+##contig=<ID=chrUn_gl000241,length=42152>
+##contig=<ID=chrUn_gl000242,length=43523>
+##contig=<ID=chrUn_gl000243,length=43341>
+##contig=<ID=chrUn_gl000244,length=39929>
+##contig=<ID=chrUn_gl000245,length=36651>
+##contig=<ID=chrUn_gl000246,length=38154>
+##contig=<ID=chrUn_gl000247,length=36422>
+##contig=<ID=chrUn_gl000248,length=39786>
+##contig=<ID=chrUn_gl000249,length=38502>
+##FILTER=<ID=normal,Description="SV has read support in a normal vcf or alignment file">
+##FILTER=<ID=lowSupport,Description="Not enough supporting evidence / too many nuisance reads">
+##command="/home/kez/.pixi/envs/dysgu/bin/dysgu filter --min-prob 0.25 DB53.dysgu.vcf"
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	DB53_bwamem
+chr8	37050886	86128	T	<DEL>	.	PASS	SVMETHOD=DYSGUv1.3.16;SVTYPE=DEL;END=37051854;CHR2=chr8;GRP=86128;NGRP=1;CT=3to5;CIPOS95=0;CIEND95=0;SVLEN=968;CONTIGA=AACCACCTGTCTGTGATATTATTTTATGGCAGCCCTAGCAAACTATCTCAATGTGTTAAAGCAGTATTCTATGTGAGGCTGGGAGAGATGGCAGAGAGATTAATTATTATTTTTGTCCATTCTGTGACCCAGAGTTTTTAGTATTTTCACATTATTAAAGCATTGTTCATTCTATCAGTTTCAACCGTGAACTGACTTAATTCAAATTAAATTACTGCATTTACAGATAATTGATTTTcatggaaatgtccagtgttcatcagcacgaaactttctaaccgttctttggtttacctagttcta;CONTIGB=atcagtttcaaccgtgaactgacttaattcaaattaaattactgcatttacagataattGATTTTCATGGAAATGTCCAGTGTTCATCAGCACGAAACTTTCTAACCGTTCTTTGGTTTACCTAGTTCTAGGCATGATAGATAATTCTAGATACCGAATATTATTCTTTCAAGTAATGAAATAGTCAACAAAGTGACAAAAATCAGTTTAGTGGCTACTTATCCATGGTCAAAGTCCTTATAAAGcCCTTTCAACTTTTTAAATGGGAGATACCTGCACACAAAGAATAACTAACATGCCACACTT;KIND=extra-regional;GC=33.83;NEXP=0;STRIDE=0;EXPSEQ;RPOLY=10;OL=0;SU=16;WR=0;PE=16;SR=0;SC=12;BND=0;LPREC=1;RT=pe	GT:GQ:MAPQP:SU:WR:PE:SR:SC:BND:COV:NEIGH10:PS:MS:RMS:RED:BCC:FCC:ICN:OCN:PROB	1/1:40:60:16:0:16:0:12:0:18.51:1:16:16:0:0:25:0:0:0.708:0.895
