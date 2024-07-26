@@ -13,11 +13,11 @@ quide for MacOS, but Linux or Windows is more or less the same.
 
 Firstly, here are some links for some test data:
 
-[Test bam file](https://kcleal.github.io/gw/docs/assets/data/demo1.bam) 
+[Test bam file](/assets/data/demo1.bam) 
 
-[Test bed file](https://kcleal.github.io/gw/docs/assets/data/demo1.bed) 
+[Test bed file](/assets/data/demo1.bed) 
 
-[Test vcf file](https://kcleal.github.io/gw/docs/assets/data/demo1.vcf)
+[Test vcf file](/assets/data/demo1.vcf)
 
 ## Launch GW
 
