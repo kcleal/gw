@@ -13,11 +13,11 @@ quide for MacOS, but Linux or Windows is more or less the same.
 
 Firstly, here are some links for some test data:
 
-[Test bam file](/assets/data/demo1.bam) 
+[Test bam file](https://github.com/kcleal/gw/blob/master/docs/assets/data/demo1.bam) 
 
-[Test bed file](/assets/data/demo1.bed) 
+[Test bed file](https://github.com/kcleal/gw/blob/master/docs/assets/data/demo1.bed) 
 
-[Test vcf file](/assets/data/demo1.vcf)
+[Test vcf file](https://github.com/kcleal/gw/blob/master/docs/assets/data/demo1.vcf)
 
 ## Launch GW
 
@@ -41,7 +41,7 @@ path to your local file.
 Next load some data using one of these options:
 
 1. Drag and drop the bam file above
-2. Use the load command - open the command box and type `load https://kcleal.github.io/gw/docs/assets/data/demo1.bam`
+2. Use the load command - open the command box and type `load https://github.com/kcleal/gw/blob/master/docs/assets/data/demo1.bam`
 
 Navigate to a region by typing this, into the command box. You should now see some data!
 
