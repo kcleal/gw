@@ -2199,7 +2199,7 @@ namespace Manager {
                     Term::printVariantFileInfo(label, mouseOverTileIndex + currentVarTrack->blockStart, out);
                 }
             } else if (mode == SETTINGS) {
-                Menu::menuMousePos(opts, fonts, (float)xPos_fb, (float)yPos_fb, (float)fb_height, (float)fb_width, &redraw);
+                Menu::menuMousePos(opts, fonts, (float)xPos_fb, (float)yPos_fb, (float)fb_height, (float)fb_width, monitorScale, &redraw);
             }
         }
     }

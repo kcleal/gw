@@ -104,8 +104,8 @@ namespace Menu {
         SkRect rect;
         SkPath path;
         float pad = fonts.overlayHeight;
-        float v_gap = 5;
-        float control_box_h = 35;
+        float v_gap = 3 * monitorScale;
+        float control_box_h = 18 * monitorScale; //35;
         float y = v_gap;
         float x = v_gap;
         float m_width = 28 * fonts.overlayWidth;
@@ -344,13 +344,13 @@ namespace Menu {
         }
     }
 
-    void menuMousePos(Themes::IniOptions &opts, Themes::Fonts &fonts, float xPos, float yPos, float fb_height, float fb_width, bool *redraw) {
+    void menuMousePos(Themes::IniOptions &opts, Themes::Fonts &fonts, float xPos, float yPos, float fb_height, float fb_width, float monitorScale, bool *redraw) {
         if (opts.editing_underway) {
             return;
         }
         float pad = fonts.overlayHeight;
-        float v_gap = 5;
-        float control_box_h = 35;
+        float v_gap = 3 * monitorScale; //5;
+        float control_box_h = 18 * monitorScale; //35;
         float y = v_gap;
         float x = v_gap;
         auto m_height = (float)(pad * 1.5);
