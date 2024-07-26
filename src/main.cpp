@@ -345,7 +345,6 @@ int main(int argc, char *argv[]) {
         if (user_input == "q" || user_input == "quit" || user_input == "exit") {
             std::exit(0);
         }
-
         if (user_input.empty()) {
             have_session_file = std::filesystem::exists(iopts.session_file);
             if (have_session_file) {
