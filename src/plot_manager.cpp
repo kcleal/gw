@@ -1271,7 +1271,7 @@ namespace Manager {
             fonts.setFontSize(yScaling, monitorScale);
             SkRect rect{};
             float height_f = fonts.overlayHeight * 2;
-            float x = 50;
+            float x = 25 * monitorScale;
             SkPaint bg = opts.theme.bgMenu;
             float y = fb_height - (fb_height * 0.025);
             float y2 = fb_height - (height_f * 2.5);
