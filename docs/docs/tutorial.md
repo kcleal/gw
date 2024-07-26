@@ -13,23 +13,23 @@ quide for MacOS, but Linux or Windows is more or less the same.
 
 Firstly, here are some links for some test data:
 
-[Test bam file](https://github.com/kcleal/gw/blob/master/docs/assets/data/demo1.bam) 
+[Test bam file](https://github.com/kcleal/gw/releases/download/v1.0.0/demo1.bam) 
 
-[Test bed file](https://github.com/kcleal/gw/blob/master/docs/assets/data/demo1.bed) 
+[Test bed file](https://github.com/kcleal/gw/releases/download/v1.0.0/demo1.bed) 
 
-[Test vcf file](https://github.com/kcleal/gw/blob/master/docs/assets/data/demo1.vcf)
+[Test vcf file](https://github.com/kcleal/gw/releases/download/v1.0.0/demo1.vcf)
 
 ## Launch GW
 
 Once you open the GW app, you will see a terminal window popup:
 
-![Alt text](/assets/images/terminal_splash.png "Terminal")
+![Alt text](/gw/assets/images/terminal_splash.png "Terminal")
 
 Load the hg19 reference genome by either entering the number, or typing hg19. GW will load an
 online reference genome, but for much faster performance you can configure GW to use a local file.
 
 Access the Settings and Command box using the popup menus at the left-side of the screen:
-![Alt text](/assets/images/bubble.png "Terminal")
+![Alt text](/gw/assets/images/bubble.png "Terminal")
 
 To add a local reference genome, click on the `Settings` menu (see the cog in the image). Next
 goto `Genomes`, and click on the `+` sign at the top left. You can then enter a genome-tag and the
@@ -41,7 +41,10 @@ path to your local file.
 Next load some data using one of these options:
 
 1. Drag and drop the bam file above
-2. Use the load command - open the command box and type `load https://github.com/kcleal/gw/blob/master/docs/assets/data/demo1.bam`
+2. Use the load command - open the command box and type:
+
+    
+    load https://github.com/kcleal/gw/releases/download/v1.0.0/demo1.bam
 
 Navigate to a region by typing this, into the command box. You should now see some data!
 
@@ -49,7 +52,7 @@ Navigate to a region by typing this, into the command box. You should now see so
 
 Next, load the test bed file (drag-and-drop or use load command):
 
-![Alt text](/assets/images/demo1.png "Demo1")
+![Alt text](/gw/assets/images/demo1.png "Demo1")
 
 This is the main "alignment-view". Most screen elements are interactive and display data to the terminal. Navigate
 around the screen by dragging with the mouse, or using arrow keys.
@@ -77,7 +80,7 @@ VCF/BCF files using the "image-view" mode, creating tiled images from each varia
 
 Drag-and-drop the test VCF file into the window:
 
-![Alt text](/assets/images/demo2.png "Demo2")
+![Alt text](/gw/assets/images/demo2.png "Demo2")
 
 
 There was only one record in the file, so you only end up with one image! 
