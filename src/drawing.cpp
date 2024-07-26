@@ -213,7 +213,7 @@ namespace Drawing {
                 float width;
                 if ((int) mmVector.size() <= opts.snp_threshold) {
                     float mms = xScaling * mmScaling;
-                    width = (mmVector.size() < opts.snp_threshold) ? ((1. > mms) ? 1. : mms) : xScaling;
+                    width = ((int)mmVector.size() < opts.snp_threshold) ? ((1. > mms) ? 1. : mms) : xScaling;
                 } else {
                     width = xScaling;
                 }

@@ -548,7 +548,7 @@ namespace Manager {
         if (variantTracks.empty()) {
             variantFileSelection = -1;
             mode = Show::SINGLE;
-        } else if (variantFileSelection > variantTracks.size()) {
+        } else if (variantFileSelection > (int)variantTracks.size()) {
             variantFileSelection = 0;
         }
 //        for (auto &trk: variantTracks) {

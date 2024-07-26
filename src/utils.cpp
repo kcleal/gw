@@ -480,7 +480,7 @@ namespace Utils {
     }
 
     std::string & Label::current() {
-        if (labels.empty() || i >= labels.size()) {
+        if (labels.empty() || i >= (int)labels.size()) {
             throw std::runtime_error("Label::current tried to use an invalid label list");
         }
         return labels[i];

@@ -135,7 +135,7 @@ namespace Commands {
                 Term::printSelectedSam(p->selectedAlign, out);
             } else if (parts.size() == 3 && (Utils::endsWith(parts[2], ".sam") || Utils::endsWith(parts[2], ".bam") || Utils::endsWith(parts[2], ".cram"))) {
                 std::string o_str = parts[2];
-                if (p->headers.empty() || p->regionSelection >= p->headers.size()) {
+                if (p->headers.empty() || p->regionSelection >= (int)p->headers.size()) {
                     return Err::SILENT;
                 }
                 sam_hdr_t *hdr = sam_hdr_dup(p->headers[p->regionSelection]);
@@ -1488,7 +1488,7 @@ namespace Commands {
 
     Err header_command(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
         p->redraw = true;
-        if (p->headers.empty() || p->regionSelection >= p->headers.size()) {
+        if (p->headers.empty() || p->regionSelection >= (int)p->headers.size()) {
             return Err::SILENT;
         }
         sam_hdr_t *hdr = p->headers[p->regionSelection];
