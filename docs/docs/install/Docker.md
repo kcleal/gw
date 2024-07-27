@@ -7,8 +7,10 @@ nav_order: 6
 
 # Install using Docker
 
-To use the [Docker container](https://hub.docker.com/repository/docker/kcleal/gw) interactively (i.e. not just from the command line) you must have 
-a screen-sharing tool available on your system - Xpra (https://xpra.org/) can work well for this. This 
+The GW docker is currently out of date (v0.3), but we will hopefully be realeasing a v1.0 update soon. 
+
+To use the the [Docker container](https://hub.docker.com/repository/docker/kcleal/gw) interactively (i.e. not just from the command line) you must first install 
+a screen-sharing on your system - we recommend using Xpra (https://xpra.org/) for this. This 
 allows a screen to be shared between the container and host.
 
 - Grab the gw docker image:
