@@ -1464,9 +1464,15 @@ namespace HGW {
                     b.strand = 0;
                 }
                 for (const auto &item :  Utils::split(b.parts[8], ';')) {
+
                     if (kind == GFF3_NOI) {
                         std::vector<std::string> keyval = Utils::split(item, '=');
-                        if (keyval[0] == "ID") {
+                        if (keyval[0] == "Name") {
+                            b.parent = keyval[1];
+                            b.name = keyval[1];
+                            break;
+                        }
+                        else if (keyval[0] == "ID") {
                             b.name = keyval[1];
                         }
                         else if (keyval[0] == "Parent") {
@@ -1475,14 +1481,37 @@ namespace HGW {
                         }
                     } else {
                         std::vector<std::string> keyval = Utils::split(item, ' ');
-                        if (keyval[0] == "transcript_id") {
+                        if (keyval[0] == "gene_name") {
+                            b.parent = keyval[1];
+                            b.name = keyval[1];
+                            break;
+                        } else if (keyval[0] == "gene_id") {
+                            b.parent = keyval[1];
+                            b.name = keyval[1];
+                        } else if (keyval[0] == "transcript_id") {
                             b.name = keyval[1];
                         }
-                        else if (keyval[0] == "gene_id") {
-                            b.parent = keyval[1];
-                            break;
-                        }
                     }
+
+//                    if (kind == GFF3_NOI) {
+//                        std::vector<std::string> keyval = Utils::split(item, '=');
+//                        if (keyval[0] == "ID") {
+//                            b.name = keyval[1];
+//                        }
+//                        else if (keyval[0] == "Parent") {
+//                            b.parent = keyval[1];
+//                            break;
+//                        }
+//                    } else {
+//                        std::vector<std::string> keyval = Utils::split(item, ' ');
+//                        if (keyval[0] == "transcript_id") {
+//                            b.name = keyval[1];
+//                        }
+//                        else if (keyval[0] == "gene_id") {
+//                            b.parent = keyval[1];
+//                            break;
+//                        }
+//                    }
 
                 }
                 allBlocks[b.chrom].add(b.start, b.end, b);
@@ -1640,6 +1669,7 @@ namespace HGW {
             return;
         }
         strand = 0;
+
         if (kind > BCF_IDX) {  // non indexed cached VCF_NOI / BED_NOI / GFF3 (todo) / GW_LABEL / STDIN?
             // add_to_dict==false, only BED and GW_LABEL files supported (iterate whole file)
             if (!add_to_dict) {
@@ -1819,12 +1849,13 @@ namespace HGW {
                 for (const auto &item :  Utils::split(parts[8], ';')) {
                     if (kind == GFF3_IDX) {
                         std::vector<std::string> keyval = Utils::split(item, '=');
-                        if (keyval[0] == "ID") {
-                            rid = keyval[1];
-                        } else if (keyval[0] == "Name") {
+                        if (keyval[0] == "Name") {
                             parent = keyval[1];
-		            rid = keyval[1];
+                            rid = keyval[1];
                             break;
+                        }
+                        else if (keyval[0] == "ID") {
+                            rid = keyval[1];
                         }
                         else if (keyval[0] == "Parent") {
                             parent = keyval[1];
@@ -1832,10 +1863,13 @@ namespace HGW {
                         }
                     } else {
                         std::vector<std::string> keyval = Utils::split(item, ' ');
-                        if (keyval[0] == "gene_id") {
+                        if (keyval[0] == "gene_name") {
                             parent = keyval[1];
-			    rid = keyval[1];
+			                rid = keyval[1];
                             break;
+                        } else if (keyval[0] == "gene_id") {
+                            parent = keyval[1];
+                            rid = keyval[1];
                         } else if (keyval[0] == "transcript_id") {
                             rid = keyval[1];
                         }
