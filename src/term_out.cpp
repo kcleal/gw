@@ -1385,7 +1385,7 @@ namespace Term {
     }
 
 #if !defined(__EMSCRIPTEN__)
-    const char* CURRENT_VERSION = "v1.0.0";
+    const char* CURRENT_VERSION = "v1.0.1";
 
     size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
         ((std::string*)userp)->append((char*)contents, size * nmemb);
