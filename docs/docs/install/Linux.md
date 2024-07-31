@@ -11,7 +11,7 @@ For best performance, install GW as a desktop application on (Intel debian syste
 Use the installer below, or head over to the GitHub [Releases page](https://github.com/kcleal/gw/releases).
 
 
-[GW Intel x86_64 debian installer](https://github.com/kcleal/gw/releases/download/v1.0.0/debian-package.zip)
+[GW Intel x86_64 debian installer](https://github.com/kcleal/gw/releases/download/v1.0.1/gw_1.0.1_amd64.deb)
 
 
 

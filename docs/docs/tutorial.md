@@ -13,7 +13,9 @@ quide for MacOS, but Linux or Windows is more or less the same.
 
 Firstly, here are some links for some test data:
 
-[Test bam file](https://github.com/kcleal/gw/releases/download/v1.0.0/demo1.bam) 
+[Test bam file](https://github.com/kcleal/gw/releases/download/v1.0.0/demo1.bam)
+
+[Test bam index file](https://github.com/kcleal/gw/releases/download/v1.0.0/demo1.bam.bai)
 
 [Test bed file](https://github.com/kcleal/gw/releases/download/v1.0.0/demo1.bed) 
 
@@ -40,10 +42,11 @@ path to your local file.
 
 Next load some data using one of these options:
 
-1. Drag and drop the bam file above
+1. Drag and drop the bam file above (download the index file also!)
 2. Use the load command - open the command box and type:
 
-    
+
+
     load https://github.com/kcleal/gw/releases/download/v1.0.0/demo1.bam
 
 Navigate to a region by typing this, into the command box. You should now see some data!
