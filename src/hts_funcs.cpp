@@ -1821,6 +1821,10 @@ namespace HGW {
                         std::vector<std::string> keyval = Utils::split(item, '=');
                         if (keyval[0] == "ID") {
                             rid = keyval[1];
+                        } else if (keyval[0] == "Name") {
+                            parent = keyval[1];
+		            rid = keyval[1];
+                            break;
                         }
                         else if (keyval[0] == "Parent") {
                             parent = keyval[1];
@@ -1828,12 +1832,12 @@ namespace HGW {
                         }
                     } else {
                         std::vector<std::string> keyval = Utils::split(item, ' ');
-                        if (keyval[0] == "transcript_id") {
-                            rid = keyval[1];
-                        }
-                        else if (keyval[0] == "gene_id") {
+                        if (keyval[0] == "gene_id") {
                             parent = keyval[1];
+			    rid = keyval[1];
                             break;
+                        } else if (keyval[0] == "transcript_id") {
+                            rid = keyval[1];
                         }
                     }
                 }
