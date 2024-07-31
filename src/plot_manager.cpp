@@ -670,6 +670,8 @@ namespace Manager {
 #endif
 
         vCursor = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
+	normalCursor = glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
+	
         setGlfwFrameBufferSize();
 
         fetchRefSeqs();
