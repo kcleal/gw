@@ -572,32 +572,22 @@ namespace Segs {
 #endif
                     return -1;
                 }
+//                Old code here:
+//                for (cp = state->MMend[i]-1; cp != state->MM[i]; cp--)
+//                    if (*cp == ',')
+//                        break;
 
-//                if (i == 0) {
-//                    cp = state->MM[i];
-//                } else {
-
-                    if (i > 0) {
-                        char *cp_begin = state->MMend[0];
-                        char *cp2 = state->MMend[i];
-                        cp = state->MMend[i]-1;
-                        while (cp != cp_begin && (cp == cp2 || *cp != ',')) {
-                            --cp;
-                            --cp2;
-                        }
-                    } else {
-                        return -1;
+                if (i >= 0) {
+                    char *cp_begin = state->MMend[0];
+                    char *cp2 = state->MMend[i];
+                    cp = state->MMend[i]-1;
+                    while (cp != cp_begin && (cp == cp2 || *cp != ',')) {
+                        --cp;
+                        --cp2;
                     }
-
-
-//                    for (cp = state->MMend[i]-1; cp != state->MM[i]; cp--) {
-//                        std::cout << (cp == nullptr) << " " <<  i << "  5a2.\n";
-//                        if (i < 1 || *cp == ',') {
-//                            break;
-//                        }
-//                        std::cout << "  5a2.\n";
-//                    }
-//                }
+                } else {
+                    return -1;
+                }
 
                 state->MMend[i] = cp;
                 if (cp != state->MM[i])
@@ -695,6 +685,8 @@ namespace Segs {
         }
 
         int r = bam_mods_at_next_pos(b, state, mods, n_mods);
+//        if (b->core.flag & 16)
+//            std::cout << (b->core.flag & 16) << " -- " << r << std::endl;
         return r > 0 ? r : 0;
     }
 
@@ -797,7 +789,13 @@ namespace Segs {
             if (res >= 0) {
                 hts_base_mod mods[10];
                 int pos = 0;  // position on read, not reference
+//                if (flag & 16) {
+//                    pos = seq_index;
+//                }
                 int nm = bam_next_basemod(src, mod_state, mods, 10, &pos);
+
+//                std::cout << (flag & 16) << " " << nm << std::endl;
+
                 while (nm > 0) {
                     self->any_mods.emplace_back() = ModItem();
                     ModItem& mi = self->any_mods.back();
