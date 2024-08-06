@@ -129,10 +129,10 @@ namespace Commands {
     }
 
     Err sam(Plot* p, std::string& command, std::vector<std::string>& parts, std::ostream& out) {
-        p->redraw = true;
         if (!p->selectedAlign.empty()) {
             if (command == "sam") {
                 Term::printSelectedSam(p->selectedAlign, out);
+                return Err::NONE;
             } else if (parts.size() == 3 && (Utils::endsWith(parts[2], ".sam") || Utils::endsWith(parts[2], ".bam") || Utils::endsWith(parts[2], ".cram"))) {
                 std::string o_str = parts[2];
                 if (p->headers.empty() || p->regionSelection >= (int)p->headers.size()) {
@@ -220,7 +220,6 @@ namespace Commands {
                 sam_close(h_out);
             }
         }
-        p->processed = true;
         return Err::NONE;
     }
 
