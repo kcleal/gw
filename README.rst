@@ -29,10 +29,17 @@ Check out the `documentation here. <https://kcleal.github.io/gw/>`_
 ⚙️ Install
 ----------
 
-Please visit the `install section of the documentation <https://kcleal.github.io/gw/docs/install/Install.html>`_ for more details,
-or download one of the binaries from the Releases page.
+For best performance, download one of the app packages from the Releases page. See the `install section of the documentation <https://kcleal.github.io/gw/docs/install/Install.html>`_ for more details.
 
-TLDR: ``conda install -c bioconda -c conda-forge gw``
+Using a package manager:
+
+Apple
+
+``brew install kcleal/homebrew-gw/gw``
+
+x86_64 linux/osx. Unfortunatly installing via conda is not currently working for miniconda/miniforge, altough may work for other distributions. 
+
+``conda install -c bioconda -c conda-forge gw``
 
 
 🚀 Quick Start
