@@ -33,13 +33,22 @@ For best performance, download one of the app packages from the Releases page. S
 
 Using a package manager:
 
-Apple or Linux:
+- brew (Apple or Linux):
 
 ``brew install kcleal/homebrew-gw/gw``
 
-Unfortunatly installing via conda on Linux is not currently working for miniconda/miniforge, altough may work for other distributions. Apple x86_64 works using:  
+- conda (x86_64 Apple or Linux)
 
 ``conda install -c bioconda -c conda-forge gw``
+
+Unfortunatly the Linux conda package is not currently working for miniconda/miniforge, altough other distributions may work. To build from source using conda to fetch other dependencies use::
+
+    conda create -y -n gw_env -c conda-forge glfw htslib
+    conda activate gw_env
+    git clone https://github.com/kcleal/gw.git
+    cd gw && make prep
+    CONDA_PREFIX=$(conda info --base) LDLIBS+="-lcrypto -lssl" make -j4
+
 
 
 🚀 Quick Start
