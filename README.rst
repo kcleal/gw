@@ -33,11 +33,11 @@ For best performance, download one of the app packages from the Releases page. S
 
 Using a package manager:
 
-Apple
+Apple or Linux:
 
 ``brew install kcleal/homebrew-gw/gw``
 
-x86_64 linux/osx. Unfortunatly installing via conda is not currently working for miniconda/miniforge, altough may work for other distributions. 
+Unfortunatly installing via conda on Linux is not currently working for miniconda/miniforge, altough may work for other distributions. Apple x86_64 works using:  
 
 ``conda install -c bioconda -c conda-forge gw``
 
