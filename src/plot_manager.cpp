@@ -117,11 +117,7 @@ namespace Manager {
                     tracks.back().genome_tag = opts.genome_tag;
                     tracks.back().open(trk_item, true);
                     tracks.back().variant_distance = &opts.variant_distance;
-                    if (tracks.back().kind == HGW::FType::BIGWIG) {
-                        tracks.back().faceColour = opts.theme.fcBigWig;
-                    } else {
-                        tracks.back().faceColour = opts.theme.fcTrack;
-                    }
+                    tracks.back().setPaint((tracks.back().kind == HGW::FType::BIGWIG) ? opts.theme.fcBigWig : opts.theme.fcTrack);
                 }
             }
             if (opts.myIni["tracks"].has(opts.genome_tag + "_ideogram")) {
@@ -135,11 +131,7 @@ namespace Manager {
             tracks.emplace_back() = HGW::GwTrack();
             tracks.back().open(tp, true);
             tracks.back().variant_distance = &opts.variant_distance;
-            if (tracks.back().kind == HGW::FType::BIGWIG) {
-                tracks.back().faceColour = opts.theme.fcBigWig;
-            } else {
-                tracks.back().faceColour = opts.theme.fcTrack;
-            }
+            tracks.back().setPaint((tracks.back().kind == HGW::FType::BIGWIG) ? opts.theme.fcBigWig : opts.theme.fcTrack);
         }
         samMaxY = 0;
         yScaling = 0;
@@ -208,25 +200,23 @@ namespace Manager {
             std::terminate();
         }
 
+#ifndef __APPLE__  // linux, windows, termux
+    #ifdef USE_GL
+        // Use OpenGL context (OpenGL 2.1)
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+    #else
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+        glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2); // OpenGL ES 2.0
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    #endif
+#else
+        // Native macOS -> use the default OpenGL context (OpenGL 2.1)
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 
-//        GLFWmonitor* primary = glfwGetPrimaryMonitor();
-//        const GLFWvidmode* mode = glfwGetVideoMode(primary);
-//
-//        glfwWindowHint(GLFW_RED_BITS, mode->redBits);
-//        glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
-//        glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
-//        glfwWindowHint(GLFW_STENCIL_BITS, 8);
-//        glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
-
-//        std::cerr << "Width: " << mode->width << " Height: " << mode->height << " redBits: " << mode->redBits << " greenBits: " << mode->greenBits << " blueBits: " << mode->blueBits << " refreshRate: " << mode->refreshRate << std::endl;
-//         Turn this off for non-remote connections?
-//        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
-//        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-//        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-//        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-//        glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
-#ifndef __APPLE__
-        glfwWindowHint(GLFW_CONTEXT_CREATION_API , GLFW_EGL_CONTEXT_API);
 #endif
         window = glfwCreateWindow(width, height, "GW", NULL, NULL);
 
@@ -420,6 +410,14 @@ namespace Manager {
     }
 
     void GwPlot::addIdeogram(std::string path) {
+        if (path == "hg19" || path == "hg38" || path == "grch38" || path == "grch37" || path == "t2t" ||
+            path == "mm39" || path == "ce11" || path == "danrer11") {
+            std::string original_tag = opts.genome_tag;
+            opts.genome_tag = path;
+            loadIdeogramTag();
+            opts.genome_tag = original_tag;
+            return;
+        }
         ideogram_path = path;
         Themes::readIdeogramFile(path, ideogram, opts.theme);
     }
@@ -575,11 +573,7 @@ namespace Manager {
             } else if (Utils::startsWith(item.first, "track")) {
                 tracks.emplace_back(HGW::GwTrack());
                 tracks.back().open(item.second, true);
-                if (tracks.back().kind == HGW::FType::BIGWIG) {
-                    tracks.back().faceColour = opts.theme.fcBigWig;
-                } else {
-                    tracks.back().faceColour = opts.theme.fcTrack;
-                }
+                tracks.back().setPaint((tracks.back().kind == HGW::FType::BIGWIG) ? opts.theme.fcBigWig : opts.theme.fcTrack);
                 tracks.back().variant_distance = &opts.variant_distance;
             } else if (Utils::startsWith(item.first, "region")) {
                 std::string rgn = item.second;
@@ -670,7 +664,7 @@ namespace Manager {
 #endif
 
         vCursor = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
-	normalCursor = glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
+	    normalCursor = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
 	
         setGlfwFrameBufferSize();
 

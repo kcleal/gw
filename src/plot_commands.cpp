@@ -1386,7 +1386,10 @@ namespace Commands {
                 out << termcolor::red << "Error:" << termcolor::reset << " track index out of range\n";
                 return Err::SILENT;
             }
-            p->tracks[ind].faceColour.setARGB(alpha, red, green, blue);
+            SkPaint new_paint;
+            new_paint.setARGB(alpha, red, green, blue);
+            p->tracks[ind].setPaint(new_paint);
+//            p->tracks[ind].faceColour.setARGB(alpha, red, green, blue);
             refreshGw(p);
             return Err::NONE;
         }

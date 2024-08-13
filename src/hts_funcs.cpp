@@ -1227,6 +1227,12 @@ namespace HGW {
         }
     }
 
+    void GwTrack::setPaint(SkPaint &faceColour) {
+        this->faceColour = faceColour;
+        int c = faceColour.getColor();
+        this->shadedFaceColour.setARGB(faceColour.getAlpha(), SkColorGetR(c)/2, SkColorGetG(c)/2, SkColorGetB(c)/2);
+    }
+
     void GwTrack::open(const std::string &p, bool add_to_dict=true) {
         fileIndex = 0;
         path = p;
@@ -2310,11 +2316,13 @@ namespace HGW {
 
             track.anyToDraw = false;
             bool restAreThin = false;
+            bool between_codons = false;
             for (auto &g: pg.second) {
                 if (j == 0) {
                     track.chrom = g->chrom;
                     track.start = g->start;
                     track.name = pg.first;
+                    std::cout << track.name << " ---\n";
                     if (track.name.front() == '"') {
                         track.name.erase(0, 1);
                     }
@@ -2338,18 +2346,28 @@ namespace HGW {
                 track.s.push_back(g->start);
                 track.e.push_back(g->end);
 
-                if (restAreThin) {
-                    track.drawThickness.push_back(1);
-                } else if (g->vartype == "exon" || g->vartype == "CDS") {
-                    track.drawThickness.push_back(2);  // fat line
+//                if (restAreThin) {
+//                    track.drawThickness.push_back(1);
+//                } else
+                if (g->vartype == "exon" || g->vartype == "CDS") {
                     if (!track.anyToDraw) { track.anyToDraw = true; }
+                    if (between_codons) {
+                        track.drawThickness.push_back(2);  // fat line
+                    } else {
+                        track.drawThickness.push_back(1);  // thin line
+                }
+//                if (g->vartype == "exon" || g->vartype == "CDS") {
+//                    track.drawThickness.push_back(2);  // fat line
+//                    if (!track.anyToDraw) { track.anyToDraw = true; }
                 } else if (g->vartype == "mRNA" || g->vartype == "gene") {
                     track.drawThickness.push_back(0);  // no line
                 } else if (g->vartype == "start_codon") {
+                    between_codons = !between_codons;
                     track.coding_start = g->start;
-                    std::fill(track.drawThickness.begin(), track.drawThickness.end(), 1);
+//                    std::fill(track.drawThickness.begin(), track.drawThickness.end(), 1);
                     track.drawThickness.push_back(2);
                 } else if (g->vartype == "stop_codon") {
+                    between_codons = !between_codons;
                     track.coding_end = g->end;
                     restAreThin = true;
                     track.drawThickness.push_back(2);
@@ -2357,6 +2375,7 @@ namespace HGW {
                     track.drawThickness.push_back(1);
                     if (!track.anyToDraw) { track.anyToDraw = true; }
                 }
+                std::cout << g->vartype << " " << (int)track.drawThickness.back() << std::endl;
                 j += 1;
             }
             i += 1;

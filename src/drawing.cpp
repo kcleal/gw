@@ -1503,7 +1503,7 @@ namespace Drawing {
         SkPath path;
         path.moveTo(padX, startY - y_negativeValueOffset);
         path.lineTo(padX + stepX - gap2, startY - y_negativeValueOffset);
-        canvas->drawPath(path, opts.theme.fcBigWig);
+        canvas->drawPath(path, faceColour);
 //        }
         int step = length / 100000;
         step = (step) ? step : 1;
@@ -1516,7 +1516,7 @@ namespace Drawing {
             v = trk.bigWig_intervals->value[i];
             x = padX + (((float)trk.bigWig_intervals->start[i] - (float)rgn.start) * xScaling);
             rect.setXYWH(x, startY - y_negativeValueOffset, std::fmax(1, xScaling), -v * availableSPace);
-            canvas->drawRect(rect, opts.theme.fcBigWig);
+            canvas->drawRect(rect, faceColour);
         }
         if (availableSPace > 2 * fonts.overlayHeight) {
             path.reset();
@@ -1550,45 +1550,46 @@ namespace Drawing {
         float w;
 
         SkPaint arcColour;
-//        SkPaint faceColour, arcColour;
-        if (isRoi) {
-//            faceColour = opts.theme.fcRoi;
-        } else {
-            if (shaded) {
-                faceColour = opts.theme.fcCoverage;
-            } else {
-                faceColour = opts.theme.fcTrack;
-            }
-        }
+        SkPaint *faceColour2 = &faceColour;
 
         if (!vartype.empty()) {
             if (vartype == "DEL") {
                 if (addArc) {
                     arcColour = opts.theme.fcT;
                 } else {
-                    faceColour = opts.theme.fcT;
-                    faceColour.setAlpha(150);
+                    faceColour2 = &opts.theme.fcT;
+                    faceColour2->setAlpha(150);
                 }
 
             } else if (vartype == "DUP") {
                 if (addArc) {
                     arcColour = opts.theme.fcC;
                 } else {
-                    faceColour = opts.theme.fcC;
-                    faceColour.setAlpha(150);
+                    faceColour2 = &opts.theme.fcC;
+                    faceColour2->setAlpha(150);
                 }
             } else if (vartype == "INV") {
                 if (addArc) {
                     arcColour = opts.theme.fcA;
                 } else {
-                    faceColour = opts.theme.fcA;
-                    faceColour.setAlpha(150);
+                    faceColour2 = &opts.theme.fcA;
+                    faceColour2->setAlpha(150);
                 }
             } else {
                 addArc = false;
             }
         } else {
             addArc = false;
+//            if (isRoi) {
+//            faceColour = opts.theme.fcRoi;
+//            } else {
+//                if (shaded) {
+//                    faceColour2 = //&opts.theme.fcCoverage;
+//                } else {
+                    faceColour2 = &faceColour;
+//                faceColour = opts.theme.fcTrack;
+//                }
+//            }
         }
 
         if (addArc) {
@@ -1648,7 +1649,7 @@ namespace Drawing {
             } else if (strand == 2) {  // -
                 drawLeftPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, opts.theme.lcBright, path, pointSlop);
             }
-            canvas->drawRect(rect, faceColour);
+            canvas->drawRect(rect, *faceColour2);
 
             if (shaded) {
                 canvas->drawRect(rect, opts.theme.lcLightJoins);
@@ -1684,11 +1685,12 @@ namespace Drawing {
         if (rightPoint > padX + stepX - gap2) {
             return;
         }
+
         *labelsEnd = leftPoint + estimatedTextWidth;
         rect.fLeft = leftPoint;
         text.emplace_back() = {SkTextBlob::MakeFromString(rid.c_str(), fonts.overlay),
                                rect.left(),
-                               rect.bottom() + fonts.overlayHeight};
+                               rect.bottom() + fonts.overlayHeight + monitorScale * 2};
 
     }
 
@@ -1698,7 +1700,8 @@ namespace Drawing {
                               float gap, Utils::TrackBlock &trk, bool any_text, const Utils::Region &rgn, SkRect &rect,
                               SkPath &path, SkPath &path2, float padX, float padY, float stepX, float stepY,
                               float y, float h, float h2, float h4, float gap2, float xScaling, int nLevels,
-                              float *labelsEnd, std::vector<TextItem> &text, bool vline, SkPaint &faceColour, float pointSlop, int strand) {
+                              float *labelsEnd, std::vector<TextItem> &text, bool vline, SkPaint &faceColour, SkPaint &shadedFaceColour,
+                              float pointSlop, int strand, float monitorScale) {
 
         int target = (int) trk.s.size();
         int stranded = trk.strand;
@@ -1707,7 +1710,7 @@ namespace Drawing {
         std::string empty_str;
         if (any_text) {
             drawTrackBlock(trk.start, trk.end, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2,
-                           xScaling, opts, canvas, fonts, true, false, false, false, labelsEnd, empty_str, 0, text, false, false, faceColour, pointSlop, strand);
+                           xScaling, opts, canvas, fonts, true, false, false, false, labelsEnd, empty_str, monitorScale, text, false, false, faceColour, pointSlop, strand);
         }
         for (int i = 0; i < target; ++i) {
             int s, e;
@@ -1721,21 +1724,22 @@ namespace Drawing {
             uint8_t thickness = trk.drawThickness[i];
             if (thickness && s < rgn.end && e > rgn.start) {
 
-                if ((trk.coding_end != -1 && s >= trk.coding_end) ||
-                    (trk.coding_start != -1 && e <= trk.coding_start)) {
-                    thickness = 1;
-                }
+//                if ((trk.coding_end != -1 && s >= trk.coding_end) ||
+//                    (trk.coding_start != -1 && e <= trk.coding_start)) {
+//                    thickness = 1;
+//                }
 
                 if (s < trk.coding_end && e > trk.coding_end) { //overlaps, split into two blocks!
                     drawTrackBlock(s, trk.coding_end, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap,
                                    gap2, xScaling, opts, canvas, fonts, false, true, add_line, false, labelsEnd, empty_str, 0, text, false, false, faceColour, pointSlop, strand);
-                    drawTrackBlock(trk.coding_end, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap,
-                                   gap2, xScaling, opts, canvas, fonts, false, true, add_line, true, labelsEnd, empty_str, 0, text, false, false,  faceColour, pointSlop, strand);
+                    drawTrackBlock(trk.coding_end, e, trk.name, rgn, rect, path, padX, padY, y + (h * 0.25), h * 0.5, stepX, stepY, gap,
+                                   gap2, xScaling, opts, canvas, fonts, false, true, add_line, true, labelsEnd, empty_str, 0, text, false, false,  shadedFaceColour, pointSlop, 0);
                 }
 
-                else if (thickness == 1) {
-                    drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2, xScaling,
-                                   opts, canvas, fonts, false, true, add_line, true, labelsEnd, empty_str, 0, text, false, false, faceColour, pointSlop, strand);
+//                else if (thickness == 1) {
+                if (thickness == 1) {
+                    drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y + (h * 0.25), h * 0.5, stepX, stepY, gap, gap2, xScaling,
+                                   opts, canvas, fonts, false, true, add_line, true, labelsEnd, empty_str, 0, text, false, false, shadedFaceColour, pointSlop, 0);
                 } else {
                     drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2, xScaling,
                                    opts, canvas, fonts, false, true, add_line, false, labelsEnd, empty_str, 0, text, false, false, faceColour, pointSlop, strand);
@@ -1752,24 +1756,24 @@ namespace Drawing {
                     path2.moveTo(x, yy);
                     path2.lineTo(w, yy);
                     canvas->drawPath(path2, opts.theme.lcLightJoins);
-                    if (stranded != 0 && w - x > 50) {
-                        while (x + 50 < w) {
-                            x += 50;
-                            path2.reset();
-                            if (stranded == 1) {
-                                path2.moveTo(x, yy);
-                                path2.lineTo(x - 6, yy + 6);
-                                path2.moveTo(x, yy);
-                                path2.lineTo(x - 6, yy - 6);
-                            } else {
-                                path2.moveTo(x, yy);
-                                path2.lineTo(x + 6, yy + 6);
-                                path2.moveTo(x, yy);
-                                path2.lineTo(x + 6, yy - 6);
-                            }
-                            canvas->drawPath(path2, opts.theme.lcJoins);
-                        }
-                    }
+//                    if (stranded != 0 && w - x > 50) {
+//                        while (x + 50 < w) {
+//                            x += 50;
+//                            path2.reset();
+//                            if (stranded == 1) {
+//                                path2.moveTo(x, yy);
+//                                path2.lineTo(x - 6, yy + 6);
+//                                path2.moveTo(x, yy);
+//                                path2.lineTo(x - 6, yy - 6);
+//                            } else {
+//                                path2.moveTo(x, yy);
+//                                path2.lineTo(x + 6, yy + 6);
+//                                path2.moveTo(x, yy);
+//                                path2.lineTo(x + 6, yy - 6);
+//                            }
+//                            canvas->drawPath(path2, opts.theme.lcJoins);
+//                        }
+//                    }
                 }
             }
         }
@@ -1812,7 +1816,8 @@ namespace Drawing {
             rgn.featureLevels.resize(tracks.size());
             for (auto &trk: tracks) {
 
-                SkPaint faceColour = trk.faceColour;
+                SkPaint &faceColour = trk.faceColour;
+                SkPaint &shadedFaceColour = trk.shadedFaceColour;
 
                 float right = ((float) (rgn.end - rgn.start) * xScaling) + padX;
                 canvas->save();
@@ -1867,7 +1872,7 @@ namespace Drawing {
                                              fonts, gap,
                                              f, any_text, rgn, rect, path, path2, padX, padY_track, stepX, step_track,
                                              y, h, h2, h4, gap2,
-                                             xScaling, nLevels, fLevelEnd, text, add_line, faceColour, pointSlop, strand);
+                                             xScaling, nLevels, fLevelEnd, text, add_line, faceColour, shadedFaceColour, pointSlop, strand, monitorScale);
 
                     } else {
                         drawTrackBlock(f.start, f.end, f.name, rgn, rect, path, padX, padY_track, y, h, stepX, stepY,

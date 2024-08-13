@@ -67,7 +67,7 @@ void print_banner() {
 }
 
 // note to developer - update version in workflows/main.yml, menu.cpp, term_out.cpp, and deps/gw.desktop, and installers .md in docs
-const char GW_VERSION [7] = "1.0.1";
+const char GW_VERSION [7] = "1.0.2";
 
 
 bool str_is_number(const std::string &s) {

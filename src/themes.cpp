@@ -520,6 +520,12 @@ namespace Themes {
             sub["mods"] = "false";
             update_ini = true;
         }
+        if (sub.has("mods_qual_threshold")) {
+            mods_qual_threshold = std::stoi(sub["mods_qual_threshold"]);
+        } else {
+            sub["mods_qual_threshold"] = "50";
+            update_ini = true;
+        }
         if (sub.has("session_file")) {
             session_file = sub["session_file"];
         }  // defer update to saveCurrentSession
@@ -932,7 +938,7 @@ namespace Themes {
             }
             count += 1;
         }
-        keep = {"filter ", "find ", "f ", "colour", "color", "roi"};
+        keep = {"filter ", "find ", "f ", "roi"}; // "colour", "color" need to be matched with tracks, other rm track causes issues
         size_t j = 0;
         for (; last_refresh < commands.size(); ++last_refresh) {
             for (const auto& k: keep) {
