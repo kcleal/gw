@@ -1438,9 +1438,7 @@ namespace HGW {
                 return;
             }
             int count = 0;
-            std::vector<Utils::TrackBlock> track_blocks;
-            ankerl::unordered_dense::map< std::string, int> name_to_track_block_idx;
-
+            ankerl::unordered_dense::map< std::string, std::vector<Utils::TrackBlock>> track_blocks;
             while (true) {
                 auto got_line = (bool)getline(*fpu, tp);
                 if (!got_line) {
@@ -1451,6 +1449,7 @@ namespace HGW {
                 if (tp[0] == '#') {
                     continue;
                 }
+
                 Utils::TrackBlock b;
                 b.parts = Utils::split(tp, '\t');
                 if (b.parts.size() < 9) {
@@ -1469,6 +1468,7 @@ namespace HGW {
                 } else {
                     b.strand = 0;
                 }
+
                 for (const auto &item :  Utils::split(b.parts[8], ';')) {
 
                     if (kind == GFF3_NOI) {
@@ -1485,42 +1485,45 @@ namespace HGW {
                             b.parent = keyval[1];
                             break;
                         }
-                    } else {
+                    } else {  // GTF_NOI
                         std::vector<std::string> keyval = Utils::split(item, ' ');
-                        if (keyval[0] == "gene_name") {
+
+                        if (keyval[0] == "gene_id") {
                             b.parent = keyval[1];
                             b.name = keyval[1];
                             break;
-                        } else if (keyval[0] == "gene_id") {
+                        } else if (keyval[0] == "gene_name") {
                             b.parent = keyval[1];
                             b.name = keyval[1];
-                        } else if (keyval[0] == "transcript_id") {
+                        } else if (b.name.empty() && keyval[0] == "transcript_id") {
                             b.name = keyval[1];
                         }
                     }
 
-//                    if (kind == GFF3_NOI) {
-//                        std::vector<std::string> keyval = Utils::split(item, '=');
-//                        if (keyval[0] == "ID") {
-//                            b.name = keyval[1];
-//                        }
-//                        else if (keyval[0] == "Parent") {
-//                            b.parent = keyval[1];
-//                            break;
-//                        }
-//                    } else {
-//                        std::vector<std::string> keyval = Utils::split(item, ' ');
-//                        if (keyval[0] == "transcript_id") {
-//                            b.name = keyval[1];
-//                        }
-//                        else if (keyval[0] == "gene_id") {
-//                            b.parent = keyval[1];
-//                            break;
-//                        }
-//                    }
-
                 }
-                allBlocks[b.chrom].add(b.start, b.end, b);
+                if (b.name.empty()) {
+                    continue;
+                }
+                track_blocks[b.name].push_back(std::move(b));
+
+            }
+            for (const auto& kv : track_blocks) {
+                int left = 1000000000;
+                int right = 0;
+                for (const auto &b : kv.second) {
+                    if (b.start < left) {
+                        left = b.start;
+                    }
+                    if (b.end > right) {
+                        right = b.end;
+                    }
+                }
+                if (left == 1000000000 || right == 0) {
+                    continue;
+                }
+                for (const auto &b : kv.second) {
+                    allBlocks[b.chrom].add(left, right, b);
+                }
             }
 
         } else if (kind == BED_IDX) {
@@ -1733,6 +1736,9 @@ namespace HGW {
                         vartype = iter_blk->vartype;
                         strand = iter_blk->strand;
                         variantString = iter_blk->line;
+                        if (rid == "\"ENST00000367590.9_4\"") {
+                            std::cout << " iter < " << start << " " << vartype << "\n";
+                        }
                         parts = iter_blk->parts;
                         ++iter_blk;
                         if (kind == VCF_NOI && (start < fetch_start - *variant_distance && stop > fetch_end + *variant_distance)) {
@@ -2315,14 +2321,13 @@ namespace HGW {
                       { return a->start < b->start || (a->start == b->start && a->end < b->end);});
 
             track.anyToDraw = false;
-            bool restAreThin = false;
             bool between_codons = false;
             for (auto &g: pg.second) {
                 if (j == 0) {
                     track.chrom = g->chrom;
                     track.start = g->start;
                     track.name = pg.first;
-                    std::cout << track.name << " ---\n";
+//                    std::cout << track.name << " ---\n";
                     if (track.name.front() == '"') {
                         track.name.erase(0, 1);
                     }
@@ -2364,18 +2369,18 @@ namespace HGW {
                 } else if (g->vartype == "start_codon") {
                     between_codons = !between_codons;
                     track.coding_start = g->start;
-//                    std::fill(track.drawThickness.begin(), track.drawThickness.end(), 1);
                     track.drawThickness.push_back(2);
                 } else if (g->vartype == "stop_codon") {
                     between_codons = !between_codons;
+//                    std::cout << g->vartype << " " << " " << g->start << " " << between_codons << std::endl;
                     track.coding_end = g->end;
-                    restAreThin = true;
+//                    restAreThin = true;
                     track.drawThickness.push_back(2);
                 } else {
                     track.drawThickness.push_back(1);
                     if (!track.anyToDraw) { track.anyToDraw = true; }
                 }
-                std::cout << g->vartype << " " << (int)track.drawThickness.back() << std::endl;
+//                std::cout << g->vartype << " " << (int)track.drawThickness.back() << std::endl;
                 j += 1;
             }
             i += 1;
