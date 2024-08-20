@@ -1724,11 +1724,6 @@ namespace Drawing {
             uint8_t thickness = trk.drawThickness[i];
             if (thickness && s < rgn.end && e > rgn.start) {
 
-//                if ((trk.coding_end != -1 && s >= trk.coding_end) ||
-//                    (trk.coding_start != -1 && e <= trk.coding_start)) {
-//                    thickness = 1;
-//                }
-
                 if (s < trk.coding_end && e > trk.coding_end) { //overlaps, split into two blocks!
                     drawTrackBlock(s, trk.coding_end, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap,
                                    gap2, xScaling, opts, canvas, fonts, false, true, add_line, false, labelsEnd, empty_str, 0, text, false, false, faceColour, pointSlop, strand);
@@ -1736,7 +1731,6 @@ namespace Drawing {
                                    gap2, xScaling, opts, canvas, fonts, false, true, add_line, true, labelsEnd, empty_str, 0, text, false, false,  shadedFaceColour, pointSlop, 0);
                 }
 
-//                else if (thickness == 1) {
                 if (thickness == 1) {
                     drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y + (h * 0.25), h * 0.5, stepX, stepY, gap, gap2, xScaling,
                                    opts, canvas, fonts, false, true, add_line, true, labelsEnd, empty_str, 0, text, false, false, shadedFaceColour, pointSlop, 0);
@@ -1756,24 +1750,24 @@ namespace Drawing {
                     path2.moveTo(x, yy);
                     path2.lineTo(w, yy);
                     canvas->drawPath(path2, opts.theme.lcLightJoins);
-//                    if (stranded != 0 && w - x > 50) {
-//                        while (x + 50 < w) {
-//                            x += 50;
-//                            path2.reset();
-//                            if (stranded == 1) {
-//                                path2.moveTo(x, yy);
-//                                path2.lineTo(x - 6, yy + 6);
-//                                path2.moveTo(x, yy);
-//                                path2.lineTo(x - 6, yy - 6);
-//                            } else {
-//                                path2.moveTo(x, yy);
-//                                path2.lineTo(x + 6, yy + 6);
-//                                path2.moveTo(x, yy);
-//                                path2.lineTo(x + 6, yy - 6);
-//                            }
-//                            canvas->drawPath(path2, opts.theme.lcJoins);
-//                        }
-//                    }
+                    if (stranded != 0 && w - x > 50) {
+                        while (x + 50 < w) {
+                            x += 50;
+                            path2.reset();
+                            if (stranded == 1) {
+                                path2.moveTo(x, yy);
+                                path2.lineTo(x - 6, yy + 6);
+                                path2.moveTo(x, yy);
+                                path2.lineTo(x - 6, yy - 6);
+                            } else {
+                                path2.moveTo(x, yy);
+                                path2.lineTo(x + 6, yy + 6);
+                                path2.moveTo(x, yy);
+                                path2.lineTo(x + 6, yy - 6);
+                            }
+                            canvas->drawPath(path2, opts.theme.lcJoins);
+                        }
+                    }
                 }
             }
         }

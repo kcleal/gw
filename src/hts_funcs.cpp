@@ -1470,41 +1470,39 @@ namespace HGW {
                 }
 
                 for (const auto &item :  Utils::split(b.parts[8], ';')) {
-
                     if (kind == GFF3_NOI) {
                         std::vector<std::string> keyval = Utils::split(item, '=');
-                        if (keyval[0] == "Name") {
-                            b.parent = keyval[1];
+                        if (keyval[0] == "Name" || keyval[0] == "gene_name") {
                             b.name = keyval[1];
-                            break;
+                            if (!b.parent.empty()) {
+                                break;
+                            }
                         }
-                        else if (keyval[0] == "ID") {
+                        else if (b.name.empty() && keyval[0] == "ID") {
                             b.name = keyval[1];
                         }
                         else if (keyval[0] == "Parent") {
                             b.parent = keyval[1];
-                            break;
+                            b.name = keyval[1];
                         }
                     } else {  // GTF_NOI
                         std::vector<std::string> keyval = Utils::split(item, ' ');
-
                         if (keyval[0] == "gene_id") {
                             b.parent = keyval[1];
                             b.name = keyval[1];
-                            break;
                         } else if (keyval[0] == "gene_name") {
                             b.parent = keyval[1];
                             b.name = keyval[1];
+                            break;
                         } else if (b.name.empty() && keyval[0] == "transcript_id") {
                             b.name = keyval[1];
                         }
                     }
-
                 }
                 if (b.name.empty()) {
                     continue;
                 }
-                track_blocks[b.name].push_back(std::move(b));
+                track_blocks[b.parent].push_back(std::move(b));
 
             }
             for (const auto& kv : track_blocks) {
@@ -1602,11 +1600,7 @@ namespace HGW {
             } else {
                 if (allBlocks.contains(rgn->chrom)) {
                     std::vector<size_t> a;
-                    if (kind == GFF3_NOI || kind == GTF_NOI) {
-                        allBlocks[rgn->chrom].overlap(std::max(1, rgn->start - 100000), rgn->end + 100000, a);
-                    } else {
-                        allBlocks[rgn->chrom].overlap(rgn->start, rgn->end, a);
-                    }
+                    allBlocks[rgn->chrom].overlap(rgn->start, rgn->end, a);
                     overlappingBlocks.clear();
                     if (a.empty()) {
                         done = true;
@@ -1736,9 +1730,6 @@ namespace HGW {
                         vartype = iter_blk->vartype;
                         strand = iter_blk->strand;
                         variantString = iter_blk->line;
-                        if (rid == "\"ENST00000367590.9_4\"") {
-                            std::cout << " iter < " << start << " " << vartype << "\n";
-                        }
                         parts = iter_blk->parts;
                         ++iter_blk;
                         if (kind == VCF_NOI && (start < fetch_start - *variant_distance && stop > fetch_end + *variant_distance)) {
@@ -2326,8 +2317,8 @@ namespace HGW {
                 if (j == 0) {
                     track.chrom = g->chrom;
                     track.start = g->start;
-                    track.name = pg.first;
-//                    std::cout << track.name << " ---\n";
+                    track.name = g->name;
+
                     if (track.name.front() == '"') {
                         track.name.erase(0, 1);
                     }
@@ -2338,11 +2329,12 @@ namespace HGW {
                     if (track.parent.front() == '"') {
                         track.parent.erase(0, 1);
                     }
-                    if (track.name.back() == '"') {
+                    if (track.parent.back() == '"') {
                         track.parent.erase(track.parent.size() - 1, 1);
                     }
                     track.end = g->end;
                     track.strand = g->strand;
+
                 } else if (g->end > track.end) {
                     track.end = g->end;
                 }
@@ -2351,9 +2343,6 @@ namespace HGW {
                 track.s.push_back(g->start);
                 track.e.push_back(g->end);
 
-//                if (restAreThin) {
-//                    track.drawThickness.push_back(1);
-//                } else
                 if (g->vartype == "exon" || g->vartype == "CDS") {
                     if (!track.anyToDraw) { track.anyToDraw = true; }
                     if (between_codons) {
@@ -2361,9 +2350,6 @@ namespace HGW {
                     } else {
                         track.drawThickness.push_back(1);  // thin line
                 }
-//                if (g->vartype == "exon" || g->vartype == "CDS") {
-//                    track.drawThickness.push_back(2);  // fat line
-//                    if (!track.anyToDraw) { track.anyToDraw = true; }
                 } else if (g->vartype == "mRNA" || g->vartype == "gene") {
                     track.drawThickness.push_back(0);  // no line
                 } else if (g->vartype == "start_codon") {
@@ -2372,15 +2358,12 @@ namespace HGW {
                     track.drawThickness.push_back(2);
                 } else if (g->vartype == "stop_codon") {
                     between_codons = !between_codons;
-//                    std::cout << g->vartype << " " << " " << g->start << " " << between_codons << std::endl;
                     track.coding_end = g->end;
-//                    restAreThin = true;
                     track.drawThickness.push_back(2);
                 } else {
                     track.drawThickness.push_back(1);
                     if (!track.anyToDraw) { track.anyToDraw = true; }
                 }
-//                std::cout << g->vartype << " " << (int)track.drawThickness.back() << std::endl;
                 j += 1;
             }
             i += 1;
