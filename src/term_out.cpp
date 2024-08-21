@@ -140,6 +140,7 @@ namespace Term {
                    "          lcJoins        - line-colour of joins\n"
                    "          lcCoverage     - line-colour of coverage profile\n"
                    "          lcLightJoins   - line-colour of lighter joins\n"
+                   "          lcGTFJoins     - line-colour of joins for GTF/GFF3\n"
                    "          lcLabel        - line-colour of labels\n"
                    "          lcBright       - line-colour of bright edges\n"
                    "          tcDel          - text-colour of deletions\n"

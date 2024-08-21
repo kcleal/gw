@@ -684,6 +684,7 @@ namespace Manager {
             }
         }
         bool wasResized = false;
+        redraw = true;
 
         std::chrono::high_resolution_clock::time_point autoSaveTimer = std::chrono::high_resolution_clock::now();
         while (true) {
@@ -694,12 +695,6 @@ namespace Manager {
             if (delay > 0) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(delay));
             }
-
-
-
-//            if (resizeTriggered && !imageCacheQueue.empty()) {
-//                sSurface->getCanvas()->drawImage(imageCacheQueue.back().second, 0, 0);
-//            }
 
             if (resizeTriggered && std::chrono::duration_cast<std::chrono::milliseconds>(
                     std::chrono::high_resolution_clock::now() - resizeTimer) > 100ms) {
@@ -934,8 +929,11 @@ namespace Manager {
 
             // Ensure yScaling is an integer if possible
             if (yScaling > 1 && sortReadsBy == SortType::NONE) {
-                yScaling = (int)yScaling;
+//                yScaling = (int)yScaling;
+//                yScaling = (std::floor((yScaling*2)+0.5)/2);
+                yScaling = std::ceil(yScaling);
             }
+//            samMaxY += 10;
         } else {
             trackY = 0;
             yScaling = 0;
@@ -945,9 +943,11 @@ namespace Manager {
             pH = trackY / (float) opts.ylim;
             yScaling *= 0.95;
         } else {
-            if (yScaling > 9*monitorScale) {
-                pH = yScaling - (2 * monitorScale);//* 0.85;  // polygonHeight
-            } else if (yScaling > 2*monitorScale) {
+//            std::cout << "yscaling " << yScaling << " monior scale " << monitorScale  << std::endl;
+//            if (yScaling > 9*monitorScale) {
+//                pH = yScaling - (2 * monitorScale);//* 0.85;  // polygonHeight
+//            } else
+            if (yScaling > 3*monitorScale) {
                 pH = yScaling - monitorScale;
             } else {
                 pH = yScaling;
@@ -1022,14 +1022,13 @@ namespace Manager {
             if (yScaling == 0) {
                 return;
             }
-
+            SkRect clip;
             if (!imageCacheQueue.empty() && collections.size() > 1) {
                 canvasR->drawImage(imageCacheQueue.back().second, 0, 0);
-            }
-            SkRect clip;
-
-            if (collections.empty()) {
-                canvasR->drawPaint(opts.theme.bgPaint);
+                clip.setXYWH(0, 0, fb_width, refSpace);
+                canvasR->drawRect(clip, opts.theme.bgPaint);
+                clip.setXYWH(0, refSpace + totalCovY + (trackY * bams.size()), fb_width, fb_height);
+                canvasR->drawRect(clip, opts.theme.bgPaint);
             }
 
             for (auto &cl: collections) {
@@ -1039,15 +1038,19 @@ namespace Manager {
                 canvasR->save();
                 // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
                 if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
-                    if (bams.size() == 1) {
-                        clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + totalTabixY + covY + refSpace);
-                    } else if (cl.bamIdx == 0) {  // top bam, cover the ref too
-                        clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + covY + refSpace);
-                    } else if (cl.bamIdx == (int)bams.size() - 1) { // bottom bam
-                        clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + trackY + covY + totalTabixY);
-                    } else {  //middle bam
-                        clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + covY);
-                    }
+                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, trackY + covY - gap);
+//                    std::cout << cl.yOffset << std::endl;
+//                    if (bams.size() == 1) {
+//                        clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + totalTabixY + covY + refSpace);
+//                        clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + covY + refSpace - gap);
+//                    } else if (cl.bamIdx == 0) {  // top bam, cover the ref too
+//                        clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY - gap); // + covY + refSpace);
+//                    } else if (cl.bamIdx == (int)bams.size() - 1) { // bottom bam
+//                        clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + trackY + covY - gap);
+//                        clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, trackY);
+//                    } else {  //middle bam
+//                        clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + covY - gap);
+//                    }
                     canvasR->clipRect(clip, false);
                 } else if (cl.skipDrawingCoverage) {
                     clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, cl.yPixels);

@@ -1229,8 +1229,10 @@ namespace HGW {
 
     void GwTrack::setPaint(SkPaint &faceColour) {
         this->faceColour = faceColour;
+        this->faceColour.setAntiAlias(true);
+        this->shadedFaceColour.setAntiAlias(true);
         int c = faceColour.getColor();
-        this->shadedFaceColour.setARGB(faceColour.getAlpha(), SkColorGetR(c)/2, SkColorGetG(c)/2, SkColorGetB(c)/2);
+        this->shadedFaceColour.setARGB(faceColour.getAlpha() * 0.5, SkColorGetR(c), SkColorGetG(c), SkColorGetB(c));
     }
 
     void GwTrack::open(const std::string &p, bool add_to_dict=true) {
@@ -1459,7 +1461,7 @@ namespace HGW {
                 b.line = tp;
                 b.chrom = b.parts[0];
                 b.vartype = b.parts[2];
-                b.start = std::stoi(b.parts[3]);
+                b.start = std::stoi(b.parts[3]) - 1;
                 b.end = std::stoi(b.parts[4]);
                 if (b.parts[6] == "+") {
                     b.strand = 1;
@@ -1839,7 +1841,7 @@ namespace HGW {
                 parts = Utils::split(str.s, '\t');
                 chrom = parts[0];
                 chrom2 = chrom;
-                start = std::stoi(parts[3]);
+                start = std::stoi(parts[3]) - 1;
                 stop = std::stoi(parts[4]);
                 if (parts[6] == "+") {
                     strand = 1;
@@ -2343,23 +2345,19 @@ namespace HGW {
                 track.s.push_back(g->start);
                 track.e.push_back(g->end);
 
-                if (g->vartype == "exon" || g->vartype == "CDS") {
-                    if (!track.anyToDraw) { track.anyToDraw = true; }
-                    if (between_codons) {
-                        track.drawThickness.push_back(2);  // fat line
-                    } else {
-                        track.drawThickness.push_back(1);  // thin line
-                }
-                } else if (g->vartype == "mRNA" || g->vartype == "gene") {
+                if (g->vartype == "CDS") { // g->vartype == "exon" ||
+                    track.anyToDraw = true;
+                    track.drawThickness.push_back(2);  // fat line
+                } else if (g->vartype == "mRNA" || g->vartype == "gene" || g->vartype == "exon") {
                     track.drawThickness.push_back(0);  // no line
                 } else if (g->vartype == "start_codon") {
                     between_codons = !between_codons;
                     track.coding_start = g->start;
-                    track.drawThickness.push_back(2);
+                    track.drawThickness.push_back(0);
                 } else if (g->vartype == "stop_codon") {
                     between_codons = !between_codons;
                     track.coding_end = g->end;
-                    track.drawThickness.push_back(2);
+                    track.drawThickness.push_back(0);
                 } else {
                     track.drawThickness.push_back(1);
                     if (!track.anyToDraw) { track.anyToDraw = true; }

@@ -668,6 +668,9 @@ namespace Commands {
         } else {
             return Err::OPTION_NOT_UNDERSTOOD;
         }
+        for (auto &t: p->tracks) {
+            t.setPaint(p->opts.theme.fcTrack);
+        }
         p->processed = false;
         return Err::NONE;
     }
@@ -1341,6 +1344,7 @@ namespace Commands {
         else if (c == "lcJoins") { e = Themes::GwPaint::lcJoins; }
         else if (c == "lcCoverage") { e = Themes::GwPaint::lcCoverage; }
         else if (c == "lcLightJoins") { e = Themes::GwPaint::lcLightJoins; }
+        else if (c == "lcGTFJoins") { e = Themes::GwPaint::lcGTFJoins; }
         else if (c == "lcLabel") { e = Themes::GwPaint::lcLabel; }
         else if (c == "lcBright") { e = Themes::GwPaint::lcBright; }
         else if (c == "tcDel") { e = Themes::GwPaint::tcDel; }

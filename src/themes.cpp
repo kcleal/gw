@@ -128,9 +128,13 @@ namespace Themes {
 
         lcJoins.setStyle(SkPaint::kStroke_Style);
         lcJoins.setStrokeWidth(2);
+        lcJoins.setAntiAlias(true);
 
         lcLightJoins.setStyle(SkPaint::kStroke_Style);
         lcLightJoins.setStrokeWidth(1);
+
+        lcGTFJoins.setStyle(SkPaint::kStroke_Style);
+        lcGTFJoins.setStrokeWidth(1);
 
         lcLabel.setStyle(SkPaint::kStroke_Style);
         lcLabel.setStrokeWidth(1);
@@ -244,6 +248,7 @@ namespace Themes {
             case GwPaint::lcJoins: this->lcJoins.setARGB(a, r, g, b); break;
             case GwPaint::lcCoverage: this->lcCoverage.setARGB(a, r, g, b); break;
             case GwPaint::lcLightJoins: this->lcLightJoins.setARGB(a, r, g, b); break;
+            case GwPaint::lcGTFJoins: this->lcGTFJoins.setARGB(a, r, g, b); break;
             case GwPaint::lcLabel: this->lcLabel.setARGB(a, r, g, b); break;
             case GwPaint::lcBright: this->lcBright.setARGB(a, r, g, b); break;
             case GwPaint::tcDel: this->tcDel.setARGB(a, r, g, b); break;
@@ -278,11 +283,10 @@ namespace Themes {
         fcIns.setARGB(255, 158, 112, 250);
 
         fc5mc.setARGB(255, 155, 20, 15);
-//        fc5mc.setARGB(227, 194, 151, 58);
-//        fc5hmc.setARGB(227, 189, 78, 23);
         fc5hmc.setARGB(255, 10, 100, 250);
         lcJoins.setARGB(255, 80, 80, 80);
         lcLightJoins.setARGB(255, 140, 140, 140);
+        lcGTFJoins.setARGB(255, 145, 172, 190);
         lcLabel.setARGB(255, 80, 80, 80);
         lcBright.setColor(SK_ColorBLACK);
         tcDel.setARGB(255, 80, 80, 80);
@@ -324,6 +328,7 @@ namespace Themes {
         fc5hmc.setARGB(227, 215, 85, 23);
         lcJoins.setARGB(255, 142, 142, 142);
         lcLightJoins.setARGB(255, 82, 82, 82);
+        lcGTFJoins.setARGB(255, 50, 50, 80);
         lcLabel.setARGB(255, 182, 182, 182);
         lcBright.setColor(SK_ColorWHITE);
         tcDel.setARGB(255, 227, 227, 227);
@@ -342,7 +347,7 @@ namespace Themes {
     EXPORT SlateTheme::SlateTheme() {
         name = "slate";
         fcCoverage.setARGB(255, 103, 102, 109);
-        fcTrack.setARGB(200, 227, 232, 255);
+        fcTrack.setARGB(220, 227, 232, 255);
         bgPaint.setARGB(255, 45, 45, 48);
         bgPaintTiled.setARGB(255, 25, 25, 28);
         bgMenu.setARGB(255, 0, 0, 0);
@@ -365,6 +370,7 @@ namespace Themes {
         fc5hmc.setARGB(227, 215, 85, 23);
         lcJoins.setARGB(255, 142, 142, 142);
         lcLightJoins.setARGB(255, 82, 82, 82);
+        lcGTFJoins.setARGB(255, 140, 140, 170);
         lcLabel.setARGB(255, 182, 182, 182);
         lcBright.setColor(SK_ColorWHITE);
         tcDel.setARGB(255, 255, 255, 255);
