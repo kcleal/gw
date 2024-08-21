@@ -33,15 +33,12 @@ For best performance, download one of the app packages from the Releases page. S
 
 Using a package manager:
 
-- brew (Apple or Linux):
+``conda install -c bioconda -c conda-forge gw``
 
 ``brew install kcleal/homebrew-gw/gw``
 
-- conda (x86_64 Apple or Linux)
 
-``conda install -c bioconda -c conda-forge gw``
-
-Unfortunatly the Linux conda package is not currently working for miniconda/miniforge, altough other distributions may work. To build from source using conda to fetch other dependencies use::
+To build from source, using conda to fetch htslib + glfw3 dependencies::
 
     conda create -y -n gw_env -c conda-forge glfw htslib
     conda activate gw_env
