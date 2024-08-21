@@ -1256,11 +1256,12 @@ namespace Manager {
             try {
                 tracks.back().open(path, true);
                 tracks.back().variant_distance = &opts.variant_distance;
-                if (tracks.back().kind == HGW::FType::BIGWIG) {
-                    tracks.back().faceColour = opts.theme.fcBigWig;
-                } else {
-                    tracks.back().faceColour = opts.theme.fcTrack;
-                }
+                tracks.back().setPaint((tracks.back().kind == HGW::FType::BIGWIG) ? opts.theme.fcBigWig : opts.theme.fcTrack);
+//                if (tracks.back().kind == HGW::FType::BIGWIG) {
+//                    tracks.back().faceColour = opts.theme.fcBigWig;
+//                } else {
+//                    tracks.back().faceColour = opts.theme.fcTrack;
+//                }
 
                 if (print_message) {
                     out << termcolor::magenta << "\nTrack       " << termcolor::reset << path << "\n";

@@ -186,8 +186,9 @@ namespace HGW {
         bool done;
 		std::string variantString;
 
-        SkPaint faceColour;
+        SkPaint faceColour, shadedFaceColour;
 
+        void setPaint(SkPaint &faceColour);
         void open(const std::string &p, bool add_to_dict);
         void close();
         void clear();
