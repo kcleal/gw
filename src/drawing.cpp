@@ -1380,7 +1380,6 @@ namespace Drawing {
         }
         if (nTracks > 0) {
             float y = totalCovY + refSpace + (trackY*(float)nbams) + (gap * 0.5);
-//            float y = fb_height - totalTabixY - refSpace;
             float step = totalTabixY / (float) nTracks;
             path.reset();
             for (int i = 0; i < (int) nTracks; ++i) {
@@ -1544,7 +1543,7 @@ namespace Drawing {
                         float padX, float padY,
                         float y, float h, float stepX, float stepY, float gap, float gap2, float xScaling,
                         Themes::IniOptions &opts, SkCanvas *canvas, const Themes::Fonts &fonts,
-                        bool add_text, bool add_rect, bool v_line, bool shaded, float *labelsEnd, std::string &vartype,
+                        bool add_text, bool add_rect, bool shaded, float *labelsEnd, std::string &vartype,
                         float monitorScale, std::vector<TextItem> &text, bool addArc, bool isRoi, SkPaint &faceColour, float pointSlop, float strand) {
         float x = 0;
         float w;
@@ -1586,23 +1585,16 @@ namespace Drawing {
 //                if (shaded) {
 //                    faceColour2 = //&opts.theme.fcCoverage;
 //                } else {
-                    faceColour2 = &faceColour;
+//                    faceColour2 = &faceColour;
 //                faceColour = opts.theme.fcTrack;
 //                }
 //            }
-        }
-
-        if (addArc) {
-            v_line = false;
         }
 
         x = (float) (start - rgn.start) * xScaling;
         w = std::fmax(monitorScale, (float) (stop - start) * xScaling);
         rect.setXYWH(x + padX, y + padY, w, h);
 
-//        if (rect.bottom() == 0) {
-//            return;
-//        }
         if (addArc) {
             arcColour.setStyle(SkPaint::kStroke_Style);
             arcColour.setStrokeWidth(monitorScale);
@@ -1644,22 +1636,24 @@ namespace Drawing {
 
         }
         else if (add_rect) {
-            if (strand == 1) {  // +
-                drawRightPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, opts.theme.lcBright, path, pointSlop);
-            } else if (strand == 2) {  // -
-                drawLeftPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, opts.theme.lcBright, path, pointSlop);
+            if (!shaded) {
+                if (strand == 1) {  // +
+                    drawRightPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, opts.theme.bgPaint, path, pointSlop);
+                    drawRightPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, opts.theme.lcJoins, path, pointSlop);
+                } else if (strand == 2) {  // -
+                    drawLeftPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, opts.theme.bgPaint, path, pointSlop);
+                    drawLeftPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, opts.theme.lcJoins, path, pointSlop);
+                }
+                canvas->drawRect(rect, *faceColour2);
+            } else {
+                if (strand == 1) {  // +
+                    drawRightPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, *faceColour2, path, pointSlop);
+                } else if (strand == 2) {  // -
+                    drawLeftPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, *faceColour2, path, pointSlop);
+                }
             }
-            canvas->drawRect(rect, *faceColour2);
 
-            if (shaded) {
-                canvas->drawRect(rect, opts.theme.lcLightJoins);
-            }
         }
-//        if (v_line && x != 0) {
-//            path.moveTo(x + padX, y + padY);
-//            path.lineTo(x + padX, y + h + padY);
-//            canvas->drawPath(path, opts.theme.lcLightJoins);
-//        }
 
         if (!add_text) {
             return;
@@ -1700,47 +1694,30 @@ namespace Drawing {
                               float gap, Utils::TrackBlock &trk, bool any_text, const Utils::Region &rgn, SkRect &rect,
                               SkPath &path, SkPath &path2, float padX, float padY, float stepX, float stepY,
                               float y, float h, float h2, float h4, float gap2, float xScaling, int nLevels,
-                              float *labelsEnd, std::vector<TextItem> &text, bool vline, SkPaint &faceColour, SkPaint &shadedFaceColour,
+                              float *labelsEnd, std::vector<TextItem> &text, SkPaint &faceColour, SkPaint &shadedFaceColour,
                               float pointSlop, int strand, float monitorScale) {
 
         int target = (int) trk.s.size();
-        int stranded = trk.strand;
+//        int stranded = trk.strand;
         float screenLeftEdge = padX;
         float screenRightEdge = padX + (((float) rgn.end - (float) rgn.start) * xScaling);
         std::string empty_str;
         if (any_text) {
             drawTrackBlock(trk.start, trk.end, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2,
-                           xScaling, opts, canvas, fonts, true, false, false, false, labelsEnd, empty_str, monitorScale, text, false, false, faceColour, pointSlop, strand);
+                           xScaling, opts, canvas, fonts, true, false, false, labelsEnd, empty_str, monitorScale, text, false, false, faceColour, pointSlop, strand);
         }
-        for (int i = 0; i < target; ++i) {
-            int s, e;
+        float x, yy, w;
+        int s, e;
+        for (int i = 0; i < target; ++i) {  // draw lines first and thickness == 1
             s = trk.s[i];
             e = trk.e[i];
             if (e < rgn.start) {
                 continue;
             }
-            bool add_line = (i == 0 && vline);  // vertical line at start of interval
-            assert (i < trk.drawThickness.size());
-            uint8_t thickness = trk.drawThickness[i];
-            if (thickness && s < rgn.end && e > rgn.start) {
-
-                if (s < trk.coding_end && e > trk.coding_end) { //overlaps, split into two blocks!
-                    drawTrackBlock(s, trk.coding_end, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap,
-                                   gap2, xScaling, opts, canvas, fonts, false, true, add_line, false, labelsEnd, empty_str, 0, text, false, false, faceColour, pointSlop, strand);
-                    drawTrackBlock(trk.coding_end, e, trk.name, rgn, rect, path, padX, padY, y + (h * 0.25), h * 0.5, stepX, stepY, gap,
-                                   gap2, xScaling, opts, canvas, fonts, false, true, add_line, true, labelsEnd, empty_str, 0, text, false, false,  shadedFaceColour, pointSlop, 0);
-                }
-
-                if (thickness == 1) {
-                    drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y + (h * 0.25), h * 0.5, stepX, stepY, gap, gap2, xScaling,
-                                   opts, canvas, fonts, false, true, add_line, true, labelsEnd, empty_str, 0, text, false, false, shadedFaceColour, pointSlop, 0);
-                } else {
-                    drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2, xScaling,
-                                   opts, canvas, fonts, false, true, add_line, false, labelsEnd, empty_str, 0, text, false, false, faceColour, pointSlop, strand);
-                }
-            }
-            float x, yy, w;
             yy = y + padY + (h / 2);
+            if (i == 0) {
+                continue;
+            }
             int lastEnd = (i > 0) ? trk.e[i - 1] : trk.start;
             if (lastEnd < s) {  // add arrows
                 x = std::max(((float) (lastEnd - rgn.start) * xScaling) + padX, (float) screenLeftEdge);
@@ -1749,27 +1726,62 @@ namespace Drawing {
                     path2.reset();
                     path2.moveTo(x, yy);
                     path2.lineTo(w, yy);
-                    canvas->drawPath(path2, opts.theme.lcLightJoins);
-                    if (stranded != 0 && w - x > 50) {
-                        while (x + 50 < w) {
-                            x += 50;
-                            path2.reset();
-                            if (stranded == 1) {
-                                path2.moveTo(x, yy);
-                                path2.lineTo(x - 6, yy + 6);
-                                path2.moveTo(x, yy);
-                                path2.lineTo(x - 6, yy - 6);
-                            } else {
-                                path2.moveTo(x, yy);
-                                path2.lineTo(x + 6, yy + 6);
-                                path2.moveTo(x, yy);
-                                path2.lineTo(x + 6, yy - 6);
-                            }
-                            canvas->drawPath(path2, opts.theme.lcJoins);
-                        }
-                    }
+                    canvas->drawPath(path2, opts.theme.lcGTFJoins);
+//                    if (stranded != 0 && w - x > 50) {
+//                        while (x + 50 < w) {
+//                            x += 50;
+//                            path2.reset();
+//                            if (stranded == 1) {
+//                                path2.moveTo(x, yy);
+//                                path2.lineTo(x - 6, yy + 6);
+//                                path2.moveTo(x, yy);
+//                                path2.lineTo(x - 6, yy - 6);
+//                            } else {
+//                                path2.moveTo(x, yy);
+//                                path2.lineTo(x + 6, yy + 6);
+//                                path2.moveTo(x, yy);
+//                                path2.lineTo(x + 6, yy - 6);
+//                            }
+//                            canvas->drawPath(path2, opts.theme.lcJoins);
+//                        }
+//                    }
                 }
             }
+        }
+        for (int i = 0; i < target; ++i) {
+            s = trk.s[i];
+            e = trk.e[i];
+            if (e < rgn.start) {
+                continue;
+            }
+            assert (i < trk.drawThickness.size());
+            uint8_t thickness = trk.drawThickness[i];
+            if (thickness && s < rgn.end && e > rgn.start) {
+                int left_cds = std::min(trk.coding_start, trk.coding_end);
+                int right_cds = std::max(trk.coding_start, trk.coding_end);
+                if (s < right_cds && e > right_cds) { //overlaps, split into two blocks!
+                    drawTrackBlock(right_cds, e, trk.name, rgn, rect, path, padX, padY, y + (h * 0.25), h * 0.5, stepX, stepY, gap,
+                                   gap2, xScaling, opts, canvas, fonts, false, true, true, labelsEnd, empty_str, 0, text, false, false,  shadedFaceColour, pointSlop / 2, strand);
+                    drawTrackBlock(s, right_cds, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap,
+                                   gap2, xScaling, opts, canvas, fonts, false, true, false, labelsEnd, empty_str, 0, text, false, false, faceColour, pointSlop, strand);
+                    continue;
+                } else if (s < left_cds && e > left_cds) {
+                    drawTrackBlock(s, left_cds, trk.name, rgn, rect, path, padX, padY, y + (h * 0.25), h * 0.5, stepX, stepY, gap,
+                                   gap2, xScaling, opts, canvas, fonts, false, true, true, labelsEnd, empty_str, 0, text, false, false,  shadedFaceColour, pointSlop / 2, strand);
+                    drawTrackBlock(left_cds, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap,
+                                   gap2, xScaling, opts, canvas, fonts, false, true, false, labelsEnd, empty_str, 0, text, false, false, faceColour, pointSlop, strand);
+                    continue;
+                }
+
+                if (thickness == 1) {
+                    drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y + (h * 0.25), h * 0.5, stepX, stepY, gap, gap2, xScaling,
+                                   opts, canvas, fonts, false, true, true, labelsEnd, empty_str, 0, text, false, false, shadedFaceColour, pointSlop / 2, strand);
+                } else if (thickness == 2) {
+                    drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2, xScaling,
+                                   opts, canvas, fonts, false, true, false, labelsEnd, empty_str, 0, text, false, false, faceColour, pointSlop, strand);
+                }
+            }
+
         }
     }
 
@@ -1785,7 +1797,7 @@ namespace Drawing {
 
         float stepX = fb_width / (float) regions.size();
         float stepY = tabixY;
-        stepY -= sliderSpace - gap;  // todo this should not be needed
+        stepY -= sliderSpace;
 
         float y = fb_height - totalTabixY - sliderSpace; // + gap;  // start of tracks on canvas
         float t = (float) 0.005 * fb_width;
@@ -1799,7 +1811,6 @@ namespace Drawing {
 
         for (auto &rgn: regions) {
             bool any_text = true;
-            bool add_line = ((rgn.end - rgn.start) < opts.soft_clip_threshold);
             float xScaling = (stepX - gap2) / (float) (rgn.end - rgn.start);
             float padY = gap;
             int trackIdx = 0;
@@ -1866,12 +1877,12 @@ namespace Drawing {
                                              fonts, gap,
                                              f, any_text, rgn, rect, path, path2, padX, padY_track, stepX, step_track,
                                              y, h, h2, h4, gap2,
-                                             xScaling, nLevels, fLevelEnd, text, add_line, faceColour, shadedFaceColour, pointSlop, strand, monitorScale);
+                                             xScaling, nLevels, fLevelEnd, text, faceColour, shadedFaceColour, pointSlop, strand, monitorScale);
 
                     } else {
                         drawTrackBlock(f.start, f.end, f.name, rgn, rect, path, padX, padY_track, y, h, stepX, stepY,
                                        gap, gap2,
-                                       xScaling, opts, canvas, fonts, any_text, true, add_line, false, fLevelEnd, f.vartype, monitorScale,
+                                       xScaling, opts, canvas, fonts, any_text, true, false, fLevelEnd, f.vartype, monitorScale,
                                        text, opts.sv_arcs, trk.kind == HGW::FType::ROI, faceColour, pointSlop, strand);
                     }
                 }

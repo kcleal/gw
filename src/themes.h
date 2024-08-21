@@ -73,7 +73,7 @@ namespace Themes {
         bgPaint, bgPaintTiled, bgMenu, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip,
         fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack, fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0,
         fcSoftClip0, fcBigWig, fcRoi, mate_fc, mate_fc0, ecMateUnmapped, ecSplit, ecSelected,
-        lcJoins, lcCoverage, lcLightJoins, lcLabel, lcBright, tcDel, tcIns, tcLabels, tcBackground,
+        lcJoins, lcCoverage, lcLightJoins, lcGTFJoins, lcLabel, lcBright, tcDel, tcIns, tcLabels, tcBackground,
         fcMarkers, fc5mc, fc5hmc, fcOther
     };
 
@@ -98,7 +98,7 @@ namespace Themes {
         float lwMateUnmapped, lwSplit, lwCoverage;
 
         // line colours and Insertion paint
-        SkPaint lcJoins, lcCoverage, lcLightJoins, lcLabel, lcBright;
+        SkPaint lcJoins, lcCoverage, lcLightJoins, lcLabel, lcBright, lcGTFJoins;
 
         // text colours
         SkPaint tcDel, tcIns, tcLabels, tcBackground;
