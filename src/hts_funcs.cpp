@@ -18,7 +18,6 @@
 #include "termcolor.h"
 #include "bigWig.h"
 #include "glob_cpp.hpp"
-#include "natsort.hpp"
 #include "drawing.h"
 #include "segments.h"
 #include "themes.h"

@@ -2,8 +2,10 @@
 // Created by Kez Cleal on 26/07/2022.
 //
 
-#include <cstring>
 #include <string>
+#if defined(__linux__)
+#include <glad/glad.h>
+#endif
 #include <GLFW/glfw3.h>
 #include <unordered_map>
 

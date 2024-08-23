@@ -3,37 +3,20 @@
 //
 #include <algorithm>
 #include <array>
-#include <cstdlib>
 #include <string>
-#include <cstdio>
 #include <filesystem>
 #include <vector>
 #include <unordered_map>
 
-//#ifdef __APPLE__
-//#include <OpenGL/gl.h>
-//#endif
 
-#include "htslib/faidx.h"
-#include "htslib/hts.h"
-#include "htslib/sam.h"
-
-#include <GLFW/glfw3.h>
 #define SK_GL
 #include "include/gpu/GrBackendSurface.h"
 #include "include/gpu/GrDirectContext.h"
 #include "include/gpu/gl/GrGLInterface.h"
 #include "include/core/SkCanvas.h"
-#include "include/core/SkSamplingOptions.h"
 #include "include/core/SkSurface.h"
-#include "include/core/SkDocument.h"
 
-#include "drawing.h"
 #include "glfw_keys.h"
-#include "plot_manager.h"
-#include "segments.h"
-#include "ini.h"
-#include "ankerl_unordered_dense.h"
 #include "termcolor.h"
 #include "themes.h"
 #include "utils.h"
@@ -284,7 +267,7 @@ namespace Menu {
 
         if (opts.control_level.empty()) {
             if (opts.menu_table == Themes::MenuTable::MAIN) {
-                tip = opts.ini_path + "  v1.0.2";
+                tip = opts.ini_path + "  v1.1.0";
             }
             else if (opts.menu_table == Themes::MenuTable::GENOMES) { tip = "Use ENTER key to select genome, or RIGHT_ARROW key to edit path"; }
             else if (opts.menu_table == Themes::MenuTable::SHIFT_KEYMAP) { tip = "Change characters selected when using shift+key"; }

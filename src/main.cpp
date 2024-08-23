@@ -1,7 +1,7 @@
 //
 // Created by Kez Cleal on 25/07/2022.
 //
-#include <cassert>
+
 #include <algorithm>
 #include <filesystem>
 #include <htslib/faidx.h>
@@ -12,25 +12,13 @@
 #include "BS_thread_pool.h"
 #include "glob_cpp.hpp"
 #include "hts_funcs.h"
-#include "parser.h"
 #include "plot_manager.h"
 #include "themes.h"
 #include "utils.h"
-
 #include "termcolor.h"
-#include "GLFW/glfw3.h"
 
-#ifdef __APPLE__
-    #include <OpenGL/gl.h>
-#elif defined(__linux__)
-    #include <GL/gl.h>
-    #include <GL/glx.h>
-#endif
+#include <GLFW/glfw3.h>
 
-#define SK_GL
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/gl/GrGLInterface.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkSurface.h"
 #include "include/core/SkDocument.h"
@@ -45,8 +33,6 @@
 #endif
 
 // skia context has to be managed from global space to work
-GrDirectContext *sContext = nullptr;
-SkSurface *sSurface = nullptr;
 std::mutex mtx;
 
 
@@ -67,7 +53,7 @@ void print_banner() {
 }
 
 // note to developer - update version in workflows/main.yml, menu.cpp, term_out.cpp, and deps/gw.desktop, and installers .md in docs
-const char GW_VERSION [7] = "1.0.2";
+const char GW_VERSION [7] = "1.1.0";
 
 
 bool str_is_number(const std::string &s) {
@@ -485,7 +471,7 @@ int main(int argc, char *argv[]) {
             iopts.link_op = 2;
         } else {
             std::cerr << "Link type not known [none/sv/all]\n";
-            std::exit(-1);std::cerr << " 52 \n";
+            std::exit(-1);
         }
     }
 
@@ -584,69 +570,15 @@ int main(int argc, char *argv[]) {
         plotter.init(iopts.dimensions.x, iopts.dimensions.y);
         int fb_height, fb_width;
         glfwGetFramebufferSize(plotter.window, &fb_width, &fb_height);
-        sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
-        if (!interface || !interface->validate()) {
-		    std::cerr << "Error: skia GrGLInterface was not valid" << std::endl;
-            if (!interface) {
-                std::cerr << "    GrGLMakeNativeInterface() returned nullptr" << std::endl;
-                std::cerr << "    GrGLInterface probably missing some GL functions" << std::endl;
-            } else {
-                std::cerr << "    fStandard was " << interface->fStandard << std::endl;
-            }
-            std::cerr << "GL error code: " << glGetError() << std::endl;
-            std::exit(-1);
-        }
 
-        sContext = GrDirectContext::MakeGL(interface).release();
-        if (!sContext) {
-            std::cerr << "Error: could not create skia context using MakeGL\n";
-            std::exit(-1);
-        }
-
-        GrGLFramebufferInfo framebufferInfo;
-        framebufferInfo.fFBOID = 0;
-
-        constexpr int fbFormats[2] = {GL_RGBA8, GL_RGB8};  // GL_SRGB8_ALPHA8
-        constexpr SkColorType colorTypes[2] = {kRGBA_8888_SkColorType, kRGB_888x_SkColorType};
-        int valid = false;
-        for (int i=0; i < 2; ++i) {
-            framebufferInfo.fFormat = fbFormats[i];  // GL_SRGB8_ALPHA8; //
-            GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
-            if (!backendRenderTarget.isValid()) {
-                std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
-                glfwTerminate();
-                std::exit(-1);
-            }
-            sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
-                                                              backendRenderTarget,
-                                                              kBottomLeft_GrSurfaceOrigin,
-                                                              colorTypes[i], //kRGBA_8888_SkColorType,
-                                                              nullptr,
-                                                              nullptr).release();
-            if (!sSurface) {
-                std::stringstream sstream;
-                sstream << std::hex << fbFormats[i];
-                std::string result = sstream.str();
-                std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format was 0x" << result << std::endl;
-                continue;
-            }
-            valid = true;
-            break;
-        }
-        if (!valid) {
-            std::cerr << "ERROR: could not create a valid frame buffer\n";
-            std::exit(-1);
-        }
-
-        // initialize drawing surface
-        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x * plotter.monitorScale,
-                                                                        iopts.dimensions.y * plotter.monitorScale);
+        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
+                                                                        iopts.dimensions.y);
         plotter.rasterCanvas = rasterSurface->getCanvas();
         plotter.rasterSurfacePtr = &rasterSurface;
 
         // start UI here
         if (!program.is_used("--variants") && !program.is_used("--images")) {
-            int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));  // plot regions
+            int res = plotter.startUI(program.get<int>("--delay"));  // plot regions
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
                 std::exit(-1);
@@ -669,7 +601,7 @@ int main(int argc, char *argv[]) {
             }
             plotter.mode = Manager::Show::TILED;
 
-            int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));
+            int res = plotter.startUI(program.get<int>("--delay"));
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
                 std::exit(-1);
@@ -699,7 +631,7 @@ int main(int argc, char *argv[]) {
 
             plotter.mode = Manager::Show::TILED;
 
-            int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));
+            int res = plotter.startUI(program.get<int>("--delay"));
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
                 std::exit(-1);
@@ -724,7 +656,6 @@ int main(int argc, char *argv[]) {
             if (program.is_used("--ideogram")) {
                 plotter.addIdeogram(program.get("--ideogram"));
             }
-
             plotter.opts.theme.setAlphas();
 
             if (program.is_used("--fmt") && (program.get<std::string>("--fmt") == "pdf" || program.get<std::string>("--fmt") == "svg" )) {
@@ -783,7 +714,6 @@ int main(int argc, char *argv[]) {
                 }
 
             } else {
-
                 // Plot a png image, either of target region or whole chromosome
                 sk_sp<SkImage> img;
                 if (!regions.empty()) {  // plot target regions
@@ -795,7 +725,7 @@ int main(int argc, char *argv[]) {
                     if (iopts.link_op == 0) {
                         plotter.runDrawNoBufferOnCanvas(canvas);
                     } else {
-                        plotter.runDraw();
+                        plotter.runDrawOnCanvas(canvas);
                     }
                     img = rasterSurface->makeImageSnapshot();
 
@@ -1011,12 +941,12 @@ int main(int argc, char *argv[]) {
                                             for (int i = a; i < b; ++i) {
                                                 Manager::VariantJob job = jobs[i];
                                                 plt->setVariantSite(job.chrom, job.start, job.chrom2, job.stop);
-                                                plt->runDrawNoBuffer();
-//                                                if (plt->opts.low_memory && plt->opts.link_op == 0) {
-//                                                    plt->runDrawNoBuffer(canvas);
-//                                                } else {
-//                                                    plt->runDraw(canvas);
-//                                                }
+//                                                plt->runDrawNoBuffer();
+                                                if (plt->opts.link_op == 0) {
+                                                    plt->runDrawNoBuffer();
+                                                } else {
+                                                    plt->runDraw();
+                                                }
                                                 sk_sp<SkImage> img(plt->rasterSurface->makeImageSnapshot());
                                                 std::filesystem::path fname = job.varType + "~" + job.chrom + "~" + std::to_string(job.start) + "~" + job.chrom2 + "~" + std::to_string(job.stop) + "~" + job.rid + ".png";
                                                 std::filesystem::path full_path = outdir / fname;

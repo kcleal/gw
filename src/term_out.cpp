@@ -6,7 +6,6 @@
 #include <filesystem>
 #include <htslib/sam.h>
 #include <string>
-#include <iterator>
 #include <regex>
 #include <vector>
 #include <unordered_set>
@@ -17,11 +16,9 @@
 #endif
 
 #include "htslib/hts.h"
-#include "drawing.h"
 #include "hts_funcs.h"
 #include "plot_manager.h"
 #include "segments.h"
-#include "ankerl_unordered_dense.h"
 #include "termcolor.h"
 #include "term_out.h"
 #include "themes.h"
@@ -1386,7 +1383,7 @@ namespace Term {
     }
 
 #if !defined(__EMSCRIPTEN__)
-    const char* CURRENT_VERSION = "v1.0.2";
+    const char* CURRENT_VERSION = "v1.1.0";
 
     size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
         ((std::string*)userp)->append((char*)contents, size * nmemb);

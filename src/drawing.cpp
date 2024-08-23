@@ -6,16 +6,11 @@
 #include <cmath>
 #include <cstdint>
 #include <vector>
-#include <utility>
-#include <cstdio>
 #include <sstream>
 #include <string>
-#include <memory>
 
 #include "include/core/SkCanvas.h"
 #include "include/core/SkData.h"
-#include "include/core/SkImageInfo.h"
-#include "include/core/SkPaint.h"
 #include "include/core/SkPath.h"
 #include "include/core/SkTypeface.h"
 #include "include/core/SkTextBlob.h"
@@ -917,7 +912,6 @@ namespace Drawing {
         std::vector<Segs::Mismatches> &mm_vector = cl.mmVector;
 
         cl.skipDrawingReads = true;
-
         for (const auto &a: cl.readQueue) {
             int Y = a.y;
             assert (Y >= -2);

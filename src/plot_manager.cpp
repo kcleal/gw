@@ -11,9 +11,9 @@
 
 #ifdef __APPLE__
     #include <OpenGL/gl.h>
+    #include <OpenGL/gl3.h> // todo
 #elif defined(__linux__)
-    #include <GL/gl.h>
-    #include <GL/glx.h>
+    #include <glad/glad.h>
 #endif
 
 #include "htslib/faidx.h"
@@ -21,14 +21,9 @@
 #include "htslib/sam.h"
 
 #include <GLFW/glfw3.h>
-#define SK_GL
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/gl/GrGLInterface.h"
+
 #include "include/core/SkCanvas.h"
-#include "include/core/SkSamplingOptions.h"
 #include "include/core/SkSurface.h"
-#include "include/core/SkDocument.h"
 
 #include "ankerl_unordered_dense.h"
 #include "drawing.h"
@@ -46,6 +41,59 @@ using namespace std::literals;
 namespace Manager {
 
     std::mutex g_mutex;
+
+
+    const char* vertexShaderSourceT = R"(
+        attribute vec2 aPos;
+        attribute vec2 aTexCoord;
+        varying vec2 vTexCoord;
+        void main() {
+            vTexCoord = aTexCoord;
+            gl_Position = vec4(aPos, 0.0, 1.0);
+        }
+    )";
+
+
+    const char* fragmentShaderSourceT = R"(
+        precision mediump float;
+        varying vec2 vTexCoord;
+        uniform sampler2D uTexture;
+        void main() {
+            gl_FragColor = texture2D(uTexture, vTexCoord);
+        }
+    )";
+
+
+    GLfloat vertices[] = {
+            // Positions         // Texture Coords
+            -1.0f,  1.0f, 0.0f,  0.0f, 0.0f,  // Top-left
+            -1.0f, -1.0f, 0.0f,  0.0f, 1.0f,  // Bottom-left
+            1.0f, -1.0f, 0.0f,  1.0f, 1.0f,  // Bottom-right
+            1.0f,  1.0f, 0.0f,  1.0f, 0.0f   // Top-right
+    };
+
+
+    GLuint indices[] = {
+            0, 1, 2,  // First triangle
+            0, 2, 3   // Second triangle
+    };
+
+
+    GLuint compileShader(GLenum type, const char* sourceCStr) {
+        GLuint shader = glCreateShader(type);
+        glShaderSource(shader, 1, &sourceCStr, nullptr);
+        glCompileShader(shader);
+
+        GLint success;
+        glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+        if (!success) {
+            GLchar infoLog[512];
+            glGetShaderInfoLog(shader, 512, nullptr, infoLog);
+            std::cerr << "ERROR::SHADER::COMPILATION_FAILED\n" << infoLog << std::endl;
+            return 0;
+        }
+        return shader;
+    }
 
     void HiddenWindow::init(int width, int height) {
         if (!glfwInit()) {
@@ -179,8 +227,13 @@ namespace Manager {
     }
 
     int GwPlot::makeRasterSurface() {
-        SkImageInfo info = SkImageInfo::MakeN32Premul(opts.dimensions.x * monitorScale,
-                                                      opts.dimensions.y * monitorScale);
+        SkImageInfo info = SkImageInfo::Make(
+                opts.dimensions.x,
+                opts.dimensions.y,
+                kRGBA_8888_SkColorType,  // Force RGBA format
+                kPremul_SkAlphaType
+        );
+
         size_t rowBytes = info.minRowBytes();
         size_t size = info.computeByteSize(rowBytes);
         this->pixelMemory.resize(size);
@@ -193,6 +246,12 @@ namespace Manager {
 
     void GwPlot::init(int width, int height) {
 
+        char * val = getenv( "GW_DEBUG" );
+        bool debug = (val != nullptr);
+        if (debug) {
+            std::cerr <<"GLFW version: " << glfwGetVersionString() << std::endl;
+        }
+
         glfwSetErrorCallback(ErrorCallback);
 
         if (!glfwInit()) {
@@ -201,17 +260,18 @@ namespace Manager {
         }
 
 #ifndef __APPLE__  // linux, windows, termux
-    #ifdef USE_GL
-        // Use OpenGL context (OpenGL 2.1)
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-    #else
+
+        if (debug) {
+            std::cerr << "GLFW_CLIENT_API, GLFW_OPENGL_ES_API\n";
+            std::cerr << "GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API\n";
+            std::cerr << "GLFW_CONTEXT_VERSION_MAJOR, 2\n";
+            std::cerr << "GLFW_CONTEXT_VERSION_MINOR, 0\n";
+        }
         glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
         glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2); // OpenGL ES 2.0
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    #endif
+
 #else
         // Native macOS -> use the default OpenGL context (OpenGL 2.1)
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
@@ -272,10 +332,68 @@ namespace Manager {
         glfwMakeContextCurrent(window);
         setGlfwFrameBufferSize();
 
-        if (rasterSurfacePtr == nullptr) {
-            makeRasterSurface();
+#if defined(__linux__)
+        // Initialize glad after creating the context
+        if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+            std::cerr << "Failed to initialize GLAD" << std::endl;
+            std::exit(-1);
         }
 
+        if (debug) {
+            if (GLAD_GL_ES_VERSION_2_0) {
+                std::cerr <<"OpenGL ES 2.0 is supported\n";
+            } else {
+                std::cerr << "OpenGL ES 2.0 is supported\n";
+            }
+        }
+#endif
+        if (debug) {
+            const GLubyte* renderer = glGetString(GL_RENDERER);
+            const GLubyte* version = glGetString(GL_VERSION);
+            const GLubyte* vendor = glGetString(GL_VENDOR);
+            std::cerr << "OpenGL Renderer: " << renderer << std::endl;
+            std::cerr << "OpenGL Version: " << version << std::endl;
+            std::cerr << "OpenGL Vendor: " << vendor << std::endl;
+        }
+
+        // Create and link shaders as program
+        vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSourceT);
+        fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSourceT);
+        shaderProgram = glCreateProgram();
+        glAttachShader(shaderProgram, vertexShader);
+        glAttachShader(shaderProgram, fragmentShader);
+        glLinkProgram(shaderProgram);
+        glDeleteShader( vertexShader );
+        glDeleteShader( fragmentShader );
+        GLint success;
+        GLchar infoLog[512];
+        glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+        if (!success) {
+            glGetProgramInfoLog(shaderProgram, 512, nullptr, infoLog);
+            std::cerr << "Shader Program Linking Error: " << infoLog << std::endl;
+        }
+        glUseProgram(shaderProgram);
+
+        // 2. Create and bind buffers
+        glGenBuffers(1, &VBO);
+        glGenBuffers(1, &EBO);
+
+        // Bind VBO and upload vertex data
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+        // Bind EBO and upload index data
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+        // 3. Set up Vertex Attributes
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)0);
+
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+
+        glViewport(0, 0, fb_width, fb_height);
     }
 
     void GwPlot::initBack(int width, int height) {
@@ -648,7 +766,7 @@ namespace Manager {
                                 commandsApplied, output_session, mode, xpos, ypos, monitorScale, windX, windY, sortReadsBy);
     }
 
-    int GwPlot::startUI(GrDirectContext *sContext, SkSurface *sSurface, int delay) {
+    int GwPlot::startUI(int delay) {
         if (!opts.session_file.empty() && reference.empty()) {
             std::cout << "Loading session: " << opts.session_file << std::endl;
             loadSession();
@@ -699,6 +817,19 @@ namespace Manager {
             if (resizeTriggered && std::chrono::duration_cast<std::chrono::milliseconds>(
                     std::chrono::high_resolution_clock::now() - resizeTimer) > 100ms) {
 
+                glViewport(0, 0, fb_width, fb_height);
+
+                rasterSurface = SkSurface::MakeRasterN32Premul(fb_width, fb_height);
+//
+//                rasterSurface = SkSurface::makeSurface(fb_width, fb_height);
+                rasterCanvas = rasterSurface->getCanvas();
+                rasterSurfacePtr = &rasterSurface;
+
+                imageCache.clear();
+                imageCacheQueue.clear();
+
+                resizeTimer = std::chrono::high_resolution_clock::now();
+
                 redraw = true;
                 processed = false;
                 wasResized = true;
@@ -708,42 +839,8 @@ namespace Manager {
 
                 resizeTriggered = false;
 
-                sContext->abandonContext();
-                sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
-                sContext = GrDirectContext::MakeGL(interface).release();
-
-                GrGLFramebufferInfo framebufferInfo;
-                framebufferInfo.fFBOID = 0;
-                framebufferInfo.fFormat = GL_RGBA8;
-                GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
-
-                if (!backendRenderTarget.isValid()) {
-                    std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
-                    glfwTerminate();
-                    std::exit(-1);
-                }
-
-                sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
-                                                                  backendRenderTarget,
-                                                                  kBottomLeft_GrSurfaceOrigin,
-                                                                  kRGBA_8888_SkColorType,
-                                                                  nullptr,
-                                                                  nullptr).release();
-                if (!sSurface) {
-                    std::cerr
-                            << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
-                    std::exit(-1);
-                }
-
-                rasterSurface = SkSurface::MakeRasterN32Premul(fb_width, fb_height);
-                rasterCanvas = rasterSurface->getCanvas();
-                rasterSurfacePtr = &rasterSurface;
-
-                imageCache.clear();
-                imageCacheQueue.clear();
-
-                resizeTimer = std::chrono::high_resolution_clock::now();
-
+                glClear(GL_COLOR_BUFFER_BIT);
+                glfwSwapBuffers(window);
             }
             if (std::chrono::duration_cast<std::chrono::milliseconds>(
                     std::chrono::high_resolution_clock::now() - autoSaveTimer) > 1min) {
@@ -753,18 +850,45 @@ namespace Manager {
 
             if (redraw) {
                 if (mode == Show::SINGLE) {
-                    drawScreen(sSurface->getCanvas(), sContext, sSurface);
+                    drawScreen();
                 } else if (mode == Show::TILED) {
-                    drawTiles(sSurface->getCanvas(), sContext, sSurface);
+                    drawTiles(rasterCanvas);
                     printIndexInfo();
                 }
             }
             if (!resizeTriggered) {
-                drawOverlay(sSurface->getCanvas());
+                drawOverlay(rasterCanvas);
             }
 
-            sContext->flush();
-            glfwSwapBuffers(window);
+            if (rasterSurfacePtr[0]->peekPixels(&pixmap)) {
+
+                glClear(GL_COLOR_BUFFER_BIT);
+
+                // Create texture
+                glGenTextures(1, &texture);
+                glBindTexture(GL_TEXTURE_2D, texture);  // Bind
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_BGRA, pixmap.width(), pixmap.height(), 0, GL_BGRA, GL_UNSIGNED_BYTE, pixmap.addr());
+                glBindTexture(GL_TEXTURE_2D, 0); // Unbind
+
+                glUseProgram(shaderProgram);
+
+                glActiveTexture(GL_TEXTURE0); // Activate texture unit
+                glBindTexture(GL_TEXTURE_2D, texture); // Bind the texture
+
+                // Bind buffers before drawing
+                glBindBuffer(GL_ARRAY_BUFFER, VBO);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+
+                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+                glfwSwapBuffers(window);
+
+            } else {
+                std::cerr << "ERROR: Could not access pixel data from SkImage" << std::endl;
+            }
 
             while (imageCacheQueue.size() > 100) {
                 imageCacheQueue.pop_front();
@@ -943,7 +1067,6 @@ namespace Manager {
             pH = trackY / (float) opts.ylim;
             yScaling *= 0.95;
         } else {
-//            std::cout << "yscaling " << yScaling << " monior scale " << monitorScale  << std::endl;
 //            if (yScaling > 9*monitorScale) {
 //                pH = yScaling - (2 * monitorScale);//* 0.85;  // polygonHeight
 //            } else
@@ -1000,12 +1123,10 @@ namespace Manager {
 
     }
 
-    void GwPlot::drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
+    void GwPlot::drawScreen() {
 
 //        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
         SkCanvas *canvasR = rasterCanvas;
-
-        canvas->drawPaint(opts.theme.bgPaint);
         canvasR->drawPaint(opts.theme.bgPaint);
 
         frameId += 1;
@@ -1029,6 +1150,7 @@ namespace Manager {
                 canvasR->drawRect(clip, opts.theme.bgPaint);
                 clip.setXYWH(0, refSpace + totalCovY + (trackY * bams.size()), fb_width, fb_height);
                 canvasR->drawRect(clip, opts.theme.bgPaint);
+                canvasR->restore();
             }
 
             for (auto &cl: collections) {
@@ -1039,18 +1161,6 @@ namespace Manager {
                 // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
                 if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
                     clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, trackY + covY - gap);
-//                    std::cout << cl.yOffset << std::endl;
-//                    if (bams.size() == 1) {
-//                        clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + totalTabixY + covY + refSpace);
-//                        clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + covY + refSpace - gap);
-//                    } else if (cl.bamIdx == 0) {  // top bam, cover the ref too
-//                        clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY - gap); // + covY + refSpace);
-//                    } else if (cl.bamIdx == (int)bams.size() - 1) { // bottom bam
-//                        clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + trackY + covY - gap);
-//                        clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, trackY);
-//                    } else {  //middle bam
-//                        clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + covY - gap);
-//                    }
                     canvasR->clipRect(clip, false);
                 } else if (cl.skipDrawingCoverage) {
                     clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, cl.yPixels);
@@ -1094,32 +1204,11 @@ namespace Manager {
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, fai, fb_width, fb_height, monitorScale, gap);
 
         imageCacheQueue.emplace_back(frameId, rasterSurfacePtr[0]->makeImageSnapshot());
-        canvas->drawImage(imageCacheQueue.back().second, 0, 0);
 
-        sContext->flush();
-        glfwSwapBuffers(window);
         redraw = false;
 //        std::cerr << " time " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
 
-    void GwPlot::drawScreenNoBuffer(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
-        //        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
-
-        canvas->drawPaint(opts.theme.bgPaint);
-        frameId += 1;
-        if (regions.empty()) {
-            setScaling();
-        } else {
-            runDrawNoBuffer();
-        }
-        imageCacheQueue.emplace_back(frameId, rasterSurfacePtr[0]->makeImageSnapshot());
-        canvas->drawImage(imageCacheQueue.back().second, 0, 0);
-        sContext->flush();
-        glfwSwapBuffers(window);
-        redraw = false;
-//                std::cerr << " time " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
-
-    }
 
     void GwPlot::drawCursorPosOnRefSlider(SkCanvas *canvas) {
         // determine if cursor is over the ref slider
@@ -1449,7 +1538,7 @@ namespace Manager {
         }
     }
 
-    void GwPlot::tileDrawingThread(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface) {
+    void GwPlot::tileDrawingThread(SkCanvas *canvas, sk_sp<SkSurface> *surfacePtr) {
         currentVarTrack = &variantTracks[variantFileSelection];
         int bStart = currentVarTrack->blockStart;
         int bLen = (int)opts.number.x * (int)opts.number.y;
@@ -1460,8 +1549,7 @@ namespace Manager {
             if (!c && i < (int)currentVarTrack->multiRegions.size() && !bams.empty()) {
                 this->regions = currentVarTrack->multiRegions[i];
                 runDrawOnCanvas(canvas);
-                sContext->flush();
-                sk_sp<SkImage> img(sSurface->makeImageSnapshot());
+                sk_sp<SkImage> img(surfacePtr[0]->makeImageSnapshot());
                 imageCache[i] = img;
             }
         }
@@ -1512,7 +1600,7 @@ namespace Manager {
         }
     }
 
-    void GwPlot::drawTiles(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface) {
+    void GwPlot::drawTiles(SkCanvas *canvas) {
         currentVarTrack = &variantTracks[variantFileSelection];
         int bStart = currentVarTrack->blockStart;
 
@@ -1520,8 +1608,9 @@ namespace Manager {
         setScaling();
         float y_gap = (variantTracks.size() <= 1) ? 0 : (10 * monitorScale);
         bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height - 6 * monitorScale, 6 * monitorScale, 6 * monitorScale, y_gap);
+
         if (currentVarTrack->image_glob.empty()) {
-            tileDrawingThread(canvas, sContext, sSurface);  // draws images from variant file
+            tileDrawingThread(canvas, rasterSurfacePtr);  // draws images from variant file
         } else {
             tileLoadingThread();  // loads static images in .png format
         }
@@ -1541,7 +1630,6 @@ namespace Manager {
             std::rotate(srtLabels.begin(), pivot, pivot + 1);
         }
 
-//        canvas->drawPaint(opts.theme.bgPaint);
         canvas->drawPaint(opts.theme.bgPaintTiled);
         SkSamplingOptions sampOpts = SkSamplingOptions();
         int i = bStart;
@@ -1563,7 +1651,6 @@ namespace Manager {
                     float newHeight = newWidth / ratio;
                     rect.setXYWH(b.xStart, b.yStart, newWidth, newHeight);
                 }
-//                canvas->drawRect(rect, opts.theme.bgPaint);
                 canvas->drawImageRect(imageCache[i], rect, sampOpts);
                 if (currentVarTrack->multiLabels.empty()) {
                     ++i; continue;
@@ -1575,9 +1662,7 @@ namespace Manager {
             }
             ++i;
         }
-        imageCacheQueue.emplace_back(frameId, sSurface->makeImageSnapshot());
-        sContext->flush();
-        glfwSwapBuffers(window);
+        imageCacheQueue.emplace_back(frameId, rasterSurfacePtr[0]->makeImageSnapshot());
         redraw = false;
     }
 
@@ -1700,23 +1785,22 @@ namespace Manager {
         setScaling();
 
         SkRect clip;
+        if (!imageCacheQueue.empty() && collections.size() > 1) {
+            canvas->drawImage(imageCacheQueue.back().second, 0, 0);
+            clip.setXYWH(0, 0, fb_width, refSpace);
+            canvas->drawRect(clip, opts.theme.bgPaint);
+            clip.setXYWH(0, refSpace + totalCovY + (trackY * bams.size()), fb_width, fb_height);
+            canvas->drawRect(clip, opts.theme.bgPaint);
+            canvas->restore();
+        }
+
         for (auto &cl: collections) {
             if (cl.skipDrawingCoverage && cl.skipDrawingReads) {  // keep read and coverage area
                 continue;
             }
             canvas->save();
-
-            // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
             if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
-                if (bams.size() == 1) {
-                    clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + totalTabixY + covY + refSpace);
-                } else if (cl.bamIdx == 0) {  // top bam, cover the ref too
-                    clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + covY + refSpace);
-                } else if (cl.bamIdx == (int)bams.size() - 1) { // bottom bam
-                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + trackY + covY + totalTabixY);
-                } else {  //middle bam
-                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + covY);
-                }
+                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, trackY + covY - gap);
                 canvas->clipRect(clip, false);
             } else if (cl.skipDrawingCoverage) {
                 clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, cl.yPixels);
@@ -1725,28 +1809,51 @@ namespace Manager {
                 clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, covY);
                 canvas->clipRect(clip, false);
             }  // else no clip
-
             canvas->drawPaint(opts.theme.bgPaint);
 
-            if (!cl.skipDrawingReads) {
+            // todo FIX THIS:
+            // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
+//            if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
+//                if (bams.size() == 1) {
+//                    clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + totalTabixY + covY + refSpace);
+//                } else if (cl.bamIdx == 0) {  // top bam, cover the ref too
+//                    clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + covY + refSpace);
+//                } else if (cl.bamIdx == (int)bams.size() - 1) { // bottom bam
+//                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + trackY + covY + totalTabixY);
+//                } else {  //middle bam
+//                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + covY);
+//                }
+//                canvas->clipRect(clip, false);
+//            } else if (cl.skipDrawingCoverage) {
+//                clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, cl.yPixels);
+//                canvas->clipRect(clip, false);
+//            } else if (cl.skipDrawingReads){
+//                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, covY);
+//                canvas->clipRect(clip, false);
+//            }  // else no clip
+//
+//            canvas->drawPaint(opts.theme.bgPaint);
 
-                if (cl.regionLen >= opts.low_memory && !bams.empty() && opts.link_op == 0) {  // low memory mode will be used
-                    cl.clear();
-                    if (opts.threads == 1) {
-                        HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                      &regions[cl.regionIdx], (bool) opts.max_coverage,
-                                      filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop,
-                                      textDrop, pH, monitorScale);
-                    } else {
-                        HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                              opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
-                                              filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool,
-                                              pointSlop, textDrop, pH, monitorScale);
-                    }
+            if (!cl.skipDrawingReads && !bams.empty()) {
+
+                assert (opts.link_op == 0);
+//                if (opts.link_op == 0) {  // low memory mode will be used
+                cl.clear();
+                if (opts.threads == 1) {
+                    HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                  &regions[cl.regionIdx], (bool) opts.max_coverage,
+                                  filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop,
+                                  textDrop, pH, monitorScale);
                 } else {
-                    Drawing::drawCollection(opts, cl, canvas, trackY, yScaling, fonts, opts.link_op, refSpace,
-                                            pointSlop, textDrop, pH, monitorScale);
-                }
+                    HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                          opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
+                                          filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool,
+                                          pointSlop, textDrop, pH, monitorScale);
+                    }
+//                } else {
+//                    Drawing::drawCollection(opts, cl, canvas, trackY, yScaling, fonts, opts.link_op, refSpace,
+//                                            pointSlop, textDrop, pH, monitorScale);
+//                }
             }
             canvas->restore();
         }
@@ -1760,6 +1867,7 @@ namespace Manager {
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale, gap);
 //        std::cout << " time runDrawNoBufferOnCanvas " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
+
     }
 
     void GwPlot::runDrawNoBuffer() {

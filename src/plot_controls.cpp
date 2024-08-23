@@ -12,6 +12,9 @@
 #include <vector>
 #include <htslib/sam.h>
 #include <htslib/hts.h>
+#if defined(__linux__)
+#include <glad/glad.h>
+#endif
 #include <GLFW/glfw3.h>
 #define SK_GL
 #include "hts_funcs.h"

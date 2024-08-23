@@ -4,24 +4,19 @@
 
 #include <array>
 #include <iomanip>
-#include <iterator>
 #include <cstdlib>
-#include <cstdio>
 #include <string>
 #include <unordered_map>
-#include <functional>
 #include <vector>
 #include <queue>
+#include <filesystem>
+#include <iostream>
 #include <htslib/sam.h>
 #include <htslib/hts.h>
 #include <htslib/bgzf.h>
 #include <htslib/hfile.h>
 #include <htslib/cram.h>
-#include <GLFW/glfw3.h>
 #include <hts_funcs.h>
-#include <filesystem>
-#include <GLFW/glfw3.h>
-#include <iostream>
 
 #if defined(_WIN32)
 
@@ -1532,57 +1527,65 @@ namespace Commands {
                 return;
             case UNKNOWN:
                 out << termcolor::red << "Error:" << termcolor::reset << " Unknown error\n";
+                p->redraw = false;
                 return;
             case SILENT:
+                p->redraw = false;
                 return;
             case TOO_MANY_OPTIONS:
                 out << termcolor::red << "Error:" << termcolor::reset << " Too many options supplied\n";
+                p->redraw = false;
                 return;
             case CHROM_NOT_IN_REFERENCE:
                 out << termcolor::red << "Error:" << termcolor::reset << " chromosome not in reference\n";
+                p->redraw = false;
                 return;
             case FEATURE_NOT_IN_TRACKS:
                 out << termcolor::red << "Error:" << termcolor::reset << " Feature not in tracks\n";
+                p->redraw = false;
                 return;
             case BAD_REGION:
                 out << termcolor::red << "Error:" << termcolor::reset << " Region not understood\n";
+                p->redraw = false;
                 return;
             case OPTION_NOT_SUPPORTED:
                 out << termcolor::red << "Error:" << termcolor::reset << " Option not supported\n";
+                p->redraw = false;
                 return;
             case OPTION_NOT_UNDERSTOOD:
                 out << termcolor::red << "Error:" << termcolor::reset << " Option not understood\n";
+                p->redraw = false;
                 return;
             case INVALID_PATH:
                 out << termcolor::red << "Error:" << termcolor::reset << " Path was invalid\n";
+                p->redraw = false;
                 return;
             case EMPTY_TRACKS:
                 out << termcolor::red << "Error:" << termcolor::reset << " tracks are empty (add a track first)\n";
+                p->redraw = false;
                 return;
             case EMPTY_BAMS:
                 out << termcolor::red << "Error:" << termcolor::reset << " Bams are empty (add a bam first)\n";
+                p->redraw = false;
                 return;
             case EMPTY_REGIONS:
                 out << termcolor::red << "Error:" << termcolor::reset << " Regions are empty (add a region first)\n";
+                p->redraw = false;
                 return;
             case EMPTY_VARIANTS:
                 out << termcolor::red << "Error:" << termcolor::reset << " No variant file (add a variant file first)\n";
+                p->redraw = false;
                 return;
             case PARSE_VCF:
                 out << termcolor::red << "Error:" << termcolor::reset << " Vcf parsing error\n";
+                p->redraw = false;
                 return;
             case PARSE_INPUT:
                 out << termcolor::red << "Error:" << termcolor::reset << " Input could not be parsed\n";
+                p->redraw = false;
                 return;
         }
         return;
-//        p->redraw = true;
-//        if (p->mode == Manager::Show::SINGLE) {
-//            for (auto &cl : p->collections) {
-//                cl.skipDrawingReads = true;
-//                cl.skipDrawingCoverage = true;
-//            }
-//        }
     }
 
     // Command functions capture these parameters only

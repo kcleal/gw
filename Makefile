@@ -129,7 +129,7 @@ OBJECTS += $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
 debug: LDFLAGS += -fsanitize=address -fsanitize=undefined
 
 $(TARGET): $(OBJECTS)  # line 131
-	$(CXX) $(CXXFLAGS) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $@
+	$(CXX) $(CXXFLAGS) ./include/glad.c $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $@
 
 
 clean:

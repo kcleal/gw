@@ -6,12 +6,11 @@
 
 
 #include <iostream>
-#ifdef __APPLE__
-#include <OpenGL/gl.h>
-#endif
+//#ifdef __APPLE__
+//#include <OpenGL/gl.h>
+//#endif
 
 #include <filesystem>
-#include <GLFW/glfw3.h>
 #include <string>
 #include <utility>
 #include <vector>

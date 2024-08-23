@@ -5,9 +5,6 @@
 #pragma once
 
 #include <iostream>
-#ifdef __APPLE__
-    #include <OpenGL/gl.h>
-#endif
 
 #include "htslib/faidx.h"
 #include "htslib/hfile.h"
@@ -19,7 +16,7 @@
 #include <chrono>
 #include <future>
 #include <filesystem>
-#include <GLFW/glfw3.h>
+
 #include <memory>
 #include <string>
 #include <utility>
@@ -37,10 +34,6 @@
 #include "themes.h"
 #include "export_definitions.h"
 
-#define SK_GL
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/gl/GrGLInterface.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkSurface.h"
@@ -211,7 +204,7 @@ namespace Manager {
 
         void loadSession();
 
-        int startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay);
+        int startUI(int delay);
 
         void keyPress(int key, int scancode, int action, int mods);
 
@@ -246,6 +239,13 @@ namespace Manager {
         void saveSession(std::string out_session);
 
     private:
+        GLuint vertexShader;
+        GLuint fragmentShader;
+        GLuint shaderProgram;
+        GLuint texture;
+        SkPixmap pixmap;
+        GLuint VBO, EBO;
+
         long frameId;
         bool resizeTriggered;
         bool regionSelectionTriggered;
@@ -285,17 +285,15 @@ namespace Manager {
 
         BS::thread_pool pool;
 
-        void drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
-
-        void drawScreenNoBuffer(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
+        void drawScreen();
 
         void drawOverlay(SkCanvas* canvas);
 
-        void tileDrawingThread(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
+        void tileDrawingThread(SkCanvas* canvas, sk_sp<SkSurface> *surfacePtr);
 
         void tileLoadingThread();
 
-        void drawTiles(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface);
+        void drawTiles(SkCanvas *canvas);
 
         int registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
 
