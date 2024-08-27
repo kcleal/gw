@@ -345,9 +345,9 @@ namespace Manager {
             const GLubyte *rend = glGetString(GL_RENDERER);
             const GLubyte *ver = glGetString(GL_VERSION);
             const GLubyte *ven = glGetString(GL_VENDOR);
-            std::cerr << "OpenGL renderer: " << rend;
-            std::cerr << "OpenGL version: " << ver;
-            std::cerr << "OpenGL vendor: " << ven;
+            std::cerr << "OpenGL renderer: " << rend << std::endl;
+            std::cerr << "OpenGL version: " << ver << std::endl;
+            std::cerr << "OpenGL vendor: " << ven << std::endl;
         }
 
         if (rasterSurfacePtr == nullptr) {
