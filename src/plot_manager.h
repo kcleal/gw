@@ -244,7 +244,7 @@ namespace Manager {
         GLuint shaderProgram;
         GLuint texture;
         SkPixmap pixmap;
-        GLuint VBO, EBO;
+        GLuint VAO, VBO, EBO;
 
         long frameId;
         bool resizeTriggered;

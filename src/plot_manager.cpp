@@ -1,4 +1,7 @@
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include <array>
 #include <chrono>
 #include <cstdlib>
@@ -10,11 +13,12 @@
 #include <vector>
 
 #ifdef __APPLE__
-    #include <OpenGL/gl.h>
-    #include <OpenGL/gl3.h> // todo
+    #include <OpenGL/gl3.h>
 #elif defined(__linux__)
     #include <glad/glad.h>
 #endif
+
+//#include <glad/glad.h>
 
 #include "htslib/faidx.h"
 #include "htslib/hts.h"
@@ -35,49 +39,50 @@
 #include "themes.h"
 #include "window_icon.h"
 
+GLuint loadTextureSTB(const char* filename)
+{
+    int width, height, nrChannels;
+    unsigned char *data = stbi_load(filename, &width, &height, &nrChannels, 0);
+
+    if (!data)
+    {
+        std::cout << "Failed to load texture: " << filename << std::endl;
+        return 0;
+    }
+
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    // Set texture wrapping and filtering options
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // Load the texture
+    GLenum format;
+    if (nrChannels == 1)
+        format = GL_RED;
+    else if (nrChannels == 3)
+        format = GL_RGB;
+    else if (nrChannels == 4)
+        format = GL_RGBA;
+
+    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    stbi_image_free(data);
+
+    return texture;
+}
+
 
 using namespace std::literals;
 
 namespace Manager {
 
     std::mutex g_mutex;
-
-
-    const char* vertexShaderSourceT = R"(
-        attribute vec2 aPos;
-        attribute vec2 aTexCoord;
-        varying vec2 vTexCoord;
-        void main() {
-            vTexCoord = aTexCoord;
-            gl_Position = vec4(aPos, 0.0, 1.0);
-        }
-    )";
-
-
-    const char* fragmentShaderSourceT = R"(
-        precision mediump float;
-        varying vec2 vTexCoord;
-        uniform sampler2D uTexture;
-        void main() {
-            gl_FragColor = texture2D(uTexture, vTexCoord);
-        }
-    )";
-
-
-    GLfloat vertices[] = {
-            // Positions         // Texture Coords
-            -1.0f,  1.0f, 0.0f,  0.0f, 0.0f,  // Top-left
-            -1.0f, -1.0f, 0.0f,  0.0f, 1.0f,  // Bottom-left
-            1.0f, -1.0f, 0.0f,  1.0f, 1.0f,  // Bottom-right
-            1.0f,  1.0f, 0.0f,  1.0f, 0.0f   // Top-right
-    };
-
-
-    GLuint indices[] = {
-            0, 1, 2,  // First triangle
-            0, 2, 3   // Second triangle
-    };
-
 
     GLuint compileShader(GLenum type, const char* sourceCStr) {
         GLuint shader = glCreateShader(type);
@@ -94,6 +99,110 @@ namespace Manager {
         }
         return shader;
     }
+
+
+
+#ifdef __APPLE__
+
+    const char* vertexShaderSourceT2 = R"(
+        #version 330 core
+        layout (location = 0) in vec2 aPos;
+        layout (location = 1) in vec2 aTexCoord;
+        out vec2 TexCoord;
+
+        uniform mat4 projection;
+
+        void main()
+        {
+            gl_Position = projection * vec4(aPos.x, aPos.y, 0.0, 1.0);
+            TexCoord = aTexCoord;
+        }
+    )";
+
+    const char* fragmentShaderSourceT2 = R"(
+        #version 330 core
+        in vec2 TexCoord;
+        out vec4 FragColor;
+
+        uniform sampler2D uTexture;
+
+        void main()
+        {
+            FragColor = texture(uTexture, TexCoord);
+        }
+    )";
+
+    const char* vertexShaderSourceT = R"(
+        attribute vec2 aPos;
+        attribute vec2 aTexCoord;
+        varying vec2 vTexCoord;
+        void main() {
+            vTexCoord = aTexCoord;
+            gl_Position = vec4(aPos, 0.0, 1.0);
+        }
+    )";
+
+    const char* fragmentShaderSourceT = R"(
+        varying vec2 vTexCoord;
+        uniform sampler2D uTexture;
+        void main() {
+            gl_FragColor = texture2D(uTexture, vTexCoord);
+        }
+    )";
+
+    // Texture coordinates are a work-around to ensure one texture covers screen
+    GLfloat vertices[] = {
+            // Positions         // Texture Coords
+            -1.0f,  1.0f,   -1.0f, -1.0f,
+            -1.0f, -1.0f,   -1.0f, 3.0f,
+            1.0f, -1.0f,     3.0f, 3.0f,
+            1.0f,  1.0f,     3.0f, -1.0f
+    };
+
+//    GLfloat vertices[] = {
+//            // Positions         // Texture Coords
+//            -1.0f,  1.0f,   0.0f, 0.0f,  // Top-left
+//            -1.0f, -1.0f,   0.0f, 1.0f,  // Bottom-left
+//            1.0f, -1.0f,   1.0f, 1.0f,  // Bottom-right
+//            1.0f,  1.0f,   1.0f, 0.0f   // Top-right
+//    };
+
+#else
+
+    const char* vertexShaderSourceT = R"(
+        attribute vec2 aPos;
+        attribute vec2 aTexCoord;
+        varying vec2 vTexCoord;
+        void main() {
+            vTexCoord = aTexCoord;
+            gl_Position = vec4(aPos, 0.0, 1.0);
+        }
+    )";
+
+    const char* fragmentShaderSourceT = R"(
+        precision mediump float;
+        varying vec2 vTexCoord;
+        uniform sampler2D uTexture;
+        void main() {
+            gl_FragColor = texture2D(uTexture, vTexCoord);
+        }
+    )";
+
+    GLfloat vertices[] = {
+            // Positions         // Texture Coords
+            -1.0f,  1.0f, 0.0f,  0.0f, 0.0f,  // Top-left
+            -1.0f, -1.0f, 0.0f,  0.0f, 1.0f,  // Bottom-left
+            1.0f, -1.0f, 0.0f,  1.0f, 1.0f,  // Bottom-right
+            1.0f,  1.0f, 0.0f,  1.0f, 0.0f   // Top-right
+    };
+#endif
+
+
+    GLuint indices[] = {
+            0, 1, 2,  // First triangle
+            0, 2, 3   // Second triangle
+    };
+
 
     void HiddenWindow::init(int width, int height) {
         if (!glfwInit()) {
@@ -227,10 +336,13 @@ namespace Manager {
     }
 
     int GwPlot::makeRasterSurface() {
+        if (fb_width == 0) {
+            setGlfwFrameBufferSize();
+        }
         SkImageInfo info = SkImageInfo::Make(
-                opts.dimensions.x,
-                opts.dimensions.y,
-                kRGBA_8888_SkColorType,  // Force RGBA format
+                fb_width,
+                fb_height,
+                kRGBA_8888_SkColorType,
                 kPremul_SkAlphaType
         );
 
@@ -241,12 +353,17 @@ namespace Manager {
                 info, &pixelMemory[0], rowBytes);
         rasterCanvas = rasterSurface->getCanvas();
         rasterSurfacePtr = &rasterSurface;
+        if (pixelMemory.empty()) {
+            std::cerr << "Error: pixel memory was empty, makeRasterSurface failed\n";
+        }
         return pixelMemory.size();
     }
 
     void GwPlot::init(int width, int height) {
+        this->fb_width = 0;
+        this->fb_height = 0;
 
-        char * val = getenv( "GW_DEBUG" );
+        char * val = getenv( "DEBUG_GW" );
         bool debug = (val != nullptr);
         if (debug) {
             std::cerr <<"GLFW version: " << glfwGetVersionString() << std::endl;
@@ -257,6 +374,10 @@ namespace Manager {
         if (!glfwInit()) {
             std::cerr << "ERROR: could not initialize GLFW3" << std::endl;
             std::terminate();
+        }
+
+        if (debug) {
+            glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
         }
 
 #ifndef __APPLE__  // linux, windows, termux
@@ -274,8 +395,12 @@ namespace Manager {
 
 #else
         // Native macOS -> use the default OpenGL context (OpenGL 2.1)
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+//        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+//        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+//        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+
+//        glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GL_FALSE);
 
 #endif
         window = glfwCreateWindow(width, height, "GW", NULL, NULL);
@@ -288,7 +413,7 @@ namespace Manager {
 #if defined(_WIN32) || defined(_WIN64)
         GLFWimage iconimage;
         getWindowIconImage(&iconimage);
-          glfwSetWindowIcon(window, 1, &iconimage);
+        glfwSetWindowIcon(window, 1, &iconimage);
 #endif
 
         // https://stackoverflow.com/questions/7676971/pointing-to-a-function-that-is-a-class-member-glfw-setkeycallback/28660673#28660673
@@ -330,9 +455,8 @@ namespace Manager {
             std::exit(-1);
         }
         glfwMakeContextCurrent(window);
-        setGlfwFrameBufferSize();
 
-#if defined(__linux__)
+#ifndef __APPLE__
         // Initialize glad after creating the context
         if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
             std::cerr << "Failed to initialize GLAD" << std::endl;
@@ -347,6 +471,7 @@ namespace Manager {
             }
         }
 #endif
+
         if (debug) {
             const GLubyte* renderer = glGetString(GL_RENDERER);
             const GLubyte* version = glGetString(GL_VERSION);
@@ -356,15 +481,15 @@ namespace Manager {
             std::cerr << "OpenGL Vendor: " << vendor << std::endl;
         }
 
-        // Create and link shaders as program
+        // 1. Link shader program
         vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSourceT);
         fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSourceT);
         shaderProgram = glCreateProgram();
         glAttachShader(shaderProgram, vertexShader);
         glAttachShader(shaderProgram, fragmentShader);
         glLinkProgram(shaderProgram);
-        glDeleteShader( vertexShader );
-        glDeleteShader( fragmentShader );
+        glDeleteShader(vertexShader);
+        glDeleteShader(fragmentShader);
         GLint success;
         GLchar infoLog[512];
         glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
@@ -372,28 +497,31 @@ namespace Manager {
             glGetProgramInfoLog(shaderProgram, 512, nullptr, infoLog);
             std::cerr << "Shader Program Linking Error: " << infoLog << std::endl;
         }
-        glUseProgram(shaderProgram);
 
-        // 2. Create and bind buffers
+        // Generate and bind VAO
+        glGenVertexArrays(1, &VAO);
+        glBindVertexArray(VAO);
+
+        // Generate and bind VBO
         glGenBuffers(1, &VBO);
-        glGenBuffers(1, &EBO);
-
-        // Bind VBO and upload vertex data
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
         glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-        // Bind EBO and upload index data
+        // Generate and bind EBO
+        glGenBuffers(1, &EBO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-        // 3. Set up Vertex Attributes
+        // Set up vertex attributes
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (GLvoid*)0);
         glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)0);
 
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (GLvoid*)(2 * sizeof(GLfloat)));
         glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
 
-        glViewport(0, 0, fb_width, fb_height);
+        glBindVertexArray(0); // Unbind VAO
+
+
     }
 
     void GwPlot::initBack(int width, int height) {
@@ -783,8 +911,6 @@ namespace Manager {
 
         vCursor = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
 	    normalCursor = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
-	
-        setGlfwFrameBufferSize();
 
         fetchRefSeqs();
         opts.theme.setAlphas();
@@ -804,6 +930,7 @@ namespace Manager {
         bool wasResized = false;
         redraw = true;
 
+
         std::chrono::high_resolution_clock::time_point autoSaveTimer = std::chrono::high_resolution_clock::now();
         while (true) {
             if (glfwWindowShouldClose(wind) || triggerClose) {
@@ -817,7 +944,8 @@ namespace Manager {
             if (resizeTriggered && std::chrono::duration_cast<std::chrono::milliseconds>(
                     std::chrono::high_resolution_clock::now() - resizeTimer) > 100ms) {
 
-                glViewport(0, 0, fb_width, fb_height);
+//                glViewport(0, 0, fb_width, fb_height);
+
 
                 rasterSurface = SkSurface::MakeRasterN32Premul(fb_width, fb_height);
 //
@@ -862,28 +990,59 @@ namespace Manager {
 
             if (rasterSurfacePtr[0]->peekPixels(&pixmap)) {
 
+                GLuint testTexture = loadTextureSTB("/Users/sbi8kc2/Desktop/test1.png");
+                if (testTexture == 0)
+                {
+                    // Handle error
+                    return -1;
+                }
+
+                // Get the actual size of the loaded texture
+//                GLint texWidth, texHeight;
+//                glBindTexture(GL_TEXTURE_2D, testTexture);
+//                glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &texWidth);
+//                glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &texHeight);
+//
+//                int windowWidth, windowHeight, framebufferWidth, framebufferHeight;
+//                glfwGetWindowSize(window, &windowWidth, &windowHeight);
+//                glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+//
+//                std::cout << "Window size: " << windowWidth << "x" << windowHeight << std::endl;
+//                std::cout << "Framebuffer size: " << framebufferWidth << "x" << framebufferHeight << std::endl;
+//
+//                std::cout << "Loaded texture size: " << texWidth << "x" << texHeight << std::endl;
+//                glActiveTexture(GL_TEXTURE0);
+//                glBindTexture(GL_TEXTURE_2D, testTexture);
+
                 glClear(GL_COLOR_BUFFER_BIT);
 
-                // Create texture
                 glGenTextures(1, &texture);
                 glBindTexture(GL_TEXTURE_2D, texture);  // Bind
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+#ifdef __APPLE__
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, pixmap.width(), pixmap.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, pixmap.addr());
+#else
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_BGRA, pixmap.width(), pixmap.height(), 0, GL_BGRA, GL_UNSIGNED_BYTE, pixmap.addr());
+#endif
                 glBindTexture(GL_TEXTURE_2D, 0); // Unbind
 
                 glUseProgram(shaderProgram);
 
-                glActiveTexture(GL_TEXTURE0); // Activate texture unit
-                glBindTexture(GL_TEXTURE_2D, texture); // Bind the texture
-
-                // Bind buffers before drawing
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, texture);
                 glBindBuffer(GL_ARRAY_BUFFER, VBO);
                 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-
                 glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+                int displayWidth, displayHeight;
+                glfwGetFramebufferSize(window, &displayWidth, &displayHeight);
+                glViewport(0, 0, displayWidth, displayHeight);
+
                 glfwSwapBuffers(window);
 
             } else {
@@ -1130,7 +1289,7 @@ namespace Manager {
         canvasR->drawPaint(opts.theme.bgPaint);
 
         frameId += 1;
-        setGlfwFrameBufferSize();
+//        setGlfwFrameBufferSize();
         if (bams.empty() && !regions.empty()) {
             canvasR->drawPaint(opts.theme.bgPaint);
             setScaling();

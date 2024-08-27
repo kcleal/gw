@@ -568,13 +568,7 @@ int main(int argc, char *argv[]) {
 
         // initialize graphics window
         plotter.init(iopts.dimensions.x, iopts.dimensions.y);
-        int fb_height, fb_width;
-        glfwGetFramebufferSize(plotter.window, &fb_width, &fb_height);
-
-        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
-                                                                        iopts.dimensions.y);
-        plotter.rasterCanvas = rasterSurface->getCanvas();
-        plotter.rasterSurfacePtr = &rasterSurface;
+        plotter.makeRasterSurface();
 
         // start UI here
         if (!program.is_used("--variants") && !program.is_used("--images")) {
@@ -802,6 +796,7 @@ int main(int argc, char *argv[]) {
                                               block += 1;
                                               mtx.unlock();
                                               Manager::GwPlot *plt = managers[this_block];
+                                              plt->setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
                                               plt->makeRasterSurface();
                                               std::vector<Utils::Region> &all_regions = jobs[this_block];
 //                                              sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(
@@ -935,6 +930,7 @@ int main(int argc, char *argv[]) {
                                             block += 1;
                                             mtx.unlock();
                                             Manager::GwPlot *plt = managers[this_block];
+                                            plt->setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
                                             plt->makeRasterSurface();
 //                                            sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
 //                                            SkCanvas *canvas = rasterSurface->getCanvas();

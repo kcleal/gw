@@ -16,8 +16,9 @@ else
 fi
 echo "Extra flags: ${EXTRA_CFLAGS}"
 
-
+VERSION=m93
 git clone 'https://chromium.googlesource.com/chromium/tools/depot_tools.git'
+git checkout origin/chrome/${VERSION}
 export PATH="${PWD}/depot_tools:${PATH}"
 
 # sudo npm install -g @bazel/bazelisk
@@ -25,17 +26,13 @@ export PATH="${PWD}/depot_tools:${PATH}"
 #brew install bazelisk ninja harfbuzz webp
 
 depot_tools/fetch skia
-
 cd skia
-VERSION=m93
-
 python3 tools/git-sync-deps
 
 REL=Release
 
-
 # Turn off all GPU backends
-bin/gn gen out/${REL} --args="is_official_build=true skia_enable_egl=true skia_use_system_icu=false skia_use_system_zlib=false skia_use_system_expat=false skia_use_system_libjpeg_turbo=false skia_use_system_libpng=false skia_use_system_libwebp=false skia_use_system_harfbuzz=false skia_pdf_subset_harfbuzz=true skia_enable_skottie=true ${EXTRA_CFLAGS}"
+bin/gn gen out/${REL} --args="cc='clang' cxx='clang++' is_official_build=true is_debug=false skia_enable_gpu=false skia_use_system_icu=false skia_use_system_zlib=false skia_use_system_expat=false skia_use_system_libjpeg_turbo=false skia_use_system_libpng=false skia_use_system_libwebp=false skia_use_system_harfbuzz=false skia_pdf_subset_harfbuzz=true skia_enable_skottie=true ${EXTRA_CFLAGS}"
 bin/gn args out/${REL} --list
 ninja -C out/${REL}
 
