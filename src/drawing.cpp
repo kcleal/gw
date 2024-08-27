@@ -2019,7 +2019,8 @@ namespace Drawing {
                            const std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
                            SkCanvas *canvas,
                            const faidx_t *fai, float fb_width,
-                           float fb_height, float monitorScale, float plot_gap) {
+                           float fb_height, float monitorScale, float plot_gap, bool addLocation) {
+
         SkPaint paint, light_paint, line;
         paint.setARGB(255, 240, 32, 73);
 
@@ -2041,7 +2042,7 @@ namespace Drawing {
 
         const float top = fb_height - (yh * 2);
         const float colWidth = (float) fb_width / (float) regions.size();
-        const float gap = 25 * monitorScale;  // ideogram is smaller than the full page width, by this ammount
+        const float gap = 25 * monitorScale;  // ideogram is smaller than the full page width, by this amount
         const float gap2 = 50 * monitorScale;
         const float drawWidth = colWidth - gap2;
         const float scaleWidth = colWidth - plot_gap - plot_gap;
@@ -2061,33 +2062,37 @@ namespace Drawing {
             }
             float xp = (regionIdx * colWidth) + gap;
 
-            path.reset();
-            path.moveTo(xp, top + yh_two_thirds );
-            path.lineTo(xp + drawWidth, top + yh_two_thirds);
-            canvas->drawPath(path, line);
+            if (addLocation || !ideogram.empty()) {
+                path.reset();
+                path.moveTo(xp, top + yh_two_thirds );
+                path.lineTo(xp + drawWidth, top + yh_two_thirds);
+                canvas->drawPath(path, line);
 
-            auto it = ideogram.find(region.chrom);
-            if (it != ideogram.end()) {
-                const std::vector<Ideo::Band>& bands = it->second;
-                for (const auto& b : bands) {
-                    float sb = (float) b.start / (float)region.chromLen;
-                    float eb = (float) b.end / (float)region.chromLen;
-                    float wb = (eb - sb) * drawWidth;
-                    rect.setXYWH(xp + (sb * drawWidth),
-                                 top + yh_one_third,
-                                 wb,
-                                 yh_two_thirds);
-                    canvas->drawRect(rect, b.paint);
-                    if (wb > 2) {
-                        canvas->drawRect(rect, light_paint);
+                auto it = ideogram.find(region.chrom);
+                if (it != ideogram.end()) {
+                    const std::vector<Ideo::Band>& bands = it->second;
+                    for (const auto& b : bands) {
+                        float sb = (float) b.start / (float)region.chromLen;
+                        float eb = (float) b.end / (float)region.chromLen;
+                        float wb = (eb - sb) * drawWidth;
+                        rect.setXYWH(xp + (sb * drawWidth),
+                                     top + yh_one_third,
+                                     wb,
+                                     yh_two_thirds);
+                        canvas->drawRect(rect, b.paint);
+                        if (wb > 2) {
+                            canvas->drawRect(rect, light_paint);
+                        }
                     }
                 }
             }
-            rect.setXYWH(xp + (s * drawWidth),
-                         top,
-                         w,
-                         yh + yh_one_third);
-            canvas->drawRect(rect, paint);
+            if (addLocation) {
+                rect.setXYWH(xp + (s * drawWidth),
+                             top,
+                             w,
+                             yh + yh_one_third);
+                canvas->drawRect(rect, paint);
+            }
 
             // draw scale bar
             if (opts.scale_bar) {

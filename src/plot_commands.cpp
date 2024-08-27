@@ -1526,6 +1526,9 @@ namespace Commands {
 
     void cache_command_or_handle_err(Plot* p, Err result, std::ostream& out,
                                     std::vector<std::string>* applied, std::string& command) {
+        if (result != NONE) {
+            p->redraw = false;
+        }
         switch (result) {
             case NONE:
                 applied->push_back(command);
@@ -1575,14 +1578,6 @@ namespace Commands {
                 out << termcolor::red << "Error:" << termcolor::reset << " Input could not be parsed\n";
                 return;
         }
-        return;
-//        p->redraw = true;
-//        if (p->mode == Manager::Show::SINGLE) {
-//            for (auto &cl : p->collections) {
-//                cl.skipDrawingReads = true;
-//                cl.skipDrawingCoverage = true;
-//            }
-//        }
     }
 
     // Command functions capture these parameters only

@@ -783,19 +783,13 @@ namespace Segs {
             self->haplotag = (HP_tag != nullptr) ? (int) bam_aux2i(HP_tag) : 0;
         }
 
-        if (parse_mods_threshold >= 0) {
+        if (parse_mods_threshold > 0) {
             hts_base_mod_state* mod_state = new hts_base_mod_state;
             int res = bam_parse_basemod_gw(src, mod_state, 0);
             if (res >= 0) {
                 hts_base_mod mods[10];
                 int pos = 0;  // position on read, not reference
-//                if (flag & 16) {
-//                    pos = seq_index;
-//                }
                 int nm = bam_next_basemod(src, mod_state, mods, 10, &pos);
-
-//                std::cout << (flag & 16) << " " << nm << std::endl;
-
                 while (nm > 0) {
                     self->any_mods.emplace_back() = ModItem();
                     ModItem& mi = self->any_mods.back();
@@ -815,9 +809,7 @@ namespace Segs {
 
             }
             delete mod_state;
-
         }
-
 
         self->y = -1;  // -1 has no level, -2 means initialized but filtered
         if (self->blocks.empty()) {

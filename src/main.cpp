@@ -12,7 +12,6 @@
 #include "BS_thread_pool.h"
 #include "glob_cpp.hpp"
 #include "hts_funcs.h"
-#include "parser.h"
 #include "plot_manager.h"
 #include "themes.h"
 #include "utils.h"
@@ -20,12 +19,12 @@
 #include "termcolor.h"
 #include "GLFW/glfw3.h"
 
-#ifdef __APPLE__
-    #include <OpenGL/gl.h>
-#elif defined(__linux__)
-    #include <GL/gl.h>
-    #include <GL/glx.h>
-#endif
+//#ifdef __APPLE__
+//    #include <OpenGL/gl.h>
+//#elif defined(__linux__)
+//    #include <GL/gl.h>
+//    #include <GL/glx.h>
+//#endif
 
 #define SK_GL
 #include "include/gpu/GrBackendSurface.h"
@@ -67,7 +66,7 @@ void print_banner() {
 }
 
 // note to developer - update version in workflows/main.yml, menu.cpp, term_out.cpp, and deps/gw.desktop, and installers .md in docs
-const char GW_VERSION [7] = "1.0.2";
+const char GW_VERSION [7] = "1.0.3";
 
 
 bool str_is_number(const std::string &s) {
@@ -323,7 +322,7 @@ int main(int argc, char *argv[]) {
             } else {
                 std::cout << g_path << std::endl;
             }
-            vals.push_back(rg); //rg.second);
+            vals.push_back(rg);
             i += 1;
         }
         if (i == 0 && !have_session_file && !std::filesystem::exists(iopts.session_file)) {
@@ -485,7 +484,7 @@ int main(int argc, char *argv[]) {
             iopts.link_op = 2;
         } else {
             std::cerr << "Link type not known [none/sv/all]\n";
-            std::exit(-1);std::cerr << " 52 \n";
+            std::exit(-1);
         }
     }
 
@@ -584,6 +583,8 @@ int main(int argc, char *argv[]) {
         plotter.init(iopts.dimensions.x, iopts.dimensions.y);
         int fb_height, fb_width;
         glfwGetFramebufferSize(plotter.window, &fb_width, &fb_height);
+        plotter.setGlfwFrameBufferSize();
+
         sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
         if (!interface || !interface->validate()) {
 		    std::cerr << "Error: skia GrGLInterface was not valid" << std::endl;
@@ -765,12 +766,14 @@ int main(int argc, char *argv[]) {
                     SkCanvas *pageCanvas = pdfDocument->beginPage(iopts.dimensions.x, iopts.dimensions.y);
                     plotter.fb_width = iopts.dimensions.x;
                     plotter.fb_height = iopts.dimensions.y;
+                    plotter.setRasterSize(plotter.fb_width, plotter.fb_height);
                     plotter.runDrawOnCanvas(pageCanvas);
                     pdfDocument->close();
                     buffer.writeToStream(&out);
                 } else {
                     plotter.fb_width = iopts.dimensions.x;
                     plotter.fb_height = iopts.dimensions.y;
+                    plotter.setRasterSize(plotter.fb_width, plotter.fb_height);
                     SkPictureRecorder recorder;
                     SkCanvas* canvas = recorder.beginRecording(SkRect::MakeWH(iopts.dimensions.x, iopts.dimensions.y));
                     plotter.runDrawOnCanvas(canvas);
@@ -788,14 +791,13 @@ int main(int argc, char *argv[]) {
                 sk_sp<SkImage> img;
                 if (!regions.empty()) {  // plot target regions
                     plotter.setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
-                    plotter.gap = 0;
                     sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
                                                                                     iopts.dimensions.y);
                     SkCanvas *canvas = rasterSurface->getCanvas();
                     if (iopts.link_op == 0) {
                         plotter.runDrawNoBufferOnCanvas(canvas);
                     } else {
-                        plotter.runDraw();
+                        plotter.runDrawOnCanvas(canvas);
                     }
                     img = rasterSurface->makeImageSnapshot();
 
@@ -834,6 +836,7 @@ int main(int argc, char *argv[]) {
                         m->setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
                         m->opts.threads = 1;
                         m->gap = 0;
+                        m->drawLocation = false;
                         m->regions.resize(1);
 
                         for (auto &s: filters) {
@@ -1011,12 +1014,12 @@ int main(int argc, char *argv[]) {
                                             for (int i = a; i < b; ++i) {
                                                 Manager::VariantJob job = jobs[i];
                                                 plt->setVariantSite(job.chrom, job.start, job.chrom2, job.stop);
-                                                plt->runDrawNoBuffer();
-//                                                if (plt->opts.low_memory && plt->opts.link_op == 0) {
-//                                                    plt->runDrawNoBuffer(canvas);
-//                                                } else {
-//                                                    plt->runDraw(canvas);
-//                                                }
+//                                                plt->runDrawNoBuffer();
+                                                if (plt->opts.link_op == 0) {
+                                                    plt->runDrawNoBuffer();
+                                                } else {
+                                                    plt->runDraw();
+                                                }
                                                 sk_sp<SkImage> img(plt->rasterSurface->makeImageSnapshot());
                                                 std::filesystem::path fname = job.varType + "~" + job.chrom + "~" + std::to_string(job.start) + "~" + job.chrom2 + "~" + std::to_string(job.stop) + "~" + job.rid + ".png";
                                                 std::filesystem::path full_path = outdir / fname;

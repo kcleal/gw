@@ -17,14 +17,16 @@ Mac requirements
 ----------------
 gnu-time, install using 'brew install gnu-time'
 
-Final arg is for extra-args to add to command for gw or IGV-batch-script only
+Second-to-last arg is optional for extra-args to add to command for gw or IGV-batch-script only
+
+Last arg is optional - can be previous result file to re-use regions
 
 example usage
 -------------
 python3 --help
 python3 benchmark.py $HG19 ref_gaps.bed NA12878.bam ../gw gw 1 20 ''
 python3 benchmark.py $HG19 ref_gaps.bed NA12878.bam ../gw gw 1 20 '--mods'
-
+python3 benchmark.py $HG19 ref_gaps.bed NA12878.bam ../gw gw 1 20 '--mods' gw.1.benchmark.csv
 
 Output
 ------
@@ -253,6 +255,7 @@ if __name__ == "__main__":
     parser.add_argument('threads')
     parser.add_argument('n_reps')
     parser.add_argument('extra_args')
+    parser.add_argument('previous_run')
     args = parser.parse_args()
 
     random.seed(0)
@@ -296,8 +299,8 @@ if __name__ == "__main__":
                     200_000,
                     2_000_000
                     ]
-    # import numpy as np
-    # region_sizes = list(int(i) for i in np.logspace(1, 7, 50))
+    import numpy as np
+    region_sizes = list(int(i) for i in np.logspace(1, 7, 50))
 
     max_size = 20_000_000
     fai = {}
@@ -322,59 +325,82 @@ if __name__ == "__main__":
         chroms += list(fai.keys())
     print(list(fai.keys()))
 
-    for size in region_sizes:
-        print('Size: ', size)
-        half_size = int(size * 0.5)
-        random.shuffle(chroms)
-        N = 0
-        c = 0
-        start = None
-        end = None
-        reads = 0
-        while N < int(args.n_reps):
-            print(c)
-            chrom = chroms[c]
-            good = False
-            st_t = 0
-            for j in range(10):  # 10 tries to find an interval without overlapping a gap
-                pos = random.randint(half_size, fai[chrom] - half_size)
-                start = pos - half_size
-                end = pos + half_size
-                if have_pandas:
-                    itv = pd.Interval(start, end)
-                    if chrom in gaps and any(itv.overlaps(itv2) for itv2 in gaps[chrom]):
-                        continue
-                else:
+    if args.previous_run:
+        with open(args.previous_run, 'r') as prev:
+            for line in prev:
+                if line.startswith('name'):
+                    continue
+                l = line.split(',')
+                region_line = l[1]
+                chrom = region_line.split(":")[0]
+                start = int(region_line.split(":")[1].split("-")[0])
+                end = int(region_line.split(":")[1].split("-")[1])
+                size = end - start
+                print('Region:', chrom, start, end)
+
+                avg_time, maxRSS = prog(chrom, start, end, args, timef, threads, extra_args)
+
+                st_t, reads = samtools_count(chrom, start, end, args, timef, threads)
+                print('TIME', avg_time, 'MEMORY', maxRSS, 'SIZE', size)
+
+                results.append({'name': name, 'region': f'{chrom}:{start}-{end}', 'time (s)': avg_time,
+                                'region size (bp)': end - start, 'RSS': maxRSS,
+                                'samtools_count (s)': st_t, 'reads': reads, 'threads': threads})
+
+    else:
+        for size in region_sizes:
+            print('Size: ', size)
+            half_size = int(size * 0.5)
+            random.shuffle(chroms)
+            N = 0
+            c = 0
+            start = None
+            end = None
+            reads = 0
+            while N < int(args.n_reps):
+                print(c)
+                chrom = chroms[c]
+                good = False
+                st_t = 0
+                for j in range(10):  # 10 tries to find an interval without overlapping a gap
+                    pos = random.randint(half_size, fai[chrom] - half_size)
+                    start = pos - half_size
+                    end = pos + half_size
+                    if have_pandas:
+                        itv = pd.Interval(start, end)
+                        if chrom in gaps and any(itv.overlaps(itv2) for itv2 in gaps[chrom]):
+                            continue
+                    else:
+                        good = True
+                        for istart, iend in gaps[chrom]:
+                            if overlap(istart, iend, start, end):
+                                good = False
+                                break
+                        if not good:
+                            continue
                     good = True
-                    for istart, iend in gaps[chrom]:
-                        if overlap(istart, iend, start, end):
-                            good = False
-                            break
-                    if not good:
-                        continue
-                good = True
-                break
+                    break
 
-            if not good:
+                if not good:
+                    c += 1
+                    continue
+                N += 1
                 c += 1
-                continue
-            N += 1
-            c += 1
-            if N >= len(chroms):
-                raise ValueError(f'Error: ran out of chroms to plot, N={N}, len(chroms)={len(chroms)}')
-            if start is None:
-                raise ValueError('Error: couldnt find an interval with reads')
+                if N >= len(chroms):
+                    raise ValueError(f'Error: ran out of chroms to plot, N={N}, len(chroms)={len(chroms)}')
+                if start is None:
+                    raise ValueError('Error: couldnt find an interval with reads')
 
-            print('Region:', chrom, start, end)
+                print('Region:', chrom, start, end)
 
-            avg_time, maxRSS = prog(chrom, start, end, args, timef, threads, extra_args)
+                avg_time, maxRSS = prog(chrom, start, end, args, timef, threads, extra_args)
 
-            st_t, reads = samtools_count(chrom, start, end, args, timef, threads)
-            print('TIME', avg_time, 'MEMORY', maxRSS, 'SIZE', size)
+                st_t, reads = samtools_count(chrom, start, end, args, timef, threads)
+                print('TIME', avg_time, 'MEMORY', maxRSS, 'SIZE', size)
 
-            results.append({'name': name, 'region': f'{chrom}:{start}-{end}', 'time (s)': avg_time,
-                            'region size (bp)': end - start, 'RSS': maxRSS,
-                            'samtools_count (s)': st_t, 'reads': reads, 'threads': threads})
+                results.append({'name': name, 'region': f'{chrom}:{start}-{end}', 'time (s)': avg_time,
+                                'region size (bp)': end - start, 'RSS': maxRSS,
+                                'samtools_count (s)': st_t, 'reads': reads, 'threads': threads})
 
     cols = ['name', 'region', 'reads', 'region size (bp)', 'samtools_count (s)', 'time (s)', 'RSS', 'threads']
 

@@ -53,6 +53,6 @@ namespace Drawing {
                            const Themes::Fonts &fonts,
                            const std::vector<Utils::Region> &regions,
                            const std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram, SkCanvas* canvas,
-                           const faidx_t* fai, float fb_width, float fb_height, float monitorScale, float plot_gap);
+                           const faidx_t* fai, float fb_width, float fb_height, float monitorScale, float plot_gap, bool addLocation);
 
 }

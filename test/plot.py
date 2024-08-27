@@ -42,8 +42,10 @@ for idx, grp in df.groupby(['region size (bp)', 'threads']):
     samtools[idx] = grp['samtools_count (s)'].mean()
 
 # use the mean time of 2bp region as start_time
+print(df)
+print(df['region size (bp)'])
 min_load_time = {k: dd['time (s)'].min() for k, dd in df[df['region size (bp)'] == df['region size (bp)'].min()].groupby('name')}
-print(min_load_time)
+print("Min load times", min_load_time)
 min_memory = {k: dd['RSS'].min() for k, dd in df[df['region size (bp)'] == df['region size (bp)'].min()].groupby('name')}
 df['total_time'] = df['time (s)']
 df['start_time'] = [min_load_time[k] for k in df['name']]
@@ -99,7 +101,8 @@ for clr, name in zip(palette, ('gw', 'gw -t4', 'igv', 'igv -t4', 'jb2export', 's
 for item in ['total_time', 'relative_time', 'render', 'relative_render_time', 'total_mem', 'relative_mem']:
 
     fig, ax = plt.subplots()
-    fig.set_size_inches(7, 6)
+    # fig.set_size_inches(7, 6)
+    fig.set_size_inches(20, 6)
     g = sns.pointplot(data=df2,
                     x='region size (bp)', y=item, hue='name',
                     alpha=0.6, palette=colors, ax=ax)
@@ -110,7 +113,7 @@ for item in ['total_time', 'relative_time', 'render', 'relative_render_time', 't
     label[0] = label[0].upper()
     ax.set_ylabel(''.join(label), fontsize=14)
     ax.tick_params(labelsize=15)
-    ax.set_yscale('log')
+    # ax.set_yscale('log')
     # g.set_xticklabels(rotation=30)
     plt.xticks(rotation=30)
     plt.subplots_adjust(left=0.15)

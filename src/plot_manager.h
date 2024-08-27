@@ -92,6 +92,7 @@ namespace Manager {
         bool redraw;
         bool processed;
         bool drawLine;
+        bool drawLocation;
 
         bool terminalOutput;  // recoverable runtime errors and output sent to terminal or outStr
 

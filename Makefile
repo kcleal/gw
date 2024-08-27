@@ -124,7 +124,7 @@ endif
 
 OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 OBJECTS += $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
-
+OBJECTS += $(patsubst %.c, %.o, $(wildcard ./include/*.c))
 
 debug: LDFLAGS += -fsanitize=address -fsanitize=undefined
 

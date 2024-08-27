@@ -374,7 +374,8 @@ namespace HGW {
             return;
         }
         bool filter = !filters.empty();
-        const int parse_mods_threshold = (opts.parse_mods) ? 50 : 0;
+
+        const int parse_mods_threshold = (opts.parse_mods) ? opts.mods_qual_threshold : 0;
 
         int j = 0;
         while (sam_itr_next(b, iter_q, readQueue[j].delegate) >= 0) {
@@ -452,11 +453,10 @@ namespace HGW {
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
             std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
-//            throw std::runtime_error("");
             return;
         }
         bool filter = !filters.empty();
-        const int parse_mods_threshold = (opts.parse_mods) ? 50 : 0;
+        const int parse_mods_threshold = (opts.parse_mods) ? opts.mods_qual_threshold : 0;
 
         while (sam_itr_next(b, iter_q, readQueue.back().delegate) >= 0) {
             src = readQueue.back().delegate;

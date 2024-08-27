@@ -9,12 +9,14 @@
 #include <cstdio>
 #include <vector>
 
-#ifdef __APPLE__
-    #include <OpenGL/gl.h>
-#elif defined(__linux__)
-    #include <GL/gl.h>
-    #include <GL/glx.h>
-#endif
+#include <glad.h>
+
+//#ifdef __APPLE__
+//    #include <OpenGL/gl3.h>
+//#elif defined(__linux__)
+//    #include <GL/gl.h>
+//    #include <GL/glx.h>
+//#endif
 
 #include "htslib/faidx.h"
 #include "htslib/hts.h"
@@ -77,6 +79,7 @@ namespace Manager {
         resizeTriggered = false;
         regionSelectionTriggered = false;
         drawLine = false;
+        drawLocation = true;
         captureText = false;
         drawToBackWindow = false;
         textFromSettings = false;
@@ -188,10 +191,49 @@ namespace Manager {
                 info, &pixelMemory[0], rowBytes);
         rasterCanvas = rasterSurface->getCanvas();
         rasterSurfacePtr = &rasterSurface;
+        if (pixelMemory.empty()) {
+            std::cerr << "Error: pixelMemory empty, makeRasterSurface failed\n";
+        }
+        setGlfwFrameBufferSize();
         return pixelMemory.size();
     }
 
     void GwPlot::init(int width, int height) {
+
+        this->fb_width = 0;
+        this->fb_height = 0;
+
+        int major_v = -1;
+        int minor_v = -1;
+
+        char *val = getenv("GW_DEBUG");
+        bool debug = (val != nullptr);
+        if (debug) {
+
+            const char* env_vars[] = {"DISPLAY",
+                                      "LIBGL_DEBUG", "LIBGL_ALWAYS_INDIRECT", "LIBGL_ALWAYS_SOFTWARE",
+                                      "MESA_DEBUG", "MESA_GL_VERSION_OVERRIDE", "GLX_DEBUG",
+                                      "GALLIUM_DRIVER", "__GL_LOG_LEVEL", "LD_DEBUG",
+                                      "XDG_SESSION_TYPE", "WAYLAND_DEBUG"};
+            for (const char* var : env_vars) {
+                const char* val = getenv(var);
+                std::cerr << var << "=" << (val ? val : "") << std::endl;
+            }
+
+            std::cerr << "GLFW version: " << glfwGetVersionString() << std::endl;
+            glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+
+            char *v_major = getenv("GLFW_CONTEXT_VERSION_MAJOR");
+            if (v_major) {
+                major_v = std::stoi(v_major );
+            }
+            char *v_minor = getenv("GLFW_CONTEXT_VERSION_MINOR");
+            if (v_minor) {
+                minor_v = std::stoi(v_minor);
+            }
+            std::cerr << "GLFW_CONTEXT_VERSION_MAJOR=" << ((major_v == -1) ? "" : v_major) << std::endl;
+            std::cerr << "GLFW_CONTEXT_VERSION_MINOR=" << ((minor_v == -1) ? "" : v_minor) << std::endl;
+        }
 
         glfwSetErrorCallback(ErrorCallback);
 
@@ -199,24 +241,28 @@ namespace Manager {
             std::cerr << "ERROR: could not initialize GLFW3" << std::endl;
             std::terminate();
         }
+        bool opengl_es_loader = false;
+        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 #ifndef __APPLE__  // linux, windows, termux
     #ifdef USE_GL
-        // Use OpenGL context (OpenGL 2.1)
+        // Use OpenGL 4.1 context
         glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (major_v == -1) ? 4 : major_v);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (minor_v == -1) ? 1 : major_v);
     #else
+        // OpenGL ES 2.0
         glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
         glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2); // OpenGL ES 2.0
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (major_v == -1) ? 2 : major_v);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (minor_v == -1) ? 0 : major_v);
+
+        opengl_es_loader = true;
     #endif
 #else
-        // Native macOS -> use the default OpenGL context (OpenGL 2.1)
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-
+        // Native macOS use OpenGL 4.1
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (major_v == -1) ? 4 : major_v);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (minor_v == -1) ? 1 : major_v);
 #endif
         window = glfwCreateWindow(width, height, "GW", NULL, NULL);
 
@@ -270,7 +316,39 @@ namespace Manager {
             std::exit(-1);
         }
         glfwMakeContextCurrent(window);
-        setGlfwFrameBufferSize();
+
+        // Use glad loader
+        if (opengl_es_loader) {
+            if (!gladLoadGLES2Loader((GLADloadproc) glfwGetProcAddress)) {
+                std::cerr << "Error: failed to initialize GLAD ES\n";
+            }
+            if (debug) {
+                if (GLAD_GL_ES_VERSION_2_0) {
+                    std::cerr << "OpenGL ES 2.0 is supported\n";
+                } else {
+                    std::cerr << "OpenGL ES 2.0 is not supported\n";
+                }
+            }
+        } else {
+            if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
+                std::cerr << "Error: failed to initialize GLAD GL\n";
+            }
+            if (GLAD_GL_VERSION_4_1) {
+                std::cerr << "OpenGL 4.1 is supported\n";
+            } else {
+                std::cerr << "OpenGL 4.1 is not supported\n";
+                std::cerr << "OpenGL 3.3 is " << ((GLAD_GL_VERSION_3_3) ? "" : "not ") << "supported\n";
+                std::cerr << "OpenGL 2.1 is " << ((GLAD_GL_VERSION_2_1) ? "" : "not ") << "supported\n";
+            }
+        }
+        if (debug) {
+            const GLubyte *rend = glGetString(GL_RENDERER);
+            const GLubyte *ver = glGetString(GL_VERSION);
+            const GLubyte *ven = glGetString(GL_VENDOR);
+            std::cerr << "OpenGL renderer: " << rend;
+            std::cerr << "OpenGL version: " << ver;
+            std::cerr << "OpenGL vendor: " << ven;
+        }
 
         if (rasterSurfacePtr == nullptr) {
             makeRasterSurface();
@@ -665,9 +743,8 @@ namespace Manager {
 
         vCursor = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
 	    normalCursor = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
-	
-        setGlfwFrameBufferSize();
 
+        fetchRefSeqs();
         fetchRefSeqs();
         opts.theme.setAlphas();
         GLFWwindow *wind = this->window;
@@ -933,7 +1010,6 @@ namespace Manager {
 //                yScaling = (std::floor((yScaling*2)+0.5)/2);
                 yScaling = std::ceil(yScaling);
             }
-//            samMaxY += 10;
         } else {
             trackY = 0;
             yScaling = 0;
@@ -997,7 +1073,6 @@ namespace Manager {
                 opts.theme.ModPaints[2][i].setStrokeWidth(sw);
             }
         }
-
     }
 
     void GwPlot::drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
@@ -1009,7 +1084,7 @@ namespace Manager {
         canvasR->drawPaint(opts.theme.bgPaint);
 
         frameId += 1;
-        setGlfwFrameBufferSize();
+
         if (bams.empty() && !regions.empty()) {
             canvasR->drawPaint(opts.theme.bgPaint);
             setScaling();
@@ -1029,6 +1104,7 @@ namespace Manager {
                 canvasR->drawRect(clip, opts.theme.bgPaint);
                 clip.setXYWH(0, refSpace + totalCovY + (trackY * bams.size()), fb_width, fb_height);
                 canvasR->drawRect(clip, opts.theme.bgPaint);
+                canvasR->restore();
             }
 
             for (auto &cl: collections) {
@@ -1039,18 +1115,6 @@ namespace Manager {
                 // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
                 if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
                     clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, trackY + covY - gap);
-//                    std::cout << cl.yOffset << std::endl;
-//                    if (bams.size() == 1) {
-//                        clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + totalTabixY + covY + refSpace);
-//                        clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + covY + refSpace - gap);
-//                    } else if (cl.bamIdx == 0) {  // top bam, cover the ref too
-//                        clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY - gap); // + covY + refSpace);
-//                    } else if (cl.bamIdx == (int)bams.size() - 1) { // bottom bam
-//                        clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + trackY + covY - gap);
-//                        clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, trackY);
-//                    } else {  //middle bam
-//                        clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + covY - gap);
-//                    }
                     canvasR->clipRect(clip, false);
                 } else if (cl.skipDrawingCoverage) {
                     clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, cl.yPixels);
@@ -1091,13 +1155,10 @@ namespace Manager {
         Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, fonts.overlayHeight, (float)regions.size(), gap, monitorScale, opts.scale_bar);
         Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY);
         Drawing::drawTracks(opts, fb_width, fb_height, canvasR, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
-        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, fai, fb_width, fb_height, monitorScale, gap);
+        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, fai, fb_width, fb_height, monitorScale, gap, drawLocation);
 
         imageCacheQueue.emplace_back(frameId, rasterSurfacePtr[0]->makeImageSnapshot());
-        canvas->drawImage(imageCacheQueue.back().second, 0, 0);
 
-        sContext->flush();
-        glfwSwapBuffers(window);
         redraw = false;
 //        std::cerr << " time " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
@@ -1592,26 +1653,7 @@ namespace Manager {
         SkRect clip;
         for (auto &cl: collections) {
 
-//            if (cl.skipDrawingCoverage && cl.skipDrawingReads) {  // keep read and coverage area
-//                continue;
-//            }
             canvas->save();
-
-            // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
-//            if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
-//                if (cl.bamIdx == 0) {  // cover the ref too
-//                    clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + covY + refSpace);
-//                } else {
-//                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + trackY + covY);
-//                }
-//                canvas->clipRect(clip, false);
-//            } else if (cl.skipDrawingCoverage) {
-//                clip.setXYWH(cl.xOffset, cl.yOffset + refSpace, cl.regionPixels, cl.yPixels - covY);
-//                canvas->clipRect(clip, false);
-//            } else if (cl.skipDrawingReads){  // skip reads
-//                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, covY);
-//                canvas->clipRect(clip, false);
-//            }
 
             if (cl.bamIdx == 0) {  // cover the ref too
                 clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + covY + refSpace);
@@ -1651,7 +1693,7 @@ namespace Manager {
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, fonts.overlayHeight, (float)regions.size(), gap, monitorScale, opts.scale_bar);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
-        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale, gap);
+        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale, gap, drawLocation);
     }
 
     void GwPlot::runDraw() {
@@ -1659,7 +1701,6 @@ namespace Manager {
     }
 
     void GwPlot::runDrawNoBufferOnCanvas(SkCanvas* canvas) {
-
 //        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
 
         if (bams.empty()) {
@@ -1700,6 +1741,16 @@ namespace Manager {
         setScaling();
 
         SkRect clip;
+        if (!imageCacheQueue.empty() && collections.size() > 1) {
+            canvas->drawImage(imageCacheQueue.back().second, 0, 0);
+            clip.setXYWH(0, 0, fb_width, refSpace);
+            canvas->drawRect(clip, opts.theme.bgPaint);
+            clip.setXYWH(0, refSpace + totalCovY + (trackY * bams.size()), fb_width, fb_height);
+            canvas->drawRect(clip, opts.theme.bgPaint);
+            canvas->restore();
+
+        }
+
         for (auto &cl: collections) {
             if (cl.skipDrawingCoverage && cl.skipDrawingReads) {  // keep read and coverage area
                 continue;
@@ -1708,15 +1759,7 @@ namespace Manager {
 
             // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
             if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
-                if (bams.size() == 1) {
-                    clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + totalTabixY + covY + refSpace);
-                } else if (cl.bamIdx == 0) {  // top bam, cover the ref too
-                    clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + covY + refSpace);
-                } else if (cl.bamIdx == (int)bams.size() - 1) { // bottom bam
-                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + trackY + covY + totalTabixY);
-                } else {  //middle bam
-                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + covY);
-                }
+                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yPixels - gap);
                 canvas->clipRect(clip, false);
             } else if (cl.skipDrawingCoverage) {
                 clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, cl.yPixels);
@@ -1729,23 +1772,18 @@ namespace Manager {
             canvas->drawPaint(opts.theme.bgPaint);
 
             if (!cl.skipDrawingReads) {
-
-                if (cl.regionLen >= opts.low_memory && !bams.empty() && opts.link_op == 0) {  // low memory mode will be used
-                    cl.clear();
-                    if (opts.threads == 1) {
-                        HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                      &regions[cl.regionIdx], (bool) opts.max_coverage,
-                                      filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop,
-                                      textDrop, pH, monitorScale);
-                    } else {
-                        HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                              opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
-                                              filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool,
-                                              pointSlop, textDrop, pH, monitorScale);
-                    }
+                if (opts.threads == 1) {
+                    std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
+                    HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                  &regions[cl.regionIdx], (bool) opts.max_coverage,
+                                  filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop,
+                                  textDrop, pH, monitorScale);
+                    std::cerr << " time runDrawNoBufferOnCanvas " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
                 } else {
-                    Drawing::drawCollection(opts, cl, canvas, trackY, yScaling, fonts, opts.link_op, refSpace,
-                                            pointSlop, textDrop, pH, monitorScale);
+                    HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                          opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
+                                          filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool,
+                                          pointSlop, textDrop, pH, monitorScale);
                 }
             }
             canvas->restore();
@@ -1758,8 +1796,8 @@ namespace Manager {
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, fonts.overlayHeight, (float)regions.size(), gap, monitorScale, opts.scale_bar);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
-        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale, gap);
-//        std::cout << " time runDrawNoBufferOnCanvas " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
+        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale, gap, drawLocation);
+//        std::cerr << " time runDrawNoBufferOnCanvas " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
 
     void GwPlot::runDrawNoBuffer() {
