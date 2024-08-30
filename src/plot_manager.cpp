@@ -243,6 +243,7 @@ namespace Manager {
         }
         bool opengl_es_loader = false;
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+        glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
 
 #ifndef __APPLE__  // linux, windows, termux
     #ifdef USE_GL
@@ -255,7 +256,7 @@ namespace Manager {
         glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
         glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (major_v == -1) ? 2 : major_v);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (minor_v == -1) ? 0 : major_v);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (minor_v == -1) ? 0 : minor_v);
 
         opengl_es_loader = true;
     #endif
@@ -348,6 +349,15 @@ namespace Manager {
             std::cerr << "OpenGL renderer: " << rend << std::endl;
             std::cerr << "OpenGL version: " << ver << std::endl;
             std::cerr << "OpenGL vendor: " << ven << std::endl;
+            float xscale;
+            float yscale;
+            int windX, windY;
+            glfwGetWindowContentScale(window, &xscale, &yscale);
+            glfwGetFramebufferSize(window, &fb_width, &fb_height);
+            glfwGetWindowSize(window, &windX, &windY);
+            std::cerr << "Content x-scale=" << xscale << " y-scale=" << yscale << std::endl;
+            std::cerr << "Window width=" << windX << " height=" << windY << std::endl;
+            std::cerr << "Framebuffer width=" << width << " height=" << height << std::endl;
         }
 
         if (rasterSurfacePtr == nullptr) {
@@ -1773,12 +1783,12 @@ namespace Manager {
 
             if (!cl.skipDrawingReads) {
                 if (opts.threads == 1) {
-                    std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
+//                    std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
                     HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                   &regions[cl.regionIdx], (bool) opts.max_coverage,
                                   filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop,
                                   textDrop, pH, monitorScale);
-                    std::cerr << " time runDrawNoBufferOnCanvas " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
+//                    std::cerr << " time runDrawNoBufferOnCanvas " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
                 } else {
                     HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                           opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,

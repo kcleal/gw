@@ -25,6 +25,7 @@ else
         endif
     endif
 endif
+
 ifneq ($(PLATFORM),"Emscripten")
     # try and add conda environment
     ifdef CONDA_PREFIX
@@ -81,39 +82,37 @@ LIBGW_INCLUDE=
 shared: LIBGW_INCLUDE=-I./libgw
 CPPFLAGS += -I./lib/libBigWig -I./include -I. $(LIBGW_INCLUDE) -I./src
 LDLIBS += -lskia -lm -ljpeg -lpng -lpthread
+
 ifeq ($(PLATFORM),"Linux")  # set platform flags and libs
-    ifeq (${XDG_SESSION_TYPE},"wayland")  # wayland is untested!
-        LDLIBS += -lwayland-client
-    else
-        LDLIBS += -lX11
-    endif
-    CPPFLAGS += -I/usr/local/include
     CXXFLAGS += -D LINUX -D __STDC_FORMAT_MACROS
-    LDFLAGS += -L/usr/local/lib
-    # If installed from conda, glfw3 is named glfw, therefore if glfw3 is installed by another means use this:
-#    LDLIBS += -lGL -lfreetype -lfontconfig -luuid -lzlib -licu -ldl $(shell pkg-config --static --libs x11 xrandr xi xxf86vm glfw3)
-#    LDLIBS += -lEGL -lGLESv2 -lfreetype -lfontconfig -luuid -lz -lcurl -licu -ldl -lglfw #$(shell pkg-config --static --libs x11 xrandr xi xxf86vm glfw3)
-    ifeq ($(USE_GL),"1")
-        LDLIBS += -lGL
-    else
-        LDLIBS += -lEGL -lGLESv2
+    LDLIBS += -lX11
+    ifeq ($(USE_WAYLAND),1)
+    	LDLIBS += -lwayland-client -lwayland-egl
+    endif
+    LDLIBS += -lGL -lEGL
+    ifneq ($(USE_GL),1)
+        LDLIBS += -lGLESv2
     endif
     LDLIBS += -lhts -lfreetype -luuid -lz -lcurl -licu -ldl -lglfw -lsvg -lfontconfig
+
 else ifeq ($(PLATFORM),"Darwin")
     CPPFLAGS += -I/usr/local/include
     CXXFLAGS += -D OSX -stdlib=libc++ -arch x86_64 -fvisibility=hidden -mmacosx-version-min=11 -Wno-deprecated-declarations
     LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=10.15 -L/usr/local/lib
     LDLIBS += -lhts -lglfw -lzlib -lcurl -licu -ldl -lsvg -lfontconfig
+
 else ifeq ($(PLATFORM),"Arm64")
     CPPFLAGS += -I/usr/local/include
     CXXFLAGS += -D OSX -stdlib=libc++ -arch arm64 -fvisibility=hidden -mmacosx-version-min=11 -Wno-deprecated-declarations
     LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=10.15 -L/usr/local/lib
     LDLIBS += -lhts -lglfw -lzlib -lcurl -licu -ldl -lsvg -lfontconfig
+
 else ifeq ($(PLATFORM),"Windows")
     CXXFLAGS += -D WIN32
     CPPFLAGS += $(shell pkgconf -cflags skia) $(shell ncursesw6-config --cflags)
     LDLIBS += $(shell pkgconf -libs skia)
     LDLIBS += -lhts -lharfbuzz-subset -lglfw3 -lcurl -lsvg -lfontconfig
+
 else ifeq ($(PLATFORM),"Emscripten")
     CPPFLAGS += -v --use-port=contrib.glfw3 -sUSE_ZLIB=1 -sUSE_FREETYPE=1 -sUSE_ICU=1  -I/usr/local/include
     CFLAGS += -fPIC
@@ -127,6 +126,7 @@ OBJECTS += $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
 OBJECTS += $(patsubst %.c, %.o, $(wildcard ./include/*.c))
 
 debug: LDFLAGS += -fsanitize=address -fsanitize=undefined
+
 
 $(TARGET): $(OBJECTS)  # line 131
 	$(CXX) $(CXXFLAGS) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $@
