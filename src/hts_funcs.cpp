@@ -157,13 +157,22 @@ namespace HGW {
         }
     }
 
+//    char getRefBaseAtPos(const int sortReadsBy, Utils::Region *region) {
+//        if (sortReadsBy != 3) {
+//            return '\0';
+//        }
+//        region->setRefBaseAtPos(); // set lazily
+//        return region->refBaseAtPos;
+//    }
+
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, int threads, Utils::Region *region,
                                  bool coverage, std::vector<Parse::Parser> &filters, BS::thread_pool &pool,
-                                 const int parse_mods_threshold, int sortReadsBy) {
+                                 const int parse_mods_threshold) {
 
         bam1_t *src;
         hts_itr_t *iter_q;
+
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         std::vector<Segs::Align>& readQueue = col.readQueue;
         if (region->end - region->start < 1000000) {
@@ -193,7 +202,7 @@ namespace HGW {
             readQueue.pop_back();
         }
 
-        Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold, sortReadsBy == 2);
+        Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold);
 
         if (!filters.empty()) {
             applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
@@ -357,6 +366,12 @@ namespace HGW {
         hts_itr_t *iter_q;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         std::vector<Segs::Align>& readQueue = col.readQueue;
+
+        if (col.levelsStart.empty()) {
+            col.levelsStart.resize(opts.ylim + col.vScroll, 1215752191);
+            col.levelsEnd.resize(opts.ylim + col.vScroll, 0);
+        }
+
         if (!readQueue.empty()) {
             for (auto &item: readQueue) {
                 bam_destroy1(item.delegate);
@@ -387,7 +402,8 @@ namespace HGW {
             if (j < BATCH) {
                 continue;
             }
-            Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold, false);
+            // No specialised sorting here
+            Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold);
             if (filter) {
                 applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
             }
@@ -399,7 +415,10 @@ namespace HGW {
                     }
                 }
             }
-            Segs::findY(col, readQueue, opts.link_op, opts, false, 0);
+            assert (opts.link_op == 0);
+
+            Segs::findYNoSortForward(readQueue, col.levelsStart, col.levelsEnd, col.vScroll);
+
             Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
 
             for (int i=0; i < BATCH; ++ i) {
@@ -411,7 +430,7 @@ namespace HGW {
         if (j < BATCH) {
             readQueue.erase(readQueue.begin() + j, readQueue.end());
             if (!readQueue.empty()) {
-                Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold, false);
+                Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold);
                 if (!filters.empty()) {
                     applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
                 }
@@ -423,7 +442,7 @@ namespace HGW {
                         }
                     }
                 }
-                Segs::findY(col, readQueue, opts.link_op, opts, false, 0);
+                Segs::findYNoSortForward(readQueue, col.levelsStart, col.levelsEnd, col.vScroll);
                 Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
                 for (int i=0; i < BATCH; ++ i) {
                     Segs::align_clear(&readQueue[i]);
@@ -442,6 +461,10 @@ namespace HGW {
         bam1_t *src;
         hts_itr_t *iter_q;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
+        if (col.levelsStart.empty()) {
+            col.levelsStart.resize(opts.ylim + col.vScroll, 1215752191);
+            col.levelsEnd.resize(opts.ylim + col.vScroll, 0);
+        }
         std::vector<Segs::Align>& readQueue = col.readQueue;
         if (!readQueue.empty()) {
             for (auto &item: readQueue) {
@@ -463,7 +486,7 @@ namespace HGW {
             if (src->core.flag & 4 || src->core.n_cigar == 0) {
                 continue;
             }
-            Segs::align_init(&readQueue.back(), parse_mods_threshold, false);
+            Segs::align_init(&readQueue.back(), parse_mods_threshold);
             if (filter) {
                 applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
                 if (readQueue.back().y == -2) {
@@ -475,7 +498,7 @@ namespace HGW {
                 int l_arr = (int)col.covArr.size() - 1;
                 Segs::addToCovArray(col.covArr, readQueue.back(), region->start, region->end, l_arr);
             }
-            Segs::findY(col, readQueue, opts.link_op, opts, false, 0);
+            Segs::alignFindYForward(readQueue.back(), col.levelsStart, col.levelsEnd, col.vScroll);
             Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
             Segs::align_clear(&readQueue.back());
         }
@@ -539,15 +562,16 @@ namespace HGW {
         *samMaxY = (maxY > *samMaxY || opts.tlen_yscale) ? maxY : *samMaxY;
     }
 
-    void refreshLinked(std::vector<Segs::ReadCollection> &collections, Themes::IniOptions &opts, int *samMaxY, int sortReadsBy) {
+    void refreshLinked(std::vector<Segs::ReadCollection> &collections, std::vector<Utils::Region> &regions, Themes::IniOptions &opts, int *samMaxY) {
         for (auto &cl : collections) {
-            refreshLinkedCollection(cl, opts, samMaxY, sortReadsBy);
+            assert (cl.regionIdx < regions.size());
+            refreshLinkedCollection(cl, opts, samMaxY, regions[cl.regionIdx].getSortOption());
         }
     }
 
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *samMaxY,
-                                std::vector<Parse::Parser> &filters, BS::thread_pool &pool, int sortReadsBy) {
+                                std::vector<Parse::Parser> &filters, BS::thread_pool &pool, Utils::Region &reg) {
         bam1_t *src;
         hts_itr_t *iter_q;
         std::vector<Segs::Align>& readQueue = col.readQueue;
@@ -559,6 +583,7 @@ namespace HGW {
         }
         int lastPos;
         const int parse_mods_threshold = (opts.parse_mods) ? 50 : 0;
+
         if (!readQueue.empty()) {
             if (left) {
                 lastPos = readQueue.front().pos; // + 1;
@@ -699,14 +724,15 @@ namespace HGW {
         }
 
         if (!newReads.empty()) {
-            Segs::init_parallel(newReads, opts.threads, pool, parse_mods_threshold, sortReadsBy == 2);
+            Segs::init_parallel(newReads, opts.threads, pool, parse_mods_threshold);
             if (!filters.empty()) {
                 applyFilters(filters, newReads, hdr_ptr, col.bamIdx, col.regionIdx);
             }
 
             bool findYall = false;
+            int sort_state = Segs::getSortCodes(newReads, opts.threads, pool, region);
             if (col.vScroll == 0 && opts.link_op == 0) {  // only new reads need findY, otherwise, reset all below
-                int maxY = Segs::findY(col, newReads, opts.link_op, opts, left, sortReadsBy);
+                int maxY = Segs::findY(col, newReads, opts.link_op, opts, left, sort_state);
                 if (maxY > *samMaxY) {
                     *samMaxY = maxY;
                 }
@@ -721,7 +747,7 @@ namespace HGW {
                 col.readQueue = newReads;
             }
             if (findYall) {
-                refreshLinkedCollection(col, opts, samMaxY, sortReadsBy);
+                refreshLinkedCollection(col, opts, samMaxY, sort_state);
             }
             if (opts.link_op > 0) {
                 // move of data will invalidate some pointers, so reset

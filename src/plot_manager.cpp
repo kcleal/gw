@@ -151,7 +151,7 @@ namespace Manager {
             pool.reset(opts.threads);
         }
         triggerClose = false;
-        sortReadsBy = Manager::SortType::NONE;
+//        sortReadsBy = Manager::SortType::NONE;
 
     }
 
@@ -617,11 +617,11 @@ namespace Manager {
         }
         if (opts.seshIni["show"].has("sort")) {
             if (opts.seshIni["show"]["sort"] == "none") {
-                sortReadsBy = SortType::NONE;
+//                sortReadsBy = SortType::NONE;  // todo
             } else if (opts.seshIni["show"]["sort"] == "strand") {
-                sortReadsBy = SortType::STRAND;
+//                sortReadsBy = SortType::STRAND;
             } else if (opts.seshIni["show"]["sort"] == "hap") {
-                sortReadsBy = SortType::HP;
+//                sortReadsBy = SortType::HP;
             }
         }
         if (!reference.empty()) {
@@ -733,10 +733,10 @@ namespace Manager {
         int windX, windY;
         glfwGetWindowSize(window, &windX, &windY);
         opts.saveCurrentSession(reference, ideogram_path, bam_paths, track_paths, regions, variant_paths_info,
-                                commandsApplied, output_session, mode, xpos, ypos, monitorScale, windX, windY, sortReadsBy);
+                                commandsApplied, output_session, mode, xpos, ypos, monitorScale, windX, windY, 0);  // todo sortReadBy
     }
 
-    int GwPlot::startUI(GrDirectContext *sContext, SkSurface *sSurface, int delay) {
+    int GwPlot::startUI(GrDirectContext *sContext, SkSurface *sSurface, int delay, std::vector<std::string> &extra_commands) {
         if (!opts.session_file.empty() && reference.empty()) {
             std::cout << "Loading session: " << opts.session_file << std::endl;
             loadSession();
@@ -755,9 +755,17 @@ namespace Manager {
 	    normalCursor = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
 
         fetchRefSeqs();
-        fetchRefSeqs();
+
         opts.theme.setAlphas();
         GLFWwindow *wind = this->window;
+
+        if (!extra_commands.empty()) {
+            for (const auto& command: extra_commands) {
+                inputText = command;
+                commandProcessed();
+            }
+        }
+
         if (mode == Show::SINGLE) {
             printRegionInfo();
         } else {
@@ -772,13 +780,14 @@ namespace Manager {
         }
         bool wasResized = false;
         redraw = true;
-
+        processed = false;
+        glfwSwapInterval(1);
         std::chrono::high_resolution_clock::time_point autoSaveTimer = std::chrono::high_resolution_clock::now();
         while (true) {
             if (glfwWindowShouldClose(wind) || triggerClose) {
                 break;
             }
-            glfwWaitEvents();
+
             if (delay > 0) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(delay));
             }
@@ -848,10 +857,17 @@ namespace Manager {
             }
             if (!resizeTriggered) {
                 drawOverlay(sSurface->getCanvas());
-            }
 
+            }
             sContext->flush();
             glfwSwapBuffers(window);
+            redraw = false;
+
+            if (frameId == 1) {  // This is a fix for wayland, not sure why its needed
+                glfwPostEmptyEvent();
+            }
+
+            glfwWaitEvents();
 
             while (imageCacheQueue.size() > 100) {
                 imageCacheQueue.pop_front();
@@ -931,12 +947,14 @@ namespace Manager {
                         }
                     }
 
-                    if (reg->end - reg->start < opts.low_memory || opts.link_op != 0 || sortReadsBy != SortType::NONE) {
-                        HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg,
-                                                     (bool) opts.max_coverage, filters, pool, parse_mods_threshold, sortReadsBy);
+                    if (reg->end - reg->start < opts.low_memory || opts.link_op != 0) {
 
+                        HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg,
+                                                     (bool) opts.max_coverage, filters, pool, parse_mods_threshold);
+
+                        int sort_state = Segs::getSortCodes(collections[idx].readQueue, opts.threads, pool, reg);
                         int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts,
-                                               false, sortReadsBy);
+                                               false, sort_state);
                         samMaxY = maxY;
                     } else {
                         samMaxY = opts.ylim;
@@ -1015,9 +1033,7 @@ namespace Manager {
             yScaling = (trackY - gap) / (double)samMaxY;
 
             // Ensure yScaling is an integer if possible
-            if (yScaling > 1 && sortReadsBy == SortType::NONE) {
-//                yScaling = (int)yScaling;
-//                yScaling = (std::floor((yScaling*2)+0.5)/2);
+            if (yScaling > 1) {
                 yScaling = std::ceil(yScaling);
             }
         } else {
@@ -1029,17 +1045,14 @@ namespace Manager {
             pH = trackY / (float) opts.ylim;
             yScaling *= 0.95;
         } else {
-//            std::cout << "yscaling " << yScaling << " monior scale " << monitorScale  << std::endl;
-//            if (yScaling > 9*monitorScale) {
-//                pH = yScaling - (2 * monitorScale);//* 0.85;  // polygonHeight
-//            } else
             if (yScaling > 3*monitorScale) {
                 pH = yScaling - monitorScale;
             } else {
                 pH = yScaling;
             }
         }
-        if (pH > 8 && sortReadsBy == SortType::NONE) {  // scale to pixel boundary
+
+        if (pH > 8) {  // scale to pixel boundary
             pH = (float)(int)pH;
         } else if (opts.tlen_yscale) {
             pH = std::fmax(pH, 8);
@@ -1135,8 +1148,9 @@ namespace Manager {
                 }  // else no clip
                 canvasR->drawPaint(opts.theme.bgPaint);
 
-                if (!cl.skipDrawingReads) {
-                    if (cl.regionLen >= opts.low_memory && !bams.empty() && opts.link_op == 0 && sortReadsBy == SortType::NONE) {
+                if (!cl.skipDrawingReads && !bams.empty()) {
+                    if (cl.regionLen >= opts.low_memory) {
+                        assert (opts.link_op == 0 && regions[cl.regionIdx].getSortOption() == SortType::NONE);
                         // low memory mode will be used
                         cl.clear();
                         if (opts.threads == 1) {

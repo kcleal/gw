@@ -284,7 +284,7 @@ namespace Menu {
 
         if (opts.control_level.empty()) {
             if (opts.menu_table == Themes::MenuTable::MAIN) {
-                tip = opts.ini_path + "  v1.0.3";
+                tip = opts.ini_path + "  v1.1.0";
             }
             else if (opts.menu_table == Themes::MenuTable::GENOMES) { tip = "Use ENTER key to select genome, or RIGHT_ARROW key to edit path"; }
             else if (opts.menu_table == Themes::MenuTable::SHIFT_KEYMAP) { tip = "Change characters selected when using shift+key"; }
@@ -307,6 +307,7 @@ namespace Menu {
             else if (opts.menu_level == "soft_clip") { tip = "The distance in base-pairs when soft-clips become visible"; }
             else if (opts.menu_level == "small_indel") { tip = "The distance in base-pairs when small indels become visible"; }
             else if (opts.menu_level == "snp") { tip = "The distance in base-pairs when snps become visible"; }
+            else if (opts.menu_level == "mod") { tip = "The distance in base-pairs when mods become visible"; }
             else if (opts.menu_level == "edge_highlights") { tip = "The distance in base-pairs when edge-highlights become visible"; }
             else if (opts.menu_level == "low_memory") { tip = "The distance in base-pairs when using low-memory mode (reads are not buffered in this mode)"; }
             else if (opts.menu_level == "mods") { tip = "Display modified bases"; }
@@ -717,6 +718,7 @@ namespace Menu {
             else if (new_opt.name == "soft_clip") { opts.soft_clip_threshold = std::max(0, v); }
             else if (new_opt.name == "small_indel") { opts.small_indel_threshold = std::max(1, v); }
             else if (new_opt.name == "snp") { opts.snp_threshold = std::max(1, v); }
+            else if (new_opt.name == "mod") { opts.mod_threshold = std::max(1, v); }
             else if (new_opt.name == "edge_highlights") { opts.edge_highlights = std::max(1, v); }
             else if (new_opt.name == "font_size") { opts.font_size = std::max(1, v); }
             else if (new_opt.name == "variant_distance") { opts.variant_distance = std::max(1, v); }

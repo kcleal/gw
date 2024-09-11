@@ -19,13 +19,6 @@
 #include "termcolor.h"
 #include "GLFW/glfw3.h"
 
-//#ifdef __APPLE__
-//    #include <OpenGL/gl.h>
-//#elif defined(__linux__)
-//    #include <GL/gl.h>
-//    #include <GL/glx.h>
-//#endif
-
 #define SK_GL
 #include "include/gpu/GrBackendSurface.h"
 #include "include/gpu/GrDirectContext.h"
@@ -66,7 +59,7 @@ void print_banner() {
 }
 
 // note to developer - update version in workflows/main.yml, menu.cpp, term_out.cpp, and deps/gw.desktop, and installers .md in docs
-const char GW_VERSION [7] = "1.0.3";
+const char GW_VERSION [7] = "1.1.0";
 
 
 bool str_is_number(const std::string &s) {
@@ -221,6 +214,9 @@ int main(int argc, char *argv[]) {
     program.add_argument("--filter")
             .default_value(std::string{""}).append()
             .help("Filter to apply to all reads");
+    program.add_argument("-c", "--command")
+            .default_value(std::string{""}).append()
+            .help("Apply command before drawing e.g. -c 'sort strand'");
     program.add_argument("--delay")
             .default_value(0).append().scan<'i', int>()
             .help("Delay in milliseconds before each update, useful for remote connections");
@@ -645,9 +641,15 @@ int main(int argc, char *argv[]) {
         plotter.rasterCanvas = rasterSurface->getCanvas();
         plotter.rasterSurfacePtr = &rasterSurface;
 
+        std::vector<std::string> extra_commands;
+        if (program.is_used("--command")) {
+            extra_commands = program.get<std::vector<std::string>>("--command");
+        }
         // start UI here
         if (!program.is_used("--variants") && !program.is_used("--images")) {
-            int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));  // plot regions
+            int res = plotter.startUI(sContext, sSurface,
+                                      program.get<int>("--delay"),
+                                      extra_commands);  // plot regions
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
                 std::exit(-1);
@@ -670,7 +672,9 @@ int main(int argc, char *argv[]) {
             }
             plotter.mode = Manager::Show::TILED;
 
-            int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));
+            int res = plotter.startUI(sContext, sSurface,
+                                      program.get<int>("--delay"),
+                                      extra_commands);
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
                 std::exit(-1);
@@ -700,7 +704,9 @@ int main(int argc, char *argv[]) {
 
             plotter.mode = Manager::Show::TILED;
 
-            int res = plotter.startUI(sContext, sSurface, program.get<int>("--delay"));
+            int res = plotter.startUI(sContext, sSurface,
+                                      program.get<int>("--delay"),
+                                      extra_commands);
             if (res < 0) {
                 std::cerr << "ERROR: Plot to screen returned " << res << std::endl;
                 std::exit(-1);

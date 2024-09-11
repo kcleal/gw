@@ -215,6 +215,31 @@ namespace Utils {
         return reg;
     }
 
+    void Region::setRefBaseAtPos() {
+        if (refBaseAtPos != '\0' || sortPos < start || sortPos > end || !refSeq || sortPos - start < 1) {
+            return;
+        }
+        refBaseAtPos = (char)toupper(refSeq[sortPos - start - 1]);
+    }
+
+    SortType Region::getSortOption() {
+        if (sortOption < POS) {
+            return sortOption;
+        }
+        if (sortPos >= start && sortPos < end) {
+            setRefBaseAtPos();
+            if (refBaseAtPos != '\0') {
+                return sortOption;
+            }
+        }
+        if (sortOption == STRAND_AND_POS) {
+            return STRAND;
+        } else if (sortOption == HP_AND_POS) {
+            return HP;
+        }
+        return NONE;
+    }
+
     std::string Region::toString() {
         return chrom + ":" + std::to_string(start) + "-" + std::to_string(end)
            + ((markerPos >= 0) ? ":" + std::to_string(markerPos) + ":" + std::to_string(markerPosEnd) : "");

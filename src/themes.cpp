@@ -559,8 +559,8 @@ namespace Themes {
             vt["low_memory"] = "1500000";
             update_ini = true;
         }
-        if (vt.has("mod_threshold")) {
-            mod_threshold = std::stoi(vt["mod_threshold"]);
+        if (vt.has("mod")) {
+            mod_threshold = std::stoi(vt["mod"]);
         } else {
             vt["mod"] = "1000000";
         }

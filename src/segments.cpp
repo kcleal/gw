@@ -580,6 +580,9 @@ namespace Segs {
                 if (i >= 0) {
                     char *cp_begin = state->MMend[0];
                     char *cp2 = state->MMend[i];
+                    if (cp_begin == nullptr || cp2 == nullptr) {
+                        return -1;
+                    }
                     cp = state->MMend[i]-1;
                     while (cp != cp_begin && (cp == cp2 || *cp != ',')) {
                         --cp;
@@ -683,10 +686,7 @@ namespace Segs {
             }
             return 0;
         }
-
         int r = bam_mods_at_next_pos(b, state, mods, n_mods);
-//        if (b->core.flag & 16)
-//            std::cout << (b->core.flag & 16) << " -- " << r << std::endl;
         return r > 0 ? r : 0;
     }
 
@@ -707,7 +707,7 @@ namespace Segs {
                                                   u, u, u, u, u, u, u, u,
                                                   INV_F};
 
-    void align_init(Align *self, const int parse_mods_threshold, const bool fetch_hap_tag) {
+    void align_init(Align *self, const int parse_mods_threshold) {
 //        auto start = std::chrono::high_resolution_clock::now();
 
         bam1_t *src = self->delegate;
@@ -778,10 +778,16 @@ namespace Segs {
             self->has_SA = false;
         }
 
-        if (fetch_hap_tag) {
-            uint8_t *HP_tag = bam_aux_get(self->delegate, "HP");
-            self->haplotag = (HP_tag != nullptr) ? (int) bam_aux2i(HP_tag) : 0;
-        }
+//        if (sort_state > 0) {
+//            if (sort_state == Utils::SortType::HP) {
+//                uint8_t *HP_tag = bam_aux_get(self->delegate, "HP");
+//                self->sort_tag = (HP_tag != nullptr) ? (int) bam_aux2i(HP_tag) : 0;
+//            } else if (sort_state == Utils::SortType::STRAND) {
+//                self->sort_tag = (int)(src->core.flag & BAM_FREVERSE) ? 1 : 0;
+//            } else if (sort_by_pos >= 0 && ref_base != '\0') {
+//                self->sort_tag = getSortCode(src, sort_by_pos, ref_base);
+//            }
+//        }
 
         if (parse_mods_threshold > 0) {
             hts_base_mod_state* mod_state = new hts_base_mod_state;
@@ -806,7 +812,6 @@ namespace Segs {
                     mi.n_mods = (uint8_t)j;
                     nm = bam_next_basemod(src, mod_state, mods, 10, &pos);
                 }
-
             }
             delete mod_state;
         }
@@ -849,19 +854,112 @@ namespace Segs {
         self->any_ins.clear();
     }
 
-    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool, const int parse_mods_threshold, bool fetch_hap_tag) {
+    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool, const int parse_mods_threshold) {
         if (n == 1) {
             for (auto &aln : aligns) {
-                align_init(&aln, parse_mods_threshold, fetch_hap_tag);
+                align_init(&aln, parse_mods_threshold);
             }
         } else {
             pool.parallelize_loop(0, aligns.size(),
-                                  [&aligns, parse_mods_threshold, fetch_hap_tag](const int a, const int b) {
+                                  [&aligns, parse_mods_threshold]
+                                  (const int a, const int b) {
                                       for (int i = a; i < b; ++i)
-                                          align_init(&aligns[i], parse_mods_threshold, fetch_hap_tag);
+                                          align_init(&aligns[i], parse_mods_threshold);
                                   })
                     .wait();
         }
+    }
+
+    constexpr int POS_MASK = 0b0000111;
+
+    void setAlignSortCode(Align &a, Utils::SortType sort_state, int target_pos, char ref_base) {
+        // strand and hap codes are stored in 2nd and 3rd bit
+        // If the base is non-reference, then its number encoding is added after 6th bit
+        // Makes it possible to sort using this bit field
+        bam1_t* b = a.delegate;
+        a.sort_tag = Utils::SortType::NONE;
+        if (b->core.l_qseq == 0) {
+            return;
+        }
+        if (sort_state == Utils::SortType::HP) {
+            uint8_t *HP_tag = bam_aux_get(b, "HP");
+            a.sort_tag = (HP_tag != nullptr) ? (int) bam_aux2i(HP_tag) : 0;
+            return;
+        } else if (sort_state == Utils::SortType::STRAND) {
+            a.sort_tag = (int) (b->core.flag & BAM_FREVERSE) ? 1 : 0;
+            return;
+        } else if (sort_state == Utils::SortType::HP_AND_POS) {
+            uint8_t *HP_tag = bam_aux_get(b, "HP");
+            a.sort_tag = (HP_tag != nullptr) ? (int) bam_aux2i(HP_tag) : 0;
+        } else if (sort_state == Utils::SortType::STRAND_AND_POS)  {
+            a.sort_tag = (int) (b->core.flag & BAM_FREVERSE) ? 1 : 0;
+        }
+        if (((sort_state & Utils::SortType::POS) == 0) ||  b->core.pos > target_pos || target_pos < 0 || ref_base == '\0') {
+            return;
+        }
+
+        uint32_t *cigar = bam_get_cigar(b);
+        if (!cigar) {
+            return;
+        }
+        uint8_t *seq = bam_get_seq(b);
+        int pos = b->core.pos;
+        int seq_index = 0;
+        for (uint32_t k = 0; k < b->core.n_cigar; ++k) {
+            uint32_t op = bam_cigar_op(cigar[k]);
+            int l = bam_cigar_oplen(cigar[k]);
+            switch (op) {
+                case BAM_CMATCH: case BAM_CEQUAL: case BAM_CDIFF:
+                    if (pos + l > target_pos) {
+                        int offset = target_pos - pos - 1;
+                        char this_base = seq_nt16_str[bam_seqi(seq, seq_index + offset)];
+                        if (this_base == ref_base) {
+                            return;
+                        }
+                        a.sort_tag |= (int)this_base << 6; // preserve first 6 bits
+                        return;
+                    }
+                    pos += l;
+                    seq_index += l;
+                    break;
+                case BAM_CINS:
+                    seq_index += l;
+                    if (pos == target_pos - 1) {
+                        a.sort_tag |= (l + 10000000) << 6;
+                    }
+                    break;
+                case BAM_CDEL: case BAM_CREF_SKIP:
+                    pos += l;
+                    if (pos >= target_pos) {
+                        a.sort_tag |= (l + 100) << 6;
+                    }
+                    break;
+                case BAM_CSOFT_CLIP:
+                    seq_index += l;
+                    break;
+                default: //case BAM_CHARD_CLIP: case BAM_CPAD: case BAM_CBACK:
+                    break;
+            }
+            if (pos > target_pos) {
+                return;
+            }
+        }
+    }
+
+
+    int getSortCodes(std::vector<Align> &aligns, const int threads, BS::thread_pool &pool, Utils::Region *region) {
+        // Lazily returns a sort code for POS, or returns other sort code
+        Utils::SortType sort_state = region->getSortOption();
+        if (sort_state == 0) {
+            return 0;
+        }
+//        if (n == 1) {
+            for (auto &aln : aligns) {
+                setAlignSortCode(aln, sort_state, region->sortPos, region->refBaseAtPos);
+            }
+//        } else {
+//        }
+        return sort_state;
     }
 
     EXPORT ReadCollection::ReadCollection() {
@@ -911,25 +1009,20 @@ namespace Segs {
 
     void findYWithSort(ReadCollection &rc, std::vector<Align> &rQ, std::vector<int> &ls, std::vector<int> &le, bool joinLeft,
                        int vScroll, Segs::map_t &lm, ankerl::unordered_dense::map< std::string, int >& linkedSeen,
-                       int linkType, int sortReadsBy, int ylim) {
+                       int linkType, int ylim) {
+        // sorting by strand or haplotype is a categorical sort that separates reads into groups
+        bool re_sort = false;  // sort the level names (strand/haplotype)
 
-        bool re_sort = false;
         for (const auto& r : rc.readQueue) {
-            int cat;
-            if (sortReadsBy == Manager::SortType::STRAND) {
-                cat = (r.delegate->core.flag & BAM_FREVERSE) ? 1 : 0;
-            } else {
-                cat = r.haplotag;
-            }
             bool has = false;
             for (const auto & c : rc.sortLevels) {
-                if (c == cat) {
+                if (c == (r.sort_tag & POS_MASK)) {
                     has = true;
                     break;
                 }
             }
             if (!has) {
-                rc.sortLevels.push_back(cat);
+                rc.sortLevels.push_back(r.sort_tag & POS_MASK);
                 re_sort = true;
             }
         }
@@ -990,12 +1083,8 @@ namespace Segs {
                 }
             }
 
-            int cat;  //todo move cat to align_init
-            if (sortReadsBy == Manager::SortType::STRAND) {
-                cat = (q_ptr->delegate->core.flag & BAM_FREVERSE) ? 1 : 0;
-            } else {
-                cat = q_ptr->haplotag;
-            }
+            int cat = q_ptr->sort_tag & POS_MASK;
+
             int start_i = to_level[cat];  // start of the range
             int vScroll_level = start_i + vScroll;  // if y >= this level then they will be displayed
             int end_i = start_i + step - 1;  // end of the range for this cat
@@ -1043,6 +1132,30 @@ namespace Segs {
                 }
                 q_ptr += move;
             }
+        }
+    }
+
+    void alignFindYForward(Align &a, std::vector<int> &ls, std::vector<int> &le, int vScroll) {
+        if (a.y == -2) {
+            return;
+        }
+        for (int i=0; i < (int)le.size(); ++i) {
+            if (a.cov_start > le[i]) {
+                le[i] = a.cov_end;
+                if (a.cov_start < ls[i]) {
+                    ls[i] = a.cov_start;
+                }
+                if (i >= vScroll) {
+                    a.y = i - vScroll;
+                }
+                return;
+            }
+        }
+    }
+
+    void findYNoSortForward(std::vector<Align> &rQ, std::vector<int> &ls, std::vector<int> &le, int vScroll) {
+        for (auto &a : rQ) {
+            alignFindYForward(a, ls, le, vScroll);
         }
     }
 
@@ -1127,7 +1240,6 @@ namespace Segs {
     }
 
     int findY(ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, bool joinLeft, int sortReadsBy) {
-
         if (rQ.empty()) {
             return 0;
         }
@@ -1205,15 +1317,43 @@ namespace Segs {
 
         std::vector<int> &ls = rc.levelsStart;
         std::vector<int> &le = rc.levelsEnd;
-
-        if (sortReadsBy == 0) {
+        if (sortReadsBy == Utils::SortType::NONE) {
             if (ls.empty()) {
                 ls.resize(opts.ylim + vScroll, 1215752191);
                 le.resize(opts.ylim + vScroll, 0);
             }
             findYNoSort(rQ, ls, le, joinLeft, vScroll, lm, linkedSeen, linkType);
+        } else if (sortReadsBy >= Utils::SortType::POS) {
+            // sorting by position maintains all reads in the same plot region
+            // Use the encoded positional information to find new sort order
+            std::stable_sort(rQ.begin(), rQ.end(), [](const Align &a, const Align &b) {
+                int v1 = a.sort_tag >> 6;
+                int v2 = b.sort_tag >> 6;
+                if (v1 != v2) {
+                    if (a.cov_start <= b.cov_end && b.cov_start <= a.cov_end) {
+                        return v1 > v2;
+                    }
+                }
+                return a.pos < b.pos;
+            });
+
+            if (sortReadsBy == Utils::SortType::POS) {
+                if (ls.empty()) {
+                    ls.resize(opts.ylim + vScroll, 1215752191);
+                    le.resize(opts.ylim + vScroll, 0);
+                }
+                findYNoSort(rQ, ls, le, joinLeft, vScroll, lm, linkedSeen, linkType);
+            } else {
+                findYWithSort(rc, rQ, ls, le, joinLeft, vScroll, lm, linkedSeen, linkType, opts.ylim);
+            }
+
+            // This is a bit annoying, but the queue must remain pos-sorted for the appending algorithm to work
+            std::stable_sort(rQ.begin(), rQ.end(), [](const Align &a, const Align &b) {
+                return a.pos < b.pos;
+            });
+
         } else {
-            findYWithSort(rc, rQ, ls, le, joinLeft, vScroll, lm, linkedSeen, linkType, sortReadsBy, opts.ylim);
+            findYWithSort(rc, rQ, ls, le, joinLeft, vScroll, lm, linkedSeen, linkType, opts.ylim);
         }
 
         samMaxY = opts.ylim;

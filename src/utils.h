@@ -77,6 +77,15 @@ namespace Utils {
         int strand;  // 0 is none, 1 forward, 2 reverse
     };
 
+    enum EXPORT SortType {  // Bit field
+        NONE = 0,
+        STRAND = 2,
+        HP = 4,
+        POS = 8,
+        STRAND_AND_POS = 10,
+        HP_AND_POS = 12,
+    };
+
     class EXPORT Region {
     public:
         std::string chrom;
@@ -86,6 +95,9 @@ namespace Utils {
         int refSeqLen;
         int regionLen;
         const char *refSeq;
+        SortType sortOption;
+        int sortPos;
+        char refBaseAtPos;
         std::vector<uint8_t> refSeq_nibbled;
         std::vector<std::vector<Utils::TrackBlock>> featuresInView;  // one vector for each Track
         std::vector<int> featureLevels;
@@ -98,8 +110,13 @@ namespace Utils {
             chromLen = 0;
             refSeq = nullptr;
             refSeqLen = 0;
+            sortOption = NONE;
+            sortPos = -1;
+            refBaseAtPos = '\0';
         }
         std::string toString();
+        void setRefBaseAtPos();
+        SortType getSortOption();
     };
 
     EXPORT Region parseRegion(std::string &r);

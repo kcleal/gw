@@ -59,11 +59,12 @@ namespace Manager {
         SETTINGS
     };
 
-    enum SortType {
-        NONE,
-        STRAND,
-        HP
-    };
+//    enum SortType {
+//        NONE,
+//        STRAND,
+//        HP,
+//        POS
+//    };
 
     class HiddenWindow {
     public:
@@ -95,8 +96,6 @@ namespace Manager {
         bool drawLocation;
 
         bool terminalOutput;  // recoverable runtime errors and output sent to terminal or outStr
-
-        SortType sortReadsBy;
 
         std::ostringstream outStr;
 
@@ -212,7 +211,7 @@ namespace Manager {
 
         void loadSession();
 
-        int startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay);
+        int startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay, std::vector<std::string> &extra_commands);
 
         void keyPress(int key, int scancode, int action, int mods);
 

@@ -108,8 +108,8 @@ namespace Commands {
         p->imageCacheQueue.clear();
         p->filters.clear();
         p->target_qname = "";
-        p->sortReadsBy = Manager::SortType::NONE;
-        for (auto &cl: p->collections) { cl.vScroll = 0; cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
+        for (auto &cl: p->collections) { cl.vScroll = 0; cl.skipDrawingCoverage = false; cl.skipDrawingReads = false; }
+        for (auto &rgn: p->regions) { rgn.sortOption = Utils::SortType::NONE, rgn.sortPos = -1; rgn.refBaseAtPos = '\0'; }
         return Err::NONE;
     }
 
@@ -323,7 +323,7 @@ namespace Commands {
         if (relink) {
             p->imageCache.clear();
             p->imageCacheQueue.clear();
-            HGW::refreshLinked(p->collections, p->opts, &p->samMaxY, p->sortReadsBy);
+            HGW::refreshLinked(p->collections, p->regions, p->opts, &p->samMaxY);
             for (auto &cl: p->collections) { cl.skipDrawingCoverage = true; cl.skipDrawingReads = false;}
             p->redraw = true;
             p->processed = true;
@@ -332,7 +332,7 @@ namespace Commands {
     }
 
     Err var_info(Plot* p, std::string& command, std::vector<std::string>& parts, std::ostream& out) {
-        p->redraw = true;
+        p->redraw = false;
         if (p->variantTracks.empty()) {
             return Err::EMPTY_VARIANTS;
         }
@@ -394,7 +394,7 @@ namespace Commands {
     }
 
     Err count(Plot* p, std::string& command, std::ostream& out) {
-        p->redraw = true;
+        p->redraw = false;
         std::string str = command;
         str.erase(0, 6);
         Parse::countExpression(p->collections, str, p->headers, p->bam_paths, (int)p->bams.size(), (int)p->regions.size(), out);
@@ -424,7 +424,7 @@ namespace Commands {
     }
 
     Err tags(Plot* p, std::string& command, std::ostream& out) {
-        p->redraw = true;
+        p->redraw = false;
         if (!p->selectedAlign.empty()) {
             std::string str = command;
             str.erase(0, 4);
@@ -549,12 +549,7 @@ namespace Commands {
             return Err::NONE;
         }
         p->opts.indel_length = indel_length;
-        if (p->mode == Manager::Show::SINGLE) {
-            p->processed = true;
-        } else {
-            p->processed = false;
-        }
-
+        p->processed = false;
         p->imageCache.clear();
         p->imageCacheQueue.clear();
         return Err::NONE;
@@ -784,7 +779,7 @@ namespace Commands {
     }
 
     Err snapshot(Plot* p, std::vector<std::string> parts, std::ostream& out) {
-        p->redraw = true;
+        p->redraw = false;
         if (parts.size() > 2) {
             return Err::TOO_MANY_OPTIONS;
         }
@@ -960,7 +955,7 @@ namespace Commands {
             bam1_t* a = bam_init1();
             if (sam_itr_next(file_ptrs[i], region_iters[i], a) >= 0) {
                 Segs::Align alignment = Segs::Align(a);
-                Segs::align_init(&alignment, 0, false);  // no need to parse mods/tags here
+                Segs::align_init(&alignment, 0);  // no need to parse mods/tags here
                 pq.push({std::move(alignment), file_ptrs[i], region_iters[i], i});
             } else {
                 bam_destroy1(a);
@@ -994,7 +989,7 @@ namespace Commands {
                 }
             }
             if (sam_itr_next(item.file_ptr, item.bam_iter, item.align.delegate) >= 0) {
-                Segs::align_init(&item.align, 0, false);
+                Segs::align_init(&item.align, 0);
                 pq.push(item);
             } else {
                 bam_destroy1(item.align.delegate);
@@ -1257,9 +1252,13 @@ namespace Commands {
                 p->fetchRefSeq(p->regions.back());
                 p->regions.back().chromLen = faidx_seq_len(p->fai, p->regions.back().chrom.c_str());
             } else {
-                if (p->regions[p->regionSelection].chrom == rgn.chrom) {
-                    rgn.markerPos = p->regions[p->regionSelection].markerPos;
-                    rgn.markerPosEnd = p->regions[p->regionSelection].markerPosEnd;
+                Utils::Region &old = p->regions[p->regionSelection];
+                if (old.chrom == rgn.chrom) {
+                    rgn.markerPos = old.markerPos;
+                    rgn.markerPosEnd = old.markerPosEnd;
+                    rgn.sortOption = old.sortOption;
+                    rgn.sortPos = old.sortPos;
+                    rgn.refBaseAtPos = old.refBaseAtPos;
                 }
                 p->regions[p->regionSelection] = rgn;
                 p->fetchRefSeq(p->regions[p->regionSelection]);
@@ -1465,21 +1464,50 @@ namespace Commands {
 
     Err sort_command(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
         if (parts.size() == 1 || (parts.size() == 2 && parts[1] == "none")) {
-            p->sortReadsBy = Manager::SortType::NONE;
             refreshGw(p);
             return Err::NONE;
         }
-        if (parts.size() > 2) {
+        if (parts.size() > 3) {
             return Err::TOO_MANY_OPTIONS;
         }
-        if (parts[1] != "hap" && parts[1] != "strand") {
+        int pos;
+        try {
+            std::string n = parts.back();
+            n.erase(std::remove(n.begin(), n.end(), ','), n.end());
+            pos = std::stoi(n);
+        } catch (...) {
+            pos = -1;
+        }
+        if (parts[1] != "hap" && parts[1] != "strand" && pos == -1) {
             return Err::OPTION_NOT_SUPPORTED;
         }
+        if (pos != -1) {
+            p->regions[p->regionSelection].sortPos = pos;
+            p->regions[p->regionSelection].setRefBaseAtPos();
+        }
         if (parts[1] == "strand") {
-            p->sortReadsBy = Manager::SortType::STRAND;
-
-        } else if (p->opts.myIni["general"].has("haplotags")) {
-            p->sortReadsBy = Manager::SortType::HP;
+            if (pos == -1) {
+                p->regions[p->regionSelection].sortOption = Utils::SortType::STRAND;
+            } else {
+                p->regions[p->regionSelection].sortOption = Utils::SortType::STRAND_AND_POS;
+            }
+        } else if (parts[1] == "hap") {
+            if (pos == -1) {
+                p->regions[p->regionSelection].sortOption = Utils::SortType::HP;
+            } else {
+                p->regions[p->regionSelection].sortOption = Utils::SortType::HP_AND_POS;
+            }
+        } else {
+            switch (p->regions[p->regionSelection].sortOption) {
+                case (Utils::SortType::HP):
+                    p->regions[p->regionSelection].sortOption = Utils::SortType::HP_AND_POS;
+                case (Utils::SortType::STRAND):
+                    p->regions[p->regionSelection].sortOption = Utils::SortType::STRAND_AND_POS;
+                default:
+                    p->regions[p->regionSelection].sortOption = Utils::SortType::POS;
+            }
+            if (p->regions[p->regionSelection].sortOption)
+            p->regions[p->regionSelection].sortOption = Utils::SortType::POS;
         }
 
         p->redraw = true;

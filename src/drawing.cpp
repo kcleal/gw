@@ -831,53 +831,107 @@ namespace Drawing {
     void drawMods(SkCanvas *canvas, SkRect &rect, const Themes::BaseTheme &theme, const Utils::Region *region,
                   const Segs::Align &align,
                   float width, float xScaling, float xOffset, float mmPosOffset, float yScaledOffset,
-                  float pH, int l_qseq, float monitorScale) { //SkPaint& fc5mc, SkPaint& fc5hmc, SkPaint& fcOther) {
+                  float pH, int l_qseq, float monitorScale, bool as_dots) { //SkPaint& fc5mc, SkPaint& fc5hmc, SkPaint& fcOther) {
         if (align.any_mods.empty()) {
             return;
         }
-
-        float precalculated_xOffset_mmPosOffset = xOffset + mmPosOffset + (0.5 * xScaling) - 2;
+        float precalculated_xOffset_mmPosOffset, h, top, middle, bottom, w;
+        if (as_dots) {
+            precalculated_xOffset_mmPosOffset = xOffset + mmPosOffset + (0.5 * xScaling);// - monitorScale;
+            top = yScaledOffset + (pH * 0.3333);
+            middle = yScaledOffset + pH - (pH * 0.5);
+            bottom = yScaledOffset + pH - (pH * 0.3333);
+        } else {
+            precalculated_xOffset_mmPosOffset = xOffset + mmPosOffset;
+            h = pH * 0.25;
+            top = yScaledOffset + h;
+            middle = top + h;
+            bottom = top + h;
+            w = std::fmax(monitorScale, xScaling);
+        }
 
         auto mod_it = align.any_mods.begin();
         auto mod_end = align.any_mods.end();
 
-        float top = yScaledOffset + (pH * 0.3333);
-        float middle = yScaledOffset + pH - (pH * 0.5);
-        float bottom = yScaledOffset + pH - (pH * 0.3333);
-        for (const auto& blk : align.blocks) {
-            if ((int)blk.end < region->start) {
-                continue;
-            } else if ((int)blk.start >= region->end) {
-                return;
-            }
-            int idx_start = blk.seq_index;
-            int idx_end = blk.seq_index + (blk.end - blk.start);
-            while (mod_it != mod_end && mod_it->index < idx_start) {
-                ++mod_it;
-            }
-            while (mod_it != mod_end && mod_it->index < idx_end) {
-                float x = ((((int)blk.start + (int)mod_it->index - idx_start) - region->start) * xScaling) + precalculated_xOffset_mmPosOffset;
-                if (x < 0) {
-                    ++mod_it;
+        auto mc_paint = &theme.ModPaints[0];
+        auto hmc_paint = &theme.ModPaints[1];
+        auto other_paint = &theme.ModPaints[2];
+
+        if (as_dots) {
+            for (const auto& blk : align.blocks) {
+                if ((int)blk.end < region->start) {
                     continue;
+                } else if ((int)blk.start >= region->end) {
+                    return;
                 }
-                int n_mods = mod_it->n_mods;
-                for (size_t j=0; j < (size_t)n_mods; ++j) {
-                    switch (mod_it->mods[j]) {
-                        case 'm':  // 5mC
-                            canvas->drawPoint(x, (n_mods == 1) ? middle : top, theme.ModPaints[0][ mod_it->quals[j] % 4 ]);
-                            break;
-                        case 'h':  // 5hmC
-                            canvas->drawPoint(x, (n_mods == 1) ? middle : bottom, theme.ModPaints[1][ mod_it->quals[j] % 4 ]);
-                            break;
-                        default:
-                            canvas->drawPoint(x, middle, theme.ModPaints[2][ mod_it->quals[j] % 4 ]);
-                            break;
+                int idx_start = blk.seq_index;
+                int idx_end = blk.seq_index + (blk.end - blk.start);
+                while (mod_it != mod_end && mod_it->index < idx_start) {
+                    ++mod_it;
+                }
+                while (mod_it != mod_end && mod_it->index < idx_end) {
+                    float x = ((((int)blk.start + (int)mod_it->index - idx_start) - region->start) * xScaling) + precalculated_xOffset_mmPosOffset;
+                    if (x < 0) {
+                        ++mod_it;
+                        continue;
                     }
+                    int n_mods = mod_it->n_mods;
+                    for (size_t j=0; j < (size_t)n_mods; ++j) {
+                        switch (mod_it->mods[j]) {
+                            case 'm':  // 5mC
+                                canvas->drawPoint(x, top, (*mc_paint)[ mod_it->quals[j] % 4 ]);
+                                break;
+                            case 'h':  // 5hmC
+                                canvas->drawPoint(x, bottom, (*hmc_paint)[ mod_it->quals[j] % 4 ]);
+                                break;
+                            default:
+                                canvas->drawPoint(x, middle, (*other_paint)[ mod_it->quals[j] % 4 ]);
+                                break;
+                        }
+                    }
+                    ++mod_it;
                 }
-                ++mod_it;
+            }
+        } else {
+            for (const auto& blk : align.blocks) {
+                if ((int)blk.end < region->start) {
+                    continue;
+                } else if ((int)blk.start >= region->end) {
+                    return;
+                }
+                int idx_start = blk.seq_index;
+                int idx_end = blk.seq_index + (blk.end - blk.start);
+                while (mod_it != mod_end && mod_it->index < idx_start) {
+                    ++mod_it;
+                }
+                while (mod_it != mod_end && mod_it->index < idx_end) {
+                    float x = ((((int)blk.start + (int)mod_it->index - idx_start) - region->start) * xScaling) + precalculated_xOffset_mmPosOffset;
+                    if (x < 0) {
+                        ++mod_it;
+                        continue;
+                    }
+                    int n_mods = mod_it->n_mods;
+                    for (size_t j=0; j < (size_t)n_mods; ++j) {
+                        switch (mod_it->mods[j]) {
+                            case 'm':  // 5mC
+                                rect.setXYWH(x, top, w, h);
+                                canvas->drawRect(rect, (*mc_paint)[ mod_it->quals[j] % 4 ]);
+                                break;
+                            case 'h':  // 5hmC
+                                rect.setXYWH(x, bottom, w, h);
+                                canvas->drawRect(rect, (*hmc_paint)[ mod_it->quals[j] % 4 ]);
+                                break;
+                            default:
+                                rect.setXYWH(x, middle, w, h);
+                                canvas->drawRect(rect, (*other_paint)[ mod_it->quals[j] % 4 ]);
+                                break;
+                        }
+                    }
+                    ++mod_it;
+                }
             }
         }
+
     }
 
     void drawCollection(const Themes::IniOptions &opts, Segs::ReadCollection &cl,
@@ -1077,10 +1131,6 @@ namespace Drawing {
                 drawMismatchesNoMD(canvas, rect, theme, cl.region, a, (float) width, xScaling, xOffset, mmPosOffset,
                                    yScaledOffset, pH, l_qseq, mm_vector, cl.collection_processed);
             }
-            if (opts.parse_mods && regionLen <= opts.mod_threshold) {
-                drawMods(canvas, rect, theme, cl.region, a, (float) width, xScaling, xOffset, mmPosOffset,
-                         yScaledOffset, pH, l_qseq, monitorScale); //, theme.fc5mc, theme.fc5hmc, theme.fcOther);
-            }
 
             // add insertions
             if (!a.any_ins.empty()) {
@@ -1143,6 +1193,11 @@ namespace Drawing {
                         pos += 1;
                     }
                 }
+            }
+            // Add modifications
+            if (opts.parse_mods && regionLen <= opts.mod_threshold) {
+                drawMods(canvas, rect, theme, cl.region, a, (float) width, xScaling, xOffset, mmPosOffset,
+                         yScaledOffset, pH, l_qseq, monitorScale, regionLen <= 2000);
             }
         }
 

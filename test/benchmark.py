@@ -70,7 +70,62 @@ def plot_gw(chrom, start, end, args, timef, threads, extra_args):
 
 def plot_igv(chrom, start, end, args, timef, threads, extra_args):
     t, m = -1, -1
-    # Configure igv max visibility range to 250000000
+    # Configure igv using these settings:
+    # ------------------------------------
+    # Alignments -> Visibility range threshold = 250000000
+    # Alignments -> Downsample reads = False
+    # Alignments -> Show mismatched bases = True
+    # Alignments -> Show soft-clipped bases = True
+    # Alignments -> Quick consensus mode = False
+    # Alignments -> Compute insert size thresholds = False
+    # Third Gen -> Visibility range threshold = 250000000
+    # Third Gen -> Show insertion markers = False
+    # Third Gen -> Quick consensus mode = False
+    # Third Gen -> Downsample reads = False
+    # Base Mods -> Base modification likelihood threshold = 0.5
+    with open("~/igv/prefs.properties", "w") as prefs:
+        prefs.write(f"""SAM.INSERT_QUAL_COLORING=false
+SAM.FILTER_DUPLICATES=false
+SAM.MAX_VISIBLE_RANGE=250000000
+SAM.SHOW_SOFT_CLIPPED=true
+BASEMOD.GROUP_BY_STRAND=false
+SAM.SHOW_CONNECTED_CHR_NAME=false
+SAM.BASE_QUALITY_MIN=-1
+SAM.FILTER_FAILED_READS=false
+SAM.COMPUTE_ISIZES=false
+SAM.SHADE_BASE_QUALITY=false
+SAM.BASE_QUALITY_MAX=20
+BASEMOD.THRESHOLD=0.5
+IGV.Bounds=70,101,1322,800
+SAM.ALLELE_THRESHOLD=0.15
+SAM.QUICK_CONSENSUS_MODE=false
+SAM.ALLELE_USE_QUALITY=false
+LAST_TRACK_DIRECTORY=/home/kez/Desktop
+IGV.Session.recent.sessions=
+SAM.SHOW_CENTER_LINE=true
+SAM.DOWNSAMPLE_READS=false
+SAM.SORT_OPTION=NUCLEOTIDE
+SHOW_SEQUENCE_TRANSLATION=false
+SAM.INVERT_SORT=false
+SAM.FLAG_LARGE_INDELS=false
+DEFAULT_GENOME_KEY={args.ref_genome}
+
+##RNA
+SAM.SORT_OPTION=NUCLEOTIDE
+SAM.INVERT_SORT=false
+
+##THIRD_GEN
+SAM.FLAG_CLIPPING=false
+SAM.DOWNSAMPLE_READS=false
+SAM.SORT_OPTION=NUCLEOTIDE
+SAM.HIDE_SMALL_INDEL=false
+SAM.SHOW_INSERTION_MARKERS=false
+SAM.MAX_VISIBLE_RANGE=250000000
+SAM.QUICK_CONSENSUS_MODE=false
+SAM.COLOR_BY_TAG=SA
+SAM.INVERT_SORT=false""")
+
+
     # also remove hg19.json from ~/igv/genomes
     # To set single thread mode this is added to igv.args
     # -XX:ActiveProcessorCount=1
@@ -254,8 +309,8 @@ if __name__ == "__main__":
                                               'genomeview', 'samtools'])
     parser.add_argument('threads')
     parser.add_argument('n_reps')
-    parser.add_argument('extra_args')
-    parser.add_argument('previous_run')
+    parser.add_argument('--extra_args')
+    parser.add_argument('--previous_run')
     args = parser.parse_args()
 
     random.seed(0)
@@ -336,6 +391,7 @@ if __name__ == "__main__":
                 start = int(region_line.split(":")[1].split("-")[0])
                 end = int(region_line.split(":")[1].split("-")[1])
                 size = end - start
+
                 print('Region:', chrom, start, end)
 
                 avg_time, maxRSS = prog(chrom, start, end, args, timef, threads, extra_args)
