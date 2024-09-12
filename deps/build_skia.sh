@@ -34,11 +34,18 @@ else
     exit 1
 fi
 
+
 # OS-specific flags
 if [ "$OS" = "Darwin" ]; then
     # macOS-specific flags
-    EXTRA_CFLAGS="${EXTRA_CFLAGS::-1}, \"-mmacosx-version-min=10.13\"]"
-    EXTRA_LDFLAGS="${EXTRA_LDFLAGS::-1}, \"-mmacosx-version-min=10.13\"]"
+    SDK_PATH="/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"
+    echo "SDK_PATH ${SDK_PATH}"
+    EXTRA_CFLAGS=$(echo "$EXTRA_CFLAGS" | sed 's/\]$//')
+    EXTRA_CFLAGS+=", \"-mmacosx-version-min=10.15\", \"-isysroot\", \"${SDK_PATH}\"]"
+
+    EXTRA_LDFLAGS=$(echo "$EXTRA_LDFLAGS" | sed 's/\]$//')
+    EXTRA_LDFLAGS+=", \"-mmacosx-version-min=10.15\", \"-isysroot\", \"${SDK_PATH}\"]"
+
     EXTRA_ARGS="skia_use_gl=true skia_use_metal=true"
 elif [ "$OS" = "Linux" ]; then
     # Linux-specific flags
@@ -130,6 +137,6 @@ find . -name "test*" -type d -exec rm -rv {} +
 cd ../
 
 pwd
-rm -rf build_skia
+#rm -rf build_skia
 
 echo "DONE"
