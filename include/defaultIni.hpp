@@ -47,7 +47,7 @@ namespace DefaultIni {
                "pad=500\n"
                "scroll_speed=0.15\n"
                "tabix_track_height=0.15\n"
-               "font=Menlo\n"
+               "font=Default\n"
                "font_size=14\n"
                "sv_arcs=true\n"
                "mods=false\n"

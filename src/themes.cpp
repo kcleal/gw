@@ -8,6 +8,8 @@
 #include "defaultIni.hpp"
 #include "ankerl_unordered_dense.h"
 
+#include "include/core/SkFontMgr.h"
+
 #if !defined(__EMSCRIPTEN__)
     #include <curl/curl.h>
     #include <curl/easy.h>
@@ -987,6 +989,30 @@ namespace Themes {
         file.generate(seshIni, true);
     }
 
+    void printAvailableFonts() {
+        sk_sp<SkFontMgr> fontManager = SkFontMgr::RefDefault();
+        int familyCount = fontManager->countFamilies();
+
+        std::cout << "Available font families:" << std::endl;
+
+        std::vector<std::string> fontFamilies;
+        for (int i = 0; i < familyCount; ++i) {
+            SkString familyName;
+            fontManager->getFamilyName(i, &familyName);
+            fontFamilies.push_back(familyName.c_str());
+        }
+
+        // Sort the font families alphabetically
+        std::sort(fontFamilies.begin(), fontFamilies.end());
+
+        // Print the sorted list
+        for (const auto& family : fontFamilies) {
+            std::cout << family << std::endl;
+        }
+
+        std::cout << "Total font families: " << familyCount << std::endl;
+    }
+
     const SkGlyphID glyphs[1] = {100};
 
     EXPORT Fonts::Fonts() {
@@ -997,11 +1023,37 @@ namespace Themes {
     }
 
     void Fonts::setTypeface(std::string &fontStr, int size) {
-        face = SkTypeface::MakeFromName(fontStr.c_str(), SkFontStyle::Normal());
-        if (face && face->uniqueID() != 0) {
-            std::cerr << "Warning: font '" << fontStr << "' could not be initialised, falling back to 'Arial'\n";
-            face = SkTypeface::MakeFromName("Arial", SkFontStyle::Normal());
+
+        if (fontStr == "Default") {
+            face = SkTypeface::MakeDefault();
+            if (!face) {
+                std::cerr << "Error: failes to create font\n";
+            }
+        } else {
+            const char * font_c = fontStr.c_str();
+            face = SkTypeface::MakeFromName(font_c, SkFontStyle::Normal());
+            if (!face) {
+                face = SkTypeface::MakeDefault();
+                SkString familyName;
+                face->getFamilyName(&familyName);
+                std::cerr << "\nWarning: font '" << fontStr << "' could not be loaded, using system default instead '" << familyName.c_str() << ". et GW_DEBUG=1 to display available fonts.\n";
+                char *val = getenv("GW_DEBUG");
+                if (val) {
+                    printAvailableFonts();
+                }
+            } else {
+                SkString familyName;
+                face->getFamilyName(&familyName);
+                if (familyName.c_str() != fontStr) {
+                    std::cerr << "\nWarning: font '" << fontStr << "' could not be loaded, swapped for '" << familyName.c_str() << " instead. Set GW_DEBUG=1 to display available fonts.\n";
+                    char *val = getenv("GW_DEBUG");
+                    if (val) {
+                        printAvailableFonts();
+                    }
+                }
+            }
         }
+
         SkScalar ts = size;
         fonty.setSize(ts);
         fonty.setTypeface(face);
