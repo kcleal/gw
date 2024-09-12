@@ -19,6 +19,7 @@ GW has a number of hotkeys to make things quicker for advanced users. These are 
 | zoom in                  |UP
 | zoom out                 |DOWN
 | zoom to cursor           |CTRL + LEFT_MOUSE
+| sort at cursor           |S
 | decrase ylim             |CTRL + KEY_MINUS
 | increase ylim            |CTRL + KEY_EQUALS
 | next region view         |]
