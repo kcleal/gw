@@ -42,3 +42,4 @@ libgw.so
 /src/ideogram.o
 /.gw_session.ini
 /include/glad.o
+/lib/build_skia/
