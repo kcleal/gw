@@ -78,6 +78,7 @@ namespace Term {
         out << "zoom in              " << termcolor::bright_yellow; Term::printKeyFromValue(opts.zoom_in, out); out << "\n" << termcolor::reset;
         out << "zoom out             " << termcolor::bright_yellow; Term::printKeyFromValue(opts.zoom_out, out); out << "\n" << termcolor::reset;
         out << "zoom to cursor       " << termcolor::bright_yellow; out << "CTRL + LEFT_MOUSE" << "\n" << termcolor::reset;
+        out << "sort at cursor       " << termcolor::bright_yellow; out << "S" << "\n" << termcolor::reset;
         out << "decrease ylim        " << termcolor::bright_yellow; out << "CTRL + KEY_MINUS" << "\n" << termcolor::reset;
         out << "increase ylim        " << termcolor::bright_yellow; out << "CTRL + KEY_EQUALS" << "\n" << termcolor::reset;
         out << "next region view     " << termcolor::bright_yellow; Term::printKeyFromValue(opts.next_region_view, out); out << "\n" << termcolor::reset;

@@ -1141,6 +1141,25 @@ namespace Manager {
                     std::string qname = Utils::split(selectedAlign, '\t')[0];
                     inputText = "find " + qname;
                     commandProcessed();
+                } else if (key == GLFW_KEY_S) {
+                    for (auto &cl : collections) {
+                        if (cl.regionIdx == regionSelection) {
+                            int pos = ((int) (((double) xPos_fb - (double) cl.xOffset) / (double) cl.xScaling)) +
+                                      regions[regionSelection].start + 1;
+                            if (pos >= 0) {
+                                regions[regionSelection].sortPos = pos;
+                                regions[regionSelection].setRefBaseAtPos();
+                                switch (regions[regionSelection].sortOption) {
+                                    case (Utils::SortType::STRAND) : regions[regionSelection].sortOption = Utils::SortType::STRAND_AND_POS; break;
+                                    case (Utils::SortType::HP) : regions[regionSelection].sortOption = Utils::SortType::HP_AND_POS; break;
+                                    case (Utils::SortType::NONE) : regions[regionSelection].sortOption = Utils::SortType::POS; break;
+                                    default: break;
+                                }
+                            }
+                            processed = false;
+                            redraw = true;
+                        }
+                    }
                 }
             }
         } else if (mode == Show::TILED) {
@@ -1876,7 +1895,7 @@ namespace Manager {
     }
 
     void GwPlot::updateCursorGenomePos(float xOffset, float xScaling, float xPos, Utils::Region *region, int bamIdx=0) {
-        if (regions.empty() || mode == TILED) {
+        if (regions.empty() || mode == TILED || !region) {
             return;
         }
         std::ostream& out = (terminalOutput) ? std::cout : outStr;

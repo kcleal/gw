@@ -992,25 +992,18 @@ namespace Themes {
     void printAvailableFonts() {
         sk_sp<SkFontMgr> fontManager = SkFontMgr::RefDefault();
         int familyCount = fontManager->countFamilies();
-
-        std::cout << "Available font families:" << std::endl;
-
+        std::cerr << "Available font families:" << std::endl;
         std::vector<std::string> fontFamilies;
         for (int i = 0; i < familyCount; ++i) {
             SkString familyName;
             fontManager->getFamilyName(i, &familyName);
             fontFamilies.push_back(familyName.c_str());
         }
-
-        // Sort the font families alphabetically
         std::sort(fontFamilies.begin(), fontFamilies.end());
-
-        // Print the sorted list
         for (const auto& family : fontFamilies) {
-            std::cout << family << std::endl;
+            std::cerr << family << std::endl;
         }
-
-        std::cout << "Total font families: " << familyCount << std::endl;
+        std::cerr << "Total font families: " << familyCount << std::endl;
     }
 
     const SkGlyphID glyphs[1] = {100};
@@ -1027,7 +1020,7 @@ namespace Themes {
         if (fontStr == "Default") {
             face = SkTypeface::MakeDefault();
             if (!face) {
-                std::cerr << "Error: failes to create font\n";
+                std::cerr << "Error: failed to create font. Text will likely be missing\n";
             }
         } else {
             const char * font_c = fontStr.c_str();
