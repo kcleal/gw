@@ -544,6 +544,11 @@ int main(int argc, char *argv[]) {
         filters = Utils::split(program.get("--filter"), ';');
     }
 
+    std::vector<std::string> extra_commands;
+    if (program.is_used("--command")) {
+        extra_commands = program.get<std::vector<std::string>>("--command");
+    }
+
     if (!iopts.no_show) {  // plot something to screen
         if (use_session) {
             mINI::INIFile file(iopts.session_file);
@@ -641,10 +646,7 @@ int main(int argc, char *argv[]) {
         plotter.rasterCanvas = rasterSurface->getCanvas();
         plotter.rasterSurfacePtr = &rasterSurface;
 
-        std::vector<std::string> extra_commands;
-        if (program.is_used("--command")) {
-            extra_commands = program.get<std::vector<std::string>>("--command");
-        }
+
         // start UI here
         if (!program.is_used("--variants") && !program.is_used("--images")) {
             int res = plotter.startUI(sContext, sSurface,
@@ -773,6 +775,12 @@ int main(int argc, char *argv[]) {
                     plotter.fb_width = iopts.dimensions.x;
                     plotter.fb_height = iopts.dimensions.y;
                     plotter.setRasterSize(plotter.fb_width, plotter.fb_height);
+                    if (!extra_commands.empty()) {
+                        for (const auto& command: extra_commands) {
+                            plotter.inputText = command;
+                            plotter.commandProcessed();
+                        }
+                    }
                     plotter.runDrawOnCanvas(pageCanvas);
                     pdfDocument->close();
                     buffer.writeToStream(&out);
@@ -782,6 +790,12 @@ int main(int argc, char *argv[]) {
                     plotter.setRasterSize(plotter.fb_width, plotter.fb_height);
                     SkPictureRecorder recorder;
                     SkCanvas* canvas = recorder.beginRecording(SkRect::MakeWH(iopts.dimensions.x, iopts.dimensions.y));
+                    if (!extra_commands.empty()) {
+                        for (const auto& command: extra_commands) {
+                            plotter.inputText = command;
+                            plotter.commandProcessed();
+                        }
+                    }
                     plotter.runDrawOnCanvas(canvas);
                     sk_sp<SkPicture> picture = recorder.finishRecordingAsPicture();
                     std::unique_ptr<SkCanvas> svgCanvas = SkSVGCanvas::Make(SkRect::MakeWH(iopts.dimensions.x, iopts.dimensions.y), &out);
@@ -800,7 +814,18 @@ int main(int argc, char *argv[]) {
                     sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
                                                                                     iopts.dimensions.y);
                     SkCanvas *canvas = rasterSurface->getCanvas();
-                    if (iopts.link_op == 0) {
+                    bool stream_reads = iopts.link_op == 0;
+                    if (!extra_commands.empty()) {
+                        plotter.regionSelection = 0;
+                        for (const auto& command: extra_commands) {
+                            plotter.inputText = command;
+                            plotter.commandProcessed();
+                            if (plotter.regions.front().sortOption != 0) {
+                                stream_reads = false;
+                            }
+                        }
+                    }
+                    if (stream_reads) {
                         plotter.runDrawNoBufferOnCanvas(canvas);
                     } else {
                         plotter.runDrawOnCanvas(canvas);
@@ -883,20 +908,21 @@ int main(int argc, char *argv[]) {
                                               Manager::GwPlot *plt = managers[this_block];
                                               plt->makeRasterSurface();
                                               std::vector<Utils::Region> &all_regions = jobs[this_block];
-//                                              sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(
-//                                                      iopts.dimensions.x, iopts.dimensions.y);
-//                                              SkCanvas *canvas = rasterSurface->getCanvas();
+
                                               for (auto &rgn: all_regions) {
                                                   plt->collections.clear();
                                                   delete plt->regions[0].refSeq;
                                                   plt->regions[0].chrom = rgn.chrom;
                                                   plt->regions[0].start = rgn.start;
                                                   plt->regions[0].end = rgn.end;
-                                                  if (iopts.link_op == 0) {
-                                                      plt->runDrawNoBuffer();
-                                                  } else {
-                                                      plt->runDraw();
+                                                  if (!extra_commands.empty()) {
+                                                      for (const auto& command: extra_commands) {
+                                                          plt->inputText = command;
+                                                          plt->commandProcessed();
+                                                      }
                                                   }
+                                                  plt->runDrawNoBuffer();
+
                                                   sk_sp<SkImage> img(plt->rasterSurface->makeImageSnapshot());
                                                   std::filesystem::path fname = "GW~" + plt->regions[0].chrom + "~" +
                                                                    std::to_string(plt->regions[0].start) + "~" +
@@ -1020,8 +1046,19 @@ int main(int argc, char *argv[]) {
                                             for (int i = a; i < b; ++i) {
                                                 Manager::VariantJob job = jobs[i];
                                                 plt->setVariantSite(job.chrom, job.start, job.chrom2, job.stop);
-//                                                plt->runDrawNoBuffer();
-                                                if (plt->opts.link_op == 0) {
+
+                                                bool stream_reads = iopts.link_op == 0;
+                                                if (!extra_commands.empty()) {
+                                                    plt->regionSelection = 0;
+                                                    for (const auto& command: extra_commands) {
+                                                        plt->inputText = command;
+                                                        plt->commandProcessed();
+                                                        if (plt->regions.front().sortOption != 0) {
+                                                            stream_reads = false;
+                                                        }
+                                                    }
+                                                }
+                                                if (stream_reads) {
                                                     plt->runDrawNoBuffer();
                                                 } else {
                                                     plt->runDraw();

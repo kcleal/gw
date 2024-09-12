@@ -623,7 +623,9 @@ namespace Manager {
         }
         processText = false;  // text will be processed by run_command_map
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
-        glfwSetCursor(window, normalCursor);
+        if (window) {
+            glfwSetCursor(window, normalCursor);
+        }
         Commands::run_command_map(this, inputText, out);
         return true;
     }

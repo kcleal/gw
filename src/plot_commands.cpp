@@ -1509,7 +1509,6 @@ namespace Commands {
             if (p->regions[p->regionSelection].sortOption)
             p->regions[p->regionSelection].sortOption = Utils::SortType::POS;
         }
-
         p->redraw = true;
         p->processed = false;
         p->imageCache.clear();
