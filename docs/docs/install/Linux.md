@@ -8,14 +8,15 @@ nav_order: 2
 # Installing GW on Linux x86_64 Systems
 
 For best performance, install GW as a desktop application on (Intel debian systems only), or build from source.
-Use the installer below, or head over to the GitHub [Releases page](https://github.com/kcleal/gw/releases).
+
+
+For debian systems use the package below:
 
 
 [GW Intel x86_64 debian installer](https://github.com/kcleal/gw/releases/download/v1.1.0/gw_1.1.0_amd64.deb)
 
 
-
-GW is also available for Linux x86_64 systems as a command-line tool and can be installed using Conda.
+GW is also available for Linux x86_64 systems as a command-line tool and can be installed using Conda. 
 
 ## Using Conda
 
@@ -25,6 +26,8 @@ you can install GW by running the following command in your terminal:
 ```shell
 conda install -c conda-forge -c bioconda gw
 ```
+
+Currently, the conda package only works for X11 sessions. If you are using Wayland, either install using the deb package above or build from source.
 
 
 # Building from source
@@ -39,7 +42,15 @@ sudo apt install libgl1-mesa-dev libfontconfig-dev libhts-dev glfw
 GW can be built and installed using:
 ```shell
 git clone https://github.com/kcleal/gw.git && cd gw
-make prep && make
+make prep && make -j4
+cp gw /usr/local/bin
+```
+
+The `make prep` stage downloads a pre-build skia binary. If this is not compatibile, you can build skia from scrtach using:
+```shell
+git clone https://github.com/kcleal/gw.git && cd gw
+bash ./deps/build_skia.sh
+make -j4
 cp gw /usr/local/bin
 ```
 
