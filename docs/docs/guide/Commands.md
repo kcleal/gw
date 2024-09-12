@@ -438,6 +438,16 @@ command over and over.
 Soft-clipped bases or hard-clips are turned on or off.
 <br>
 
+- ## sort
+
+Sort reads by strand, haplotype (defined by HP tag in bam file), or pos. Sorting by position also has a hotkey - pressing `S` will sort based on cursor position.
+
+    sort hap
+    sort strand
+    sort 6400234       # Sorting based on genomic position
+    sort strand 120000 # By strand and then position
+    sort hap 120000    # Haplotype then position
+
 - ## tags
 
 This will print all the tags of the selected read (select a read with the mouse first).
