@@ -998,6 +998,10 @@ namespace Themes {
 
     void Fonts::setTypeface(std::string &fontStr, int size) {
         face = SkTypeface::MakeFromName(fontStr.c_str(), SkFontStyle::Normal());
+        if (face && face->uniqueID() != 0) {
+            std::cerr << "Warning: font '" << fontStr << "' could not be initialised, falling back to 'Arial'\n";
+            face = SkTypeface::MakeFromName("Arial", SkFontStyle::Normal());
+        }
         SkScalar ts = size;
         fonty.setSize(ts);
         fonty.setTypeface(face);
