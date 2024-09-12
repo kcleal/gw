@@ -2,7 +2,6 @@
 #include <array>
 #include <chrono>
 #include <cstdlib>
-#include <deque>
 #include <filesystem>
 #include <mutex>
 #include <string>
@@ -11,12 +10,6 @@
 
 #include <glad.h>
 
-//#ifdef __APPLE__
-//    #include <OpenGL/gl3.h>
-//#elif defined(__linux__)
-//    #include <GL/gl.h>
-//    #include <GL/glx.h>
-//#endif
 
 #include "htslib/faidx.h"
 #include "htslib/hts.h"
@@ -857,7 +850,6 @@ namespace Manager {
             }
             if (!resizeTriggered) {
                 drawOverlay(sSurface->getCanvas());
-
             }
             sContext->flush();
             glfwSwapBuffers(window);
@@ -1251,6 +1243,8 @@ namespace Manager {
                 return;
             }
             canvas->drawImage(imageCacheQueue.back().second, 0, 0);
+        } else {
+            canvas->drawPaint(opts.theme.bgPaint);
         }
 
         // slider overlay

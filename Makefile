@@ -43,19 +43,19 @@ SKIA_PATH=""
 ifneq ($(PLATFORM), "Windows")
     ifneq ($(SKIA),"")
         CPPFLAGS += -I$(SKIA)
-        SKIA_PATH = $(wildcard $(SKIA)/out/Rel*)
+        SKIA_PATH := $(shell find ./lib/skia/out -type d -name '*Release*' | sort | head -n 1)
     else ifeq ($(PLATFORM),"Arm64")
         CPPFLAGS += -I./lib/skia
-        SKIA_PATH = ./lib/skia/out/Release-arm64
+        SKIA_PATH := $(shell find ./lib/skia/out -type d -name '*Release*' | sort | head -n 1)
     else ifeq ($(PLATFORM),"Emscripten")
         CPPFLAGS += -I./wasm_libs/skia -I./wasm_libs/htslib
         SKIA_PATH = ./wasm_libs/skia/out/canvaskit_wasm
     else  # Darwin / Linux
     	CPPFLAGS += -I./lib/skia
-        SKIA_PATH = ./lib/skia/out/Release-x64
-
+    	SKIA_PATH := $(shell find ./lib/skia/out -type d -name '*Release*' | sort | head -n 1)
     endif
 endif
+
 
 LDFLAGS += -L$(SKIA_PATH)
 SKIA_LINK=""
