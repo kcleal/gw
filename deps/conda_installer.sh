@@ -22,7 +22,7 @@ CONDA_BIN="$CONDA_PREFIX/bin"
 CONDA_LIB="$CONDA_PREFIX/lib"
 
 # Install dependencies
-$CONDA_CMD install -y \
+$CONDA_CMD install -c conda-forge -c bioconda -y \
     fontconfig libuuid libcurl "libdeflate>=1.0" "htslib>=1.12" "glfw>=3.3" \
     unzip freetype zlib ninja harfbuzz libwebp gn \
     pthread-stubs xorg-libsm xorg-libice xorg-libx11 libxcb \
