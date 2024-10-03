@@ -855,7 +855,7 @@ namespace Commands {
                 const wchar_t* outp = out_path.c_str();
                 std::wstring pw(outp);
                 std::string outp_str(pw.begin(), pw.end());
-                SkFILEWStream out(outp_str.c_str());
+                SkFILEWStream out_stream(outp_str.c_str());
 #else
                 SkFILEWStream out_stream(out_path.c_str());
 #endif
