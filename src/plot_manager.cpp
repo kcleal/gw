@@ -327,12 +327,14 @@ namespace Manager {
             if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
                 std::cerr << "Error: failed to initialize GLAD GL\n";
             }
-            if (GLAD_GL_VERSION_4_1) {
-                std::cerr << "OpenGL 4.1 is supported\n";
-            } else {
-                std::cerr << "OpenGL 4.1 is not supported\n";
-                std::cerr << "OpenGL 3.3 is " << ((GLAD_GL_VERSION_3_3) ? "" : "not ") << "supported\n";
-                std::cerr << "OpenGL 2.1 is " << ((GLAD_GL_VERSION_2_1) ? "" : "not ") << "supported\n";
+            if (debug) {
+                if (GLAD_GL_VERSION_4_1) {
+                    std::cerr << "OpenGL 4.1 is supported\n";
+                } else {
+                    std::cerr << "OpenGL 4.1 is not supported\n";
+                    std::cerr << "OpenGL 3.3 is " << ((GLAD_GL_VERSION_3_3) ? "" : "not ") << "supported\n";
+                    std::cerr << "OpenGL 2.1 is " << ((GLAD_GL_VERSION_2_1) ? "" : "not ") << "supported\n";
+                }
             }
         }
         if (debug) {
@@ -986,7 +988,7 @@ namespace Manager {
 
     }
 
-    void GwPlot::setRasterSize(int width, int height) {
+    void GwPlot::setImageSize(int width, int height) {
 //        monitorScale = 1;
         fb_width = width;
         fb_height = height;
@@ -1669,21 +1671,30 @@ namespace Manager {
         }
         canvas->drawPaint(opts.theme.bgPaint);
         SkRect clip;
+
         for (auto &cl: collections) {
-
-            canvas->save();
-
-            if (cl.bamIdx == 0) {  // cover the ref too
-                clip.setXYWH(cl.xOffset, 0, cl.regionPixels, cl.yOffset + trackY + covY + refSpace);
-            } else {
-                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yOffset + trackY + covY);
+            if (cl.skipDrawingCoverage && cl.skipDrawingReads) {  // keep read and coverage area
+                continue;
             }
-            canvas->clipRect(clip, false);
+            canvas->save();
+            // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
+            if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
+                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, trackY + covY - gap);
+                canvas->clipRect(clip, false);
+            } else if (cl.skipDrawingCoverage) {
+                clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, cl.yPixels);
+                canvas->clipRect(clip, false);
+            } else if (cl.skipDrawingReads){
+                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, covY);
+                canvas->clipRect(clip, false);
+            }  // else no clip
             canvas->drawPaint(opts.theme.bgPaint);
 
-            if (!cl.skipDrawingReads) {
+            if (!cl.skipDrawingReads && !bams.empty()) {
 
-                if (cl.regionLen >= opts.low_memory && !bams.empty() && opts.link_op == 0) {  // low memory mode will be used
+                if (cl.regionLen >= opts.low_memory) {
+                    assert (opts.link_op == 0 && regions[cl.regionIdx].getSortOption() == SortType::NONE);
+                    // low memory mode will be used
                     cl.clear();
                     if (opts.threads == 1) {
                         HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
@@ -1702,9 +1713,8 @@ namespace Manager {
                 }
             }
             canvas->restore();
-
-//            Drawing::drawCollection(opts, cl, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
         }
+
         if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace, gap);
         }
@@ -1720,7 +1730,6 @@ namespace Manager {
 
     void GwPlot::runDrawNoBufferOnCanvas(SkCanvas* canvas) {
 //        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
-
         if (bams.empty()) {
             return;
         }

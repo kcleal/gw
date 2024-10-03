@@ -42,7 +42,6 @@ if [ "$OS" = "Darwin" ]; then
     echo "SDK_PATH ${SDK_PATH}"
     EXTRA_CFLAGS=$(echo "$EXTRA_CFLAGS" | sed 's/\]$//')
     EXTRA_CFLAGS+=", \"-mmacosx-version-min=10.15\", \"-isysroot\", \"${SDK_PATH}\"]"
-
     EXTRA_LDFLAGS=$(echo "$EXTRA_LDFLAGS" | sed 's/\]$//')
     EXTRA_LDFLAGS+=", \"-mmacosx-version-min=10.15\", \"-isysroot\", \"${SDK_PATH}\"]"
 

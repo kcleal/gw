@@ -87,6 +87,19 @@ namespace Parse {
         Parser(std::ostream& errOutput);
         ~Parser() = default;
 
+        // Copy assignment operator
+        Parser& operator=(const Parser& other) {
+            if (this != &other) {
+                orBlock = other.orBlock;
+                filter_str = other.filter_str;
+                opMap = other.opMap;
+                permit = other.permit;
+                evaluations_block = other.evaluations_block;
+                targetIndexes = other.targetIndexes;
+            }
+            return *this;
+        }
+
         bool orBlock;
         std::string filter_str;
         ankerl::unordered_dense::map< std::string, Property> opMap;

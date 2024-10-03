@@ -59,7 +59,7 @@ void print_banner() {
 }
 
 // note to developer - update version in workflows/main.yml, menu.cpp, term_out.cpp, and deps/gw.desktop, and installers .md in docs
-const char GW_VERSION [7] = "1.1.0";
+const char GW_VERSION [7] = "1.1.1";
 
 
 bool str_is_number(const std::string &s) {
@@ -736,28 +736,32 @@ int main(int argc, char *argv[]) {
 
             plotter.opts.theme.setAlphas();
 
-            if (program.is_used("--fmt") && (program.get<std::string>("--fmt") == "pdf" || program.get<std::string>("--fmt") == "svg" )) {
-                std::string format_str = program.get<std::string>("--fmt");
+            std::filesystem::path fname;
+            std::filesystem::path out_path;
+            std::string format_str = ".png";
+            if (program.is_used("--file")) {
+                fname = program.get<std::string>("--file");
+                format_str = fname.extension().generic_string();
+            } else if (program.is_used("--fmt") && program.get<std::string>("--fmt") != "png") {
+                format_str = "." + program.get<std::string>("--fmt");
+            }
+
+            if (format_str != ".png") {
                 if (regions.empty()) {
                     std::cerr << "Error: --fmt is only supported by providing a --region\n";
                     std::exit(-1);
                 }
 
-                std::filesystem::path fname;
-                std::filesystem::path out_path;
-
-                if (program.is_used("--file")) {
-                    fname = program.get<std::string>("--file");
-                    out_path = fname;
-                } else {
-                    if (outdir.empty()) {
+                if (fname.empty()) {
+                    if (fname.empty()) {
                         std::cerr << "Error: please provide an output directory using --outdir, or direct to --file\n";
                         std::exit(-1);
                     }
                     fname = regions[0].chrom + "_" + std::to_string(regions[0].start) + "_" +
-                            std::to_string(regions[0].end) + "." + format_str;
-                    out_path = outdir / fname;
+                            std::to_string(regions[0].end) + format_str;
+
                 }
+                out_path = outdir / fname;
 
 #if defined(_WIN32) || defined(_WIN64)
                 const wchar_t* outp = out_path.c_str();
@@ -769,12 +773,12 @@ int main(int argc, char *argv[]) {
 #endif
                 SkDynamicMemoryWStream buffer;
 
-                if (format_str == "pdf") {
+                if (format_str == ".pdf") {
                     auto pdfDocument = SkPDF::MakeDocument(&buffer);
                     SkCanvas *pageCanvas = pdfDocument->beginPage(iopts.dimensions.x, iopts.dimensions.y);
                     plotter.fb_width = iopts.dimensions.x;
                     plotter.fb_height = iopts.dimensions.y;
-                    plotter.setRasterSize(plotter.fb_width, plotter.fb_height);
+                    plotter.setImageSize(plotter.fb_width, plotter.fb_height);
                     if (!extra_commands.empty()) {
                         for (const auto& command: extra_commands) {
                             plotter.inputText = command;
@@ -787,7 +791,7 @@ int main(int argc, char *argv[]) {
                 } else {
                     plotter.fb_width = iopts.dimensions.x;
                     plotter.fb_height = iopts.dimensions.y;
-                    plotter.setRasterSize(plotter.fb_width, plotter.fb_height);
+                    plotter.setImageSize(plotter.fb_width, plotter.fb_height);
                     SkPictureRecorder recorder;
                     SkCanvas* canvas = recorder.beginRecording(SkRect::MakeWH(iopts.dimensions.x, iopts.dimensions.y));
                     if (!extra_commands.empty()) {
@@ -810,7 +814,7 @@ int main(int argc, char *argv[]) {
                 // Plot a png image, either of target region or whole chromosome
                 sk_sp<SkImage> img;
                 if (!regions.empty()) {  // plot target regions
-                    plotter.setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
+                    plotter.setImageSize(iopts.dimensions.x, iopts.dimensions.y);
                     sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
                                                                                     iopts.dimensions.y);
                     SkCanvas *canvas = rasterSurface->getCanvas();
@@ -864,7 +868,7 @@ int main(int argc, char *argv[]) {
                     for (int i = 0; i < iopts.threads; ++i) {
                         auto *m = new Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
                         m->opts.theme.setAlphas();
-                        m->setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
+                        m->setImageSize(iopts.dimensions.x, iopts.dimensions.y);
                         m->opts.threads = 1;
                         m->gap = 0;
                         m->drawLocation = false;
@@ -984,7 +988,7 @@ int main(int argc, char *argv[]) {
                 for (int i = 0; i < iopts.threads; ++i) {
                     auto *m = new Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
                     m->opts.theme.setAlphas();
-                    m->setRasterSize(iopts.dimensions.x, iopts.dimensions.y);
+                    m->setImageSize(iopts.dimensions.x, iopts.dimensions.y);
                     m->opts.threads = 1;
                     for (auto &s: filters) {
                         m->addFilter(s);

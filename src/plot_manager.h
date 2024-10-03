@@ -163,7 +163,7 @@ namespace Manager {
 
         void setGlfwFrameBufferSize();
 
-        void setRasterSize(int width, int height);
+        void setImageSize(int width, int height);
 
         int makeRasterSurface();
 

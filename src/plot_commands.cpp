@@ -35,6 +35,16 @@
 #include "themes.h"
 
 
+#include "include/core/SkCanvas.h"
+#include "include/core/SkSurface.h"
+#include "include/core/SkDocument.h"
+#include "include/docs/SkPDFDocument.h"
+#include "include/core/SkStream.h"
+#include "include/core/SkPictureRecorder.h"
+#include "include/core/SkPicture.h"
+#include "include/svg/SkSVGCanvas.h"
+
+
 /* Notes for adding new commands:
  * 1. Make a new function, accepting a pointer to a GwPlot instance and any other args
  * 2. Add function to run_command_map below
@@ -785,7 +795,7 @@ namespace Commands {
         }
         std::string fname;
         p->currentVarTrack = &p->variantTracks[p->variantFileSelection];
-        if (parts.size() == 1) {
+        if (parts.size() == 1) {  // Choose filename automatically based on region
             if (p->mode == Manager::Show::SINGLE) {
                 std::filesystem::path fname_path = Utils::makeFilenameFromRegions(p->regions);
 #if defined(_WIN32) || defined(_WIN64)
@@ -802,6 +812,7 @@ namespace Commands {
             }
         } else {
             std::string nameFormat = parts[1];
+            // try and parse information from vcf record e.g. {pos}.png
             if (p->currentVarTrack != nullptr && p->currentVarTrack->type == HGW::TrackType::VCF && p->mode == Manager::Show::SINGLE) {
                 if (p->mouseOverTileIndex == -1 || p->currentVarTrack->blockStart + p->mouseOverTileIndex > (int) p->currentVarTrack->multiLabels.size()) {
                     return Err::SILENT;
@@ -831,10 +842,50 @@ namespace Commands {
             out << termcolor::red << "Error:" << termcolor::reset << " path not found " << out_path.parent_path() << std::endl;
             return Err::INVALID_PATH;
         } else {
-            if (!p->imageCacheQueue.empty()) {
-                Manager::imagePngToFile(p->imageCacheQueue.back().second, out_path.string());
-                Term::clearLine(out);
+            if (out_path.extension() == ".png") {
+                if (!p->imageCacheQueue.empty()) {
+                    Manager::imagePngToFile(p->imageCacheQueue.back().second, out_path.string());
+                    Term::clearLine(out);
+                    out << "\rSaved to " << out_path << std::endl;
+                }
+            } else if (out_path.extension() == ".pdf" || out_path.extension() == ".svg") {
+                std::string format_str = (out_path.extension() == ".pdf") ? "pdf" : "svg";
+
+#if defined(_WIN32) || defined(_WIN64)
+                const wchar_t* outp = out_path.c_str();
+                std::wstring pw(outp);
+                std::string outp_str(pw.begin(), pw.end());
+                SkFILEWStream out(outp_str.c_str());
+#else
+                SkFILEWStream out_stream(out_path.c_str());
+#endif
+                SkDynamicMemoryWStream buffer;
+
+                for (auto &cl: p->collections) {
+                    cl.skipDrawingCoverage = false;
+                    cl.skipDrawingReads = false;
+                }
+                if (format_str == "pdf") {
+                    auto pdfDocument = SkPDF::MakeDocument(&buffer);
+                    SkCanvas *pageCanvas = pdfDocument->beginPage(p->fb_width, p->fb_height);
+                    p->runDrawOnCanvas(pageCanvas);
+                    pdfDocument->close();
+                    buffer.writeToStream(&out_stream);
+                } else {
+                    SkPictureRecorder recorder;
+                    SkCanvas* canvas = recorder.beginRecording(SkRect::MakeWH(p->fb_width, p->fb_height));
+                    p->runDrawOnCanvas(canvas);
+                    sk_sp<SkPicture> picture = recorder.finishRecordingAsPicture();
+                    std::unique_ptr<SkCanvas> svgCanvas = SkSVGCanvas::Make(SkRect::MakeWH(p->fb_width, p->fb_height), &out_stream);
+                    if (svgCanvas) {
+                        picture->playback(svgCanvas.get());
+                        svgCanvas->flush();
+                    };
+                }
                 out << "\rSaved to " << out_path << std::endl;
+            } else {
+                out << termcolor::red << "Error:" << termcolor::reset << " extension not supported " << out_path.extension() << std::endl;
+                return Err::OPTION_NOT_SUPPORTED;
             }
         }
         return Err::NONE;
@@ -1049,16 +1100,12 @@ namespace Commands {
             } else {
                 return Err::OPTION_NOT_UNDERSTOOD;
             }
-        }
-        //  Err snapshot(Plot* p, std::vector<std::string> parts, std::ostream& out) {
-        else if (Utils::endsWith(command, ".png")) {
+        } else if (Utils::endsWith(command, ".png") || Utils::endsWith(command, ".pdf") || Utils::endsWith(command, ".svg")) {
             return snapshot(p, parts, out);
-        }
-        else if (Utils::endsWith(parts.back(), ".ini")) {
+        } else if (Utils::endsWith(parts.back(), ".ini")) {
             out << "Saved session: " << parts.back() << std::endl;
             p->saveSession(parts.back());
-        }
-        else if (Utils::endsWith(parts.back(), ".tsv") || (Utils::endsWith(parts.back(), ".txt"))) {
+        } else if (Utils::endsWith(parts.back(), ".tsv") || (Utils::endsWith(parts.back(), ".txt"))) {
             out << "Output label file set as: " << parts.back() << std::endl;
             p->setOutLabelFile(parts.back());
             p->saveLabels();

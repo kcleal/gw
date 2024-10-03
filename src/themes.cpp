@@ -21,7 +21,8 @@ namespace Themes {
 
     EXPORT BaseTheme::BaseTheme() {
 
-        fcCoverage.setStyle(SkPaint::kStrokeAndFill_Style);
+//        fcCoverage.setStyle(SkPaint::kStrokeAndFill_Style);
+        fcCoverage.setStyle(SkPaint::kFill_Style);
         fcCoverage.setStrokeWidth(0);
 
         // Set ARGB values directly for each SkPaint object in the mate_fc vector

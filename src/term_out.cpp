@@ -59,9 +59,9 @@ namespace Term {
         out << termcolor::green << "remove, rm       index           " << termcolor::reset << "Remove a region by index e.g. 'rm 1'. To remove a bam \n                                 use the bam index 'rm bam1', or track 'rm track1'\n";
         out << termcolor::green << "roi              region? name?   " << termcolor::reset << "Add a region of interest\n";
         out << termcolor::green << "sam                              " << termcolor::reset << "Print selected read to screen or save to file\n";
-        out << termcolor::green << "save             filename        " << termcolor::reset << "Save reads (bam/cram), snapshot (png), session (ini), or labels (tsv/txt)\n";
+        out << termcolor::green << "save             filename        " << termcolor::reset << "Save reads (bam/cram), snapshot (png/pdf/svg), session (ini), or labels (tsv)\n";
         out << termcolor::green << "settings                         " << termcolor::reset << "Open the settings menu'\n";
-		out << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window to png e.g. 's', or 's view.png',\n                                 or vcf columns can be used 's {pos}_{info.SU}.png'\n";
+		out << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window as image e.g. 's', or 's view.png',\n                                 or vcf columns can be used 's {pos}_{info.SU}.png'\n";
         out << termcolor::green << "soft-clips, sc                   " << termcolor::reset << "Toggle soft-clips\n";
         out << termcolor::green << "sort             strand/hap/pos  " << termcolor::reset << "Sort reads by strand, haplotype, and/or pos\n";
         out << termcolor::green << "tags                             " << termcolor::reset << "Print selected sam tags\n";
@@ -256,7 +256,7 @@ namespace Term {
                          "        'save reads.bam [0, 1]' # Indexing can be used - here reads from row 0, column 1 will be saved\n"
                          "        'save reads.cram'       # Reads saved in cram format\n"
                          "        'save reads.sam'        # Reads saved in sam format (human readable)\n\n"
-                         "        'save view.png'         # The current view is saved to view.png. Same functionality as 'snapshot'\n"
+                         "        'save view.pdf'         # The current view is saved to view.png. Same functionality as 'snapshot'\n"
                          "        'save session.ini'      # The current session will be saved, allowing this session to be revisited\n"
                          "        'save labels.tsv'       # The output label file will be saved here\n\n"
                          "    Notes:\n"
@@ -269,6 +269,7 @@ namespace Term {
             out << "    Save an image of the screen.\n"
                          "        Saves current window. If no name is provided, the image name will be 'chrom_start_end.png', \n"
                          "        or if you are in tile-mode, the image name will be 'index_start_end.png'.\n"
+                         "        Supported file extensions are .png, .pdf and .svg\n"
                          "            snapshot\n"
                          "            snapshot my_image.png\n\n"
                          "        If you have a vcf/bcf open in 'single' mode (not 'tiled') it is also possible to parse info\n"
@@ -1390,7 +1391,7 @@ namespace Term {
     }
 
 #if !defined(__EMSCRIPTEN__)
-    const char* CURRENT_VERSION = "v1.1.0";
+    const char* CURRENT_VERSION = "v1.1.1";
 
     size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
         ((std::string*)userp)->append((char*)contents, size * nmemb);
