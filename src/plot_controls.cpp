@@ -1332,14 +1332,19 @@ namespace Manager {
         if (y <= refSpace + gap) {
             return REFERENCE_TRACK; // -2
         } else if (!tracks.empty() && y >= refSpace + totalCovY + (trackY*(float)headers.size()) && y < (float)fb_height - sliderSpace - gap) {
-			int index = -3;
+
+            int index = -3;
             float top_y = (float)fb_height - sliderSpace - totalTabixY + (gap);
             float step = tabixY;
+
             index -= (int)((y - top_y) / step);
 			if ((index * -1) - 3 > (int)tracks.size()) {
 				index = -1;
 			}
-			return index;  // track
+            if (index <= TRACK) {
+                return index;
+            }
+			return NO_REGIONS;  // track
 		}
         if (regions.empty()) {
             return NO_REGIONS; //-1
@@ -2133,7 +2138,6 @@ namespace Manager {
                     return;
                 }
                 int rs = getCollectionIdx((float)xPos_fb, (float)yPos_fb);
-
 	            if (rs <= TRACK) {  // print track info
                     if (tracks.empty()) {
                         return;
@@ -2164,37 +2168,35 @@ namespace Manager {
                         int featureLevel = (int)(yPos_fb - y - (targetIndex * stepY) + gap) / step_track;
 			            Term::printTrack(relX, targetTrack, &regions[tIdx], true, featureLevel, targetIndex, target_qname, &target_pos, out);
 		            }
+                    return;
 	            }
-                if (rs < 0) { // print reference info
+                if (rs == REFERENCE_TRACK) { // print reference info
                     if (regionSelection >= (int)regions.size()) {
                         return;
                     }
                     float xScaling = (float)((regionWidth - gap - gap) / ((double)(regions[regionSelection].end -regions[regionSelection].start)));
                     float xOffset = (regionWidth * (float)regionSelection) + gap;
-                    if (rs == REFERENCE_TRACK) {
-                        if (collections.empty()) {
-                            Term::updateRefGenomeSeq(&regions[regionSelection], (float)xPos_fb, xOffset,  xScaling, out);
-                        } else {
-                            for (auto &cl: collections) {
-                                float min_x = cl.xOffset;
-                                float max_x = cl.xScaling * ((float)(cl.region->end - cl.region->start)) + min_x;
-                                if (xPos_fb > min_x && xPos_fb < max_x) {
-                                    Term::updateRefGenomeSeq(cl.region, (float)xPos_fb, cl.xOffset,  cl.xScaling, out);
-                                    break;
-                                }
+                    if (collections.empty()) {
+                        Term::updateRefGenomeSeq(&regions[regionSelection], (float) xPos_fb, xOffset, xScaling, out);
+                    } else {
+                        for (auto &cl: collections) {
+                            float min_x = cl.xOffset;
+                            float max_x = cl.xScaling * ((float) (cl.region->end - cl.region->start)) + min_x;
+                            if (xPos_fb > min_x && xPos_fb < max_x) {
+                                Term::updateRefGenomeSeq(cl.region, (float) xPos_fb, cl.xOffset, cl.xScaling, out);
+                                break;
                             }
                         }
-//                    } else {
-//                        updateCursorGenomePos(xOffset, xScaling, (float)xPos_fb, &regions[regionSelection]);
                     }
                     return;
                 }
-                if (collections.empty()) {
+                if (collections.empty() || rs < 0) {
                     redraw = false;
                     return;
                 }
                 assert (rs < collections.size());
                 assert (!cl.levelsStart.empty());
+                assert (cl.region != nullptr);
                 Segs::ReadCollection &cl = collections[rs];
                 regionSelection = cl.regionIdx;
 	            int pos = (int) ((((double)xPos_fb - (double)cl.xOffset) / (double)cl.xScaling) + (double)cl.region->start);

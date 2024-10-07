@@ -1030,10 +1030,11 @@ namespace Manager {
             if (yScaling > 1) {
                 yScaling = std::ceil(yScaling);
             }
-        } else {
-            trackY = 0;
-            yScaling = 0;
         }
+//        else {
+//            trackY = 0;
+//            yScaling = 0;
+//        }
 
         if (opts.tlen_yscale) {
             pH = trackY / (float) opts.ylim;
@@ -1111,9 +1112,10 @@ namespace Manager {
         } else {
             processBam();  // Reads may be buffered here, or else streamed using the runDrawNoBuffer functions below
             setScaling();
-            if (yScaling == 0) {
-                return;
-            }
+
+//            if (yScaling == 0) {
+//                return;
+//            }
             SkRect clip;
             if (!imageCacheQueue.empty() && collections.size() > 1) {
                 canvasR->drawImage(imageCacheQueue.back().second, 0, 0);
