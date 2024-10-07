@@ -63,40 +63,10 @@ namespace Drawing {
 
         for (auto &cl: collections) {
             cl.skipDrawingCoverage = true;
-            if (cl.region->markerPos != -1) {
-                float rp;
 
-                if (opts.scale_bar) {
-                    rp = gap + fonts.overlayHeight + gap + fonts.overlayHeight + gap + (cl.bamIdx * cl.yPixels);
-                } else {
-                    rp = gap + fonts.overlayHeight + gap + (cl.bamIdx * cl.yPixels);
-                }
-                float xp = fonts.overlayHeight * 0.5;
-                float markerP = (cl.xScaling * (float) (cl.region->markerPos - cl.region->start)) + cl.xOffset;
-                if (markerP > cl.xOffset && markerP < cl.regionPixels - cl.xOffset) {
-                    path.reset();
-                    path.moveTo(markerP, rp);
-                    path.lineTo(markerP - xp, rp);
-                    path.lineTo(markerP, rp + (fonts.overlayHeight));
-                    path.lineTo(markerP + xp, rp);
-                    path.lineTo(markerP, rp);
-                    canvas->drawPath(path, theme.fcMarkers);
-                }
-                float markerP2 = (cl.xScaling * (float) (cl.region->markerPosEnd - cl.region->start)) + cl.xOffset;
-                if (markerP2 > cl.xOffset && markerP2 < (cl.regionPixels + cl.xOffset)) {
-                    path.reset();
-                    path.moveTo(markerP2, rp);
-                    path.lineTo(markerP2 - xp, rp);
-                    path.lineTo(markerP2, rp + (fonts.overlayHeight));
-                    path.lineTo(markerP2 + xp, rp);
-                    path.lineTo(markerP2, rp);
-                    canvas->drawPath(path, theme.fcMarkers);
-                }
-            }
-
-            if (cl.covArr.empty() || cl.readQueue.empty()) {
-                continue;
-            }
+//            if (cl.covArr.empty() || cl.readQueue.empty()) {
+//                continue;
+//            }
             if (cl.bamIdx != last_bamIdx) {
                 yOffsetAll += cl.yPixels;
             }
@@ -298,6 +268,37 @@ namespace Drawing {
                         canvas->drawRect(rect, *paint_ref);
                     }
                     i += 1;
+                }
+            }
+
+            if (cl.region->markerPos != -1) {
+                float rp;
+
+                if (opts.scale_bar) {
+                    rp = gap + fonts.overlayHeight + gap + fonts.overlayHeight + gap + (cl.bamIdx * cl.yPixels);
+                } else {
+                    rp = gap + fonts.overlayHeight + gap + (cl.bamIdx * cl.yPixels);
+                }
+                float xp = fonts.overlayHeight * 0.5;
+                float markerP = (cl.xScaling * (float) (cl.region->markerPos - cl.region->start)) + cl.xOffset;
+                if (markerP > cl.xOffset && markerP < cl.regionPixels - cl.xOffset) {
+                    path.reset();
+                    path.moveTo(markerP, rp);
+                    path.lineTo(markerP - xp, rp);
+                    path.lineTo(markerP, rp + (fonts.overlayHeight));
+                    path.lineTo(markerP + xp, rp);
+                    path.lineTo(markerP, rp);
+                    canvas->drawPath(path, theme.fcMarkers);
+                }
+                float markerP2 = (cl.xScaling * (float) (cl.region->markerPosEnd - cl.region->start)) + cl.xOffset;
+                if (markerP2 > cl.xOffset && markerP2 < (cl.regionPixels + cl.xOffset)) {
+                    path.reset();
+                    path.moveTo(markerP2, rp);
+                    path.lineTo(markerP2 - xp, rp);
+                    path.lineTo(markerP2, rp + (fonts.overlayHeight));
+                    path.lineTo(markerP2 + xp, rp);
+                    path.lineTo(markerP2, rp);
+                    canvas->drawPath(path, theme.fcMarkers);
                 }
             }
 

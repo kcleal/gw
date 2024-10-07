@@ -982,14 +982,18 @@ namespace Manager {
                     printRegionInfo();
 
                 } else if (key == opts.zoom_out) {
-                    int shift = (int)((((float)region.end - (float)region.start) * opts.scroll_speed)) + 10;
-                    int shift_left = (region.start - shift > 0) ? shift : region.start;
-                    if (shift == 0) {
-                        return;
+                    if (ctrlPress) {
+                        region.end += 1;
+                    } else {
+                        int shift = (int)((((float)region.end - (float)region.start) * opts.scroll_speed)) + 10;
+                        int shift_left = (region.start - shift > 0) ? shift : region.start;
+                        if (shift == 0) {
+                            return;
+                        }
+                        region.start = std::max(0, region.start - shift_left);
+                        region.end = std::max(region.start + 1, region.end + shift);
                     }
 
-                    region.start = std::max(0, region.start - shift_left);
-                    region.end = std::max(region.start + 1, region.end + shift);
                     fetchRefSeq(region);
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
@@ -1043,10 +1047,13 @@ namespace Manager {
 
                 } else if (key == opts.zoom_in) {
                     if (region.end - region.start > 50) {
-                        int shift = (int)(((float)region.end - (float)region.start) * opts.scroll_speed);
-
-                        region.start = std::max(0, region.start + shift);
-                        region.end = std::max(region.start + 1, region.end - shift);
+                        if (ctrlPress) {
+                            region.end -= 1;
+                        } else {
+                            int shift = (int)(((float)region.end - (float)region.start) * opts.scroll_speed);
+                            region.start = std::max(0, region.start + shift);
+                            region.end = std::max(region.start + 1, region.end - shift);
+                        }
                         Utils::SortType sort_option = region.getSortOption();
                         fetchRefSeq(region);
                         for (auto &cl : collections) {

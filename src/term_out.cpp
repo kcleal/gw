@@ -818,7 +818,7 @@ namespace Term {
             if (s == nullptr) {
                 return;
             }
-            out << "\n\n" << region->chrom << ":" << region->start << "-" << region->end << "\n";
+            out << "\n\n>" << region->chrom << ":" << region->start << "-" << region->end << "\n";
             while (*s) {
                 switch ((unsigned int)*s) {
                     case 65: out << termcolor::green << "a"; break;
@@ -1045,6 +1045,7 @@ namespace Term {
             return;
         }
 		int target = (int)((float)(rgn->end - rgn->start) * x) + rgn->start;
+        int jitter = (rgn->end - rgn->start) * 0.025;
 		std::filesystem::path p = track.path;
         bool isGFF = (track.kind == HGW::FType::GFF3_NOI || track.kind == HGW::FType::GFF3_IDX || track.kind == HGW::FType::GTF_NOI || track.kind == HGW::FType::GTF_IDX );
         if (trackIdx >= (int)rgn->featuresInView.size()) {
@@ -1052,7 +1053,7 @@ namespace Term {
         }
         bool same_pos, same_name = false;
         for (auto &b : rgn->featuresInView.at(trackIdx)) {
-            if (b.start <= target && b.end >= target && b.level == targetLevel) {
+            if (b.start - jitter <= target && b.end + jitter >= target && b.level == targetLevel) {
                 clearLine(out);
                 if (target_name == b.name) {
                     same_name = true;
