@@ -803,6 +803,7 @@ namespace Manager {
         //fonts.setTypeface(opts.font_str, opts.font_size);
         fonts = Themes::Fonts();
         fonts.setTypeface(opts.font_str, opts.font_size);
+        fonts.setOverlayHeight(monitorScale);
         std::ostream& outerr = (terminalOutput) ? std::cerr : outStr;
 
         if (opts.myIni.get("genomes").has(opts.genome_tag) && reference != opts.myIni["genomes"][opts.genome_tag]) {
@@ -1369,8 +1370,8 @@ namespace Manager {
             for (auto &cl: collections) {
                 float min_x = cl.xOffset;
                 float max_x = cl.xScaling * ((float) (cl.region->end - cl.region->start)) + min_x;
-                float min_y = cl.yOffset;
-                float max_y = min_y + trackY;
+                float min_y = cl.yOffset - covY;
+                float max_y = min_y + trackY + covY;
                 if (x > min_x && x < max_x && y > min_y && y < max_y)
                     return i;
                 i += 1;
@@ -1437,7 +1438,7 @@ namespace Manager {
         }
         // settings button or command box button
         float half_h = (float)fb_height / 2;
-        bool tool_popup = (xW > 0 && xW <= 60 && yW >= half_h - 60 && yW <= half_h + 60) ; // && (std::fabs(xDrag) < 5 || xDrag == DRAG_UNSET) && (std::fabs(yDrag) < 5 || yDrag == DRAG_UNSET));
+        bool tool_popup = (xW > 0 && xW <= 60 && yW >= half_h - 60 && yW <= half_h + 60);
         if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE && tool_popup) {
             xDrag = DRAG_UNSET;
             yDrag = DRAG_UNSET;
@@ -1566,13 +1567,13 @@ namespace Manager {
                     regionSelection = collections[idx].regionIdx;
                 }
             }
-            if (idx < 0) {
-                xDrag = DRAG_UNSET;
-                yDrag = DRAG_UNSET;
-                return;
-            }
+//            if (idx < 0) {
+//                xDrag = DRAG_UNSET;
+//                yDrag = DRAG_UNSET;
+//                return;
+//            }
 
-            if (std::abs(xDrag) < 5 && action == GLFW_RELEASE && !bams.empty()) {
+            if (std::abs(xDrag) < 5 && action == GLFW_RELEASE && !bams.empty() && idx >= 0) {
                 Segs::ReadCollection &cl = collections[idx];
                 int pos = (int) (((xW - (float) cl.xOffset) / cl.xScaling) + (float) cl.region->start);
                 if (ctrlPress) {  // zoom in to mouse position
@@ -1582,7 +1583,6 @@ namespace Manager {
                     region.start = std::max(0, strt);
                     region.end = std::max(region.start + 1, strt + 5000);
                     regionSelection = cl.regionIdx;
-//                    delete region.refSeq;
                     fetchRefSeq(region);
                     processed = false;
                     redraw = true;

@@ -151,7 +151,8 @@ namespace Themes {
         bool editing_underway;
         int canvas_width, canvas_height;
         int indel_length, ylim, split_view_size, threads, pad, link_op, max_coverage, max_tlen, mods_qual_threshold;
-        bool no_show, log2_cov, tlen_yscale, expand_tracks, vcf_as_tracks, bed_as_tracks, sv_arcs, parse_mods, scale_bar;
+        bool no_show, log2_cov, tlen_yscale, expand_tracks, vcf_as_tracks, bed_as_tracks, sv_arcs, parse_mods,
+            scale_bar, alignments;
         float scroll_speed, tab_track_height;
         int scroll_right;
         int scroll_left;
@@ -190,11 +191,13 @@ namespace Themes {
         Fonts();
         ~Fonts() = default;
         int fontTypefaceSize;
-        float fontSize, fontHeight, fontMaxSize, overlayWidth, overlayHeight;
+//        float fontSize, fontHeight, fontMaxSize, overlayWidth, overlayHeight;
+        float overlayWidth, overlayHeight;
         SkRect rect;
         SkPath path;
         sk_sp<SkTypeface> face;
-        SkFont fonty, overlay;
+//        SkFont fonty, overlay;
+        SkFont overlay;
         float textWidths[10];  // text size is scaled between 10 values to try and fill a read
 
         void setTypeface(std::string &fontStr, int size);

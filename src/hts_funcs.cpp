@@ -419,7 +419,9 @@ namespace HGW {
 
             Segs::findYNoSortForward(readQueue, col.levelsStart, col.levelsEnd, col.vScroll);
 
-            Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
+            if (opts.alignments) {
+                Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
+            }
 
             for (int i=0; i < BATCH; ++ i) {
                 Segs::align_clear(&readQueue[i]);
@@ -444,6 +446,7 @@ namespace HGW {
                 }
                 Segs::findYNoSortForward(readQueue, col.levelsStart, col.levelsEnd, col.vScroll);
                 Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
+
                 for (int i=0; i < BATCH; ++ i) {
                     Segs::align_clear(&readQueue[i]);
                 }
@@ -1489,6 +1492,7 @@ namespace HGW {
                 b.vartype = b.parts[2];
                 b.start = std::stoi(b.parts[3]) - 1;
                 b.end = std::stoi(b.parts[4]);
+
                 if (b.parts[6] == "+") {
                     b.strand = 1;
                 } else if (b.parts[6] == "-") {
@@ -1505,11 +1509,12 @@ namespace HGW {
                             if (!b.parent.empty()) {
                                 break;
                             }
-                        }
-                        else if (b.name.empty() && keyval[0] == "ID") {
+                        } else if (b.name.empty() && keyval[0] == "ID") {
                             b.name = keyval[1];
-                        }
-                        else if (keyval[0] == "Parent") {
+                            if (b.parent.empty()) {
+                                b.parent = keyval[1];
+                            }
+                        } else if (keyval[0] == "Parent") {
                             b.parent = keyval[1];
                             b.name = keyval[1];
                         }
@@ -2371,11 +2376,14 @@ namespace HGW {
                 track.s.push_back(g->start);
                 track.e.push_back(g->end);
 
-                if (g->vartype == "CDS") { // g->vartype == "exon" ||
+                if (g->vartype == "CDS") {
                     track.anyToDraw = true;
                     track.drawThickness.push_back(2);  // fat line
+                } else if (g->vartype == "gene") {
+                    track.drawThickness.push_back(3);  // border only
                 } else if (g->vartype == "mRNA" || g->vartype == "gene" || g->vartype == "exon") {
                     track.drawThickness.push_back(0);  // no line
+                    if (!track.anyToDraw) { track.anyToDraw = true; }
                 } else if (g->vartype == "start_codon") {
                     between_codons = !between_codons;
                     track.coding_start = g->start;

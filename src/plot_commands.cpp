@@ -4,7 +4,6 @@
 
 #include <array>
 #include <iomanip>
-#include <iterator>
 #include <cstdlib>
 #include <cstdio>
 #include <string>
@@ -17,10 +16,8 @@
 #include <htslib/bgzf.h>
 #include <htslib/hfile.h>
 #include <htslib/cram.h>
-#include <GLFW/glfw3.h>
 #include <hts_funcs.h>
 #include <filesystem>
-#include <GLFW/glfw3.h>
 #include <iostream>
 
 #if defined(_WIN32)
@@ -50,7 +47,7 @@
  * 2. Add function to run_command_map below
  * 3. Add documentation in term_out.cpp - quick help in menu.cpp text as well as a manual in term_out.cpp
  * 4. Register command in the menu functions if needed:
- *     register with optionFromStr fucntion
+ *     register with optionFromStr function
  *     add to relevant functions
  *         getCommandSwitchValue applyBoolOption, applyKeyboardKeyOption etc
  *     add a tool tip in drawMenu
@@ -308,6 +305,13 @@ namespace Commands {
             p->samMaxY = 60;
         }
         p->opts.tlen_yscale = !p->opts.tlen_yscale;
+        p->processed = false;
+        p->redraw = true;
+        return Err::NONE;
+    }
+
+    Err alignments(Plot* p) {
+        p->opts.alignments = !p->opts.alignments;
         p->processed = false;
         p->redraw = true;
         return Err::NONE;
@@ -1699,6 +1703,7 @@ namespace Commands {
                 {"log2-cov",  PARAMS { return log2_cov(p); }},
                 {"expand-tracks", PARAMS { return expand_tracks(p); }},
                 {"tlen-y",   PARAMS { return tlen_y(p); }},
+                {"alignments",   PARAMS { return alignments(p); }},
 
                 {"sam",      PARAMS { return sam(p, command, parts, out); }},
                 {"h",        PARAMS { return getHelp(p, command, parts, out); }},

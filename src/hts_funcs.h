@@ -95,25 +95,11 @@ namespace HGW {
                                  bool coverage, std::vector<Parse::Parser> &filters, BS::thread_pool &pool,
                                  int parse_mods);
 
-    void iterDrawParallel(Segs::ReadCollection &col,
-                          htsFile *b,
-                          sam_hdr_t *hdr_ptr,
-                          hts_idx_t *index,
-                          int threads,
-                          Utils::Region *region,
-                          bool coverage,
-                          std::vector<Parse::Parser> &filters,
-                          Themes::IniOptions &opts,
-                          SkCanvas *canvas,
-                          float trackY,
-                          float yScaling,
-                          Themes::Fonts &fonts,
-                          float refSpace,
-                          BS::thread_pool &pool,
-                          float pointSlop,
-                          float textDrop,
-                          float pH,
-                          float monitorScale);
+    void iterDrawParallel(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr, hts_idx_t *index, int threads,
+                          Utils::Region *region, bool coverage, std::vector<Parse::Parser> &filters,
+                          Themes::IniOptions &opts, SkCanvas *canvas, float trackY, float yScaling,
+                          Themes::Fonts &fonts, float refSpace, BS::thread_pool &pool,
+                          float pointSlop, float textDrop, float pH, float monitorScale);
 
     void iterDraw(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                   hts_idx_t *index, Utils::Region *region,

@@ -64,9 +64,6 @@ namespace Drawing {
         for (auto &cl: collections) {
             cl.skipDrawingCoverage = true;
 
-//            if (cl.covArr.empty() || cl.readQueue.empty()) {
-//                continue;
-//            }
             if (cl.bamIdx != last_bamIdx) {
                 yOffsetAll += cl.yPixels;
             }
@@ -224,7 +221,7 @@ namespace Drawing {
                     }
                     if (draw_reference_info && any_mm) {
                         mm_h = yOffsetAll + covY - c[i] - cum_h;
-                        if (mm_h < 0.001 || (cum_h / (covY - c[i]) < 0.2)) {
+                        if (mm_h < 0.001 || (cum_h / (yOffsetAll + covY - c[i]) < 0.2)) {
                             i += 1;
                             continue;
                         }
@@ -317,10 +314,11 @@ namespace Drawing {
             ap += std::sprintf(indelChars, "%s", "avg. ");
             std::sprintf(ap, "%.1f", mean);
 
-            if (((covY * 0.5) + yOffsetAll + 10 - fonts.overlayHeight) - (covY_f + yOffsetAll + 10) >
-                0) { // dont overlap text
+            if (covY > fonts.overlayHeight * 3)  { // dont overlap text
+//            if (((covY * 0.5) + yOffsetAll + 10 - fonts.overlayHeight) - (covY_f + yOffsetAll + 10) > 0) { // dont overlap text
                 blob = SkTextBlob::MakeFromString(indelChars, fonts.overlay);
-                canvas->drawTextBlob(blob, xOffset + 25, (covY * 0.5) + yOffsetAll + 10, theme.tcDel);
+                canvas->drawTextBlob(blob, xOffset + 25, covY_f + yOffsetAll + (fonts.overlayHeight * 2), theme.tcDel);
+//                canvas->drawTextBlob(blob, xOffset + 25, (covY * 0.5) + yOffsetAll + 10, theme.tcDel);
             }
             last_bamIdx = cl.bamIdx;
         }
@@ -1323,7 +1321,7 @@ namespace Drawing {
             }
             double i = regionW * index;
             i += gap;
-            if (textW > 0 && (float) size < minLetterSize && fonts.fontSize <= h * 1.35) {
+            if (textW > 0 && (float) size < minLetterSize && fonts.overlayHeight <= h * 1.35) {
                 double v = (xScaling - textW) * 0.5;
 
                 while (*ref) {
@@ -1635,21 +1633,11 @@ namespace Drawing {
             }
         } else {
             addArc = false;
-//            if (isRoi) {
-//            faceColour = opts.theme.fcRoi;
-//            } else {
-//                if (shaded) {
-//                    faceColour2 = //&opts.theme.fcCoverage;
-//                } else {
-//                    faceColour2 = &faceColour;
-//                faceColour = opts.theme.fcTrack;
-//                }
-//            }
         }
 
         x = (float) (start - rgn.start) * xScaling;
         w = std::fmax(monitorScale, (float) (stop - start) * xScaling);
-        rect.setXYWH(x + padX, y + padY, w, h);
+        rect.setXYWH(x + padX, (int)y + padY, w, h);
 
         if (addArc) {
             arcColour.setStyle(SkPaint::kStroke_Style);
@@ -1690,25 +1678,23 @@ namespace Drawing {
             arc.lineTo(virtual_right, y + h + padY);
             canvas->drawPath(arc, arcColour);
 
-        }
-        else if (add_rect) {
+        } else if (add_rect) {
             if (!shaded) {
                 if (strand == 1) {  // +
-                    drawRightPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, opts.theme.bgPaint, path, pointSlop);
-                    drawRightPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, opts.theme.lcJoins, path, pointSlop);
+                    drawRightPointedRectangleNoEdge(canvas, h, (int)(y + padY) + 1, x + padX, w, 0, opts.theme.lcJoins, path, pointSlop);
                 } else if (strand == 2) {  // -
-                    drawLeftPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, opts.theme.bgPaint, path, pointSlop);
-                    drawLeftPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, opts.theme.lcJoins, path, pointSlop);
+                    drawLeftPointedRectangleNoEdge(canvas, h, (int)(y + padY), x + padX, w, 0, opts.theme.lcJoins, path, pointSlop);
                 }
-                canvas->drawRect(rect, *faceColour2);
+                if (faceColour2->getStyle() != SkPaint::kStroke_Style) {
+                    canvas->drawRect(rect, *faceColour2);
+                }
             } else {
                 if (strand == 1) {  // +
-                    drawRightPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, *faceColour2, path, pointSlop);
+                    drawRightPointedRectangleNoEdge(canvas, h, (int)(y + padY), x + padX, w, 0, *faceColour2, path, pointSlop);
                 } else if (strand == 2) {  // -
-                    drawLeftPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, *faceColour2, path, pointSlop);
+                    drawLeftPointedRectangleNoEdge(canvas, h, (int)(y + padY), x + padX, w, 0, *faceColour2, path, pointSlop);
                 }
             }
-
         }
 
         if (!add_text) {
@@ -1836,6 +1822,10 @@ namespace Drawing {
                     drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2, xScaling,
                                    opts, canvas, fonts, false, true, false, labelsEnd, empty_str, 0, text, false, false, faceColour, pointSlop, strand);
                 }
+                else if (thickness == 3) {
+                    drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY, gap, gap2, xScaling,
+                                   opts, canvas, fonts, false, true, false, labelsEnd, empty_str, 0, text, false, false, opts.theme.ecSplit, pointSlop, strand);
+                }
             }
 
         }
@@ -1844,6 +1834,7 @@ namespace Drawing {
     void drawTracks(Themes::IniOptions &opts, float fb_width, float fb_height,
                     SkCanvas *canvas, float totalTabixY, float tabixY, std::vector<HGW::GwTrack> &tracks,
                     std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, float gap, float monitorScale, float sliderSpace) {
+
         // All tracks are converted to TrackBlocks and then drawn
         if (tracks.empty() || regions.empty() || tabixY <= 0) {
             return;

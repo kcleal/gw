@@ -745,7 +745,7 @@ namespace Manager {
 #if !defined(__EMSCRIPTEN__)
         Term::startVersionCheck();
 #endif
-
+        fonts.setOverlayHeight(monitorScale);
         vCursor = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
 	    normalCursor = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
 
@@ -984,45 +984,51 @@ namespace Manager {
             monitorScale = 1;
             glfwGetFramebufferSize(backWindow, &fb_width, &fb_height);
         }
-        gap = std::fmin(std::fmax(5, fb_height * 0.01 * monitorScale), monitorScale * 10);
-
+//        gap = std::fmin(std::fmax(5, fb_height * 0.01 * monitorScale), monitorScale * 10);
+        gap = monitorScale * 10;
+        fonts.setOverlayHeight(monitorScale);
     }
 
     void GwPlot::setImageSize(int width, int height) {
 //        monitorScale = 1;
         fb_width = width;
         fb_height = height;
-        gap = std::fmin(std::fmax(5, fb_height * 0.01 * monitorScale), monitorScale * 10);
+//        gap = std::fmin(std::fmax(5, fb_height * 0.01 * monitorScale), monitorScale * 10);
+        gap = monitorScale * 10;
+        fonts.setOverlayHeight(monitorScale);
     }
 
     // sets scaling of y-position for various elements
     void GwPlot::setScaling() {  // todo only call this function when needed - fb size change, or when plot items are added or removed
-        fonts.setOverlayHeight(monitorScale);
+//        fonts.setOverlayHeight(monitorScale);
 
-        refSpace =  fonts.overlayHeight + gap;
+        refSpace = fonts.overlayHeight * 2;
         if (opts.scale_bar) {
-            refSpace += fonts.overlayHeight + gap;
+            refSpace += fonts.overlayHeight * 2;
         }
         sliderSpace = std::fmax((float)(fb_height * 0.0175), 10*monitorScale) + (gap * 0.5);
         auto fbh = (float) fb_height;
         auto fbw = (float) fb_width;
-        if (bams.empty()) {
-            covY = 0; totalCovY = 0; totalTabixY = 0; tabixY = 0;
-        }
         auto nbams = (float)bams.size();
-        if (opts.max_coverage && nbams > 0) {
-            totalCovY = fbh * (float)0.1;
-            covY = totalCovY / nbams;
-        } else {
-            totalCovY = 0; covY = 0;
-        }
         if (tracks.empty()) {
             totalTabixY = 0; tabixY = 0;
         } else {
             totalTabixY = (fbh - refSpace - sliderSpace) * (float)opts.tab_track_height;
             tabixY = totalTabixY / (float)tracks.size();
         }
-        if (nbams > 0 && samMaxY > 0) {
+
+        if (nbams == 0 || opts.max_coverage == 0) {
+            covY = 0; totalCovY = 0; trackY = 0;
+        } else {
+            totalCovY = (fbh - refSpace - sliderSpace - totalTabixY - gap) * ((opts.alignments) ? (float)0.15 : 1);
+            covY = totalCovY / nbams;
+        }
+
+        if (!opts.alignments) {
+            yScaling = 0;
+            trackY = 0;
+            pH = 0;
+        } else if (nbams > 0 && samMaxY > 0) {
             trackY = (fbh - totalCovY - totalTabixY - refSpace - sliderSpace - gap) / nbams;
             yScaling = (trackY - gap) / (double)samMaxY;
 
@@ -1030,32 +1036,29 @@ namespace Manager {
             if (yScaling > 1) {
                 yScaling = std::ceil(yScaling);
             }
-        }
-//        else {
-//            trackY = 0;
-//            yScaling = 0;
-//        }
 
-        if (opts.tlen_yscale) {
-            pH = trackY / (float) opts.ylim;
-            yScaling *= 0.95;
-        } else {
-            if (yScaling > 3*monitorScale) {
-                pH = yScaling - monitorScale;
+            if (opts.tlen_yscale) {
+                pH = trackY / (float) opts.ylim;
+                yScaling *= 0.95;
             } else {
-                pH = yScaling;
+                if (yScaling > 3*monitorScale) {
+                    pH = yScaling - monitorScale;
+                } else {
+                    pH = yScaling;
+                }
+            }
+
+            if (pH > 8) {  // scale to pixel boundary
+                pH = (float)(int)pH;
+            } else if (opts.tlen_yscale) {
+                pH = std::fmax(pH, 8);
             }
         }
 
-        if (pH > 8) {  // scale to pixel boundary
-            pH = (float)(int)pH;
-        } else if (opts.tlen_yscale) {
-            pH = std::fmax(pH, 8);
-        }
-
-        fonts.setFontSize(yScaling, monitorScale);
+//        fonts.setFontSize(yScaling, monitorScale);
         regionWidth = fbw / (float)regions.size();
         bamHeight = covY + trackY;
+
         for (auto &cl: collections) {
             cl.xScaling = (float)((regionWidth - gap - gap) / ((double)(cl.region->end - cl.region->start)));
             cl.xOffset = (regionWidth * (float)cl.regionIdx) + gap;
@@ -1072,7 +1075,7 @@ namespace Manager {
         }
 
         pointSlop = (tan(0.45) * (yScaling * 0.5));  // radians
-        textDrop = std::fmax(0, (yScaling - fonts.fontHeight) * 0.5);
+        textDrop = std::fmax(0, (yScaling - fonts.overlayHeight) * 0.5);
 
         minGapSize = (uint32_t)(fb_width * 0.005);
         if (opts.parse_mods) {
@@ -1256,7 +1259,7 @@ namespace Manager {
             drawCursorPosOnRefSlider(canvas);
         }
 
-        // draw menu
+        // draw main settings menu
         if (mode == Show::SETTINGS) {
             if (!imageCacheQueue.empty()) {
                 while (imageCacheQueue.front().first != frameId) {
@@ -1348,9 +1351,9 @@ namespace Manager {
             }
         }
 
-        // command box
+        // command popup box
         if (captureText && !opts.editing_underway) {
-            fonts.setFontSize(yScaling, monitorScale);
+//            fonts.setFontSize(yScaling, monitorScale);
             SkRect rect{};
             float height_f = fonts.overlayHeight * 2;
             float x = 25 * monitorScale;
@@ -1420,7 +1423,6 @@ namespace Manager {
                     canvas->drawRoundRect(rect, 10, 10, bg);
                 }
 
-
                 for (const auto &cmd : Menu::commandToolTip) {
                     std::string cmd_s = cmd;
                     if (!inputText.empty() && !Utils::startsWith(cmd_s, inputText)) {
@@ -1446,9 +1448,9 @@ namespace Manager {
                         canvas->drawPath(path, tip_paint);
                     }
                     yy -= fonts.overlayHeight + padT;
-                    if (yy < covY) {
-                        break;
-                    }
+//                    if (yy < covY) {
+//                        break;
+//                    }
                 }
             }
         }
@@ -1500,7 +1502,7 @@ namespace Manager {
         }
 
         bool current_view_is_images = (!variantTracks.empty() && variantTracks[variantFileSelection].type == HGW::TrackType::IMAGES);
-        if (bams.empty() && !current_view_is_images && mode != SETTINGS) {
+        if (bams.empty() && !current_view_is_images && mode != SETTINGS && frameId < 10) {
             float trackBoundary = fb_height - totalTabixY - refSpace;
             std::string dd_msg = "Drag-and-drop bam or cram files here";
             float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
@@ -1513,7 +1515,7 @@ namespace Manager {
             if (trackBoundary > (float)fb_height / 2) {
                 canvas->drawTextBlob(blob.get(), txt_start, (float)fb_height / 2, tcMenu);
             }
-        } else if (regions.empty() && !current_view_is_images && mode != SETTINGS) {
+        } else if (regions.empty() && !current_view_is_images && mode != SETTINGS && frameId < 10) {
             std::string dd_msg = "Open the command box ('/' key) and enter a chromosome name or location e.g. 'chr1'";
             float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
             float txt_start = ((float)fb_width / 2) - (msg_width / 2);

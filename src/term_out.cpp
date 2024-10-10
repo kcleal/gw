@@ -35,6 +35,7 @@ namespace Term {
         out << termcolor::underline << "\nCommand          Modifier        Description                                            \n" << termcolor::reset;
         out << termcolor::green << "[locus]                          " << termcolor::reset << "e.g. 'chr1' or 'chr1:1-20000'\n";
         out << termcolor::green << "add              region(s)       " << termcolor::reset << "Add one or more regions e.g. 'add chr1:1-20000'\n";
+        out << termcolor::green << "alignments                       " << termcolor::reset << "Turn display alignments on or off\n";
         out << termcolor::green << "colour           name + ARGB     " << termcolor::reset << "Set a colour for a plot component\n";
         out << termcolor::green << "count            expression?     " << termcolor::reset << "Count reads. See filter for example expressions'\n";
         out << termcolor::green << "cov              value?          " << termcolor::reset << "Change max coverage value. Use 'cov' to toggle coverage\n";
@@ -99,6 +100,8 @@ namespace Term {
             out << "    Navigate to a genomic locus.\n        You can use chromosome names or chromosome coordinates.\n    Examples:\n        'chr1:1-20000', 'chr1', 'chr1:10000'\n\n";
         } else if (s == "add") {
             out << "    Add a genomic locus.\n        This will add a new locus to the right-hand-side of your view.\n    Examples:\n        'add chr1:1-20000', 'add chr2'\n\n";
+        } else if (s == "alignments") {
+            out << "    Toggle alignments.\n        Alignments will be shown or hidden.\n\n";
         } else if (s == "colour" || s == "color") {
             out << "    Set the (alpha, red, green, blue) colour for one of the plot elements.\n"
                    "        Elements are selected by name (see below) and values are in the range [0, 255].\n"

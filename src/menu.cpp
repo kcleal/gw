@@ -897,6 +897,8 @@ namespace Menu {
             return (int)(opts.max_coverage > 0);
         } else if (cmd_s == "mods") {
             return (int)(opts.parse_mods);
+        } else if (cmd_s == "alignments") {
+            return (int) (opts.alignments);
         }
         return -1;
     }

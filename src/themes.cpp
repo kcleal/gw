@@ -433,6 +433,7 @@ namespace Themes {
         sv_arcs = true;
         parse_mods = false;
         scale_bar = true;
+        alignments = true;
 
         scroll_speed = 0.15;
         tab_track_height = 0.25;
@@ -1012,8 +1013,8 @@ namespace Themes {
     EXPORT Fonts::Fonts() {
         rect = SkRect::MakeEmpty();
         path = SkPath();
-        fontMaxSize = 35; // in pixels
-        fontHeight = 0;
+//        fontMaxSize = 35; // in pixels
+//        fontHeight = 0;
     }
 
     void Fonts::setTypeface(std::string &fontStr, int size) {
@@ -1049,8 +1050,8 @@ namespace Themes {
         }
 
         SkScalar ts = size;
-        fonty.setSize(ts);
-        fonty.setTypeface(face);
+//        fonty.setSize(ts);
+//        fonty.setTypeface(face);
         overlay.setSize(ts);
         overlay.setTypeface(face);
         fontTypefaceSize = size;
@@ -1064,43 +1065,54 @@ namespace Themes {
         overlay.getBounds(glyphs, 1, bounds, pnt);
         overlayHeight = bounds[0].height();
         overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
+        SkScalar w = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
+        for (int i = 0; i < 10; ++i) {
+            textWidths[i] = (float)w * (i + 1);
+        }
     }
 
-    void Fonts::setFontSize(float maxHeight, float yScale) {
-        SkRect bounds[1];
-        SkPaint paint1;
-        const SkPaint* pnt = &paint1;
-        SkScalar height;
-        int font_size = fontTypefaceSize * yScale;
-        fonty.setSize(font_size * yScale);
-        fonty.getBounds(glyphs, 1, bounds, pnt);
-        fontMaxSize = bounds[0].height();
-        bool was_set = false;
-        while (font_size > 8 * yScale) {
-            fonty.setSize(font_size);
-            fonty.getBounds(glyphs, 1, bounds, pnt);
-            height = bounds[0].height();
-            if (height < maxHeight*1.9) {
-                was_set = true;
-                break;
-            }
-            --font_size;
-        }
-        if (!was_set) {
-            fontSize = fontTypefaceSize * yScale;
-            fontHeight = fontMaxSize;
-            for (auto &i : textWidths) {
-                i = 0;
-            }
-        } else {
-            fontSize = (float)font_size;
-            fontHeight = height;
-            SkScalar w = fonty.measureText("9", 1, SkTextEncoding::kUTF8);
-            for (int i = 0; i < 10; ++i) {
-                textWidths[i] = (float)w * (i + 1);
-            }
-        }
-    }
+//    void Fonts::setFontSize(float maxHeight, float yScale) {
+//        SkRect bounds[1];
+//        SkPaint paint1;
+//        const SkPaint* pnt = &paint1;
+//        SkScalar height;
+//        int font_size = fontTypefaceSize * yScale;
+//        fonty.setSize(font_size * yScale);
+//        fonty.getBounds(glyphs, 1, bounds, pnt);
+//        fontMaxSize = bounds[0].height();
+//        fontSize = (float)font_size;
+//        fontHeight = bounds[0].height();
+//        SkScalar w = fonty.measureText("9", 1, SkTextEncoding::kUTF8);
+//        for (int i = 0; i < 10; ++i) {
+//            textWidths[i] = (float)w * (i + 1);
+//        }
+
+//        bool was_set = false;
+//        while (font_size > 8 * yScale) {
+//            fonty.setSize(font_size);
+//            fonty.getBounds(glyphs, 1, bounds, pnt);
+//            height = bounds[0].height();
+//            if (height < maxHeight*1.9) {
+//                was_set = true;
+//                break;
+//            }
+//            --font_size;
+//        }
+//        if (!was_set) {
+//            fontSize = fontTypefaceSize * yScale;
+//            fontHeight = fontMaxSize;
+//            for (auto &i : textWidths) {
+//                i = 0;
+//            }
+//        } else {
+//            fontSize = (float)font_size;
+//            fontHeight = height;
+//            SkScalar w = fonty.measureText("9", 1, SkTextEncoding::kUTF8);
+//            for (int i = 0; i < 10; ++i) {
+//                textWidths[i] = (float)w * (i + 1);
+//            }
+//        }
+//    }
 
     #define next_t std::getline(iss, token, '\t')
 
