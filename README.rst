@@ -25,6 +25,8 @@ allows you to view and annotate variants from vcf/bcf files.
 
 Check out the `documentation here. <https://kcleal.github.io/gw/>`_
 
+Check out the `pre-print here. <https://www.biorxiv.org/content/10.1101/2024.07.26.605272v5>`_
+
 
 ⚙️ Install
 ----------
