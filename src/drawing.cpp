@@ -46,7 +46,8 @@ namespace Drawing {
     };
 
     void drawCoverage(const Themes::IniOptions &opts, std::vector<Segs::ReadCollection> &collections,
-                      SkCanvas *canvas, const Themes::Fonts &fonts, const float covYh, const float refSpace, const float gap) {
+                      SkCanvas *canvas, const Themes::Fonts &fonts, const float covYh, const float refSpace,
+                      const float gap, float monitorScale, std::vector<std::string> &bam_paths) {
 
         const Themes::BaseTheme &theme = opts.theme;
         SkPaint paint = theme.fcCoverage;
@@ -77,17 +78,17 @@ namespace Drawing {
                 Segs::findMismatches(opts, cl);
             }
 
-            double tot, mean, n;
+//            double tot, mean, n;
             const std::vector<int> &covArr_r = cl.covArr;
             std::vector<float> c;
             c.resize(cl.covArr.size());
             c[0] = (float) cl.covArr[0];
             int cMaxi = (c[0] > 10) ? (int) c[0] : 10;
-            tot = (float) c[0];
-            n = 0;
-            if (tot > 0) {
-                n += 1;
-            }
+//            tot = (float) c[0];
+//            n = 0;
+//            if (tot > 0) {
+//                n += 1;
+//            }
             float cMax;
             bool processThis = draw_mismatch_info && !cl.collection_processed;
             for (size_t i = 1; i < c.size(); ++i) { // cum sum
@@ -96,8 +97,8 @@ namespace Drawing {
                     cMaxi = (int) c[i];
                 }
                 if (c[i] > 0) {
-                    tot += c[i];
-                    n += 1;
+//                    tot += c[i];
+//                    n += 1;
                     // normalise mismatched bases to nearest whole percentage (avoids extra memory allocation)
                     if (processThis) {  //
                         if (mmVector[i].A || mmVector[i].T || mmVector[i].C || mmVector[i].G) {
@@ -115,12 +116,12 @@ namespace Drawing {
             }
             cl.collection_processed = true;
             cl.maxCoverage = cMaxi;
-            if (n > 0) {
-                mean = tot / n;
-                mean = ((float) ((int) (mean * 10))) / 10;
-            } else {
-                mean = 0;
-            }
+//            if (n > 0) {
+//                mean = tot / n;
+//                mean = ((float) ((int) (mean * 10))) / 10;
+//            } else {
+//                mean = 0;
+//            }
 
             if (opts.log2_cov) {
                 for (size_t i = 0; i < c.size(); ++i) {
@@ -302,25 +303,46 @@ namespace Drawing {
             std::sprintf(indelChars, "%d", cMaxi);
 
             sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(indelChars, fonts.overlay);
-            canvas->drawTextBlob(blob, xOffset + 25, covY_f + yOffsetAll + 10, theme.tcDel);
+            canvas->drawTextBlob(blob, xOffset + 8 * monitorScale, covY_f + yOffsetAll + fonts.overlayHeight, theme.tcDel);
             path.reset();
             path.moveTo(xOffset, covY_f + yOffsetAll);
-            path.lineTo(xOffset + 20, covY_f + yOffsetAll);
+            path.lineTo(xOffset + 6 * monitorScale, covY_f + yOffsetAll);
             path.moveTo(xOffset, covY + yOffsetAll);
-            path.lineTo(xOffset + 20, covY + yOffsetAll);
+            path.lineTo(xOffset + 6 * monitorScale, covY + yOffsetAll);
             canvas->drawPath(path, theme.lcJoins);
 
             char *ap = indelChars;
             ap += std::sprintf(indelChars, "%s", "avg. ");
             std::sprintf(ap, "%.1f", mean);
 
-            if (covY > fonts.overlayHeight * 3)  { // dont overlap text
-//            if (((covY * 0.5) + yOffsetAll + 10 - fonts.overlayHeight) - (covY_f + yOffsetAll + 10) > 0) { // dont overlap text
-                blob = SkTextBlob::MakeFromString(indelChars, fonts.overlay);
-                canvas->drawTextBlob(blob, xOffset + 25, covY_f + yOffsetAll + (fonts.overlayHeight * 2), theme.tcDel);
-//                canvas->drawTextBlob(blob, xOffset + 25, (covY * 0.5) + yOffsetAll + 10, theme.tcDel);
-            }
+//            if (covY > fonts.overlayHeight * 3)  { // dont overlap text
+//                blob = SkTextBlob::MakeFromString(indelChars, fonts.overlay);
+//                canvas->drawTextBlob(blob, xOffset + 8 * monitorScale, covY_f + yOffsetAll + (fonts.overlayHeight * 2), theme.tcDel);
+//            }
             last_bamIdx = cl.bamIdx;
+
+            // Draw data labels when alignments are not shown
+            if (opts.data_labels && !opts.alignments && cl.regionIdx == 0) {
+                if (cl.name.empty()) {
+                    std::filesystem::path fsp(bam_paths[cl.bamIdx]);
+#if defined(_WIN32) || defined(_WIN64)
+                    const wchar_t* pc = fsp.filename().c_str();
+                    std::wstring ws(pc);
+                    std::string p(ws.begin(), ws.end());
+                    cl.name = p;
+#else
+                    cl.name = fsp.filename();
+#endif
+                }
+                if (!cl.name.empty()) {
+                    const char * name_s = cl.name.c_str();
+                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(name_s, fonts.overlay);
+                    float text_width = fonts.overlay.measureText(name_s, cl.name.size(), SkTextEncoding::kUTF8);
+                    rect.setXYWH(cl.xOffset - 20, cl.yOffset - fonts.overlayHeight * 3, text_width + 20 + 8 * monitorScale + 8 * monitorScale, fonts.overlayHeight * 2);
+                    canvas->drawRect(rect, theme.bgPaint);
+                    canvas->drawTextBlob(blob, cl.xOffset + 8 * monitorScale, cl.yOffset - fonts.overlayHeight * 1.6, theme.tcDel);
+                }
+            }
         }
     }
 
@@ -935,7 +957,8 @@ namespace Drawing {
 
     void drawCollection(const Themes::IniOptions &opts, Segs::ReadCollection &cl,
                   SkCanvas *canvas, float trackY, float yScaling, const Themes::Fonts &fonts, int linkOp,
-                  float refSpace, float pointSlop, float textDrop, float pH, float monitorScale) {
+                  float refSpace, float pointSlop, float textDrop, float pH, float monitorScale,
+                  std::vector<std::string> &bam_paths) {
 
         SkPaint faceColor;
         SkPaint edgeColor;
@@ -1275,6 +1298,29 @@ namespace Drawing {
                         }
                     }
                 }
+            }
+        }
+
+        // Draw data labels
+        if (opts.data_labels && cl.regionIdx == 0) {
+            if (cl.name.empty()) {
+                std::filesystem::path fsp(bam_paths[cl.bamIdx]);
+#if defined(_WIN32) || defined(_WIN64)
+                const wchar_t* pc = fsp.filename().c_str();
+                std::wstring ws(pc);
+                std::string p(ws.begin(), ws.end());
+                cl.name = p;
+#else
+                cl.name = fsp.filename();
+#endif
+            }
+            if (!cl.name.empty()) {
+                const char * name_s = cl.name.c_str();
+                sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(name_s, fonts.overlay);
+                float text_width = fonts.overlay.measureText(name_s, cl.name.size(), SkTextEncoding::kUTF8);
+                rect.setXYWH(cl.xOffset - 20, cl.yOffset, text_width + 20 + 8 * monitorScale + 8 * monitorScale, fonts.overlayHeight * 2);
+                canvas->drawRect(rect, theme.bgPaint);
+                canvas->drawTextBlob(blob, cl.xOffset + 8 * monitorScale, cl.yOffset + fonts.overlayHeight * 1.3, theme.tcDel);
             }
         }
     }

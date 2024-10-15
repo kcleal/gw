@@ -258,6 +258,10 @@ namespace Manager {
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (major_v == -1) ? 4 : major_v);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (minor_v == -1) ? 1 : major_v);
 #endif
+        if (debug) {
+            std::cerr << "Creating window with size " << width << "x" << height << std::endl;
+        }
+
         window = glfwCreateWindow(width, height, "GW", NULL, NULL);
 
         if (!window) {
@@ -707,8 +711,8 @@ namespace Manager {
             Utils::Dims pos = Utils::parseDimensions(opts.seshIni["general"]["window_position"]);
             glfwSetWindowPos(window, pos.x, pos.y);
         }
-        glfwSetWindowSize(window, opts.dimensions.x, opts.dimensions.y);
-        windowResize(opts.dimensions.x, opts.dimensions.y);
+//        glfwSetWindowSize(window, opts.dimensions.x, opts.dimensions.y);
+//        windowResize(opts.dimensions.x, opts.dimensions.y);
         redraw = true;
     }
 
@@ -725,6 +729,9 @@ namespace Manager {
         }
         int xpos, ypos;
         glfwGetWindowPos(window, &xpos, &ypos);
+//        int windX = fb_width / monitorScale;
+//        int windY = fb_height / monitorScale;
+
         int windX, windY;
         glfwGetWindowSize(window, &windX, &windY);
         opts.saveCurrentSession(reference, ideogram_path, bam_paths, track_paths, regions, variant_paths_info,
@@ -732,6 +739,7 @@ namespace Manager {
     }
 
     int GwPlot::startUI(GrDirectContext *sContext, SkSurface *sSurface, int delay, std::vector<std::string> &extra_commands) {
+
         if (!opts.session_file.empty() && reference.empty()) {
             std::cout << "Loading session: " << opts.session_file << std::endl;
             loadSession();
@@ -789,7 +797,6 @@ namespace Manager {
 
             if (resizeTriggered && std::chrono::duration_cast<std::chrono::milliseconds>(
                     std::chrono::high_resolution_clock::now() - resizeTimer) > 100ms) {
-
                 redraw = true;
                 processed = false;
                 wasResized = true;
@@ -932,13 +939,14 @@ namespace Manager {
                     }
                     if (opts.max_coverage) {
                         collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
-                        if (opts.snp_threshold > reg->end - reg->start) {
-                            collections[idx].mmVector.resize(reg->end - reg->start + 1);
-                            Segs::Mismatches empty_mm = {0, 0, 0, 0};
-                            std::fill(collections[idx].mmVector.begin(), collections[idx].mmVector.end(), empty_mm);
-                        } else if (!collections[idx].mmVector.empty()) {
-                            collections[idx].mmVector.clear();
-                        }
+
+                    }
+                    if (opts.snp_threshold > reg->end - reg->start) {
+                        collections[idx].mmVector.resize(reg->end - reg->start + 1);
+                        Segs::Mismatches empty_mm = {0, 0, 0, 0};
+                        std::fill(collections[idx].mmVector.begin(), collections[idx].mmVector.end(), empty_mm);
+                    } else if (!collections[idx].mmVector.empty()) {
+                        collections[idx].mmVector.clear();
                     }
 
                     if (reg->end - reg->start < opts.low_memory || opts.link_op != 0) {
@@ -1000,7 +1008,6 @@ namespace Manager {
 
     // sets scaling of y-position for various elements
     void GwPlot::setScaling() {  // todo only call this function when needed - fb size change, or when plot items are added or removed
-//        fonts.setOverlayHeight(monitorScale);
 
         refSpace = fonts.overlayHeight * 2;
         if (opts.scale_bar) {
@@ -1055,7 +1062,6 @@ namespace Manager {
             }
         }
 
-//        fonts.setFontSize(yScaling, monitorScale);
         regionWidth = fbw / (float)regions.size();
         bamHeight = covY + trackY;
 
@@ -1116,9 +1122,6 @@ namespace Manager {
             processBam();  // Reads may be buffered here, or else streamed using the runDrawNoBuffer functions below
             setScaling();
 
-//            if (yScaling == 0) {
-//                return;
-//            }
             SkRect clip;
             if (!imageCacheQueue.empty() && collections.size() > 1) {
                 canvasR->drawImage(imageCacheQueue.back().second, 0, 0);
@@ -1156,16 +1159,16 @@ namespace Manager {
                             HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                           &regions[cl.regionIdx], (bool) opts.max_coverage,
                                           filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pointSlop,
-                                          textDrop, pH, monitorScale);
+                                          textDrop, pH, monitorScale, bam_paths);
                         } else {
                             HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                                   opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
                                                   filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pool,
-                                                  pointSlop, textDrop, pH, monitorScale);
+                                                  pointSlop, textDrop, pH, monitorScale, bam_paths);
                         }
                     } else {
                         Drawing::drawCollection(opts, cl, canvasR, trackY, yScaling, fonts, opts.link_op, refSpace,
-                                                pointSlop, textDrop, pH, monitorScale);
+                                                pointSlop, textDrop, pH, monitorScale, bam_paths);
                     }
                 }
                 canvasR->restore();
@@ -1173,7 +1176,7 @@ namespace Manager {
         }
 
         if (opts.max_coverage) {
-            Drawing::drawCoverage(opts, collections, canvasR, fonts, covY, refSpace, gap);
+            Drawing::drawCoverage(opts, collections, canvasR, fonts, covY, refSpace, gap, monitorScale, bam_paths);
         }
         Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, fonts.overlayHeight, (float)regions.size(), gap, monitorScale, opts.scale_bar);
         Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY);
@@ -1382,7 +1385,7 @@ namespace Manager {
             }
             float to_cursor_width = fonts.overlay.measureText(inputText2.substr(0, charIndex2).c_str(), charIndex2, SkTextEncoding::kUTF8);
             rect.setXYWH(0, yy, fb_width, fb_height);
-            canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, bg);
+            canvas->drawRect(rect, bg);
 
             // Cursor and text
             SkPath path;
@@ -1704,23 +1707,23 @@ namespace Manager {
                         HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                       &regions[cl.regionIdx], (bool) opts.max_coverage,
                                       filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop,
-                                      textDrop, pH, monitorScale);
+                                      textDrop, pH, monitorScale, bam_paths);
                     } else {
                         HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                               opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
                                               filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool,
-                                              pointSlop, textDrop, pH, monitorScale);
+                                              pointSlop, textDrop, pH, monitorScale, bam_paths);
                     }
                 } else {
                     Drawing::drawCollection(opts, cl, canvas, trackY, yScaling, fonts, opts.link_op, refSpace,
-                                            pointSlop, textDrop, pH, monitorScale);
+                                            pointSlop, textDrop, pH, monitorScale, bam_paths);
                 }
             }
             canvas->restore();
         }
 
         if (opts.max_coverage) {
-            Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace, gap);
+            Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace, gap, monitorScale, bam_paths);
         }
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, fonts.overlayHeight, (float)regions.size(), gap, monitorScale, opts.scale_bar);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY);
@@ -1758,13 +1761,13 @@ namespace Manager {
                 col.region = reg;
                 if (opts.max_coverage) {
                     col.covArr.resize(reg->end - reg->start + 1, 0);
-                    if (opts.snp_threshold > reg->end - reg->start) {
-                        col.mmVector.resize(reg->end - reg->start + 1);
-                        Segs::Mismatches empty_mm = {0, 0, 0, 0};
-                        std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
-                    } else if (!col.mmVector.empty()) {
-                        col.mmVector.clear();
-                    }
+                }
+                if (opts.snp_threshold > reg->end - reg->start) {
+                    col.mmVector.resize(reg->end - reg->start + 1);
+                    Segs::Mismatches empty_mm = {0, 0, 0, 0};
+                    std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
+                } else if (!col.mmVector.empty()) {
+                    col.mmVector.clear();
                 }
                 idx += 1;
             }
@@ -1804,24 +1807,22 @@ namespace Manager {
 
             if (!cl.skipDrawingReads) {
                 if (opts.threads == 1) {
-//                    std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
                     HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                   &regions[cl.regionIdx], (bool) opts.max_coverage,
                                   filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop,
-                                  textDrop, pH, monitorScale);
-//                    std::cerr << " time runDrawNoBufferOnCanvas " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
+                                  textDrop, pH, monitorScale, bam_paths);
                 } else {
                     HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                           opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
                                           filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool,
-                                          pointSlop, textDrop, pH, monitorScale);
+                                          pointSlop, textDrop, pH, monitorScale, bam_paths);
                 }
             }
             canvas->restore();
         }
 
         if (opts.max_coverage) {
-            Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace, gap);
+            Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace, gap, monitorScale, bam_paths);
         }
 
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, fonts.overlayHeight, (float)regions.size(), gap, monitorScale, opts.scale_bar);

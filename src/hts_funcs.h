@@ -99,13 +99,15 @@ namespace HGW {
                           Utils::Region *region, bool coverage, std::vector<Parse::Parser> &filters,
                           Themes::IniOptions &opts, SkCanvas *canvas, float trackY, float yScaling,
                           Themes::Fonts &fonts, float refSpace, BS::thread_pool &pool,
-                          float pointSlop, float textDrop, float pH, float monitorScale);
+                          float pointSlop, float textDrop, float pH, float monitorScale,
+                          std::vector<std::string> &bam_paths);
 
     void iterDraw(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                   hts_idx_t *index, Utils::Region *region,
                   bool coverage, std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
                   float trackY, float yScaling, Themes::Fonts &fonts, float refSpace,
-                  float pointSlop, float textDrop, float pH, float monitorScale);
+                  float pointSlop, float textDrop, float pH, float monitorScale,
+                  std::vector<std::string> &bam_paths);
 
     void trimToRegion(Segs::ReadCollection &col, bool coverage, int snp_threshold);
 

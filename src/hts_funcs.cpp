@@ -360,7 +360,8 @@ namespace HGW {
                           float pointSlop,
                           float textDrop,
                           float pH,
-                          float monitorScale) {
+                          float monitorScale,
+                          std::vector<std::string> &bam_paths) {
         const int BATCH = 1500;
         bam1_t *src;
         hts_itr_t *iter_q;
@@ -420,7 +421,8 @@ namespace HGW {
             Segs::findYNoSortForward(readQueue, col.levelsStart, col.levelsEnd, col.vScroll);
 
             if (opts.alignments) {
-                Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
+                Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop,
+                                        textDrop, pH, monitorScale, bam_paths);
             }
 
             for (int i=0; i < BATCH; ++ i) {
@@ -445,7 +447,8 @@ namespace HGW {
                     }
                 }
                 Segs::findYNoSortForward(readQueue, col.levelsStart, col.levelsEnd, col.vScroll);
-                Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
+                Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop,
+                                        textDrop, pH, monitorScale, bam_paths);
 
                 for (int i=0; i < BATCH; ++ i) {
                     Segs::align_clear(&readQueue[i]);
@@ -459,7 +462,8 @@ namespace HGW {
                   bool coverage,
                   std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
                   float trackY, float yScaling, Themes::Fonts &fonts, float refSpace,
-                  float pointSlop, float textDrop, float pH, float monitorScale) {
+                  float pointSlop, float textDrop, float pH, float monitorScale,
+                  std::vector<std::string> &bam_paths) {
 
         bam1_t *src;
         hts_itr_t *iter_q;
@@ -502,7 +506,8 @@ namespace HGW {
                 Segs::addToCovArray(col.covArr, readQueue.back(), region->start, region->end, l_arr);
             }
             Segs::alignFindYForward(readQueue.back(), col.levelsStart, col.levelsEnd, col.vScroll);
-            Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop, textDrop, pH, monitorScale);
+            Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop,
+                                    textDrop, pH, monitorScale, bam_paths);
             Segs::align_clear(&readQueue.back());
         }
     }
@@ -546,11 +551,11 @@ namespace HGW {
             for (auto &i : col.readQueue) {
                 Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
             }
-            if (snp_threshold > region->end - region->start) {
-                col.mmVector.resize(region->end - region->start + 1);
-                Segs::Mismatches empty_mm{};
-                std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
-            }
+        }
+        if (snp_threshold > region->end - region->start) {
+            col.mmVector.resize(region->end - region->start + 1);
+            Segs::Mismatches empty_mm{};
+            std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
         }
     }
 
@@ -636,13 +641,13 @@ namespace HGW {
                         for (auto &i : readQueue) {
                             Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
                         }
-                        if (opts.snp_threshold > region->end - region->start) {
-                            col.mmVector.resize(region->end - region->start + 1);
-                            Segs::Mismatches empty_mm{};
-                            std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
-                        } else {
-                            col.mmVector.clear();
-                        }
+                    }
+                    if (opts.snp_threshold > region->end - region->start) {
+                        col.mmVector.resize(region->end - region->start + 1);
+                        Segs::Mismatches empty_mm{};
+                        std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
+                    } else {
+                        col.mmVector.clear();
                     }
                     col.collection_processed = false;
                     return;
@@ -769,23 +774,19 @@ namespace HGW {
 
         }
         if (coverage) {  // re process coverage for all reads
-//            auto start = std::chrono::high_resolution_clock::now();
             col.covArr.resize(region->end - region->start + 1);
             std::fill(col.covArr.begin(), col.covArr.end(), 0);
             int l_arr = (int)col.covArr.size() - 1;
             for (auto &i : readQueue) {
                 Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
             }
-            if (opts.snp_threshold > region->end - region->start) {
-                col.mmVector.resize(region->end - region->start + 1);
-                Segs::Mismatches empty_mm{};
-                std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
-            } else {
-                col.mmVector.clear();
-            }
-//            auto stop = std::chrono::high_resolution_clock::now();
-//            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();
-//            std::cerr << " resizing and stuff! " << duration << std::endl;
+        }
+        if (opts.snp_threshold > region->end - region->start) {
+            col.mmVector.resize(region->end - region->start + 1);
+            Segs::Mismatches empty_mm{};
+            std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
+        } else {
+            col.mmVector.clear();
         }
         col.collection_processed = false;
     }

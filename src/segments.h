@@ -168,6 +168,7 @@ namespace Segs {
     public:
        ReadCollection();
         ~ReadCollection() = default;
+        std::string name;
         int bamIdx, regionIdx, vScroll;
         int maxCoverage, regionLen;
         Utils::Region *region;

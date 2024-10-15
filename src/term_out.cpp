@@ -877,7 +877,7 @@ namespace Term {
 				uint32_t cigar_l = align.delegate->core.n_cigar;
 				uint8_t *ptr_seq = bam_get_seq(align.delegate);
 				uint32_t *cigar_p = bam_get_cigar(align.delegate);
-                if (cigar_p == nullptr || cigar_l == 0) {
+                if (cigar_p == nullptr || cigar_l == 0 || ptr_seq == nullptr) {
                     if (bnd == cl.readQueue.begin()) {
                         break;
                     }

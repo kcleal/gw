@@ -434,6 +434,7 @@ namespace Themes {
         parse_mods = false;
         scale_bar = true;
         alignments = true;
+        data_labels = true;
 
         scroll_speed = 0.15;
         tab_track_height = 0.25;
@@ -516,6 +517,12 @@ namespace Themes {
             scale_bar = sub["scale_bar"] == "true";
         } else {
             sub["scale_bar"] = "true";
+            update_ini = true;
+        }
+        if (sub.has("data_labels")) {
+            data_labels = sub["data_labels"] == "true";
+        } else {
+            sub["data_labels"] = "false";
             update_ini = true;
         }
         if (sub.has("sv_arcs")) {
@@ -738,6 +745,12 @@ namespace Themes {
             }
             if (sub.has("scale_bar")) {
                 scale_bar = sub["scale_bar"] == "true";
+            }
+            if (sub.has("alignments")) {
+                alignments = sub["alignments"] == "true";
+            }
+            if (sub.has("data_labels")) {
+                data_labels = sub["data_labels"] == "true";
             }
             if (sub.has("link")) {
                 link = sub["link"];
@@ -967,6 +980,8 @@ namespace Themes {
         sub["log2_cov"] = (log2_cov) ? "true" : "false";
         sub["expand_tracks"] = (expand_tracks) ? "true" : "false";
         sub["scale_bar"] = (scale_bar) ? "true" : "false";
+        sub["alignments"] = (alignments) ? "true" : "false";
+        sub["data_labels"] = (data_labels) ? "true" : "false";
         sub["mods"] = (parse_mods) ? "true" : "false";
         sub["link"] = link;
         sub["split_view_size"] = std::to_string(split_view_size);

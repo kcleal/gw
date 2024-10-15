@@ -327,6 +327,7 @@ namespace Menu {
             else if (opts.menu_level == "font_size") { tip = "Change the font size"; }
             else if (opts.menu_level == "variant_distance") { tip = "For VCF/BCF tracks, ignore variants with start and end further than this distance"; }
             else if (opts.menu_level == "sv_arcs") { tip = "Draw arcs instead of blocks for VCF/BCF track files"; }
+            else if (opts.menu_level == "data_labels") { tip = "Add labels for data tracks"; }
 
         } else {
             if (opts.control_level == "close") { tip = "Close settings"; }
@@ -681,7 +682,7 @@ namespace Menu {
         for (const auto& v : {"scroll_speed", "tabix_track_height"}) {
             option_map[v] = Float;
         }
-        for (const auto& v : {"coverage", "log2_cov", "expand_tracks", "scale_bar", "vcf_as_tracks", "bed_as_tracks", "sv_arcs", "mods"}) {
+        for (const auto& v : {"coverage", "log2_cov", "expand_tracks", "scale_bar", "vcf_as_tracks", "bed_as_tracks", "sv_arcs", "mods", "data_labels"}) {
             option_map[v] = Bool;
         }
         for (const auto& v : {"scroll_right", "scroll_left", "zoom_out", "zoom_in", "scroll_down", "scroll_up", "cycle_link_mode", "find_alignments"}) {
@@ -760,6 +761,7 @@ namespace Menu {
         else if (new_opt.name == "coverage") { opts.max_coverage = (v) ? 1410065408 : 0; }
         else if (new_opt.name == "sv_arcs") { opts.sv_arcs = v; }
         else if (new_opt.name == "mods") { opts.parse_mods = v; }
+        else if (new_opt.name == "data_labels") { opts.data_labels = v; std::cout << " YO\n";}
         else { return; }
         opts.myIni[new_opt.table][new_opt.name] = (v) ? "true" : "false";
     }
@@ -899,6 +901,8 @@ namespace Menu {
             return (int)(opts.parse_mods);
         } else if (cmd_s == "alignments") {
             return (int) (opts.alignments);
+        } else if (cmd_s == "data_labels") {
+            return (int) (opts.data_labels);
         }
         return -1;
     }

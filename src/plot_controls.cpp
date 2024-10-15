@@ -1511,7 +1511,7 @@ namespace Manager {
             }
 
             int idx = getCollectionIdx(xW, yW);
-            if (idx == REFERENCE_TRACK && action == GLFW_RELEASE) {
+            if (idx == REFERENCE_TRACK && action == GLFW_RELEASE && std::fabs(xDrag) < 5 && std::fabs(yDrag) < 5) {
                 if (collections.empty()) {
                     float xScaling = (float)((regionWidth - gap - gap) / ((double)(regions[regionSelection].end -regions[regionSelection].start)));
                     float xOffset = (regionWidth * (float)regionSelection) + gap;
