@@ -311,9 +311,9 @@ namespace Drawing {
             path.lineTo(xOffset + 6 * monitorScale, covY + yOffsetAll);
             canvas->drawPath(path, theme.lcJoins);
 
-            char *ap = indelChars;
-            ap += std::sprintf(indelChars, "%s", "avg. ");
-            std::sprintf(ap, "%.1f", mean);
+//            char *ap = indelChars;
+//            ap += std::sprintf(indelChars, "%s", "avg. ");
+//            std::sprintf(ap, "%.1f", mean);
 
 //            if (covY > fonts.overlayHeight * 3)  { // dont overlap text
 //                blob = SkTextBlob::MakeFromString(indelChars, fonts.overlay);
@@ -1318,9 +1318,10 @@ namespace Drawing {
                 const char * name_s = cl.name.c_str();
                 sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(name_s, fonts.overlay);
                 float text_width = fonts.overlay.measureText(name_s, cl.name.size(), SkTextEncoding::kUTF8);
-                rect.setXYWH(cl.xOffset - 20, cl.yOffset, text_width + 20 + 8 * monitorScale + 8 * monitorScale, fonts.overlayHeight * 2);
+                rect.setXYWH(cl.xOffset + monitorScale * 4, cl.yOffset + monitorScale * 4, text_width + 8 * monitorScale, fonts.overlayHeight * 2);
                 canvas->drawRect(rect, theme.bgPaint);
-                canvas->drawTextBlob(blob, cl.xOffset + 8 * monitorScale, cl.yOffset + fonts.overlayHeight * 1.3, theme.tcDel);
+                canvas->drawRect(rect, theme.lcGTFJoins);
+                canvas->drawTextBlob(blob, cl.xOffset + 8 * monitorScale, cl.yOffset + fonts.overlayHeight * 1.3 + monitorScale *4, theme.tcDel);
             }
         }
     }
@@ -1902,6 +1903,7 @@ namespace Drawing {
         opts.theme.lcLightJoins.setAntiAlias(true);
         bool expanded = opts.expand_tracks;
 
+        int regionIdx = 0;
         for (auto &rgn: regions) {
             bool any_text = true;
             float xScaling = (stepX - gap2) / (float) (rgn.end - rgn.start);
@@ -1979,17 +1981,44 @@ namespace Drawing {
                                        text, opts.sv_arcs, trk.kind == HGW::FType::ROI, faceColour, pointSlop, strand);
                     }
                 }
-                trackIdx += 1;
-                padY += tabixY;
+
                 if (fonts.overlayHeight * nLevels * 2 < stepY && features.size() < 500) {
                     for (const auto&t: text) {
                         canvas->drawTextBlob(t.text, t.x, t.y, opts.theme.tcDel);
                     }
                 }
 
+                // Draw data labels
+                if (opts.data_labels && regionIdx == 0) {
+
+                    std::filesystem::path fsp(trk.path);
+#if defined(_WIN32) || defined(_WIN64)
+                    const wchar_t* pc = fsp.filename().c_str();
+                    std::wstring ws(pc);
+                    std::string name(ws.begin(), ws.end());
+#else
+                    std::string name = fsp.filename();
+#endif
+
+                    const char * name_s = name.c_str();
+                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(name_s, fonts.overlay);
+                    float text_width = fonts.overlay.measureText(name_s, name.size(), SkTextEncoding::kUTF8);
+                    rect.setXYWH(padX + monitorScale, y + padY + monitorScale,
+                                 text_width + 8 * monitorScale + 8 * monitorScale, fonts.overlayHeight * 2);
+                    canvas->drawRect(rect, opts.theme.bgPaint);
+                    canvas->drawRect(rect, opts.theme.lcGTFJoins);
+                    canvas->drawTextBlob(blob, padX + 8 * monitorScale,
+                                         y + padY + fonts.overlayHeight * 1.5, opts.theme.tcDel);
+
+                }
+
+                trackIdx += 1;
+                padY += tabixY;
+
                 canvas->restore();
             }
             padX += stepX;
+            regionIdx += 1;
         }
         opts.theme.lcLightJoins.setAntiAlias(false);
 

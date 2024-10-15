@@ -983,7 +983,7 @@ namespace Manager {
             float xscale = 1;
             float yscale = 1;
             glfwGetWindowContentScale(window, &xscale, &yscale);
-            monitorScale = xscale;  // we assume xscale and yscale are the same
+            monitorScale = std::fmax(xscale, (float)1);  // we assume xscale and yscale are the same
             glfwGetFramebufferSize(window, &fb_width, &fb_height);
             if (monitorScale > 1) {
                 opts.theme.lcBright.setStrokeWidth(monitorScale);
@@ -992,16 +992,13 @@ namespace Manager {
             monitorScale = 1;
             glfwGetFramebufferSize(backWindow, &fb_width, &fb_height);
         }
-//        gap = std::fmin(std::fmax(5, fb_height * 0.01 * monitorScale), monitorScale * 10);
         gap = monitorScale * 10;
         fonts.setOverlayHeight(monitorScale);
     }
 
     void GwPlot::setImageSize(int width, int height) {
-//        monitorScale = 1;
         fb_width = width;
         fb_height = height;
-//        gap = std::fmin(std::fmax(5, fb_height * 0.01 * monitorScale), monitorScale * 10);
         gap = monitorScale * 10;
         fonts.setOverlayHeight(monitorScale);
     }
@@ -1356,7 +1353,6 @@ namespace Manager {
 
         // command popup box
         if (captureText && !opts.editing_underway) {
-//            fonts.setFontSize(yScaling, monitorScale);
             SkRect rect{};
             float height_f = fonts.overlayHeight * 2;
             float x = 25 * monitorScale;
@@ -1451,9 +1447,6 @@ namespace Manager {
                         canvas->drawPath(path, tip_paint);
                     }
                     yy -= fonts.overlayHeight + padT;
-//                    if (yy < covY) {
-//                        break;
-//                    }
                 }
             }
         }
