@@ -874,6 +874,10 @@ namespace Term {
 			if ((int)bnd->pos <= pos && pos <= (int)bnd->reference_end) {
 				Segs::Align &align = *bnd;
 				uint32_t r_pos = align.pos;
+                if (align.delegate == nullptr) {
+                    --bnd;
+                    continue;
+                }
 				uint32_t cigar_l = align.delegate->core.n_cigar;
 				uint8_t *ptr_seq = bam_get_seq(align.delegate);
 				uint32_t *cigar_p = bam_get_cigar(align.delegate);
