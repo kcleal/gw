@@ -748,7 +748,7 @@ int main(int argc, char *argv[]) {
 
             if (format_str != ".png") {
                 if (regions.empty()) {
-                    std::cerr << "Error: --fmt is only supported by providing a --region\n";
+                    std::cerr << "Error: please provide a --region\n";
                     std::exit(-1);
                 }
 
