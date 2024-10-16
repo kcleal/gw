@@ -67,6 +67,27 @@ bool str_is_number(const std::string &s) {
 }
 
 
+void drawImageCommands(Manager::GwPlot &p, SkCanvas *canvas, std::vector<std::string> &extra_commands) {
+
+    p.setImageSize(p.opts.dimensions.x, p.opts.dimensions.y);
+    bool stream_reads = p.opts.link_op == 0;
+    if (!extra_commands.empty()) {
+        p.regionSelection = 0;
+        for (const auto& command: extra_commands) {
+            p.inputText = command;
+            p.commandProcessed();
+            if (p.regions.front().sortOption != 0) {
+                stream_reads = false;
+            }
+        }
+    }
+    if (stream_reads) {
+        p.runDrawNoBufferOnCanvas(canvas);
+    } else {
+        p.runDrawOnCanvas(canvas);
+    }
+}
+
 int main(int argc, char *argv[]) {
 
 //    std::chrono::high_resolution_clock::time_point timer_point = std::chrono::high_resolution_clock::now();
@@ -775,32 +796,18 @@ int main(int argc, char *argv[]) {
 
                 if (format_str == ".pdf") {
                     auto pdfDocument = SkPDF::MakeDocument(&buffer);
-                    SkCanvas *pageCanvas = pdfDocument->beginPage(iopts.dimensions.x, iopts.dimensions.y);
-                    plotter.fb_width = iopts.dimensions.x;
-                    plotter.fb_height = iopts.dimensions.y;
-                    plotter.setImageSize(plotter.fb_width, plotter.fb_height);
-                    if (!extra_commands.empty()) {
-                        for (const auto& command: extra_commands) {
-                            plotter.inputText = command;
-                            plotter.commandProcessed();
-                        }
-                    }
-                    plotter.runDrawOnCanvas(pageCanvas);
+                    SkCanvas *canvas = pdfDocument->beginPage(iopts.dimensions.x, iopts.dimensions.y);
+                    drawImageCommands(plotter, canvas, extra_commands);
+
                     pdfDocument->close();
                     buffer.writeToStream(&out);
                 } else {
-                    plotter.fb_width = iopts.dimensions.x;
-                    plotter.fb_height = iopts.dimensions.y;
-                    plotter.setImageSize(plotter.fb_width, plotter.fb_height);
+
+                    plotter.setImageSize(iopts.dimensions.x, iopts.dimensions.y);
                     SkPictureRecorder recorder;
                     SkCanvas* canvas = recorder.beginRecording(SkRect::MakeWH(iopts.dimensions.x, iopts.dimensions.y));
-                    if (!extra_commands.empty()) {
-                        for (const auto& command: extra_commands) {
-                            plotter.inputText = command;
-                            plotter.commandProcessed();
-                        }
-                    }
-                    plotter.runDrawOnCanvas(canvas);
+                    drawImageCommands(plotter, canvas, extra_commands);
+
                     sk_sp<SkPicture> picture = recorder.finishRecordingAsPicture();
                     std::unique_ptr<SkCanvas> svgCanvas = SkSVGCanvas::Make(SkRect::MakeWH(iopts.dimensions.x, iopts.dimensions.y), &out);
                     if (svgCanvas) {
@@ -813,27 +820,12 @@ int main(int argc, char *argv[]) {
 
                 // Plot a png image, either of target region or whole chromosome
                 sk_sp<SkImage> img;
-                if (!regions.empty()) {  // plot target regions
-                    plotter.setImageSize(iopts.dimensions.x, iopts.dimensions.y);
+                if (!plotter.regions.empty()) {  // plot target regions
                     sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
                                                                                     iopts.dimensions.y);
                     SkCanvas *canvas = rasterSurface->getCanvas();
-                    bool stream_reads = iopts.link_op == 0;
-                    if (!extra_commands.empty()) {
-                        plotter.regionSelection = 0;
-                        for (const auto& command: extra_commands) {
-                            plotter.inputText = command;
-                            plotter.commandProcessed();
-                            if (plotter.regions.front().sortOption != 0) {
-                                stream_reads = false;
-                            }
-                        }
-                    }
-                    if (stream_reads) {
-                        plotter.runDrawNoBufferOnCanvas(canvas);
-                    } else {
-                        plotter.runDrawOnCanvas(canvas);
-                    }
+                    drawImageCommands(plotter, canvas, extra_commands);
+
                     img = rasterSurface->makeImageSnapshot();
 
                     if (outdir.empty()) {
