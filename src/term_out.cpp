@@ -48,6 +48,7 @@ namespace Term {
         out << termcolor::green << "header           names?          " << termcolor::reset << "Prints the header of the current bam to terminal\n";
         out << termcolor::green << "indel-length     int             " << termcolor::reset << "Label indels >= length\n";
         out << termcolor::green << "insertions, ins                  " << termcolor::reset << "Toggle insertions\n";
+        out << termcolor::green << "label                            " << termcolor::reset << "Toggle data labels\n";
         out << termcolor::green << "line                             " << termcolor::reset << "Toggle mouse position vertical line\n";
         out << termcolor::green << "link             none/sv/all     " << termcolor::reset << "Switch read-linking 'link all'\n";
         out << termcolor::green << "load             type? file      " << termcolor::reset << "Load bams, tracks, tiles, session file or ideogram\n";
@@ -200,6 +201,8 @@ namespace Term {
             out << "    Set the minimum indel-length.\n        Indels (gaps in alignments) will be labelled with text if they have length >= 'indel-length'\n    Examples:\n        'indel-length 30'\n\n";
         } else if (s == "insertions" || s == "ins") {
             out << "    Toggle insertions.\n        Insertions smaller than 'indel-length' are turned on or off.\n\n";
+        } else if (s == "labels") {
+            out << "    Toggle data labels.\n        Text labels will be displayed next to data tracks.\n\n";
         } else if (s == "line") {
             out << "    Toggle line.\n        A vertical line will turn on/off.\n\n";
         } else if (s == "link" || s == "l") {

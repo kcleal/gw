@@ -111,12 +111,21 @@ namespace Commands {
     Err refreshGw(Plot* p) {
         p->redraw = true;
         p->processed = false;
-        p->imageCache.clear();
-        p->imageCacheQueue.clear();
-        p->filters.clear();
-        p->target_qname = "";
-        for (auto &cl: p->collections) { cl.vScroll = 0; cl.skipDrawingCoverage = false; cl.skipDrawingReads = false; }
-        for (auto &rgn: p->regions) { rgn.sortOption = Utils::SortType::NONE, rgn.sortPos = -1; rgn.refBaseAtPos = '\0'; }
+        if (p->frameId > 0) {
+            p->imageCache.clear();
+            p->imageCacheQueue.clear();
+            p->filters.clear();
+            p->target_qname = "";
+            for (auto &cl: p->collections) {
+                cl.vScroll = 0;
+                cl.skipDrawingCoverage = false;
+                cl.skipDrawingReads = false;
+            }
+            for (auto &rgn: p->regions) {
+                rgn.sortOption = Utils::SortType::NONE, rgn.sortPos = -1;
+                rgn.refBaseAtPos = '\0';
+            }
+        }
         return Err::NONE;
     }
 
@@ -274,18 +283,20 @@ namespace Commands {
 
     Err log2_cov(Plot* p) {
         p->opts.log2_cov = !(p->opts.log2_cov);
-        p->redraw = true;
-        if (p->mode == Manager::Show::SINGLE) {
-            p->processed = true;
-            for (auto &cl : p->collections) {
-                cl.skipDrawingReads = false;
-                cl.skipDrawingCoverage = false;
+        if (p->frameId > 0) {
+            p->redraw = true;
+            if (p->mode == Manager::Show::SINGLE) {
+                p->processed = true;
+                for (auto &cl : p->collections) {
+                    cl.skipDrawingReads = false;
+                    cl.skipDrawingCoverage = false;
+                }
+            } else {
+                p->processed = false;
             }
-        } else {
-            p->processed = false;
+            p->imageCache.clear();
+            p->imageCacheQueue.clear();
         }
-        p->imageCache.clear();
-        p->imageCacheQueue.clear();
         return Err::NONE;
     }
 
@@ -312,8 +323,25 @@ namespace Commands {
 
     Err alignments(Plot* p) {
         p->opts.alignments = !p->opts.alignments;
-        p->processed = false;
-        p->redraw = true;
+        if (p->frameId > 0) {
+            for (auto &cl: p->collections) {
+                cl.skipDrawingCoverage = false;
+                cl.skipDrawingReads = false;
+            }
+            p->redraw = true;
+        }
+        return Err::NONE;
+    }
+
+    Err labels(Plot* p) {
+        p->opts.data_labels = !p->opts.data_labels;
+        if (p->frameId > 0) {
+            for (auto &cl: p->collections) {
+                cl.skipDrawingCoverage = false;
+                cl.skipDrawingReads = false;
+            }
+            p->redraw = true;
+        }
         return Err::NONE;
     }
 
@@ -334,7 +362,7 @@ namespace Commands {
                 p->opts.link = "none";
             }
         }
-        if (relink) {
+        if (relink && p->frameId > 0) {
             p->imageCache.clear();
             p->imageCacheQueue.clear();
             HGW::refreshLinked(p->collections, p->regions, p->opts, &p->samMaxY);
@@ -431,14 +459,15 @@ namespace Commands {
                 out << command << std::endl;
             }
         }
-        p->imageCache.clear();
-        p->imageCacheQueue.clear();
-        p->processed = false;
+        if (p->frameId > 0) {
+            p->imageCache.clear();
+            p->imageCacheQueue.clear();
+            p->processed = false;
+        }
         return Err::NONE;
     }
 
     Err tags(Plot* p, std::string& command, std::ostream& out) {
-        p->redraw = false;
         if (!p->selectedAlign.empty()) {
             std::string str = command;
             str.erase(0, 4);
@@ -468,7 +497,10 @@ namespace Commands {
                 out << std::endl;
             }
         }
-        p->processed = true;
+        if (p->frameId > 0) {
+            p->processed = true;
+            p->redraw = false;
+        }
         return Err::NONE;
     }
 
@@ -563,9 +595,11 @@ namespace Commands {
             return Err::NONE;
         }
         p->opts.indel_length = indel_length;
-        p->processed = false;
-        p->imageCache.clear();
-        p->imageCacheQueue.clear();
+        if (p->frameId > 0) {
+            p->processed = false;
+            p->imageCache.clear();
+            p->imageCacheQueue.clear();
+        }
         return Err::NONE;
     }
 
@@ -651,14 +685,16 @@ namespace Commands {
                 return Err::NONE;
             }
         }
-        for (auto &cl : p->collections) {
-            cl.skipDrawingReads = false;
-            cl.skipDrawingCoverage = false;
-        }
         p->opts.max_coverage = std::max(0, p->opts.max_coverage);
-        p->processed = false;
-        p->imageCache.clear();
-        p->imageCacheQueue.clear();
+        if (p->frameId > 0) {
+            for (auto &cl: p->collections) {
+                cl.skipDrawingReads = false;
+                cl.skipDrawingCoverage = false;
+            }
+            p->processed = false;
+            p->imageCache.clear();
+            p->imageCacheQueue.clear();
+        }
         return Err::NONE;
     }
 
@@ -748,9 +784,11 @@ namespace Commands {
         } catch (...) {
             return Err::PARSE_INPUT;
         }
-        p->processed = false;
-        p->imageCache.clear();
-        p->imageCacheQueue.clear();
+        if (p->frameId > 0) {
+            p->processed = false;
+            p->imageCache.clear();
+            p->imageCacheQueue.clear();
+        }
         return Err::NONE;
     }
 
@@ -785,10 +823,15 @@ namespace Commands {
             }
         }
         p->regions.insert(p->regions.end(), new_regions.begin(), new_regions.end());
-        p->processed = false;
-        for (auto &cl: p->collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
-        p->imageCache.clear();
-        p->imageCacheQueue.clear();
+        if (p->frameId > 0) {
+            p->processed = false;
+            for (auto &cl: p->collections) {
+                cl.skipDrawingCoverage = false;
+                cl.skipDrawingReads = false;
+            }
+            p->imageCache.clear();
+            p->imageCacheQueue.clear();
+        }
         return Err::NONE;
     }
 
@@ -1335,7 +1378,7 @@ namespace Commands {
                 }
             }
         }
-        if (reason == Err::NONE) {
+        if (reason == Err::NONE && p->frameId > 0) {
             p->processed = false;
             p->imageCache.clear();
             p->redraw = true;
@@ -1443,7 +1486,6 @@ namespace Commands {
             SkPaint new_paint;
             new_paint.setARGB(alpha, red, green, blue);
             p->tracks[ind].setPaint(new_paint);
-//            p->tracks[ind].faceColour.setARGB(alpha, red, green, blue);
             refreshGw(p);
             return Err::NONE;
         }
@@ -1704,6 +1746,7 @@ namespace Commands {
                 {"expand-tracks", PARAMS { return expand_tracks(p); }},
                 {"tlen-y",   PARAMS { return tlen_y(p); }},
                 {"alignments",   PARAMS { return alignments(p); }},
+                {"labels",   PARAMS { return labels(p); }},
 
                 {"sam",      PARAMS { return sam(p, command, parts, out); }},
                 {"h",        PARAMS { return getHelp(p, command, parts, out); }},

@@ -82,7 +82,7 @@ namespace Manager {
         GwPlot(std::string reference, std::vector<std::string> &bampaths, Themes::IniOptions &opts, std::vector<Utils::Region> &regions,
                std::vector<std::string> &track_paths);
         ~GwPlot();
-
+        long frameId;  // number of frames rendered
         int fb_width, fb_height;  // frame buffer size
         double xPos_fb, yPos_fb;  // mouse position in frame buffer coords
         float monitorScale, gap;
@@ -246,7 +246,7 @@ namespace Manager {
         void saveSession(std::string out_session);
 
     private:
-        long frameId;
+
         bool resizeTriggered;
         bool regionSelectionTriggered;
         bool textFromSettings;
