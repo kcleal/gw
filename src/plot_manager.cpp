@@ -192,7 +192,9 @@ namespace Manager {
     }
 
     void GwPlot::init(int width, int height) {
-
+#ifdef BUILDING_LIBGW
+        std::cerr << "Error: init not supported for libgw\n";
+#else
         this->fb_width = 0;
         this->fb_height = 0;
 
@@ -362,7 +364,7 @@ namespace Manager {
         if (rasterSurfacePtr == nullptr) {
             makeRasterSurface();
         }
-
+#endif
     }
 
     void GwPlot::initBack(int width, int height) {

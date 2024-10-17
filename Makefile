@@ -146,14 +146,14 @@ ifeq ($(UNAME_S),Darwin)
     SHARED_TARGET = libgw.dylib
 endif
 
-shared: CXXFLAGS += -fPIC -DBUILDING_LIBGW -DGLAD_GLAPI_EXPORT_BUILD
+shared: CXXFLAGS += -fPIC -DBUILDING_LIBGW
 shared: CFLAGS += -fPIC
 shared: $(OBJECTS)
 
 ifeq ($(UNAME_S),Darwin)
-	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -dynamiclib -DBUILDING_LIBGW -DGLAD_GLAPI_EXPORT_BUILD -o $(SHARED_TARGET)
+	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -dynamiclib -DBUILDING_LIBGW -o $(SHARED_TARGET)
 else
-	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -shared -DBUILDING_LIBGW -DGLAD_GLAPI_EXPORT_BUILD -o $(SHARED_TARGET)
+	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -shared -DBUILDING_LIBGW -o $(SHARED_TARGET)
 endif
 	-mkdir -p include/libgw lib/libgw
 	-cp $(SKIA_PATH)/libskia.a lib/libgw
