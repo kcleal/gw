@@ -79,7 +79,7 @@ prep:
 
 CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG -g
 LIBGW_INCLUDE=
-shared: LIBGW_INCLUDE=-I./libgw
+
 CPPFLAGS += -I./lib/libBigWig -I./include -I. $(LIBGW_INCLUDE) -I./src
 LDLIBS += -lskia -lm -ljpeg -lpng -lpthread
 
@@ -146,17 +146,19 @@ ifeq ($(UNAME_S),Darwin)
     SHARED_TARGET = libgw.dylib
 endif
 
-shared: CXXFLAGS += -fPIC -DBUILDING_LIBGW
+shared: CXXFLAGS += -fPIC -DBUILDING_LIBGW -DGLAD_GLAPI_EXPORT_BUILD
 shared: CFLAGS += -fPIC
 shared: $(OBJECTS)
 
 ifeq ($(UNAME_S),Darwin)
-	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -dynamiclib -DBUILDING_LIBGW -o $(SHARED_TARGET)
+	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -dynamiclib -DBUILDING_LIBGW -DGLAD_GLAPI_EXPORT_BUILD -o $(SHARED_TARGET)
 else
-	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -shared -DBUILDING_LIBGW -o $(SHARED_TARGET)
+	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -shared -DBUILDING_LIBGW -DGLAD_GLAPI_EXPORT_BUILD -o $(SHARED_TARGET)
 endif
-	-mkdir -p lib/libgw/include lib/libgw/out
-	-cp $(SKIA_PATH)/libskia.a lib/libgw/out
-	-cp src/*.h lib/libgw/include
-	-cp include/*.h* lib/libgw/include
-	-mv $(SHARED_TARGET) lib/libgw/out
+	-mkdir -p include/libgw lib/libgw
+	-cp $(SKIA_PATH)/libskia.a lib/libgw
+	-cp src/*.h include/libgw
+	-cp include/*.h* include/libgw
+	-cp lib/libBigWig/*.h include/libgw
+	-cp -rf lib/skia/include include/libgw
+	-mv $(SHARED_TARGET) lib/libgw

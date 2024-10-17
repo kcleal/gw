@@ -243,7 +243,7 @@ namespace Manager {
         // Use OpenGL 4.1 context
         glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (major_v == -1) ? 4 : major_v);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (minor_v == -1) ? 1 : major_v);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (minor_v == -1) ? 1 : minor_v);
     #else
         // OpenGL ES 2.0
         glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
@@ -256,7 +256,7 @@ namespace Manager {
 #else
         // Native macOS use OpenGL 4.1
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (major_v == -1) ? 4 : major_v);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (minor_v == -1) ? 1 : major_v);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (minor_v == -1) ? 1 : minor_v);
 #endif
         if (debug) {
             std::cerr << "Creating window with size " << width << "x" << height << std::endl;
