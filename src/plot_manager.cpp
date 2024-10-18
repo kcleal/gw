@@ -149,11 +149,8 @@ namespace Manager {
     }
 
     GwPlot::~GwPlot() {
-        if (window != nullptr && !drawToBackWindow) {
+        if (window != nullptr) {
             glfwDestroyWindow(window);
-        }
-        if (backWindow != nullptr && drawToBackWindow) {
-            glfwDestroyWindow(backWindow);
         }
         glfwTerminate();
         for (auto &bm: bams) {
@@ -192,9 +189,7 @@ namespace Manager {
     }
 
     void GwPlot::init(int width, int height) {
-#ifdef BUILDING_LIBGW
-        std::cerr << "Error: init not supported for libgw\n";
-#else
+
         this->fb_width = 0;
         this->fb_height = 0;
 
@@ -236,7 +231,7 @@ namespace Manager {
             std::cerr << "ERROR: could not initialize GLFW3" << std::endl;
             std::terminate();
         }
-        bool opengl_es_loader = false;
+        bool opengl_es_loader;
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
 
@@ -246,6 +241,7 @@ namespace Manager {
         glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (major_v == -1) ? 4 : major_v);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (minor_v == -1) ? 1 : minor_v);
+        opengl_es_loader = false;
     #else
         // OpenGL ES 2.0
         glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
@@ -259,6 +255,7 @@ namespace Manager {
         // Native macOS use OpenGL 4.1
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (major_v == -1) ? 4 : major_v);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (minor_v == -1) ? 1 : minor_v);
+        opengl_es_loader = false;
 #endif
         if (debug) {
             std::cerr << "Creating window with size " << width << "x" << height << std::endl;
@@ -274,7 +271,7 @@ namespace Manager {
 #if defined(_WIN32) || defined(_WIN64)
         GLFWimage iconimage;
         getWindowIconImage(&iconimage);
-          glfwSetWindowIcon(window, 1, &iconimage);
+        glfwSetWindowIcon(window, 1, &iconimage);
 #endif
 
         // https://stackoverflow.com/questions/7676971/pointing-to-a-function-that-is-a-class-member-glfw-setkeycallback/28660673#28660673
@@ -316,12 +313,13 @@ namespace Manager {
             std::exit(-1);
         }
         glfwMakeContextCurrent(window);
-
+#ifndef BUILDING_LIBGW
         // Use glad loader
         if (opengl_es_loader) {
             if (!gladLoadGLES2Loader((GLADloadproc) glfwGetProcAddress)) {
                 std::cerr << "Error: failed to initialize GLAD ES\n";
             }
+
             if (debug) {
                 if (GLAD_GL_ES_VERSION_2_0) {
                     std::cerr << "OpenGL ES 2.0 is supported\n";
@@ -329,10 +327,12 @@ namespace Manager {
                     std::cerr << "OpenGL ES 2.0 is not supported\n";
                 }
             }
+
         } else {
             if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
                 std::cerr << "Error: failed to initialize GLAD GL\n";
             }
+
             if (debug) {
                 if (GLAD_GL_VERSION_4_1) {
                     std::cerr << "OpenGL 4.1 is supported\n";
@@ -342,14 +342,20 @@ namespace Manager {
                     std::cerr << "OpenGL 2.1 is " << ((GLAD_GL_VERSION_2_1) ? "" : "not ") << "supported\n";
                 }
             }
+
         }
+#else
+        if (opengl_es_loader) {}  // suppress unused compiler warning
+#endif
         if (debug) {
+#ifndef BUILDING_LIBGW
             const GLubyte *rend = glGetString(GL_RENDERER);
             const GLubyte *ver = glGetString(GL_VERSION);
             const GLubyte *ven = glGetString(GL_VENDOR);
             std::cerr << "OpenGL renderer: " << rend << std::endl;
             std::cerr << "OpenGL version: " << ver << std::endl;
             std::cerr << "OpenGL vendor: " << ven << std::endl;
+#endif
             float xscale;
             float yscale;
             int windX, windY;
@@ -364,7 +370,7 @@ namespace Manager {
         if (rasterSurfacePtr == nullptr) {
             makeRasterSurface();
         }
-#endif
+
     }
 
     void GwPlot::initBack(int width, int height) {
@@ -374,13 +380,13 @@ namespace Manager {
         }
 
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-        backWindow = glfwCreateWindow(width, height, "GW", NULL, NULL);
-        if (!backWindow) {
+        window = glfwCreateWindow(width, height, "GW", NULL, NULL);
+        if (!window) {
             std::cerr << "ERROR: could not create back window with GLFW3" << std::endl;
             glfwTerminate();
             std::terminate();
         }
-        glfwMakeContextCurrent(backWindow);
+        glfwMakeContextCurrent(window);
         drawToBackWindow = true;
 
         setGlfwFrameBufferSize();
@@ -416,6 +422,7 @@ namespace Manager {
         hts_set_fai_filename(f, reference.c_str());
         hts_set_threads(f, opts.threads);
         bams.push_back(f);
+        bam_paths.push_back(bam_path);
         sam_hdr_t *hdr_ptr = sam_hdr_read(f);
         headers.push_back(hdr_ptr);
         hts_idx_t *idx = sam_index_load(f, bam_path.c_str());
@@ -992,7 +999,7 @@ namespace Manager {
             }
         } else {
             monitorScale = 1;
-            glfwGetFramebufferSize(backWindow, &fb_width, &fb_height);
+//            glfwGetFramebufferSize(window, &fb_width, &fb_height);
         }
         gap = monitorScale * 10;
         fonts.setOverlayHeight(monitorScale);
