@@ -146,7 +146,6 @@ namespace Manager {
 
         faidx_t* fai;
         GLFWwindow* window;
-        GLFWwindow* backWindow;
 
         sk_sp<SkSurface> rasterSurface;
         sk_sp<SkSurface>* rasterSurfacePtr;  // option to use externally managed surface (faster)

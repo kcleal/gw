@@ -34,6 +34,7 @@
 /lib/libBigWig/bwWrite.o
 /lib/libBigWig/io.o
 /lib/libgw/
+/include/libgw/
 libgw.so
 /libgw.dylib
 /gw.wasm
@@ -43,3 +44,4 @@ libgw.so
 /.gw_session.ini
 /include/glad.o
 /lib/build_skia/
+

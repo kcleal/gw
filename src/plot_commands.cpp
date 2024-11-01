@@ -1325,6 +1325,7 @@ namespace Commands {
             if (res <= 0) {
                 p->redraw = true;
                 int num_sequences = faidx_nseq(p->fai);
+                out << "Error: Command not understood\n";
                 out << "Chromosome names in the fasta index:" << std::endl;
                 for (int i = 0; i < num_sequences; ++i) {
                     const char* seq_name = faidx_iseq(p->fai, i);
