@@ -878,6 +878,9 @@ namespace Term {
 				Segs::Align &align = *bnd;
 				uint32_t r_pos = align.pos;
                 if (align.delegate == nullptr) {
+                    if (bnd == cl.readQueue.begin()) {
+                        break;
+                    }
                     --bnd;
                     continue;
                 }
