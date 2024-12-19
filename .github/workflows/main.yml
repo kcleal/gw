@@ -53,26 +53,18 @@ jobs:
       - name: Install dependencies
         run: |
           brew install imagemagick graphicsmagick dylibbundler glfw fontconfig
-          # npm broken for python3.12 so use this as work around
           brew list | grep python@
-          # brew unlink python@3.12
-          shopt -s expand_aliases
-          alias python=$(brew --prefix)/bin/python3.13
-          alias python3=$(brew --prefix)/bin/python3.13
-          
-          sudo rm -rf /Library/Frameworks/Python.framework/Versions/3.12
-          sudo rm -f /usr/local/bin/python3
-          sudo rm -f /Library/Frameworks/Python.framework/Versions/Current/bin/python
-          
-          python3 -m venv py_venv
+
+          /opt/homebrew/opt/python@3.13/bin/python3.13 -m venv py_venv
           source py_venv/bin/activate
-    
-          which python && python --version
-          which python3 && python --version
+
+          python -m pip install --upgrade pip
           python -m pip install packaging
-          python3 -m pip install packaging
-          
+
           npm install --global create-dmg
+
+          which python && python --version
+          which python3 && python3 --version
 
       - name: Build and install htslib with libdeflate
         run: |
