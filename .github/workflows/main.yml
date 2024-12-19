@@ -57,8 +57,8 @@ jobs:
           brew list | grep python@
           # brew unlink python@3.12
           shopt -s expand_aliases
-          alias python=$(brew --prefix)/bin/python3.11
-          alias python3=$(brew --prefix)/bin/python3.11
+          alias python=$(brew --prefix)/bin/python3.13
+          alias python3=$(brew --prefix)/bin/python3.13
           
           sudo rm -rf /Library/Frameworks/Python.framework/Versions/3.12
           sudo rm -f /usr/local/bin/python3
