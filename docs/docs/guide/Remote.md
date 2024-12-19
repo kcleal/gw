@@ -1,53 +1,168 @@
 ---
-title: Remote
+title: Remote Access
 layout: home
 parent: User guide
 nav_order: 11
 ---
 
-# Loading remote data
+# Accessing GW Remotely
 
-If your remote data is available via a http/https or ftp site then GW should be able to open them.
-Just supply a suitable path starting with `http` or `ftp` and GW will attempt to load the file. 
+GW supports multiple methods for accessing and visualizing data over remote connections. This guide covers the available approaches and their recommended use cases.
 
-If data access requires a login e.g. via ssh, then there are a few options:
+## Direct Remote Data Access
 
-## Mounting remote data using sshfs
+GW can directly access remote data through HTTP/HTTPS or FTP protocols. Simply provide the full URL path (starting with `http://` or `ftp://`) to your data files, and GW will attempt to load them from your local machine.
 
-Using sshfs, data on your remote server can be mounted to 
-your local file system. GW will then be able to load data directly from the mounted drive, in addition to 
-your local file system. 
+## Secure Access Methods
 
-MacOS uses will want to use macFuse for this: https://macfuse.github.io.
-An installation tutorial can be found here: https://phoenixnap.com/kb/sshfs-mac. 
+For data requiring secure access (e.g., SSH authentication), you have several options:
 
-For Linux and Windows users, follow this guide: https://phoenixnap.com/kb/sshfs
+### 1. SSHFS Mount Method
 
-## X11 forwarding from the command line
+SSHFS allows you to mount remote directories to your local filesystem, enabling GW to access remote files as if they were local.
 
-GW can be used on remote servers by using `ssh -X` when logging on to the server, and a 
-GW window will show up on your local screen. This should work seamlessly with 
-linux server-client machines, although there are known issues with Mac-Linux server-client interfaces (although these
-still work sometimes).
+#### Platform-Specific Setup:
+- **MacOS**: Install macFuse from [macFuse website](https://macfuse.github.io)
+- **Linux/Windows**: Follow the [SSHFS setup guide](https://phoenixnap.com/kb/sshfs)
 
-Also, an update delay (in miliseconds) should be added using `gw --delay 100` which can help prevent bandwidth/latency issues.
+**Advantages:**
+- Simple to use once configured
+- Transparent access to remote and local files
+- No modification to GW usage required
 
+### 2. X11 Forwarding
 
-## Xpra from the command line
-The screen sharing tool Xpra can offer much better performance for rendering over a remote connection
-compared to X11 forwarding.
+Run GW on a remote server while displaying the interface on your local machine.
 
-Xpra will need to be installed on local and remote machines. One way to use Xpra is to start GW on port 100 (on remote machine) using:
-
-```shell
-xpra start :100 --start="gw ref.fa -b your.bam -r chr1:50000-60000" --sharing=yes --daemon=no
+```bash
+ssh -X username@remote-server
+gw --delay 100  # Add delay to handle latency
 ```
 
-You (or potentially multiple users) can view the GW window on your local machine using:
+**Important Notes:**
+- Works best between Linux systems
+- Mac-to-Linux connections mostly do not work (you may be lucky)
+- Use the `--delay` parameter (in milliseconds) to handle latency issues
 
-```shell
-xpra attach ssh:ubuntu@18.234.114.252:100
+### 3. Xpra
+
+Xpra offers superior performance compared to X11 forwarding, especially for graphical applications.
+
+#### Setup Instructions:
+
+1. Install Xpra on both local and remote machines
+2. Start GW on the remote machine:
+   ```bash
+   xpra start :100 --start="gw ref.fa -b your.bam -r chr1:50000-60000" --sharing=yes --daemon=no
+   ```
+3. Connect from your local machine:
+   ```bash
+   xpra attach ssh:username@remote-server:100
+   ```
+
+For custom SSH configurations:
+```bash
+xpra attach ssh:username@remote-server:100 --ssh "ssh -o IdentitiesOnly=yes -i /path/to/key.pem"
 ```
 
-The :100 indicates the port. If you need to supply more options to the ssh command use e.g. 
-`xpra attach ssh:ubuntu@18.234.114.252:102 --ssh "ssh -o IdentitiesOnly=yes -i .ssh/dysgu.pem"`
+**Key Features:**
+- Better performance than X11
+- Supports multiple simultaneous users
+- More resilient to network issues
+
+### 4. VNC Access
+
+For a full remote desktop experience, consider using VNC (e.g., TigerVNC).
+
+**Note:** This method requires administrator setup on the remote server.
+
+## Comparison of Methods
+
+| Method | Performance | Setup Complexity | Best For |
+|--------|-------------|------------------|-----------|
+| SSHFS | Good | Low | Direct file access |
+| X11 | Fair | Low | Quick access, Linux-to-Linux |
+| Xpra | Excellent | Medium | Regular remote usage |
+| VNC | Good | High | Full desktop access |
+
+
+### Graphics and Display Issues
+
+#### Testing OpenGL Support
+
+1. Check OpenGL capabilities using `glxinfo`:
+```bash
+glxinfo | grep "direct rendering"
+glxinfo | grep "OpenGL version"
+```
+
+If these commands aren't available, install them:
+- Ubuntu/Debian: `sudo apt-get install mesa-utils`
+- RHEL/CentOS: `sudo yum install glx-utils`
+
+Expected output should show:
+- "direct rendering: Yes"
+- OpenGL version 2.0 or higher
+
+#### Testing Graphics Performance
+
+Use `glxgears` to test basic 3D rendering:
+```bash
+glxgears -info
+```
+
+This will display rotating gears and report FPS (Frames Per Second). Low FPS (<30) may indicate:
+- Graphics driver issues
+- X11 forwarding bandwidth limitations
+- Hardware acceleration problems
+
+### Common Issues and Solutions
+
+1. Blank or Black Window
+    - Check OpenGL support using methods above
+    - Try forcing software rendering:
+   ```bash
+   export LIBGL_ALWAYS_SOFTWARE=1
+   ```
+
+2. Slow Performance
+    - For X11: Increase delay value
+   ```bash
+   gw --delay 200  # Adjust value as needed
+   ```
+    - For Xpra: Use compression options
+   ```bash
+   xpra start :100 --encoding=rgb --compress=0
+   ```
+
+3. Connection Refused
+    - Verify SSH access:
+   ```bash
+   ssh -v username@remote-server
+   ```
+    - Check if X11 forwarding is enabled in `/etc/ssh/sshd_config`:
+   ```
+   X11Forwarding yes
+   ```
+
+4. Display Export Errors
+    - Ensure DISPLAY variable is set:
+   ```bash
+   echo $DISPLAY
+   ```
+    - Set if missing:
+   ```bash
+   export DISPLAY=:0
+   ```
+
+### Getting Help
+
+If problems persist please raise an issue:
+
+1. Collect system information:
+```bash
+gw --version
+GW_DEBUG=1 gw hg19 
+glxinfo
+echo $DISPLAY
+```
