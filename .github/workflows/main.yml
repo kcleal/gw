@@ -64,6 +64,9 @@ jobs:
           sudo rm -f /usr/local/bin/python3
           sudo rm -f /Library/Frameworks/Python.framework/Versions/Current/bin/python
           
+          python3 -m venv py_venv
+          source py_venv
+    
           which python && python --version
           which python3 && python --version
           python -m pip install packaging

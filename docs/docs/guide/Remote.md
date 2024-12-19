@@ -17,8 +17,11 @@ If data access requires a login e.g. via ssh, then there are a few options:
 Using sshfs, data on your remote server can be mounted to 
 your local file system. GW will then be able to load data directly from the mounted drive, in addition to 
 your local file system. 
+
 MacOS uses will want to use macFuse for this https://macfuse.github.io - 
-an installation tutorial can be found here https://phoenixnap.com/kb/sshfs-mac. For Linux and Windows
+an installation tutorial can be found here https://phoenixnap.com/kb/sshfs-mac. 
+
+For Linux and Windows
 users, follow this guide: https://phoenixnap.com/kb/sshfs
 
 ## X11 forwarding from the command line
