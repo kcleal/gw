@@ -31,6 +31,9 @@ ifneq ($(PLATFORM),"Emscripten")
     ifdef CONDA_PREFIX
         CPPFLAGS += -I$(CONDA_PREFIX)/include
         LDFLAGS += -L$(CONDA_PREFIX)/lib
+        ifeq ($(UNAME_S),Darwin)
+            LDFLAGS += -Wl,-rpath,$(CONDA_PREFIX)/lib
+        endif
     endif
     ifdef HTSLIB # Options to use target htslib or skia
         CPPFLAGS += -I$(HTSLIB)
@@ -56,7 +59,6 @@ ifneq ($(PLATFORM), "Windows")
     endif
 endif
 
-
 LDFLAGS += -L$(SKIA_PATH)
 SKIA_LINK=""
 USE_GL ?= ""  # Else use EGL backend for Linux only
@@ -79,7 +81,6 @@ prep:
 
 CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG -g
 LIBGW_INCLUDE=
-
 CPPFLAGS += -I./lib/libBigWig -I./include -I. $(LIBGW_INCLUDE) -I./src
 LDLIBS += -lskia -lm -ljpeg -lpng -lpthread
 
@@ -126,7 +127,6 @@ OBJECTS += $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
 OBJECTS += $(patsubst %.c, %.o, $(wildcard ./include/*.c))
 
 debug: LDFLAGS += -fsanitize=address -fsanitize=undefined
-
 
 $(TARGET): $(OBJECTS)  # line 131
 	$(CXX) $(CXXFLAGS) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $@

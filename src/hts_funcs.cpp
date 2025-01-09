@@ -188,9 +188,15 @@ namespace HGW {
             return;
 //            throw std::runtime_error("");
         }
+//        std::string target = "A00721:542:HWWLLDSX5:4:2150:18936:11584";
+//        const char * qname;
 
         while (sam_itr_next(b, iter_q, readQueue.back().delegate) >= 0) {
             src = readQueue.back().delegate;
+
+//            qname = bam_get_qname(src);
+//            if (std::string(qname) != target) { continue; } else { readQueue.emplace_back(bam_init1()); break; }
+
             if (src->core.flag & 4 || src->core.n_cigar == 0) {
                 continue;
             }

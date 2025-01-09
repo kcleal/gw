@@ -750,7 +750,6 @@ namespace Segs {
                 case BAM_CREF_SKIP:
                     op = BAM_CDEL;
                     pos += l;
-                    seq_index += l;
                     break;
                 case BAM_CSOFT_CLIP:
                     if (k == 0) {
@@ -762,7 +761,7 @@ namespace Segs {
                     break;
 //                case BAM_CHARD_CLIP: case BAM_CPAD: case BAM_CBACK:
 //                    break;  // do something for these?
-                default:  // Match case --> MATCH, EQUAL, DIFF
+                default:
                     break;
             }
         }

@@ -58,8 +58,8 @@ void print_banner() {
 #endif
 }
 
-// note to developer - update version in workflows/main.yml, menu.cpp, term_out.cpp, and deps/gw.desktop, and installers .md in docs
-const char GW_VERSION [7] = "1.1.1";
+// note to developer - update version in workflows/main.yml, menu.cpp, term_out.cpp, and deps/gw.desktop, and installers .md in docs (post release)
+const char GW_VERSION [7] = "1.1.2";
 
 
 bool str_is_number(const std::string &s) {
