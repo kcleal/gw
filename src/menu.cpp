@@ -38,6 +38,7 @@
 #include "themes.h"
 #include "utils.h"
 #include "menu.h"
+#include "parser.h"
 
 
 namespace Menu {
@@ -843,9 +844,10 @@ namespace Menu {
         if (Utils::startsWith(new_opt.value, "http") || Utils::startsWith(new_opt.value, "ftp")) {
             opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
         } else {
-            std::filesystem::path path = new_opt.value;
+            std::string new_opt_path = Parse::tilde_to_home(new_opt.value);
+            std::filesystem::path path = new_opt_path;
             if (std::filesystem::exists(path)) {
-                opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
+                opts.myIni[new_opt.table][new_opt.name] = new_opt_path;
             } else {
                 std::cerr << termcolor::red << "Error:" << termcolor::reset << " local path does not exist: " << path << std::endl;
             }

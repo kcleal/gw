@@ -367,22 +367,16 @@ namespace Manager {
                         }
 
                     }
-//                     else {
-                        captureText = false;
-                        processText = true;
-                        shiftPress = false;
-                        redraw = true;
-                        processed = true;
-                        charIndex = inputText.size();
-                        commandToolTipIndex = -1;
-                        out << "\n";
-
-                        return GLFW_KEY_ENTER;
-//                    }
-//                    inputText += " ";
-//                    charIndex += 1;
-//                    commandToolTipIndex = -1;
-//                    return GLFW_KEY_UNKNOWN;
+                    captureText = true;
+                    processText = false;
+                    shiftPress = false;
+                    redraw = false;
+                    processed = true;
+                    inputText = inputText2;
+                    inputText += " ";
+                    charIndex = inputText.size();
+                    commandToolTipIndex = -1;
+                    return GLFW_KEY_UNKNOWN;
                 }
             }
 
@@ -1471,7 +1465,7 @@ namespace Manager {
         }
 
         // click on one of the commands in the pop-up menu
-        if (commandToolTipIndex != -1 && captureText && mode != SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT) {
+        if (commandToolTipIndex >= 0 && captureText && mode != SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT) {
             double xPos_fb = x;
             double yPos_fb = y;
             convertScreenCoordsToFrameBufferCoords(wind, &xPos_fb, &yPos_fb, fb_width, fb_height);
