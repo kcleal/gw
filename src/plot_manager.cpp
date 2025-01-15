@@ -184,7 +184,7 @@ namespace Manager {
         if (pixelMemory.empty()) {
             std::cerr << "Error: pixelMemory empty, makeRasterSurface failed\n";
         }
-        setGlfwFrameBufferSize();
+//        setGlfwFrameBufferSize();
         return pixelMemory.size();
     }
 
@@ -1056,6 +1056,11 @@ namespace Manager {
             } else {
                 if (yScaling > 3*monitorScale) {
                     pH = yScaling - monitorScale;
+                    //                     if (monitorScale > 1) {
+                    //                        pH = yScaling - monitorScale;
+                    //                    } else {
+                    //                        pH = yScaling - 2;
+                    //                    }
                 } else {
                     pH = yScaling;
                 }
@@ -1129,6 +1134,8 @@ namespace Manager {
             setScaling();
 
             SkRect clip;
+
+            // Draw background image
             if (!imageCacheQueue.empty() && collections.size() > 1) {
                 canvasR->drawImage(imageCacheQueue.back().second, 0, 0);
                 clip.setXYWH(0, 0, fb_width, refSpace);
@@ -1138,6 +1145,7 @@ namespace Manager {
                 canvasR->restore();
             }
 
+            // Update changes parts of image
             for (auto &cl: collections) {
                 if (cl.skipDrawingCoverage && cl.skipDrawingReads) {  // keep read and coverage area
                     continue;
@@ -1675,9 +1683,7 @@ namespace Manager {
         fetchRefSeqs();
         processBam();
         setScaling();
-        if (yScaling == 0) {
-            return;
-        }
+
         canvas->drawPaint(opts.theme.bgPaint);
         SkRect clip;
 

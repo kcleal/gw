@@ -36,6 +36,8 @@
     #include <emscripten.h>
 #endif
 
+// note to developer - update version in workflows/main.yml, menu.cpp, term_out.cpp, and deps/gw.desktop, and installers .md in docs (post release)
+const char GW_VERSION [7] = "1.1.2";
 // skia context has to be managed from global space to work
 GrDirectContext *sContext = nullptr;
 SkSurface *sSurface = nullptr;
@@ -54,12 +56,9 @@ void print_banner() {
 #else
     std::cout << "\n"
                  "█▀▀ █ █ █\n"
-                 "█▄█ ▀▄▀▄▀" << std::endl;
+                 "█▄█ ▀▄▀▄▀ v" << GW_VERSION << std::endl;
 #endif
 }
-
-// note to developer - update version in workflows/main.yml, menu.cpp, term_out.cpp, and deps/gw.desktop, and installers .md in docs (post release)
-const char GW_VERSION [7] = "1.1.2";
 
 
 bool str_is_number(const std::string &s) {
@@ -934,7 +933,7 @@ int main(int argc, char *argv[]) {
                     }
                 }
             }
-
+        // Save images of all variants to a folder .png format
         } else if (program.is_used("--variants") && !program.is_used("--out-vcf")) {
             if (outdir.empty()) {
                 std::cerr << "Error: please provide an output directory using --outdir\n";
@@ -981,6 +980,7 @@ int main(int argc, char *argv[]) {
                     auto *m = new Manager::GwPlot(genome, bam_paths, iopts, regions, tracks);
                     m->opts.theme.setAlphas();
                     m->setImageSize(iopts.dimensions.x, iopts.dimensions.y);
+                    m->makeRasterSurface();
                     m->opts.threads = 1;
                     for (auto &s: filters) {
                         m->addFilter(s);
@@ -1036,7 +1036,7 @@ int main(int argc, char *argv[]) {
                                             block += 1;
                                             mtx.unlock();
                                             Manager::GwPlot *plt = managers[this_block];
-                                            plt->makeRasterSurface();
+
 //                                            sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x, iopts.dimensions.y);
 //                                            SkCanvas *canvas = rasterSurface->getCanvas();
                                             for (int i = a; i < b; ++i) {
@@ -1090,8 +1090,6 @@ int main(int argc, char *argv[]) {
     }
     if (!iopts.no_show) {
         std::cout << "\nGw finished\n";
-    } else {
-        std::cout << "Gw finished\n";
     }
     return 0;
 };

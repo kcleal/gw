@@ -600,6 +600,9 @@ namespace Manager {
             charIndex = (int)inputText.size() - 1;
         }
         if (inputText.empty()) {
+            if (textFromSettings) {
+                Menu::processTextEntry(opts, inputText);
+            }
             return false;
         }
         if (mode != SETTINGS) {

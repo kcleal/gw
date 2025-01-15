@@ -111,7 +111,7 @@ namespace Commands {
     Err refreshGw(Plot* p) {
         p->redraw = true;
         p->processed = false;
-        if (p->frameId > 0) {
+        if (p->frameId >= 0) {
             p->imageCache.clear();
             p->imageCacheQueue.clear();
             p->filters.clear();
@@ -136,11 +136,37 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err settings(Plot* p) {
+    Err settings(Plot* p, std::string subHeading) {
         p->last_mode = p->mode;
         p->mode = Manager::Show::SETTINGS;
         p->redraw = true;
         p->processed = true;
+        if (subHeading == "settings") {
+            p->opts.menu_table = Themes::MenuTable::MAIN;
+        } else if (subHeading == "general") {
+            p->opts.menu_table = Themes::MenuTable::GENERAL;
+        }
+        else if (subHeading == "genomes") {
+            p->opts.menu_table = Themes::MenuTable::GENOMES;
+        }
+        else if (subHeading == "interaction") {
+            p->opts.menu_table = Themes::MenuTable::INTERACTION;
+        }
+        else if (subHeading == "labelling") {
+            p->opts.menu_table = Themes::MenuTable::LABELLING;
+        }
+        else if (subHeading == "navigation") {
+            p->opts.menu_table = Themes::MenuTable::NAVIGATION;
+        }
+        else if (subHeading == "tracks") {
+            p->opts.menu_table = Themes::MenuTable::TRACKS;
+        }
+        else if (subHeading == "thresholds") {
+            p->opts.menu_table = Themes::MenuTable::VIEW_THRESHOLDS;
+        }
+        else if (subHeading == "keymap") {
+            p->opts.menu_table = Themes::MenuTable::SHIFT_KEYMAP;
+        }
         return Err::NONE;
     }
 
@@ -283,7 +309,7 @@ namespace Commands {
 
     Err log2_cov(Plot* p) {
         p->opts.log2_cov = !(p->opts.log2_cov);
-        if (p->frameId > 0) {
+        if (p->frameId >= 0) {
             p->redraw = true;
             if (p->mode == Manager::Show::SINGLE) {
                 p->processed = true;
@@ -318,24 +344,30 @@ namespace Commands {
         p->opts.tlen_yscale = !p->opts.tlen_yscale;
         p->processed = false;
         p->redraw = true;
+        if (p->mode != Manager::Show::SINGLE) {
+            refreshGw(p);
+        }
         return Err::NONE;
     }
 
     Err alignments(Plot* p) {
         p->opts.alignments = !p->opts.alignments;
-        if (p->frameId > 0) {
+        if (p->frameId >= 0) {
             for (auto &cl: p->collections) {
                 cl.skipDrawingCoverage = false;
                 cl.skipDrawingReads = false;
             }
             p->redraw = true;
         }
+        if (p->mode != Manager::Show::SINGLE) {
+            refreshGw(p);
+        }
         return Err::NONE;
     }
 
     Err labels(Plot* p) {
         p->opts.data_labels = !p->opts.data_labels;
-        if (p->frameId > 0) {
+        if (p->frameId >= 0) {
             for (auto &cl: p->collections) {
                 cl.skipDrawingCoverage = false;
                 cl.skipDrawingReads = false;
@@ -362,13 +394,8 @@ namespace Commands {
                 p->opts.link = "none";
             }
         }
-        if (relink && p->frameId > 0) {
-            p->imageCache.clear();
-            p->imageCacheQueue.clear();
-            HGW::refreshLinked(p->collections, p->regions, p->opts, &p->samMaxY);
-            for (auto &cl: p->collections) { cl.skipDrawingCoverage = true; cl.skipDrawingReads = false;}
-            p->redraw = true;
-            p->processed = true;
+        if (relink && p->frameId >= 0) {
+            refreshGw(p);
         }
         return Err::NONE;
     }
@@ -459,7 +486,7 @@ namespace Commands {
                 out << command << std::endl;
             }
         }
-        if (p->frameId > 0) {
+        if (p->frameId >= 0) {
             p->imageCache.clear();
             p->imageCacheQueue.clear();
             p->processed = false;
@@ -497,7 +524,7 @@ namespace Commands {
                 out << std::endl;
             }
         }
-        if (p->frameId > 0) {
+        if (p->frameId >= 0) {
             p->processed = true;
             p->redraw = false;
         }
@@ -509,7 +536,7 @@ namespace Commands {
         std::string mate;
         Utils::parseMateLocation(p->selectedAlign, mate, p->target_qname);
         if (mate.empty()) {
-            out << termcolor::red << "Error:" << termcolor::reset << " could not parse mate location\n";
+            out << termcolor::red << "Error:" << termcolor::reset << " no read has been selected\n";
             return Err::SILENT;
         }
         if (p->regionSelection >= 0 && p->regionSelection < (int)p->regions.size()) {
@@ -595,7 +622,7 @@ namespace Commands {
             return Err::NONE;
         }
         p->opts.indel_length = indel_length;
-        if (p->frameId > 0) {
+        if (p->frameId >= 0) {
             p->processed = false;
             p->imageCache.clear();
             p->imageCacheQueue.clear();
@@ -686,7 +713,7 @@ namespace Commands {
             }
         }
         p->opts.max_coverage = std::max(0, p->opts.max_coverage);
-        if (p->frameId > 0) {
+        if (p->frameId >= 0) {
             for (auto &cl: p->collections) {
                 cl.skipDrawingReads = false;
                 cl.skipDrawingCoverage = false;
@@ -784,7 +811,7 @@ namespace Commands {
         } catch (...) {
             return Err::PARSE_INPUT;
         }
-        if (p->frameId > 0) {
+        if (p->frameId >= 0) {
             p->processed = false;
             p->imageCache.clear();
             p->imageCacheQueue.clear();
@@ -794,9 +821,6 @@ namespace Commands {
 
     Err add_region(Plot* p, std::vector<std::string> parts, std::ostream& out) {
         p->redraw = true;
-        if (p->mode != Manager::Show::SINGLE) {
-            return Err::NONE;
-        }
         if (parts.size() <= 1) {
             out << termcolor::red << "Error:" << termcolor::reset << " expected a Region e.g. chr1:1-20000\n";
             return Err::PARSE_INPUT;
@@ -822,8 +846,19 @@ namespace Commands {
                 return Err::PARSE_INPUT;
             }
         }
+        // Append new region to tiled view
+        if (p->mode == Manager::Show::TILED) {
+            p->regions.clear();
+            if (p->currentVarTrack->blockStart < (int)p->currentVarTrack->multiRegions.size()) {
+                assert (!p->currentVarTrack->multiRegions[p->currentVarTrack->blockStart].empty());
+                if (!p->currentVarTrack->multiRegions[p->currentVarTrack->blockStart][0].chrom.empty()) {
+                    p->regions = p->currentVarTrack->multiRegions[p->currentVarTrack->blockStart];
+                    p->fetchRefSeqs();
+                }
+            }
+        }
         p->regions.insert(p->regions.end(), new_regions.begin(), new_regions.end());
-        if (p->frameId > 0) {
+        if (p->frameId >= 0) {
             p->processed = false;
             for (auto &cl: p->collections) {
                 cl.skipDrawingCoverage = false;
@@ -831,6 +866,10 @@ namespace Commands {
             }
             p->imageCache.clear();
             p->imageCacheQueue.clear();
+        }
+        if (p->mode != Manager::Show::SINGLE) {
+            p->mode = Manager::Show::SINGLE;
+            refreshGw(p);
         }
         return Err::NONE;
     }
@@ -1379,7 +1418,7 @@ namespace Commands {
                 }
             }
         }
-        if (reason == Err::NONE && p->frameId > 0) {
+        if (reason == Err::NONE && p->frameId >= 0) {
             p->processed = false;
             p->imageCache.clear();
             p->redraw = true;
@@ -1735,7 +1774,15 @@ namespace Commands {
                 {"r",        PARAMS { return refreshGw(p); }},
                 {"refresh",  PARAMS { return refreshGw(p); }},
                 {"line",     PARAMS { return line(p); }},
-                {"settings", PARAMS { return settings(p); }},
+                {"settings", PARAMS { return settings(p, "settings"); }},
+                {"general", PARAMS { return settings(p, "general"); }},
+                {"genomes", PARAMS { return settings(p, "genomes"); }},
+                {"interaction", PARAMS { return settings(p, "interaction"); }},
+                {"labelling", PARAMS { return settings(p, "labelling"); }},
+                {"navigation", PARAMS { return settings(p, "navigation"); }},
+                {"tracks", PARAMS { return settings(p, "tracks"); }},
+                {"thresholds", PARAMS { return settings(p, "thresholds"); }},
+                {"keymap", PARAMS { return settings(p, "keymap"); }},
                 {"ins",      PARAMS { return insertions(p); }},
                 {"insertions",  PARAMS { return insertions(p); }},
                 {"mm",       PARAMS { return mismatches(p); }},

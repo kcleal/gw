@@ -616,6 +616,7 @@ namespace Menu {
                 }
             }
             else if (key == GLFW_KEY_RIGHT || key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER || key == GLFW_KEY_TAB) {
+                std::cout << opts.editing_underway << " ENTER detected\n";
                 if (opts.editing_underway) {
                     opts.editing_underway = false;
                     *processText = false;
