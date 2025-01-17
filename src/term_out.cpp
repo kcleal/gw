@@ -356,21 +356,37 @@ namespace Term {
                 }
                 continue;
             }
-            if (op == 0) {
-                out << l << "M";
-            } else if (op == 1) {
-                out << termcolor::magenta << l << "I" << termcolor::reset;
-            } else if (op == 2) {
-                out << termcolor::red << l << "D"<< termcolor::reset;
-            } else if (op == 8) {
-                out << l << "X";
-            } else if (op == 4) {
-                out << termcolor::bright_blue << l << "S"<< termcolor::reset;
-            } else if (op == 5) {
-                out << termcolor::blue << l << "H" << termcolor::reset;
-            }
-            else {
-                out << termcolor::blue << l << "?" << termcolor::reset;
+            switch (op) {
+                case 0:
+                    out << l << "M";
+                    break;
+                case 1:
+                    out << termcolor::magenta << l << "I" << termcolor::reset;
+                    break;
+                case 2:
+                    out << termcolor::red << l << "D" << termcolor::reset;
+                    break;
+                case 3:
+                    out << termcolor::bright_magenta << l << "N" << termcolor::reset;
+                    break;
+                case 4:
+                    out << termcolor::bright_blue << l << "S" << termcolor::reset;
+                    break;
+                case 5:
+                    out << termcolor::blue << l << "H" << termcolor::reset;
+                    break;
+                case 6:
+                    out << termcolor::blue << l << "P" << termcolor::reset;
+                    break;
+                case 7:
+                    out << termcolor::blue << l << "=" << termcolor::reset;
+                    break;
+                case 8:
+                    out << l << "X";
+                    break;
+                default:
+                    out << termcolor::blue << l << "?" << termcolor::reset;
+                    break;
             }
         }
     }
