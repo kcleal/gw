@@ -965,7 +965,7 @@ namespace Commands {
                     std::unique_ptr<SkCanvas> svgCanvas = SkSVGCanvas::Make(SkRect::MakeWH(p->fb_width, p->fb_height), &out_stream);
                     if (svgCanvas) {
                         picture->playback(svgCanvas.get());
-                        svgCanvas->flush();
+//                        svgCanvas->flush();
                     };
                 }
                 out << "\rSaved to " << out_path << std::endl;

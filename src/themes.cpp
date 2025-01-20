@@ -8,7 +8,20 @@
 #include "defaultIni.hpp"
 #include "ankerl_unordered_dense.h"
 
+#include "include/core/SkFont.h"
+#include "include/core/SkTypeface.h"
 #include "include/core/SkFontMgr.h"
+
+#if defined(__APPLE__)
+    #include <CoreText/CoreText.h>
+    #include "include/ports/SkFontMgr_mac_ct.h"
+#else
+    #include <fontconfig/fontconfig.h>
+    #include "include/ports/SkFontMgr_fontconfig.h"
+    #include "include/ports/SkFontConfigInterface.h"
+    #include "include/ports/SkFontMgr_FontConfigInterface.h"
+#endif
+
 
 #if !defined(__EMSCRIPTEN__)
     #include <curl/curl.h>
@@ -1007,7 +1020,7 @@ namespace Themes {
     }
 
     void printAvailableFonts() {
-        sk_sp<SkFontMgr> fontManager = SkFontMgr::RefDefault();
+        sk_sp<SkFontMgr> fontManager = SkFontMgr::RefEmpty();
         int familyCount = fontManager->countFamilies();
         std::cerr << "Available font families:" << std::endl;
         std::vector<std::string> fontFamilies;
@@ -1028,22 +1041,121 @@ namespace Themes {
     EXPORT Fonts::Fonts() {
         rect = SkRect::MakeEmpty();
         path = SkPath();
-//        fontMaxSize = 35; // in pixels
-//        fontHeight = 0;
+    }
+
+
+    sk_sp<SkFontMgr> createFontManager(bool system_default) {
+        sk_sp<SkFontMgr> fontMgr;
+
+//#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
+//        std::cerr << "Font manager not implemented WINDOWS\n";
+//#elif defined(__ANDROID__)
+//        std::cerr << "Font manager not implemented ANDROID\n";
+//#elif defined(__linux__)
+//        std::cerr << "Font manager not implemented LINUX\n";
+#if defined(__APPLE__)
+
+        if (system_default) {
+            // This tries to avoid loading all the system fonts, and just choose the default system font
+            CFStringRef fontFamilyName = CFSTR(".AppleSystemUIFont");
+
+            CFDictionaryRef attributes = CFDictionaryCreate(
+                    kCFAllocatorDefault,
+                    (const void**)&kCTFontFamilyNameAttribute,
+                    (const void**)&fontFamilyName,
+                    1,
+                    &kCFTypeDictionaryKeyCallBacks,
+                    &kCFTypeDictionaryValueCallBacks
+            );
+            if (!attributes) { return nullptr; }
+
+            CTFontDescriptorRef descriptor = CTFontDescriptorCreateWithAttributes(attributes);
+            CFRelease(attributes);
+            if (!descriptor) { return nullptr; }
+
+            CFArrayRef descriptorArray = CFArrayCreate(
+                    kCFAllocatorDefault,
+                    (const void**)&descriptor,
+                    1,
+                    &kCFTypeArrayCallBacks
+            );
+            CFRelease(descriptor);
+            if (!descriptorArray) { return nullptr; }
+
+            CTFontCollectionRef collection = CTFontCollectionCreateWithFontDescriptors(
+                    descriptorArray,
+                    nullptr
+            );
+            CFRelease(descriptorArray);
+            if (!collection) { return nullptr; }
+
+            fontMgr = SkFontMgr_New_CoreText(collection);
+            CFRelease(collection);
+
+        } else {
+            CTFontCollectionRef collection = CTFontCollectionCreateFromAvailableFonts(nullptr);
+            fontMgr = SkFontMgr_New_CoreText(collection);
+            CFRelease(collection);
+        }
+
+        if (!fontMgr) {
+            std::cerr << (fontMgr != nullptr) << " Error: failed to create font manager. Text will likely be missing\n";
+        } else {
+            char *val = getenv("GW_DEBUG");
+            if (val) {
+                std::cerr << "SkFontMgr\n";
+                int count = fontMgr->countFamilies();
+                std::cerr << "SkFontMgr has " << count << " different fonts" << std::endl;
+                if (count > 0) {
+                    SkString familyName;
+                    fontMgr->getFamilyName(0, &familyName);
+                    std::cerr << "First family name is " << familyName.c_str() << std::endl;
+                }
+            }
+
+        }
+#else
+        // Use FontConfig for all other platforms
+        FcInit();
+        FcConfig* config = FcInitLoadConfigAndFonts();
+        if (system_default) {
+            FcPattern* pattern = FcPatternCreate();
+            FcPatternAddString(pattern, FC_FAMILY, (const FcChar8*)"sans-serif");
+            FcConfigSubstitute(config, pattern, FcMatchPattern);
+            FcDefaultSubstitute(pattern);
+
+            FcResult result;
+            FcPattern* font = FcFontMatch(config, pattern, &result);
+
+            if (font) {
+                fontMgr = SkFontMgr_New_FontConfig(config);
+                FcPatternDestroy(font);
+            }
+            FcPatternDestroy(pattern);
+        } else {
+            // Load all fonts
+            fontMgr = SkFontMgr_New_FontConfig(nullptr);
+        }
+#endif
+        return fontMgr;
+
     }
 
     void Fonts::setTypeface(std::string &fontStr, int size) {
 
-        if (fontStr == "Default") {
-            face = SkTypeface::MakeDefault();
+        bool system_default = (fontStr == "Default");
+        sk_sp<SkFontMgr> fontMgr = createFontManager(system_default);
+        sk_sp<SkTypeface> face;
+        if (system_default) {
+            face = fontMgr->matchFamilyStyle(nullptr, SkFontStyle::Normal());
             if (!face) {
                 std::cerr << "Error: failed to create font. Text will likely be missing\n";
             }
         } else {
             const char * font_c = fontStr.c_str();
-            face = SkTypeface::MakeFromName(font_c, SkFontStyle::Normal());
+            face = fontMgr->matchFamilyStyle(font_c, SkFontStyle::Normal());
             if (!face) {
-                face = SkTypeface::MakeDefault();
+                face = fontMgr->matchFamilyStyle(nullptr, SkFontStyle::Normal());
                 SkString familyName;
                 face->getFamilyName(&familyName);
                 std::cerr << "\nWarning: font '" << fontStr << "' could not be loaded, using system default instead '" << familyName.c_str() << ". et GW_DEBUG=1 to display available fonts.\n";
@@ -1064,15 +1176,15 @@ namespace Themes {
             }
         }
 
+        overlay = SkFont(face);
         SkScalar ts = size;
-//        fonty.setSize(ts);
-//        fonty.setTypeface(face);
         overlay.setSize(ts);
-        overlay.setTypeface(face);
         fontTypefaceSize = size;
+
     }
 
     void Fonts::setOverlayHeight(float yScale) {
+
         SkRect bounds[1];
         SkPaint paint1;
         const SkPaint* pnt = &paint1;

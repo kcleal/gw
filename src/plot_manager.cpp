@@ -17,14 +17,11 @@
 
 #include <GLFW/glfw3.h>
 #define SK_GL
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/gl/GrGLInterface.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkSamplingOptions.h"
 #include "include/core/SkSurface.h"
 #include "include/core/SkDocument.h"
-
+#include "include/encode/SkPngEncoder.h"
 #include "ankerl_unordered_dense.h"
 #include "drawing.h"
 #include "plot_manager.h"
@@ -44,14 +41,14 @@ namespace Manager {
 
     void HiddenWindow::init(int width, int height) {
         if (!glfwInit()) {
-            std::cerr << "ERROR: could not initialize GLFW3" << std::endl;
+            std::cerr << "Error: could not initialize GLFW3" << std::endl;
             std::exit(-1);
         }
         glfwWindowHint(GLFW_STENCIL_BITS, 8);
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
         window = glfwCreateWindow(width, height, "GW", NULL, NULL);
         if (!window) {
-            std::cerr << "ERROR: could not create back window with GLFW3" << std::endl;
+            std::cerr << "Error: could not create back window with GLFW3" << std::endl;
             glfwTerminate();
             std::exit(-1);
         }
@@ -172,19 +169,24 @@ namespace Manager {
     }
 
     int GwPlot::makeRasterSurface() {
-        SkImageInfo info = SkImageInfo::MakeN32Premul(opts.dimensions.x * monitorScale,
-                                                      opts.dimensions.y * monitorScale);
-        size_t rowBytes = info.minRowBytes();
-        size_t size = info.computeByteSize(rowBytes);
+
+        SkImageInfo imageInfo = SkImageInfo::MakeN32Premul(opts.dimensions.x * monitorScale,
+                                                           opts.dimensions.y * monitorScale);
+        size_t rowBytes = imageInfo.minRowBytes();
+        size_t size = imageInfo.computeByteSize(rowBytes);
         this->pixelMemory.resize(size);
-        this->rasterSurface = SkSurface::MakeRasterDirect(
-                info, &pixelMemory[0], rowBytes);
+
+        sk_sp<SkSurface> rasterSurface = SkSurfaces::WrapPixels(
+                imageInfo,
+                &pixelMemory[0],
+                rowBytes);
+
         rasterCanvas = rasterSurface->getCanvas();
         rasterSurfacePtr = &rasterSurface;
         if (pixelMemory.empty()) {
             std::cerr << "Error: pixelMemory empty, makeRasterSurface failed\n";
         }
-//        setGlfwFrameBufferSize();
+
         return pixelMemory.size();
     }
 
@@ -228,7 +230,7 @@ namespace Manager {
         glfwSetErrorCallback(ErrorCallback);
 
         if (!glfwInit()) {
-            std::cerr << "ERROR: could not initialize GLFW3" << std::endl;
+            std::cerr << "Error: could not initialize GLFW3" << std::endl;
             std::terminate();
         }
         bool opengl_es_loader;
@@ -265,7 +267,7 @@ namespace Manager {
 
         if (!window) {
             glfwTerminate();
-            std::cerr << "ERROR: glfwCreateWindow failed\n";
+            std::cerr << "Error: glfwCreateWindow failed\n";
             std::exit(-1);
         }
 #if defined(_WIN32) || defined(_WIN64)
@@ -308,7 +310,7 @@ namespace Manager {
         glfwSetWindowSizeCallback(window, func_resize);
 
         if (!window) {
-            std::cerr << "ERROR: could not create window with GLFW3" << std::endl;
+            std::cerr << "Error: could not create window with GLFW3" << std::endl;
             glfwTerminate();
             std::exit(-1);
         }
@@ -375,14 +377,14 @@ namespace Manager {
 
     void GwPlot::initBack(int width, int height) {
         if (!glfwInit()) {
-            std::cerr << "ERROR: could not initialize GLFW3" << std::endl;
+            std::cerr << "Error: could not initialize GLFW3" << std::endl;
             std::exit(-1);
         }
 
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
         window = glfwCreateWindow(width, height, "GW", NULL, NULL);
         if (!window) {
-            std::cerr << "ERROR: could not create back window with GLFW3" << std::endl;
+            std::cerr << "Error: could not create back window with GLFW3" << std::endl;
             glfwTerminate();
             std::terminate();
         }
@@ -817,32 +819,44 @@ namespace Manager {
 
                 sContext->abandonContext();
                 sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
-                sContext = GrDirectContext::MakeGL(interface).release();
+                sContext = GrDirectContexts::MakeGL(interface).release();
 
                 GrGLFramebufferInfo framebufferInfo;
                 framebufferInfo.fFBOID = 0;
                 framebufferInfo.fFormat = GL_RGBA8;
-                GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
+
+                auto backendRenderTarget = GrBackendRenderTargets::MakeGL(
+                        fb_width,
+                        fb_height,
+                        0,        // sampleCnt
+                        0,        // stencilBits
+                        framebufferInfo
+                );
 
                 if (!backendRenderTarget.isValid()) {
-                    std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
+                    std::cerr << "Error: backendRenderTarget was invalid" << std::endl;
                     glfwTerminate();
                     std::exit(-1);
                 }
 
-                sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
-                                                                  backendRenderTarget,
-                                                                  kBottomLeft_GrSurfaceOrigin,
-                                                                  kRGBA_8888_SkColorType,
-                                                                  nullptr,
-                                                                  nullptr).release();
+                SkSurfaceProps props(0, kUnknown_SkPixelGeometry);
+                sSurface = SkSurfaces::WrapBackendRenderTarget(
+                        sContext,
+                        backendRenderTarget,
+                        kBottomLeft_GrSurfaceOrigin,
+                        kRGBA_8888_SkColorType,
+                        nullptr,
+                        &props
+                ).release();
+
                 if (!sSurface) {
                     std::cerr
-                            << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
+                            << "Error: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
                     std::exit(-1);
                 }
 
-                rasterSurface = SkSurface::MakeRasterN32Premul(fb_width, fb_height);
+                auto imageInfo = SkImageInfo::MakeN32Premul(fb_width, fb_height);
+                rasterSurface = SkSurfaces::Raster(imageInfo);
                 rasterCanvas = rasterSurface->getCanvas();
                 rasterSurfacePtr = &rasterSurface;
 
@@ -1116,6 +1130,7 @@ namespace Manager {
     void GwPlot::drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
 
 //        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
+
         SkCanvas *canvasR = rasterCanvas;
 
         canvas->drawPaint(opts.theme.bgPaint);
@@ -1593,7 +1608,7 @@ namespace Manager {
                                           data = SkData::MakeFromFileName(fname);
                                           if (!data)
                                               throw std::runtime_error("Error: file not found");
-                                          sk_sp<SkImage> image = SkImage::MakeFromEncoded(data);
+                                          sk_sp<SkImage> image = SkImages::DeferredFromEncodedData(data);
                                           if (!image)
                                               throw std::runtime_error("Failed to decode an image");
                                           // if image is not explicitly decoded, it might be lazily decoded during drawing
@@ -1855,7 +1870,9 @@ namespace Manager {
     void GwPlot::rasterToPng(const char* path) {
         sk_sp<SkImage> img(rasterSurfacePtr[0]->makeImageSnapshot());
         if (!img) { return; }
-        sk_sp<SkData> png(img->encodeToData());
+//        sk_sp<SkData> png(img->encodeToData());
+        SkPngEncoder::Options options;
+        sk_sp<SkData> png(SkPngEncoder::Encode(nullptr, img.get(), options));
         if (!png) { return; }
         FILE* fout = fopen(path, "w");
         fwrite(png->data(), 1, png->size(), fout);
@@ -1864,7 +1881,9 @@ namespace Manager {
 
     void imageToPng(sk_sp<SkImage> &img, std::filesystem::path &path) {
         if (!img) { return; }
-        sk_sp<SkData> png(img->encodeToData());
+//        sk_sp<SkData> png(img->encodeToData());
+        SkPngEncoder::Options options;
+        sk_sp<SkData> png(SkPngEncoder::Encode(nullptr, img.get(), options));
         if (!png) { return; }
 #if defined(_WIN32)
 	const wchar_t* outp = path.c_str();
@@ -1879,7 +1898,9 @@ namespace Manager {
 
     void imagePngToStdOut(sk_sp<SkImage> &img) {
         if (!img) { return; }
-        sk_sp<SkData> png(img->encodeToData());
+//        sk_sp<SkData> png(img->encodeToData());
+        SkPngEncoder::Options options;
+        sk_sp<SkData> png(SkPngEncoder::Encode(nullptr, img.get(), options));
         if (!png) { return; }
         FILE* fout = stdout;
 #if defined(_WIN32) || defined(_WIN64)
@@ -1898,7 +1919,9 @@ namespace Manager {
 
     void imagePngToFile(sk_sp<SkImage> &img, std::string path) {
         if (!img) { return; }
-        sk_sp<SkData> png(img->encodeToData());
+//        sk_sp<SkData> png(img->encodeToData());
+        SkPngEncoder::Options options;
+        sk_sp<SkData> png(SkPngEncoder::Encode(nullptr, img.get(), options));
         if (!png) { return; }
         FILE* fout = fopen(path.c_str(), "w");
         fwrite(png->data(), 1, png->size(), fout);

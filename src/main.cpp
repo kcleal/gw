@@ -20,9 +20,12 @@
 #include "GLFW/glfw3.h"
 
 #define SK_GL
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/gl/GrGLInterface.h"
+//#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/gl/GrGLDirectContext.h"
+#include "include/gpu/ganesh/gl/GrGLInterface.h"
+#include "include/gpu/ganesh/gl/GrGLBackendSurface.h"
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkSurface.h"
 #include "include/core/SkDocument.h"
@@ -604,6 +607,9 @@ int main(int argc, char *argv[]) {
         plotter.init(iopts.dimensions.x, iopts.dimensions.y);
         int fb_height, fb_width;
         glfwGetFramebufferSize(plotter.window, &fb_width, &fb_height);
+
+        //////
+
         plotter.setGlfwFrameBufferSize();
 
         sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
@@ -619,7 +625,8 @@ int main(int argc, char *argv[]) {
             std::exit(-1);
         }
 
-        sContext = GrDirectContext::MakeGL(interface).release();
+        //
+        sContext = GrDirectContexts::MakeGL(interface).release();
         if (!sContext) {
             std::cerr << "Error: could not create skia context using MakeGL\n";
             std::exit(-1);
@@ -632,19 +639,34 @@ int main(int argc, char *argv[]) {
         constexpr SkColorType colorTypes[2] = {kRGBA_8888_SkColorType, kRGB_888x_SkColorType};
         int valid = false;
         for (int i=0; i < 2; ++i) {
-            framebufferInfo.fFormat = fbFormats[i];  // GL_SRGB8_ALPHA8; //
-            GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
+
+            framebufferInfo.fFormat = fbFormats[i];
+
+            auto backendRenderTarget = GrBackendRenderTargets::MakeGL(
+                    fb_width,
+                    fb_height,
+                    0,        // sampleCnt
+                    0,        // stencilBits
+                    framebufferInfo
+            );
+
             if (!backendRenderTarget.isValid()) {
                 std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
                 glfwTerminate();
                 std::exit(-1);
             }
-            sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
-                                                              backendRenderTarget,
-                                                              kBottomLeft_GrSurfaceOrigin,
-                                                              colorTypes[i], //kRGBA_8888_SkColorType,
-                                                              nullptr,
-                                                              nullptr).release();
+
+            // Now create the surface
+            SkSurfaceProps props(0, kUnknown_SkPixelGeometry);
+            sSurface = SkSurfaces::WrapBackendRenderTarget(
+                    sContext,
+                    backendRenderTarget,
+                    kBottomLeft_GrSurfaceOrigin,
+                    colorTypes[i],
+                    nullptr,
+                    &props
+            ).release();
+
             if (!sSurface) {
                 std::stringstream sstream;
                 sstream << std::hex << fbFormats[i];
@@ -661,8 +683,13 @@ int main(int argc, char *argv[]) {
         }
 
         // initialize drawing surface
-        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x * plotter.monitorScale,
-                                                                        iopts.dimensions.y * plotter.monitorScale);
+//        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x * plotter.monitorScale,
+//                                                                        iopts.dimensions.y * plotter.monitorScale);
+        auto imageInfo = SkImageInfo::MakeN32Premul(
+                iopts.dimensions.x * plotter.monitorScale,
+                iopts.dimensions.y * plotter.monitorScale);
+        sk_sp<SkSurface> rasterSurface = SkSurfaces::Raster(imageInfo);
+
         plotter.rasterCanvas = rasterSurface->getCanvas();
         plotter.rasterSurfacePtr = &rasterSurface;
 
@@ -811,7 +838,7 @@ int main(int argc, char *argv[]) {
                     std::unique_ptr<SkCanvas> svgCanvas = SkSVGCanvas::Make(SkRect::MakeWH(iopts.dimensions.x, iopts.dimensions.y), &out);
                     if (svgCanvas) {
                         picture->playback(svgCanvas.get());
-                        svgCanvas->flush();
+//                        svgCanvas->flush();
                     };
                 }
 
@@ -820,8 +847,14 @@ int main(int argc, char *argv[]) {
                 // Plot a png image, either of target region or whole chromosome
                 sk_sp<SkImage> img;
                 if (!plotter.regions.empty()) {  // plot target regions
-                    sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
-                                                                                    iopts.dimensions.y);
+
+//                    sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
+//                                                                                    iopts.dimensions.y);
+
+                    auto imageInfo = SkImageInfo::MakeN32Premul(
+                            iopts.dimensions.x * plotter.monitorScale,
+                            iopts.dimensions.y * plotter.monitorScale);
+                    sk_sp<SkSurface> rasterSurface = SkSurfaces::Raster(imageInfo);
                     SkCanvas *canvas = rasterSurface->getCanvas();
                     drawImageCommands(plotter, canvas, extra_commands);
 

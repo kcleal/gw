@@ -20,9 +20,6 @@
 
 #include <GLFW/glfw3.h>
 #define SK_GL
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/gl/GrGLInterface.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkSamplingOptions.h"
 #include "include/core/SkSurface.h"
@@ -616,7 +613,6 @@ namespace Menu {
                 }
             }
             else if (key == GLFW_KEY_RIGHT || key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER || key == GLFW_KEY_TAB) {
-                std::cout << opts.editing_underway << " ENTER detected\n";
                 if (opts.editing_underway) {
                     opts.editing_underway = false;
                     *processText = false;
