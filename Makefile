@@ -9,74 +9,64 @@ debug: default
 
 # set system
 PLATFORM=
+TARGET_OS=
 UNAME_S := $(shell uname -s)
+UNAME_M := $(shell uname -m)
 ifeq ($(OS),Windows_NT)  # assume we are using msys2-ucrt64 env
     PLATFORM = "Windows"
+    TARGET_OS = "Windows"
 else
     ifdef EMSCRIPTEN
         PLATFORM = "Emscripten"
+        TARGET_OS = "Wasm"
     else ifeq ($(UNAME_S),Linux)
-        PLATFORM = "Linux"
-    else ifeq ($(UNAME_S),Darwin)
-        ifeq ($(shell uname -m), arm64)
-            PLATFORM = "Arm64"
+        TARGET_OS = "Linux"
+        ifeq ($(UNAME_M),aarch64)
+            PLATFORM = "Linux-aarch64"
         else
-            PLATFORM = "Darwin"
+            PLATFORM = "Linux-x64"
+        endif
+    else ifeq ($(UNAME_S),Darwin)
+        TARGET_OS = "MacOS"
+        ifeq ($(shell uname -m), arm64)
+            PLATFORM = "MacOS-arm64"
+        else
+            PLATFORM = "MacOS-x64"
         endif
     endif
 endif
+
+$(info   PLATFORM=$(PLATFORM))
+$(info   TARGET_OS=$(TARGET_OS))
 
 ifneq ($(PLATFORM),"Emscripten")
-    # try and add conda environment
     ifdef CONDA_PREFIX
+    	$(info   Linking conda from $(CONDA_PREFIX))
         CPPFLAGS += -I$(CONDA_PREFIX)/include
         LDFLAGS += -L$(CONDA_PREFIX)/lib
-        ifeq ($(UNAME_S),Darwin)
-            LDFLAGS += -Wl,-rpath,$(CONDA_PREFIX)/lib
-        endif
-    endif
-    ifdef HTSLIB # Options to use target htslib or skia
-        CPPFLAGS += -I$(HTSLIB)
-        LDFLAGS += -L$(HTSLIB)
+        LDFLAGS += -Wl,-rpath,$(CONDA_PREFIX)/lib -Wl,-rpath-link,$(CONDA_PREFIX)/lib
     endif
 endif
 
-SKIA ?= ""
-SKIA_PATH=""
-ifneq ($(PLATFORM), "Windows")
-    ifneq ($(SKIA),"")
-        CPPFLAGS += -I$(SKIA)
-        SKIA_PATH := $(shell find ./lib/skia/out -type d -name '*Release*' | sort | head -n 1)
-    else ifeq ($(PLATFORM),"Arm64")
-        CPPFLAGS += -I./lib/skia
-        SKIA_PATH := $(shell find ./lib/skia/out -type d -name '*Release*' | sort | head -n 1)
-    else ifeq ($(PLATFORM),"Emscripten")
-        CPPFLAGS += -I./wasm_libs/skia -I./wasm_libs/htslib
-        SKIA_PATH = ./wasm_libs/skia/out/canvaskit_wasm
-    else  # Darwin / Linux
-    	CPPFLAGS += -I./lib/skia
-    	SKIA_PATH := $(shell find ./lib/skia/out -type d -name '*Release*' | sort | head -n 1)
-    endif
-endif
 
+SKIA_PATH="./lib/skia/out/Release"
+CPPFLAGS += -I./lib/skia
 LDFLAGS += -L$(SKIA_PATH)
-SKIA_LINK=""
-USE_GL ?= ""  # Else use EGL backend for Linux only
+
 
 prep:
-	@if [ "$(PLATFORM)" = "Darwin" ]; then \
-		SKIA_LINK=""; \
+	@if [ "$(PLATFORM)" = "MacOS-x64" ]; then \
 		echo "Downloading pre-built skia for MacOS-Intel"; mkdir -p lib/skia; \
-		cd lib/skia && curl -L -o skia.zip "https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-x64.zip" && unzip -o skia.zip && rm skia.zip && cd ../../; \
-	elif [ "$(PLATFORM)" = "Arm64" ]; then \
+		cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.1.0/skia-m133-macos-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
+	elif [ "$(PLATFORM)" = "MacOS-arm64" ]; then \
       	echo "Downloading pre-built skia for MacOS-Arm64"; mkdir -p lib/skia; \
-      	cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia.zip" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
-	elif [ "$(PLATFORM)" = "Linux" ] && [ "$(USE_GL)" = "1" ]; then \
+      	cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.1.0/skia-m133-macos-Release-arm64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
+	elif [ "$(PLATFORM)" = "Linux-x64" ]; then \
 		echo "Downloading pre-built skia for Linux with GL"; mkdir -p lib/skia; \
-		cd lib/skia && curl -L -o skia.zip "https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip" && unzip -o skia.zip && rm skia.zip && cd ../../; \
-	elif [ "$(PLATFORM)" = "Linux" ]; then \
-		echo "Downloading pre-built skia for Linux with EGL"; mkdir -p lib/skia; \
-		cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia-m93-linux-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
+		cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.1.0/skia-m133-linux-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
+	elif [ "$(PLATFORM)" = "Linux-aarch64" ]; then \
+    	echo "Downloading pre-built skia for Linux with GL"; mkdir -p lib/skia; \
+    	cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.1.0/skia-m133-linux-Release-arm64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	fi
 
 CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG -g
@@ -84,27 +74,22 @@ LIBGW_INCLUDE=
 CPPFLAGS += -I./lib/libBigWig -I./include -I. $(LIBGW_INCLUDE) -I./src
 LDLIBS += -lskia -lm -ljpeg -lpng -lpthread
 
-ifeq ($(PLATFORM),"Linux")  # set platform flags and libs
+ifeq ($(TARGET_OS),"Linux")  # set platform flags and libs
     CXXFLAGS += -D LINUX -D __STDC_FORMAT_MACROS
     LDLIBS += -lX11
     ifeq ($(USE_WAYLAND),1)
     	LDLIBS += -lwayland-client -lwayland-egl
     endif
-    LDLIBS += -lGL -lEGL
-    ifneq ($(USE_GL),1)
-        LDLIBS += -lGLESv2
+    LDLIBS += -lGL -lEGL -lGLESv2 -lhts -lfreetype -luuid -lz -lcurl -licu -ldl -lglfw -lsvg -lfontconfig
+
+else ifeq ($(TARGET_OS),"MacOS")
+    ifeq ($(PLATFORM),"MacOS-x64")
+        CXXFLAGS += -arch x86_64
+    else
+        CXXFLAGS += -arch arm64
     endif
-    LDLIBS += -lhts -lfreetype -luuid -lz -lcurl -licu -ldl -lglfw -lsvg -lfontconfig
-
-else ifeq ($(PLATFORM),"Darwin")
     CPPFLAGS += -I/usr/local/include
-    CXXFLAGS += -D OSX -stdlib=libc++ -arch x86_64 -fvisibility=hidden -mmacosx-version-min=11 -Wno-deprecated-declarations
-    LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=11 -L/usr/local/lib
-    LDLIBS += -lhts -lglfw -lzlib -lcurl -licu -ldl -lsvg -lfontconfig
-
-else ifeq ($(PLATFORM),"Arm64")
-    CPPFLAGS += -I/usr/local/include
-    CXXFLAGS += -D OSX -stdlib=libc++ -arch arm64 -fvisibility=hidden -mmacosx-version-min=11 -Wno-deprecated-declarations
+    CXXFLAGS += -D OSX -stdlib=libc++ -fvisibility=hidden -mmacosx-version-min=11 -Wno-deprecated-declarations
     LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=11 -L/usr/local/lib
     LDLIBS += -lhts -lglfw -lzlib -lcurl -licu -ldl -lsvg -lfontconfig
 
@@ -122,6 +107,7 @@ else ifeq ($(PLATFORM),"Emscripten")
     LDLIBS += -lwebgl.js -l:libhts.a
 endif
 
+
 OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 OBJECTS += $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
 OBJECTS += $(patsubst %.c, %.o, $(wildcard ./include/*.c))
@@ -133,7 +119,7 @@ $(TARGET): $(OBJECTS)  # line 131
 
 
 clean:
-	-rm -f *.o ./src/*.o ./src/*.o.tmp ./lib/libBigWig/*.o
+	-rm -f *.o ./src/*.o ./src/*.o.tmp ./lib/libBigWig/*.o ./include/*.o
 	-rm -f $(TARGET)
 	-rm -rf libgw.* *.wasm
 
