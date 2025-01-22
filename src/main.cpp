@@ -83,9 +83,8 @@ void drawImageCommands(Manager::GwPlot &p, SkCanvas *canvas, std::vector<std::st
 
 
 void setupRenderTarget(int fb_width, int fb_height) {
-
-#ifndef OLD_SKIA
     sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
+#ifndef OLD_SKIA
     if (!interface || !interface->validate()) {
         std::cerr << "Error: skia GrGLInterface was not valid" << std::endl;
         if (!interface) {
