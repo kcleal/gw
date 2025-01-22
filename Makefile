@@ -35,7 +35,6 @@ else
 endif
 
 $(info   PLATFORM=$(PLATFORM))
-$(info   TARGET_OS=$(TARGET_OS))
 
 ifneq ($(PLATFORM),"Emscripten")
     ifdef CONDA_PREFIX
@@ -45,46 +44,49 @@ ifneq ($(PLATFORM),"Emscripten")
         LDFLAGS += -Wl,-rpath,$(CONDA_PREFIX)/lib -Wl,-rpath-link,$(CONDA_PREFIX)/lib
     endif
 endif
+
 ##########################################################
 # Skia info
-
-SKIA_PATH="./lib/skia/out/Release"
-CPPFLAGS += -I./lib/skia
-LDFLAGS += -L$(SKIA_PATH)
 
 prep:
 ifndef OLD_SKIA
 	@if [ "$(PLATFORM)" = "MacOS-x64" ]; then \
-		echo "Downloading pre-built skia for MacOS-Intel"; mkdir -p lib/skia; \
+		echo "Downloading pre-built skia-m133 for MacOS-Intel"; mkdir -p lib/skia; \
 		cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.1.0/skia-m133-macos-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	elif [ "$(PLATFORM)" = "MacOS-arm64" ]; then \
-      	echo "Downloading pre-built skia for MacOS-Arm64"; mkdir -p lib/skia; \
+      	echo "Downloading pre-built skia-m133 for MacOS-Arm64"; mkdir -p lib/skia; \
       	cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.1.0/skia-m133-macos-Release-arm64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	elif [ "$(PLATFORM)" = "Linux-x64" ]; then \
-		echo "Downloading pre-built skia for Linux-x64"; mkdir -p lib/skia; \
+		echo "Downloading pre-built skia-m133 for Linux-x64"; mkdir -p lib/skia; \
 		cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.1.0/skia-m133-linux-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	elif [ "$(PLATFORM)" = "Linux-aarch64" ]; then \
-    	echo "Downloading pre-built skia for Linux-aarch64"; mkdir -p lib/skia; \
+    	echo "Downloading pre-built skia-m133 for Linux-aarch64"; mkdir -p lib/skia; \
     	cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.1.0/skia-m133-linux-Release-arm64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	fi
 else
 	@if [ "$(PLATFORM)" = "MacOS-x64" ]; then \
-		echo "Downloading pre-built skia for MacOS-Intel"; mkdir -p lib/skia; \
+		echo "Downloading pre-built skia-m93 for MacOS-Intel"; mkdir -p lib/skia; \
 		cd lib/skia && curl -L -o skia.zip "https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-x64.zip" && unzip -o skia.zip && rm skia.zip && cd ../../; \
 	elif [ "$(PLATFORM)" = "MacOS-arm64" ]; then \
-      	echo "Downloading pre-built skia for MacOS-Arm64"; mkdir -p lib/skia; \
+      	echo "Downloading pre-built skia-m93 for MacOS-Arm64"; mkdir -p lib/skia; \
       	cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia.zip" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	elif [ "$(PLATFORM)" = "Linux-x64" ]; then \
-		echo "Downloading pre-built skia for Linux-x64"; mkdir -p lib/skia; \
+		echo "Downloading pre-built skia-m93 for Linux-x64"; mkdir -p lib/skia; \
 		cd lib/skia && curl -L -o skia.zip "https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip" && unzip -o skia.zip && rm skia.zip && cd ../../; \
 	fi
 endif
+SKIA_PATH := $(shell find ./lib/skia/out -type d -name '*Release*' | sort | head -n 1)
+
 ##########################################################
 # Flags and libs
 
+ifdef OLD_SKIA
+	CXXFLAGS += -D OLD_SKIA -D USE_GL
+endif
 CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG -g
 LIBGW_INCLUDE=
-CPPFLAGS += -I./lib/libBigWig -I./include -I. $(LIBGW_INCLUDE) -I./src
+CPPFLAGS += -I./lib/skia -I./lib/libBigWig -I./include -I. $(LIBGW_INCLUDE) -I./src
+LDFLAGS += -L$(SKIA_PATH)
 LDLIBS += -lskia -lm -ljpeg -lpng -lpthread
 
 ifeq ($(TARGET_OS),"Linux")  # set platform flags and libs
@@ -94,7 +96,6 @@ ifeq ($(TARGET_OS),"Linux")  # set platform flags and libs
     	LDLIBS += -lwayland-client -lwayland-egl
     endif
     LDLIBS += -lGL -lEGL -lGLESv2 -lhts -lfreetype -luuid -lz -lcurl -licu -ldl -lglfw -lsvg -lfontconfig
-
 else ifeq ($(TARGET_OS),"MacOS")
     ifeq ($(PLATFORM),"MacOS-x64")
         CXXFLAGS += -arch x86_64
@@ -105,13 +106,11 @@ else ifeq ($(TARGET_OS),"MacOS")
     CXXFLAGS += -D OSX -stdlib=libc++ -fvisibility=hidden -mmacosx-version-min=11 -Wno-deprecated-declarations
     LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=11 -L/usr/local/lib
     LDLIBS += -lhts -lglfw -lzlib -lcurl -licu -ldl -lsvg -lfontconfig
-
 else ifeq ($(PLATFORM),"Windows")
     CXXFLAGS += -D WIN32 -D OLD_SKIA
     CPPFLAGS += $(shell pkgconf -cflags skia) $(shell ncursesw6-config --cflags)
     LDLIBS += $(shell pkgconf -libs skia)
     LDLIBS += -lhts -lharfbuzz-subset -lglfw3 -lcurl -lsvg -lfontconfig
-
 else ifeq ($(PLATFORM),"Emscripten")
     CPPFLAGS += -v --use-port=contrib.glfw3 -sUSE_ZLIB=1 -sUSE_FREETYPE=1 -sUSE_ICU=1  -I/usr/local/include
     CFLAGS += -fPIC
@@ -119,6 +118,7 @@ else ifeq ($(PLATFORM),"Emscripten")
     LDFLAGS += -v -L./wasm_libs/htslib -s RELOCATABLE=1 --no-entry -s STANDALONE_WASM
     LDLIBS += -lwebgl.js -l:libhts.a
 endif
+
 ##########################################################
 # Compile
 

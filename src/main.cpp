@@ -83,7 +83,9 @@ void drawImageCommands(Manager::GwPlot &p, SkCanvas *canvas, std::vector<std::st
 
 
 void setupRenderTarget(int fb_width, int fb_height) {
+
     sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
+
 #ifndef OLD_SKIA
     if (!interface || !interface->validate()) {
         std::cerr << "Error: skia GrGLInterface was not valid" << std::endl;
@@ -155,45 +157,45 @@ void setupRenderTarget(int fb_width, int fb_height) {
     }
 #else
     sContext = GrDirectContext::MakeGL(interface).release();
-        if (!sContext) {
-            std::cerr << "Error: could not create skia context using MakeGL\n";
+    if (!sContext) {
+        std::cerr << "Error: could not create skia-m93 context using MakeGL\n";
+        std::exit(-1);
+    }
+
+    GrGLFramebufferInfo framebufferInfo;
+    framebufferInfo.fFBOID = 0;
+
+    constexpr int fbFormats[2] = {GL_RGBA8, GL_RGB8};  // GL_SRGB8_ALPHA8
+    constexpr SkColorType colorTypes[2] = {kRGBA_8888_SkColorType, kRGB_888x_SkColorType};
+    int valid = false;
+    for (int i=0; i < 2; ++i) {
+        framebufferInfo.fFormat = fbFormats[i];  // GL_SRGB8_ALPHA8; //
+        GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
+        if (!backendRenderTarget.isValid()) {
+            std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
+            glfwTerminate();
             std::exit(-1);
         }
-
-        GrGLFramebufferInfo framebufferInfo;
-        framebufferInfo.fFBOID = 0;
-
-        constexpr int fbFormats[2] = {GL_RGBA8, GL_RGB8};  // GL_SRGB8_ALPHA8
-        constexpr SkColorType colorTypes[2] = {kRGBA_8888_SkColorType, kRGB_888x_SkColorType};
-        int valid = false;
-        for (int i=0; i < 2; ++i) {
-            framebufferInfo.fFormat = fbFormats[i];  // GL_SRGB8_ALPHA8; //
-            GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
-            if (!backendRenderTarget.isValid()) {
-                std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
-                glfwTerminate();
-                std::exit(-1);
-            }
-            sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
-                                                              backendRenderTarget,
-                                                              kBottomLeft_GrSurfaceOrigin,
-                                                              colorTypes[i], //kRGBA_8888_SkColorType,
-                                                              nullptr,
-                                                              nullptr).release();
-            if (!sSurface) {
-                std::stringstream sstream;
-                sstream << std::hex << fbFormats[i];
-                std::string result = sstream.str();
-                std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format was 0x" << result << std::endl;
-                continue;
-            }
-            valid = true;
-            break;
+        sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
+                                                          backendRenderTarget,
+                                                          kBottomLeft_GrSurfaceOrigin,
+                                                          colorTypes[i], //kRGBA_8888_SkColorType,
+                                                          nullptr,
+                                                          nullptr).release();
+        if (!sSurface) {
+            std::stringstream sstream;
+            sstream << std::hex << fbFormats[i];
+            std::string result = sstream.str();
+            std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format was 0x" << result << std::endl;
+            continue;
         }
-        if (!valid) {
-            std::cerr << "ERROR: could not create a valid frame buffer\n";
-            std::exit(-1);
-        }
+        valid = true;
+        break;
+    }
+    if (!valid) {
+        std::cerr << "ERROR: could not create a valid frame buffer\n";
+        std::exit(-1);
+    }
 #endif
 }
 
