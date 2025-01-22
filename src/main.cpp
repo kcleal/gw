@@ -20,17 +20,8 @@
 #include "GLFW/glfw3.h"
 
 #define SK_GL
-//#include "include/gpu/ganesh/GrDirectContext.h"
-#include "include/gpu/ganesh/GrBackendSurface.h"
-#include "include/gpu/ganesh/gl/GrGLDirectContext.h"
-#include "include/gpu/ganesh/gl/GrGLInterface.h"
-#include "include/gpu/ganesh/gl/GrGLBackendSurface.h"
-#include "include/gpu/ganesh/SkSurfaceGanesh.h"
-#include "include/core/SkCanvas.h"
-#include "include/core/SkSurface.h"
 #include "include/core/SkDocument.h"
 #include "include/docs/SkPDFDocument.h"
-#include "include/core/SkStream.h"
 #include "include/core/SkPictureRecorder.h"
 #include "include/core/SkPicture.h"
 #include "include/svg/SkSVGCanvas.h"
@@ -55,7 +46,7 @@ void print_banner() {
  "/   \\  __\\   \\/\\/   /\n"
  "\\    \\_\\  \\        / \n"
  " \\______  /\\__/\\  /  \n"
- "        \\/      \\/  " << std::endl;
+ "        \\/      \\/  " << GW_VERSION << std::endl;
 #else
     std::cout << "\n"
                  "█▀▀ █ █ █\n"
@@ -89,6 +80,126 @@ void drawImageCommands(Manager::GwPlot &p, SkCanvas *canvas, std::vector<std::st
         p.runDrawOnCanvas(canvas);
     }
 }
+
+
+void setupRenderTarget(int fb_width, int fb_height) {
+
+#ifndef OLD_SKIA
+    sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
+    if (!interface || !interface->validate()) {
+        std::cerr << "Error: skia GrGLInterface was not valid" << std::endl;
+        if (!interface) {
+            std::cerr << "    GrGLMakeNativeInterface() returned nullptr" << std::endl;
+            std::cerr << "    GrGLInterface probably missing some GL functions" << std::endl;
+        } else {
+            std::cerr << "    fStandard was " << interface->fStandard << std::endl;
+        }
+        std::cerr << "GL error code: " << glGetError() << std::endl;
+        std::exit(-1);
+    }
+
+    //
+    sContext = GrDirectContexts::MakeGL(interface).release();
+    if (!sContext) {
+        std::cerr << "Error: could not create skia context using MakeGL\n";
+        std::exit(-1);
+    }
+
+    GrGLFramebufferInfo framebufferInfo;
+    framebufferInfo.fFBOID = 0;
+
+    constexpr int fbFormats[2] = {GL_RGBA8, GL_RGB8};  // GL_SRGB8_ALPHA8
+    constexpr SkColorType colorTypes[2] = {kRGBA_8888_SkColorType, kRGB_888x_SkColorType};
+    int valid = false;
+    for (int i=0; i < 2; ++i) {
+
+        framebufferInfo.fFormat = fbFormats[i];
+
+        auto backendRenderTarget = GrBackendRenderTargets::MakeGL(
+                fb_width,
+                fb_height,
+                0,        // sampleCnt
+                0,        // stencilBits
+                framebufferInfo
+        );
+
+        if (!backendRenderTarget.isValid()) {
+            std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
+            glfwTerminate();
+            std::exit(-1);
+        }
+
+        // Now create the surface
+        SkSurfaceProps props(0, kUnknown_SkPixelGeometry);
+        sSurface = SkSurfaces::WrapBackendRenderTarget(
+                sContext,
+                backendRenderTarget,
+                kBottomLeft_GrSurfaceOrigin,
+                colorTypes[i],
+                nullptr,
+                &props
+        ).release();
+
+        if (!sSurface) {
+            std::stringstream sstream;
+            sstream << std::hex << fbFormats[i];
+            std::string result = sstream.str();
+            std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format was 0x" << result << std::endl;
+            continue;
+        }
+        valid = true;
+        break;
+    }
+    if (!valid) {
+        std::cerr << "ERROR: could not create a valid frame buffer\n";
+        std::exit(-1);
+    }
+#else
+    sContext = GrDirectContext::MakeGL(interface).release();
+        if (!sContext) {
+            std::cerr << "Error: could not create skia context using MakeGL\n";
+            std::exit(-1);
+        }
+
+        GrGLFramebufferInfo framebufferInfo;
+        framebufferInfo.fFBOID = 0;
+
+        constexpr int fbFormats[2] = {GL_RGBA8, GL_RGB8};  // GL_SRGB8_ALPHA8
+        constexpr SkColorType colorTypes[2] = {kRGBA_8888_SkColorType, kRGB_888x_SkColorType};
+        int valid = false;
+        for (int i=0; i < 2; ++i) {
+            framebufferInfo.fFormat = fbFormats[i];  // GL_SRGB8_ALPHA8; //
+            GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
+            if (!backendRenderTarget.isValid()) {
+                std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
+                glfwTerminate();
+                std::exit(-1);
+            }
+            sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
+                                                              backendRenderTarget,
+                                                              kBottomLeft_GrSurfaceOrigin,
+                                                              colorTypes[i], //kRGBA_8888_SkColorType,
+                                                              nullptr,
+                                                              nullptr).release();
+            if (!sSurface) {
+                std::stringstream sstream;
+                sstream << std::hex << fbFormats[i];
+                std::string result = sstream.str();
+                std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format was 0x" << result << std::endl;
+                continue;
+            }
+            valid = true;
+            break;
+        }
+        if (!valid) {
+            std::cerr << "ERROR: could not create a valid frame buffer\n";
+            std::exit(-1);
+        }
+#endif
+}
+
+
+
 
 int main(int argc, char *argv[]) {
 
@@ -612,83 +723,22 @@ int main(int argc, char *argv[]) {
 
         plotter.setGlfwFrameBufferSize();
 
-        sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
-        if (!interface || !interface->validate()) {
-		    std::cerr << "Error: skia GrGLInterface was not valid" << std::endl;
-            if (!interface) {
-                std::cerr << "    GrGLMakeNativeInterface() returned nullptr" << std::endl;
-                std::cerr << "    GrGLInterface probably missing some GL functions" << std::endl;
-            } else {
-                std::cerr << "    fStandard was " << interface->fStandard << std::endl;
-            }
-            std::cerr << "GL error code: " << glGetError() << std::endl;
-            std::exit(-1);
-        }
-
-        //
-        sContext = GrDirectContexts::MakeGL(interface).release();
-        if (!sContext) {
-            std::cerr << "Error: could not create skia context using MakeGL\n";
-            std::exit(-1);
-        }
-
-        GrGLFramebufferInfo framebufferInfo;
-        framebufferInfo.fFBOID = 0;
-
-        constexpr int fbFormats[2] = {GL_RGBA8, GL_RGB8};  // GL_SRGB8_ALPHA8
-        constexpr SkColorType colorTypes[2] = {kRGBA_8888_SkColorType, kRGB_888x_SkColorType};
-        int valid = false;
-        for (int i=0; i < 2; ++i) {
-
-            framebufferInfo.fFormat = fbFormats[i];
-
-            auto backendRenderTarget = GrBackendRenderTargets::MakeGL(
-                    fb_width,
-                    fb_height,
-                    0,        // sampleCnt
-                    0,        // stencilBits
-                    framebufferInfo
-            );
-
-            if (!backendRenderTarget.isValid()) {
-                std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
-                glfwTerminate();
-                std::exit(-1);
-            }
-
-            // Now create the surface
-            SkSurfaceProps props(0, kUnknown_SkPixelGeometry);
-            sSurface = SkSurfaces::WrapBackendRenderTarget(
-                    sContext,
-                    backendRenderTarget,
-                    kBottomLeft_GrSurfaceOrigin,
-                    colorTypes[i],
-                    nullptr,
-                    &props
-            ).release();
-
-            if (!sSurface) {
-                std::stringstream sstream;
-                sstream << std::hex << fbFormats[i];
-                std::string result = sstream.str();
-                std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format was 0x" << result << std::endl;
-                continue;
-            }
-            valid = true;
-            break;
-        }
-        if (!valid) {
-            std::cerr << "ERROR: could not create a valid frame buffer\n";
-            std::exit(-1);
-        }
+        setupRenderTarget(fb_height, fb_height);
 
         // initialize drawing surface
+
 //        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x * plotter.monitorScale,
 //                                                                        iopts.dimensions.y * plotter.monitorScale);
+
+#ifndef OLD_SKIA
         auto imageInfo = SkImageInfo::MakeN32Premul(
                 iopts.dimensions.x * plotter.monitorScale,
                 iopts.dimensions.y * plotter.monitorScale);
         sk_sp<SkSurface> rasterSurface = SkSurfaces::Raster(imageInfo);
+#else
+        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x * plotter.monitorScale,
+                                                                        iopts.dimensions.y * plotter.monitorScale);
+#endif
 
         plotter.rasterCanvas = rasterSurface->getCanvas();
         plotter.rasterSurfacePtr = &rasterSurface;
@@ -848,13 +898,17 @@ int main(int argc, char *argv[]) {
                 sk_sp<SkImage> img;
                 if (!plotter.regions.empty()) {  // plot target regions
 
-//                    sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
-//                                                                                    iopts.dimensions.y);
 
+
+#ifndef OLD_SKIA
                     auto imageInfo = SkImageInfo::MakeN32Premul(
                             iopts.dimensions.x * plotter.monitorScale,
                             iopts.dimensions.y * plotter.monitorScale);
                     sk_sp<SkSurface> rasterSurface = SkSurfaces::Raster(imageInfo);
+#else
+                    sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
+                                                                                    iopts.dimensions.y);
+#endif
                     SkCanvas *canvas = rasterSurface->getCanvas();
                     drawImageCommands(plotter, canvas, extra_commands);
 

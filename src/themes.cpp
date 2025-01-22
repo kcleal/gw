@@ -8,20 +8,19 @@
 #include "defaultIni.hpp"
 #include "ankerl_unordered_dense.h"
 
-#include "include/core/SkFont.h"
-#include "include/core/SkTypeface.h"
 #include "include/core/SkFontMgr.h"
 
-#if defined(__APPLE__)
-    #include <CoreText/CoreText.h>
-    #include "include/ports/SkFontMgr_mac_ct.h"
-#else
-    #include <fontconfig/fontconfig.h>
-    #include "include/ports/SkFontMgr_fontconfig.h"
-    #include "include/ports/SkFontConfigInterface.h"
-    #include "include/ports/SkFontMgr_FontConfigInterface.h"
+#ifndef OLD_SKIA
+    #if defined(__APPLE__)
+        #include <CoreText/CoreText.h>
+        #include "include/ports/SkFontMgr_mac_ct.h"
+    #else
+        #include <fontconfig/fontconfig.h>
+        #include "include/ports/SkFontMgr_fontconfig.h"
+        #include "include/ports/SkFontConfigInterface.h"
+        #include "include/ports/SkFontMgr_FontConfigInterface.h"
+    #endif
 #endif
-
 
 #if !defined(__EMSCRIPTEN__)
     #include <curl/curl.h>
@@ -1020,7 +1019,11 @@ namespace Themes {
     }
 
     void printAvailableFonts() {
+#ifndef OLD_SKIA
         sk_sp<SkFontMgr> fontManager = SkFontMgr::RefEmpty();
+#else
+        sk_sp<SkFontMgr> fontManager = SkFontMgr::RefDefault();
+#endif
         int familyCount = fontManager->countFamilies();
         std::cerr << "Available font families:" << std::endl;
         std::vector<std::string> fontFamilies;
@@ -1043,7 +1046,7 @@ namespace Themes {
         path = SkPath();
     }
 
-
+#ifndef OLD_SKIA
     sk_sp<SkFontMgr> createFontManager(bool system_default) {
         sk_sp<SkFontMgr> fontMgr;
 
@@ -1180,11 +1183,53 @@ namespace Themes {
         SkScalar ts = size;
         overlay.setSize(ts);
         fontTypefaceSize = size;
-
     }
 
-    void Fonts::setOverlayHeight(float yScale) {
+#else
+    void Fonts::setTypeface(std::string &fontStr, int size) {
 
+        if (fontStr == "Default") {
+            face = SkTypeface::MakeDefault();
+            if (!face) {
+                std::cerr << "Error: failed to create font. Text will likely be missing\n";
+            }
+        } else {
+            const char * font_c = fontStr.c_str();
+            face = SkTypeface::MakeFromName(font_c, SkFontStyle::Normal());
+            if (!face) {
+                face = SkTypeface::MakeDefault();
+                SkString familyName;
+                face->getFamilyName(&familyName);
+                std::cerr << "\nWarning: font '" << fontStr << "' could not be loaded, using system default instead '" << familyName.c_str() << ". et GW_DEBUG=1 to display available fonts.\n";
+                char *val = getenv("GW_DEBUG");
+                if (val) {
+                    printAvailableFonts();
+                }
+            } else {
+                SkString familyName;
+                face->getFamilyName(&familyName);
+                if (familyName.c_str() != fontStr) {
+                    std::cerr << "\nWarning: font '" << fontStr << "' could not be loaded, swapped for '" << familyName.c_str() << " instead. Set GW_DEBUG=1 to display available fonts.\n";
+                    char *val = getenv("GW_DEBUG");
+                    if (val) {
+                        printAvailableFonts();
+                    }
+                }
+            }
+        }
+
+        SkScalar ts = size;
+//        fonty.setSize(ts);
+//        fonty.setTypeface(face);
+        overlay.setSize(ts);
+        overlay.setTypeface(face);
+        fontTypefaceSize = size;
+    }
+
+#endif
+
+
+    void Fonts::setOverlayHeight(float yScale) {
         SkRect bounds[1];
         SkPaint paint1;
         const SkPaint* pnt = &paint1;

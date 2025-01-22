@@ -106,7 +106,7 @@ else ifeq ($(TARGET_OS),"MacOS")
     LDLIBS += -lhts -lglfw -lzlib -lcurl -licu -ldl -lsvg -lfontconfig
 
 else ifeq ($(PLATFORM),"Windows")
-    CXXFLAGS += -D WIN32
+    CXXFLAGS += -D WIN32 -D OLD_SKIA
     CPPFLAGS += $(shell pkgconf -cflags skia) $(shell ncursesw6-config --cflags)
     LDLIBS += $(shell pkgconf -libs skia)
     LDLIBS += -lhts -lharfbuzz-subset -lglfw3 -lcurl -lsvg -lfontconfig

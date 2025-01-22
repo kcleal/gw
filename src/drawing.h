@@ -12,9 +12,15 @@
 #include "htslib/sam.h"
 
 #define SK_GL
-#include "include/gpu/ganesh/GrBackendSurface.h"
-#include "include/gpu/ganesh/GrDirectContext.h"
-#include "include/gpu/ganesh/gl/GrGLInterface.h"
+#ifdef OLD_SKIA
+    #include "include/gpu/GrBackendSurface.h"
+    #include "include/gpu/GrDirectContext.h"
+    #include "include/gpu/gl/GrGLInterface.h"
+#else
+    #include "include/gpu/ganesh/GrBackendSurface.h"
+    #include "include/gpu/ganesh/GrDirectContext.h"
+    #include "include/gpu/ganesh/gl/GrGLInterface.h"
+#endif
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkSurface.h"

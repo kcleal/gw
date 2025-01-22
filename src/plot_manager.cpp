@@ -18,10 +18,8 @@
 #include <GLFW/glfw3.h>
 #define SK_GL
 #include "include/core/SkCanvas.h"
-#include "include/core/SkSamplingOptions.h"
 #include "include/core/SkSurface.h"
-#include "include/core/SkDocument.h"
-#include "include/encode/SkPngEncoder.h"
+
 #include "ankerl_unordered_dense.h"
 #include "drawing.h"
 #include "plot_manager.h"
@@ -169,7 +167,7 @@ namespace Manager {
     }
 
     int GwPlot::makeRasterSurface() {
-
+#ifndef OLD_SKIA
         SkImageInfo imageInfo = SkImageInfo::MakeN32Premul(opts.dimensions.x * monitorScale,
                                                            opts.dimensions.y * monitorScale);
         size_t rowBytes = imageInfo.minRowBytes();
@@ -180,7 +178,15 @@ namespace Manager {
                 imageInfo,
                 &pixelMemory[0],
                 rowBytes);
-
+#else
+        SkImageInfo info = SkImageInfo::MakeN32Premul(opts.dimensions.x * monitorScale,
+                                                      opts.dimensions.y * monitorScale);
+        size_t rowBytes = info.minRowBytes();
+        size_t size = info.computeByteSize(rowBytes);
+        this->pixelMemory.resize(size);
+        this->rasterSurface = SkSurface::MakeRasterDirect(
+                info, &pixelMemory[0], rowBytes);
+#endif
         rasterCanvas = rasterSurface->getCanvas();
         rasterSurfacePtr = &rasterSurface;
         if (pixelMemory.empty()) {
@@ -819,6 +825,7 @@ namespace Manager {
 
                 sContext->abandonContext();
                 sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
+#ifndef OLD_SKIA
                 sContext = GrDirectContexts::MakeGL(interface).release();
 
                 GrGLFramebufferInfo framebufferInfo;
@@ -857,6 +864,34 @@ namespace Manager {
 
                 auto imageInfo = SkImageInfo::MakeN32Premul(fb_width, fb_height);
                 rasterSurface = SkSurfaces::Raster(imageInfo);
+#else
+                sContext = GrDirectContext::MakeGL(interface).release();
+
+                GrGLFramebufferInfo framebufferInfo;
+                framebufferInfo.fFBOID = 0;
+                framebufferInfo.fFormat = GL_RGBA8;
+                GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
+
+                if (!backendRenderTarget.isValid()) {
+                    std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
+                    glfwTerminate();
+                    std::exit(-1);
+                }
+
+                sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
+                                                                  backendRenderTarget,
+                                                                  kBottomLeft_GrSurfaceOrigin,
+                                                                  kRGBA_8888_SkColorType,
+                                                                  nullptr,
+                                                                  nullptr).release();
+                if (!sSurface) {
+                    std::cerr
+                            << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format needs changing\n";
+                    std::exit(-1);
+                }
+
+                rasterSurface = SkSurface::MakeRasterN32Premul(fb_width, fb_height);
+#endif
                 rasterCanvas = rasterSurface->getCanvas();
                 rasterSurfacePtr = &rasterSurface;
 
@@ -1608,7 +1643,11 @@ namespace Manager {
                                           data = SkData::MakeFromFileName(fname);
                                           if (!data)
                                               throw std::runtime_error("Error: file not found");
+#ifndef OLD_SKIA
                                           sk_sp<SkImage> image = SkImages::DeferredFromEncodedData(data);
+#else
+                                          sk_sp<SkImage> image = SkImage::MakeFromEncoded(data);
+#endif
                                           if (!image)
                                               throw std::runtime_error("Failed to decode an image");
                                           // if image is not explicitly decoded, it might be lazily decoded during drawing
@@ -1870,9 +1909,14 @@ namespace Manager {
     void GwPlot::rasterToPng(const char* path) {
         sk_sp<SkImage> img(rasterSurfacePtr[0]->makeImageSnapshot());
         if (!img) { return; }
-//        sk_sp<SkData> png(img->encodeToData());
+
+#ifndef OLD_SKIA
         SkPngEncoder::Options options;
         sk_sp<SkData> png(SkPngEncoder::Encode(nullptr, img.get(), options));
+#else
+        sk_sp<SkData> png(img->encodeToData());
+#endif
+
         if (!png) { return; }
         FILE* fout = fopen(path, "w");
         fwrite(png->data(), 1, png->size(), fout);
@@ -1881,9 +1925,12 @@ namespace Manager {
 
     void imageToPng(sk_sp<SkImage> &img, std::filesystem::path &path) {
         if (!img) { return; }
-//        sk_sp<SkData> png(img->encodeToData());
+#ifndef OLD_SKIA
         SkPngEncoder::Options options;
         sk_sp<SkData> png(SkPngEncoder::Encode(nullptr, img.get(), options));
+#else
+        sk_sp<SkData> png(img->encodeToData());
+#endif
         if (!png) { return; }
 #if defined(_WIN32)
 	const wchar_t* outp = path.c_str();
@@ -1898,9 +1945,12 @@ namespace Manager {
 
     void imagePngToStdOut(sk_sp<SkImage> &img) {
         if (!img) { return; }
-//        sk_sp<SkData> png(img->encodeToData());
+#ifndef OLD_SKIA
         SkPngEncoder::Options options;
         sk_sp<SkData> png(SkPngEncoder::Encode(nullptr, img.get(), options));
+#else
+        sk_sp<SkData> png(img->encodeToData());
+#endif
         if (!png) { return; }
         FILE* fout = stdout;
 #if defined(_WIN32) || defined(_WIN64)
@@ -1919,9 +1969,12 @@ namespace Manager {
 
     void imagePngToFile(sk_sp<SkImage> &img, std::string path) {
         if (!img) { return; }
-//        sk_sp<SkData> png(img->encodeToData());
+#ifndef OLD_SKIA
         SkPngEncoder::Options options;
         sk_sp<SkData> png(SkPngEncoder::Encode(nullptr, img.get(), options));
+#else
+        sk_sp<SkData> png(img->encodeToData());
+#endif
         if (!png) { return; }
         FILE* fout = fopen(path.c_str(), "w");
         fwrite(png->data(), 1, png->size(), fout);
