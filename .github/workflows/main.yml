@@ -191,7 +191,7 @@ jobs:
         run: |
           dh_make --single --createorig --packagename gw_${version} --email clealk@cardiff.ac.uk --yes --native
 
-          printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop\nusr/lib/gwhts/\nusr/lib/x86_64-linux-gnu/libglfw.so.3\nusr/lib/x86_64-linux-gnu/libglfw.so.3.4" > debian/install
+          printf "usr/bin/gw\nusr/share/icons/gw_icon.png\nusr/share/applications/gw.desktop\nusr/lib/gwhts/\nusr/lib/x86_64-linux-gnu/libglfw.so.3\nusr/lib/x86_64-linux-gnu/libglfw.so.3.3" > debian/install
 
           export LDFLAGS="$LDFLAGS -L./lib/skia/out/Release-x64 -L/usr/local/lib -L/usr/lib -L./usr/lib/gwhts -Wl,-rpath,'$ORIGIN/../lib/gwhts'"
 
