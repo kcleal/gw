@@ -5,13 +5,18 @@ TARGET = gw
 default: $(TARGET)
 
 all: default
+
 debug: default
 
-# set system
+##########################################################
+# System info
+
 PLATFORM=
 TARGET_OS=
+
 UNAME_S := $(shell uname -s)
 UNAME_M := $(shell uname -m)
+
 ifeq ($(OS),Windows_NT)  # assume we are using msys2-ucrt64 env
     PLATFORM = "Windows"
     TARGET_OS = "Windows"
@@ -36,8 +41,10 @@ else
     endif
 endif
 
+
 $(info   PLATFORM=$(PLATFORM))
 $(info   TARGET_OS=$(TARGET_OS))
+
 
 ifneq ($(PLATFORM),"Emscripten")
     ifdef CONDA_PREFIX
@@ -48,6 +55,8 @@ ifneq ($(PLATFORM),"Emscripten")
     endif
 endif
 
+##########################################################
+# Skia info
 
 SKIA_PATH="./lib/skia/out/Release"
 CPPFLAGS += -I./lib/skia
@@ -68,6 +77,9 @@ prep:
     	echo "Downloading pre-built skia for Linux with GL"; mkdir -p lib/skia; \
     	cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.1.0/skia-m133-linux-Release-arm64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	fi
+
+##########################################################
+# Flags and libs
 
 CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG -g
 LIBGW_INCLUDE=
@@ -107,6 +119,8 @@ else ifeq ($(PLATFORM),"Emscripten")
     LDLIBS += -lwebgl.js -l:libhts.a
 endif
 
+##########################################################
+# Compile
 
 OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 OBJECTS += $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
@@ -122,7 +136,6 @@ clean:
 	-rm -f *.o ./src/*.o ./src/*.o.tmp ./lib/libBigWig/*.o ./include/*.o
 	-rm -f $(TARGET)
 	-rm -rf libgw.* *.wasm
-
 
 
 ifeq ($(UNAME_S),Linux)
