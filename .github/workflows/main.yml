@@ -54,8 +54,10 @@ jobs:
         run: |
           brew install imagemagick graphicsmagick dylibbundler glfw fontconfig
           brew list | grep python@
+          which python
+          python --version
 
-          /opt/homebrew/opt/python@3.13/bin/python3.13 -m venv py_venv
+          python -m venv py_venv
           source py_venv/bin/activate
 
           python -m pip install --upgrade pip
