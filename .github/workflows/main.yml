@@ -182,6 +182,8 @@ jobs:
           sed -i 's@-L/usr/local/lib@-L/usr/local/lib -L/usr/lib/gwhts@g' Makefile
 
           make prep
+          make
+          cp gw usr/bin
 
           cp include/gw_icon.png usr/share/icons/
           cp include/gw_icon.png usr/share/icons/hicolor/512x512/apps/
