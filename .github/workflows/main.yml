@@ -19,7 +19,7 @@ jobs:
      run:
        shell: msys2 {0}
    steps:
-     - uses: actions/checkout@v3
+     - uses: actions/checkout@v4
      - uses: msys2/setup-msys2@v2
        with:
          msystem: ${{ matrix.sys }}
@@ -30,7 +30,7 @@ jobs:
        run: |
          make
      - name: upload
-       uses: actions/upload-artifact@v3
+       uses: actions/upload-artifact@v4
        with:
          name: mingw-${{ matrix.sys }}
          path: ${{ github.workspace }}/*.exe
@@ -42,13 +42,13 @@ jobs:
       matrix:
         os: [ macos-14 ]  # macos-12,
         include:
-          - os: macos-14
+          - os: macos-13
             arch: intel
           - os: macos-14
             arch: m1
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -120,6 +120,9 @@ jobs:
           sudo codesign --force --deep -s - gw.app -v
           sudo codesign --verify -vvvv gw.app
 
+          sudo hdiutil detach /Volumes/gw || true
+          export TMPDIR=$(mktemp -d)
+
           PATH="$PATH:$brew_bin" create-dmg 'gw.app' || true
           ls
           mv gw\ undefined.dmg gw_macos_${{ matrix.arch }}.dmg
@@ -127,7 +130,7 @@ jobs:
           pwd
 
       - name: upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: gw_macos_${{ matrix.arch }}
           path: ./*.dmg
