@@ -254,60 +254,50 @@ namespace Manager {
         glfwWindowHint(GLFW_STEREO, GLFW_FALSE);
         glfwWindowHint(GLFW_SAMPLES, 0);
 
-        // Use low version
-        if (use_gl) {
-            major_v = (major_v == -1) ? 2 : major_v;
-            minor_v = (minor_v == -1) ? 1 : minor_v;
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major_v);
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor_v);
-            opengl_es_loader = false;
-            if (debug) {
-                std::cerr << "Using OpenGL " << major_v << "." << minor_v << "\n";
-            }
+
         // Default window setup
-        } else {
 
 #ifndef __APPLE__  // linux, windows, termux
-    #ifdef USE_GL
-            // Use OpenGL 4.1 context
-            glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
-            major_v = (major_v == -1) ? 4 : major_v;
-            minor_v = (minor_v == -1) ? 1 : minor_v;
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major_v);
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor_v);
-            glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-            glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-            opengl_es_loader = false;
-            if (debug) {
-                std::cerr << "Using OpenGL " << major_v << "." << minor_v << " core profile (forward compatible)\n";
-            }
-    #else
-            // OpenGL ES 2.0
-            glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
-            glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
-            major_v = (major_v == -1) ? 2 : major_v;
-            minor_v = (minor_v == -1) ? 0 : minor_v;
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major_v);
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor_v);
-            opengl_es_loader = true;
-            if (debug) {
-                std::cerr << "Using OpenGL ES " << major_v << "." << minor_v << " with EGL\n";
-            }
-    #endif
-#else
-            // Native macOS use OpenGL 4.1
-            major_v = (major_v == -1) ? 4 : major_v;
-            minor_v = (minor_v == -1) ? 1 : minor_v;
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major_v);
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor_v);
-            glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-            glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-            opengl_es_loader = false;
-            if (debug) {
-                std::cerr << "Using OpenGL " << major_v << "." << minor_v << " core profile (forward compatible)\n";
-            }
-#endif
+#ifdef USE_GL
+        // Use OpenGL 4.1 context
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+        major_v = (major_v == -1) ? 4 : major_v;
+        minor_v = (minor_v == -1) ? 1 : minor_v;
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major_v);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor_v);
+        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+        opengl_es_loader = false;
+        if (debug) {
+            std::cerr << "Using OpenGL " << major_v << "." << minor_v << " core profile (forward compatible)\n";
         }
+#else
+        // OpenGL ES 2.0
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+        glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
+        major_v = (major_v == -1) ? 2 : major_v;
+        minor_v = (minor_v == -1) ? 0 : minor_v;
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major_v);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor_v);
+        opengl_es_loader = true;
+        if (debug) {
+            std::cerr << "Using OpenGL ES " << major_v << "." << minor_v << " with EGL\n";
+        }
+#endif
+#else
+        // Native macOS use OpenGL 4.1
+        major_v = (major_v == -1) ? 4 : major_v;
+        minor_v = (minor_v == -1) ? 1 : minor_v;
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major_v);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor_v);
+        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+        opengl_es_loader = false;
+        if (debug) {
+            std::cerr << "Using OpenGL " << major_v << "." << minor_v << " core profile (forward compatible)\n";
+        }
+#endif
+
 
         if (debug) {
             std::cerr << "Creating window with size " << width << "x" << height << std::endl;
