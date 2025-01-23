@@ -203,32 +203,34 @@ namespace Manager {
 
         int major_v = -1;
         int minor_v = -1;
+        char *v_major = getenv("GLFW_CONTEXT_VERSION_MAJOR");
+        if (v_major) {
+            major_v = std::stoi(v_major);
+        }
+        char *v_minor = getenv("GLFW_CONTEXT_VERSION_MINOR");
+        if (v_minor) {
+            minor_v = std::stoi(v_minor);
+        }
 
-        char *val = getenv("GW_DEBUG");
-        bool debug = (val != nullptr);
+        char *val = getenv("GW_USE_GL");
+        bool use_gl = (val != nullptr && *val != '0');
+        val = getenv("GW_DEBUG");
+        bool debug = (val != nullptr && *val != '0');
         if (debug) {
-
-            const char* env_vars[] = {"DISPLAY",
+            std::cerr << "GW_USE_GL=" << use_gl << std::endl;
+            const char *env_vars[] = {"DISPLAY",
                                       "LIBGL_DEBUG", "LIBGL_ALWAYS_INDIRECT", "LIBGL_ALWAYS_SOFTWARE",
                                       "MESA_DEBUG", "MESA_GL_VERSION_OVERRIDE", "GLX_DEBUG",
                                       "GALLIUM_DRIVER", "__GL_LOG_LEVEL", "LD_DEBUG",
                                       "XDG_SESSION_TYPE", "WAYLAND_DEBUG"};
-            for (const char* var : env_vars) {
-                const char* val = getenv(var);
+            for (const char *var: env_vars) {
+                const char *val = getenv(var);
                 std::cerr << var << "=" << (val ? val : "") << std::endl;
             }
 
             std::cerr << "GLFW version: " << glfwGetVersionString() << std::endl;
             glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
 
-            char *v_major = getenv("GLFW_CONTEXT_VERSION_MAJOR");
-            if (v_major) {
-                major_v = std::stoi(v_major );
-            }
-            char *v_minor = getenv("GLFW_CONTEXT_VERSION_MINOR");
-            if (v_minor) {
-                minor_v = std::stoi(v_minor);
-            }
             std::cerr << "GLFW_CONTEXT_VERSION_MAJOR=" << ((major_v == -1) ? "" : v_major) << std::endl;
             std::cerr << "GLFW_CONTEXT_VERSION_MINOR=" << ((minor_v == -1) ? "" : v_minor) << std::endl;
         }
@@ -240,31 +242,73 @@ namespace Manager {
             std::terminate();
         }
         bool opengl_es_loader;
-        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
         glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
+        glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
+        glfwWindowHint(GLFW_RED_BITS, 8);
+        glfwWindowHint(GLFW_GREEN_BITS, 8);
+        glfwWindowHint(GLFW_BLUE_BITS, 8);
+        glfwWindowHint(GLFW_ALPHA_BITS, 8);
+        glfwWindowHint(GLFW_DEPTH_BITS, 0);
+        glfwWindowHint(GLFW_STENCIL_BITS, 0);
+        glfwWindowHint(GLFW_STEREO, GLFW_FALSE);
+        glfwWindowHint(GLFW_SAMPLES, 0);
+
+        // Use low version
+        if (use_gl) {
+            major_v = (major_v == -1) ? 2 : major_v;
+            minor_v = (minor_v == -1) ? 1 : minor_v;
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major_v);
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor_v);
+            opengl_es_loader = false;
+            if (debug) {
+                std::cerr << "Using OpenGL " << major_v << "." << minor_v << "\n";
+            }
+        // Default window setup
+        } else {
 
 #ifndef __APPLE__  // linux, windows, termux
     #ifdef USE_GL
-        // Use OpenGL 4.1 context
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (major_v == -1) ? 4 : major_v);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (minor_v == -1) ? 1 : minor_v);
-        opengl_es_loader = false;
+            // Use OpenGL 4.1 context
+            glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+            major_v = (major_v == -1) ? 4 : major_v;
+            minor_v = (minor_v == -1) ? 1 : minor_v;
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major_v);
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor_v);
+            glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+            glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+            opengl_es_loader = false;
+            if (debug) {
+                std::cerr << "Using OpenGL " << major_v << "." << minor_v << " core profile (forward compatible)\n";
+            }
     #else
-        // OpenGL ES 2.0
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
-        glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (major_v == -1) ? 2 : major_v);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (minor_v == -1) ? 0 : minor_v);
-
-        opengl_es_loader = true;
+            // OpenGL ES 2.0
+            glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+            glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
+            major_v = (major_v == -1) ? 2 : major_v;
+            minor_v = (minor_v == -1) ? 0 : minor_v;
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major_v);
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor_v);
+            opengl_es_loader = true;
+            if (debug) {
+                std::cerr << "Using OpenGL ES " << major_v << "." << minor_v << " with EGL\n";
+            }
     #endif
 #else
-        // Native macOS use OpenGL 4.1
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, (major_v == -1) ? 4 : major_v);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, (minor_v == -1) ? 1 : minor_v);
-        opengl_es_loader = false;
+            // Native macOS use OpenGL 4.1
+            major_v = (major_v == -1) ? 4 : major_v;
+            minor_v = (minor_v == -1) ? 1 : minor_v;
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major_v);
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor_v);
+            glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+            glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+            opengl_es_loader = false;
+            if (debug) {
+                std::cerr << "Using OpenGL " << major_v << "." << minor_v << " core profile (forward compatible)\n";
+            }
 #endif
+        }
+
         if (debug) {
             std::cerr << "Creating window with size " << width << "x" << height << std::endl;
         }

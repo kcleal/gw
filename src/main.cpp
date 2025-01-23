@@ -724,19 +724,126 @@ int main(int argc, char *argv[]) {
 
         plotter.setGlfwFrameBufferSize();
 
-        setupRenderTarget(fb_height, fb_height);
+//        setupRenderTarget(fb_height, fb_height);
 
-        // initialize drawing surface
 
-//        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x * plotter.monitorScale,
-//                                                                        iopts.dimensions.y * plotter.monitorScale);
+        sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
 
 #ifndef OLD_SKIA
+        if (!interface || !interface->validate()) {
+            std::cerr << "Error: skia GrGLInterface was not valid" << std::endl;
+            if (!interface) {
+                std::cerr << "    GrGLMakeNativeInterface() returned nullptr" << std::endl;
+                std::cerr << "    GrGLInterface probably missing some GL functions" << std::endl;
+            } else {
+                std::cerr << "    fStandard was " << interface->fStandard << std::endl;
+            }
+            std::cerr << "GL error code: " << glGetError() << std::endl;
+            std::exit(-1);
+        }
+
+        //
+        sContext = GrDirectContexts::MakeGL(interface).release();
+        if (!sContext) {
+            std::cerr << "Error: could not create skia context using MakeGL\n";
+            std::exit(-1);
+        }
+
+        GrGLFramebufferInfo framebufferInfo;
+        framebufferInfo.fFBOID = 0;
+
+        constexpr int fbFormats[2] = {GL_RGBA8, GL_RGB8};  // GL_SRGB8_ALPHA8
+        constexpr SkColorType colorTypes[2] = {kRGBA_8888_SkColorType, kRGB_888x_SkColorType};
+        int valid = false;
+        for (int i=0; i < 2; ++i) {
+
+            framebufferInfo.fFormat = fbFormats[i];
+
+            auto backendRenderTarget = GrBackendRenderTargets::MakeGL(
+                    fb_width,
+                    fb_height,
+                    0,        // sampleCnt
+                    0,        // stencilBits
+                    framebufferInfo
+            );
+
+            if (!backendRenderTarget.isValid()) {
+                std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
+                glfwTerminate();
+                std::exit(-1);
+            }
+
+            // Now create the surface
+            SkSurfaceProps props(0, kUnknown_SkPixelGeometry);
+            sSurface = SkSurfaces::WrapBackendRenderTarget(
+                    sContext,
+                    backendRenderTarget,
+                    kBottomLeft_GrSurfaceOrigin,
+                    colorTypes[i],
+                    nullptr,
+                    &props
+            ).release();
+
+            if (!sSurface) {
+                std::stringstream sstream;
+                sstream << std::hex << fbFormats[i];
+                std::string result = sstream.str();
+                std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format was 0x" << result << std::endl;
+                continue;
+            }
+            valid = true;
+            break;
+        }
+        if (!valid) {
+            std::cerr << "ERROR: could not create a valid frame buffer\n";
+            std::exit(-1);
+        }
+
         auto imageInfo = SkImageInfo::MakeN32Premul(
                 iopts.dimensions.x * plotter.monitorScale,
                 iopts.dimensions.y * plotter.monitorScale);
         sk_sp<SkSurface> rasterSurface = SkSurfaces::Raster(imageInfo);
 #else
+        sContext = GrDirectContext::MakeGL(interface).release();
+        if (!sContext) {
+            std::cerr << "Error: could not create skia-m93 context using MakeGL\n";
+            std::exit(-1);
+        }
+
+        GrGLFramebufferInfo framebufferInfo;
+        framebufferInfo.fFBOID = 0;
+
+        constexpr int fbFormats[2] = {GL_RGBA8, GL_RGB8};  // GL_SRGB8_ALPHA8
+        constexpr SkColorType colorTypes[2] = {kRGBA_8888_SkColorType, kRGB_888x_SkColorType};
+        int valid = false;
+        for (int i=0; i < 2; ++i) {
+            framebufferInfo.fFormat = fbFormats[i];  // GL_SRGB8_ALPHA8; //
+            GrBackendRenderTarget backendRenderTarget(fb_width, fb_height, 0, 0, framebufferInfo);
+            if (!backendRenderTarget.isValid()) {
+                std::cerr << "ERROR: backendRenderTarget was invalid" << std::endl;
+                glfwTerminate();
+                std::exit(-1);
+            }
+            sSurface = SkSurface::MakeFromBackendRenderTarget(sContext,
+                                                              backendRenderTarget,
+                                                              kBottomLeft_GrSurfaceOrigin,
+                                                              colorTypes[i], //kRGBA_8888_SkColorType,
+                                                              nullptr,
+                                                              nullptr).release();
+            if (!sSurface) {
+                std::stringstream sstream;
+                sstream << std::hex << fbFormats[i];
+                std::string result = sstream.str();
+                std::cerr << "ERROR: sSurface could not be initialized (nullptr). The frame buffer format was 0x" << result << std::endl;
+                continue;
+            }
+            valid = true;
+            break;
+        }
+        if (!valid) {
+            std::cerr << "ERROR: could not create a valid frame buffer\n";
+            std::exit(-1);
+        }
         sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x * plotter.monitorScale,
                                                                         iopts.dimensions.y * plotter.monitorScale);
 #endif
