@@ -41,7 +41,7 @@ ifneq ($(PLATFORM),"Emscripten")
     	$(info   Linking conda from $(CONDA_PREFIX))
         CPPFLAGS += -I$(CONDA_PREFIX)/include
         LDFLAGS += -L$(CONDA_PREFIX)/lib
-        LDFLAGS += -Wl,-rpath,$(CONDA_PREFIX)/lib -Wl,-rpath-link,$(CONDA_PREFIX)/lib
+        LDFLAGS += -Wl,-rpath,$(CONDA_PREFIX)/lib -Wl
     endif
 endif
 

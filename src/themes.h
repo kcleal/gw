@@ -52,6 +52,7 @@
 #include "utils.h"
 #include "export_definitions.h"
 #include "ideogram.h"
+#include "gw_fonts.h"
 
 
 namespace Themes {

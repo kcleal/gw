@@ -7,6 +7,7 @@
 #include "glfw_keys.h"
 #include "defaultIni.hpp"
 #include "ankerl_unordered_dense.h"
+#include "gw_fonts.h"
 
 #include "include/core/SkFontMgr.h"
 
@@ -1050,12 +1051,6 @@ namespace Themes {
     sk_sp<SkFontMgr> createFontManager(bool system_default) {
         sk_sp<SkFontMgr> fontMgr;
 
-//#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
-//        std::cerr << "Font manager not implemented WINDOWS\n";
-//#elif defined(__ANDROID__)
-//        std::cerr << "Font manager not implemented ANDROID\n";
-//#elif defined(__linux__)
-//        std::cerr << "Font manager not implemented LINUX\n";
 #if defined(__APPLE__)
 
         if (system_default) {
@@ -1150,9 +1145,11 @@ namespace Themes {
         sk_sp<SkFontMgr> fontMgr = createFontManager(system_default);
         sk_sp<SkTypeface> face;
         if (system_default) {
-            face = fontMgr->matchFamilyStyle(nullptr, SkFontStyle::Normal());
+            sk_sp<SkData> fontData = SkData::MakeWithoutCopy(GwFonts::work_sans_ttf, GwFonts::work_sans_ttf_size);
+            face = fontMgr->makeFromData(fontData);
             if (!face) {
-                std::cerr << "Error: failed to create font. Text will likely be missing\n";
+                std::cerr << "Error: failed to create font. Text might be missing\n";
+                face = fontMgr->matchFamilyStyle(nullptr, SkFontStyle::Normal());
             }
         } else {
             const char * font_c = fontStr.c_str();
