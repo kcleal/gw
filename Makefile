@@ -160,4 +160,5 @@ endif
 	-cp include/*.h* libgw/GW
 	-cp lib/libBigWig/*.h libgw/GW
 	-cp -rf lib/skia/include libgw/GW
+	-cp -rf lib/skia/modules libgw/GW
 	-mv $(SHARED_TARGET) libgw
