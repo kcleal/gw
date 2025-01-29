@@ -135,7 +135,7 @@ $(TARGET): $(OBJECTS)  # line 131
 clean:
 	-rm -f *.o ./src/*.o ./src/*.o.tmp ./lib/libBigWig/*.o ./include/*.o
 	-rm -f $(TARGET)
-	-rm -rf libgw.* *.wasm
+	-rm -rf libgw.* *.wasm libgw
 
 
 ifeq ($(UNAME_S),Linux)
@@ -154,10 +154,10 @@ ifeq ($(UNAME_S),Darwin)
 else
 	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -shared -DBUILDING_LIBGW -o $(SHARED_TARGET)
 endif
-	-mkdir -p include/libgw lib/libgw
-	-cp $(SKIA_PATH)/libskia.a lib/libgw
-	-cp src/*.h include/libgw
-	-cp include/*.h* include/libgw
-	-cp lib/libBigWig/*.h include/libgw
-	-cp -rf lib/skia/include include/libgw
-	-mv $(SHARED_TARGET) lib/libgw
+	-mkdir -p libgw libgw/include
+	-cp $(SKIA_PATH)/libskia.a libgw
+	-cp src/*.h libgw/include
+	-cp include/*.h* libgw/include
+	-cp lib/libBigWig/*.h libgw/include
+	-cp -rf lib/skia/include libgw/include
+	-mv $(SHARED_TARGET) libgw
