@@ -1,4 +1,5 @@
 TARGET = gw
+VERSION = "1.1.3"
 .PHONY: default all debug clean
 default: $(TARGET)
 all: default
@@ -121,7 +122,6 @@ endif
 
 ##########################################################
 # Compile
-
 OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 OBJECTS += $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
 OBJECTS += $(patsubst %.c, %.o, $(wildcard ./include/*.c))
@@ -134,8 +134,8 @@ $(TARGET): $(OBJECTS)  # line 131
 
 clean:
 	-rm -f *.o ./src/*.o ./src/*.o.tmp ./lib/libBigWig/*.o ./include/*.o
-	-rm -f $(TARGET)
-	-rm -rf libgw.* *.wasm GW
+	-rm -f $(TARGET) *.wasm
+	-rm -rf libgw
 
 
 ifeq ($(UNAME_S),Linux)
@@ -150,9 +150,9 @@ shared: CFLAGS += -fPIC
 shared: $(OBJECTS)
 
 ifeq ($(UNAME_S),Darwin)
-	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -dynamiclib -DBUILDING_LIBGW -o $(SHARED_TARGET)
+	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -dynamiclib -DBUILDING_LIBGW -install_name @rpath/libgw.dylib -current_version $(VERSION) -compatibility_version $(VERSION) -o $(SHARED_TARGET)
 else
-	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -shared -DBUILDING_LIBGW -o $(SHARED_TARGET)
+	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -shared -DBUILDING_LIBGW -Wl,-soname,libgw.so -Wl,-rpath,\$$ORIGIN -o $(SHARED_TARGET)
 endif
 	-mkdir -p libgw libgw/GW
 	-cp $(SKIA_PATH)/libskia.a libgw
