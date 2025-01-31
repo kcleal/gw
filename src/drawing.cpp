@@ -2025,7 +2025,7 @@ namespace Drawing {
     }
 
 
-    std::string floatToStringCommas(float num, int precision=1) {
+    std::string floatToStringCommas(double num, int precision=1) {
         std::stringstream stream;
         std::string s;
         int n;
@@ -2059,7 +2059,6 @@ namespace Drawing {
             a = "0";
             return;
         }
-//        int rounding = std::min(std::ceil(std::log10(num)), std::ceil(std::log10(regionLen)));
         int rounding = std::ceil(std::log10(regionLen));
         double d;
         switch (rounding) {
@@ -2074,7 +2073,6 @@ namespace Drawing {
                 d = (double)num / 1e3;
                 d = std::floor(d * 10) / 10;
                 a = floatToStringCommas((float)d, 1);
-//                a = Utils::removeZeros((float)d);
                 a += " kb";
                 break;
             case 5:

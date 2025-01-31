@@ -30,7 +30,7 @@
     #include <emscripten.h>
 #endif
 
-// note to developer - update version in workflows/main.yml, menu.cpp, term_out.cpp, and deps/gw.desktop, and installers .md in docs (post release)
+// note to developer - update version in Makefile, workflows/main.yml, menu.cpp, term_out.cpp, and deps/gw.desktop, and installers .md in docs (post release)
 const char GW_VERSION [7] = "1.1.3";
 // skia context has to be managed from global space to work
 GrDirectContext *sContext = nullptr;
