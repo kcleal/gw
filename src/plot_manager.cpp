@@ -174,7 +174,7 @@ namespace Manager {
         size_t size = imageInfo.computeByteSize(rowBytes);
         this->pixelMemory.resize(size);
 
-        sk_sp<SkSurface> rasterSurface = SkSurfaces::WrapPixels(
+        this->rasterSurface = SkSurfaces::WrapPixels(
                 imageInfo,
                 &pixelMemory[0],
                 rowBytes);
