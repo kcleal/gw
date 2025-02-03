@@ -1421,7 +1421,7 @@ namespace Term {
     }
 
 #if !defined(__EMSCRIPTEN__)
-    const char* CURRENT_VERSION = "v1.1.3";
+    const char* CURRENT_VERSION = "v1.1.0";
 
     size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
         ((std::string*)userp)->append((char*)contents, size * nmemb);
@@ -1462,8 +1462,11 @@ namespace Term {
     void checkVersion() {
         std::string latestVersion = getLatestVersion();
         if (!latestVersion.empty()) {
-            if (latestVersion != CURRENT_VERSION) {
-                std::cout << "\nVersion " << latestVersion << " is available: " << "https://github.com/kcleal/gw" << std::endl;
+            std::vector<std::string> partsLatest = Utils::split(latestVersion, '.');
+            std::vector<std::string> partsCurrent = Utils::split(CURRENT_VERSION, '.');
+            if ( std::stoi(partsLatest[1]) > std::stoi(partsCurrent[1]) ||
+                 std::stoi(partsLatest[2]) > std::stoi(partsCurrent[2]) ) {
+                std::cout << "\nA new update is available: https://github.com/kcleal/gw/releases/tag/" << latestVersion << std::endl;
             }
         }
     }

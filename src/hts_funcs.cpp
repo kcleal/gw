@@ -1511,19 +1511,33 @@ namespace HGW {
                 for (const auto &item :  Utils::split(b.parts[8], ';')) {
                     if (kind == GFF3_NOI) {
                         std::vector<std::string> keyval = Utils::split(item, '=');
+//                        if (keyval[0] == "Name" || keyval[0] == "gene_name") {
+//                            b.name = keyval[1];
+//                            if (!b.parent.empty()) {
+//                                break;
+//                            }
+//                        } else if (b.name.empty() && keyval[0] == "ID") {
+//                            b.name = keyval[1];
+//                            if (b.parent.empty()) {
+//                                b.parent = keyval[1];
+//                            }
+//                        } else if (keyval[0] == "Parent") {
+//                            b.parent = keyval[1];
+//                            b.name = keyval[1];
+//                        }
                         if (keyval[0] == "Name" || keyval[0] == "gene_name") {
                             b.name = keyval[1];
-                            if (!b.parent.empty()) {
-                                break;
-                            }
-                        } else if (b.name.empty() && keyval[0] == "ID") {
+                            b.parent = keyval[1];
+                            break;
+                        }
+                        else if (b.name.empty() && keyval[0] == "ID") {
                             b.name = keyval[1];
                             if (b.parent.empty()) {
                                 b.parent = keyval[1];
                             }
-                        } else if (keyval[0] == "Parent") {
+                        }
+                        else if (b.parent.empty() && keyval[0] == "Parent") {
                             b.parent = keyval[1];
-                            b.name = keyval[1];
                         }
                     } else {  // GTF_NOI
                         std::vector<std::string> keyval = Utils::split(item, ' ');
@@ -1892,19 +1906,37 @@ namespace HGW {
                 for (const auto &item :  Utils::split(parts[8], ';')) {
                     if (kind == GFF3_IDX) {
                         std::vector<std::string> keyval = Utils::split(item, '=');
-                        if (keyval[0] == "Name") {
+                        if (keyval[0] == "Name" || keyval[0] == "gene_name") {
+                            rid = keyval[1];
+                            if (!parent.empty()) {
+                                break;
+                            }
+                        } else if (rid.empty() && keyval[0] == "ID") {
+                            rid = keyval[1];
+                            if (parent.empty()) {
+                                parent = keyval[1];
+                            }
+                        } else if (keyval[0] == "Parent") {
                             parent = keyval[1];
                             rid = keyval[1];
-                            break;
                         }
-                        else if (keyval[0] == "ID") {
-                            rid = keyval[1];
-                        }
-                        else if (keyval[0] == "Parent") {
-                            parent = keyval[1];
-                            break;
-                        }
-                    } else {
+
+//                        if (keyval[0] == "Name" || keyval[0] == "gene_name") {
+//                            rid = keyval[1];
+//                            parent = keyval[1];
+//                            break;
+//                        }
+//                        else if (rid.empty() && keyval[0] == "ID") {
+//                            rid = keyval[1];
+//                            if (parent.empty()) {
+//                                parent = keyval[1];
+//                            }
+//                        }
+//                        else if (parent.empty() && keyval[0] == "Parent") {
+//                            parent = keyval[1];
+//                        }
+
+                    } else {  // GTF_IDX
                         std::vector<std::string> keyval = Utils::split(item, ' ');
                         if (keyval[0] == "gene_name") {
                             parent = keyval[1];

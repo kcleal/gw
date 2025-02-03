@@ -1845,9 +1845,16 @@ namespace Drawing {
             }
             assert (i < trk.drawThickness.size());
             uint8_t thickness = trk.drawThickness[i];
-            if (thickness && s < rgn.end && e > rgn.start) {
+//            if (trk.name == "DDX11L1") {
+//                std::cerr << " " << trk.name << " " << (int)thickness << " " << s << "-" << e << std::endl;
+//            }
+
+            if (s < rgn.end && e > rgn.start) {
                 int left_cds = std::min(trk.coding_start, trk.coding_end);
                 int right_cds = std::max(trk.coding_start, trk.coding_end);
+//                if (trk.name == "DDX11L1") {
+//                    std::cerr << (s < right_cds && e > right_cds) << " " << (s < left_cds && e > left_cds) << std::endl;
+//                }
                 if (s < right_cds && e > right_cds) { //overlaps, split into two blocks!
                     drawTrackBlock(right_cds, e, trk.name, rgn, rect, path, padX, padY, y + (h * 0.25), h * 0.5, stepX, stepY, gap,
                                    gap2, xScaling, opts, canvas, fonts, false, true, true, labelsEnd, empty_str, 0, text, false, false,  shadedFaceColour, pointSlop / 2, strand);
@@ -1862,7 +1869,7 @@ namespace Drawing {
                     continue;
                 }
 
-                if (thickness == 1) {
+                if (thickness <= 1) {
                     drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y + (h * 0.25), h * 0.5, stepX, stepY, gap, gap2, xScaling,
                                    opts, canvas, fonts, false, true, true, labelsEnd, empty_str, 0, text, false, false, shadedFaceColour, pointSlop / 2, strand);
                 } else if (thickness == 2) {
