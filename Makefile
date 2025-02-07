@@ -36,13 +36,12 @@ else
 endif
 
 $(info   PLATFORM=$(PLATFORM))
-
 ifneq ($(PLATFORM),"Emscripten")
     ifdef CONDA_PREFIX
     	$(info   Linking conda from $(CONDA_PREFIX))
         CPPFLAGS += -I$(CONDA_PREFIX)/include
         LDFLAGS += -L$(CONDA_PREFIX)/lib
-        LDFLAGS += -Wl,-rpath,$(CONDA_PREFIX)/lib -Wl
+        LDFLAGS += -Wl,-rpath,$(CONDA_PREFIX)/lib
     endif
 endif
 
@@ -96,7 +95,8 @@ ifeq ($(TARGET_OS),"Linux")  # set platform flags and libs
     ifeq ($(USE_WAYLAND),1)
     	LDLIBS += -lwayland-client -lwayland-egl
     endif
-    LDLIBS += -lGL -lEGL -lGLESv2 -lhts -lfreetype -luuid -lz -lcurl -licu -ldl -lglfw -lsvg -lfontconfig
+    LGLFW := $(shell pkg-config --libs glfw3 2>/dev/null || echo "-lglfw")
+    LDLIBS += -lGL -lEGL -lGLESv2 -lhts -lfreetype -luuid -lz -lcurl -licu -ldl $(LGLFW) -lsvg -lfontconfig
 else ifeq ($(TARGET_OS),"MacOS")
     ifeq ($(PLATFORM),"MacOS-x64")
         CXXFLAGS += -arch x86_64

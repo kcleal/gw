@@ -1145,7 +1145,6 @@ namespace Themes {
         sk_sp<SkFontMgr> fontMgr = createFontManager(system_default);
         sk_sp<SkTypeface> face;
         if (system_default) {
-//            sk_sp<SkData> fontData = SkData::MakeWithoutCopy(GwFonts::work_sans_ttf, GwFonts::work_sans_ttf_size);
             sk_sp<SkData> fontData = SkData::MakeWithoutCopy(GwFonts::Aileron_Regular_otf, GwFonts::Aileron_Regular_otf_len);
             face = fontMgr->makeFromData(fontData);
             if (!face) {
@@ -1217,8 +1216,6 @@ namespace Themes {
         }
 
         SkScalar ts = size;
-//        fonty.setSize(ts);
-//        fonty.setTypeface(face);
         overlay.setSize(ts);
         overlay.setTypeface(face);
         fontTypefaceSize = size;
