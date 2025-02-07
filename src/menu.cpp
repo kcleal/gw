@@ -282,7 +282,7 @@ namespace Menu {
 
         if (opts.control_level.empty()) {
             if (opts.menu_table == Themes::MenuTable::MAIN) {
-                tip = opts.ini_path + "  v1.1.3";
+                tip = opts.ini_path + "  v1.1.4";
             }
             else if (opts.menu_table == Themes::MenuTable::GENOMES) { tip = "Use ENTER key to select genome, or RIGHT_ARROW key to edit path"; }
             else if (opts.menu_table == Themes::MenuTable::SHIFT_KEYMAP) { tip = "Change characters selected when using shift+key"; }
