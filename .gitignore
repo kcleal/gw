@@ -45,3 +45,5 @@ libgw.so
 /include/glad.o
 /lib/build_skia/
 
+/src/gw_version.o
+/src/cli_interface.o

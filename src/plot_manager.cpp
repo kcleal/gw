@@ -2015,5 +2015,26 @@ namespace Manager {
         fclose(fout);
     }
 
+    void drawImageCommands(Manager::GwPlot &p, SkCanvas *canvas, std::vector<std::string> &extra_commands) {
+
+        p.setImageSize(p.opts.dimensions.x, p.opts.dimensions.y);
+        bool stream_reads = p.opts.link_op == 0;
+        if (!extra_commands.empty()) {
+            p.regionSelection = 0;
+            for (const auto& command: extra_commands) {
+                p.inputText = command;
+                p.commandProcessed();
+                if (p.regions.front().sortOption != 0) {
+                    stream_reads = false;
+                }
+            }
+        }
+        if (stream_reads) {
+            p.runDrawNoBufferOnCanvas(canvas);
+        } else {
+            p.runDrawOnCanvas(canvas);
+        }
+    }
+
 }
 

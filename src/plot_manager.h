@@ -336,4 +336,6 @@ namespace Manager {
         long stop;
     };
 
+    void drawImageCommands(Manager::GwPlot &p, SkCanvas *canvas, std::vector<std::string> &extra_commands);
+
 }

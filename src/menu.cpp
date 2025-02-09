@@ -36,6 +36,7 @@
 #include "utils.h"
 #include "menu.h"
 #include "parser.h"
+#include "gw_version.h"
 
 
 namespace Menu {
@@ -282,7 +283,8 @@ namespace Menu {
 
         if (opts.control_level.empty()) {
             if (opts.menu_table == Themes::MenuTable::MAIN) {
-                tip = opts.ini_path + "  v1.1.4";
+                std::string gw_ver = GW_VERSION;
+                tip = opts.ini_path + "  v" + GW_VERSION;
             }
             else if (opts.menu_table == Themes::MenuTable::GENOMES) { tip = "Use ENTER key to select genome, or RIGHT_ARROW key to edit path"; }
             else if (opts.menu_table == Themes::MenuTable::SHIFT_KEYMAP) { tip = "Change characters selected when using shift+key"; }

@@ -1225,11 +1225,11 @@ namespace Commands {
                     std::string g = p->opts.genome_tag;
                     p->opts.genome_tag = parts.back();
                     bool success = p->loadIdeogramTag();
+                    p->opts.genome_tag = g;
                     if (success) {
                         refreshGw(p);
                         return Err::NONE;
                     } else {
-                        p->opts.genome_tag = g;
                         return Err::INVALID_PATH;
                     }
                 }
