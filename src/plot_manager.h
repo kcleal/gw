@@ -36,6 +36,7 @@
 #include "segments.h"
 #include "themes.h"
 #include "export_definitions.h"
+#include "alignment_format.h"
 
 #define SK_GL
 #ifndef OLD_SKIA
@@ -122,6 +123,9 @@ namespace Manager {
         std::vector<htsFile* > bams;
         std::vector<sam_hdr_t* > headers;
         std::vector<hts_idx_t* > indexes;
+//        std::vector<std::string> gaf_paths;
+
+        std::vector<AlignFormat::GwAlignment> inputAlignments;
 
         std::vector<HGW::GwTrack> tracks;  // tracks that are plotted at the bottom of screen
         std::string outLabelFile;

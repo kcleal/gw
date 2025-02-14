@@ -47,3 +47,4 @@ libgw.so
 
 /src/gw_version.o
 /src/cli_interface.o
+/src/alignment_format.o

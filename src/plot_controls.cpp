@@ -1059,7 +1059,7 @@ namespace Manager {
                                 if (!bams.empty() && cl.regionLen >= opts.low_memory && region.end - region.start < opts.low_memory) {
                                     cl.clear();
                                     const int parse_mods_threshold = (opts.parse_mods) ? opts.mods_qual_threshold: 0;
-                                    HGW::collectReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts.threads, &region, (bool)opts.max_coverage, filters, pool, parse_mods_threshold);
+                                    HGW::collectReadsAndCoverage(cl, opts.threads, &region, (bool)opts.max_coverage, filters, pool, parse_mods_threshold);
                                     int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sort_option);
                                     if (maxY > samMaxY) {
                                         samMaxY = maxY;

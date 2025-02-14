@@ -43,7 +43,8 @@ int main(int argc, char *argv[]) {
     Themes::IniOptions iopts;
 
     // Additional setup options for initializing GW
-    CLIOptions options = CLIInterface::parseArguments(argc, argv, iopts);
+    CLIInterface::CLIOptions options;
+    CLIInterface::parseArguments(argc, argv, iopts, options);
 
     // All cli arguments and options, some parsing is deferred below
     argparse::ArgumentParser& program = options.program;
@@ -66,7 +67,7 @@ int main(int argc, char *argv[]) {
         Manager::GwPlot plotter = Manager::GwPlot(options.genome, options.bamPaths, iopts, options.regions, options.tracks);
 
         if (options.showBanner) {
-            print_gw_banner();
+            CLIInterface::print_gw_banner();
         }
 
         for (auto &s: options.filters) {

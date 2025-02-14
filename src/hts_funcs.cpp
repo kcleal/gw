@@ -18,7 +18,6 @@
 #include "termcolor.h"
 #include "bigWig.h"
 #include "glob_cpp.hpp"
-#include "natsort.hpp"
 #include "drawing.h"
 #include "segments.h"
 #include "themes.h"
@@ -165,14 +164,16 @@ namespace HGW {
 //        return region->refBaseAtPos;
 //    }
 
-    void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
-                                 hts_idx_t *index, int threads, Utils::Region *region,
+    void collectReadsAndCoverage(Segs::ReadCollection &col, //htsFile *b, sam_hdr_t *hdr_ptr, hts_idx_t *index,
+                                 int threads, Utils::Region *region,
                                  bool coverage, std::vector<Parse::Parser> &filters, BS::thread_pool &pool,
                                  const int parse_mods_threshold) {
 
         bam1_t *src;
         hts_itr_t *iter_q;
-
+        htsFile *b = col.alignmentFile->bam;
+        sam_hdr_t *hdr_ptr = col.alignmentFile->header;
+        hts_idx_t *index = col.alignmentFile->index;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         std::vector<Segs::Align>& readQueue = col.readQueue;
         if (region->end - region->start < 1000000) {
@@ -223,135 +224,11 @@ namespace HGW {
         col.collection_processed = false;
     }
 
-    // WIP, still running in to segfaults strlen? Not sure what is causing it
 
-//    void iterDrawParallel(Segs::ReadCollection &col,
+    void iterDrawParallel(Segs::ReadCollection &col,
 //                          htsFile *b,
 //                          sam_hdr_t *hdr_ptr,
 //                          hts_idx_t *index,
-//                          int threads,
-//                          Utils::Region *region,
-//                          bool coverage,
-//                          std::vector<Parse::Parser> &filters,
-//                          Themes::IniOptions &opts,
-//                          SkCanvas *canvas,
-//                          float trackY,
-//                          float yScaling,
-//                          Themes::Fonts &fonts,
-//                          float refSpace,
-//                          BS::thread_pool &pool,
-//                          float pointSlop,
-//                          float textDrop,
-//                          float pH) {
-//
-//        int step = (region->end - region->start) / threads;
-//        std::vector<Utils::Region> tmpRegions;
-//        tmpRegions.resize(threads);
-//        int start = region->start;
-//        int end = start + step;
-//
-//        std::vector<htsFile* > bams;
-//        std::vector<sam_hdr_t* > headers;
-//        std::vector<hts_idx_t* > indexes;
-////        std::vector<sk_sp<SkSurface>> surfaces;
-////        std::vector<SkCanvas*> canvases;
-//
-//        bams.reserve(threads);
-//        headers.reserve(threads);
-//        indexes.reserve(threads);
-////        surfaces.reserve(threads);
-////        canvases.reserve(threads);
-//        for (int i=0; i < threads; ++i) {
-//            // todo monitorScale
-//
-////            surfaces.emplace_back(SkSurface::MakeRasterN32Premul(opts.dimensions.x * 2, opts.dimensions.y * 2));
-////            canvases.push_back(surfaces[i]->getCanvas());
-//
-//            htsFile* f = sam_open("HG002.bam", "r");
-////            hts_set_fai_filename(f, "/Users/sbi8kc2/Documents/data/db/hg19/ucsc.hg19.fa");
-//            hts_set_threads(f, 1);
-//            bams.push_back(f);
-//            sam_hdr_t *hdr_ptr = sam_hdr_read(f);
-//            headers.push_back(hdr_ptr);
-//            hts_idx_t* idx = sam_index_load(f, "HG002.bam");
-//            indexes.push_back(idx);
-//
-//            tmpRegions[i].chrom = col.region->chrom;
-//            tmpRegions[i].start = start;
-//            tmpRegions[i].end = end;
-//            start += step;
-//            end += step;
-//        }
-//
-//        std::vector<Segs::ReadCollection> collections;
-//        collections.resize(threads);
-//        std::vector<std::future<void>> jobs;
-//        float offset = 0;
-//
-//        std::vector<sk_sp<SkImage>> images;
-//        images.resize(threads);
-//
-//        for (int idx=0; idx < threads; ++idx) {
-//            collections[idx] = col;
-//            Segs::ReadCollection &tCol = collections[idx];
-//            tCol.readQueue.clear();
-//            tCol.xOffset += offset;
-//            offset += 300;
-//            tCol.region = &tmpRegions[idx];
-//            if (opts.max_coverage) {
-//                tCol.covArr.resize(tmpRegions[idx].end - tmpRegions[idx].start, 0);
-//                if (opts.snp_threshold > tmpRegions[idx].end - tmpRegions[idx].start) {
-//                    // todo not allowed
-////                    std::cerr << " ERROR \n";
-//                }
-//            }
-//            std::future<void> my_future = pool.submit(
-//                    [&]
-//                    {
-//                        sk_sp<SkSurface> surface = SkSurface::MakeRasterN32Premul(opts.dimensions.x * 2, opts.dimensions.y * 2);
-//                        SkCanvas * canv = surface->getCanvas();
-//
-//                        iterDraw(tCol, bams[idx], headers[idx],
-//                                          indexes[idx], &tmpRegions[idx],
-//                                          coverage,
-//                                          filters, opts, canv,
-//                                          trackY, yScaling, fonts, refSpace,
-//                                          pointSlop, textDrop, pH);
-//
-//                        canv->flush();
-//                        surface->flush();
-////                        images[idx] = surface->makeImageSnapshot();
-////                        Manager::imageToPng(images[idx], "test.png");
-//
-//                    });
-////            my_future.get();
-//            jobs.push_back(std::move(my_future));
-//        }
-//        for (auto &f: jobs) {
-//            f.get();
-//        }
-//        for (auto &im : images) {
-//            canvas->drawImage(im, 0, 0);
-//        }
-//
-//        for (auto &bm : bams) {
-//            hts_close(bm);
-//        }
-//        for (auto &hd: headers) {
-//            bam_hdr_destroy(hd);
-//        }
-//        for (auto &idx: indexes) {
-//            hts_idx_destroy(idx);
-//        }
-//        std::cerr << " got here\n";
-//
-//    }
-
-
-    void iterDrawParallel(Segs::ReadCollection &col,
-                          htsFile *b,
-                          sam_hdr_t *hdr_ptr,
-                          hts_idx_t *index,
                           int threads,
                           Utils::Region *region,
                           bool coverage,
@@ -371,6 +248,9 @@ namespace HGW {
         const int BATCH = 1500;
         bam1_t *src;
         hts_itr_t *iter_q;
+        htsFile *b = col.alignmentFile->bam;
+        sam_hdr_t *hdr_ptr = col.alignmentFile->header;
+        hts_idx_t *index = col.alignmentFile->index;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         std::vector<Segs::Align>& readQueue = col.readQueue;
 
@@ -463,8 +343,8 @@ namespace HGW {
         }
     }
 
-    void iterDraw(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
-                  hts_idx_t *index, Utils::Region *region,
+    void iterDraw(Segs::ReadCollection &col, //htsFile *b, sam_hdr_t *hdr_ptr, hts_idx_t *index,
+                  Utils::Region *region,
                   bool coverage,
                   std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
                   float trackY, float yScaling, Themes::Fonts &fonts, float refSpace,
@@ -473,6 +353,9 @@ namespace HGW {
 
         bam1_t *src;
         hts_itr_t *iter_q;
+        htsFile *b = col.alignmentFile->bam;
+        sam_hdr_t *hdr_ptr = col.alignmentFile->header;
+        hts_idx_t *index = col.alignmentFile->index;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         if (col.levelsStart.empty()) {
             col.levelsStart.resize(opts.ylim + col.vScroll, 1215752191);
@@ -1165,24 +1048,8 @@ namespace HGW {
 		}
 	}
 
-
     GwTrack::~GwTrack() {
-        // these cause segfaults?
-//        if (fp != nullptr) {
-//            hts_close(fp);
-//        }
-//        if (idx_v != nullptr) {
-//            hts_idx_destroy(idx_v);
-//        }
-//        if (hdr != nullptr) {
-//            bcf_hdr_destroy(hdr);
-//        }
-//        if (v != nullptr) {
-//            bcf_destroy1(v);
-//        }
-//        if (t != nullptr) {
-//            tbx_destroy(t);
-//        }
+        // Nothing to see here
     }
 
     void GwTrack::close() {
@@ -1653,20 +1520,16 @@ namespace HGW {
 
             } else {
                 if (allBlocks.contains(rgn->chrom)) {
-                    std::vector<size_t> a;
-                    allBlocks[rgn->chrom].overlap(rgn->start, rgn->end, a);
                     overlappingBlocks.clear();
-                    if (a.empty()) {
+                    allBlocks[rgn->chrom].findOverlaps(rgn->start, rgn->end, overlappingBlocks);
+                    std::reverse(overlappingBlocks.begin(), overlappingBlocks.end());
+                    if (overlappingBlocks.empty()) {
                         done = true;
                         return;
                     }
                     done = false;
                     fetch_start = rgn->start;
                     fetch_end = rgn->end;
-                    overlappingBlocks.resize(a.size());
-                    for (size_t i = 0; i < a.size(); ++i) {
-                        overlappingBlocks[i] = allBlocks[rgn->chrom].data(a[i]);
-                    }
                     iter_blk = overlappingBlocks.begin();
                     vals_end = overlappingBlocks.end();
                 } else {
@@ -1740,7 +1603,8 @@ namespace HGW {
                     if (tp[0] == '#') {
                         continue;
                     }
-                    std::vector<std::string> parts = Utils::split_keep_empty_str(tp, '\t');
+                    parts.clear();
+                    parts = Utils::split_keep_empty_str(tp, '\t');
                     chrom = parts[0];
                     chrom2 = chrom;
                     start = std::stoi(parts[1]);
@@ -1937,7 +1801,8 @@ namespace HGW {
 //                        }
 
                     } else {  // GTF_IDX
-                        std::vector<std::string> keyval = Utils::split(item, ' ');
+                        keyval.clear();
+                        keyval = Utils::split(item, ' ');
                         if (keyval[0] == "gene_name") {
                             parent = keyval[1];
 			                rid = keyval[1];
@@ -2024,7 +1889,7 @@ namespace HGW {
 //            } else {
                 for (auto &chrom_blocks : allBlocks) {
                     for (size_t i=0; i < chrom_blocks.second.size(); ++i) {
-                        const Utils::TrackBlock &b = chrom_blocks.second.data(i);
+                        const Utils::TrackBlock &b = chrom_blocks.second.data[i];
                         if (b.name == feature) {
                             region.chrom = b.chrom;
                             region.start = b.start;
@@ -2452,7 +2317,8 @@ namespace HGW {
                 trk.parts.clear();
                 Utils::split(trk.variantString, '\t', trk.parts);
             }
-            features.resize(features.size() + 1);
+            //features.resize(features.size() + 1);
+            features.emplace_back() = Utils::TrackBlock();
             Utils::TrackBlock *b = &features.back();
             b->chrom = trk.chrom;
             b->name = trk.rid;

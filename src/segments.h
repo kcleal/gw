@@ -13,7 +13,7 @@
 #include "BS_thread_pool.h"
 #include "ankerl_unordered_dense.h"
 #include "htslib/sam.h"
-
+#include "alignment_format.h"
 #include "export_definitions.h"
 #include "themes.h"
 #include "utils.h"
@@ -164,12 +164,15 @@ namespace Segs {
 
     typedef ankerl::unordered_dense::map< std::string, std::vector< Align* >> map_t;
 
+
+    // A collection of read alignments that dynamically updates and caches items to be displayed
     class EXPORT ReadCollection {
     public:
-       ReadCollection();
+        ReadCollection() = default;
         ~ReadCollection() = default;
         std::string name;
-        int bamIdx, regionIdx, vScroll;
+        AlignFormat::GwAlignment* alignmentFile;
+        int bamIdx, regionIdx, vScroll{0};
         int maxCoverage, regionLen;
         Utils::Region *region;
         std::vector<int> covArr;
@@ -182,9 +185,9 @@ namespace Segs {
         float xScaling, xOffset, yOffset, yPixels, xPixels;
         float regionPixels;
 
-        bool collection_processed;
-        bool skipDrawingReads;
-        bool skipDrawingCoverage;
+        bool collection_processed{false};
+        bool skipDrawingReads{false};
+        bool skipDrawingCoverage{false};
         bool plotSoftClipAsBlock;
         bool plotPointedPolygons;
         bool drawEdges;

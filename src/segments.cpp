@@ -961,12 +961,12 @@ namespace Segs {
         return sort_state;
     }
 
-    EXPORT ReadCollection::ReadCollection() {
-        vScroll = 0;
-        collection_processed = false;
-        skipDrawingReads = false;
-        skipDrawingCoverage = false;
-    }
+//    EXPORT ReadCollection::ReadCollection() {
+//        vScroll = 0;
+//        collection_processed = false;
+//        skipDrawingReads = false;
+//        skipDrawingCoverage = false;
+//    }
 
     void ReadCollection::clear() {
         std::fill(levelsStart.begin(), levelsStart.end(), 1215752191);
@@ -1534,32 +1534,32 @@ namespace Segs {
         int start, end;
     };
 
+    static std::vector<TrackRange> trackLevels;
+
     int findTrackY(std::vector<Utils::TrackBlock> &features, bool expanded, const Utils::Region &rgn) {
         if (!expanded || features.empty()) {
             return 1;
         }
-        std::vector<TrackRange> levels;
-        levels.reserve(100);
+        trackLevels.clear();
         for (auto &b : features) {
             if (!b.anyToDraw) {
                 b.level = -1;
                 continue;
             }
-            size_t memLen = levels.size();
+            size_t memLen = trackLevels.size();
             size_t i = 0;
             for (; i < memLen; ++i) {
-                if (b.start > levels[i].end) {
-                    levels[i].end = b.end + 5;
+                if (b.start > trackLevels[i].end) {
+                    trackLevels[i].end = b.end + 5;
                     b.level = (int)i;
                     break;
                 }
             }
             if (i == memLen) {
-                levels.emplace_back() = {b.start, b.end + 5};
+                trackLevels.emplace_back() = {b.start, b.end + 5};
                 b.level = memLen;
             }
         }
-//        assert (levels.size() >= 1);
-        return (int)levels.size();
+        return (int)trackLevels.size();
     }
 }

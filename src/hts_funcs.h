@@ -17,10 +17,10 @@
 #include "htslib/tbx.h"
 
 #include "parser.h"
-#include "IITree.h"
+#include "superintervals.h"
 #include "ankerl_unordered_dense.h"
 #include "bigWig.h"
-
+#include "alignment_format.h"
 #include "glob_cpp.hpp"
 #include "segments.h"
 #include "themes.h"
@@ -90,21 +90,20 @@ namespace HGW {
 
     };
 
-    void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *bam, sam_hdr_t *hdr_ptr,
-                                 hts_idx_t *index, int threads, Utils::Region *region,
+    void collectReadsAndCoverage(Segs::ReadCollection &col,
+                                 int threads, Utils::Region *region,
                                  bool coverage, std::vector<Parse::Parser> &filters, BS::thread_pool &pool,
                                  int parse_mods);
 
-    void iterDrawParallel(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr, hts_idx_t *index, int threads,
-                          Utils::Region *region, bool coverage, std::vector<Parse::Parser> &filters,
+    void iterDrawParallel(Segs::ReadCollection &col,
+                          int threads, Utils::Region *region, bool coverage, std::vector<Parse::Parser> &filters,
                           Themes::IniOptions &opts, SkCanvas *canvas, float trackY, float yScaling,
                           Themes::Fonts &fonts, float refSpace, BS::thread_pool &pool,
                           float pointSlop, float textDrop, float pH, float monitorScale,
                           std::vector<std::string> &bam_paths);
 
-    void iterDraw(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
-                  hts_idx_t *index, Utils::Region *region,
-                  bool coverage, std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
+    void iterDraw(Segs::ReadCollection &col,
+                  Utils::Region *region, bool coverage, std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
                   float trackY, float yScaling, Themes::Fonts &fonts, float refSpace,
                   float pointSlop, float textDrop, float pH, float monitorScale,
                   std::vector<std::string> &bam_paths);
@@ -151,7 +150,6 @@ namespace HGW {
         tbx_t *t;
         hts_itr_t *iter_q;
 
-//        std::shared_ptr<std::ifstream> fpu;
         std::shared_ptr<std::istream> fpu;
         std::string tp;
 
@@ -163,12 +161,14 @@ namespace HGW {
 
         int region_end;
         std::vector<std::string> parts;  // string split by delimiter
+        std::vector<std::string> keyval;
 
         std::vector<Utils::TrackBlock>::iterator vals_end;
         std::vector<Utils::TrackBlock>::iterator iter_blk;
 
-        ankerl::unordered_dense::map< std::string, IITree<int, Utils::TrackBlock>> allBlocks;
-        std::vector<Utils::TrackBlock> overlappingBlocks, allBlocks_flat;
+        ankerl::unordered_dense::map< std::string, SuperIntervals<int, Utils::TrackBlock>> allBlocks;
+        std::vector<Utils::TrackBlock> overlappingBlocks;
+        std::vector<Utils::TrackBlock> allBlocks_flat;
 
         Utils::TrackBlock block;
         bool done;

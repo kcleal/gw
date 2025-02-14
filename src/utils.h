@@ -47,26 +47,16 @@ namespace Utils {
     class EXPORT TrackBlock {
     public:
         std::string chrom, name, line, vartype, parent;
-        int start, end;
-        int coding_start, coding_end;
-        int strand;  // 0 is none, 1 forward, 2 reverse
-        int level;
-        float value;
-        bool anyToDraw;
+        int start{0}, end{0};
+        int coding_start{-1}, coding_end{-1};
+        int strand{0};  // 0 is none, 1 forward, 2 reverse
+        int level{0};
+        float value{0.0f};
+        bool anyToDraw{false};
         std::vector<std::string> parts;
         std::vector<int> s;  // block starts and block ends for bed12/GFF
         std::vector<int> e;
         std::vector<uint8_t> drawThickness;  // 0 no line, 1 is thin line, 2 fat line
-        TrackBlock() {
-            coding_start = -1;
-            coding_end = -1;
-            value = 0;
-            level = 0;
-            start = 0;
-            end = 0;
-            strand = 0;
-            anyToDraw = false;
-        }
     };
 
     class EXPORT GFFTrackBlock {
@@ -99,7 +89,8 @@ namespace Utils {
         int sortPos;
         char refBaseAtPos;
         std::vector<uint8_t> refSeq_nibbled;
-        std::vector<std::vector<Utils::TrackBlock>> featuresInView;  // one vector for each Track
+        // one vector for each Track
+        std::vector<std::vector<Utils::TrackBlock>> featuresInView;
         std::vector<int> featureLevels;
         Region() {
             chrom = "";

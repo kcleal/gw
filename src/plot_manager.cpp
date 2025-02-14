@@ -84,6 +84,8 @@ namespace Manager {
                 std::exit(-1);
             }
         }
+        inputAlignments.resize(bampaths.size());
+        size_t i = 0;
         for (auto &fn: bampaths) {
             htsFile *f = sam_open(fn.c_str(), "r");
             hts_set_fai_filename(f, reference.c_str());
@@ -93,6 +95,9 @@ namespace Manager {
             headers.push_back(hdr_ptr);
             hts_idx_t *idx = sam_index_load(f, fn.c_str());
             indexes.push_back(idx);
+
+            inputAlignments[i].open(fn, reference, opt.threads);
+            ++i;
         }
 
         if (!opts.genome_tag.empty() && !opts.ini_path.empty() && opts.myIni["tracks"].size() > 0 && (opts.myIni["tracks"].has(opts.genome_tag) || opts.myIni["tracks"].has(opts.genome_tag + "_ideogram"))) {
@@ -139,7 +144,6 @@ namespace Manager {
             pool.reset(opts.threads);
         }
         triggerClose = false;
-//        sortReadsBy = Manager::SortType::NONE;
 
     }
 
@@ -602,7 +606,7 @@ namespace Manager {
 
     void GwPlot::addFilter(std::string &filter_str) {
         Parse::Parser p = Parse::Parser(outStr);
-        if (p.set_filter(filter_str, bams.size(), regions.size()) > 0) {
+        if (p.set_filter(filter_str, inputAlignments.size(), regions.size()) > 0) {
             filters.push_back(p);
         }
     }
@@ -693,6 +697,7 @@ namespace Manager {
         regions.clear();
         filters.clear();
         variantTracks.clear();
+        inputAlignments.clear();
         bams.clear();
         headers.clear();
         indexes.clear();
@@ -1011,18 +1016,15 @@ namespace Manager {
                 cl.skipDrawingReads = false;
                 cl.skipDrawingCoverage = false;
             }
-            if (collections.size() != bams.size() * regions.size()) {
-                collections.resize(bams.size() * regions.size());
+            if (collections.size() != inputAlignments.size() * regions.size()) {
+                collections.resize(inputAlignments.size() * regions.size());
             }
 
-            for (int i = 0; i < (int) bams.size(); ++i) {
-                htsFile *b = bams[i];
-                sam_hdr_t *hdr_ptr = headers[i];
-                hts_idx_t *index = indexes[i];
+            for (int i = 0; i < (int) inputAlignments.size(); ++i) {
 
                 for (int j = 0; j < (int) regions.size(); ++j) {
-                    Utils::Region * reg = &regions[j];
-
+                    Utils::Region* reg = &regions[j];
+                    collections[idx].alignmentFile = &inputAlignments[i];
                     collections[idx].bamIdx = i;
                     collections[idx].regionIdx = j;
                     collections[idx].region = &regions[j];
@@ -1042,8 +1044,7 @@ namespace Manager {
                     }
 
                     if (reg->end - reg->start < opts.low_memory || opts.link_op != 0) {
-
-                        HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg,
+                        HGW::collectReadsAndCoverage(collections[idx], opts.threads, reg,
                                                      (bool) opts.max_coverage, filters, pool, parse_mods_threshold);
 
                         int sort_state = Segs::getSortCodes(collections[idx].readQueue, opts.threads, pool, reg);
@@ -1058,7 +1059,7 @@ namespace Manager {
                 }
             }
 
-            if (bams.empty()) {
+            if (inputAlignments.empty()) {
                 collections.resize(regions.size());
                 for (int j = 0; j < (int) regions.size(); ++j) {
                     collections[idx].bamIdx = -1;
@@ -1105,7 +1106,7 @@ namespace Manager {
         sliderSpace = std::fmax((float)(fb_height * 0.0175), 10*monitorScale) + (gap * 0.5);
         auto fbh = (float) fb_height;
         auto fbw = (float) fb_width;
-        auto nbams = (float)bams.size();
+        auto nbams = (float)inputAlignments.size();
         if (tracks.empty()) {
             totalTabixY = 0; tabixY = 0;
         } else {
@@ -1207,7 +1208,7 @@ namespace Manager {
 
         frameId += 1;
 
-        if (bams.empty() && !regions.empty()) {
+        if (inputAlignments.empty() && !regions.empty()) {
             canvasR->drawPaint(opts.theme.bgPaint);
             setScaling();
             if (!regions.empty()) {
@@ -1224,7 +1225,7 @@ namespace Manager {
                 canvasR->drawImage(imageCacheQueue.back().second, 0, 0);
                 clip.setXYWH(0, 0, fb_width, refSpace);
                 canvasR->drawRect(clip, opts.theme.bgPaint);
-                clip.setXYWH(0, refSpace + totalCovY + (trackY * bams.size()), fb_width, fb_height);
+                clip.setXYWH(0, refSpace + totalCovY + (trackY * inputAlignments.size()), fb_width, fb_height);
                 canvasR->drawRect(clip, opts.theme.bgPaint);
                 canvasR->restore();
             }
@@ -1248,19 +1249,17 @@ namespace Manager {
                 }  // else no clip
                 canvasR->drawPaint(opts.theme.bgPaint);
 
-                if (!cl.skipDrawingReads && !bams.empty()) {
+                if (!cl.skipDrawingReads && !inputAlignments.empty()) {
                     if (cl.regionLen >= opts.low_memory) {
                         assert (opts.link_op == 0 && regions[cl.regionIdx].getSortOption() == SortType::NONE);
                         // low memory mode will be used
                         cl.clear();
                         if (opts.threads == 1) {
-                            HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                          &regions[cl.regionIdx], (bool) opts.max_coverage,
+                            HGW::iterDraw(cl, &regions[cl.regionIdx], (bool) opts.max_coverage,
                                           filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pointSlop,
                                           textDrop, pH, monitorScale, bam_paths);
                         } else {
-                            HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                                  opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
+                            HGW::iterDrawParallel(cl, opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
                                                   filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pool,
                                                   pointSlop, textDrop, pH, monitorScale, bam_paths);
                         }
@@ -1277,7 +1276,7 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvasR, fonts, covY, refSpace, gap, monitorScale, bam_paths);
         }
         Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, fonts.overlayHeight, (float)regions.size(), gap, monitorScale, opts.scale_bar);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY);
+        Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), inputAlignments.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY);
         Drawing::drawTracks(opts, fb_width, fb_height, canvasR, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, fai, fb_width, fb_height, monitorScale, gap, drawLocation);
 
@@ -1356,7 +1355,7 @@ namespace Manager {
         }
 
         // slider overlay
-        if (mode == Show::SINGLE && bams.size() > 0) {
+        if (mode == Show::SINGLE && inputAlignments.size() > 0) {
             drawCursorPosOnRefSlider(canvas);
         }
 
@@ -1599,7 +1598,7 @@ namespace Manager {
         }
 
         bool current_view_is_images = (!variantTracks.empty() && variantTracks[variantFileSelection].type == HGW::TrackType::IMAGES);
-        if (bams.empty() && !current_view_is_images && mode != SETTINGS && frameId < 10) {
+        if (inputAlignments.empty() && !current_view_is_images && mode != SETTINGS && frameId < 10) {
             float trackBoundary = fb_height - totalTabixY - refSpace;
             std::string dd_msg = "Drag-and-drop bam or cram files here";
             float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
@@ -1639,7 +1638,7 @@ namespace Manager {
         currentVarTrack->iterateToIndex(endIdx);
         for (int i=bStart; i<endIdx; ++i) {
             bool c = imageCache.find(i) != imageCache.end();
-            if (!c && i < (int)currentVarTrack->multiRegions.size() && !bams.empty()) {
+            if (!c && i < (int)currentVarTrack->multiRegions.size() && !inputAlignments.empty()) {
                 this->regions = currentVarTrack->multiRegions[i];
                 runDrawOnCanvas(canvas);
                 sContext->flush();
@@ -1793,20 +1792,18 @@ namespace Manager {
             }  // else no clip
             canvas->drawPaint(opts.theme.bgPaint);
 
-            if (!cl.skipDrawingReads && !bams.empty()) {
+            if (!cl.skipDrawingReads && !inputAlignments.empty()) {
 
                 if (cl.regionLen >= opts.low_memory) {
                     assert (opts.link_op == 0 && regions[cl.regionIdx].getSortOption() == SortType::NONE);
                     // low memory mode will be used
                     cl.clear();
                     if (opts.threads == 1) {
-                        HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                      &regions[cl.regionIdx], (bool) opts.max_coverage,
+                        HGW::iterDraw(cl, &regions[cl.regionIdx], (bool) opts.max_coverage,
                                       filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop,
                                       textDrop, pH, monitorScale, bam_paths);
                     } else {
-                        HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                              opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
+                        HGW::iterDrawParallel(cl, opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
                                               filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool,
                                               pointSlop, textDrop, pH, monitorScale, bam_paths);
                     }
@@ -1822,7 +1819,7 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace, gap, monitorScale, bam_paths);
         }
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, fonts.overlayHeight, (float)regions.size(), gap, monitorScale, opts.scale_bar);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY);
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), inputAlignments.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale, gap, drawLocation);
     }
@@ -1833,7 +1830,7 @@ namespace Manager {
 
     void GwPlot::runDrawNoBufferOnCanvas(SkCanvas* canvas) {
 //        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
-        if (bams.empty()) {
+        if (inputAlignments.empty()) {
             return;
         }
         canvas->drawPaint(opts.theme.bgPaint);
@@ -1842,9 +1839,9 @@ namespace Manager {
 
         // This is a subset of processBam function:
         samMaxY = opts.ylim;
-        collections.resize(bams.size() * regions.size());
+        collections.resize(inputAlignments.size() * regions.size());
         int idx = 0;
-        for (int i=0; i<(int)bams.size(); ++i) {
+        for (int i=0; i<(int)inputAlignments.size(); ++i) {
             for (int j=0; j<(int)regions.size(); ++j) {
                 Utils::Region *reg = &regions[j];
                 Segs::ReadCollection &col = collections[idx];
@@ -1875,7 +1872,7 @@ namespace Manager {
             canvas->drawImage(imageCacheQueue.back().second, 0, 0);
             clip.setXYWH(0, 0, fb_width, refSpace);
             canvas->drawRect(clip, opts.theme.bgPaint);
-            clip.setXYWH(0, refSpace + totalCovY + (trackY * bams.size()), fb_width, fb_height);
+            clip.setXYWH(0, refSpace + totalCovY + (trackY * inputAlignments.size()), fb_width, fb_height);
             canvas->drawRect(clip, opts.theme.bgPaint);
             canvas->restore();
 
@@ -1903,13 +1900,11 @@ namespace Manager {
 
             if (!cl.skipDrawingReads) {
                 if (opts.threads == 1) {
-                    HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                  &regions[cl.regionIdx], (bool) opts.max_coverage,
+                    HGW::iterDraw(cl, &regions[cl.regionIdx], (bool) opts.max_coverage,
                                   filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop,
                                   textDrop, pH, monitorScale, bam_paths);
                 } else {
-                    HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
-                                          opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
+                    HGW::iterDrawParallel(cl, opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
                                           filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool,
                                           pointSlop, textDrop, pH, monitorScale, bam_paths);
                 }
@@ -1922,7 +1917,7 @@ namespace Manager {
         }
 
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, fonts.overlayHeight, (float)regions.size(), gap, monitorScale, opts.scale_bar);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY);
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), inputAlignments.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale, gap, drawLocation);
 //        std::cerr << " time runDrawNoBufferOnCanvas " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
