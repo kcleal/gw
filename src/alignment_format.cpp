@@ -45,7 +45,7 @@ namespace AlignFormat {
                         cur = cur->duplicate();
                         other_segments.push_back(cur);
                     }
-                    cur->core.flag = (line[i] == '>') ? 0 : 16;
+                    cur->flag = (line[i] == '>') ? 0 : 16;
                     ++match_count;
                     break;
                 case 1:
@@ -62,16 +62,16 @@ namespace AlignFormat {
                     break;
                 case 2:
                     j = line.find("-", i);
-                    std::from_chars(line.data() + i, line.data() + j, cur->core.pos);
+                    std::from_chars(line.data() + i, line.data() + j, cur->pos);
                     ++match_count;
                     len = j - i;
                     i += len;
                     break;
                 default:
                     j = line.find_first_of("><", i);
-                    std::from_chars(line.data() + i, line.data() + j, cur->core.end);
+                    std::from_chars(line.data() + i, line.data() + j, cur->end);
                     if (!have_cigar) {
-                        cur->blocks.emplace_back() = {(uint32_t)cur->core.pos, (uint32_t)cur->core.end};
+                        cur->blocks.emplace_back() = {(uint32_t)cur->pos, (uint32_t)cur->end};
                     }
                     if (j == std::string::npos) {
                         i = pe;
@@ -89,15 +89,15 @@ namespace AlignFormat {
             cur = g;
             size_t next_segment = 0;
             uint32_t num = 0;
-            uint32_t current_pos = cur->core.pos;
+            uint32_t current_pos = cur->pos;
             uint32_t block_start = current_pos;
             bool in_match = false;
 
             auto flush_block = [&]() {
                 if (in_match && cur) {
                     // Ensure block doesn't extend beyond segment boundary and check for overflow
-                    uint32_t end_pos = (current_pos < (uint32_t)cur->core.end) ?
-                                       std::min(current_pos, (uint32_t)cur->core.end) : (uint32_t)cur->core.end;
+                    uint32_t end_pos = (current_pos < (uint32_t)cur->end) ?
+                                       std::min(current_pos, (uint32_t)cur->end) : (uint32_t)cur->end;
                     if (block_start < end_pos) {
                         cur->blocks.emplace_back() = {block_start, end_pos};
                     }
@@ -111,7 +111,7 @@ namespace AlignFormat {
                     if (next) {
                         cur = next;
                         next_segment++;
-                        current_pos = cur->core.pos;
+                        current_pos = cur->pos;
                         block_start = current_pos;
                         in_match = false;
                         return true;
@@ -136,8 +136,8 @@ namespace AlignFormat {
                         uint32_t remaining = num;
                         while (remaining > 0 && cur != nullptr) {
                             // Calculate how much of the operation fits in current segment
-                            uint32_t segment_remaining = (current_pos < (uint32_t)cur->core.end) ?
-                                                         ((uint32_t)cur->core.end - current_pos) : 0;
+                            uint32_t segment_remaining = (current_pos < (uint32_t)cur->end) ?
+                                                         ((uint32_t)cur->end - current_pos) : 0;
 
                             // Protect against overflow in advance calculation
                             uint32_t max_advance = UINT32_MAX - current_pos;
@@ -152,7 +152,7 @@ namespace AlignFormat {
                             remaining -= advance;
 
                             // If we've reached the end of the segment
-                            if (current_pos >= (uint32_t)cur->core.end) {
+                            if (current_pos >= (uint32_t)cur->end) {
                                 flush_block();
                                 if (!advance_to_next_segment()) {
                                     break;  // No more segments
@@ -167,8 +167,8 @@ namespace AlignFormat {
                         flush_block();
                         uint32_t remaining = num;
                         while (remaining > 0 && cur != nullptr) {
-                            uint32_t segment_remaining = (current_pos < (uint32_t)cur->core.end) ?
-                                                         ((uint32_t)cur->core.end - current_pos) : 0;
+                            uint32_t segment_remaining = (current_pos < (uint32_t)cur->end) ?
+                                                         ((uint32_t)cur->end - current_pos) : 0;
 
                             uint32_t max_advance = UINT32_MAX - current_pos;
                             uint32_t advance = std::min({remaining, segment_remaining, max_advance});
@@ -176,7 +176,7 @@ namespace AlignFormat {
                             current_pos += advance;
                             remaining -= advance;
 
-                            if (current_pos >= (uint32_t)cur->core.end) {
+                            if (current_pos >= (uint32_t)cur->end) {
                                 if (!advance_to_next_segment()) {
                                     break;  // No more segments
                                 }
@@ -199,12 +199,12 @@ namespace AlignFormat {
             flush_block();
         }
 
-//        std::cout << "g is " << g->core.pos << " - " << g->core.end << std::endl;
+//        std::cout << "g is " << g->pos << " - " << g->end << std::endl;
 //        for (auto item : g->blocks) {
 //            std::cout << item.start << "-" << item.end << " ";
 //        } std::cout << std::endl;
 //        for (auto gg : other_segments) {
-//            std::cout << "gg is " << gg->core.pos << " - " << gg->core.end << std::endl;
+//            std::cout << "gg is " << gg->pos << " - " << gg->end << std::endl;
 //            for (auto item : gg->blocks) {
 //                std::cout << item.start << "-" << item.end << " ";
 //            } std::cout << std::endl;
@@ -231,8 +231,7 @@ namespace AlignFormat {
 // ds:Z::36*ct:129*tg*tc:2+[ag]gcgcag:1*ag:228+[ag]:19+ca:4*ta:11*ga-[caggcgcagaga]ggcgcgccgcgcc[ggcg]:21*cg:4*tc:7*ta:29*ag:3*ct:2*ct:1*gc:32+[g]:33*ac:14*gt:1*tg:15*ga:28+[g]:11*ag:3*tg+[g]:33*tc:20*ag:19*ac:12*ca:223*ta:17*ag:47*cg:50*ag:33*at:22*gt:206*ga:400-[g]:24*gc:184*ga:11+[g]:388*ga:211-[c]:120*tg:1*ag:183*ct:24*gc:329-ag:237*ca:61-[c]:21*tc:365-[c]:109+[aaga]g:217*gc:25*cg:42+[g]:165*ag:22*ag:187*ag:92*tg:62*at:542*gt:2*gt:85*ac+[g]:15*ag:33*ga:111*tc:34*tg:194*ct:79*tc:155*ct:36*ga:74*ct:160*gc:1*cg:46*ag:1307*tc:684*cg:322*ag:68*ct:534*ag:351*ga:92*gc:5*tc:796*ct:89-[c]:465*ct:577*ag:23*tc:586+[g]:302*tc:83*ga:18*gt:25*ac:102+[g]:56*cg:35*ag:312*at:1*gc:170*ca:93*ga:156*ct:136*ct:453*ag:108*ag:67*cg:11*ga:3*gc:17*gt:4*gc:1*ca:15*cg:347+[g]:8*ag:10*cg*cg:21*ac:93+[a]:292*ag:142*ct:107*tc:281*ct:444*ga:284*ag:57*ga:77*ga:309*ga:166+[t]:267*ta:24
 
     void gafParser(std::string& line,
-                   ankerl::unordered_dense::map< std::string, SuperIntervals<int, GAF_t *>>& cached_alignments,
-                   ankerl::unordered_dense::map< std::string, uint32_t>& rids) {
+                   ankerl::unordered_dense::map< std::string, SuperIntervals<int, GAF_t *>>& cached_alignments) {
         GAF_t *g = new GAF_t();
 
         size_t pos = 0;
@@ -247,7 +246,8 @@ namespace AlignFormat {
         };
 
         next = line.find('\t', pos);
-        g->qname = line.substr(0, next);
+        std::string qname = line.substr(0, next);
+
         pos = next + 1;
 
         parse_int(g->qlen);
@@ -287,7 +287,7 @@ namespace AlignFormat {
         pos = next + 1;
 
         //12 	int 	Mapping quality (0-255; 255 for missing)
-        parse_int(g->core.qual);
+        parse_int(g->qual);
 
         size_t cigar_start = line.find("cg:Z:");
         size_t cigar_end = std::string::npos;
@@ -299,13 +299,13 @@ namespace AlignFormat {
         std::vector<GAF_t*> other_segments;
         extractAlignmentPath(line, g, ps, pe, other_segments, cigar_start, cigar_end);
 
-        cached_alignments[g->chrom].add(g->core.pos, g->core.end, g);
+        cached_alignments[g->chrom].add(g->pos, g->end, g);
 
-//        std::cout << g->core.flag << " " << g->chrom << " " << g->core.pos << " " << g->core.end << std::endl;
-        for (auto & v : other_segments) {
-            cached_alignments[v->chrom].add(v->core.pos, v->core.end, g);
-//            std::cout << v->core.flag << " " << v->chrom << " " << v->core.pos << " " << v->core.end << std::endl;
-        }
+//        std::cout << g->flag << " " << g->chrom << " " << g->pos << " " << g->end << std::endl;
+//        for (auto & v : other_segments) {
+//            cached_alignments[v->chrom].add(v->pos, v->end, g);
+//            std::cout << v->flag << " " << v->chrom << " " << v->pos << " " << v->end << std::endl;
+//        }
 //        std::exit(0);
 
     }
@@ -314,26 +314,26 @@ namespace AlignFormat {
         int start, end;
     };
 
-    void gafFindY(std::vector<GAF_t *>& gafAlignments) {
+    void gafFindY(std::vector<AlignFormat::GAF_t *>& gafAlignments) {
         std::vector<TrackRange> trackLevels;
         for (const auto &b : gafAlignments) {
             size_t memLen = trackLevels.size();
             size_t i = 0;
             for (; i < memLen; ++i) {
-                if (b->core.pos > trackLevels[i].end) {
-                    trackLevels[i].end = b->core.end + 2;
+                if (b->pos > trackLevels[i].end) {
+                    trackLevels[i].end = b->end;
                     b->y = (int)i;
                     break;
                 }
             }
             if (i == memLen) {
-                trackLevels.emplace_back() = {b->core.pos, b->core.end + 2};
+                trackLevels.emplace_back() = {b->pos, b->end};
                 b->y = (int)memLen;
             }
         }
     }
 
-    void GwAlignment::open(const std::string& file_path, const std::string& reference, int threads, faidx_t* fai) {
+    void AlignFormat::GwAlignment::open(const std::string& file_path, const std::string& reference, int threads) {
         path = file_path;
         if (Utils::endsWith(path, "bam") || Utils::endsWith(path, "cram")) {
             type = AlignmentType::HTSLIB_t;
@@ -371,24 +371,16 @@ namespace AlignFormat {
                 throw std::exception();
             }
 #endif
-            // Reference id's
-            ankerl::unordered_dense::map< std::string, uint32_t> rids;
-            int num_sequences = faidx_nseq(fai);
-            for (int i = 0; i < num_sequences; ++i) {
-                const char* seq_name = faidx_iseq(fai, i);
-                rids[seq_name] = i;
-            }
 
             std::string tp;
             while (true) {
-                auto got_line = (bool)getline(*fpu, tp);
-                if (!got_line) {
+                if (!(bool)getline(*fpu, tp)) {
                     break;
                 }
                 if (tp[0] == '#') {
                     continue;
                 }
-                gafParser(tp, this->cached_alignments, rids);
+                gafParser(tp, this->cached_alignments);
             }
             for (auto& item : cached_alignments) {
                 item.second.index();
@@ -397,10 +389,48 @@ namespace AlignFormat {
         }
     }
 
-    GwAlignment::~GwAlignment() {
+    AlignFormat::GwAlignment::~GwAlignment() {
         if (index) hts_idx_destroy(index);
         if (header) sam_hdr_destroy(header);
         if (bam) sam_close(bam);
+        if (!cached_alignments.empty()) {
+            for (auto& item : cached_alignments) {
+                for (auto &g : item.second.data) {
+                    delete g;
+                }
+            }
+        }
+    }
+
+    void gafToAlign(AlignFormat::GAF_t* gaf, AlignFormat::Align* align) {
+
+        align->cov_start = gaf->pos;
+        align->cov_end = gaf->end;
+        align->orient_pattern = AlignFormat::Pattern::NORMAL;
+        align->left_soft_clip = 0;
+        align->right_soft_clip = 0;
+        align->y = gaf->y;
+        align->edge_type = 1;
+        align->pos = gaf->pos;
+        align->reference_end = gaf->end;
+        align->has_SA = false;
+        align->blocks = gaf->blocks;
+        std::cout << gaf->pos << " " << gaf->end << " " << gaf->y << std::endl;
+        align->delegate = bam_init1();
+        const char* qname = gaf->qname.c_str();
+        size_t l_qname = gaf->qname.size();
+        // int bam_set1(bam1_t *bam,
+        //             size_t l_qname, const char *qname,
+        //             uint16_t flag, int32_t tid, hts_pos_t pos, uint8_t mapq,
+        //             size_t n_cigar, const uint32_t *cigar,
+        //             int32_t mtid, hts_pos_t mpos, hts_pos_t isize,
+        //             size_t l_seq, const char *seq, const char *qual,
+        //             size_t l_aux);
+        int res = bam_set1(align->delegate, l_qname, qname, (uint64_t)gaf->flag, 0,
+                     (hts_pos_t)align->pos, (uint8_t)gaf->qual, 0, nullptr, 0, 0, 0, 0, nullptr, nullptr, 0);
+        if (res < 0) {
+            return;
+        }
     }
 
 }

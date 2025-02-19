@@ -169,7 +169,7 @@ namespace HGW {
                                  bool coverage, std::vector<Parse::Parser> &filters, BS::thread_pool &pool,
                                  const int parse_mods_threshold) {
 
-        std::vector<AlignFormat::GAF_t*>& readQueueGAF = col.readQueueGAF;
+        std::vector<AlignFormat::GAF_t*> &readQueueGAF = col.readQueueGAF;
         if (!readQueueGAF.empty()) {
             readQueueGAF.clear();
         }
@@ -177,15 +177,16 @@ namespace HGW {
             return;
         }
         col.alignmentFile->cached_alignments[region->chrom].findOverlaps(region->start, region->end, readQueueGAF);
+        std::reverse(readQueueGAF.begin(), readQueueGAF.end());
         if (coverage) {
             std::fill(col.covArr.begin(), col.covArr.end(), 0);
             for (const auto &i : readQueueGAF) {
-//                std::cerr << i->core.pos << "-" << i->core.end << std::endl << "  ";
-//                for (auto &v : i->blocks) {
-//                    std::cerr << v.start << "," << v.end << "  ";
-//                } std::cerr << std::endl << std::endl;
                 Segs::addToCovArray(col.covArr, i->blocks, region->start, region->end);
             }
+        }
+        col.readQueue.resize(readQueueGAF.size());
+        for (size_t i=0; i < readQueueGAF.size(); ++i) {
+            AlignFormat::gafToAlign(readQueueGAF[i], &col.readQueue[i]);
         }
         col.collection_processed = false;
     }

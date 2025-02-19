@@ -734,7 +734,7 @@ namespace Segs {
                     pos += l;
                     break;
                 case BAM_CREF_SKIP:
-                    op = BAM_CDEL;
+//                    op = BAM_CDEL;
                     pos += l;
                     break;
                 case BAM_CSOFT_CLIP:
@@ -762,17 +762,6 @@ namespace Segs {
         } else {
             self->has_SA = false;
         }
-
-//        if (sort_state > 0) {
-//            if (sort_state == Utils::SortType::HP) {
-//                uint8_t *HP_tag = bam_aux_get(self->delegate, "HP");
-//                self->sort_tag = (HP_tag != nullptr) ? (int) bam_aux2i(HP_tag) : 0;
-//            } else if (sort_state == Utils::SortType::STRAND) {
-//                self->sort_tag = (int)(src->core.flag & BAM_FREVERSE) ? 1 : 0;
-//            } else if (sort_by_pos >= 0 && ref_base != '\0') {
-//                self->sort_tag = getSortCode(src, sort_by_pos, ref_base);
-//            }
-//        }
 
         if (parse_mods_threshold > 0) {
             hts_base_mod_state* mod_state = new hts_base_mod_state;
@@ -854,6 +843,9 @@ namespace Segs {
                     .wait();
         }
     }
+
+
+
 
     constexpr int POS_MASK = 0b0000111;
 

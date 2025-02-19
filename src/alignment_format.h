@@ -82,6 +82,7 @@ namespace AlignFormat {
         std::vector<AlignFormat::ModItem> any_mods;
 
         // Constructor
+        Align() {}
         Align(bam1_t *src) { delegate = src; }
 
         // Destructor
@@ -146,16 +147,11 @@ namespace AlignFormat {
         GAF_t
     };
 
-    class Core {
-    public:
-        int tid, pos, end, qual, flag, n_cigar, l_qseq, mtid, mpos;
-    };
-
-    class GAF_t {
+    EXPORT class GAF_t {
     public:
         std::string qname, chrom;
-        Core core;
         int qlen, qstart, qend;
+        int pos{0}, end{0}, qual, flag{0};
         char strand;  // this is strand of the query, not reference
         int y{-1};
 
@@ -167,9 +163,6 @@ namespace AlignFormat {
             return new GAF_t(*this);
         }
     };
-
-    void gafParser(std::string& line,
-                  ankerl::unordered_dense::map< std::string, SuperIntervals<int, GAF_t *>>& cached_alignments);
 
     EXPORT class GwAlignment {
     public:
@@ -186,8 +179,9 @@ namespace AlignFormat {
         GwAlignment() = default;
         ~GwAlignment();
 
-        void open(const std::string& path, const std::string& reference, int threads, faidx_t* fai);
+        void open(const std::string& path, const std::string& reference, int threads);
     };
 
+    void gafToAlign(AlignFormat::GAF_t* gaf, AlignFormat::Align* align);
 
 }
