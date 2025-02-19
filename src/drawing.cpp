@@ -41,7 +41,6 @@ namespace Drawing {
     struct TextItemIns{
         sk_sp<SkTextBlob> text;
         float x, y;
-//        float box_x, box_y;
         float box_y, box_w;
     };
 
@@ -347,46 +346,46 @@ namespace Drawing {
     }
 
     inline void
-    chooseFacecolors(int mapq, const Segs::Align &a, SkPaint &faceColor, const Themes::BaseTheme &theme) {
+    chooseFacecolors(int mapq, const AlignFormat::Align &a, SkPaint &faceColor, const Themes::BaseTheme &theme) {
         if (mapq == 0) {
             switch (a.orient_pattern) {
-                case Segs::NORMAL:
+                case AlignFormat::NORMAL:
                     faceColor = theme.fcNormal0;
                     break;
-                case Segs::DEL:
+                case AlignFormat::DEL:
                     faceColor = theme.fcDel0;
                     break;
-                case Segs::INV_F:
+                case AlignFormat::INV_F:
                     faceColor = theme.fcInvF0;
                     break;
-                case Segs::INV_R:
+                case AlignFormat::INV_R:
                     faceColor = theme.fcInvR0;
                     break;
-                case Segs::DUP:
+                case AlignFormat::DUP:
                     faceColor = theme.fcDup0;
                     break;
-                case Segs::TRA:
+                case AlignFormat::TRA:
                     faceColor = theme.mate_fc0[(a.delegate->core.tid + ((a.delegate->core.mtid >= 0) ?  a.delegate->core.mtid : 0)) % 48];
                     break;
             }
         } else {
             switch (a.orient_pattern) {
-                case Segs::NORMAL:
+                case AlignFormat::NORMAL:
                     faceColor = theme.fcNormal;
                     break;
-                case Segs::DEL:
+                case AlignFormat::DEL:
                     faceColor = theme.fcDel;
                     break;
-                case Segs::INV_F:
+                case AlignFormat::INV_F:
                     faceColor = theme.fcInvF;
                     break;
-                case Segs::INV_R:
+                case AlignFormat::INV_R:
                     faceColor = theme.fcInvR;
                     break;
-                case Segs::DUP:
+                case AlignFormat::DUP:
                     faceColor = theme.fcDup;
                     break;
-                case Segs::TRA:
+                case AlignFormat::TRA:
                     faceColor = theme.mate_fc[(a.delegate->core.tid + ((a.delegate->core.mtid >= 0) ?  a.delegate->core.mtid : 0)) % 48];
                     break;
             }
@@ -568,7 +567,7 @@ namespace Drawing {
     };
 
     void drawMismatchesNoMD(SkCanvas *canvas, SkRect &rect, const Themes::BaseTheme &theme, const Utils::Region *region,
-                            const Segs::Align &align,
+                            const AlignFormat::Align &align,
                             float width, float xScaling, float xOffset, float mmPosOffset, float yScaledOffset,
                             float pH, int l_qseq, std::vector<Segs::Mismatches> &mm_array,
                             bool &collection_processed) {
@@ -633,7 +632,7 @@ namespace Drawing {
     }
 
     void drawMismatchesNoMD2(SkCanvas *canvas, SkRect &rect, const Themes::BaseTheme &theme, const Utils::Region *region,
-                            const Segs::Align &align,
+                            const AlignFormat::Align &align,
                             float width, float xScaling, float xOffset, float mmPosOffset, float yScaledOffset,
                             float pH, int l_qseq, std::vector<Segs::Mismatches> &mm_array,
                             bool &collection_processed) {
@@ -795,7 +794,7 @@ namespace Drawing {
         }
     }
 
-    void drawDeletionLine(const Segs::Align &a, SkCanvas *canvas, SkPath &path, const Themes::IniOptions &opts,
+    void drawDeletionLine(const AlignFormat::Align &a, SkCanvas *canvas, SkPath &path, const Themes::IniOptions &opts,
                           const Themes::Fonts &fonts,
                           int regionBegin, int Y, int regionLen, int starti, int lastEndi,
                           float regionPixels, float xScaling, float yScaling, float xOffset, float yOffset,
@@ -850,7 +849,7 @@ namespace Drawing {
     }
 
     void drawMods(SkCanvas *canvas, SkRect &rect, const Themes::BaseTheme &theme, const Utils::Region *region,
-                  const Segs::Align &align,
+                  const AlignFormat::Align &align,
                   float width, float xScaling, float xOffset, float mmPosOffset, float yScaledOffset,
                   float pH, int l_qseq, float monitorScale, bool as_dots) { //SkPaint& fc5mc, SkPaint& fc5hmc, SkPaint& fcOther) {
         if (align.any_mods.empty()) {
@@ -1244,15 +1243,15 @@ namespace Drawing {
                 SkPaint paint;
                 float offsety = (yScaling * 0.5) + cl.yOffset;
                 for (auto const &keyVal: lm) {
-                    const std::vector<Segs::Align *> &ind = keyVal.second;
+                    const std::vector<AlignFormat::Align *> &ind = keyVal.second;
                     int size = (int) ind.size();
                     if (size > 1) {
                         float max_x = cl.xOffset + (((float) cl.region->end - (float) cl.region->start) * cl.xScaling);
 
                         for (int jdx = 0; jdx < size - 1; ++jdx) {
 
-                            const Segs::Align *segA = ind[jdx];
-                            const Segs::Align *segB = ind[jdx + 1];
+                            const AlignFormat::Align *segA = ind[jdx];
+                            const AlignFormat::Align *segB = ind[jdx + 1];
 
                             if (segA->y == -1 || segB->y == -1 || segA->blocks.empty() ||
                                 segB->blocks.empty() ||
@@ -1273,16 +1272,16 @@ namespace Drawing {
                             float y = ((float) segA->y * yScaling) + offsety;
 
                             switch (segA->orient_pattern) {
-                                case Segs::DEL:
+                                case AlignFormat::DEL:
                                     paint = theme.fcDel;
                                     break;
-                                case Segs::DUP:
+                                case AlignFormat::DUP:
                                     paint = theme.fcDup;
                                     break;
-                                case Segs::INV_F:
+                                case AlignFormat::INV_F:
                                     paint = theme.fcInvF;
                                     break;
-                                case Segs::INV_R:
+                                case AlignFormat::INV_R:
                                     paint = theme.fcInvR;
                                     break;
                                 default:

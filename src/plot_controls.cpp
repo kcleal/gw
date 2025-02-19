@@ -1010,9 +1010,8 @@ namespace Manager {
                                     if (opts.max_coverage) {  // re process coverage for all reads
                                         cl.covArr.resize(cl.region->end - cl.region->start + 1);
                                         std::fill(cl.covArr.begin(), cl.covArr.end(), 0);
-                                        int l_arr = (int) cl.covArr.size() - 1;
                                         for (auto &i: cl.readQueue) {
-                                            Segs::addToCovArray(cl.covArr, i, cl.region->start, cl.region->end, l_arr);
+                                            Segs::addToCovArray(cl.covArr, i.blocks, cl.region->start, cl.region->end);
                                         }
                                         if (opts.snp_threshold > cl.region->end - cl.region->start) {
                                             cl.mmVector.resize(cl.region->end - cl.region->start + 1);
@@ -1564,11 +1563,6 @@ namespace Manager {
                     regionSelection = collections[idx].regionIdx;
                 }
             }
-//            if (idx < 0) {
-//                xDrag = DRAG_UNSET;
-//                yDrag = DRAG_UNSET;
-//                return;
-//            }
 
             if (std::abs(xDrag) < 5 && action == GLFW_RELEASE && !bams.empty() && idx >= 0) {
                 Segs::ReadCollection &cl = collections[idx];
@@ -1612,62 +1606,69 @@ namespace Manager {
                     slop = (int)(max_bound * 0.025);
                     slop = (slop <= 0) ? 25 : slop;
                 }
-                std::vector<Segs::Align>::iterator bnd;
-                bnd = std::lower_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
-                                       [&](const Segs::Align &lhs, const int pos) { return (int)lhs.pos <= pos; });
+                if (!cl.readQueue.empty()) {
+                    std::vector<AlignFormat::Align>::iterator bnd;
+                    bnd = std::lower_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
+                                           [&](const AlignFormat::Align &lhs, const int pos) { return (int) lhs.pos <= pos; });
 
-                while (true) {
-                    if (!opts.tlen_yscale) {
-                        if (bnd->y == level && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
-                            if (bnd->edge_type == 4) {
-                                if (bnd->has_SA || bnd->delegate->core.flag & 2048) {
-                                    bnd->edge_type = 2;  // "SPLIT"
-                                } else if (bnd->delegate->core.flag & 8) {
-                                    bnd->edge_type = 3;  // "MATE_UNMAPPED"
-                                } else {
-                                    bnd->edge_type = 1;  // "NORMAL"
+                    while (true) {
+                        if (!opts.tlen_yscale) {
+                            if (bnd->y == level && (int) bnd->pos <= pos && pos < (int) bnd->reference_end) {
+                                if (bnd->edge_type == 4) {
+                                    if (bnd->has_SA || bnd->delegate->core.flag & 2048) {
+                                        bnd->edge_type = 2;  // "SPLIT"
+                                    } else if (bnd->delegate->core.flag & 8) {
+                                        bnd->edge_type = 3;  // "MATE_UNMAPPED"
+                                    } else {
+                                        bnd->edge_type = 1;  // "NORMAL"
+                                    }
+                                    target_qname = "";
+                                } else if (bnd->delegate != nullptr) {
+                                    bnd->edge_type = 4;
+                                    target_qname = bam_get_qname(bnd->delegate);
+                                    Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq,
+                                                    cl.region->start, cl.region->end, opts.low_memory, out, pos,
+                                                    opts.indel_length, opts.parse_mods);
                                 }
-                                target_qname = "";
-                            } else if (bnd->delegate != nullptr) {
-                                bnd->edge_type = 4;
-                                target_qname = bam_get_qname(bnd->delegate);
-                                Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_memory, out, pos, opts.indel_length, opts.parse_mods);
+                                redraw = true;
+                                processed = true;
+                                for (auto &cl2: collections) {
+                                    cl2.skipDrawingReads = false;
+                                    cl2.skipDrawingCoverage = false;
+                                }
+                                break;
                             }
-                            redraw = true;
-                            processed = true;
-                            for (auto &cl2 : collections) {
-                                cl2.skipDrawingReads = false;
-                                cl2.skipDrawingCoverage = false;
+                        } else {
+
+                            if ((bnd->y >= level - slop && bnd->y < level) && (int) bnd->pos <= pos &&
+                                pos < (int) bnd->reference_end) {
+                                if (bnd->edge_type == 4) {
+                                    if (bnd->has_SA || bnd->delegate->core.flag & 2048) {
+                                        bnd->edge_type = 2;  // "SPLIT"
+                                    } else if (bnd->delegate->core.flag & 8) {
+                                        bnd->edge_type = 3;  // "MATE_UNMAPPED"
+                                    } else {
+                                        bnd->edge_type = 1;  // "NORMAL"
+                                    }
+                                    target_qname = "";
+                                } else {
+                                    bnd->edge_type = 4;
+                                    target_qname = bam_get_qname(bnd->delegate);
+                                    Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq,
+                                                    cl.region->start, cl.region->end, opts.low_memory, out, pos,
+                                                    opts.indel_length, opts.parse_mods);
+                                }
+                                redraw = true;
+                                processed = true;
+                                cl.skipDrawingReads = false;
+                                cl.skipDrawingCoverage = false;
                             }
+                        }
+                        if (bnd == cl.readQueue.begin()) {
                             break;
                         }
-                    } else {
-
-                        if ((bnd->y >= level - slop && bnd->y < level) && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
-                            if (bnd->edge_type == 4) {
-                                if (bnd->has_SA || bnd->delegate->core.flag & 2048) {
-                                    bnd->edge_type = 2;  // "SPLIT"
-                                } else if (bnd->delegate->core.flag & 8) {
-                                    bnd->edge_type = 3;  // "MATE_UNMAPPED"
-                                } else {
-                                    bnd->edge_type = 1;  // "NORMAL"
-                                }
-                                target_qname = "";
-                            } else {
-                                bnd->edge_type = 4;
-                                target_qname = bam_get_qname(bnd->delegate);
-                                Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_memory, out, pos, opts.indel_length, opts.parse_mods);
-                            }
-                            redraw = true;
-                            processed = true;
-                            cl.skipDrawingReads = false;
-                            cl.skipDrawingCoverage = false;
-                        }
+                        --bnd;
                     }
-                    if (bnd == cl.readQueue.begin()) {
-                        break;
-                    }
-                    --bnd;
                 }
                 xDrag = DRAG_UNSET;
                 yDrag = DRAG_UNSET;

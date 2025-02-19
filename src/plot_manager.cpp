@@ -96,7 +96,7 @@ namespace Manager {
             hts_idx_t *idx = sam_index_load(f, fn.c_str());
             indexes.push_back(idx);
 
-            inputAlignments[i].open(fn, reference, opt.threads);
+            inputAlignments[i].open(fn, reference, opt.threads, fai);
             ++i;
         }
 

@@ -1073,7 +1073,7 @@ namespace Commands {
         }
 
         struct qItem {
-            Segs::Align align;
+            AlignFormat::Align align;
             htsFile* file_ptr;
             hts_itr_t* bam_iter;
             size_t from;
@@ -1091,7 +1091,7 @@ namespace Commands {
         for (size_t i=0; i < region_iters.size(); ++i) {
             bam1_t* a = bam_init1();
             if (sam_itr_next(file_ptrs[i], region_iters[i], a) >= 0) {
-                Segs::Align alignment = Segs::Align(a);
+                AlignFormat::Align alignment = AlignFormat::Align(a);
                 Segs::align_init(&alignment, 0);  // no need to parse mods/tags here
                 pq.push({std::move(alignment), file_ptrs[i], region_iters[i], i});
             } else {

@@ -125,11 +125,11 @@ namespace HGW {
         std::cerr << "Error: could not find suitable reference genome in .gw.ini. Try a local file?\n";
     }
 
-    void applyFilters(std::vector<Parse::Parser> &filters, std::vector<Segs::Align>& readQueue, const sam_hdr_t* hdr,
+    void applyFilters(std::vector<Parse::Parser> &filters, std::vector<AlignFormat::Align>& readQueue, const sam_hdr_t* hdr,
                       int bamIdx, int regionIdx) {
         auto end = readQueue.end();
         auto rm_iter = readQueue.begin();
-        const auto pred = [&](const Segs::Align &align) {
+        const auto pred = [&](const AlignFormat::Align &align) {
             if (rm_iter == end) { return false; }
             bool drop = false;
             for (auto &f: filters) {
@@ -144,7 +144,7 @@ namespace HGW {
         readQueue.erase(std::remove_if(readQueue.begin(), readQueue.end(), pred), readQueue.end());
     }
 
-    void applyFilters_noDelete(std::vector<Parse::Parser> &filters, std::vector<Segs::Align>& readQueue, const sam_hdr_t* hdr,
+    void applyFilters_noDelete(std::vector<Parse::Parser> &filters, std::vector<AlignFormat::Align>& readQueue, const sam_hdr_t* hdr,
                       int bamIdx, int regionIdx) {
         for (auto &align: readQueue) {
             for (auto &f: filters) {
@@ -164,10 +164,40 @@ namespace HGW {
 //        return region->refBaseAtPos;
 //    }
 
-    void collectReadsAndCoverage(Segs::ReadCollection &col, //htsFile *b, sam_hdr_t *hdr_ptr, hts_idx_t *index,
+    void collectReadsAndCoverageGAF(Segs::ReadCollection &col,
                                  int threads, Utils::Region *region,
                                  bool coverage, std::vector<Parse::Parser> &filters, BS::thread_pool &pool,
                                  const int parse_mods_threshold) {
+
+        std::vector<AlignFormat::GAF_t*>& readQueueGAF = col.readQueueGAF;
+        if (!readQueueGAF.empty()) {
+            readQueueGAF.clear();
+        }
+        if (!col.alignmentFile->cached_alignments.contains(region->chrom)) {
+            return;
+        }
+        col.alignmentFile->cached_alignments[region->chrom].findOverlaps(region->start, region->end, readQueueGAF);
+        if (coverage) {
+            std::fill(col.covArr.begin(), col.covArr.end(), 0);
+            for (const auto &i : readQueueGAF) {
+//                std::cerr << i->core.pos << "-" << i->core.end << std::endl << "  ";
+//                for (auto &v : i->blocks) {
+//                    std::cerr << v.start << "," << v.end << "  ";
+//                } std::cerr << std::endl << std::endl;
+                Segs::addToCovArray(col.covArr, i->blocks, region->start, region->end);
+            }
+        }
+        col.collection_processed = false;
+    }
+
+    void collectReadsAndCoverage(Segs::ReadCollection &col,
+                                 int threads, Utils::Region *region,
+                                 bool coverage, std::vector<Parse::Parser> &filters, BS::thread_pool &pool,
+                                 const int parse_mods_threshold) {
+
+        if (col.alignmentFile->type == AlignFormat::AlignmentType::GAF_t) {
+            return collectReadsAndCoverageGAF(col, threads, region, coverage, filters, pool, parse_mods_threshold);
+        }
 
         bam1_t *src;
         hts_itr_t *iter_q;
@@ -175,7 +205,7 @@ namespace HGW {
         sam_hdr_t *hdr_ptr = col.alignmentFile->header;
         hts_idx_t *index = col.alignmentFile->index;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
-        std::vector<Segs::Align>& readQueue = col.readQueue;
+        std::vector<AlignFormat::Align>& readQueue = col.readQueue;
         if (region->end - region->start < 1000000) {
             try {
                 readQueue.reserve((region->end - region->start) * 60);
@@ -216,9 +246,8 @@ namespace HGW {
         }
 
         if (coverage) {
-            int l_arr = (int)col.covArr.size() - 1;
-            for (auto &i : readQueue) {
-                Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
+            for (const auto &i : readQueue) {
+                Segs::addToCovArray(col.covArr, i.blocks, region->start, region->end);
             }
         }
         col.collection_processed = false;
@@ -226,9 +255,6 @@ namespace HGW {
 
 
     void iterDrawParallel(Segs::ReadCollection &col,
-//                          htsFile *b,
-//                          sam_hdr_t *hdr_ptr,
-//                          hts_idx_t *index,
                           int threads,
                           Utils::Region *region,
                           bool coverage,
@@ -245,14 +271,18 @@ namespace HGW {
                           float pH,
                           float monitorScale,
                           std::vector<std::string> &bam_paths) {
-        const int BATCH = 1500;
+
+        if (col.alignmentFile->type == AlignFormat::AlignmentType::GAF_t) {
+            return collectReadsAndCoverageGAF(col, threads, region, coverage, filters, pool, 0);
+        }
+        const size_t BATCH = 1500;
         bam1_t *src;
         hts_itr_t *iter_q;
         htsFile *b = col.alignmentFile->bam;
         sam_hdr_t *hdr_ptr = col.alignmentFile->header;
         hts_idx_t *index = col.alignmentFile->index;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
-        std::vector<Segs::Align>& readQueue = col.readQueue;
+        std::vector<AlignFormat::Align>& readQueue = col.readQueue;
 
         if (col.levelsStart.empty()) {
             col.levelsStart.resize(opts.ylim + col.vScroll, 1215752191);
@@ -266,7 +296,7 @@ namespace HGW {
             readQueue.clear();
         }
         readQueue.reserve(BATCH);
-        for (int i=0; i < BATCH; ++i) {
+        for (size_t i=0; i < BATCH; ++i) {
             readQueue.emplace_back(bam_init1());
         }
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
@@ -279,7 +309,7 @@ namespace HGW {
 
         const int parse_mods_threshold = (opts.parse_mods) ? opts.mods_qual_threshold : 0;
 
-        int j = 0;
+        size_t j = 0;
         while (sam_itr_next(b, iter_q, readQueue[j].delegate) >= 0) {
             src = readQueue[j].delegate;
             if (src->core.flag & 4 || src->core.n_cigar == 0) {
@@ -295,10 +325,9 @@ namespace HGW {
                 applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
             }
             if (coverage) {
-                int l_arr = (int)col.covArr.size() - 1;
-                for (int i=0; i < BATCH; ++ i) {
+                for (size_t i=0; i < BATCH; ++ i) {
                     if (readQueue[i].y != -2) {
-                        Segs::addToCovArray(col.covArr, readQueue[i], region->start, region->end, l_arr);
+                        Segs::addToCovArray(col.covArr, readQueue[i].blocks, region->start, region->end);
                     }
                 }
             }
@@ -311,7 +340,7 @@ namespace HGW {
                                         textDrop, pH, monitorScale, bam_paths);
             }
 
-            for (int i=0; i < BATCH; ++ i) {
+            for (size_t i=0; i < BATCH; ++ i) {
                 Segs::align_clear(&readQueue[i]);
             }
             j = 0;
@@ -325,10 +354,9 @@ namespace HGW {
                     applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
                 }
                 if (coverage) {
-                    int l_arr = (int)col.covArr.size() - 1;
-                    for (int i=0; i < BATCH; ++ i) {
+                    for (size_t i=0; i < BATCH; ++ i) {
                         if (readQueue[i].y != -2) {
-                            Segs::addToCovArray(col.covArr, readQueue[i], region->start, region->end, l_arr);
+                            Segs::addToCovArray(col.covArr, readQueue[i].blocks, region->start, region->end);
                         }
                     }
                 }
@@ -336,14 +364,14 @@ namespace HGW {
                 Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop,
                                         textDrop, pH, monitorScale, bam_paths);
 
-                for (int i=0; i < BATCH; ++ i) {
+                for (size_t i=0; i < BATCH; ++ i) {
                     Segs::align_clear(&readQueue[i]);
                 }
             }
         }
     }
 
-    void iterDraw(Segs::ReadCollection &col, //htsFile *b, sam_hdr_t *hdr_ptr, hts_idx_t *index,
+    void iterDraw(Segs::ReadCollection &col,
                   Utils::Region *region,
                   bool coverage,
                   std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
@@ -361,7 +389,7 @@ namespace HGW {
             col.levelsStart.resize(opts.ylim + col.vScroll, 1215752191);
             col.levelsEnd.resize(opts.ylim + col.vScroll, 0);
         }
-        std::vector<Segs::Align>& readQueue = col.readQueue;
+        std::vector<AlignFormat::Align>& readQueue = col.readQueue;
         if (!readQueue.empty()) {
             for (auto &item: readQueue) {
                 bam_destroy1(item.delegate);
@@ -391,8 +419,7 @@ namespace HGW {
                 }
             }
             if (coverage) {
-                int l_arr = (int)col.covArr.size() - 1;
-                Segs::addToCovArray(col.covArr, readQueue.back(), region->start, region->end, l_arr);
+                Segs::addToCovArray(col.covArr, readQueue.back().blocks, region->start, region->end);
             }
             Segs::alignFindYForward(readQueue.back(), col.levelsStart, col.levelsEnd, col.vScroll);
             Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop,
@@ -403,10 +430,10 @@ namespace HGW {
 
 
     void trimToRegion(Segs::ReadCollection &col, bool coverage, int snp_threshold) {
-        std::vector<Segs::Align>& readQueue = col.readQueue;
+        std::vector<AlignFormat::Align>& readQueue = col.readQueue;
         Utils::Region *region = col.region;
         while (!readQueue.empty()) {
-            Segs::Align &item = readQueue.back();
+            AlignFormat::Align &item = readQueue.back();
             if (item.cov_start > region->end + 1000) {
                 if (item.y >= 0 && !col.levelsEnd.empty()) {
                     col.levelsEnd[item.y] = item.cov_start - 1;
@@ -436,9 +463,8 @@ namespace HGW {
         if (coverage) {  // re process coverage for all reads
             col.covArr.resize(region->end - region->start + 1);
             std::fill(col.covArr.begin(), col.covArr.end(), 0);
-            int l_arr = (int)col.covArr.size() - 1;
             for (auto &i : col.readQueue) {
-                Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
+                Segs::addToCovArray(col.covArr, i.blocks, region->start, region->end);
             }
         }
         if (snp_threshold > region->end - region->start) {
@@ -469,9 +495,12 @@ namespace HGW {
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *samMaxY,
                                 std::vector<Parse::Parser> &filters, BS::thread_pool &pool, Utils::Region &reg) {
+        if (col.alignmentFile->type == AlignFormat::AlignmentType::GAF_t) {
+            return collectReadsAndCoverageGAF(col, opts.threads, col.region, coverage, filters, pool, 0);
+        }
         bam1_t *src;
         hts_itr_t *iter_q;
-        std::vector<Segs::Align>& readQueue = col.readQueue;
+        std::vector<AlignFormat::Align>& readQueue = col.readQueue;
         Utils::Region *region = col.region;
         bool tlen_y = opts.tlen_yscale;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
@@ -495,10 +524,10 @@ namespace HGW {
             }
         }
 
-        std::vector<Segs::Align> newReads;
+        std::vector<AlignFormat::Align> newReads;
         if (left && (readQueue.empty() || readQueue.front().cov_end > region->start)) {
             while (!readQueue.empty()) {  // remove items from RHS of queue, reduce levelsEnd
-                Segs::Align &item = readQueue.back();
+                AlignFormat::Align &item = readQueue.back();
                 if (item.cov_start > region->end) {
                     if (item.y != -1 && !tlen_y) {
                         col.levelsEnd[item.y] = item.cov_start - 1;
@@ -526,9 +555,8 @@ namespace HGW {
                     if (coverage) {
                         col.covArr.resize(region->end - region->start + 1);
                         std::fill(col.covArr.begin(), col.covArr.end(), 0);
-                        int l_arr = (int)col.covArr.size() - 1;
                         for (auto &i : readQueue) {
-                            Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
+                            Segs::addToCovArray(col.covArr, i.blocks, region->start, region->end);
                         }
                     }
                     if (opts.snp_threshold > region->end - region->start) {
@@ -551,7 +579,7 @@ namespace HGW {
 //                throw std::runtime_error("");
                 return;
             }
-            newReads.emplace_back(Segs::Align(bam_init1()));
+            newReads.emplace_back(AlignFormat::Align(bam_init1()));
 
             while (sam_itr_next(b, iter_q, newReads.back().delegate) >= 0) {
                 src = newReads.back().delegate;
@@ -561,7 +589,7 @@ namespace HGW {
                 if (src->core.pos >= lastPos) {
                     break;
                 }
-                newReads.emplace_back(Segs::Align(bam_init1()));
+                newReads.emplace_back(AlignFormat::Align(bam_init1()));
             }
             src = newReads.back().delegate;
             if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos >= lastPos) {
@@ -601,7 +629,7 @@ namespace HGW {
 //                throw std::runtime_error("");
                 return;
             }
-            newReads.emplace_back(Segs::Align(bam_init1()));
+            newReads.emplace_back(AlignFormat::Align(bam_init1()));
 
             while (sam_itr_next(b, iter_q, newReads.back().delegate) >= 0) {
                 src = newReads.back().delegate;
@@ -611,7 +639,7 @@ namespace HGW {
                 if (src->core.pos > region->end) {
                     break;
                 }
-                newReads.emplace_back(Segs::Align(bam_init1()));
+                newReads.emplace_back(AlignFormat::Align(bam_init1()));
             }
             src = newReads.back().delegate;
             if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos <= lastPos || src->core.pos > region->end) {
@@ -665,9 +693,8 @@ namespace HGW {
         if (coverage) {  // re process coverage for all reads
             col.covArr.resize(region->end - region->start + 1);
             std::fill(col.covArr.begin(), col.covArr.end(), 0);
-            int l_arr = (int)col.covArr.size() - 1;
             for (auto &i : readQueue) {
-                Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
+                Segs::addToCovArray(col.covArr, i.blocks, region->start, region->end);
             }
         }
         if (opts.snp_threshold > region->end - region->start) {

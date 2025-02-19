@@ -28,7 +28,7 @@ namespace Term {
 
     void editInputText(std::string &inputText, const char *letter, int &charIndex);
 
-    void printRead(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, const char *refSeq,
+    void printRead(std::vector<AlignFormat::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, const char *refSeq,
                    int refStart, int refEnd, bool low_mem, std::ostream& out, int pos, int indel_length, bool show_mod);
 
     void printSelectedSam(std::string &sam, std::ostream& out);

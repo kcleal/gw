@@ -354,15 +354,15 @@ namespace Parse {
                 e.ival = std::stoi(output.back());
             } catch (...) {
                 if (output.back() == "del" || output.back() == "deletion") {
-                    e.ival = Segs::Pattern::DEL;
+                    e.ival = AlignFormat::Pattern::DEL;
                 } else if (output.back() == "inv_f" || output.back() == "inversion_forward") {
-                    e.ival = Segs::Pattern::INV_F;
+                    e.ival = AlignFormat::Pattern::INV_F;
                 } else if (output.back() == "inv_r" || output.back() == "inversion_reverse") {
-                    e.ival = Segs::Pattern::INV_R;
+                    e.ival = AlignFormat::Pattern::INV_R;
                 } else if (output.back() == "dup" || output.back() == "duplication") {
-                    e.ival = Segs::Pattern::DUP;
+                    e.ival = AlignFormat::Pattern::DUP;
                 } else if (output.back() == "tra" || output.back() == "translocation") {
-                    e.ival = Segs::Pattern::TRA;
+                    e.ival = AlignFormat::Pattern::TRA;
                 } else if (output.back() == "paired") {
                     e.ival = Property::PAIRED;
                 } else if (output.back() == "proper-pair") {
@@ -456,7 +456,7 @@ namespace Parse {
         }
     }
 
-    void getStrTag(const char* tag, std::string &str_val, const Segs::Align &aln) {
+    void getStrTag(const char* tag, std::string &str_val, const AlignFormat::Align &aln) {
         const uint8_t *tag_ptr;
         tag_ptr = bam_aux_get(aln.delegate, tag);
         if (tag_ptr == nullptr) {
@@ -465,7 +465,7 @@ namespace Parse {
         str_val = std::string(bam_aux2Z(tag_ptr));
     }
 
-    void getIntTag(const char* tag, int &int_val, const Segs::Align &aln) {
+    void getIntTag(const char* tag, int &int_val, const AlignFormat::Align &aln) {
         const uint8_t *tag_ptr;
         tag_ptr = bam_aux_get(aln.delegate, tag);
         if (tag_ptr == nullptr) {
@@ -474,7 +474,7 @@ namespace Parse {
         int_val = bam_aux2i(tag_ptr);
     }
 
-    void getCigarStr(std::string &str_val, const Segs::Align &aln) {
+    void getCigarStr(std::string &str_val, const AlignFormat::Align &aln) {
         uint32_t l, cigar_l, op, k;
         uint32_t *cigar_p;
         cigar_l = aln.delegate->core.n_cigar;
@@ -500,7 +500,7 @@ namespace Parse {
         }
     }
 
-    bool Parser::eval(const Segs::Align& aln, const sam_hdr_t* hdr, int bamIdx, int regionIdx) {
+    bool Parser::eval(const AlignFormat::Align& aln, const sam_hdr_t* hdr, int bamIdx, int regionIdx) {
 
         bool block_result = true;
 
@@ -726,15 +726,15 @@ namespace Parse {
                 fails_qc += bool(flag & 512);
                 duplicate += bool(flag & 1024);
                 supp += bool(flag & 2048);
-                if (align.orient_pattern == Segs::DEL) {
+                if (align.orient_pattern == AlignFormat::DEL) {
                     del += 1;
-                } else if (align.orient_pattern == Segs::DUP) {
+                } else if (align.orient_pattern == AlignFormat::DUP) {
                     dup += 1;
-                } else if (align.orient_pattern == Segs::TRA) {
+                } else if (align.orient_pattern == AlignFormat::TRA) {
                     tra += 1;
-                } else if (align.orient_pattern == Segs::INV_F) {
+                } else if (align.orient_pattern == AlignFormat::INV_F) {
                     inv_f += 1;
-                } else if (align.orient_pattern == Segs::INV_R) {
+                } else if (align.orient_pattern == AlignFormat::INV_R) {
                     inv_r += 1;
                 }
             }

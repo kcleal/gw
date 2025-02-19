@@ -109,7 +109,7 @@ namespace Parse {
         std::ostream& out;
 
         int set_filter(std::string &f, int nBams, int nRegions);
-        bool eval(const Segs::Align &aln, const sam_hdr_t* hdr, int bamIdx, int regionIdx);
+        bool eval(const AlignFormat::Align &aln, const sam_hdr_t* hdr, int bamIdx, int regionIdx);
 
     private:
         int prep_evaluations(std::vector<Eval> &results, std::vector<std::string> &tokens);

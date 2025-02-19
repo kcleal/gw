@@ -7,6 +7,7 @@
 #include "segments.h"
 #include "utils.h"
 #include "plot_manager.h"
+#include "alignment_format.h"
 
 
 namespace Segs {
@@ -690,24 +691,9 @@ namespace Segs {
         return r > 0 ? r : 0;
     }
 
-    constexpr uint32_t PP_RR_MR = 50;
 
-    alignas(64) constexpr std::array<Pattern, 49> posFirst = {INV_F, u, u, u, u, u, u, u,
-                                                  u, u, u, u, u, u, u, u,
-                                                  DUP, u, u, u, u, u, u, u,
-                                                  u, u, u, u, u, u, u, u,
-                                                  DEL, u, u, u, u, u, u, u,
-                                                  u, u, u, u, u, u, u, u,
-                                                  INV_R};
-    alignas(64) constexpr std::array<Pattern, 49> mateFirst = {INV_R, u, u, u, u, u, u, u,
-                                                  u, u, u, u, u, u, u, u,
-                                                  DEL, u, u, u, u, u, u, u,
-                                                  u, u, u, u, u, u, u, u,
-                                                  DUP, u, u, u, u, u, u, u,
-                                                  u, u, u, u, u, u, u, u,
-                                                  INV_F};
 
-    void align_init(Align *self, const int parse_mods_threshold) {
+    void align_init(AlignFormat::Align *self, const int parse_mods_threshold) {
 //        auto start = std::chrono::high_resolution_clock::now();
 
         bam1_t *src = self->delegate;
@@ -796,8 +782,8 @@ namespace Segs {
                 int pos = 0;  // position on read, not reference
                 int nm = bam_next_basemod(src, mod_state, mods, 10, &pos);
                 while (nm > 0) {
-                    self->any_mods.emplace_back() = ModItem();
-                    ModItem& mi = self->any_mods.back();
+                    self->any_mods.emplace_back() = AlignFormat::ModItem();
+                    AlignFormat::ModItem& mi = self->any_mods.back();
                     mi.index = pos;
                     size_t j=0;
                     for (size_t m=0; m < std::min((size_t)4, (size_t)nm); ++m) {
@@ -822,19 +808,19 @@ namespace Segs {
 
         if (flag & 1) {  // paired-end
             if (src->core.tid != src->core.mtid) {
-                self->orient_pattern = TRA;
+                self->orient_pattern = AlignFormat::TRA;
             } else {
                 // PP_RR_MR = proper-pair, read-reverse, mate-reverse flags
                 // 00110010 = 0010       , 00010000    , 00100000
-                uint32_t info = flag & PP_RR_MR;
+                uint32_t info = flag & AlignFormat::PP_RR_MR;
                 if (self->pos <= src->core.mpos) {
-                    self->orient_pattern = posFirst[info];
+                    self->orient_pattern = AlignFormat::posFirst[info];
                 } else {
-                    self->orient_pattern = mateFirst[info];
+                    self->orient_pattern = AlignFormat::mateFirst[info];
                 }
             }
         } else { // single-end
-            self->orient_pattern = Segs::Pattern::NORMAL;
+            self->orient_pattern = AlignFormat::Pattern::NORMAL;
         }
 
         if (self->has_SA || flag & 2048) {
@@ -848,12 +834,12 @@ namespace Segs {
 //        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
     }
 
-    void align_clear(Align *self) {
+    void align_clear(AlignFormat::Align *self) {
         self->blocks.clear();
         self->any_ins.clear();
     }
 
-    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool, const int parse_mods_threshold) {
+    void init_parallel(std::vector<AlignFormat::Align> &aligns, int n, BS::thread_pool &pool, const int parse_mods_threshold) {
         if (n == 1) {
             for (auto &aln : aligns) {
                 align_init(&aln, parse_mods_threshold);
@@ -871,7 +857,7 @@ namespace Segs {
 
     constexpr int POS_MASK = 0b0000111;
 
-    void setAlignSortCode(Align &a, Utils::SortType sort_state, int target_pos, char ref_base) {
+    void setAlignSortCode(AlignFormat::Align &a, Utils::SortType sort_state, int target_pos, char ref_base) {
         // strand and hap codes are stored in 2nd and 3rd bit
         // If the base is non-reference, then its number encoding is added after 6th bit
         // Makes it possible to sort using this bit field
@@ -946,7 +932,7 @@ namespace Segs {
     }
 
 
-    int getSortCodes(std::vector<Align> &aligns, const int threads, BS::thread_pool &pool, Utils::Region *region) {
+    int getSortCodes(std::vector<AlignFormat::Align> &aligns, const int threads, BS::thread_pool &pool, Utils::Region *region) {
         // Lazily returns a sort code for POS, or returns other sort code
         Utils::SortType sort_state = region->getSortOption();
         if (sort_state == 0) {
@@ -992,12 +978,11 @@ namespace Segs {
         }
     }
 
-    void addToCovArray(std::vector<int> &arr, const Align &align, const uint32_t begin, const uint32_t end, const uint32_t l_arr) noexcept {
-        size_t n_blocks = align.blocks.size();
-        for (size_t idx=0; idx < n_blocks; ++idx) {
-            uint32_t block_s = align.blocks[idx].start;
+    void addToCovArray(std::vector<int> &arr, const std::vector<AlignFormat::ABlock>& blocks, const uint32_t begin, const uint32_t end) noexcept {
+        for (const auto & b : blocks) {
+            uint32_t block_s = b.start;
             if (block_s >= end) { break; }
-            uint32_t block_e = align.blocks[idx].end;
+            uint32_t block_e = b.end;
             if (block_e < begin) { continue; }
             uint32_t s = std::max(block_s, begin) - begin;
             uint32_t e = std::min(block_e, end) - begin;
@@ -1006,7 +991,7 @@ namespace Segs {
         }
     }
 
-    void findYWithSort(ReadCollection &rc, std::vector<Align> &rQ, std::vector<int> &ls, std::vector<int> &le, bool joinLeft,
+    void findYWithSort(ReadCollection &rc, std::vector<AlignFormat::Align> &rQ, std::vector<int> &ls, std::vector<int> &le, bool joinLeft,
                        int vScroll, Segs::map_t &lm, ankerl::unordered_dense::map< std::string, int >& linkedSeen,
                        int linkType, int ylim) {
         // sorting by strand or haplotype is a categorical sort that separates reads into groups
@@ -1052,7 +1037,7 @@ namespace Segs {
         // The ls and le arrays will be partitioned into each sort level.
         int qLen = (int)rQ.size();
         int stopCondition, move, si;
-        Align *q_ptr;
+        AlignFormat::Align *q_ptr;
         const char *qname = nullptr;
         if (!joinLeft) {
             si = 0;
@@ -1134,7 +1119,7 @@ namespace Segs {
         }
     }
 
-    void alignFindYForward(Align &a, std::vector<int> &ls, std::vector<int> &le, int vScroll) {
+    void alignFindYForward(AlignFormat::Align &a, std::vector<int> &ls, std::vector<int> &le, int vScroll) {
         if (a.y == -2) {
             return;
         }
@@ -1152,20 +1137,20 @@ namespace Segs {
         }
     }
 
-    void findYNoSortForward(std::vector<Align> &rQ, std::vector<int> &ls, std::vector<int> &le, int vScroll) {
+    void findYNoSortForward(std::vector<AlignFormat::Align> &rQ, std::vector<int> &ls, std::vector<int> &le, int vScroll) {
         for (auto &a : rQ) {
             alignFindYForward(a, ls, le, vScroll);
         }
     }
 
 
-    void findYNoSort(std::vector<Align> &rQ, std::vector<int> &ls, std::vector<int> &le, bool joinLeft,
+    void findYNoSort(std::vector<AlignFormat::Align> &rQ, std::vector<int> &ls, std::vector<int> &le, bool joinLeft,
                      int vScroll, Segs::map_t &lm, ankerl::unordered_dense::map< std::string, int >& linkedSeen,
                      int linkType) {
         int qLen = (int)rQ.size();
         int stopCondition, move, si;
         int memLen = (int)ls.size();
-        Align *q_ptr;
+        AlignFormat::Align *q_ptr;
         const char *qname = nullptr;
         if (!joinLeft) {
             si = 0;
@@ -1238,14 +1223,14 @@ namespace Segs {
         }
     }
 
-    int findY(ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, bool joinLeft, int sortReadsBy) {
+    int findY(ReadCollection &rc, std::vector<AlignFormat::Align> &rQ, int linkType, Themes::IniOptions &opts, bool joinLeft, int sortReadsBy) {
         if (rQ.empty()) {
             return 0;
         }
         int samMaxY;
 
         int vScroll = rc.vScroll;
-        Align *q_ptr;
+        AlignFormat::Align *q_ptr;
         const char *qname = nullptr;
         Segs::map_t &lm = rc.linked;  // pointers to alignments with same qname
         ankerl::unordered_dense::map< std::string, int > linkedSeen;  // Mapping of qname to y value
@@ -1287,7 +1272,7 @@ namespace Segs {
 
             // set all aligns with same name to have the same start and end coverage locations
             for (auto const &keyVal : lm) {
-                const std::vector<Align *> &ind = keyVal.second;
+                const std::vector<AlignFormat::Align *> &ind = keyVal.second;
                 int size = (int)ind.size();
                 if (size > 1) {
                     uint32_t cs = ind.front()->cov_start;
@@ -1325,7 +1310,7 @@ namespace Segs {
         } else if (sortReadsBy >= Utils::SortType::POS) {
             // sorting by position maintains all reads in the same plot region
             // Use the encoded positional information to find new sort order
-            std::stable_sort(rQ.begin(), rQ.end(), [](const Align &a, const Align &b) {
+            std::stable_sort(rQ.begin(), rQ.end(), [](const AlignFormat::Align &a, const AlignFormat::Align &b) {
                 int v1 = a.sort_tag >> 6;
                 int v2 = b.sort_tag >> 6;
                 if (v1 != v2) {
@@ -1347,7 +1332,7 @@ namespace Segs {
             }
 
             // This is a bit annoying, but the queue must remain pos-sorted for the appending algorithm to work
-            std::stable_sort(rQ.begin(), rQ.end(), [](const Align &a, const Align &b) {
+            std::stable_sort(rQ.begin(), rQ.end(), [](const AlignFormat::Align &a, const AlignFormat::Align &b) {
                 return a.pos < b.pos;
             });
 

@@ -339,7 +339,7 @@ namespace Term {
         }
     }
 
-    void printCigar(std::vector<Segs::Align>::iterator r, std::ostream& out) {
+    void printCigar(std::vector<AlignFormat::Align>::iterator r, std::ostream& out) {
         uint32_t l, cigar_l, op, k;
         uint32_t *cigar_p;
         cigar_l = r->delegate->core.n_cigar;
@@ -392,7 +392,7 @@ namespace Term {
         }
     }
 
-    void printSeq(std::vector<Segs::Align>::iterator r, const char *refSeq, int refStart, int refEnd, int max, std::ostream& out, int pos, int indel_length, bool show_mod, const char* target_mod) {
+    void printSeq(std::vector<AlignFormat::Align>::iterator r, const char *refSeq, int refStart, int refEnd, int max, std::ostream& out, int pos, int indel_length, bool show_mod, const char* target_mod) {
         auto l_seq = (int)r->delegate->core.l_qseq;
         if (l_seq == 0) {
             out << "*";
@@ -763,7 +763,7 @@ namespace Term {
         }
     }
 
-    void read2sam(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, bool low_mem, std::ostream& out) {
+    void read2sam(std::vector<AlignFormat::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, bool low_mem, std::ostream& out) {
         kstring_t kstr = {0, 0, nullptr};
         int res = sam_format1(hdr, r->delegate, &kstr);
         if (res < 0) {
@@ -774,7 +774,7 @@ namespace Term {
         return;
     }
 
-    void printRead(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, const char *refSeq, int refStart, int refEnd, bool low_mem, std::ostream& out, int pos, int indel_length, bool show_mod) {
+    void printRead(std::vector<AlignFormat::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, const char *refSeq, int refStart, int refEnd, bool low_mem, std::ostream& out, int pos, int indel_length, bool show_mod) {
         const char *rname = sam_hdr_tid2name(hdr, r->delegate->core.tid);
         const char *rnext = sam_hdr_tid2name(hdr, r->delegate->core.mtid);
 
@@ -879,7 +879,7 @@ namespace Term {
             return;
         }
 		auto bnd = std::lower_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
-		                       [&](const Segs::Align &lhs, const int pos) {
+		                       [&](const AlignFormat::Align &lhs, const int pos) {
 			return (int)lhs.pos <= pos;
 		});
 		int mA = 0, mT = 0, mC = 0, mG = 0, mN = 0;  // mismatch
@@ -892,7 +892,7 @@ namespace Term {
 				break;
 			}
 			if ((int)bnd->pos <= pos && pos <= (int)bnd->reference_end) {
-				Segs::Align &align = *bnd;
+                AlignFormat::Align &align = *bnd;
 				uint32_t r_pos = align.pos;
                 if (align.delegate == nullptr) {
                     if (bnd == cl.readQueue.begin()) {
