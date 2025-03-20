@@ -72,6 +72,7 @@ namespace Manager {
         drawToBackWindow = false;
         textFromSettings = false;
         terminalOutput = true;
+        manageMouse = true;
         monitorScale = 1;
         xPos_fb = 0;
         yPos_fb = 0;
@@ -1935,6 +1936,34 @@ namespace Manager {
 
     void GwPlot::prepareSelectedRegion() {
 
+    }
+
+    std::string GwPlot::flushLog() {
+        std::string raw_output = outStr.str();
+
+        // Process carriage returns to simulate terminal behavior
+        std::stringstream processed;
+        std::string line;
+        std::istringstream lines(raw_output);
+        while (std::getline(lines, line)) {
+            size_t cr_pos = line.find('\r');
+            if (cr_pos != std::string::npos) {
+                // Find the last segment after the last carriage return
+                std::string last_segment = line;
+                while ((cr_pos = last_segment.find('\r')) != std::string::npos) {
+                    last_segment = last_segment.substr(cr_pos + 1);
+                }
+                processed << last_segment;
+            } else {
+                processed << line;
+            }
+            if (!lines.eof()) {
+                processed << '\n';
+            }
+        }
+        outStr.str("");
+        outStr.clear();
+        return processed.str();
     }
 
     void addAlignmentToSelectedRegion() {

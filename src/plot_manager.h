@@ -104,6 +104,7 @@ namespace Manager {
         bool drawLine;
         bool drawLocation;
         bool terminalOutput;  // recoverable runtime errors and output sent to terminal or outStr
+        bool manageMouse;
         float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace, sliderSpace;
 
         std::ostringstream outStr;
@@ -256,6 +257,8 @@ namespace Manager {
         void prepareSelectedRegion();
 
         void addAlignmentToSelectedRegion();
+
+        std::string flushLog();
 
     private:
 

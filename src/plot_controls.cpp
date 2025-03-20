@@ -1420,19 +1420,32 @@ namespace Manager {
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
         GLFWwindow* wind = window;
         double x, y;
-        glfwGetCursorPos(window, &x, &y);
+        if (manageMouse) {
+            glfwGetCursorPos(window, &x, &y);
+        } else {
+            x = xPos_fb;
+            y = yPos_fb;
+            xOri = x;
+            yOri = y;
+        }
 
         int windowW, windowH;  // convert screen coords to frame buffer coords
         glfwGetWindowSize(wind, &windowW, &windowH);
         float xW, yW;
-        if (fb_width > windowW) {
-            float ratio = (float) fb_width / (float) windowW;
-            xW = (float)x * ratio;
-            yW = (float)y * ratio;
+        if (manageMouse) {
+            if (fb_width > windowW) {
+                float ratio = (float) fb_width / (float) windowW;
+                xW = (float)x * ratio;
+                yW = (float)y * ratio;
+            } else {
+                xW = (float)x;
+                yW = (float)y;
+            }
         } else {
-            xW = (float)x;
-            yW = (float)y;
+            xW = x;
+            yW = y;
         }
+
         // settings button or command box button
         float half_h = (float)fb_height / 2;
         bool tool_popup = (xW > 0 && xW <= 60 && yW >= half_h - 60 && yW <= half_h + 60);
@@ -1497,7 +1510,6 @@ namespace Manager {
                 yDrag = DRAG_UNSET;
                 return;
             }
-
             if (yW >= (fb_height - sliderSpace - gap)) {
                 if (action == GLFW_PRESS) {
                     updateSlider(xW);
@@ -1564,11 +1576,6 @@ namespace Manager {
                     regionSelection = collections[idx].regionIdx;
                 }
             }
-//            if (idx < 0) {
-//                xDrag = DRAG_UNSET;
-//                yDrag = DRAG_UNSET;
-//                return;
-//            }
 
             if (std::abs(xDrag) < 5 && action == GLFW_RELEASE && !bams.empty() && idx >= 0) {
                 Segs::ReadCollection &cl = collections[idx];

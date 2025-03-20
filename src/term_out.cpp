@@ -41,7 +41,7 @@ namespace Term {
         out << termcolor::green << "count            expression?     " << termcolor::reset << "Count reads. See filter for example expressions'\n";
         out << termcolor::green << "cov              value?          " << termcolor::reset << "Change max coverage value. Use 'cov' to toggle coverage\n";
         out << termcolor::green << "edges                            " << termcolor::reset << "Toggle edges\n";
-        out << termcolor::green << "expand-track                     " << termcolor::reset << "Toggle showing expanded tracks\n";
+        out << termcolor::green << "expand-tracks                    " << termcolor::reset << "Toggle showing expanded tracks\n";
         out << termcolor::green << "filter           expression      " << termcolor::reset << "Examples 'filter mapq > 0', 'filter ~flag & secondary'\n                                 'filter mapq >= 30 or seq-len > 100'\n";
         out << termcolor::green << "find, f          qname?          " << termcolor::reset << "To find other alignments from selected read use 'find'\n                                 Or use 'find [QNAME]' to find target read'\n";
         out << termcolor::green << "goto             loci/feature    " << termcolor::reset << "e.g. 'goto chr1:1-20000'. 'goto hTERT' \n";
