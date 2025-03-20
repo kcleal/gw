@@ -21,6 +21,7 @@
         #include "include/ports/SkFontConfigInterface.h"
         #include "include/ports/SkFontMgr_FontConfigInterface.h"
     #endif
+    #include "include/core/SkFontMetrics.h"
 #endif
 
 #if !defined(__EMSCRIPTEN__)
@@ -275,6 +276,61 @@ namespace Themes {
             case GwPaint::fcRoi: this->fcRoi.setARGB(a, r, g, b); break;
             default: break;
         }
+    }
+
+    void BaseTheme::getPaintARGB(int paint_enum, int& alpha, int& red, int& green, int& blue) {
+        SkPaint p;
+        switch (paint_enum) {
+            case GwPaint::bgPaint: p = this->bgPaint; break;
+            case GwPaint::bgPaintTiled: p = this->bgPaintTiled; break;
+            case GwPaint::fcNormal: p = this->fcNormal; break;
+            case GwPaint::fcDel: p = this->fcDel; break;
+            case GwPaint::fcDup: p = this->fcDup; break;
+            case GwPaint::fcInvF: p = this->fcInvF; break;
+            case GwPaint::fcInvR: p = this->fcInvR; break;
+            case GwPaint::fcTra: p = this->fcTra; break;
+            case GwPaint::fcIns: p = this->fcIns; break;
+            case GwPaint::fcSoftClip: p = this->fcSoftClip; break;
+            case GwPaint::fcA: p = this->fcA; break;
+            case GwPaint::fcT: p = this->fcT; break;
+            case GwPaint::fcC: p = this->fcC; break;
+            case GwPaint::fcG: p = this->fcG; break;
+            case GwPaint::fcN: p = this->fcN; break;
+            case GwPaint::fc5mc: p = this->fc5mc; break;
+            case GwPaint::fc5hmc: p = this->fc5hmc; break;
+            case GwPaint::fcOther: p = this->fcOther; break;
+            case GwPaint::fcCoverage: p = this->fcCoverage; break;
+            case GwPaint::fcTrack: p = this->fcTrack; break;
+            case GwPaint::fcNormal0: p = this->fcNormal0; break;
+            case GwPaint::fcDel0: p = this->fcDel0; break;
+            case GwPaint::fcDup0: p = this->fcDup0; break;
+            case GwPaint::fcInvF0: p = this->fcInvF0; break;
+            case GwPaint::fcInvR0: p = this->fcInvR0; break;
+            case GwPaint::fcTra0: p = this->fcTra0; break;
+            case GwPaint::fcSoftClip0: p = this->fcSoftClip0; break;
+            case GwPaint::fcBigWig: p = this->fcBigWig; break;
+            case GwPaint::ecMateUnmapped: p = this->ecMateUnmapped; break;
+            case GwPaint::ecSplit: p = this->ecSplit; break;
+            case GwPaint::ecSelected: p = this->ecSelected; break;
+            case GwPaint::lcJoins: p = this->lcJoins; break;
+            case GwPaint::lcCoverage: p = this->lcCoverage; break;
+            case GwPaint::lcLightJoins: p = this->lcLightJoins; break;
+            case GwPaint::lcGTFJoins: p = this->lcGTFJoins; break;
+            case GwPaint::lcLabel: p = this->lcLabel; break;
+            case GwPaint::lcBright: p = this->lcBright; break;
+            case GwPaint::tcDel: p = this->tcDel; break;
+            case GwPaint::tcIns: p = this->tcIns; break;
+            case GwPaint::tcLabels: p = this->tcLabels; break;
+            case GwPaint::tcBackground: p = this->tcBackground; break;
+            case GwPaint::fcMarkers: p = this->fcMarkers; break;
+            case GwPaint::fcRoi: p = this->fcRoi; break;
+            default: break;
+        }
+        SkColor clr = p.getColor();
+        alpha = SkColorGetA(clr);
+        red = SkColorGetR(clr);
+        green = SkColorGetG(clr);
+        blue = SkColorGetB(clr);
     }
 
     EXPORT IgvTheme::IgvTheme() {
@@ -1231,53 +1287,24 @@ namespace Themes {
         overlay.setSize(fontTypefaceSize * yScale);
         overlay.getBounds(glyphs, 1, bounds, pnt);
         overlayHeight = bounds[0].height();
-        overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
-        SkScalar w = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
+        overlayWidth = overlay.measureText("9y", 1, SkTextEncoding::kUTF8);
+        SkScalar w = overlay.measureText("9y", 1, SkTextEncoding::kUTF8);
         for (int i = 0; i < 10; ++i) {
             textWidths[i] = (float)w * (i + 1);
         }
     }
 
-//    void Fonts::setFontSize(float maxHeight, float yScale) {
-//        SkRect bounds[1];
-//        SkPaint paint1;
-//        const SkPaint* pnt = &paint1;
-//        SkScalar height;
-//        int font_size = fontTypefaceSize * yScale;
-//        fonty.setSize(font_size * yScale);
-//        fonty.getBounds(glyphs, 1, bounds, pnt);
-//        fontMaxSize = bounds[0].height();
-//        fontSize = (float)font_size;
-//        fontHeight = bounds[0].height();
-//        SkScalar w = fonty.measureText("9", 1, SkTextEncoding::kUTF8);
+//    void Fonts::setOverlayHeight(float yScale) {
+//        overlay.setSize(fontTypefaceSize * yScale);
+//        // Get font metrics
+//        SkFontMetrics metrics;
+//        overlay.getMetrics(&metrics);
+//        overlayHeight = metrics.fDescent - metrics.fAscent;
+//        // overlayHeight = metrics.fDescent - metrics.fAscent + metrics.fLeading;
+//        overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
+//        SkScalar w = overlayWidth;
 //        for (int i = 0; i < 10; ++i) {
 //            textWidths[i] = (float)w * (i + 1);
-//        }
-
-//        bool was_set = false;
-//        while (font_size > 8 * yScale) {
-//            fonty.setSize(font_size);
-//            fonty.getBounds(glyphs, 1, bounds, pnt);
-//            height = bounds[0].height();
-//            if (height < maxHeight*1.9) {
-//                was_set = true;
-//                break;
-//            }
-//            --font_size;
-//        }
-//        if (!was_set) {
-//            fontSize = fontTypefaceSize * yScale;
-//            fontHeight = fontMaxSize;
-//            for (auto &i : textWidths) {
-//                i = 0;
-//            }
-//        } else {
-//            fontSize = (float)font_size;
-//            fontHeight = height;
-//            SkScalar w = fonty.measureText("9", 1, SkTextEncoding::kUTF8);
-//            for (int i = 0; i < 10; ++i) {
-//                textWidths[i] = (float)w * (i + 1);
-//            }
 //        }
 //    }
 

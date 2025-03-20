@@ -29,7 +29,7 @@
     #include <emscripten.h>
 #endif
 
-// note to developer - update version in Makefile, workflows/main.yml, and deps/gw.desktop, and installers .md in docs (post release)
+// note to developer - update version in gw_version.h, Makefile, workflows/main.yml, and deps/gw.desktop, and installers .md in docs (post release)
 
 // skia context has to be managed from global space
 GrDirectContext *sContext = nullptr;

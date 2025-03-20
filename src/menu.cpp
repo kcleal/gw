@@ -100,18 +100,33 @@ namespace Menu {
 
     void drawMenu(SkCanvas *canvas, Themes::IniOptions &opts, Themes::Fonts &fonts, float monitorScale, float fb_width, float fb_height,
                   std::string inputText, int charIndex) {
+
         SkRect rect;
         SkPath path;
+
+        float baseControlBoxSize = 18.0f;  // Base control box size
+        float baseVGap = 3.0f;             // Base vertical gap
+        float baseStrokeWidth = 1.5f;      // Base stroke width
+        float baseIconPadding = 4.0f;      // Reduced padding to make icons bigger
+        float baseMenuWidth = 28.0f;       // Base menu width multiplier
+
         float pad = fonts.overlayHeight;
-        float v_gap = 3 * monitorScale;
-        float control_box_h = 18 * monitorScale; //35;
+        float v_gap = baseVGap * monitorScale;
+        float control_box_h = baseControlBoxSize * monitorScale;
+        float stroke_width = baseStrokeWidth * monitorScale;
+        float icon_padding = baseIconPadding * monitorScale;
+
+        // Position
         float y = v_gap;
         float x = v_gap;
-        float m_width = 28 * fonts.overlayWidth;
-        auto m_height = (float)(pad * 1.5);
+        float m_width = baseMenuWidth * fonts.overlayWidth;
+        auto m_height = pad * 1.5f;
+
+        // Set up paints
         SkPaint bg;
         SkPaint menuBg;
         SkPaint tcMenu;
+
         if (opts.theme_str != "igv") {
             bg.setARGB(255, 35, 35, 45);
             tcMenu.setARGB(255, 255, 255, 255);
@@ -124,59 +139,82 @@ namespace Menu {
         tcMenu.setStyle(SkPaint::kStrokeAndFill_Style);
         tcMenu.setAntiAlias(true);
 
+        // Draw menu background
         rect.setXYWH(0, 0, 20000, m_height);
         canvas->drawRect(rect, opts.theme.bgPaint);
 
         rect.setXYWH(0, 0, m_width + v_gap, 20000);
         canvas->drawRect(rect, bg);
+
         std::vector<std::string> btns = availableButtonsStr(opts.menu_table);
         float x2 = x;
+
+        // Calculate rounded corner radius based on scale
+        float cornerRadius = 2.5f * monitorScale;
         for (auto& b : btns) {
             rect.setXYWH(x2, y, control_box_h, control_box_h);
             if (b == opts.control_level) {
-                canvas->drawRoundRect(rect, 5, 5, menuBg);
+                canvas->drawRoundRect(rect, cornerRadius, cornerRadius, menuBg);
             } else {
-                canvas->drawRoundRect(rect, 5, 5, bg);
+                canvas->drawRoundRect(rect, cornerRadius, cornerRadius, bg);
             }
+
+            float iconSize = control_box_h - (2 * icon_padding);
+            float iconLeft = x2 + icon_padding;
+            float iconRight = x2 + control_box_h - icon_padding;
+            float iconTop = y + icon_padding;
+            float iconBottom = y + control_box_h - icon_padding;
+            float iconMiddleX = x2 + (control_box_h / 2);
+            float iconMiddleY = y + (control_box_h / 2);
+
             if (b == "close") {
-                tcMenu.setStrokeWidth(3);
+                tcMenu.setStrokeWidth(stroke_width);
                 path.reset();
-                path.moveTo(x2 + 10, y + 10);
-                path.lineTo(x2 + control_box_h - 10, y + control_box_h - 10);
-                path.moveTo(x2 + 10, y + control_box_h - 10);
-                path.lineTo(x2 + control_box_h - 10, y + 10);
+                path.moveTo(iconLeft, iconTop);
+                path.lineTo(iconRight, iconBottom);
+                path.moveTo(iconLeft, iconBottom);
+                path.lineTo(iconRight, iconTop);
                 canvas->drawPath(path, tcMenu);
                 tcMenu.setStrokeWidth(0);
             } else if (b == "back") {
                 path.reset();
-                path.moveTo(x2 + control_box_h - 10, y + 10);
-                path.lineTo(x2 + 10, y + (control_box_h/2));
-                path.lineTo(x2 + control_box_h - 10, y + control_box_h - 10);
+                path.moveTo(iconRight, iconTop);
+                path.lineTo(iconLeft, iconMiddleY);
+                path.lineTo(iconRight, iconBottom);
                 canvas->drawPath(path, tcMenu);
             } else if (b == "save") {
+                float cornerCut = 4.0f * monitorScale; // Size of corner cutout
                 path.reset();
-                path.moveTo(x2 + 8, y + 8);
-                path.lineTo(x2 + 8, y + control_box_h - 8);
-                path.lineTo(x2 + control_box_h - 8, y + control_box_h - 8);
-                path.lineTo(x2 + control_box_h - 8, y + 12);
-                path.lineTo(x2 + control_box_h - 12, y + 8);
+                path.moveTo(iconLeft, iconTop);
+                path.lineTo(iconLeft, iconBottom);
+                path.lineTo(iconRight, iconBottom);
+                path.lineTo(iconRight, iconTop + cornerCut);
+                path.lineTo(iconRight - cornerCut, iconTop);
+                path.close();
                 canvas->drawPath(path, tcMenu);
-                rect.setXYWH(x2 + 12, y + 12, control_box_h - 26, 6);
+                float lineHeight = stroke_width * 1.2f;
+                float lineGap = (iconBottom - iconTop - (3 * lineHeight)) / 3;
+                rect.setXYWH(
+                    iconLeft + (icon_padding * 0.6f),
+                    iconTop + lineGap,// * 2 + lineHeight,
+                    iconSize - (icon_padding * 1.8f),
+                    lineHeight * 1.4f
+                );
                 canvas->drawRect(rect, ((b == opts.control_level) ? menuBg : bg));
             } else if (b == "add") {
-                tcMenu.setStrokeWidth(3);
+                tcMenu.setStrokeWidth(stroke_width);
                 path.reset();
-                path.moveTo(x2 + (control_box_h / 2), y + 10);
-                path.lineTo(x2 + (control_box_h / 2), y + control_box_h - 10);
-                path.moveTo(x2 + 10, y + (control_box_h / 2));
-                path.lineTo(x2 + control_box_h - 10, y + (control_box_h / 2));
+                path.moveTo(iconMiddleX, iconTop);
+                path.lineTo(iconMiddleX, iconBottom);
+                path.moveTo(iconLeft, iconMiddleY);
+                path.lineTo(iconRight, iconMiddleY);
                 canvas->drawPath(path, tcMenu);
                 tcMenu.setStrokeWidth(0);
             } else if (b == "delete") {
-                tcMenu.setStrokeWidth(3);
+                tcMenu.setStrokeWidth(stroke_width);
                 path.reset();
-                path.moveTo(x2 + 10, y + (control_box_h / 2));
-                path.lineTo(x2 + control_box_h - 10, y + (control_box_h / 2));
+                path.moveTo(iconLeft, iconMiddleY);
+                path.lineTo(iconRight, iconMiddleY);
                 canvas->drawPath(path, tcMenu);
                 tcMenu.setStrokeWidth(0);
             }

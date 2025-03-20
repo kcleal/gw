@@ -120,7 +120,7 @@ namespace Themes {
 
         void setAlphas();
         void setPaintARGB(int paint_enum, int alpha, int red, int green, int blue);
-
+        void getPaintARGB(int paint_enum, int& alpha, int& red, int& green, int& blue);
     };
 
     class EXPORT IgvTheme: public BaseTheme {
@@ -198,18 +198,15 @@ namespace Themes {
         Fonts();
         ~Fonts() = default;
         int fontTypefaceSize;
-//        float fontSize, fontHeight, fontMaxSize, overlayWidth, overlayHeight;
         float overlayWidth, overlayHeight;
         SkRect rect;
         SkPath path;
         sk_sp<SkTypeface> face;
-//        SkFont fonty, overlay;
         SkFont overlay;
         float textWidths[10];  // text size is scaled between 10 values to try and fill a read
 
         void setTypeface(std::string &fontStr, int size);
         void setOverlayHeight(float yScale);
-        void setFontSize(float yScaling, float yScale);
     };
 
     void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,

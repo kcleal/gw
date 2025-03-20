@@ -1933,6 +1933,15 @@ namespace Manager {
     }
 
 
+    void GwPlot::prepareSelectedRegion() {
+
+    }
+
+    void addAlignmentToSelectedRegion() {
+
+    }
+
+
     sk_sp<SkImage> GwPlot::makeImage() {
         makeRasterSurface();
         runDraw();

@@ -103,8 +103,8 @@ namespace Manager {
         bool processed;
         bool drawLine;
         bool drawLocation;
-
         bool terminalOutput;  // recoverable runtime errors and output sent to terminal or outStr
+        float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace, sliderSpace;
 
         std::ostringstream outStr;
 
@@ -253,6 +253,10 @@ namespace Manager {
 
         void saveSession(std::string out_session);
 
+        void prepareSelectedRegion();
+
+        void addAlignmentToSelectedRegion();
+
     private:
 
         bool resizeTriggered;
@@ -270,8 +274,6 @@ namespace Manager {
 
         int commandIndex, charIndex;
 
-        float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace, sliderSpace;
-
         double pointSlop, textDrop, pH;
 
         double xDrag, xOri, lastX, yDrag, yOri, lastY;
@@ -280,7 +282,7 @@ namespace Manager {
 
         uint32_t minGapSize;
 
-//        std::vector<std::vector<char>> extraPixelArrays;  // one for each thread
+        //Segs::Align cached_align;
 
         GLFWcursor* vCursor;
         GLFWcursor* normalCursor;

@@ -41,7 +41,6 @@ namespace Drawing {
     struct TextItemIns{
         sk_sp<SkTextBlob> text;
         float x, y;
-//        float box_x, box_y;
         float box_y, box_w;
     };
 
@@ -63,6 +62,9 @@ namespace Drawing {
         float yOffsetAll = refSpace;
 
         for (auto &cl: collections) {
+            if (cl.skipDrawingCoverage) {
+                continue;
+            }
             cl.skipDrawingCoverage = true;
 
             if (cl.bamIdx != last_bamIdx) {
@@ -78,17 +80,11 @@ namespace Drawing {
                 Segs::findMismatches(opts, cl);
             }
 
-//            double tot, mean, n;
             const std::vector<int> &covArr_r = cl.covArr;
             std::vector<float> c;
             c.resize(cl.covArr.size());
             c[0] = (float) cl.covArr[0];
             int cMaxi = (c[0] > 10) ? (int) c[0] : 10;
-//            tot = (float) c[0];
-//            n = 0;
-//            if (tot > 0) {
-//                n += 1;
-//            }
             float cMax;
             bool processThis = draw_mismatch_info && !cl.collection_processed;
             for (size_t i = 1; i < c.size(); ++i) { // cum sum
@@ -97,8 +93,6 @@ namespace Drawing {
                     cMaxi = (int) c[i];
                 }
                 if (c[i] > 0) {
-//                    tot += c[i];
-//                    n += 1;
                     // normalise mismatched bases to nearest whole percentage (avoids extra memory allocation)
                     if (processThis) {  //
                         if (mmVector[i].A || mmVector[i].T || mmVector[i].C || mmVector[i].G) {
@@ -116,12 +110,6 @@ namespace Drawing {
             }
             cl.collection_processed = true;
             cl.maxCoverage = cMaxi;
-//            if (n > 0) {
-//                mean = tot / n;
-//                mean = ((float) ((int) (mean * 10))) / 10;
-//            } else {
-//                mean = 0;
-//            }
 
             if (opts.log2_cov) {
                 for (size_t i = 0; i < c.size(); ++i) {
@@ -311,14 +299,6 @@ namespace Drawing {
             path.lineTo(xOffset + 6 * monitorScale, covY + yOffsetAll);
             canvas->drawPath(path, theme.lcJoins);
 
-//            char *ap = indelChars;
-//            ap += std::sprintf(indelChars, "%s", "avg. ");
-//            std::sprintf(ap, "%.1f", mean);
-
-//            if (covY > fonts.overlayHeight * 3)  { // dont overlap text
-//                blob = SkTextBlob::MakeFromString(indelChars, fonts.overlay);
-//                canvas->drawTextBlob(blob, xOffset + 8 * monitorScale, covY_f + yOffsetAll + (fonts.overlayHeight * 2), theme.tcDel);
-//            }
             last_bamIdx = cl.bamIdx;
 
             // Draw data labels when alignments are not shown
@@ -795,47 +775,50 @@ namespace Drawing {
         }
     }
 
-    void drawDeletionLine(const Segs::Align &a, SkCanvas *canvas, SkPath &path, const Themes::IniOptions &opts,
-                          const Themes::Fonts &fonts,
-                          int regionBegin, int Y, int regionLen, int starti, int lastEndi,
-                          float regionPixels, float xScaling, float yScaling, float xOffset, float yOffset,
-                          float textDrop, std::vector<TextItem> &text, bool indelTextFits) {
-
+    void drawDeletionLine(SkCanvas *canvas, SkPath &path, const Themes::IniOptions &opts,
+                      const Themes::Fonts &fonts,
+                      int regionBegin, int Y, int regionLen, int starti, int lastEndi,
+                      float regionPixels, float xScaling, float yScaling, float xOffset, float yOffset,
+                      std::vector<TextItem> &text, bool indelTextFits) {
         int isize = starti - lastEndi;
         int lastEnd = lastEndi - regionBegin;
-        starti -= regionBegin;
-
-        int size = starti - lastEnd;
+        int startRelative = starti - regionBegin;
+        int size = startRelative - lastEnd;
         if (size <= 0) {
             return;
         }
-        float delBegin = (float) lastEnd * xScaling;
-        float delEnd = delBegin + ((float) size * xScaling);
-        float yh = ((float) Y + (float) polygonHeight * (float) 0.5) * yScaling + yOffset;
+        float delBegin = lastEnd * xScaling;
+        float delEnd = delBegin + (size * xScaling);
+        float yh = (Y + polygonHeight * 0.5) * yScaling + yOffset;
 
         if (isize >= opts.indel_length) {
-            if (regionLen < 500000 && indelTextFits) { // line and text
+            if (regionLen < 500000 && indelTextFits) {
                 std::sprintf(indelChars, "%d", isize);
-                size_t sl = strlen(indelChars);
-                float textW = fonts.textWidths[sl - 1];
-                float textBegin = (((float) lastEnd + (float) size / 2) * xScaling) - (textW / 2);
-                float textEnd = textBegin + textW;
+                size_t textLength = strlen(indelChars);
+                float textWidth = fonts.textWidths[textLength - 1];
+                float textCenter = ((lastEnd + size / 2.0f) * xScaling);
+                float textBegin = textCenter - (textWidth / 2.0f);
+                float textEnd = textBegin + textWidth;
+
+                // Adjust if text would be off-screen
                 if (textBegin < 0) {
                     textBegin = 0;
-                    textEnd = textW;
+                    textEnd = textWidth;
                 } else if (textEnd > regionPixels) {
-                    textBegin = regionPixels - textW;
+                    textBegin = regionPixels - textWidth;
                     textEnd = regionPixels;
                 }
-                text.emplace_back() = {SkTextBlob::MakeFromString(indelChars, fonts.overlay),
-                                       textBegin + xOffset,
-                                       ((float) Y + polygonHeight) * yScaling - textDrop + yOffset};
-
+                float textYPosition = yh + (fonts.overlayHeight / 2);
+                text.emplace_back() = {
+                    SkTextBlob::MakeFromString(indelChars, fonts.overlay),
+                    textBegin + xOffset,
+                    textYPosition
+                };
                 if (textBegin > delBegin) {
                     drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, textBegin + xOffset);
                     drawHLine(canvas, path, opts.theme.lcJoins, textEnd + xOffset, yh, delEnd + xOffset);
                 }
-            } else { // dot only
+            } else { // Draw dot or line without text
                 delEnd = std::min(regionPixels, delEnd);
                 if (delEnd - delBegin < 2) {
                     canvas->drawPoint(delBegin + xOffset, yh, opts.theme.lcBright);
@@ -843,7 +826,7 @@ namespace Drawing {
                     drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, delEnd + xOffset);
                 }
             }
-        } else if ((float) size / (float) regionLen > 0.0005) { // (regionLen < 50000 || size > 100) { // line only
+        } else if ((float)size / (float)regionLen > 0.0005) { // Draw small deletions but only if they're visible enough
             delEnd = std::min(regionPixels, delEnd);
             drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, delEnd + xOffset);
         }
@@ -1059,10 +1042,8 @@ namespace Drawing {
                         continue;  // insertion
                     }
                     if (lastEnd <= regionEnd && regionBegin <= starti) {
-                        drawDeletionLine(a, canvas, path, opts, fonts,
-                                         regionBegin, Y, regionLen, starti, lastEnd,
-                                         regionPixels, xScaling, yScaling, xOffset, yOffset,
-                                         textDrop, text_del, indelTextFits);
+                        drawDeletionLine(canvas, path, opts, fonts, regionBegin, Y, regionLen, starti, lastEnd,
+                            regionPixels, xScaling, yScaling, xOffset, yOffset, text_del, indelTextFits);
                     }
                 }
 
@@ -1162,13 +1143,11 @@ namespace Drawing {
                         std::sprintf(indelChars, "%d", ins.length);
                         size_t sl = strlen(indelChars);
                         textW = fonts.textWidths[sl - 1];
-                        if (ins.length > (uint32_t) opts.indel_length) {
+                        if (ins.length >= (uint32_t) opts.indel_length) {
                             if (regionLen < 500000 && indelTextFits) {  // line and text
-                                // float yScaledOffset = (Y * yScaling) + yOffset;
                                 text_ins.emplace_back() = {SkTextBlob::MakeFromString(indelChars, fonts.overlay),
                                                            (float)(p - (textW * 0.5) + xOffset - monitorScale),
                                                            yScaledOffset + polygonHeight - textDrop,
-                                                           //((Y + polygonHeight) * yScaling) + yOffset - textDrop,
                                                            yScaledOffset,
                                                            std::fmax((float)textW + monitorScale + monitorScale, ins_block_w)};
 
@@ -1345,7 +1324,7 @@ namespace Drawing {
         double mmPosOffset = monitorScale;  // draw position of boxes
         if (scale_bar) {
             mmPosOffset = gap + h + gap + monitorScale + (gap*0.25);
-            yp = gap + h + gap + h + monitorScale;
+            yp = gap + h + gap + monitorScale + h + (gap*0.25);
         } else {
             mmPosOffset = monitorScale + monitorScale;
             yp = h + monitorScale + monitorScale;
@@ -2236,7 +2215,7 @@ namespace Drawing {
                 canvas->save();
                 clip.setXYWH(plot_gap + (regionIdx * colWidth), 1, scaleWidth, fonts.overlayHeight * 2 + plot_gap);
                 canvas->clipRect(clip, SkClipOp::kIntersect );
-                canvas->drawRect(clip, opts.theme.bgPaint);
+//                canvas->drawRect(clip, opts.theme.bgPaint);
 
                 int position = (region.start / (int)nice_tick) * (int)nice_tick;
                 int num_divisions = nice_range / nice_tick;
