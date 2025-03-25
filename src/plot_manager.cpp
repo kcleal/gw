@@ -7,9 +7,7 @@
 #include <string>
 #include <cstdio>
 #include <vector>
-
 #include <glad.h>
-
 
 #include "htslib/faidx.h"
 #include "htslib/hts.h"
@@ -19,6 +17,9 @@
 #define SK_GL
 #include "include/core/SkCanvas.h"
 #include "include/core/SkSurface.h"
+#include "include/encode/SkPngEncoder.h"
+#include "include/encode/SkJpegEncoder.h"
+#include "include/encode/SkWebpEncoder.h"
 
 #include "ankerl_unordered_dense.h"
 #include "drawing.h"
@@ -72,7 +73,6 @@ namespace Manager {
         drawToBackWindow = false;
         textFromSettings = false;
         terminalOutput = true;
-        manageMouse = true;
         monitorScale = 1;
         xPos_fb = 0;
         yPos_fb = 0;
@@ -140,7 +140,7 @@ namespace Manager {
             pool.reset(opts.threads);
         }
         triggerClose = false;
-//        sortReadsBy = Manager::SortType::NONE;
+        window = nullptr;
 
     }
 
@@ -944,7 +944,7 @@ namespace Manager {
 
             if (redraw) {
                 if (mode == Show::SINGLE) {
-                    drawScreen(sSurface->getCanvas(), sContext, sSurface);
+                    drawScreen();
                 } else if (mode == Show::TILED) {
                     drawTiles(sSurface->getCanvas(), sContext, sSurface);
                     printIndexInfo();
@@ -1197,17 +1197,21 @@ namespace Manager {
         }
     }
 
-    void GwPlot::drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
+    bool GwPlot::collectionsNeedRedrawing() {
+        for (auto &cl: collections) {
+            if (!cl.skipDrawingCoverage || !cl.skipDrawingReads) {  // keep read and coverage area
+                return true;
+            }
+        }
+        return false;
+    }
 
+    void GwPlot::drawScreen() {
 //        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
-
         SkCanvas *canvasR = rasterCanvas;
-
-        canvas->drawPaint(opts.theme.bgPaint);
         canvasR->drawPaint(opts.theme.bgPaint);
 
         frameId += 1;
-
         if (bams.empty() && !regions.empty()) {
             canvasR->drawPaint(opts.theme.bgPaint);
             setScaling();
@@ -1219,9 +1223,9 @@ namespace Manager {
             setScaling();
 
             SkRect clip;
-
             // Draw background image
-            if (!imageCacheQueue.empty() && collections.size() > 1) {
+//            if (!imageCacheQueue.empty() && collections.size() > 1) {
+            if (!imageCacheQueue.empty() && !collections.empty()) {
                 canvasR->drawImage(imageCacheQueue.back().second, 0, 0);
                 clip.setXYWH(0, 0, fb_width, refSpace);
                 canvasR->drawRect(clip, opts.theme.bgPaint);
@@ -1288,10 +1292,8 @@ namespace Manager {
 //        std::cerr << " time " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
 
-    void GwPlot::drawScreenNoBuffer(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface) {
+    void GwPlot::drawScreenNoBuffer() {
         //        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
-
-        canvas->drawPaint(opts.theme.bgPaint);
         frameId += 1;
         if (regions.empty()) {
             setScaling();
@@ -1299,12 +1301,8 @@ namespace Manager {
             runDrawNoBuffer();
         }
         imageCacheQueue.emplace_back(frameId, rasterSurfacePtr[0]->makeImageSnapshot());
-        canvas->drawImage(imageCacheQueue.back().second, 0, 0);
-        sContext->flush();
-        glfwSwapBuffers(window);
         redraw = false;
 //                std::cerr << " time " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
-
     }
 
     void GwPlot::drawCursorPosOnRefSlider(SkCanvas *canvas) {
@@ -1342,12 +1340,16 @@ namespace Manager {
         canvas->drawTextBlob(blob, xbox + monitorScale, fb_height - yh, opts.theme.tcDel);
     }
 
+    void GwPlot::syncImageCacheQueue() {
+        while (!imageCacheQueue.empty() && imageCacheQueue.front().first != frameId) {
+            imageCacheQueue.pop_front();
+        }
+    }
+
     void GwPlot::drawOverlay(SkCanvas *canvas) {
 
         if (!imageCacheQueue.empty()) {
-            while (!imageCacheQueue.empty() && imageCacheQueue.front().first != frameId) {
-                imageCacheQueue.pop_front();
-            }
+            syncImageCacheQueue();
             if (imageCacheQueue.empty()) {
                 return;
             }
@@ -1364,10 +1366,6 @@ namespace Manager {
         // draw main settings menu
         if (mode == Show::SETTINGS) {
             if (!imageCacheQueue.empty()) {
-                while (imageCacheQueue.front().first != frameId) {
-                    imageCacheQueue.pop_front();
-                }
-                canvas->drawImage(imageCacheQueue.back().second, 0, 0);
                 SkPaint bg = opts.theme.bgPaint;
                 bg.setAlpha(220);
                 canvas->drawPaint(bg);
@@ -1938,27 +1936,19 @@ namespace Manager {
 
     }
 
+
     std::string GwPlot::flushLog() {
         std::string raw_output = outStr.str();
-
-        // Process carriage returns to simulate terminal behavior
+        // Remove any lines containing carriage returns
         std::stringstream processed;
         std::string line;
         std::istringstream lines(raw_output);
         while (std::getline(lines, line)) {
-            size_t cr_pos = line.find('\r');
-            if (cr_pos != std::string::npos) {
-                // Find the last segment after the last carriage return
-                std::string last_segment = line;
-                while ((cr_pos = last_segment.find('\r')) != std::string::npos) {
-                    last_segment = last_segment.substr(cr_pos + 1);
-                }
-                processed << last_segment;
-            } else {
+            if (line.find('\r') == std::string::npos) {
                 processed << line;
-            }
-            if (!lines.eof()) {
-                processed << '\n';
+                if (!lines.eof()) {
+                    processed << '\n';
+                }
             }
         }
         outStr.str("");
@@ -1993,6 +1983,62 @@ namespace Manager {
         FILE* fout = fopen(path, "w");
         fwrite(png->data(), 1, png->size(), fout);
         fclose(fout);
+    }
+
+    std::vector<uint8_t>* GwPlot::encodeToPngVector(int compression_level=6) {
+        static std::vector<uint8_t> buffer;  // Note buffer will be re-used!
+        buffer.clear();
+        assert (resterSurface != nullptr);
+        sk_sp<SkImage> img = rasterSurface->makeImageSnapshot();
+
+#ifndef OLD_SKIA
+        SkPngEncoder::Options options;
+        options.fZLibLevel = compression_level;
+        sk_sp<SkData> png(SkPngEncoder::Encode(nullptr, img.get(), options));
+#else
+        sk_sp<SkData> png(img->encodeToData());
+#endif
+
+        const uint8_t* data = static_cast<const uint8_t*>(png->data());
+        size_t size = png->size();
+        buffer.reserve(size);
+        buffer.insert(buffer.end(), data, data + size);
+        return &buffer;
+    }
+
+    std::vector<uint8_t>* GwPlot::encodeToJpegVector(int quality=80) {
+        static std::vector<uint8_t> buffer;  // Note buffer will be re-used!
+        buffer.clear();
+        assert(rasterSurface != nullptr);
+        sk_sp<SkImage> img = rasterSurface->makeImageSnapshot();
+        sk_sp<SkData> encoded;
+        SkJpegEncoder::Options options;
+        options.fQuality = quality;
+        encoded = SkJpegEncoder::Encode(nullptr, img.get(), options);
+
+        const uint8_t* data = static_cast<const uint8_t*>(encoded->data());
+        size_t size = encoded->size();
+        buffer.reserve(size);
+        buffer.insert(buffer.end(), data, data + size);
+        return &buffer;
+    }
+
+    std::vector<uint8_t>* GwPlot::encodeToWebPVector(int quality=80) {
+        static std::vector<uint8_t> buffer;
+        buffer.clear();
+        assert(rasterSurface != nullptr);
+        sk_sp<SkImage> img = rasterSurface->makeImageSnapshot();
+
+        SkWebpEncoder::Options options;
+        options.fQuality = quality;
+        options.fCompression = SkWebpEncoder::Compression::kLossy;
+        sk_sp<SkData> encoded = SkWebpEncoder::Encode(nullptr, img.get(), options);
+
+        const uint8_t* data = static_cast<const uint8_t*>(encoded->data());
+        size_t size = encoded->size();
+        buffer.reserve(size);
+        buffer.insert(buffer.end(), data, data + size);
+        return &buffer;
     }
 
     void imageToPng(sk_sp<SkImage> &img, std::filesystem::path &path) {
@@ -2075,4 +2121,3 @@ namespace Manager {
     }
 
 }
-

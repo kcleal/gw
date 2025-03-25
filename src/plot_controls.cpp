@@ -1416,23 +1416,43 @@ namespace Manager {
         }
     }
 
+    // Main entry point for mouse button events
     void GwPlot::mouseButton(int button, int action, int mods) {
-        std::ostream& out = (terminalOutput) ? std::cout : outStr;
-        GLFWwindow* wind = window;
-        double x, y;
-        if (manageMouse) {
-            glfwGetCursorPos(window, &x, &y);
-        } else {
-            x = xPos_fb;
-            y = yPos_fb;
-            xOri = x;
-            yOri = y;
-        }
-
-        int windowW, windowH;  // convert screen coords to frame buffer coords
-        glfwGetWindowSize(wind, &windowW, &windowH);
         float xW, yW;
-        if (manageMouse) {
+        calculateCursorCoordinates(button, action, xW, yW);
+        if (handleToolButtons(button, action, xW, yW)) {
+            return;
+        }
+        if (handleCommandTooltipInteraction(button, action, xW, yW)) {
+            return;
+        }
+        updateDragState();
+
+        // Dispatch to mode-specific handlers
+        if (mode == Manager::SINGLE) {
+            if (button == GLFW_MOUSE_BUTTON_LEFT) {
+                handleSingleModeLeftClick(button, action, xW, yW);
+            } else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
+                handleSingleModeRightClick();
+            }
+        } else if (mode == Manager::TILED) {
+            currentVarTrack = &variantTracks[variantFileSelection];
+            if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
+                handleTiledModeRightClick(xW, yW);
+            } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+                handleTiledModeLeftClick(xW, yW);
+            }
+        } else if (mode == Manager::SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+            handleSettingsModeClick();
+        }
+    }
+
+    void GwPlot::calculateCursorCoordinates(int button, int action, float& xW, float& yW) {
+        double x, y;
+        bool windowlessMode = window == nullptr;
+        if (!windowlessMode) {
+            glfwGetCursorPos(window, &x, &y);
+            glfwGetWindowSize(window, &windowW, &windowH);
             if (fb_width > windowW) {
                 float ratio = (float) fb_width / (float) windowW;
                 xW = (float)x * ratio;
@@ -1442,475 +1462,568 @@ namespace Manager {
                 yW = (float)y;
             }
         } else {
+            x = xPos_fb;  // We use the existing position
+            y = yPos_fb;
+            windowW = fb_width;
+            windowH = fb_height;
+            if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+                xOri = x;
+                yOri = y;
+                xDrag = 0;
+                yDrag = 0;
+            }
             xW = x;
             yW = y;
         }
+        // Update mouse position
+        xPos_fb = x;
+        yPos_fb = y;
+    }
 
-        // settings button or command box button
+    bool GwPlot::handleToolButtons(int button, int action, float xW, float yW) {
         float half_h = (float)fb_height / 2;
-        bool tool_popup = (xW > 0 && xW <= 60 && yW >= half_h - 60 && yW <= half_h + 60);
+        float b = 30.0f * monitorScale;
+        bool tool_popup = (xW > 0 && xW <= b && yW >= half_h - b && yW <= half_h + b);
         if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE && tool_popup) {
             xDrag = DRAG_UNSET;
             yDrag = DRAG_UNSET;
             if (yW < half_h) {
-                if (mode != SETTINGS) {
-                    last_mode = mode;
-                    mode = Show::SETTINGS;
-                    opts.menu_table = Themes::MenuTable::MAIN;
-                    opts.menu_level = "";
-                } else {
-                    mode = last_mode;
-                    updateSettings();
-                    opts.editing_underway = false;
-                }
-                commandToolTipIndex = -1;
+                toggleSettingsMode();
             } else {
-                if (!captureText) {
-                    captureText = true;
-                    inputText = "";
-                    charIndex = 0;
-                    textFromSettings = false;
-                } else {
-                    captureText = false;
-                    textFromSettings = false;
-                    opts.editing_underway = false;
-                }
-                commandToolTipIndex = 0;
+                toggleCommandCapture();
             }
-            return;
+            return true;
         }
+        return false;
+    }
 
-        // click on one of the commands in the pop-up menu
+    void GwPlot::toggleSettingsMode() {
+        if (mode != SETTINGS) {
+            last_mode = mode;
+            mode = Show::SETTINGS;
+            opts.menu_table = Themes::MenuTable::MAIN;
+            opts.menu_level = "";
+        } else {
+            mode = last_mode;
+            updateSettings();
+            opts.editing_underway = false;
+        }
+        commandToolTipIndex = -1;
+    }
+
+    void GwPlot::toggleCommandCapture() {
+        if (!captureText) {
+            captureText = true;
+            inputText = "";
+            charIndex = 0;
+            textFromSettings = false;
+        } else {
+            captureText = false;
+            textFromSettings = false;
+            opts.editing_underway = false;
+        }
+        commandToolTipIndex = 0;
+    }
+
+    bool GwPlot::handleCommandTooltipInteraction(int button, int action, float xW, float yW) {
         if (commandToolTipIndex >= 0 && captureText && mode != SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT) {
-            double xPos_fb = x;
-            double yPos_fb = y;
-            convertScreenCoordsToFrameBufferCoords(wind, &xPos_fb, &yPos_fb, fb_width, fb_height);
+            double xPos_fb_local = xPos_fb;
+            double yPos_fb_local = yPos_fb;
+            convertScreenCoordsToFrameBufferCoords(window, &xPos_fb_local, &yPos_fb_local, fb_width, fb_height);
             xDrag = DRAG_UNSET;
             yDrag = DRAG_UNSET;
-            if (xPos_fb > 50 && xPos_fb < 50 + fonts.overlayWidth * 20 && action == GLFW_RELEASE) {
+            if (xPos_fb_local > 50 && xPos_fb_local < 50 + fonts.overlayWidth * 20 && action == GLFW_RELEASE) {
                 keyPress(GLFW_KEY_ENTER, 0, GLFW_PRESS, 0);
-                return;
+                return true;
             }
-            return;
+            return true;
         }
+        return false;
+    }
+
+    void GwPlot::updateDragState() {
         if (xDrag == DRAG_UNSET) {
             xDrag = 0;
-            xOri = x;
+            xOri = xPos_fb;
             yDrag = 0;
-            yOri = y;
-
+            yOri = yPos_fb;
         }
-        xDrag = x - xOri;
-        yDrag = y - yOri;
+        xDrag = xPos_fb - xOri;
+        yDrag = yPos_fb - yOri;
+    }
 
-        // custom clicks for each mode SINGLE/TILED/SETTINGS. Menu navigation is deferred to Menu::navigateMenu
-        if (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_LEFT) {
-            if (regions.empty()) {
-                xDrag = DRAG_UNSET;
-                yDrag = DRAG_UNSET;
-                return;
-            }
-            if (yW >= (fb_height - sliderSpace - gap)) {
-                if (action == GLFW_PRESS) {
-                    updateSlider(xW);
-                }
-                xOri = x;
-                yOri = y;
-                return;
-            }
+    void GwPlot::resetDragState() {
+        xDrag = DRAG_UNSET;
+        yDrag = DRAG_UNSET;
+        xOri = xPos_fb;
+        yOri = yPos_fb;
+    }
 
-            int idx = getCollectionIdx(xW, yW);
-            if (idx == REFERENCE_TRACK && action == GLFW_RELEASE && std::fabs(xDrag) < 5 && std::fabs(yDrag) < 5) {
-                if (collections.empty()) {
-                    float xScaling = (float)((regionWidth - gap - gap) / ((double)(regions[regionSelection].end -regions[regionSelection].start)));
-                    float xOffset = (regionWidth * (float)regionSelection) + gap;
-                    Term::printRefSeq(&regions[regionSelection], xW, xOffset, xScaling, out);
-                } else {
-                    for (auto &cl: collections) {
-                        float min_x = cl.xOffset;
-                        float max_x = cl.xScaling * ((float)(cl.region->end - cl.region->start)) + min_x;
-                        if (xW > min_x && xW < max_x) {
-                            Term::printRefSeq(cl.region, xW, cl.xOffset, cl.xScaling, out);
-                            break;
-                        }
-                    }
-                }
-
-            } else if (idx <= TRACK && action == GLFW_RELEASE) {
-                if (std::abs(xDrag) < 5 && std::abs(yDrag) < 5) {
-                    float rS = ((float)fb_width / (float)regions.size());
-                    int tIdx = (int)((xW) / rS);
-                    if (tIdx < (int)regions.size()) {
-                        float relX = xW - gap;
-                        if (tIdx > 0) {
-                            relX -= (float)tIdx * rS;
-                        }
-                        relX /= (rS - gap - gap);
-                        if (relX < 0 || relX > 1) {
-                            return;
-                        }
-                        int trackIdx = (idx * -1) -3;
-                        HGW::GwTrack &targetTrack = tracks[trackIdx];
-                        float stepY =  (totalTabixY) / (float)tracks.size();
-                        float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[trackIdx]);
-                        float y = totalCovY + refSpace + (trackY*(float)headers.size()) + (gap * 0.5);
-
-                        int featureLevel = (int)(yW - y - (trackIdx * stepY)) / step_track;
-                        Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx, target_qname, &target_pos, out);
-                    }
-                }
-                clickedIdx = -1;
-                xOri = x;
-                yOri = y;
-                xDrag = DRAG_UNSET;
-                yDrag = DRAG_UNSET;
-                return;
-			}
+    void GwPlot::handleSingleModeLeftClick(int button, int action, float xW, float yW) {
+        if (regions.empty()) {
+            xDrag = DRAG_UNSET;
+            yDrag = DRAG_UNSET;
+            return;
+        }
+        if (yW >= (fb_height - sliderSpace - gap)) {
             if (action == GLFW_PRESS) {
-                if (collections.empty() || idx < 0) {
-                    clicked = regions[regionSelection];
-                    clickedIdx = -1;
-                } else {
-                    clicked = *collections[idx].region;
-                    clickedIdx = idx;
-                    regionSelection = collections[idx].regionIdx;
-                }
+                updateSlider(xW);
             }
-
-            if (std::abs(xDrag) < 5 && action == GLFW_RELEASE && !bams.empty() && idx >= 0) {
-                Segs::ReadCollection &cl = collections[idx];
-                int pos = (int) (((xW - (float) cl.xOffset) / cl.xScaling) + (float) cl.region->start);
-                if (ctrlPress) {  // zoom in to mouse position
-                    int strt = pos - 2500;
-                    strt = (strt < 0) ? 0 : strt;
-                    Utils::Region &region = regions[regionSelection];
-                    region.start = std::max(0, strt);
-                    region.end = std::max(region.start + 1, strt + 5000);
-                    regionSelection = cl.regionIdx;
-                    fetchRefSeq(region);
-                    processed = false;
-                    redraw = true;
-                    return;
-                }
-                // highlight read below
-                int level = -1;
-                int slop = 0;
-                if (!opts.tlen_yscale) {
-                    if (yW < cl.yOffset) {
-                        out << std::endl;
-                        xDrag = DRAG_UNSET;
-                        yDrag = DRAG_UNSET;
-                        return;
-                    }
-                    level = ((yW - (float) cl.yOffset) / yScaling);
-                    if (level < 0) {  // print coverage info (mouse Pos functions already prints out cov info to console)
-                        out << std::endl;
-                        xDrag = DRAG_UNSET;
-                        yDrag = DRAG_UNSET;
-                        return;
-                    }
-                    level = (int)level;
-                    if (cl.vScroll < 0) {
-                        level += cl.vScroll + 1;
-                    }
-                } else {
-                    int max_bound = opts.max_tlen;
-                    level = (int) ((yW - (float) cl.yOffset) / (((trackY - gap) * 0.95) / (float)(max_bound)));
-                    slop = (int)(max_bound * 0.025);
-                    slop = (slop <= 0) ? 25 : slop;
-                }
-                std::vector<Segs::Align>::iterator bnd;
-                bnd = std::lower_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
-                                       [&](const Segs::Align &lhs, const int pos) { return (int)lhs.pos <= pos; });
-
-                while (true) {
-                    if (!opts.tlen_yscale) {
-                        if (bnd->y == level && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
-                            if (bnd->edge_type == 4) {
-                                if (bnd->has_SA || bnd->delegate->core.flag & 2048) {
-                                    bnd->edge_type = 2;  // "SPLIT"
-                                } else if (bnd->delegate->core.flag & 8) {
-                                    bnd->edge_type = 3;  // "MATE_UNMAPPED"
-                                } else {
-                                    bnd->edge_type = 1;  // "NORMAL"
-                                }
-                                target_qname = "";
-                            } else if (bnd->delegate != nullptr) {
-                                bnd->edge_type = 4;
-                                target_qname = bam_get_qname(bnd->delegate);
-                                Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_memory, out, pos, opts.indel_length, opts.parse_mods);
-                            }
-                            redraw = true;
-                            processed = true;
-                            for (auto &cl2 : collections) {
-                                cl2.skipDrawingReads = false;
-                                cl2.skipDrawingCoverage = false;
-                            }
-                            break;
-                        }
-                    } else {
-
-                        if ((bnd->y >= level - slop && bnd->y < level) && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
-                            if (bnd->edge_type == 4) {
-                                if (bnd->has_SA || bnd->delegate->core.flag & 2048) {
-                                    bnd->edge_type = 2;  // "SPLIT"
-                                } else if (bnd->delegate->core.flag & 8) {
-                                    bnd->edge_type = 3;  // "MATE_UNMAPPED"
-                                } else {
-                                    bnd->edge_type = 1;  // "NORMAL"
-                                }
-                                target_qname = "";
-                            } else {
-                                bnd->edge_type = 4;
-                                target_qname = bam_get_qname(bnd->delegate);
-                                Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq, cl.region->start, cl.region->end, opts.low_memory, out, pos, opts.indel_length, opts.parse_mods);
-                            }
-                            redraw = true;
-                            processed = true;
-                            cl.skipDrawingReads = false;
-                            cl.skipDrawingCoverage = false;
-                        }
-                    }
-                    if (bnd == cl.readQueue.begin()) {
-                        break;
-                    }
-                    --bnd;
-                }
-                xDrag = DRAG_UNSET;
-                yDrag = DRAG_UNSET;
-                clickedIdx = -1;
-
-            } else if (action == GLFW_RELEASE) {
-                Utils::Region &region = regions[regionSelection];
-                auto w = (float)(region.end - region.start) * (float) regions.size();
-                if (w >= 75000) {
-                    int travel = (int) (w * (xDrag / windowW));
-                    int old_start = region.start;
-                    if (region.start - travel < 0) {
-                        travel = region.start;
-                        region.start = 0;
-                        region.end = clicked.end - travel;
-                    } else {
-                        region.start = clicked.start - travel;
-                        region.end = clicked.end - travel;
-                    }
-                    if (region.start < 0 || region.end < 0) {
-                        xDrag = DRAG_UNSET;
-                        yDrag = DRAG_UNSET;
-                        return;
-                    }
-//                    delete region.refSeq;
-                    fetchRefSeq(region);
-
-                    bool lt_last = region.start < old_start;
-                    if (opts.link_op != 0) {
-                        processed = false;
-                        redraw = true;
-                    } else {
-                        processed = true;
-                        redraw = true;
-                        if (bams.empty()) {
-                            xDrag = DRAG_UNSET;
-                            yDrag = DRAG_UNSET;
-                            return;
-                        }
-                        for (auto &col : collections) {
-                            if (col.regionIdx == regionSelection) {
-                                col.region = &regions[regionSelection];
-                                col.skipDrawingReads = false;
-                                col.skipDrawingCoverage = false;
-                                HGW::appendReadsAndCoverage(col, bams[col.bamIdx], headers[col.bamIdx],
-                                                            indexes[col.bamIdx], opts, (bool) opts.max_coverage,
-                                                            lt_last, &samMaxY, filters, pool, region);
-                            }
-                        }
-                    }
-                }
-                clickedIdx = -1;
+            xOri = xPos_fb;
+            yOri = yPos_fb;
+            return;
+        }
+        int idx = getCollectionIdx(xW, yW);
+        if (handleTrackClick(idx, action, xW, yW)) {
+            return;
+        }
+        // Handle region selection
+        if (action == GLFW_PRESS) {
+            selectRegion(idx);
+            handleRegionDragging();
+        } else if (action == GLFW_RELEASE) {
+            if (std::abs(xDrag) < 5 && !bams.empty() && idx >= 0) {
+                handleReadSelection(idx, xW, yW);
+            } else {
+                handleRegionDragging();
+                resetDragState();
             }
-            xOri = x;
-            yOri = y;
+        }
+        xOri = xPos_fb;
+        yOri = yPos_fb;
+    }
+
+    bool GwPlot::handleTrackClick(int idx, int action, float xW, float yW) {
+        if (idx == REFERENCE_TRACK && action == GLFW_RELEASE && std::fabs(xDrag) < 5 && std::fabs(yDrag) < 5) {
+            printReferenceSequence(xW);
+            return true;
+        } else if (idx <= TRACK && action == GLFW_RELEASE) {
+            if (std::abs(xDrag) < 5 && std::abs(yDrag) < 5) {
+                printTrackInformation(idx, xW, yW);
+            }
+            clickedIdx = -1;
+            xOri = xPos_fb;
+            yOri = yPos_fb;
             xDrag = DRAG_UNSET;
             yDrag = DRAG_UNSET;
+            return true;
+        }
+        return false;
+    }
 
-        } else if (mode == Manager::SINGLE && button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
-            if (regions.empty() || variantTracks.empty()) {
-                xDrag = DRAG_UNSET;
-                yDrag = DRAG_UNSET;
-                return;
-            }
-            currentVarTrack = &variantTracks[variantFileSelection];
-            if (currentVarTrack != nullptr && (!currentVarTrack->multiRegions.empty() || currentVarTrack->type == HGW::TrackType::IMAGES)) {
-                mode = Manager::TILED;
-                xDrag = DRAG_UNSET;
-                yDrag = DRAG_UNSET;
-                redraw = true;
-                processed = false;
-                for (auto &cl: collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
-                imageCacheQueue.clear();
-                if (currentVarTrack->type == HGW::TrackType::IMAGES) {
-                    currentVarTrack->multiRegions.clear();
+    void GwPlot::printReferenceSequence(float xW) {
+        std::ostream& out = (terminalOutput) ? std::cout : outStr;
+        if (collections.empty()) {
+            float xScaling = (float)((regionWidth - gap - gap) /
+                              ((double)(regions[regionSelection].end - regions[regionSelection].start)));
+            float xOffset = (regionWidth * (float)regionSelection) + gap;
+            Term::printRefSeq(&regions[regionSelection], xW, xOffset, xScaling, out);
+        } else {
+            for (auto &cl: collections) {
+                float min_x = cl.xOffset;
+                float max_x = cl.xScaling * ((float)(cl.region->end - cl.region->start)) + min_x;
+                if (xW > min_x && xW < max_x) {
+                    Term::printRefSeq(cl.region, xW, cl.xOffset, cl.xScaling, out);
+                    break;
                 }
-                out << std::endl;
-            }
-        } else if (mode == Manager::TILED) {
-            currentVarTrack = &variantTracks[variantFileSelection];
-            if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
-                int i = 0;
-                for (auto &b: bboxes) {
-                    if (xW > b.xStart && xW < b.xEnd && yW > b.yStart && yW < b.yEnd) {
-                        break;
-                    }
-                    ++i;
-                }
-                if (i == (int)bboxes.size()) {
-                    xDrag = DRAG_UNSET;
-                    yDrag = DRAG_UNSET;
-                    xOri = x;
-                    yOri = y;
-                    return;
-                }
-                if (!bams.empty()) {
-                    if (i < (int)currentVarTrack->multiRegions.size() && !bams.empty()) {
-                        if (currentVarTrack->blockStart + i < (int)currentVarTrack->multiRegions.size()) {
-                            if (currentVarTrack->multiRegions[currentVarTrack->blockStart + i][0].chrom.empty()) {
-                                xDrag = DRAG_UNSET;
-                                yDrag = DRAG_UNSET;
-                                return; // check for "" no chrom set
-                            } else {
-                                regions = currentVarTrack->multiRegions[currentVarTrack->blockStart + i];
-                                redraw = true;
-                                processed = false;
-                                fetchRefSeqs();
-                                mode = Manager::SINGLE;
-                                for (auto &cl: collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
-                                imageCacheQueue.clear();
-                                glfwPostEmptyEvent();
-                            }
-                        }
-                    } else {
-                        // todo check this!
-                        // try and parse location from filename
-                        std::vector<Utils::Region> rt;
-                        bool parsed = Utils::parseFilenameToRegions(currentVarTrack->image_glob[currentVarTrack->blockStart + i], rt, fai, opts.pad, opts.split_view_size);
-                        if (parsed) {
-                            if (rt.size() == 1 && rt[0].end - rt[0].start > 500000) {
-                                int posX = (int)(((xW - gap) / (float)(fb_width - gap - gap)) * (float)(rt[0].end - rt[0].start)) + rt[0].start;
-                                rt[0].start = (posX - 10000 > 0) ? posX - 100000 : 1;
-                                rt[0].end = posX + 100000;
-                            }
-//                            for (auto &r: regions) {
-//                                delete r.refSeq;
-//                            }
-                            regions.clear();
-                            regions = rt;
-                            redraw = true;
-                            processed = false;
-                            fetchRefSeqs();
-                            mode = Manager::SINGLE;
-                            for (auto &cl: collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
-                            glfwPostEmptyEvent();
-                        }
-                    }
-                }
-            } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
-                if (captureText) {
-                    captureText = false;
-                    processText = false;
-                    shiftPress = false;
-                    commandToolTipIndex = -1;
-                    xDrag = DRAG_UNSET;
-                    yDrag = DRAG_UNSET;
-                    return;
-                }
-
-                bool variantFile_click = variantTracks.size() > 1 && yW < fb_height * 0.02;
-                if (variantFile_click) {
-                    float tile_box_w = std::fmin(100 * monitorScale, (fb_width - (variantTracks.size() * gap + 1)) / variantTracks.size());
-                    float x_val = gap;
-                    for (int i=0; i < (int)variantTracks.size(); ++i) {
-                        if (x_val - gap <= xW && x_val + tile_box_w >= xW) {
-                            variantFileSelection = i;
-                            redraw = true;
-                            processed = false;
-                            imageCache.clear();
-                            break;
-                        }
-                        x_val += tile_box_w + gap;
-                    }
-                }
-                if (std::fabs(xDrag) > fb_width / 16.) {
-                    int nmb = opts.number.x * opts.number.y;
-                    bool scroll_left;
-                    if (xDrag > 0) {
-                        scroll_left = true;
-                    } else {
-                        scroll_left = false;
-                    }
-                    if (!scroll_left) {
-                        if (currentVarTrack->type == HGW::TrackType::IMAGES ) {
-                            if (currentVarTrack->blockStart + nmb > (int)currentVarTrack->image_glob.size() - nmb) {
-                                xDrag = DRAG_UNSET;
-                                yDrag = DRAG_UNSET;
-                                return;
-                            }
-                        } else if (*currentVarTrack->trackDone) {
-                            xDrag = DRAG_UNSET;
-                            yDrag = DRAG_UNSET;
-                            return;
-                        }
-                        currentVarTrack->blockStart += nmb;
-                        redraw = true;
-
-                    } else {
-                        if (currentVarTrack->blockStart == 0) {
-                            return;
-                        }
-                        currentVarTrack->blockStart = (currentVarTrack->blockStart - nmb > 0) ? currentVarTrack->blockStart - nmb : 0;
-                        redraw = true;
-                        (*currentVarTrack->trackDone) = false;
-
-                    }
-                } else if (std::fabs(xDrag) < 5) {
-                    int i = 0;
-                    for (auto &b: bboxes) {
-                        if (xW > b.xStart && xW < b.xEnd && yW > b.yStart && yW < b.yEnd) {
-                            break;
-                        }
-                        ++i;
-                    }
-                    if (i == (int)bboxes.size()) {
-                        xDrag = DRAG_UNSET;
-                        yDrag = DRAG_UNSET;
-                        xOri = x;
-                        yOri = y;
-                        return;
-                    }
-                    if (currentVarTrack->blockStart + i < (int)currentVarTrack->multiLabels.size()) {
-                        currentVarTrack->multiLabels[currentVarTrack->blockStart + i].next();
-                        currentVarTrack->multiLabels[currentVarTrack->blockStart + i].clicked = true;
-                        currentVarTrack->multiLabels[currentVarTrack->blockStart + i].savedDate = Utils::dateTime();
-                        redraw = true;
-                    }
-                }
-                xDrag = DRAG_UNSET;
-                yDrag = DRAG_UNSET;
-                xOri = x;
-                yOri = y;
-            }
-        } else if (mode == Manager::SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
-            bool keep_alive = Menu::navigateMenu(opts, GLFW_KEY_ENTER, GLFW_PRESS, inputText, &charIndex, &captureText, &textFromSettings, &processText, reference);
-            xDrag = DRAG_UNSET;
-            yDrag = DRAG_UNSET;
-            redraw = true;
-            if (opts.editing_underway) {
-                textFromSettings = true;
-            }
-            if (!keep_alive) {
-                updateSettings();
             }
         }
     }
+
+    void GwPlot::printTrackInformation(int idx, float xW, float yW) {
+        std::ostream& out = (terminalOutput) ? std::cout : outStr;
+        float rS = ((float)fb_width / (float)regions.size());
+        int tIdx = (int)((xW) / rS);
+        if (tIdx < (int)regions.size()) {
+            float relX = xW - gap;
+            if (tIdx > 0) {
+                relX -= (float)tIdx * rS;
+            }
+            relX /= (rS - gap - gap);
+            if (relX < 0 || relX > 1) {
+                return;
+            }
+
+            int trackIdx = (idx * -1) - 3;
+            HGW::GwTrack &targetTrack = tracks[trackIdx];
+            float stepY = (totalTabixY) / (float)tracks.size();
+            float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[trackIdx]);
+            float y = totalCovY + refSpace + (trackY*(float)headers.size()) + (gap * 0.5);
+            int featureLevel = (int)(yW - y - (trackIdx * stepY)) / step_track;
+            Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx,
+                            target_qname, &target_pos, out);
+        }
+    }
+
+    void GwPlot::selectRegion(int idx) {
+        if (collections.empty() || idx < 0) {
+            clicked = regions[regionSelection];
+            clickedIdx = -1;
+        } else {
+            clicked = *collections[idx].region;
+            clickedIdx = idx;
+            regionSelection = collections[idx].regionIdx;
+        }
+    }
+
+    void GwPlot::handleReadSelection(int idx, float xW, float yW) {
+        Segs::ReadCollection &cl = collections[idx];
+        int pos = (int)(((xW - (float)cl.xOffset) / cl.xScaling) + (float)cl.region->start);
+        if (ctrlPress) {
+            zoomToPosition(pos);
+            return;
+        }
+        selectReadAtPosition(cl, pos, xW, yW);
+        xDrag = DRAG_UNSET;
+        yDrag = DRAG_UNSET;
+        clickedIdx = -1;
+    }
+
+    void GwPlot::zoomToPosition(int pos) {
+        int strt = pos - 2500;
+        strt = (strt < 0) ? 0 : strt;
+        Utils::Region &region = regions[regionSelection];
+        region.start = std::max(0, strt);
+        region.end = std::max(region.start + 1, strt + 5000);
+        regionSelection = collections[clickedIdx].regionIdx;
+        fetchRefSeq(region);
+        processed = false;
+        redraw = true;
+    }
+
+    void GwPlot::selectReadAtPosition(Segs::ReadCollection &cl, int pos, float xW, float yW) {
+        std::ostream& out = (terminalOutput) ? std::cout : outStr;
+        int level = -1;
+        int slop = 0;
+        // Calculate vertical level based on y-scale mode
+        if (!opts.tlen_yscale) {
+            if (yW < cl.yOffset) {
+                out << std::endl;
+                xDrag = DRAG_UNSET;
+                yDrag = DRAG_UNSET;
+                return;
+            }
+            level = ((yW - (float)cl.yOffset) / yScaling);
+            if (level < 0) {
+                out << std::endl;
+                xDrag = DRAG_UNSET;
+                yDrag = DRAG_UNSET;
+                return;
+            }
+            level = (int)level;
+            if (cl.vScroll < 0) {
+                level += cl.vScroll + 1;
+            }
+        } else {
+            int max_bound = opts.max_tlen;
+            level = (int)((yW - (float)cl.yOffset) / (((trackY - gap) * 0.95) / (float)(max_bound)));
+            slop = (int)(max_bound * 0.025);
+            slop = (slop <= 0) ? 25 : slop;
+        }
+
+        // Find the read at the position
+        std::vector<Segs::Align>::iterator bnd;
+        bnd = std::lower_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
+                              [&](const Segs::Align &lhs, const int pos) { return (int)lhs.pos <= pos; });
+        redraw = false;
+        // Find and toggle the read highlight
+        while (true) {
+            if (!opts.tlen_yscale) {
+                if (bnd->y == level && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
+                    toggleReadHighlight(bnd, cl, pos);
+                    break;
+                }
+            } else {
+                if ((bnd->y >= level - slop && bnd->y < level) && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
+                    toggleReadHighlight(bnd, cl, pos);
+                    break;
+                }
+            }
+            if (bnd == cl.readQueue.begin()) {
+                break;
+            }
+            --bnd;
+        }
+    }
+
+    // Toggle read highlight state
+    void GwPlot::toggleReadHighlight(std::vector<Segs::Align>::iterator bnd, Segs::ReadCollection &cl, int pos) {
+        std::ostream& out = (terminalOutput) ? std::cout : outStr;
+        if (bnd->edge_type == 4) {
+            // Currently highlighted, un-highlight
+            if (bnd->has_SA || bnd->delegate->core.flag & 2048) {
+                bnd->edge_type = 2;  // "SPLIT"
+            } else if (bnd->delegate->core.flag & 8) {
+                bnd->edge_type = 3;  // "MATE_UNMAPPED"
+            } else {
+                bnd->edge_type = 1;  // "NORMAL"
+            }
+            target_qname = "";
+        } else if (bnd->delegate != nullptr) {
+            // Not highlighted, highlight it
+            bnd->edge_type = 4;
+            target_qname = bam_get_qname(bnd->delegate);
+            Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq,
+                           cl.region->start, cl.region->end, opts.low_memory, out,
+                           pos, opts.indel_length, opts.parse_mods);
+        }
+        redraw = true;
+        processed = true;
+        for (auto &cl2 : collections) {
+            cl2.skipDrawingReads = false;
+            cl2.skipDrawingCoverage = false;
+        }
+    }
+
+    void GwPlot::handleRegionDragging() {
+        Utils::Region &region = regions[regionSelection];
+        auto w = (float)(region.end - region.start) * (float)regions.size();
+
+        if (w >= 75000 || window == nullptr) {  // windowlessMode
+            int travel = (int)(w * (xDrag / windowW));
+            int old_start = region.start;
+            if (region.start - travel < 0) {
+                travel = region.start;
+                region.start = 0;
+                region.end = clicked.end - travel;
+            } else {
+                region.start = clicked.start - travel;
+                region.end = clicked.end - travel;
+            }
+            if (region.start < 0 || region.end < 0) {
+                xDrag = DRAG_UNSET;
+                yDrag = DRAG_UNSET;
+                return;
+            }
+            fetchRefSeq(region);
+
+            // Handle region update
+            bool lt_last = region.start < old_start;
+            if (opts.link_op != 0) {
+                processed = false;
+                redraw = true;
+            } else {
+                updateRegionReads(lt_last);
+            }
+        }
+        clickedIdx = -1;
+    }
+
+    void GwPlot::updateRegionReads(bool lt_last) {
+        processed = true;
+        redraw = true;
+        if (bams.empty()) {
+            xDrag = DRAG_UNSET;
+            yDrag = DRAG_UNSET;
+            return;
+        }
+        for (auto &col : collections) {
+            if (col.regionIdx == regionSelection) {
+                col.region = &regions[regionSelection];
+                col.skipDrawingReads = false;
+                col.skipDrawingCoverage = false;
+                HGW::appendReadsAndCoverage(col, bams[col.bamIdx], headers[col.bamIdx],
+                                           indexes[col.bamIdx], opts, (bool)opts.max_coverage,
+                                           lt_last, &samMaxY, filters, pool, regions[regionSelection]);
+            }
+        }
+    }
+
+    void GwPlot::handleSingleModeRightClick() {
+        if (regions.empty() || variantTracks.empty()) {
+            xDrag = DRAG_UNSET;
+            yDrag = DRAG_UNSET;
+            return;
+        }
+        currentVarTrack = &variantTracks[variantFileSelection];
+        if (currentVarTrack != nullptr && (!currentVarTrack->multiRegions.empty() || currentVarTrack->type == HGW::TrackType::IMAGES)) {
+            switchToTiledMode();
+        }
+    }
+
+    void GwPlot::switchToTiledMode() {
+        std::ostream& out = (terminalOutput) ? std::cout : outStr;
+        mode = Manager::TILED;
+        xDrag = DRAG_UNSET;
+        yDrag = DRAG_UNSET;
+        redraw = true;
+        processed = false;
+        for (auto &cl: collections) {
+            cl.skipDrawingCoverage = false;
+            cl.skipDrawingReads = false;
+        }
+        imageCacheQueue.clear();
+        if (currentVarTrack->type == HGW::TrackType::IMAGES) {
+            currentVarTrack->multiRegions.clear();
+        }
+        out << std::endl;
+    }
+
+    void GwPlot::handleTiledModeRightClick(float xW, float yW) {
+        int boxIdx = findBoxIndex(xW, yW);
+        if (boxIdx == (int)bboxes.size()) {
+            resetDragState();
+            return;
+        }
+        if (!bams.empty()) {
+            if (boxIdx < (int)currentVarTrack->multiRegions.size()) {
+                handleMultiRegionSelection(boxIdx);
+            } else {
+                handleImageSelection(boxIdx, xW);
+            }
+        }
+    }
+
+    int GwPlot::findBoxIndex(float xW, float yW) {
+        int i = 0;
+        for (auto &b: bboxes) {
+            if (xW > b.xStart && xW < b.xEnd && yW > b.yStart && yW < b.yEnd) {
+                break;
+            }
+            ++i;
+        }
+        return i;
+    }
+
+    void GwPlot::handleMultiRegionSelection(int boxIdx) {
+        if (currentVarTrack->blockStart + boxIdx < (int)currentVarTrack->multiRegions.size()) {
+            if (currentVarTrack->multiRegions[currentVarTrack->blockStart + boxIdx][0].chrom.empty()) {
+                resetDragState();
+                return; // check for "" no chrom set
+            } else {
+                regions = currentVarTrack->multiRegions[currentVarTrack->blockStart + boxIdx];
+                switchToSingleMode();
+            }
+        }
+    }
+
+    void GwPlot::handleImageSelection(int boxIdx, float xW) {
+        std::vector<Utils::Region> rt;
+        bool parsed = Utils::parseFilenameToRegions(
+            currentVarTrack->image_glob[currentVarTrack->blockStart + boxIdx],
+            rt, fai, opts.pad, opts.split_view_size
+        );
+        if (parsed) {
+            if (rt.size() == 1 && rt[0].end - rt[0].start > 500000) {
+                int posX = (int)(((xW - gap) / (float)(fb_width - gap - gap)) *
+                            (float)(rt[0].end - rt[0].start)) + rt[0].start;
+                rt[0].start = (posX - 10000 > 0) ? posX - 100000 : 1;
+                rt[0].end = posX + 100000;
+            }
+            regions.clear();
+            regions = rt;
+            switchToSingleMode();
+        }
+    }
+
+    void GwPlot::switchToSingleMode() {
+        redraw = true;
+        processed = false;
+        fetchRefSeqs();
+        mode = Manager::SINGLE;
+        for (auto &cl: collections) {
+            cl.skipDrawingCoverage = false;
+            cl.skipDrawingReads = false;
+        }
+        glfwPostEmptyEvent();
+    }
+
+    void GwPlot::resetTextCapture() {
+        captureText = false;
+        processText = false;
+        shiftPress = false;
+        commandToolTipIndex = -1;
+        xDrag = DRAG_UNSET;
+        yDrag = DRAG_UNSET;
+    }
+
+    void GwPlot::handleTiledModeLeftClick(float xW, float yW) {
+        if (captureText) {
+            resetTextCapture();
+            return;
+        }
+        bool variantFile_click = variantTracks.size() > 1 && yW < fb_height * 0.02;
+        if (variantFile_click) {
+            handleVariantFileSelection(xW);
+            return;
+        }
+        if (std::fabs(xDrag) > fb_width / 16.) {
+            handleTiledModeScroll();
+        }
+        else if (std::fabs(xDrag) < 5) {
+            handleTiledModeBoxClick(xW, yW);
+        }
+        resetDragState();
+    }
+
+    void GwPlot::handleVariantFileSelection(float xW) {
+        float tile_box_w = std::fmin(100 * monitorScale, (fb_width - (variantTracks.size() * gap + 1)) / variantTracks.size());
+        float x_val = gap;
+        for (int i = 0; i < (int)variantTracks.size(); ++i) {
+            if (x_val - gap <= xW && x_val + tile_box_w >= xW) {
+                variantFileSelection = i;
+                redraw = true;
+                processed = false;
+                imageCache.clear();
+                break;
+            }
+            x_val += tile_box_w + gap;
+        }
+    }
+
+    void GwPlot::handleTiledModeScroll() {
+        int nmb = opts.number.x * opts.number.y;
+        bool scroll_left = (xDrag > 0);
+        if (!scroll_left) {  // Scroll right
+            if (currentVarTrack->type == HGW::TrackType::IMAGES) {
+                if (currentVarTrack->blockStart + nmb > (int)currentVarTrack->image_glob.size() - nmb) {
+                    resetDragState();
+                    return;
+                }
+            } else if (*currentVarTrack->trackDone) {
+                resetDragState();
+                return;
+            }
+            currentVarTrack->blockStart += nmb;
+            redraw = true;
+        } else {  // Scroll left
+            if (currentVarTrack->blockStart == 0) {
+                return;
+            }
+            currentVarTrack->blockStart = (currentVarTrack->blockStart - nmb > 0) ? currentVarTrack->blockStart - nmb : 0;
+            redraw = true;
+            (*currentVarTrack->trackDone) = false;
+        }
+    }
+
+    void GwPlot::handleTiledModeBoxClick(float xW, float yW) {
+        int boxIdx = findBoxIndex(xW, yW);
+        if (boxIdx == (int)bboxes.size()) {
+            resetDragState();
+            return;
+        }
+        if (currentVarTrack->blockStart + boxIdx < (int)currentVarTrack->multiLabels.size()) {
+            currentVarTrack->multiLabels[currentVarTrack->blockStart + boxIdx].next();
+            currentVarTrack->multiLabels[currentVarTrack->blockStart + boxIdx].clicked = true;
+            currentVarTrack->multiLabels[currentVarTrack->blockStart + boxIdx].savedDate = Utils::dateTime();
+            redraw = true;
+        }
+    }
+
+    void GwPlot::handleSettingsModeClick() {
+        bool keep_alive = Menu::navigateMenu(opts, GLFW_KEY_ENTER, GLFW_PRESS,
+                                           inputText, &charIndex, &captureText,
+                                           &textFromSettings, &processText, reference);
+        resetDragState();
+        redraw = true;
+        if (opts.editing_underway) {
+            textFromSettings = true;
+        }
+        if (!keep_alive) {
+            updateSettings();
+        }
+    }
+
 
     void GwPlot::updateCursorGenomePos(float xOffset, float xScaling, float xPos, Utils::Region *region, int bamIdx=0) {
         if (regions.empty() || mode == TILED || !region) {
@@ -2246,6 +2359,7 @@ namespace Manager {
             }
         }
     }
+
 
     void GwPlot::scrollGesture(double xoffset, double yoffset) {
         if (mode == Manager::SINGLE) {

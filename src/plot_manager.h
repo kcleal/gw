@@ -104,7 +104,7 @@ namespace Manager {
         bool drawLine;
         bool drawLocation;
         bool terminalOutput;  // recoverable runtime errors and output sent to terminal or outStr
-        bool manageMouse;
+
         float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace, sliderSpace;
 
         std::ostringstream outStr;
@@ -166,99 +166,75 @@ namespace Manager {
 
         std::string selectedAlign;
 
+        // Initialisation functions
         void init(int width, int height);
-
         void initBack(int width, int height);
-
         void setGlfwFrameBufferSize();
-
         void setImageSize(int width, int height);
-
         int makeRasterSurface();
 
-        void rasterToPng(const char* path);
-
+        // Data loading functions
         void loadGenome(std::string genome_tag_or_path, std::ostream& outerr);
-
         void addBam(std::string &bam_path);
-
         void removeBam(int index);
-
         void addTrack(std::string &path, bool print_message, bool vcf_as_track, bool bed_as_track);
-
         void removeTrack(int index);
-
-        void removeVariantTrack(int index);
-
+        // addRegion missing todo
         void removeRegion(int index);
-
         void addVariantTrack(std::string &path, int startIndex, bool cacheStdin, bool useFullPath);
-
+        void removeVariantTrack(int index);
         void addIdeogram(std::string path);
-
         bool loadIdeogramTag();
-
-        void addFilter(std::string &filter_str);
-
-        void setOutLabelFile(const std::string &path);
-
-        void setLabelChoices(std::vector<std::string> & labels);
-
-        void saveLabels();
-
-        void fetchRefSeq(Utils::Region &rgn);
-
-        void fetchRefSeqs();
-
-        void clearCollections();
-
-        void processBam();
-
-        void setScaling();
-
-        void setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop);
-
+        // removeIdeogram missing todo
         void loadSession();
 
+        // State functions
+        void fetchRefSeq(Utils::Region &rgn);
+        void fetchRefSeqs();
+        void addFilter(std::string &filter_str);
+        void setLabelChoices(std::vector<std::string> & labels);
+        void setOutLabelFile(const std::string &path);
+        void clearCollections();
+        void processBam();
+        void setScaling();
+        void setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop);
         int startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay, std::vector<std::string> &extra_commands);
 
+        // Interactions
         void keyPress(int key, int scancode, int action, int mods);
-
         void mouseButton(int button, int action, int mods);
-
         void mousePos(double x, double y);
-
         void scrollGesture(double xoffset, double yoffset);
-
         void windowResize(int x, int y);
-
         void pathDrop(int count, const char** paths);
-
-        void runDraw();
-
-        void runDrawOnCanvas(SkCanvas *canvas);
-
-        void runDrawNoBuffer();  // draws to canvas managed by GwPlot (slower)
-
-        void runDrawNoBufferOnCanvas(SkCanvas* canvas);  // draws to external canvas (faster)
-
-        sk_sp<SkImage> makeImage();
-
-        void printIndexInfo();
-
-        int printRegionInfo();
-
         bool commandProcessed();
-
-        void highlightQname();
-
-        void saveSession(std::string out_session);
-
         void prepareSelectedRegion();
-
         void addAlignmentToSelectedRegion();
 
+        // Draw functions
+        void drawScreen();
+        void drawScreenNoBuffer();
+        void runDraw();
+        void runDrawOnCanvas(SkCanvas *canvas);
+        void runDrawNoBuffer();  // draws to canvas managed by GwPlot (slower)
+        void runDrawNoBufferOnCanvas(SkCanvas* canvas);  // draws to external canvas (faster)
+        void syncImageCacheQueue();
+        bool collectionsNeedRedrawing();
+
+        // Printing information functions
+        void printIndexInfo();
+        int printRegionInfo();
+        void highlightQname();
         std::string flushLog();
+
+        // Output functions
+        sk_sp<SkImage> makeImage();
+        void saveSession(std::string out_session);
+        void rasterToPng(const char* path);
+        std::vector<uint8_t>* encodeToPngVector(int compression_level);
+        std::vector<uint8_t>* encodeToJpegVector(int quality);
+        std::vector<uint8_t>* encodeToWebPVector(int quality);  // slow!
+        void saveLabels();
 
     private:
 
@@ -280,6 +256,7 @@ namespace Manager {
         double pointSlop, textDrop, pH;
 
         double xDrag, xOri, lastX, yDrag, yOri, lastY;
+        int windowW, windowH;  // Window width dn height
 
         double yScaling;
 
@@ -298,10 +275,6 @@ namespace Manager {
 
         BS::thread_pool pool;
 
-        void drawScreen(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
-
-        void drawScreenNoBuffer(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
-
         void drawOverlay(SkCanvas* canvas);
 
         void tileDrawingThread(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
@@ -316,11 +289,60 @@ namespace Manager {
 
         int getCollectionIdx(float x, float y);
 
-        void updateCursorGenomePos(float xOffset, float xScaling, float xPos, Utils::Region *region, int bamIdx);
-
         void updateSlider(float xPos);
 
         void drawCursorPosOnRefSlider(SkCanvas *canvas);
+
+        // Helper methods for mouse interaction
+
+        void calculateCursorCoordinates(int button, int action, float& xW, float& yW);
+        bool handleToolButtons(int button, int action, float xW, float yW);
+        void toggleSettingsMode();
+        void toggleCommandCapture();
+        bool handleCommandTooltipInteraction(int button, int action, float xW, float yW);
+        void updateDragState();
+
+        // Mode-specific handlers
+        void handleSingleModeLeftClick(int button, int action, float xW, float yW);
+        void handleSingleModeRightClick();
+        void handleTiledModeRightClick(float xW, float yW);
+        void handleTiledModeLeftClick(float xW, float yW);
+        void handleSettingsModeClick();
+
+        // Track-specific handlers
+        bool handleTrackClick(int idx, int action, float xW, float yW);
+        void printReferenceSequence(float xW);
+        void printTrackInformation(int idx, float xW, float yW);
+
+        // Region handlers
+        void selectRegion(int idx);
+        void handleReadSelection(int idx, float xW, float yW);
+        void zoomToPosition(int pos);
+        void selectReadAtPosition(Segs::ReadCollection &cl, int pos, float xW, float yW);
+        void toggleReadHighlight(std::vector<Segs::Align>::iterator bnd, Segs::ReadCollection &cl, int pos);
+        void handleRegionDragging();
+        void updateRegionReads(bool lt_last);
+
+        // Mode switching
+        void switchToTiledMode();
+        void switchToSingleMode();
+
+        // UI helpers
+        int findBoxIndex(float xW, float yW);
+        void resetDragState();
+        void resetTextCapture();
+
+        // Tiled mode handlers
+        void handleMultiRegionSelection(int boxIdx);
+        void handleImageSelection(int boxIdx, float xW);
+        void handleVariantFileSelection(float xW);
+        void handleTiledModeScroll();
+        void handleTiledModeBoxClick(float xW, float yW);
+
+        // Mouse position handling functions
+
+        void updateCursorGenomePos(float xOffset, float xScaling, float xPos_fb, Utils::Region* region, int bamIdx);
+
 
     };
 
