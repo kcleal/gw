@@ -2014,26 +2014,16 @@ namespace Manager {
         sk_sp<SkData> encoded;
         SkJpegEncoder::Options options;
         options.fQuality = quality;
+
+#if defined(_WIN32)  // For Windows convert SkImage to SkPixmap
+        SkPixmap pixmap;
+        if (!img->peekPixels(&pixmap)) {
+            return nullptr;
+        }
+        encoded = SkJpegEncoder::Encode(nullptr, pixmap, options);
+#else
         encoded = SkJpegEncoder::Encode(nullptr, img.get(), options);
-
-        const uint8_t* data = static_cast<const uint8_t*>(encoded->data());
-        size_t size = encoded->size();
-        buffer.reserve(size);
-        buffer.insert(buffer.end(), data, data + size);
-        return &buffer;
-    }
-
-    std::vector<uint8_t>* GwPlot::encodeToWebPVector(int quality=80) {
-        static std::vector<uint8_t> buffer;
-        buffer.clear();
-        assert(rasterSurface != nullptr);
-        sk_sp<SkImage> img = rasterSurface->makeImageSnapshot();
-
-        SkWebpEncoder::Options options;
-        options.fQuality = quality;
-        options.fCompression = SkWebpEncoder::Compression::kLossy;
-        sk_sp<SkData> encoded = SkWebpEncoder::Encode(nullptr, img.get(), options);
-
+#endif
         const uint8_t* data = static_cast<const uint8_t*>(encoded->data());
         size_t size = encoded->size();
         buffer.reserve(size);
@@ -2051,10 +2041,10 @@ namespace Manager {
 #endif
         if (!png) { return; }
 #if defined(_WIN32)
-	const wchar_t* outp = path.c_str();
-	std::wstring pw(outp);
-	std::string outp_str(pw.begin(), pw.end());
-	SkFILEWStream out(outp_str.c_str());
+        const wchar_t* outp = path.c_str();
+        std::wstring pw(outp);
+        std::string outp_str(pw.begin(), pw.end());
+        SkFILEWStream out(outp_str.c_str());
 #else
         SkFILEWStream out(path.c_str());
 #endif

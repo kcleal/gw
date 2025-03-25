@@ -233,7 +233,6 @@ namespace Manager {
         void rasterToPng(const char* path);
         std::vector<uint8_t>* encodeToPngVector(int compression_level);
         std::vector<uint8_t>* encodeToJpegVector(int quality);
-        std::vector<uint8_t>* encodeToWebPVector(int quality);  // slow!
         void saveLabels();
 
     private:
