@@ -2016,11 +2016,8 @@ namespace Manager {
         options.fQuality = quality;
 
 #if defined(_WIN32)  // For Windows convert SkImage to SkPixmap
-        SkPixmap pixmap;
-        if (!img->peekPixels(&pixmap)) {
-            return nullptr;
-        }
-        encoded = SkJpegEncoder::Encode(nullptr, pixmap, options);
+        std::cerr << "Error: this function is not supported for Windows at the moment\n";
+        return nullptr;
 #else
         encoded = SkJpegEncoder::Encode(nullptr, img.get(), options);
 #endif
