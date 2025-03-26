@@ -20,6 +20,10 @@
 #include "include/encode/SkPngEncoder.h"
 #include "include/encode/SkJpegEncoder.h"
 #include "include/encode/SkWebpEncoder.h"
+#include "include/docs/SkPDFDocument.h"
+#include "include/core/SkPictureRecorder.h"
+#include "include/core/SkPicture.h"
+#include "include/svg/SkSVGCanvas.h"
 
 #include "ankerl_unordered_dense.h"
 #include "drawing.h"
@@ -1985,6 +1989,43 @@ namespace Manager {
         fclose(fout);
     }
 
+    void GwPlot::saveToPdf(const char* path) {
+        SkFILEWStream out(path);
+        SkDynamicMemoryWStream buffer;
+        processed = false;
+        redraw = true;
+        auto pdfDocument = SkPDF::MakeDocument(&buffer);
+        SkCanvas *canvas = pdfDocument->beginPage(opts.dimensions.x, opts.dimensions.y);
+        setImageSize(opts.dimensions.x, opts.dimensions.y);
+        if (opts.link_op == 0) {
+            runDrawNoBufferOnCanvas(canvas);
+        } else {
+            runDrawOnCanvas(canvas);
+        }
+        pdfDocument->close();
+        buffer.writeToStream(&out);
+    }
+
+    void GwPlot::saveToSvg(const char* path) {
+        SkFILEWStream out(path);
+        processed = false;
+        redraw = true;
+        setImageSize(opts.dimensions.x, opts.dimensions.y);
+
+        SkPictureRecorder recorder;
+        SkCanvas* canvas = recorder.beginRecording(SkRect::MakeWH(opts.dimensions.x, opts.dimensions.y));
+        if (opts.link_op == 0) {
+            runDrawNoBufferOnCanvas(canvas);
+        } else {
+            runDrawOnCanvas(canvas);
+        }
+        sk_sp<SkPicture> picture = recorder.finishRecordingAsPicture();
+        std::unique_ptr<SkCanvas> svgCanvas = SkSVGCanvas::Make(SkRect::MakeWH(opts.dimensions.x, opts.dimensions.y), &out);
+        if (svgCanvas) {
+            picture->playback(svgCanvas.get());
+        };
+    }
+
     std::vector<uint8_t>* GwPlot::encodeToPngVector(int compression_level=6) {
         static std::vector<uint8_t> buffer;  // Note buffer will be re-used!
         buffer.clear();
@@ -2086,24 +2127,25 @@ namespace Manager {
         fclose(fout);
     }
 
-    void drawImageCommands(Manager::GwPlot &p, SkCanvas *canvas, std::vector<std::string> &extra_commands) {
 
-        p.setImageSize(p.opts.dimensions.x, p.opts.dimensions.y);
-        bool stream_reads = p.opts.link_op == 0;
+    void drawImageCommands(Manager::GwPlot &plot, SkCanvas *canvas, std::vector<std::string> &extra_commands) {
+
+        plot.setImageSize(plot.opts.dimensions.x, plot.opts.dimensions.y);
+        bool stream_reads = plot.opts.link_op == 0;
         if (!extra_commands.empty()) {
-            p.regionSelection = 0;
+            plot.regionSelection = 0;
             for (const auto& command: extra_commands) {
-                p.inputText = command;
-                p.commandProcessed();
-                if (p.regions.front().sortOption != 0) {
+                plot.inputText = command;
+                plot.commandProcessed();
+                if (plot.regions.front().sortOption != 0) {
                     stream_reads = false;
                 }
             }
         }
         if (stream_reads) {
-            p.runDrawNoBufferOnCanvas(canvas);
+            plot.runDrawNoBufferOnCanvas(canvas);
         } else {
-            p.runDrawOnCanvas(canvas);
+            plot.runDrawOnCanvas(canvas);
         }
     }
 

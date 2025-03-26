@@ -331,9 +331,9 @@ int main(int argc, char *argv[]) {
 
 #if defined(_WIN32) || defined(_WIN64)
                 const wchar_t* outp = out_path.c_str();
-        std::wstring pw(outp);
-        std::string outp_str(pw.begin(), pw.end());
-        SkFILEWStream out(outp_str.c_str());
+                std::wstring pw(outp);
+                std::string outp_str(pw.begin(), pw.end());
+                SkFILEWStream out(outp_str.c_str());
 #else
                 SkFILEWStream out(out_path.c_str());
 #endif

@@ -231,6 +231,8 @@ namespace Manager {
         sk_sp<SkImage> makeImage();
         void saveSession(std::string out_session);
         void rasterToPng(const char* path);
+        void saveToPdf(const char* path);
+        void saveToSvg(const char* path);
         std::vector<uint8_t>* encodeToPngVector(int compression_level);
         std::vector<uint8_t>* encodeToJpegVector(int quality);
         void saveLabels();
@@ -351,7 +353,7 @@ namespace Manager {
 
     void imagePngToFile(sk_sp<SkImage> &img, std::string path);
 
-    void imageToPdf(sk_sp<SkImage> &img, std::filesystem::path &outdir);
+    void savePlotToPdfFile(Manager::GwPlot *plot, std::string path);
 
     struct VariantJob {
         std::string chrom;
