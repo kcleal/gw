@@ -152,7 +152,7 @@ namespace Manager {
         if (window != nullptr) {
             glfwDestroyWindow(window);
         }
-        glfwTerminate();
+//        glfwTerminate();
         for (auto &bm: bams) {
             hts_close(bm);
         }
@@ -999,79 +999,81 @@ namespace Manager {
     }
 
     void GwPlot::processBam() {  // collect reads, calc coverage and find y positions on plot
+        if (processed) {
+            return;
+        }
         const int parse_mods_threshold = (opts.parse_mods) ? opts.mods_qual_threshold : 0;
-        if (!processed) {
-            int idx = 0;
+        int idx = 0;
+        for (auto &cl: collections) {
+            for (auto &aln: cl.readQueue) {
+                bam_destroy1(aln.delegate);
+            }
+            cl.readQueue.clear();
+            cl.covArr.clear();
+            cl.mmVector.clear();
+            cl.levelsStart.clear();
+            cl.levelsEnd.clear();
+            cl.linked.clear();
+            cl.resetDrawState();
+        }
+        if (collections.size() != bams.size() * regions.size()) {
+            collections.resize(bams.size() * regions.size());
+        }
 
-            for (auto &cl: collections) {
-                for (auto &aln: cl.readQueue) {
-                    bam_destroy1(aln.delegate);
+        for (int i = 0; i < (int) bams.size(); ++i) {
+            htsFile *b = bams[i];
+            sam_hdr_t *hdr_ptr = headers[i];
+            hts_idx_t *index = indexes[i];
+
+            for (int j = 0; j < (int) regions.size(); ++j) {
+                Utils::Region * reg = &regions[j];
+
+                collections[idx].bamIdx = i;
+                collections[idx].regionIdx = j;
+                collections[idx].region = &regions[j];
+                if (collections[idx].skipDrawingReads) {
+                    continue;
                 }
-                cl.readQueue.clear();
-                cl.covArr.clear();
-                cl.mmVector.clear();
-                cl.levelsStart.clear();
-                cl.levelsEnd.clear();
-                cl.linked.clear();
-                cl.skipDrawingReads = false;
-                cl.skipDrawingCoverage = false;
-            }
-            if (collections.size() != bams.size() * regions.size()) {
-                collections.resize(bams.size() * regions.size());
-            }
-
-            for (int i = 0; i < (int) bams.size(); ++i) {
-                htsFile *b = bams[i];
-                sam_hdr_t *hdr_ptr = headers[i];
-                hts_idx_t *index = indexes[i];
-
-                for (int j = 0; j < (int) regions.size(); ++j) {
-                    Utils::Region * reg = &regions[j];
-
-                    collections[idx].bamIdx = i;
-                    collections[idx].regionIdx = j;
-                    collections[idx].region = &regions[j];
-                    if (collections[idx].skipDrawingReads) {
-                        continue;
-                    }
-                    if (opts.max_coverage) {
-                        collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
-
-                    }
-                    if (opts.snp_threshold > reg->end - reg->start) {
-                        collections[idx].mmVector.resize(reg->end - reg->start + 1);
-                        Segs::Mismatches empty_mm = {0, 0, 0, 0};
-                        std::fill(collections[idx].mmVector.begin(), collections[idx].mmVector.end(), empty_mm);
-                    } else if (!collections[idx].mmVector.empty()) {
-                        collections[idx].mmVector.clear();
-                    }
-
-                    if (reg->end - reg->start < opts.low_memory || opts.link_op != 0) {
-
-                        HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg,
-                                                     (bool) opts.max_coverage, filters, pool, parse_mods_threshold);
-
-                        int sort_state = Segs::getSortCodes(collections[idx].readQueue, opts.threads, pool, reg);
-                        int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts,
-                                               false, sort_state);
-                        samMaxY = maxY;
-                    } else {
-                        samMaxY = opts.ylim;
-                    }
-
-                    idx += 1;
+                if (opts.max_coverage) {
+                    collections[idx].covArr.resize(reg->end - reg->start + 1, 0);
                 }
-            }
-
-            if (bams.empty()) {
-                collections.resize(regions.size());
-                for (int j = 0; j < (int) regions.size(); ++j) {
-                    collections[idx].bamIdx = -1;
-                    collections[idx].regionIdx = j;
-                    collections[idx].region = &regions[j];
-                    idx += 1;
+                if (opts.snp_threshold > reg->end - reg->start) {
+                    collections[idx].makeEmptyMMArray();
+                } else if (!collections[idx].mmVector.empty()) {
+                    collections[idx].mmVector.clear();
                 }
+
+                if (reg->end - reg->start < opts.low_memory || opts.link_op != 0) {
+
+                    HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg,
+                                                 (bool) opts.max_coverage, filters, pool, parse_mods_threshold);
+
+                    int sort_state = Segs::getSortCodes(collections[idx].readQueue, opts.threads, pool, reg);
+                    int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts,
+                                           false, sort_state);
+                    samMaxY = maxY;
+                } else {
+                    samMaxY = opts.ylim;
+                }
+
+                idx += 1;
             }
+        }
+
+        if (bams.empty()) {
+            collections.resize(regions.size());
+            for (int j = 0; j < (int) regions.size(); ++j) {
+                collections[idx].bamIdx = -1;
+                collections[idx].regionIdx = j;
+                collections[idx].region = &regions[j];
+                idx += 1;
+            }
+        }
+    }
+
+    void GwPlot::resetCollectionRegionPtrs() {
+        for (auto& cl: collections) {
+            cl.region = &regions[cl.regionIdx];
         }
     }
 
@@ -1160,7 +1162,6 @@ namespace Manager {
                 pH = std::fmax(pH, 8);
             }
         }
-
         regionWidth = fbw / (float)regions.size();
         bamHeight = covY + trackY;
 
@@ -1210,7 +1211,7 @@ namespace Manager {
         return false;
     }
 
-    void GwPlot::drawScreen() {
+    void GwPlot::drawScreen(bool force_buffered_reads) {
 //        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
         SkCanvas *canvasR = rasterCanvas;
         canvasR->drawPaint(opts.theme.bgPaint);
@@ -1258,7 +1259,7 @@ namespace Manager {
                 canvasR->drawPaint(opts.theme.bgPaint);
 
                 if (!cl.skipDrawingReads && !bams.empty()) {
-                    if (cl.regionLen >= opts.low_memory) {
+                    if (cl.regionLen >= opts.low_memory && !force_buffered_reads) {
                         assert (opts.link_op == 0 && regions[cl.regionIdx].getSortOption() == SortType::NONE);
                         // low memory mode will be used
                         cl.clear();
@@ -1696,7 +1697,7 @@ namespace Manager {
                                   }
                               }).wait();
 
-        if (currentVarTrack->type == HGW::TrackType::IMAGES) { //multiLabels.size() < endIdx) {
+        if (currentVarTrack->type == HGW::TrackType::IMAGES) {
             currentVarTrack->appendImageLabels(bStart, bLen);
         }
     }
@@ -1730,7 +1731,6 @@ namespace Manager {
             std::rotate(srtLabels.begin(), pivot, pivot + 1);
         }
 
-//        canvas->drawPaint(opts.theme.bgPaint);
         canvas->drawPaint(opts.theme.bgPaintTiled);
         SkSamplingOptions sampOpts = SkSamplingOptions();
         int i = bStart;
@@ -1752,7 +1752,6 @@ namespace Manager {
                     float newHeight = newWidth / ratio;
                     rect.setXYWH(b.xStart, b.yStart, newWidth, newHeight);
                 }
-//                canvas->drawRect(rect, opts.theme.bgPaint);
                 canvas->drawImageRect(imageCache[i], rect, sampOpts);
                 if (currentVarTrack->multiLabels.empty()) {
                     ++i; continue;
@@ -1770,11 +1769,10 @@ namespace Manager {
         redraw = false;
     }
 
-    void GwPlot::runDrawOnCanvas(SkCanvas *canvas) {
+    void GwPlot::runDrawOnCanvas(SkCanvas *canvas, bool force_buffered_reads) {
         fetchRefSeqs();
         processBam();
         setScaling();
-
         canvas->drawPaint(opts.theme.bgPaint);
         SkRect clip;
 
@@ -1798,7 +1796,7 @@ namespace Manager {
 
             if (!cl.skipDrawingReads && !bams.empty()) {
 
-                if (cl.regionLen >= opts.low_memory) {
+                if (cl.regionLen >= opts.low_memory && !force_buffered_reads) {
                     assert (opts.link_op == 0 && regions[cl.regionIdx].getSortOption() == SortType::NONE);
                     // low memory mode will be used
                     cl.clear();
@@ -1830,8 +1828,8 @@ namespace Manager {
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale, gap, drawLocation);
     }
 
-    void GwPlot::runDraw() {
-        runDrawOnCanvas(rasterCanvas);
+    void GwPlot::runDraw(bool force_buffered_reads) {
+        runDrawOnCanvas(rasterCanvas, force_buffered_reads);
     }
 
     void GwPlot::runDrawNoBufferOnCanvas(SkCanvas* canvas) {
@@ -1862,9 +1860,7 @@ namespace Manager {
                     col.covArr.resize(reg->end - reg->start + 1, 0);
                 }
                 if (opts.snp_threshold > reg->end - reg->start) {
-                    col.mmVector.resize(reg->end - reg->start + 1);
-                    Segs::Mismatches empty_mm = {0, 0, 0, 0};
-                    std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
+                    col.makeEmptyMMArray();
                 } else if (!col.mmVector.empty()) {
                     col.mmVector.clear();
                 }
@@ -1969,6 +1965,9 @@ namespace Manager {
         makeRasterSurface();
         runDraw();
         sk_sp<SkImage> img(rasterSurfacePtr[0]->makeImageSnapshot());
+        for (auto &cl: collections) {
+            cl.resetDrawState();
+        }
         return img;
     }
 
@@ -1989,41 +1988,54 @@ namespace Manager {
         fclose(fout);
     }
 
-    void GwPlot::saveToPdf(const char* path) {
+    void GwPlot::saveToPdf(const char* path, bool force_buffered_reads) {
         SkFILEWStream out(path);
         SkDynamicMemoryWStream buffer;
-        processed = false;
+        // We need to redraw everything
         redraw = true;
+        for (auto &cl: collections) {
+            cl.resetDrawState();
+        }
         auto pdfDocument = SkPDF::MakeDocument(&buffer);
         SkCanvas *canvas = pdfDocument->beginPage(opts.dimensions.x, opts.dimensions.y);
         setImageSize(opts.dimensions.x, opts.dimensions.y);
-        if (opts.link_op == 0) {
+        if (opts.link_op == 0 && !force_buffered_reads) {
             runDrawNoBufferOnCanvas(canvas);
         } else {
-            runDrawOnCanvas(canvas);
+            runDrawOnCanvas(canvas, force_buffered_reads);
         }
         pdfDocument->close();
         buffer.writeToStream(&out);
+        // Make sure later draw calls are not skipped
+        redraw = true;
+        for (auto &cl: collections) {
+            cl.resetDrawState();
+        }
     }
 
-    void GwPlot::saveToSvg(const char* path) {
+    void GwPlot::saveToSvg(const char* path, bool force_buffered_reads) {
         SkFILEWStream out(path);
-        processed = false;
         redraw = true;
+        for (auto &cl: collections) {
+            cl.resetDrawState();
+        }
         setImageSize(opts.dimensions.x, opts.dimensions.y);
-
         SkPictureRecorder recorder;
         SkCanvas* canvas = recorder.beginRecording(SkRect::MakeWH(opts.dimensions.x, opts.dimensions.y));
-        if (opts.link_op == 0) {
+        if (opts.link_op == 0 && !force_buffered_reads) {
             runDrawNoBufferOnCanvas(canvas);
         } else {
-            runDrawOnCanvas(canvas);
+            runDrawOnCanvas(canvas, force_buffered_reads);
         }
         sk_sp<SkPicture> picture = recorder.finishRecordingAsPicture();
         std::unique_ptr<SkCanvas> svgCanvas = SkSVGCanvas::Make(SkRect::MakeWH(opts.dimensions.x, opts.dimensions.y), &out);
         if (svgCanvas) {
             picture->playback(svgCanvas.get());
         };
+        redraw = true;
+        for (auto &cl: collections) {
+            cl.resetDrawState();
+        }
     }
 
     std::vector<uint8_t>* GwPlot::encodeToPngVector(int compression_level=6) {
@@ -2147,6 +2159,14 @@ namespace Manager {
         } else {
             plot.runDrawOnCanvas(canvas);
         }
+    }
+
+    size_t GwPlot::sizeOfBams() {
+        return bams.size();
+    }
+
+    size_t GwPlot::sizeOfRegions() {
+        return regions.size();
     }
 
 }

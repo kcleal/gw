@@ -118,8 +118,7 @@ namespace Commands {
             p->target_qname = "";
             for (auto &cl: p->collections) {
                 cl.vScroll = 0;
-                cl.skipDrawingCoverage = false;
-                cl.skipDrawingReads = false;
+                cl.resetDrawState();
             }
             for (auto &rgn: p->regions) {
                 rgn.sortOption = Utils::SortType::NONE, rgn.sortPos = -1;
@@ -314,8 +313,7 @@ namespace Commands {
             if (p->mode == Manager::Show::SINGLE) {
                 p->processed = true;
                 for (auto &cl : p->collections) {
-                    cl.skipDrawingReads = false;
-                    cl.skipDrawingCoverage = false;
+                    cl.resetDrawState();
                 }
             } else {
                 p->processed = false;
@@ -354,8 +352,7 @@ namespace Commands {
         p->opts.alignments = !p->opts.alignments;
         if (p->frameId >= 0) {
             for (auto &cl: p->collections) {
-                cl.skipDrawingCoverage = false;
-                cl.skipDrawingReads = false;
+                cl.resetDrawState();
             }
             p->redraw = true;
         }
@@ -369,8 +366,7 @@ namespace Commands {
         p->opts.data_labels = !p->opts.data_labels;
         if (p->frameId >= 0) {
             for (auto &cl: p->collections) {
-                cl.skipDrawingCoverage = false;
-                cl.skipDrawingReads = false;
+                cl.resetDrawState();
             }
             p->redraw = true;
         }
@@ -685,8 +681,7 @@ namespace Commands {
             p->filters.clear();
         }
         for (auto &cl : p->collections) {
-            cl.skipDrawingReads = false;
-            cl.skipDrawingCoverage = false;
+            cl.resetDrawState();
         }
 
         p->imageCacheQueue.clear();
@@ -715,8 +710,7 @@ namespace Commands {
         p->opts.max_coverage = std::max(0, p->opts.max_coverage);
         if (p->frameId >= 0) {
             for (auto &cl: p->collections) {
-                cl.skipDrawingReads = false;
-                cl.skipDrawingCoverage = false;
+                cl.resetDrawState();
             }
             p->processed = false;
             p->imageCache.clear();
@@ -861,8 +855,7 @@ namespace Commands {
         if (p->frameId >= 0) {
             p->processed = false;
             for (auto &cl: p->collections) {
-                cl.skipDrawingCoverage = false;
-                cl.skipDrawingReads = false;
+                cl.resetDrawState();
             }
             p->imageCache.clear();
             p->imageCacheQueue.clear();
@@ -948,8 +941,7 @@ namespace Commands {
                 SkDynamicMemoryWStream buffer;
 
                 for (auto &cl: p->collections) {
-                    cl.skipDrawingCoverage = false;
-                    cl.skipDrawingReads = false;
+                    cl.resetDrawState();
                 }
                 if (format_str == "pdf") {
                     auto pdfDocument = SkPDF::MakeDocument(&buffer);
@@ -1648,7 +1640,7 @@ namespace Commands {
         p->imageCacheQueue.clear();
         p->filters.clear();
         p->target_qname = "";
-        for (auto &cl: p->collections) { cl.vScroll = 0; cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
+        for (auto &cl: p->collections) { cl.vScroll = 0; cl.resetDrawState(); }
         return Err::NONE;
     }
 
@@ -1755,8 +1747,7 @@ namespace Commands {
                     p->redraw = true;
                     p->processed = false;
                     for (auto &cl : p->collections) {
-                        cl.skipDrawingReads = false;
-                        cl.skipDrawingCoverage = false;
+                        cl.resetDrawState();
                     };
                 }
             }

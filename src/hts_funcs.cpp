@@ -215,9 +215,8 @@ namespace HGW {
         }
 
         if (coverage) {
-            int l_arr = (int)col.covArr.size() - 1;
             for (auto &i : readQueue) {
-                Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
+                Segs::addToCovArray(col.covArr, i, region->start, region->end);
             }
         }
         col.collection_processed = false;
@@ -415,10 +414,9 @@ namespace HGW {
                 applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
             }
             if (coverage) {
-                int l_arr = (int)col.covArr.size() - 1;
                 for (int i=0; i < BATCH; ++ i) {
                     if (readQueue[i].y != -2) {
-                        Segs::addToCovArray(col.covArr, readQueue[i], region->start, region->end, l_arr);
+                        Segs::addToCovArray(col.covArr, readQueue[i], region->start, region->end);
                     }
                 }
             }
@@ -445,10 +443,9 @@ namespace HGW {
                     applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
                 }
                 if (coverage) {
-                    int l_arr = (int)col.covArr.size() - 1;
                     for (int i=0; i < BATCH; ++ i) {
                         if (readQueue[i].y != -2) {
-                            Segs::addToCovArray(col.covArr, readQueue[i], region->start, region->end, l_arr);
+                            Segs::addToCovArray(col.covArr, readQueue[i], region->start, region->end);
                         }
                     }
                 }
@@ -508,8 +505,7 @@ namespace HGW {
                 }
             }
             if (coverage) {
-                int l_arr = (int)col.covArr.size() - 1;
-                Segs::addToCovArray(col.covArr, readQueue.back(), region->start, region->end, l_arr);
+                Segs::addToCovArray(col.covArr, readQueue.back(), region->start, region->end);
             }
             Segs::alignFindYForward(readQueue.back(), col.levelsStart, col.levelsEnd, col.vScroll);
             Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop,
@@ -553,9 +549,8 @@ namespace HGW {
         if (coverage) {  // re process coverage for all reads
             col.covArr.resize(region->end - region->start + 1);
             std::fill(col.covArr.begin(), col.covArr.end(), 0);
-            int l_arr = (int)col.covArr.size() - 1;
             for (auto &i : col.readQueue) {
-                Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
+                Segs::addToCovArray(col.covArr, i, region->start, region->end);
             }
         }
         if (snp_threshold > region->end - region->start) {
@@ -643,9 +638,8 @@ namespace HGW {
                     if (coverage) {
                         col.covArr.resize(region->end - region->start + 1);
                         std::fill(col.covArr.begin(), col.covArr.end(), 0);
-                        int l_arr = (int)col.covArr.size() - 1;
                         for (auto &i : readQueue) {
-                            Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
+                            Segs::addToCovArray(col.covArr, i, region->start, region->end);
                         }
                     }
                     if (opts.snp_threshold > region->end - region->start) {
@@ -782,9 +776,8 @@ namespace HGW {
         if (coverage) {  // re process coverage for all reads
             col.covArr.resize(region->end - region->start + 1);
             std::fill(col.covArr.begin(), col.covArr.end(), 0);
-            int l_arr = (int)col.covArr.size() - 1;
             for (auto &i : readQueue) {
-                Segs::addToCovArray(col.covArr, i, region->start, region->end, l_arr);
+                Segs::addToCovArray(col.covArr, i, region->start, region->end);
             }
         }
         if (opts.snp_threshold > region->end - region->start) {

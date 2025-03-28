@@ -58,18 +58,15 @@ namespace Drawing {
         std::vector<float> textX_ins, textY_ins;
         const float covY = covYh * 0.95;
         const float covY_f = covY * 0.3;
-        int last_bamIdx = 0;
-        float yOffsetAll = refSpace;
+        float yOffsetAll;
 
         for (auto &cl: collections) {
             if (cl.skipDrawingCoverage) {
                 continue;
             }
             cl.skipDrawingCoverage = true;
+            yOffsetAll = (cl.yPixels * cl.bamIdx) + refSpace;
 
-            if (cl.bamIdx != last_bamIdx) {
-                yOffsetAll += cl.yPixels;
-            }
             float xScaling = cl.xScaling;
             float xOffset = cl.xOffset;
             bool draw_mismatch_info = (opts.snp_threshold > (int) cl.covArr.size()) && !cl.mmVector.empty();
@@ -298,8 +295,6 @@ namespace Drawing {
             path.moveTo(xOffset, covY + yOffsetAll);
             path.lineTo(xOffset + 6 * monitorScale, covY + yOffsetAll);
             canvas->drawPath(path, theme.lcJoins);
-
-            last_bamIdx = cl.bamIdx;
 
             // Draw data labels when alignments are not shown
             if (opts.data_labels && !opts.alignments && cl.regionIdx == 0) {
@@ -1058,10 +1053,10 @@ namespace Drawing {
             // add soft-clip blocks
             int start = (int) a.pos - regionBegin;
             int end = (int) a.reference_end - regionBegin;
-            auto l_seq = (int) a.delegate->core.l_qseq;
+            auto l_qseq = (int) a.delegate->core.l_qseq;
             if (opts.soft_clip_threshold != 0) {
                 if (a.left_soft_clip > 0) {
-                    width = (plotSoftClipAsBlock || l_seq == 0) ? (float) a.left_soft_clip : 0;
+                    width = (plotSoftClipAsBlock || l_qseq == 0) ? (float) a.left_soft_clip : 0;
                     s = start - a.left_soft_clip;
                     if (s < 0) {
                         width += s;
@@ -1083,7 +1078,7 @@ namespace Drawing {
                     }
                 }
                 if (a.right_soft_clip > 0) {
-                    if (plotSoftClipAsBlock || l_seq == 0) {
+                    if (plotSoftClipAsBlock || l_qseq == 0) {
                         s = end;
                         width = (float) a.right_soft_clip;
                     } else {
@@ -1113,7 +1108,7 @@ namespace Drawing {
             }
 
             // add mismatches
-            if (l_seq == 0) {
+            if (l_qseq == 0) {
                 continue;
             }
             float mmPosOffset, mmScaling;
@@ -1125,8 +1120,6 @@ namespace Drawing {
                 mmScaling = 1;
             }
             int colorIdx;
-
-            int32_t l_qseq = a.delegate->core.l_qseq;
 
             if (regionLen <= opts.snp_threshold) {
                 float mms = xScaling * mmScaling;
@@ -1161,7 +1154,6 @@ namespace Drawing {
                     }
                 }
             }
-
             // add soft-clips
             if (!plotSoftClipAsBlock) {
                 uint8_t *ptr_seq = bam_get_seq(a.delegate);
@@ -1170,13 +1162,13 @@ namespace Drawing {
                     int pos = (int) a.reference_end - regionBegin;
                     if (pos < regionLen && a.cov_end > regionBegin) {
                         int opLen = (int) a.right_soft_clip;
-                        for (int idx = l_seq - opLen; idx < l_seq; ++idx) {
+                        for (int idx = l_qseq - opLen; idx < l_qseq; ++idx) {
                             float p = pos * xScaling;
-                                uint8_t base = bam_seqi(ptr_seq, idx);
-                                uint8_t qual = ptr_qual[idx];
-                                colorIdx = (l_qseq == 0) ? 10 : (qual > 10) ? 10 : qual;
-                                rect.setXYWH(p + xOffset + mmPosOffset, yScaledOffset, xScaling * mmScaling, pH);
-                                canvas->drawRect(rect, theme.BasePaints[base][colorIdx]);
+                            uint8_t base = bam_seqi(ptr_seq, idx);
+                            uint8_t qual = ptr_qual[idx];
+                            colorIdx = (l_qseq == 0) ? 10 : (qual > 10) ? 10 : qual;
+                            rect.setXYWH(p + xOffset + mmPosOffset, yScaledOffset, xScaling * mmScaling, pH);
+                            canvas->drawRect(rect, theme.BasePaints[base][colorIdx]);
                             pos += 1;
                         }
                     }
@@ -1186,11 +1178,11 @@ namespace Drawing {
                     int pos = (int) a.pos - regionBegin - opLen;
                     for (int idx = 0; idx < opLen; ++idx) {
                         float p = pos * xScaling;
-                            uint8_t base = bam_seqi(ptr_seq, idx);
-                            uint8_t qual = ptr_qual[idx];
-                            colorIdx = (l_qseq == 0) ? 10 : (qual > 10) ? 10 : qual;
-                            rect.setXYWH(p + xOffset + mmPosOffset, yScaledOffset, xScaling * mmScaling, pH);
-                            canvas->drawRect(rect, theme.BasePaints[base][colorIdx]);
+                        uint8_t base = bam_seqi(ptr_seq, idx);
+                        uint8_t qual = ptr_qual[idx];
+                        colorIdx = (l_qseq == 0) ? 10 : (qual > 10) ? 10 : qual;
+                        rect.setXYWH(p + xOffset + mmPosOffset, yScaledOffset, xScaling * mmScaling, pH);
+                        canvas->drawRect(rect, theme.BasePaints[base][colorIdx]);
                         pos += 1;
                     }
                 }
@@ -1201,7 +1193,6 @@ namespace Drawing {
                          yScaledOffset, pH, l_qseq, monitorScale, regionLen <= 2000);
             }
         }
-
         // draw text deletions + insertions
         for (const auto &t : text_del) {
             canvas->drawTextBlob(t.text.get(), t.x + (monitorScale * 0.5), t.y, theme.tcDel);

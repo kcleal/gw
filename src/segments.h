@@ -166,10 +166,10 @@ namespace Segs {
 
     class EXPORT ReadCollection {
     public:
-       ReadCollection();
+        ReadCollection() {};
         ~ReadCollection() = default;
         std::string name;
-        int bamIdx, regionIdx, vScroll;
+        int bamIdx{0}, regionIdx{0}, vScroll{0};
         int maxCoverage, regionLen;
         Utils::Region *region;
         std::vector<int> covArr;
@@ -177,30 +177,32 @@ namespace Segs {
         std::vector<Mismatches> mmVector;
         std::vector<Align> readQueue;
         map_t linked;
-        //ankerl::unordered_dense::map< int, int > sortLevels;  // For working out sort level
         std::vector<int> sortLevels;
         float xScaling, xOffset, yOffset, yPixels, xPixels;
         float regionPixels;
 
-        bool collection_processed;
-        bool skipDrawingReads;
-        bool skipDrawingCoverage;
+        bool collection_processed{false};
+        bool skipDrawingReads{false};
+        bool skipDrawingCoverage{false};
         bool plotSoftClipAsBlock;
         bool plotPointedPolygons;
         bool drawEdges;
+        bool ownsBamPtrs{true};
 
+        void makeEmptyMMArray();
         void clear();
+        void resetDrawState();
     };
 
-    void align_init(Align *self, int parse_mods_threshold);
+    void EXPORT align_init(Align *self, int parse_mods_threshold);
 
-    void align_clear(Align *self);
+    void EXPORT align_clear(Align *self);
 
     void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool, int parse_mods_threshold);
 
     void resetCovStartEnd(ReadCollection &cl);
 
-    void addToCovArray(std::vector<int> &arr, const Align &align, uint32_t begin, uint32_t end, uint32_t l_arr) noexcept;
+    void EXPORT addToCovArray(std::vector<int> &arr, const Align &align, const uint32_t begin, const uint32_t end) noexcept;
 
     // Used to get sorting codes before using findY functions
     int getSortCodes(std::vector<Align> &aligns, int n, BS::thread_pool &pool, Utils::Region *region);
@@ -212,7 +214,7 @@ namespace Segs {
     void findYNoSortForward(std::vector<Align> &rQ, std::vector<int> &ls, std::vector<int> &le, int vScroll);
 
     // Works with buffered reads or stream of reads, needed if reads are to be re-sorted
-    int findY(ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, bool joinLeft, int sortReadsBy);
+    int EXPORT findY(ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, bool joinLeft, int sortReadsBy);
 
     void findMismatches(const Themes::IniOptions &opts, ReadCollection &collection);
 

@@ -961,11 +961,22 @@ namespace Segs {
         return sort_state;
     }
 
-    EXPORT ReadCollection::ReadCollection() {
-        vScroll = 0;
-        collection_processed = false;
-        skipDrawingReads = false;
-        skipDrawingCoverage = false;
+//    EXPORT ReadCollection::ReadCollection() {
+//        vScroll = 0;
+//        bamIdx = 0;
+//        regionIdx = 0;
+//        collection_processed = false;
+//        skipDrawingReads = false;
+//        skipDrawingCoverage = false;
+//    }
+
+    void ReadCollection::makeEmptyMMArray() {
+        if (region == nullptr) {
+            return;
+        }
+        mmVector.resize(region->end - region->start + 1);
+        Mismatches empty_mm = {0, 0, 0, 0};
+        std::fill(mmVector.begin(), mmVector.end(), empty_mm);
     }
 
     void ReadCollection::clear() {
@@ -974,10 +985,17 @@ namespace Segs {
         std::fill(covArr.begin(), covArr.end(), 0);
         linked.clear();
         collection_processed = false;
-        for (auto &item: readQueue) {
-            bam_destroy1(item.delegate);
+        if (ownsBamPtrs) {
+            for (auto &item: readQueue) {
+                bam_destroy1(item.delegate);
+            }
         }
         readQueue.clear();
+    }
+
+    void ReadCollection::resetDrawState() {
+        skipDrawingReads = false;
+        skipDrawingCoverage = false;
     }
 
     void resetCovStartEnd(ReadCollection &cl) {
@@ -992,7 +1010,7 @@ namespace Segs {
         }
     }
 
-    void addToCovArray(std::vector<int> &arr, const Align &align, const uint32_t begin, const uint32_t end, const uint32_t l_arr) noexcept {
+    void addToCovArray(std::vector<int> &arr, const Align &align, const uint32_t begin, const uint32_t end) noexcept {
         size_t n_blocks = align.blocks.size();
         for (size_t idx=0; idx < n_blocks; ++idx) {
             uint32_t block_s = align.blocks[idx].start;

@@ -130,8 +130,7 @@ namespace Manager {
                 imageCacheQueue.clear();
                 if (!collections.empty()) {
                     for (auto & cl : collections) {
-                        cl.skipDrawingReads = false;
-                        cl.skipDrawingCoverage = false;
+                        cl.resetDrawState();
                         cl.levelsStart.clear();
                         cl.levelsEnd.clear();
                         cl.linked.clear();
@@ -586,8 +585,7 @@ namespace Manager {
             for (auto &a: cl.readQueue) {
                 if (bam_get_qname(a.delegate) == target_qname) {
                     a.edge_type = 4;
-                    cl.skipDrawingReads = false;
-                    cl.skipDrawingCoverage = false;
+                    cl.resetDrawState();
                 }
             }
         }
@@ -877,7 +875,7 @@ namespace Manager {
             last_mode = mode;
             mode = Show::SETTINGS;
             opts.menu_table = Themes::MenuTable::MAIN;
-            for (auto &cl: collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
+            for (auto &cl: collections) { cl.resetDrawState(); }
             return;
         } else if (mode == Show::SETTINGS && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
             if (key == GLFW_KEY_ESCAPE && opts.menu_table == Themes::MenuTable::MAIN) {
@@ -885,7 +883,7 @@ namespace Manager {
                 redraw = true;
                 processed = false;
                 updateSettings();
-                for (auto &cl: collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
+                for (auto &cl: collections) { cl.resetDrawState(); }
             } else {
                 bool keep_alive = Menu::navigateMenu(opts, key, action, inputText, &charIndex, &captureText, &textFromSettings, &processText, reference);
                 xDrag = DRAG_UNSET;
@@ -917,8 +915,7 @@ namespace Manager {
                         if (cl.regionIdx == regionSelection) {
                             cl.region = &regions[regionSelection];
                             if (!bams.empty()) {
-                                cl.skipDrawingReads = false;
-                                cl.skipDrawingCoverage = false;
+                                cl.resetDrawState();
                                 if (cl.regionLen < opts.low_memory) {
                                     HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                                 indexes[cl.bamIdx], opts, (bool)opts.max_coverage, false,
@@ -955,8 +952,7 @@ namespace Manager {
                         if (cl.regionIdx == regionSelection) {
                             cl.region = &regions[regionSelection];
                             if (!bams.empty()) {
-                                cl.skipDrawingReads = false;
-                                cl.skipDrawingCoverage = false;
+                                cl.resetDrawState();
                                 if (cl.regionLen < opts.low_memory) {
                                     HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                                 indexes[cl.bamIdx], opts, (bool) opts.max_coverage,
@@ -998,8 +994,7 @@ namespace Manager {
                             cl.region = &regions[regionSelection];
                             cl.collection_processed = false;
                             if (!bams.empty()) {
-                                cl.skipDrawingReads = false;
-                                cl.skipDrawingCoverage = false;
+                                cl.resetDrawState();
                                 if (cl.regionLen < opts.low_memory && region.end - region.start < opts.low_memory) {
 
                                     HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
@@ -1010,14 +1005,11 @@ namespace Manager {
                                     if (opts.max_coverage) {  // re process coverage for all reads
                                         cl.covArr.resize(cl.region->end - cl.region->start + 1);
                                         std::fill(cl.covArr.begin(), cl.covArr.end(), 0);
-                                        int l_arr = (int) cl.covArr.size() - 1;
                                         for (auto &i: cl.readQueue) {
-                                            Segs::addToCovArray(cl.covArr, i, cl.region->start, cl.region->end, l_arr);
+                                            Segs::addToCovArray(cl.covArr, i, cl.region->start, cl.region->end);
                                         }
                                         if (opts.snp_threshold > cl.region->end - cl.region->start) {
-                                            cl.mmVector.resize(cl.region->end - cl.region->start + 1);
-                                            Segs::Mismatches empty_mm = {0, 0, 0, 0};
-                                            std::fill(cl.mmVector.begin(), cl.mmVector.end(), empty_mm);
+                                            cl.makeEmptyMMArray();
                                         } else {
                                             cl.mmVector.clear();
                                         }
@@ -1069,8 +1061,7 @@ namespace Manager {
                                         HGW::trimToRegion(cl, opts.max_coverage, opts.snp_threshold);
                                     }
                                 }
-                                cl.skipDrawingReads = false;
-                                cl.skipDrawingCoverage = false;
+                                cl.resetDrawState();
                                 cl.region = &regions[regionSelection];
                                 cl.collection_processed = false;
                             }
@@ -1113,8 +1104,7 @@ namespace Manager {
                             cl.levelsStart.clear();
                             cl.levelsEnd.clear();
                             cl.linked.clear();
-                            cl.skipDrawingReads = false;
-                            cl.skipDrawingCoverage = false;
+                            cl.resetDrawState();
                             Utils::SortType sort_option = regions[cl.regionIdx].getSortOption();
                             for (auto &itm: cl.readQueue) { itm.y = -1; }
                             int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sort_option);
@@ -1134,8 +1124,7 @@ namespace Manager {
                             cl.levelsStart.clear();
                             cl.levelsEnd.clear();
                             cl.linked.clear();
-                            cl.skipDrawingReads = false;
-                            cl.skipDrawingCoverage = false;
+                            cl.resetDrawState();
                             Utils::SortType sort_option = regions[cl.regionIdx].getSortOption();
                             for (auto &itm: cl.readQueue) { itm.y = -1; }
                             int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sort_option);
@@ -1323,7 +1312,7 @@ namespace Manager {
         processed = false;
         imageCache.clear();
         imageCacheQueue.clear();
-        for (auto &cl: collections) { cl.skipDrawingCoverage = false; cl.skipDrawingReads = false;}
+        for (auto &cl: collections) { cl.resetDrawState(); }
     }
 
     int GwPlot::getCollectionIdx(float x, float y) {
@@ -1770,8 +1759,7 @@ namespace Manager {
         redraw = true;
         processed = true;
         for (auto &cl2 : collections) {
-            cl2.skipDrawingReads = false;
-            cl2.skipDrawingCoverage = false;
+            cl.resetDrawState();
         }
     }
 
@@ -1820,8 +1808,7 @@ namespace Manager {
         for (auto &col : collections) {
             if (col.regionIdx == regionSelection) {
                 col.region = &regions[regionSelection];
-                col.skipDrawingReads = false;
-                col.skipDrawingCoverage = false;
+                col.resetDrawState();
                 HGW::appendReadsAndCoverage(col, bams[col.bamIdx], headers[col.bamIdx],
                                            indexes[col.bamIdx], opts, (bool)opts.max_coverage,
                                            lt_last, &samMaxY, filters, pool, regions[regionSelection]);
@@ -1849,8 +1836,7 @@ namespace Manager {
         redraw = true;
         processed = false;
         for (auto &cl: collections) {
-            cl.skipDrawingCoverage = false;
-            cl.skipDrawingReads = false;
+            cl.resetDrawState();
         }
         imageCacheQueue.clear();
         if (currentVarTrack->type == HGW::TrackType::IMAGES) {
@@ -1922,8 +1908,7 @@ namespace Manager {
         fetchRefSeqs();
         mode = Manager::SINGLE;
         for (auto &cl: collections) {
-            cl.skipDrawingCoverage = false;
-            cl.skipDrawingReads = false;
+            cl.resetDrawState();
         }
         glfwPostEmptyEvent();
     }
@@ -2154,8 +2139,7 @@ namespace Manager {
                         opts.tab_track_height = new_boundary / drawingArea;
                         redraw = true;
                         for (auto & cl: collections) {
-                            cl.skipDrawingCoverage = false;
-                            cl.skipDrawingReads = false;
+                            cl.resetDrawState();
                         }
                         imageCacheQueue.clear();
                         return;
@@ -2186,8 +2170,7 @@ namespace Manager {
                     for (auto &cl : collections) {
                         if (cl.regionIdx == regionSelection) {
                             if (!bams.empty()) {
-                                cl.skipDrawingReads = false;
-                                cl.skipDrawingCoverage = false;
+                                cl.resetDrawState();
                                 HGW::appendReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx],
                                                             indexes[cl.bamIdx], opts, (bool)opts.max_coverage, !lt_last,
                                                             &samMaxY, filters, pool, region);

@@ -68,12 +68,6 @@ namespace Manager {
         SETTINGS
     };
 
-//    enum SortType {
-//        NONE,
-//        STRAND,
-//        HP,
-//        POS
-//    };
 
     class HiddenWindow {
     public:
@@ -196,6 +190,7 @@ namespace Manager {
         void setOutLabelFile(const std::string &path);
         void clearCollections();
         void processBam();
+        void resetCollectionRegionPtrs();
         void setScaling();
         void setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop);
         int startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay, std::vector<std::string> &extra_commands);
@@ -212,10 +207,10 @@ namespace Manager {
         void addAlignmentToSelectedRegion();
 
         // Draw functions
-        void drawScreen();
+        void drawScreen(bool force_buffered_reads=false);
         void drawScreenNoBuffer();
-        void runDraw();
-        void runDrawOnCanvas(SkCanvas *canvas);
+        void runDraw(bool force_buffered_reads=false);
+        void runDrawOnCanvas(SkCanvas *canvas, bool force_buffered_reads=false);
         void runDrawNoBuffer();  // draws to canvas managed by GwPlot (slower)
         void runDrawNoBufferOnCanvas(SkCanvas* canvas);  // draws to external canvas (faster)
         void syncImageCacheQueue();
@@ -231,11 +226,15 @@ namespace Manager {
         sk_sp<SkImage> makeImage();
         void saveSession(std::string out_session);
         void rasterToPng(const char* path);
-        void saveToPdf(const char* path);
-        void saveToSvg(const char* path);
+        void saveToPdf(const char* path, bool force_buffered_reads=false);
+        void saveToSvg(const char* path, bool force_buffered_reads=false);
         std::vector<uint8_t>* encodeToPngVector(int compression_level);
         std::vector<uint8_t>* encodeToJpegVector(int quality);
         void saveLabels();
+
+        // Get properties
+        size_t sizeOfBams();
+        size_t sizeOfRegions();
 
     private:
 
