@@ -618,6 +618,7 @@ namespace Manager {
 
     void GwPlot::setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop) {
         this->clearCollections();
+        this->regions.clear();
         long rlen = stop - start;
         bool isTrans = chrom != chrom2;
         if (!isTrans && rlen <= opts.split_view_size) {
@@ -989,10 +990,12 @@ namespace Manager {
     }
 
     void GwPlot::clearCollections() {
-        regions.clear();
+//        regions.clear();
         for (auto &cl: collections) {
-            for (auto &a: cl.readQueue) {
-                bam_destroy1(a.delegate);
+            if (cl.ownsBamPtrs) {
+                for (auto &a: cl.readQueue) {
+                    bam_destroy1(a.delegate);
+                }
             }
         }
         collections.clear();
