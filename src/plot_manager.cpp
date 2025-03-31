@@ -2041,47 +2041,32 @@ namespace Manager {
         }
     }
 
-    std::vector<uint8_t>* GwPlot::encodeToPngVector(int compression_level=6) {
-        static std::vector<uint8_t> buffer;  // Note buffer will be re-used!
-        buffer.clear();
+    std::pair<const uint8_t*, size_t> GwPlot::encodeToPng(int compression_level) {
         assert (resterSurface != nullptr);
         sk_sp<SkImage> img = rasterSurface->makeImageSnapshot();
-
 #ifndef OLD_SKIA
         SkPngEncoder::Options options;
         options.fZLibLevel = compression_level;
         sk_sp<SkData> png(SkPngEncoder::Encode(nullptr, img.get(), options));
 #else
-        sk_sp<SkData> png(img->encodeToData());
+        sk_sp<SkData> png(img->encodeToData());  // sk_sp is a shared pointer
 #endif
-
-        const uint8_t* data = static_cast<const uint8_t*>(png->data());
-        size_t size = png->size();
-        buffer.reserve(size);
-        buffer.insert(buffer.end(), data, data + size);
-        return &buffer;
+        m_encodedPngData = png; // Store as a member variable of type sk_sp<SkData>
+        return {static_cast<const uint8_t*>(m_encodedPngData->data()), m_encodedPngData->size()};
     }
 
-    std::vector<uint8_t>* GwPlot::encodeToJpegVector(int quality=80) {
-        static std::vector<uint8_t> buffer;  // Note buffer will be re-used!
-        buffer.clear();
+    std::pair<const uint8_t*, size_t> GwPlot::encodeToJpeg(int quality) {
         assert(rasterSurface != nullptr);
         sk_sp<SkImage> img = rasterSurface->makeImageSnapshot();
-        sk_sp<SkData> encoded;
         SkJpegEncoder::Options options;
         options.fQuality = quality;
-
 #if defined(_WIN32)  // For Windows convert SkImage to SkPixmap
         std::cerr << "Error: this function is not supported for Windows at the moment\n";
-        return nullptr;
+        return {nullptr, 0};
 #else
-        encoded = SkJpegEncoder::Encode(nullptr, img.get(), options);
+        m_encodedJpegData = SkJpegEncoder::Encode(nullptr, img.get(), options);
+        return {static_cast<const uint8_t*>(m_encodedJpegData->data()), m_encodedJpegData->size()};
 #endif
-        const uint8_t* data = static_cast<const uint8_t*>(encoded->data());
-        size_t size = encoded->size();
-        buffer.reserve(size);
-        buffer.insert(buffer.end(), data, data + size);
-        return &buffer;
     }
 
     void imageToPng(sk_sp<SkImage> &img, std::filesystem::path &path) {

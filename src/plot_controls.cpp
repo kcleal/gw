@@ -1758,7 +1758,7 @@ namespace Manager {
         }
         redraw = true;
         processed = true;
-        for (auto &cl2 : collections) {
+        for (auto &cl : collections) {
             cl.resetDrawState();
         }
     }

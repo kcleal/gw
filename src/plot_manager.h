@@ -228,8 +228,9 @@ namespace Manager {
         void rasterToPng(const char* path);
         void saveToPdf(const char* path, bool force_buffered_reads=false);
         void saveToSvg(const char* path, bool force_buffered_reads=false);
-        std::vector<uint8_t>* encodeToPngVector(int compression_level);
-        std::vector<uint8_t>* encodeToJpegVector(int quality);
+
+        std::pair<const uint8_t*, size_t> encodeToPng(int compression_level=6);
+        std::pair<const uint8_t*, size_t> encodeToJpeg(int quality=80);
         void saveLabels();
 
         // Get properties
@@ -262,7 +263,7 @@ namespace Manager {
 
         uint32_t minGapSize;
 
-        //Segs::Align cached_align;
+        sk_sp<SkData> m_encodedPngData, m_encodedJpegData;
 
         GLFWcursor* vCursor;
         GLFWcursor* normalCursor;
