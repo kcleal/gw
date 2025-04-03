@@ -198,7 +198,8 @@ namespace Themes {
         Fonts();
         ~Fonts() = default;
         int fontTypefaceSize;
-        float overlayWidth, overlayHeight;
+        float overlayWidth; // Includes white space between next character
+        float overlayHeight, overlayCharWidth;  // No white space added
         SkRect rect;
         SkPath path;
         sk_sp<SkTypeface> face;
@@ -207,6 +208,7 @@ namespace Themes {
 
         void setTypeface(std::string &fontStr, int size);
         void setOverlayHeight(float yScale);
+        float measureTextWidth(const std::string& text) const;
     };
 
     void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,

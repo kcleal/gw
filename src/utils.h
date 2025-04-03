@@ -88,32 +88,25 @@ namespace Utils {
 
     class EXPORT Region {
     public:
-        std::string chrom;
-        int start, end;
-        int markerPos, markerPosEnd;
-        int chromLen;
-        int refSeqLen;
-        int regionLen;
-        const char *refSeq;
-        SortType sortOption;
-        int sortPos;
-        char refBaseAtPos;
+        std::string chrom{};
+        int start{1}, end{20000};
+        int markerPos{-1}, markerPosEnd{-1};
+        int chromLen{0};
+        int refSeqLen{0};
+        int regionLen{0};
+        const char *refSeq{nullptr};
+        SortType sortOption{NONE};
+        int sortPos{-1};
+        char refBaseAtPos{'\0'};
+        float chromNameWidth{0};  // This is set at draw time
+        float ideogramStart{0};  // In frameBuffer coordinates
+        float ideogramEnd{0};
         std::vector<uint8_t> refSeq_nibbled;
         std::vector<std::vector<Utils::TrackBlock>> featuresInView;  // one vector for each Track
         std::vector<int> featureLevels;
-        Region() {
-            chrom = "";
-            start = -1;
-            end = -1;
-            markerPos = -1;
-            markerPosEnd = -1;
-            chromLen = 0;
-            refSeq = nullptr;
-            refSeqLen = 0;
-            sortOption = NONE;
-            sortPos = -1;
-            refBaseAtPos = '\0';
-        }
+        Region() {};
+        Region(std::string chromosome, int startPos, int endPos) : chrom{chromosome}, start{startPos}, end{endPos} {};
+        ~Region() = default;
         std::string toString();
         void setRefBaseAtPos();
         SortType getSortOption();

@@ -565,7 +565,7 @@ namespace HGW {
         cl.levelsStart.clear();
         cl.levelsEnd.clear();
         cl.linked.clear();
-        cl.skipDrawingReads = false;
+        cl.resetDrawState();
         for (auto &itm: cl.readQueue) { itm.y = -1; }
         int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sortReadsBy);
         *samMaxY = (maxY > *samMaxY || opts.tlen_yscale) ? maxY : *samMaxY;

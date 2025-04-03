@@ -1286,27 +1286,19 @@ namespace Themes {
         const SkPaint* pnt = &paint1;
         overlay.setSize(fontTypefaceSize * yScale);
         overlay.getBounds(glyphs, 1, bounds, pnt);
+        overlayCharWidth = bounds[0].width();
         overlayHeight = bounds[0].height();
-        overlayWidth = overlay.measureText("9y", 1, SkTextEncoding::kUTF8);
-        SkScalar w = overlay.measureText("9y", 1, SkTextEncoding::kUTF8);
+        overlayWidth = overlay.measureText("Gy", 1, SkTextEncoding::kUTF8);
+        SkScalar w = overlay.measureText("Gy", 1, SkTextEncoding::kUTF8);
         for (int i = 0; i < 10; ++i) {
             textWidths[i] = (float)w * (i + 1);
         }
     }
 
-//    void Fonts::setOverlayHeight(float yScale) {
-//        overlay.setSize(fontTypefaceSize * yScale);
-//        // Get font metrics
-//        SkFontMetrics metrics;
-//        overlay.getMetrics(&metrics);
-//        overlayHeight = metrics.fDescent - metrics.fAscent;
-//        // overlayHeight = metrics.fDescent - metrics.fAscent + metrics.fLeading;
-//        overlayWidth = overlay.measureText("9", 1, SkTextEncoding::kUTF8);
-//        SkScalar w = overlayWidth;
-//        for (int i = 0; i < 10; ++i) {
-//            textWidths[i] = (float)w * (i + 1);
-//        }
-//    }
+    float Fonts::measureTextWidth(const std::string& text) const {
+        SkScalar width = this->overlay.measureText(text.c_str(), text.size(), SkTextEncoding::kUTF8);
+        return (float)width;
+    }
 
     #define next_t std::getline(iss, token, '\t')
 

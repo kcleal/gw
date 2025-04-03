@@ -1316,14 +1316,13 @@ namespace Manager {
     }
 
     int GwPlot::getCollectionIdx(float x, float y) {
-        if (y <= refSpace + gap) {
-            return REFERENCE_TRACK; // -2
-        } else if (!tracks.empty() && y >= refSpace + totalCovY + (trackY*(float)headers.size()) && y < (float)fb_height - sliderSpace - gap) {
-
+        regionSelection = (int)(x / (fb_width / (float)regions.size()));
+        if (y <= refSpace) {
+            return REFERENCE_TRACK;
+        } else if (!tracks.empty() && y > (fb_height - sliderSpace - totalTabixY) && y < (fb_height - sliderSpace)) {
             int index = -3;
-            float top_y = (float)fb_height - sliderSpace - totalTabixY + (gap);
+            float top_y = (float)fb_height - sliderSpace - totalTabixY; // + (gap);
             float step = tabixY;
-
             index -= (int)((y - top_y) / step);
 			if ((index * -1) - 3 > (int)tracks.size()) {
 				index = -1;
@@ -1334,7 +1333,7 @@ namespace Manager {
 			return NO_REGIONS;  // track
 		}
         if (regions.empty()) {
-            return NO_REGIONS; //-1
+            return NO_REGIONS;
         }
         int i = 0;
         if (bams.empty()) {
@@ -1346,7 +1345,7 @@ namespace Manager {
                 float min_x = cl.xOffset;
                 float max_x = cl.xScaling * ((float) (cl.region->end - cl.region->start)) + min_x;
                 float min_y = refSpace;
-                float max_y = fb_height - refSpace - totalTabixY;
+                float max_y = fb_height - sliderSpace - totalTabixY;
                 if (x > min_x && x < max_x && y > min_y && y < max_y) {
                     return i;
                 }
@@ -1363,25 +1362,14 @@ namespace Manager {
                 i += 1;
             }
         }
-        return NO_REGIONS; //-1
+        return NO_REGIONS;
     }
 
     void GwPlot::updateSlider(float xW) {
-        float colWidth = (float)fb_width / (float)regions.size();
-        float gap = 50;
-        float gap2 = 2*gap;
-        float drawWidth = colWidth - gap2;
-        if (drawWidth < 0) {
-            return;
-        }
-        float vv = 0;
-        int i = 0;
         for (auto &rgn : regions) {
-            if (xW > vv && xW < colWidth * (i+1)) {
-                float relX = xW - (colWidth * i) - gap;
-                relX = (relX < 0) ? 0 : relX;
-                relX = (relX > drawWidth) ? drawWidth : relX;
-                float relP = relX / drawWidth;
+            if (xW > rgn.ideogramStart - gap && xW < rgn.ideogramEnd + gap) {
+                float drawWidth = rgn.ideogramEnd - rgn.ideogramStart;
+                float relP = (xW - rgn.ideogramStart) / drawWidth;
                 auto length = (float)faidx_seq_len(fai, rgn.chrom.c_str());
                 auto new_s = std::max(0, (int)(length * relP));
                 int regionL = rgn.end - rgn.start;
@@ -1396,12 +1384,10 @@ namespace Manager {
                 }
                 processed = false;
                 redraw = true;
-                fetchRefSeq(rgn);
-            } else if (vv > xW) {
-                break;
+                if (regionL <= opts.snp_threshold) {
+                    fetchRefSeq(rgn);
+                }
             }
-            vv += colWidth;
-            i += 1;
         }
     }
 
@@ -1597,6 +1583,13 @@ namespace Manager {
             yDrag = DRAG_UNSET;
             return true;
         }
+
+        if (ctrlPress && action == GLFW_PRESS) {
+            Segs::ReadCollection &cl = collections[idx];
+            int pos = (int)(((xW - (float)cl.xOffset) / cl.xScaling) + (float)cl.region->start);
+            zoomToPosition(pos);
+            return true;
+        }
         return false;
     }
 
@@ -1658,10 +1651,10 @@ namespace Manager {
     void GwPlot::handleReadSelection(int idx, float xW, float yW) {
         Segs::ReadCollection &cl = collections[idx];
         int pos = (int)(((xW - (float)cl.xOffset) / cl.xScaling) + (float)cl.region->start);
-        if (ctrlPress) {
-            zoomToPosition(pos);
-            return;
-        }
+//        if (ctrlPress) {
+//            zoomToPosition(pos);
+//            return;
+//        }
         selectReadAtPosition(cl, pos, xW, yW);
         xDrag = DRAG_UNSET;
         yDrag = DRAG_UNSET;
@@ -1672,8 +1665,8 @@ namespace Manager {
         int strt = pos - 2500;
         strt = (strt < 0) ? 0 : strt;
         Utils::Region &region = regions[regionSelection];
-        region.start = std::max(0, strt);
-        region.end = std::max(region.start + 1, strt + 5000);
+        region.start = strt;
+        region.end = region.start + 5000;
         regionSelection = collections[clickedIdx].regionIdx;
         fetchRefSeq(region);
         processed = false;
@@ -1766,7 +1759,6 @@ namespace Manager {
     void GwPlot::handleRegionDragging() {
         Utils::Region &region = regions[regionSelection];
         auto w = (float)(region.end - region.start) * (float)regions.size();
-
         if (w >= 75000 || window == nullptr) {  // windowlessMode
             int travel = (int)(w * (xDrag / windowW));
             int old_start = region.start;
@@ -2122,7 +2114,7 @@ namespace Manager {
                     return;
                 }
 
-                if (yPos_fb >= (fb_height - sliderSpace - gap) && yPosOri_fb >= (fb_height - sliderSpace - gap)) {
+                if (yPos_fb >= (fb_height - sliderSpace) && yPosOri_fb >= (fb_height - sliderSpace)) {
                     updateSlider((float) xPos_fb);
                     yDrag = DRAG_UNSET;
                     xDrag = DRAG_UNSET;
@@ -2191,16 +2183,14 @@ namespace Manager {
                     }
                     Segs::ReadCollection &cl = collections[idx];
                     regionSelection = cl.regionIdx;
-                    if (clickedIdx == -1 || idx != clickedIdx) {
-                        return;
-                    }
-
                     if (std::fabs(yDrag) > std::fabs(xDrag) && std::fabs(yDrag) > 1) {
                         float travel_y;
                         if (!opts.tlen_yscale) {
-                            travel_y = yDrag /
-                                         ((float) ((windowH * (1 - opts.tab_track_height)) / (float) bams.size()) /
-                                          (float) cl.levelsStart.size());
+                            travel_y = ((yDrag / monitorScale) /  (windowH / (trackY / fb_height)) ) * windowH;
+
+//                            travel_y = yDrag /
+//                                         ((float) ((windowH * (1 - opts.tab_track_height)) / (float) bams.size()) /
+//                                          (float) cl.levelsStart.size());
                         } else {
                             travel_y = yDrag /
                                        ((float) ((windowH * (1 - opts.tab_track_height)) / (float) bams.size()) /

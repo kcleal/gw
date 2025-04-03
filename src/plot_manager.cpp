@@ -1106,67 +1106,79 @@ namespace Manager {
     }
 
     // sets scaling of y-position for various elements
-    void GwPlot::setScaling() {  // todo only call this function when needed - fb size change, or when plot items are added or removed
+    void GwPlot::setScaling() {
 
-        refSpace = fonts.overlayHeight * 2;
         if (opts.scale_bar) {
-            refSpace += fonts.overlayHeight * 2;
+            refSpace = gap + fonts.overlayHeight + gap + fonts.overlayHeight + gap;
+        } else {
+            refSpace = gap + fonts.overlayHeight + gap;
         }
-        sliderSpace = std::fmax((float)(fb_height * 0.0175), 10*monitorScale) + (gap * 0.5);
-        auto fbh = (float) fb_height;
-        auto fbw = (float) fb_width;
-        auto nbams = (float)bams.size();
+        sliderSpace = gap * 4; // gap + (fonts.overlayHeight * 2) + gap;
+
+        // Calculate available space
+        float availableHeight = fb_height - refSpace - sliderSpace;
+        float availableWidth = (float)fb_width;
+
+        // Calculate track heights
+        float nbams = (float)bams.size();
+        float nTracks = (float)tracks.size();
         if (tracks.empty()) {
-            totalTabixY = 0; tabixY = 0;
+            totalTabixY = 0;
+            tabixY = 0;
         } else {
-            totalTabixY = (fbh - refSpace - sliderSpace) * (float)opts.tab_track_height;
-            tabixY = totalTabixY / (float)tracks.size();
+            totalTabixY = availableHeight * (float)opts.tab_track_height;
+            tabixY = totalTabixY / nTracks;
         }
-
+        availableHeight -= totalTabixY;
         if (nbams == 0 || opts.max_coverage == 0) {
-            covY = 0; totalCovY = 0; trackY = 0;
-        } else {
-            totalCovY = (fbh - refSpace - sliderSpace - totalTabixY - gap) * ((opts.alignments) ? (float)0.15 : 1);
+            covY = 0;
+            totalCovY = 0;
+            trackY = 0;
+        } else if (!opts.alignments) {  // Only coverage, no alignments
+            totalCovY = availableHeight;
             covY = totalCovY / nbams;
-        }
-
-        if (!opts.alignments) {
             yScaling = 0;
             trackY = 0;
             pH = 0;
-        } else if (nbams > 0 && samMaxY > 0) {
-            trackY = (fbh - totalCovY - totalTabixY - refSpace - sliderSpace - gap) / nbams;
-            yScaling = (trackY - gap) / (double)samMaxY;
+        } else {
+            // Both coverage and alignments
+            float covProportion = 0.15f;
+            totalCovY = availableHeight * covProportion;
+            covY = totalCovY / nbams;
 
-            // Ensure yScaling is an integer if possible
-            if (yScaling > 1) {
-                yScaling = std::ceil(yScaling);
-            }
+            // Remaining space goes to alignments
+            availableHeight -= totalCovY;
+            trackY = availableHeight / nbams;
 
-            if (opts.tlen_yscale) {
-                pH = trackY / (float) opts.ylim;
-                yScaling *= 0.95;
-            } else {
-                if (yScaling > 3*monitorScale) {
-                    pH = yScaling - monitorScale;
-                    //                     if (monitorScale > 1) {
-                    //                        pH = yScaling - monitorScale;
-                    //                    } else {
-                    //                        pH = yScaling - 2;
-                    //                    }
+            // Calculate scaling factors
+            if (samMaxY > 0) {
+                yScaling = trackY / (double)samMaxY;
+                // Ensure yScaling is an integer if possible
+                if (yScaling > 1) {
+                    yScaling = std::ceil(yScaling);
+                }
+                if (opts.tlen_yscale) {
+                    pH = trackY / (float)opts.ylim;
+                    yScaling *= 0.95;
                 } else {
-                    pH = yScaling;
+                    if (yScaling > 3 * monitorScale) {
+                        pH = yScaling - monitorScale;
+                    } else {
+                        pH = yScaling;
+                    }
+                }
+                // Scale to pixel boundary
+                if (pH > 8) {
+                    pH = (float)(int)pH;
+                } else if (opts.tlen_yscale) {
+                    pH = std::fmax(pH, 8);
                 }
             }
-
-            if (pH > 8) {  // scale to pixel boundary
-                pH = (float)(int)pH;
-            } else if (opts.tlen_yscale) {
-                pH = std::fmax(pH, 8);
-            }
         }
-        regionWidth = fbw / (float)regions.size();
+        regionWidth = availableWidth / (float)regions.size();
         bamHeight = covY + trackY;
+
+//        std::cout << "sliderSpace=" << sliderSpace << " covY=" << covY << " refSpace=" << refSpace << " trackY=" << trackY << std::endl;
 
         for (auto &cl: collections) {
             cl.xScaling = (float)((regionWidth - gap - gap) / ((double)(cl.region->end - cl.region->start)));
@@ -1232,7 +1244,6 @@ namespace Manager {
 
             SkRect clip;
             // Draw background image
-//            if (!imageCacheQueue.empty() && collections.size() > 1) {
             if (!imageCacheQueue.empty() && !collections.empty()) {
                 canvasR->drawImage(imageCacheQueue.back().second, 0, 0);
                 clip.setXYWH(0, 0, fb_width, refSpace);
@@ -1250,7 +1261,7 @@ namespace Manager {
                 canvasR->save();
                 // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
                 if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
-                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, trackY + covY - gap);
+                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, trackY + covY);
                     canvasR->clipRect(clip, false);
                 } else if (cl.skipDrawingCoverage) {
                     clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, cl.yPixels);
@@ -1289,10 +1300,10 @@ namespace Manager {
         if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvasR, fonts, covY, refSpace, gap, monitorScale, bam_paths);
         }
-        Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, fonts.overlayHeight, (float)regions.size(), gap, monitorScale, opts.scale_bar);
+        Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, refSpace, (float)regions.size(), gap, monitorScale, opts.scale_bar);
         Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY);
         Drawing::drawTracks(opts, fb_width, fb_height, canvasR, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
-        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, fai, fb_width, fb_height, monitorScale, gap, drawLocation);
+        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, fb_width, fb_height, monitorScale, gap, drawLocation, sliderSpace);
 
         imageCacheQueue.emplace_back(frameId, rasterSurfacePtr[0]->makeImageSnapshot());
 
@@ -1314,38 +1325,39 @@ namespace Manager {
     }
 
     void GwPlot::drawCursorPosOnRefSlider(SkCanvas *canvas) {
-        // determine if cursor is over the ref slider
-        if (regions.empty() || xPos_fb <= 0 || yPos_fb <= 0 || regionSelection < 0) {
+        // determine if cursor is in the slider region
+        if (regions.empty() || xPos_fb <= 0 || yPos_fb <= 0 || yPos_fb < fb_height - sliderSpace || regionSelection < 0) {
             return;
         }
-        const float yh = std::fmax((float) (fb_height * 0.0175), 10 * monitorScale);
-        if (yPos_fb < fb_height - (yh * 2)) {
+        float colWidth = (float) fb_width / (float) regions.size();
+        regionSelection = (int)(xPos_fb / colWidth);
+        Utils::Region &rgn = regions[regionSelection];
+        if (rgn.ideogramStart <= 0 || xPos_fb < rgn.ideogramStart || xPos_fb > rgn.ideogramEnd) {
             return;
         }
-        const float colWidth = (float) fb_width / (float) regions.size();
-        const float gap = 25 * monitorScale;
-        const float gap2 = 50 * monitorScale;
-        const float drawWidth = colWidth - gap2;
-        float xp = ((float)regionSelection * colWidth) + gap;
-        if (xPos_fb < xp || xPos_fb > xp + drawWidth) {
+        float drawWidth = rgn.ideogramEnd - rgn.ideogramStart;
+        if (drawWidth <= 0) {
             return;
         }
-        int pos = (int)(((xPos_fb - xp) / drawWidth) * (float)regions[regionSelection].chromLen);
-        std::string s = Term::intToStringCommas(pos);
-
-        float estimatedTextWidth = (float) s.size() * fonts.overlayWidth;
-        SkRect rect;
-        SkPaint rect_paint = opts.theme.bgPaint;
-        rect_paint.setAlpha(160);
-        float xbox = xPos_fb + monitorScale;
-        rect.setXYWH(xbox, fb_height - (yh *2) + (monitorScale), estimatedTextWidth, (yh*(float)1.33) - monitorScale - monitorScale);
-        canvas->drawRect(rect, rect_paint);
+        int pos = (int)(((xPos_fb - rgn.ideogramStart) / drawWidth) * (float)regions[regionSelection].chromLen);
+        std::string s = regions[regionSelection].chrom + ":" + Term::intToStringCommas(pos);
+        float text_width = fonts.measureTextWidth(s);
         sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(s.c_str(), fonts.overlay);
         SkPath path;
-        path.moveTo(xPos_fb, fb_height - (yh * 2));
-        path.lineTo(xPos_fb, fb_height - (yh * (float)0.66));
+        path.moveTo(xPos_fb, fb_height - (gap * 2.5));
+        path.lineTo(xPos_fb, fb_height - (gap * 2.5) - fonts.overlayHeight);
         canvas->drawPath(path, opts.theme.lcBright);
-        canvas->drawTextBlob(blob, xbox + monitorScale, fb_height - yh, opts.theme.tcDel);
+        float xbox = xPos_fb;
+        if (xbox + text_width > rgn.ideogramEnd) {
+            xbox -= text_width + monitorScale + monitorScale + monitorScale;
+        } else {
+            xbox += monitorScale + monitorScale;
+        }
+        float font_y_pos = fb_height - (gap * 2.5) - fonts.overlayHeight;
+        SkRect rect;
+        rect.setXYWH(xbox - (monitorScale*3), font_y_pos - fonts.overlayHeight, text_width + (monitorScale *6), fonts.overlayHeight);
+        canvas->drawRoundRect(rect, 5*monitorScale, 5*monitorScale, opts.theme.bgPaint);
+        canvas->drawTextBlob(blob, xbox, font_y_pos, opts.theme.tcDel);
     }
 
     void GwPlot::syncImageCacheQueue() {
@@ -1598,13 +1610,15 @@ namespace Manager {
             cog_paint.setStyle(SkPaint::kStroke_Style);
             canvas->drawRoundRect(rect, 3.5 * monitorScale, 3.5 * monitorScale, cog_paint);
 
+        // Line at mouse position
         } else if (drawLine && mode != SETTINGS) {
             SkPath path;
-            path.moveTo(xposm, 0);
-            path.lineTo(xposm, fb_height);
+            path.moveTo(xposm, refSpace);
+            path.lineTo(xposm, fb_height - sliderSpace);
             canvas->drawPath(path, opts.theme.lcJoins);
         }
 
+        // Help messages
         bool current_view_is_images = (!variantTracks.empty() && variantTracks[variantFileSelection].type == HGW::TrackType::IMAGES);
         if (bams.empty() && !current_view_is_images && mode != SETTINGS && frameId < 10) {
             float trackBoundary = fb_height - totalTabixY - refSpace;
@@ -1786,7 +1800,7 @@ namespace Manager {
             canvas->save();
             // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
             if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
-                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, trackY + covY - gap);
+                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, trackY + covY);
                 canvas->clipRect(clip, false);
             } else if (cl.skipDrawingCoverage) {
                 clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, cl.yPixels);
@@ -1825,10 +1839,10 @@ namespace Manager {
         if (opts.max_coverage) {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace, gap, monitorScale, bam_paths);
         }
-        Drawing::drawRef(opts, regions, fb_width, canvas, fonts, fonts.overlayHeight, (float)regions.size(), gap, monitorScale, opts.scale_bar);
+        Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap, monitorScale, opts.scale_bar);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
-        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale, gap, drawLocation);
+        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fb_width, fb_height, monitorScale, gap, drawLocation, sliderSpace);
     }
 
     void GwPlot::runDraw(bool force_buffered_reads) {
@@ -1891,7 +1905,7 @@ namespace Manager {
 
             // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
             if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
-                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yPixels - gap);
+                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yPixels);
                 canvas->clipRect(clip, false);
             } else if (cl.skipDrawingCoverage) {
                 clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, cl.yPixels);
@@ -1923,10 +1937,10 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace, gap, monitorScale, bam_paths);
         }
 
-        Drawing::drawRef(opts, regions, fb_width, canvas, fonts, fonts.overlayHeight, (float)regions.size(), gap, monitorScale, opts.scale_bar);
+        Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap, monitorScale, opts.scale_bar);
         Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY);
         Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
-        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fai, fb_width, fb_height, monitorScale, gap, drawLocation);
+        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fb_width, fb_height, monitorScale, gap, drawLocation, sliderSpace);
 //        std::cerr << " time runDrawNoBufferOnCanvas " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
 
