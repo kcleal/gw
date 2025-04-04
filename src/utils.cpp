@@ -14,6 +14,7 @@
 #include <stdexcept>
 #include <sstream>
 #include <string>
+#include <regex>
 
 #include "ankerl_unordered_dense.h"
 #include "utils.h"
@@ -163,44 +164,25 @@ namespace Utils {
         return elems;
     }
 
-    void strToRegion(Region *r, std::string &s, const char delim) {
-        size_t start = 0;
-        size_t end = s.find(delim);
-        r->chrom = s.substr(start, end - start);
-        start = end + 1;
-        end = s.find(delim, start);
-        if (end != std::string::npos) {
-            r->start = std::stoi(s.substr(start, end - start));
-            start = end + 1;
-            end = s.find(delim, start);
-            r->end = std::stoi(s.substr(start, end - start));
-            if (end != std::string::npos) {
-                start = end + 1;
-                end = s.find(delim, start);
-                r->markerPos = std::stoi(s.substr(start, end - start));
-                start = end + 1;
-                end = s.find(delim, start);
-                r->markerPosEnd = std::stoi(s.substr(start, end - start));
+    int atoi_wo_comma(std::string s) {
+        int n = 0;
+        for (char &c : s) {
+            if (c != ',') {
+                n = 10 * n + (c - '0');
             }
-        } else {
-            r->start = std::stoi(s.substr(start, s.size()));
-            r->end = r->start + 1;
         }
+        return n;
     }
 
     EXPORT Region parseRegion(std::string &s) {
         Region reg;
-        std::string s2;
-        if (s.find(":") != std::string::npos) {
-            s.erase(std::remove(s.begin(), s.end(), ','), s.end());
-            std::replace(s.begin(), s.end(), '-', ':');
-            Utils::strToRegion(&reg, s, ':');
-        } else if (s.find(",") != std::string::npos) {
-            Utils::strToRegion(&reg, s, ',');
-        } else if (s.find("\t") != std::string::npos) {
-            Utils::strToRegion(&reg, s, '\t');
-        } else if (s.find(" ") != std::string::npos) {
-            Utils::strToRegion(&reg, s, ' ');
+        std::regex pattern1("(.*)[: \t-]([0-9][0-9,]*)[: \t-]([0-9][0-9,]*)");
+        std::regex pattern2("(.*),([0-9]+),([0-9]+)");
+        std::smatch match;
+        if (std::regex_match(s, match, pattern1) || std::regex_match(s, match, pattern2)) {
+            reg.chrom = match[1].str();
+            reg.start = atoi_wo_comma(match[2].str());
+            reg.end = atoi_wo_comma(match[3].str());
         } else {
             reg.chrom = s;
             reg.start = 1;
