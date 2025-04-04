@@ -995,16 +995,16 @@ namespace Segs {
     void ReadCollection::modifySOftClipSpace(bool add_soft_clip_space) {
         for (auto &align : readQueue) {
             if (align.left_soft_clip) {
-                if (add_soft_clip_space && align.pos == align.cov_start) {
+                if (add_soft_clip_space && (int)align.pos == align.cov_start) {
                     align.cov_start -= align.left_soft_clip;
-                } else if (!add_soft_clip_space && align.pos > align.cov_start) {
-                    align.cov_start = align.pos;
+                } else if (!add_soft_clip_space && (int)align.pos > align.cov_start) {
+                    align.cov_start = (int)align.pos;
                 }
             }
             if (align.right_soft_clip) {
-                if (add_soft_clip_space && align.reference_end == align.cov_end) {
+                if (add_soft_clip_space && (int)align.reference_end == align.cov_end) {
                     align.cov_end += align.right_soft_clip;
-                } else if (!add_soft_clip_space && align.reference_end < align.cov_end) {
+                } else if (!add_soft_clip_space && (int)align.reference_end < align.cov_end) {
                     align.cov_end = align.reference_end;
                 }
             }

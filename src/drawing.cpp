@@ -1312,10 +1312,12 @@ namespace Drawing {
                 const char * name_s = cl.name.c_str();
                 sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(name_s, fonts.overlay);
                 const float text_width = fonts.overlay.measureText(name_s, cl.name.size(), SkTextEncoding::kUTF8);
-                rect.setXYWH(cl.xOffset + monitorScale * 4, cl.yOffset + monitorScale * 4, text_width + 8 * monitorScale, fonts.overlayHeight * 2);
-                canvas->drawRect(rect, theme.bgPaint);
-                canvas->drawRect(rect, theme.lcGTFJoins);
-                canvas->drawTextBlob(blob, cl.xOffset + 8 * monitorScale, cl.yOffset + fonts.overlayHeight * 1.3 + monitorScale *4, theme.tcDel);
+                float ypos = cl.yOffset + monitorScale * 4;
+                rect.setXYWH(cl.xOffset + monitorScale * 4, ypos, text_width + 8 * monitorScale, fonts.overlayHeight * 2);
+                float rr = 2.5*monitorScale;
+                canvas->drawRoundRect(rect, rr, rr, theme.bgPaint);
+                canvas->drawRoundRect(rect, rr, rr, theme.lcLabel);
+                canvas->drawTextBlob(blob, cl.xOffset + 8 * monitorScale, ypos + (fonts.overlayHeight * 1.33), theme.tcDel);
             }
         }
     }
@@ -2004,10 +2006,11 @@ namespace Drawing {
                     const char * name_s = name.c_str();
                     sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(name_s, fonts.overlay);
                     float text_width = fonts.measureTextWidth(name_s);
+                    float rr = 2.5*monitorScale;
                     rect.setXYWH(padX + monitorScale, y + padY + monitorScale,
                                  text_width + 8 * monitorScale + 8 * monitorScale, fonts.overlayHeight * 2);
-                    canvas->drawRect(rect, opts.theme.bgPaint);
-                    canvas->drawRect(rect, opts.theme.lcGTFJoins);
+                    canvas->drawRoundRect(rect, rr, rr, opts.theme.bgPaint);
+                    canvas->drawRoundRect(rect, rr, rr, opts.theme.lcLabel);
                     canvas->drawTextBlob(blob, padX + 8 * monitorScale,
                                          y + padY + fonts.overlayHeight * 1.5, opts.theme.tcDel);
 
