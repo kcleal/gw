@@ -168,7 +168,7 @@ namespace HGW {
     void collectReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, int threads, Utils::Region *region,
                                  bool coverage, std::vector<Parse::Parser> &filters, BS::thread_pool &pool,
-                                 const int parse_mods_threshold) {
+                                 const int parse_mods_threshold, const bool add_soft_clip_space) {
 
         bam1_t *src;
         hts_itr_t *iter_q;
@@ -208,7 +208,7 @@ namespace HGW {
             readQueue.pop_back();
         }
 
-        Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold);
+        Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold, add_soft_clip_space);
 
         if (!filters.empty()) {
             applyFilters(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
@@ -397,6 +397,7 @@ namespace HGW {
         bool filter = !filters.empty();
 
         const int parse_mods_threshold = (opts.parse_mods) ? opts.mods_qual_threshold : 0;
+        const bool add_soft_clip_space = opts.soft_clip_threshold > 0;
 
         int j = 0;
         while (sam_itr_next(b, iter_q, readQueue[j].delegate) >= 0) {
@@ -409,7 +410,7 @@ namespace HGW {
                 continue;
             }
             // No specialised sorting here
-            Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold);
+            Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold, add_soft_clip_space);
             if (filter) {
                 applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
             }
@@ -438,7 +439,7 @@ namespace HGW {
         if (j < BATCH) {
             readQueue.erase(readQueue.begin() + j, readQueue.end());
             if (!readQueue.empty()) {
-                Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold);
+                Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold, add_soft_clip_space);
                 if (!filters.empty()) {
                     applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
                 }
@@ -490,13 +491,13 @@ namespace HGW {
         }
         bool filter = !filters.empty();
         const int parse_mods_threshold = (opts.parse_mods) ? opts.mods_qual_threshold : 0;
-
+        const bool add_clip_space = opts.soft_clip_threshold > 0;
         while (sam_itr_next(b, iter_q, readQueue.back().delegate) >= 0) {
             src = readQueue.back().delegate;
             if (src->core.flag & 4 || src->core.n_cigar == 0) {
                 continue;
             }
-            Segs::align_init(&readQueue.back(), parse_mods_threshold);
+            Segs::align_init(&readQueue.back(), parse_mods_threshold, add_clip_space);
             if (filter) {
                 applyFilters_noDelete(filters, readQueue, hdr_ptr, col.bamIdx, col.regionIdx);
                 if (readQueue.back().y == -2) {
@@ -592,6 +593,7 @@ namespace HGW {
         }
         int lastPos;
         const int parse_mods_threshold = (opts.parse_mods) ? 50 : 0;
+        const bool add_soft_clip_space = opts.soft_clip_threshold > 0;
 
         if (!readQueue.empty()) {
             if (left) {
@@ -732,7 +734,7 @@ namespace HGW {
         }
 
         if (!newReads.empty()) {
-            Segs::init_parallel(newReads, opts.threads, pool, parse_mods_threshold);
+            Segs::init_parallel(newReads, opts.threads, pool, parse_mods_threshold, add_soft_clip_space);
             if (!filters.empty()) {
                 applyFilters(filters, newReads, hdr_ptr, col.bamIdx, col.regionIdx);
             }
@@ -1520,17 +1522,18 @@ namespace HGW {
 //                        }
                         if (keyval[0] == "Name" || keyval[0] == "gene_name") {
                             b.name = keyval[1];
-                            b.parent = keyval[1];
-                            break;
+//                            b.parent = keyval[1];
+//                            break;
                         }
                         else if (b.name.empty() && keyval[0] == "ID") {
                             b.name = keyval[1];
-                            if (b.parent.empty()) {
-                                b.parent = keyval[1];
-                            }
+//                            if (b.parent.empty()) {
+//                                b.parent = keyval[1];
+//                            }
                         }
                         else if (b.parent.empty() && keyval[0] == "Parent") {
                             b.parent = keyval[1];
+                            b.name = b.parent;
                         }
                     } else {  // GTF_NOI
                         std::vector<std::string> keyval = Utils::split(item, ' ');
@@ -2453,9 +2456,9 @@ namespace HGW {
             b->end = trk.stop;
             b->line = trk.variantString;
             b->parts = trk.parts;
-
             b->anyToDraw = true;
             b->strand = trk.strand;
+
 //            if (kind)
 //            if (trk.parts.size() >= 5 && b->strand == 0) {
 //                b->strand = (trk.parts[5] == "+") ? 1 : (trk.parts[5] == "-") ? 2 : 0;

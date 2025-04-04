@@ -192,13 +192,15 @@ namespace Segs {
         void makeEmptyMMArray();
         void clear();
         void resetDrawState();
+        void modifySOftClipSpace(bool add_soft_clip_space);
     };
 
-    void EXPORT align_init(Align *self, int parse_mods_threshold);
+    void EXPORT align_init(Align *self, const int parse_mods_threshold, const bool add_clip_space);
 
     void EXPORT align_clear(Align *self);
 
-    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool, int parse_mods_threshold);
+    void init_parallel(std::vector<Align> &aligns, const int n, BS::thread_pool &pool,
+        const int parse_mods_threshold, const bool add_clip_space);
 
     void resetCovStartEnd(ReadCollection &cl);
 

@@ -585,8 +585,8 @@ namespace Commands {
         }
         p->highlightQname();
         p->processed = true;
-        p->imageCache.clear();
-        p->imageCacheQueue.clear();
+//        p->imageCache.clear();
+//        p->imageCacheQueue.clear();
         return Err::NONE;
     }
 
@@ -1084,7 +1084,7 @@ namespace Commands {
             bam1_t* a = bam_init1();
             if (sam_itr_next(file_ptrs[i], region_iters[i], a) >= 0) {
                 Segs::Align alignment = Segs::Align(a);
-                Segs::align_init(&alignment, 0);  // no need to parse mods/tags here
+                Segs::align_init(&alignment, 0, p->opts.soft_clip_threshold > 0);  // no need to parse mods/tags here
                 pq.push({std::move(alignment), file_ptrs[i], region_iters[i], i});
             } else {
                 bam_destroy1(a);
@@ -1118,7 +1118,7 @@ namespace Commands {
                 }
             }
             if (sam_itr_next(item.file_ptr, item.bam_iter, item.align.delegate) >= 0) {
-                Segs::align_init(&item.align, 0);
+                Segs::align_init(&item.align, 0, 1);
                 pq.push(item);
             } else {
                 bam_destroy1(item.align.delegate);

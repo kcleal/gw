@@ -1459,8 +1459,8 @@ namespace Drawing {
             y += refSpace;
             path.reset();
             for (int i = 0; i < (int) nbams - 1; ++i) {
-                path.moveTo(0, y);
-                path.lineTo(fb_width, y);
+                path.moveTo(gap, y);
+                path.lineTo(fb_width - gap, y);
                 y += step;
             }
             canvas->drawPath(path, opts.theme.lcLightJoins);
@@ -1468,13 +1468,18 @@ namespace Drawing {
         if (nTracks > 0) {
             float y = totalCovY + refSpace + (trackY*(float)nbams) + (gap * 0.5);
             float step = totalTabixY / (float) nTracks;
-            path.reset();
             for (int i = 0; i < (int) nTracks; ++i) {
-                path.moveTo(0, y);
-                path.lineTo(fb_width, y);
+                path.reset();
+                path.moveTo(gap, y);
+                path.lineTo(fb_width - gap, y);
+                if (i == 0) {
+                    canvas->drawPath(path, opts.theme.lcJoins);
+                } else {
+                    canvas->drawPath(path, opts.theme.lcLightJoins);
+                }
                 y += step;
             }
-            canvas->drawPath(path, opts.theme.lcLightJoins);
+
         }
     }
 
@@ -1773,7 +1778,6 @@ namespace Drawing {
                               const float pointSlop, const int strand, const float monitorScale) {
 
         int target = (int) trk.s.size();
-//        int stranded = trk.strand;
         float screenLeftEdge = padX;
         float screenRightEdge = padX + (((float) rgn.end - (float) rgn.start) * xScaling);
         std::string empty_str;
@@ -1793,7 +1797,7 @@ namespace Drawing {
             if (i == 0) {
                 continue;
             }
-            int lastEnd = (i > 0) ? trk.e[i - 1] : trk.start;
+            int lastEnd = (i > 0) ? trk.e[i <- 1] : trk.start;
             if (lastEnd < s) {  // add arrows
                 x = std::max(((float) (lastEnd - rgn.start) * xScaling) + padX, (float) screenLeftEdge);
                 w = std::min(((float) (s - rgn.start) * xScaling) + padX, (float) screenRightEdge);
@@ -1912,16 +1916,17 @@ namespace Drawing {
                 SkPaint &faceColour = trk.faceColour;
                 SkPaint &shadedFaceColour = trk.shadedFaceColour;
 
-//                float right = ((float) (rgn.end - rgn.start) * xScaling) + padX;
-//                canvas->save();
+                float right = ((float) (rgn.end - rgn.start) * xScaling) + padX;
+                canvas->save();
 //                canvas->clipRect({padX, y + padY, right, y + padY + stepY}, false);
+                canvas->clipRect({padX, y + padY, right, fb_height}, false);
 
                 trk.fetch(&rgn);
                 if (trk.kind == HGW::BIGWIG) {
                     drawTrackBigWig(trk, rgn, rect, padX, padY, y + (stepY * trackIdx), stepX, stepY, gap, gap2,
                                     xScaling, t, opts, canvas, fonts, faceColour);
                     trackIdx += 1;
-//                    canvas->restore();
+                    canvas->restore();
                     continue;
                 }
 
@@ -1950,13 +1955,14 @@ namespace Drawing {
                 float h4 = h2 * 0.5;
 
                 float pointSlop = (tan(0.6) * (h2));
-//                float step_track = (tabixY - gap2) / ((float) nLevels);
                 float step_track = (tabixY) / ((float) nLevels);
+
                 bool isBed12 = !trk.parts.empty() && trk.parts.size() >= 12;
                 float textLevelEnd = 0;  // makes sure text doesnt overlap on same level
 
                 for (auto &f: features) {
-                    float padY_track = padY + (step_track * f.level);
+                    float padY_track = padY + (step_track * f.level) + (step_track * 0.5) - (fonts.overlayHeight);
+
                     float *fLevelEnd = (nLevels > 1) ? &labelsEndLevels[f.level] : &textLevelEnd;
                     int strand = f.strand;
                     if (isGFF || isBed12) {
@@ -1977,7 +1983,6 @@ namespace Drawing {
                     }
                 }
 
-//                if (fonts.overlayHeight * nLevels * 2 < stepY && features.size() < 500) {
                 if (fonts.overlayHeight * nLevels < stepY && features.size() < 500) {
                     for (const auto&t: text) {
                         canvas->drawTextBlob(t.text, t.x, t.y, opts.theme.tcDel);
@@ -2011,7 +2016,7 @@ namespace Drawing {
                 trackIdx += 1;
                 padY += tabixY;
 
-//                canvas->restore();
+                canvas->restore();
             }
             padX += stepX;
             regionIdx += 1;

@@ -88,7 +88,7 @@ namespace Term {
         out << "previous region view " << termcolor::bright_yellow; Term::printKeyFromValue(opts.previous_region_view, out); out << "\n" << termcolor::reset;
         out << "cycle link mode      " << termcolor::bright_yellow; Term::printKeyFromValue(opts.cycle_link_mode, out); out << "\n" << termcolor::reset;
         out << "find all alignments  " << termcolor::bright_yellow; Term::printKeyFromValue(opts.find_alignments, out); out << "\n" << termcolor::reset;
-        out << "repeat last command  " << termcolor::bright_yellow; out << "ENTER" << "\n" << termcolor::reset;
+        out << "repeat last command  " << termcolor::bright_yellow; out << "CTRL + "; Term::printKeyFromValue(opts.repeat_command, out); out << "\n" << termcolor::reset;
         out << "resize window        " << termcolor::bright_yellow; out << "SHIFT + ARROW_KEY" << "\n" << termcolor::reset;
         out << "switch viewing mode  " << termcolor::bright_yellow; out << "TAB" << "\n" << termcolor::reset;
 
@@ -974,37 +974,37 @@ namespace Term {
 							if (r_idx >= rlen) {
 								break;
 							}
-							char ref_base;
-							switch (refSeq[r_idx]) {
-								case 'A': ref_base = 1; break;
-								case 'C': ref_base = 2; break;
-								case 'G': ref_base = 4; break;
-								case 'T': ref_base = 8; break;
-								case 'N': ref_base = 15; break;
-								case 'a': ref_base = 1; break;
-								case 'c': ref_base = 2; break;
-								case 'g': ref_base = 4; break;
-								case 't': ref_base = 8; break;
-								default: ref_base = 15; break;
-							}
+//							char ref_base;
+//							switch (refSeq[r_idx]) {
+//								case 'A': ref_base = 1; break;
+//								case 'C': ref_base = 2; break;
+//								case 'G': ref_base = 4; break;
+//								case 'T': ref_base = 8; break;
+//								case 'N': ref_base = 15; break;
+//								case 'a': ref_base = 1; break;
+//								case 'c': ref_base = 2; break;
+//								case 'g': ref_base = 4; break;
+//								case 't': ref_base = 8; break;
+//								default: ref_base = 15; break;
+//							}
 							char bam_base = bam_seqi(ptr_seq, idx);
-							if (bam_base != ref_base) {
-								switch (bam_base) {
-									case 1: mA+=1; break;
-									case 2: mC+=1; break;
-									case 4: mG+=1; break;
-									case 8: mT+=1; break;
-									default: mN+=1; break;
-								}
-							} else {
-								switch (bam_base) {
-									case 1: A+=1; break;
-									case 2: C+=1; break;
-									case 4: G+=1; break;
-									case 8: T+=1; break;
-									default: N+=1; break;
-								}
-							}
+//							if (bam_base != ref_base) {
+                            switch (bam_base) {
+                                case 1: mA+=1; break;
+                                case 2: mC+=1; break;
+                                case 4: mG+=1; break;
+                                case 8: mT+=1; break;
+                                default: mN+=1; break;
+                            }
+//							} else {
+//								switch (bam_base) {
+//									case 1: A+=1; break;
+//									case 2: C+=1; break;
+//									case 4: G+=1; break;
+//									case 8: T+=1; break;
+//									default: N+=1; break;
+//								}
+//							}
 							idx += 1;
 							r_pos += 1;
 						}

@@ -191,7 +191,7 @@ namespace Manager {
             }
         }
         if (!captureText) {
-            if (key == opts.repeat_command) {
+            if (ctrlPress && key == opts.repeat_command) {
                 if (mode == SETTINGS) {
                     return key;
                 }
@@ -1051,7 +1051,8 @@ namespace Manager {
                                 if (!bams.empty() && cl.regionLen >= opts.low_memory && region.end - region.start < opts.low_memory) {
                                     cl.clear();
                                     const int parse_mods_threshold = (opts.parse_mods) ? opts.mods_qual_threshold: 0;
-                                    HGW::collectReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx], opts.threads, &region, (bool)opts.max_coverage, filters, pool, parse_mods_threshold);
+                                    HGW::collectReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
+                                        opts.threads, &region, (bool)opts.max_coverage, filters, pool, parse_mods_threshold, opts.soft_clip_threshold > 0);
                                     int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sort_option);
                                     if (maxY > samMaxY) {
                                         samMaxY = maxY;
@@ -1540,7 +1541,7 @@ namespace Manager {
             yDrag = DRAG_UNSET;
             return;
         }
-        if (yW >= (fb_height - sliderSpace - gap)) {
+        if (yW >= (fb_height - sliderSpace + (gap*0.5))) {
             if (action == GLFW_PRESS) {
                 updateSlider(xW);
             }
@@ -1711,12 +1712,12 @@ namespace Manager {
         // Find and toggle the read highlight
         while (true) {
             if (!opts.tlen_yscale) {
-                if (bnd->y == level && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
+                if (bnd->y == level && (int)bnd->cov_start <= pos && pos < (int)bnd->cov_end) {
                     toggleReadHighlight(bnd, cl, pos);
                     break;
                 }
             } else {
-                if ((bnd->y >= level - slop && bnd->y < level) && (int)bnd->pos <= pos && pos < (int)bnd->reference_end) {
+                if ((bnd->y >= level - slop && bnd->y < level) && (int)bnd->cov_start <= pos && pos < (int)bnd->cov_end) {
                     toggleReadHighlight(bnd, cl, pos);
                     break;
                 }
@@ -2093,7 +2094,7 @@ namespace Manager {
             commandToolTipIndex = -1;
         }
 
-        float trackBoundary = totalCovY + refSpace + (trackY*(float)headers.size()) + (gap * 0.5);
+        float trackBoundary = totalCovY + refSpace + (trackY*(float)sizeOfBams()) + (gap * 0.5);
         if (!tracks.empty()) {
             if (std::fabs(yPos_fb - trackBoundary) < 5 * monitorScale) {
                 glfwSetCursor(window, vCursor);
@@ -2114,7 +2115,7 @@ namespace Manager {
                     return;
                 }
 
-                if (yPos_fb >= (fb_height - sliderSpace) && yPosOri_fb >= (fb_height - sliderSpace)) {
+                if (yPos_fb >= (fb_height - sliderSpace + (gap*0.5)) && yPosOri_fb >= (fb_height - sliderSpace + (gap*0.5))) {
                     updateSlider((float) xPos_fb);
                     yDrag = DRAG_UNSET;
                     xDrag = DRAG_UNSET;
@@ -2122,7 +2123,7 @@ namespace Manager {
                 }
                 if (!tracks.empty()) {
                     if (tabBorderPress || (std::fabs(yPos_fb - trackBoundary) < 5 * monitorScale && xDrag < 5 && yDrag < 5)) {
-                        if (yPos_fb <= refSpace + totalCovY + 10) {
+                        if (yPos_fb > fb_height - sliderSpace + (10 * monitorScale)) {
                             return;
                         }
                         tabBorderPress = true;

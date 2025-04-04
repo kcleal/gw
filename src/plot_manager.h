@@ -295,13 +295,13 @@ namespace Manager {
         void drawCursorPosOnRefSlider(SkCanvas *canvas);
 
         // Helper methods for mouse interaction
-
         void calculateCursorCoordinates(int button, int action, float& xW, float& yW);
         bool handleToolButtons(int button, int action, float xW, float yW);
         void toggleSettingsMode();
         void toggleCommandCapture();
         bool handleCommandTooltipInteraction(int button, int action, float xW, float yW);
         void updateDragState();
+        void updateCursorGenomePos(float xOffset, float xScaling, float xPos_fb, Utils::Region* region, int bamIdx);
 
         // Mode-specific handlers
         void handleSingleModeLeftClick(int button, int action, float xW, float yW);
@@ -339,11 +339,6 @@ namespace Manager {
         void handleVariantFileSelection(float xW);
         void handleTiledModeScroll();
         void handleTiledModeBoxClick(float xW, float yW);
-
-        // Mouse position handling functions
-
-        void updateCursorGenomePos(float xOffset, float xScaling, float xPos_fb, Utils::Region* region, int bamIdx);
-
 
     };
 

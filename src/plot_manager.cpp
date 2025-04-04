@@ -1049,7 +1049,8 @@ namespace Manager {
                 if (reg->end - reg->start < opts.low_memory || opts.link_op != 0) {
 
                     HGW::collectReadsAndCoverage(collections[idx], b, hdr_ptr, index, opts.threads, reg,
-                                                 (bool) opts.max_coverage, filters, pool, parse_mods_threshold);
+                                                 (bool) opts.max_coverage, filters, pool, parse_mods_threshold,
+                                                 opts.soft_clip_threshold > 0);
 
                     int sort_state = Segs::getSortCodes(collections[idx].readQueue, opts.threads, pool, reg);
                     int maxY = Segs::findY(collections[idx], collections[idx].readQueue, opts.link_op, opts,
@@ -1177,8 +1178,6 @@ namespace Manager {
         }
         regionWidth = availableWidth / (float)regions.size();
         bamHeight = covY + trackY;
-
-//        std::cout << "sliderSpace=" << sliderSpace << " covY=" << covY << " refSpace=" << refSpace << " trackY=" << trackY << std::endl;
 
         for (auto &cl: collections) {
             cl.xScaling = (float)((regionWidth - gap - gap) / ((double)(cl.region->end - cl.region->start)));
@@ -1326,7 +1325,7 @@ namespace Manager {
 
     void GwPlot::drawCursorPosOnRefSlider(SkCanvas *canvas) {
         // determine if cursor is in the slider region
-        if (regions.empty() || xPos_fb <= 0 || yPos_fb <= 0 || yPos_fb < fb_height - sliderSpace || regionSelection < 0) {
+        if (regions.empty() || xPos_fb <= 0 || yPos_fb <= 0 || yPos_fb < fb_height - sliderSpace + (gap*0.5) || regionSelection < 0) {
             return;
         }
         float colWidth = (float) fb_width / (float) regions.size();
@@ -2078,8 +2077,30 @@ namespace Manager {
         std::cerr << "Error: this function is not supported for Windows at the moment\n";
         return {nullptr, 0};
 #else
+    #ifndef OLD_SKIA
         m_encodedJpegData = SkJpegEncoder::Encode(nullptr, img.get(), options);
         return {static_cast<const uint8_t*>(m_encodedJpegData->data()), m_encodedJpegData->size()};
+    #else
+        SkBitmap bitmap;
+        if (!bitmap.tryAllocPixels(SkImageInfo::MakeN32Premul(img->width(), img->height()))) {
+            std::cerr << "Error: failed to allocate bitmap for JPEG encoding\n";
+            return {nullptr, 0};
+        }
+        if (!img->readPixels(nullptr, bitmap.pixmap(), 0, 0)) {
+            std::cerr << "Error: failed to read pixels from image\n";
+            return {nullptr, 0};
+        }
+        // Create a memory stream to write JPEG data
+        SkDynamicMemoryWStream stream;
+        if (!SkJpegEncoder::Encode(&stream, bitmap.pixmap(), options)) {
+            std::cerr << "Error: JPEG encoding failed\n";
+            return {nullptr, 0};
+        }
+        // Copy encoded data to a data object that your code can manage
+        sk_sp<SkData> data = stream.detachAsData();
+        m_encodedJpegData = data;
+        return {static_cast<const uint8_t*>(data->data()), data->size()};
+    #endif
 #endif
     }
 

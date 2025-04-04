@@ -10,7 +10,8 @@
 #include "gw_fonts.h"
 
 #include "include/core/SkFontMgr.h"
-
+#include "include/core/SkPathEffect.h"
+#include "include/effects/SkDashPathEffect.h"
 #ifndef OLD_SKIA
     #if defined(__APPLE__)
         #include <CoreText/CoreText.h>
@@ -32,6 +33,7 @@
 
 namespace Themes {
 
+    SkScalar intervals[] = {10.0f, 5.0f}; // Length of dash, length of gap
 
     EXPORT BaseTheme::BaseTheme() {
 
@@ -151,7 +153,8 @@ namespace Themes {
         lcLightJoins.setStrokeWidth(1);
 
         lcGTFJoins.setStyle(SkPaint::kStroke_Style);
-        lcGTFJoins.setStrokeWidth(1);
+        lcGTFJoins.setStrokeWidth(2);
+        lcGTFJoins.setPathEffect(SkDashPathEffect::Make(intervals, 2, 0.0f));
 
         lcLabel.setStyle(SkPaint::kStroke_Style);
         lcLabel.setStrokeWidth(1);
@@ -400,7 +403,7 @@ namespace Themes {
         fc5hmc.setARGB(227, 215, 85, 23);
         lcJoins.setARGB(255, 142, 142, 142);
         lcLightJoins.setARGB(255, 82, 82, 82);
-        lcGTFJoins.setARGB(255, 50, 50, 80);
+        lcGTFJoins.setARGB(255, 140, 140, 170);
         lcLabel.setARGB(255, 182, 182, 182);
         lcBright.setColor(SK_ColorWHITE);
         tcDel.setARGB(255, 227, 227, 227);

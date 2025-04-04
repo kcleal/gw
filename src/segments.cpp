@@ -707,9 +707,8 @@ namespace Segs {
                                                   u, u, u, u, u, u, u, u,
                                                   INV_F};
 
-    void align_init(Align *self, const int parse_mods_threshold) {
+    void align_init(Align *self, const int parse_mods_threshold, const bool add_clip_space) {
 //        auto start = std::chrono::high_resolution_clock::now();
-
         bam1_t *src = self->delegate;
 
         self->pos = src->core.pos;
@@ -766,8 +765,13 @@ namespace Segs {
             }
         }
         self->reference_end = self->blocks.back().end;
-        self->cov_start = (int)self->pos - self->left_soft_clip;
-        self->cov_end = (int)self->reference_end + self->right_soft_clip;
+        if (add_clip_space) {
+            self->cov_start = (int)self->pos - self->left_soft_clip;
+            self->cov_end = (int)self->reference_end + self->right_soft_clip;
+        } else {
+            self->cov_start = (int)self->pos;
+            self->cov_end = (int)self->reference_end;
+        }
 
         uint32_t flag = src->core.flag;
 
@@ -776,17 +780,6 @@ namespace Segs {
         } else {
             self->has_SA = false;
         }
-
-//        if (sort_state > 0) {
-//            if (sort_state == Utils::SortType::HP) {
-//                uint8_t *HP_tag = bam_aux_get(self->delegate, "HP");
-//                self->sort_tag = (HP_tag != nullptr) ? (int) bam_aux2i(HP_tag) : 0;
-//            } else if (sort_state == Utils::SortType::STRAND) {
-//                self->sort_tag = (int)(src->core.flag & BAM_FREVERSE) ? 1 : 0;
-//            } else if (sort_by_pos >= 0 && ref_base != '\0') {
-//                self->sort_tag = getSortCode(src, sort_by_pos, ref_base);
-//            }
-//        }
 
         if (parse_mods_threshold > 0) {
             hts_base_mod_state* mod_state = new hts_base_mod_state;
@@ -853,17 +846,18 @@ namespace Segs {
         self->any_ins.clear();
     }
 
-    void init_parallel(std::vector<Align> &aligns, int n, BS::thread_pool &pool, const int parse_mods_threshold) {
+    void init_parallel(std::vector<Align> &aligns, const int n, BS::thread_pool &pool,
+        const int parse_mods_threshold, const bool add_clip_space) {
         if (n == 1) {
             for (auto &aln : aligns) {
-                align_init(&aln, parse_mods_threshold);
+                align_init(&aln, parse_mods_threshold, add_clip_space);
             }
         } else {
             pool.parallelize_loop(0, aligns.size(),
-                                  [&aligns, parse_mods_threshold]
+                                  [&aligns, parse_mods_threshold, add_clip_space]
                                   (const int a, const int b) {
                                       for (int i = a; i < b; ++i)
-                                          align_init(&aligns[i], parse_mods_threshold);
+                                          align_init(&aligns[i], parse_mods_threshold, add_clip_space);
                                   })
                     .wait();
         }
@@ -945,7 +939,6 @@ namespace Segs {
         }
     }
 
-
     int getSortCodes(std::vector<Align> &aligns, const int threads, BS::thread_pool &pool, Utils::Region *region) {
         // Lazily returns a sort code for POS, or returns other sort code
         Utils::SortType sort_state = region->getSortOption();
@@ -996,6 +989,26 @@ namespace Segs {
     void ReadCollection::resetDrawState() {
         skipDrawingReads = false;
         skipDrawingCoverage = false;
+    }
+
+    // Add or remove soft-clip space for alignments
+    void ReadCollection::modifySOftClipSpace(bool add_soft_clip_space) {
+        for (auto &align : readQueue) {
+            if (align.left_soft_clip) {
+                if (add_soft_clip_space && align.pos == align.cov_start) {
+                    align.cov_start -= align.left_soft_clip;
+                } else if (!add_soft_clip_space && align.pos > align.cov_start) {
+                    align.cov_start = align.pos;
+                }
+            }
+            if (align.right_soft_clip) {
+                if (add_soft_clip_space && align.reference_end == align.cov_end) {
+                    align.cov_end += align.right_soft_clip;
+                } else if (!add_soft_clip_space && align.reference_end < align.cov_end) {
+                    align.cov_end = align.reference_end;
+                }
+            }
+        }
     }
 
     void resetCovStartEnd(ReadCollection &cl) {
