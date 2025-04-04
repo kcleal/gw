@@ -150,10 +150,9 @@ namespace AlignFormat {
     EXPORT class GAF_t {
     public:
         std::string qname, chrom;
-        int qlen, qstart, qend;
-        int pos{0}, end{0}, qual, flag{0};
+        int qlen, qstart, qend, path_length, path_start, path_end, pos, end, matches, alignment_block_length, qual;
+        int seg_start, seg_end, flag{0}, y{-1};
         char strand;  // this is strand of the query, not reference
-        int y{-1};
 
         std::vector<ABlock> blocks;
         GAF_t() = default;

@@ -1179,6 +1179,7 @@ namespace Segs {
                         }
                         if (i >= vScroll) {
                             q_ptr->y = i - vScroll;
+                            std::cout << i << "   " << q_ptr->cov_start << " " << q_ptr->cov_end << " " << q_ptr->delegate->core.tid << std::endl;
                         }
                         if (linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
                             linkedSeen[qname] = q_ptr->y;

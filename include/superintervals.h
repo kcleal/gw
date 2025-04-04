@@ -174,6 +174,7 @@ public:
         size_t i = idx;
         while (i > 0) {
             if (start <= ends[i]) {
+                std::cout << " si " << start << " <= " << starts[i] << "-" << ends[i] << " " << i << std::endl;
                 found.push_back(data[i]);
                 --i;
             } else {
@@ -241,15 +242,20 @@ private:
             size_t it_start = 0;
             while (it_start < starts.size()) {
                 size_t block_end = it_start + 1;
-                bool needs_sort = false;
+                // Find the end of this block (all with same start value)
                 while (block_end < starts.size() && starts[block_end] == starts[it_start]) {
-                    if (block_end > it_start && ends[block_end] > ends[block_end - 1]) {
-                        needs_sort = true;
-                    }
                     ++block_end;
                 }
+                // Check if this block needs sorting, scan entire block to ensure descending order of ends
+                bool needs_sort = false;
+                for (size_t i = it_start + 1; i < block_end && !needs_sort; ++i) {
+                    if (ends[i] > ends[i - 1]) {
+                        needs_sort = true;
+                    }
+                }
                 if (needs_sort) {
-                    sortBlock(it_start, block_end, [](const Interval& a, const Interval& b) { return a.end > b.end; });
+                    sortBlock(it_start, block_end,
+                              [](const Interval& a, const Interval& b) { return a.end > b.end; });
                 }
                 it_start = block_end;
             }

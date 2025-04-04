@@ -10,6 +10,9 @@
 #include <stdexcept>
 #include <memory>
 #include <iostream>
+#include <queue>
+#include <set>
+#include <algorithm>
 
 #include "htslib/faidx.h"
 #include "htslib/hfile.h"
@@ -27,177 +30,233 @@
 
 namespace AlignFormat {
 
-    void extractAlignmentPath(std::string &line, GAF_t *g, size_t ps, size_t pe,
-                              std::vector<GAF_t*> &other_segments, size_t cigar_start, size_t cigar_end
-                              ) {
-        size_t match_count = 0;
+    enum Matcher {
+        STRAND,
+        CHROM,
+        START,
+        END
+    };
+
+    void parseSegments(std::string &line, GAF_t *g, size_t ps, size_t pe,
+                       std::vector<GAF_t*> &other_segments) {
+//        std::cout << "\nparseSegments\n";
+        /*
+        Parse the path string e.g.:
+        >chr1:0-10794>HG02572#2#JAHAOV010000291.1:5593-5651>chr1:10794-59600
+        */
+        GAF_t* cur = g;
+        if (line[ps] != '>' && line[ps] != '<') {
+            // No strand information, assume forward strand
+            g->chrom = line.substr(ps, pe - ps);
+            g->pos = g->path_start;
+            g->end = g->path_end;
+            return;
+        }
+
+        Matcher match = STRAND;
         size_t len;
         size_t j;
-        bool have_cigar = cigar_start != std::string::npos && cigar_start < cigar_end;
-        GAF_t* cur = g;
-
-        // Parse the path string
         for (size_t i=ps; i < pe; ++i) {
             // Break this path into alignment blocks on the reference genome
-            switch (match_count) {
-                case 0:
-                    if (i != ps) {
-                        cur = cur->duplicate();
-                        other_segments.push_back(cur);
+            switch (match) {
+                case STRAND:
+                    if (line[i] == '>' || line[i] == '<') {
+                        if (i != ps) {
+                            cur = cur->duplicate();
+                            other_segments.push_back(cur);
+                        }
+                        cur->flag = (line[i] == '>') ? 0 : 16;
+                        match = CHROM;
+                    } else {  // No strand information, assume forward strand. Take whole string as chrom
+                        cur->chrom = line.substr(i, pe - i);
+                        cur->seg_start = cur->path_start;
+                        cur->seg_end = cur->path_end;
+                        i = pe;
                     }
-                    cur->flag = (line[i] == '>') ? 0 : 16;
-                    ++match_count;
                     break;
-                case 1:
+                case CHROM:
                     j = line.find(':', i);
                     if (j != std::string::npos) {
                         len = j - i;
                         cur->chrom = line.substr(i, len);
                     } else {
-                        len = 0;
-                        cur->chrom = line.substr(i);  // If ':' not found, take the remaining part
+                        // This only occurs when one segment is in the path. Use the original pos and end
+                        cur->chrom = line.substr(i, pe - i);  // If ':' not found, take the remaining part
+                        cur->seg_start = g->pos;
+                        cur->seg_end = g->end;
+                        break;
                     }
-                    ++match_count;
+                    match = START;
                     i += len;
                     break;
-                case 2:
+                case START:
                     j = line.find("-", i);
-                    std::from_chars(line.data() + i, line.data() + j, cur->pos);
-                    ++match_count;
+                    std::from_chars(line.data() + i, line.data() + j, cur->seg_start);
+                    match = END;
                     len = j - i;
                     i += len;
                     break;
-                default:
+                case END:
                     j = line.find_first_of("><", i);
-                    std::from_chars(line.data() + i, line.data() + j, cur->end);
-                    if (!have_cigar) {
-                        cur->blocks.emplace_back() = {(uint32_t)cur->pos, (uint32_t)cur->end};
-                    }
-                    if (j == std::string::npos) {
+                    std::from_chars(line.data() + i, line.data() + j, cur->seg_end);
+                    if (j == std::string::npos) {  // todo this needed?
                         i = pe;
                         break;
                     }
-                    match_count = 0;
+                    match = STRAND;
                     len = j - i - 1;
                     i += len;
                     break;
             }
         }
+        // Set middle segments pos and end to the segment locations. Ignore first and last segments
+        size_t offset = g->path_start; // Track position in the concatenated path
+        g->pos = g->seg_start + offset;
+        g->end = g->seg_end;
+        int remaining = g->alignment_block_length - (g->end - g->pos);
+//        std::cout << "block length=" << g->alignment_block_length << std::endl;
+//        std::cout << " remaining after first block=" << remaining << std::endl;
+//        std::cout << "seg_start,seg_end=" << g->seg_start << " " << g->seg_end << std::endl;
+//        std::cout << "path_start,seg_start=" << g->path_start  << " " << g->seg_start << std::endl;
+//        std::cout << "offset=" << offset << " " << g->chrom << ":" << g->pos << "-" << g->end << std::endl;
+        for (size_t i=0; i < other_segments.size(); ++i) {
+            other_segments[i]->pos = other_segments[i]->seg_start;
+            if (i < other_segments.size() - 1) {
+                other_segments[i]->end = other_segments[i]->seg_end;
+                remaining -= (other_segments[i]->end - other_segments[i]->pos);
+//                std::cout << " remaining after block=" << remaining << std::endl;
+            } else {
+                other_segments[i]->end = other_segments[i]->pos + remaining;
+            }
+//            std::cout << other_segments[i]->chrom << ":" << other_segments[i]->pos << "-" << other_segments[i]->end << std::endl;
+        }
+//        std::exit(0);
+
+    }
+
+    void extractAlignmentPath(std::string &line, GAF_t *g, size_t ps, size_t pe,
+                              std::vector<GAF_t*> &other_segments, size_t cigar_start, size_t cigar_end
+                              ) {
+
+
+        bool have_cigar = cigar_start != std::string::npos && cigar_start < cigar_end;
+        if (!have_cigar) {
+            g->pos = g->path_start;
+            g->end = g->path_end;
+            g->blocks.emplace_back() = {(uint32_t)g->pos, (uint32_t)g->end};
+            return;
+        }
+        GAF_t* cur = g;
+
+//        std::cout << "extractPath\n";
+        parseSegments(line, g, ps, pe, other_segments);
 
         // Now parse cigar
-        if (have_cigar) {
-            cur = g;
-            size_t next_segment = 0;
-            uint32_t num = 0;
-            uint32_t current_pos = cur->pos;
-            uint32_t block_start = current_pos;
-            bool in_match = false;
+        cur = g;
+        size_t next_segment = 0;
+        uint32_t num = 0;
+        uint32_t current_pos = g->pos;  // First block position
+        uint32_t block_start = current_pos;
+        bool in_match = false;
 
-            auto flush_block = [&]() {
-                if (in_match && cur) {
-                    // Ensure block doesn't extend beyond segment boundary and check for overflow
-                    uint32_t end_pos = (current_pos < (uint32_t)cur->end) ?
-                                       std::min(current_pos, (uint32_t)cur->end) : (uint32_t)cur->end;
-                    if (block_start < end_pos) {
-                        cur->blocks.emplace_back() = {block_start, end_pos};
-                    }
-                    in_match = false;
+        auto flush_block = [&]() {
+            if (in_match && cur) {
+                // Ensure block doesn't extend beyond segment boundary
+                uint32_t end_pos = (current_pos < (uint32_t)cur->seg_end) ?
+                                   std::min(current_pos, (uint32_t)cur->seg_end) : (uint32_t)cur->end;
+                if (block_start < end_pos) {
+                    cur->blocks.emplace_back() = {block_start, end_pos};
                 }
-            };
+                in_match = false;
+            }
+        };
 
-            auto advance_to_next_segment = [&]() -> bool {
-                if (next_segment < other_segments.size()) {
-                    auto next = other_segments[next_segment];
-                    if (next) {
-                        cur = next;
-                        next_segment++;
-                        current_pos = cur->pos;
-                        block_start = current_pos;
-                        in_match = false;
-                        return true;
-                    }
-                }
-                return false;
-            };
+        auto advance_to_next_segment = [&]() -> bool {
+            if (next_segment < other_segments.size()) {
+                cur = other_segments[next_segment];
+                next_segment++;
+                current_pos = cur->seg_start;
+                block_start = current_pos;
+                in_match = false;
+                return true;
+            }
+            return false;
+        };
 
-            for (size_t i = cigar_start; i < cigar_end && cur != nullptr; ++i) {
-                if (std::isdigit(line[i])) {
-                    // Protect against num overflow
-                    if (num <= (UINT32_MAX - 9) / 10) {
-                        num = num * 10 + (line[i] - '0');
-                    }
-                    continue;
-                }
-
-                switch (line[i]) {
-                    case '=':
-                    case 'X':
-                    case 'M': {
-                        uint32_t remaining = num;
-                        while (remaining > 0 && cur != nullptr) {
-                            // Calculate how much of the operation fits in current segment
-                            uint32_t segment_remaining = (current_pos < (uint32_t)cur->end) ?
-                                                         ((uint32_t)cur->end - current_pos) : 0;
-
-                            // Protect against overflow in advance calculation
-                            uint32_t max_advance = UINT32_MAX - current_pos;
-                            uint32_t advance = std::min({remaining, segment_remaining, max_advance});
-
-                            if (!in_match) {
-                                block_start = current_pos;
-                                in_match = true;
-                            }
-
-                            current_pos += advance;
-                            remaining -= advance;
-
-                            // If we've reached the end of the segment
-                            if (current_pos >= (uint32_t)cur->end) {
-                                flush_block();
-                                if (!advance_to_next_segment()) {
-                                    break;  // No more segments
-                                }
-                            }
-                        }
-                        break;
-                    }
-
-                    case 'D':
-                    case 'N': {
-                        flush_block();
-                        uint32_t remaining = num;
-                        while (remaining > 0 && cur != nullptr) {
-                            uint32_t segment_remaining = (current_pos < (uint32_t)cur->end) ?
-                                                         ((uint32_t)cur->end - current_pos) : 0;
-
-                            uint32_t max_advance = UINT32_MAX - current_pos;
-                            uint32_t advance = std::min({remaining, segment_remaining, max_advance});
-
-                            current_pos += advance;
-                            remaining -= advance;
-
-                            if (current_pos >= (uint32_t)cur->end) {
-                                if (!advance_to_next_segment()) {
-                                    break;  // No more segments
-                                }
-                            }
-                        }
-                        block_start = current_pos;
-                        break;
-                    }
-
-                    case 'I':
-                        break;
-
-                    default:
-                        std::cerr << "Warning: Unknown CIGAR operation " << line[i] << std::endl;
-                        break;
-                }
-                num = 0;
+        for (size_t i = cigar_start; i < cigar_end && cur != nullptr; ++i) {
+            if (std::isdigit(line[i])) {
+                num = num * 10 + (line[i] - '0');
+                continue;
             }
 
-            flush_block();
+            switch (line[i]) {
+                case '=':
+                case 'X':
+                case 'M': {
+                    uint32_t remaining = num;
+                    while (remaining > 0 && cur != nullptr) {
+                        // Calculate how much of the operation fits in current segment
+                        uint32_t segment_remaining = (current_pos < (uint32_t)cur->seg_end) ?
+                                                     ((uint32_t)cur->seg_end - current_pos) : 0;
+
+                        // Protect against overflow in advance calculation
+                        uint32_t max_advance = UINT32_MAX - current_pos;
+                        uint32_t advance = std::min({remaining, segment_remaining, max_advance});
+
+                        if (!in_match) {
+                            block_start = current_pos;
+                            in_match = true;
+                        }
+
+                        current_pos += advance;
+                        remaining -= advance;
+
+                        // If we've reached the end of the segment
+                        if (current_pos >= (uint32_t)cur->seg_end) {
+                            flush_block();
+                            if (!advance_to_next_segment()) {
+                                break;  // No more segments
+                            }
+                        }
+                    }
+                    break;
+                }
+
+                case 'D':
+                case 'N': {
+                    flush_block();
+                    uint32_t remaining = num;
+                    while (remaining > 0 && cur != nullptr) {
+                        uint32_t segment_remaining = (current_pos < (uint32_t)cur->seg_end) ?
+                                                     ((uint32_t)cur->seg_end - current_pos) : 0;
+
+                        uint32_t max_advance = UINT32_MAX - current_pos;
+                        uint32_t advance = std::min({remaining, segment_remaining, max_advance});
+
+                        current_pos += advance;
+                        remaining -= advance;
+
+                        if (current_pos >= (uint32_t)cur->seg_end) {
+                            if (!advance_to_next_segment()) {
+                                break;  // No more segments
+                            }
+                        }
+                    }
+                    block_start = current_pos;
+                    break;
+                }
+
+                case 'I':
+                    break;
+
+                default:
+                    break;
+            }
+            num = 0;
         }
+
+        flush_block();
+
 
 //        std::cout << "g is " << g->pos << " - " << g->end << std::endl;
 //        for (auto item : g->blocks) {
@@ -210,7 +269,6 @@ namespace AlignFormat {
 //            } std::cout << std::endl;
 //        }
 
-//        std::exit(0);
     }
 
     // GAF format example
@@ -246,17 +304,21 @@ namespace AlignFormat {
         };
 
         next = line.find('\t', pos);
-        std::string qname = line.substr(0, next);
-
+//        std::string qname = line.substr(0, next);
+//        if (qname != "m21009_241011_231051/263063172/ccs") {
+//            return;
+//        }
+//        std::cout << "gaf parse\n";
+//        std::cout << line << std::endl;
         pos = next + 1;
 
         parse_int(g->qlen);
         parse_int(g->qstart);
         parse_int(g->qend);
 
-        next = line.find('\t', pos);
+        //next = line.find('\t', pos);
         g->strand = line[pos];
-        pos = next + 1;
+        pos += 2;
 
         //Path matching /([><][^\s><]+(:\d+-\d+)?)+|([^\s><]+)/
         ps = pos;
@@ -264,29 +326,16 @@ namespace AlignFormat {
         pe = next;
         pos = next + 1;
 
-        next = line.find('\t', pos);
-//        std::from_chars(line.data() + pos, line.data() + next, path_length);
-        pos = next + 1;
+        //         std::string qname, chrom;
+        //        int qlen, qstart, qend, path_length, path_start, path_end, matches, alignment_block_length, qual;
+        //        int pos{0}, end{0}, flag{0}, y{-1};
+        //        char strand;  // this is strand of the query, not reference
 
-        //8 	int 	Start position on the path (0-based)
-        next = line.find('\t', pos);
-//        std::from_chars(line.data() + pos, line.data() + next, path_start);
-        pos = next + 1;
-
-        //9 	int 	End position on the path (0-based)
-        next = line.find('\t', pos);
-//        std::from_chars(line.data() + pos, line.data() + next, path_end);
-        pos = next + 1;
-
-        //10 	int 	Number of residue matches
-        next = line.find('\t', pos);
-        pos = next + 1;
-
-        //11 	int 	Alignment block length
-        next = line.find('\t', pos);
-        pos = next + 1;
-
-        //12 	int 	Mapping quality (0-255; 255 for missing)
+        parse_int(g->path_length);
+        parse_int(g->path_start);
+        parse_int(g->path_end);
+        parse_int(g->matches);
+        parse_int(g->alignment_block_length);
         parse_int(g->qual);
 
         size_t cigar_start = line.find("cg:Z:");
@@ -299,15 +348,41 @@ namespace AlignFormat {
         std::vector<GAF_t*> other_segments;
         extractAlignmentPath(line, g, ps, pe, other_segments, cigar_start, cigar_end);
 
+        std::cout << g->chrom << ":" << g->pos << "-" << g->end << std::endl;
         cached_alignments[g->chrom].add(g->pos, g->end, g);
 
-//        std::cout << g->flag << " " << g->chrom << " " << g->pos << " " << g->end << std::endl;
-//        for (auto & v : other_segments) {
-//            cached_alignments[v->chrom].add(v->pos, v->end, g);
-//            std::cout << v->flag << " " << v->chrom << " " << v->pos << " " << v->end << std::endl;
-//        }
-//        std::exit(0);
+        for (auto & v : other_segments) {
+            cached_alignments[v->chrom].add(v->pos, v->end, g);
+            std::cout << " " << v->chrom << ":" << v->pos << "-" << v->end << std::endl;
+        }
 
+        if (g->end == 0 || g->chrom.empty()) {
+
+
+            // Debug:
+        std::cout << line << std::endl;
+        auto print_blocks = [](auto& gg){
+            if (gg->blocks.empty()) {
+                std::cout << " NO CIGAR \n";
+            }
+            for (auto v : gg->blocks) {
+                std::cout << "(" << v.start << "," << v.end << ") ";
+            } std::cout << std::endl;
+        };
+        std::cout << "=========================\n";
+        std::cout << "Path start: " << g->chrom << ":" << g->pos << "-" << g->end << " ";
+        print_blocks(g);
+
+        for (size_t i = 0; i < other_segments.size(); ++i) {
+            std::cout << "Seg " << other_segments[i]->chrom << ":" << other_segments[i]->pos << "-" << other_segments[i]->end << " ";
+            print_blocks(other_segments[i]);
+        }
+        std::cout << std::endl;
+
+        std::cout << g->flag << " " << g->chrom << " " << g->pos << " " << g->end << std::endl;
+
+        std::exit(0);
+        }
     }
 
     struct TrackRange {
@@ -315,20 +390,54 @@ namespace AlignFormat {
     };
 
     void gafFindY(std::vector<AlignFormat::GAF_t *>& gafAlignments) {
-        std::vector<TrackRange> trackLevels;
-        for (const auto &b : gafAlignments) {
-            size_t memLen = trackLevels.size();
-            size_t i = 0;
-            for (; i < memLen; ++i) {
-                if (b->pos > trackLevels[i].end) {
-                    trackLevels[i].end = b->end;
-                    b->y = (int)i;
-                    break;
-                }
+        if (gafAlignments.empty()) return;
+
+        // Min-heap to track active segments
+        std::priority_queue<
+        std::pair<int, int>,  // (end, Y level)
+                std::vector<std::pair<int, int>>,
+                std::greater<std::pair<int, int>>
+                > active_ends;
+
+        // Track next available Y level and the maximum Y level used
+        int next_y = 0;
+        int max_y_used = -1;
+
+        // Array to track which Y levels are in use
+        std::vector<bool> y_in_use;
+        constexpr int pad = 5;
+
+        for (auto* align : gafAlignments) {
+            // Clear ended alignments and mark their Y levels as available
+            while (!active_ends.empty() && active_ends.top().first < align->pos) {
+                int freed_y = active_ends.top().second;
+                y_in_use[freed_y] = false;
+                if (freed_y < next_y) next_y = freed_y;
+                active_ends.pop();
             }
-            if (i == memLen) {
-                trackLevels.emplace_back() = {b->pos, b->end};
-                b->y = (int)memLen;
+
+            // Find the next available Y level, linear probing
+            while (next_y < (int)y_in_use.size() && y_in_use[next_y]) {
+                next_y++;
+            }
+
+            // If we need a new Y level
+            if (next_y >= (int)y_in_use.size()) {
+                y_in_use.push_back(false);
+                max_y_used = next_y;
+            }
+
+            // Assign Y level
+            align->y = next_y;
+            y_in_use[next_y] = true;
+            active_ends.push({align->end + pad, next_y});
+
+            if (next_y == max_y_used) {
+                next_y++;
+            } else {
+                while (next_y < (int)y_in_use.size() && y_in_use[next_y]) {
+                    next_y++;
+                }
             }
         }
     }
@@ -373,6 +482,7 @@ namespace AlignFormat {
 #endif
 
             std::string tp;
+            int count  = 0;
             while (true) {
                 if (!(bool)getline(*fpu, tp)) {
                     break;
@@ -381,11 +491,21 @@ namespace AlignFormat {
                     continue;
                 }
                 gafParser(tp, this->cached_alignments);
+                if (count > 10000) {
+                    break;
+                }
+//                if (count % 1000 == 0) {
+//                    std::cout << count << std::endl;
+//                }
+                count +=  1;
             }
+//            std::cout << " Finding Y " << std::endl;
             for (auto& item : cached_alignments) {
+                item.second.startSorted = false;
                 item.second.index();
-                gafFindY(item.second.data);
+//                gafFindY(item.second.data);
             }
+//            std::cout << " Done finding Y\n";
         }
     }
 
@@ -415,7 +535,7 @@ namespace AlignFormat {
         align->reference_end = gaf->end;
         align->has_SA = false;
         align->blocks = gaf->blocks;
-        std::cout << gaf->pos << " " << gaf->end << " " << gaf->y << std::endl;
+//        std::cout << gaf->pos << " " << gaf->end << " " << gaf->y << std::endl;
         align->delegate = bam_init1();
         const char* qname = gaf->qname.c_str();
         size_t l_qname = gaf->qname.size();

@@ -176,11 +176,15 @@ namespace HGW {
         if (!col.alignmentFile->cached_alignments.contains(region->chrom)) {
             return;
         }
+        std::cout << " REGION " << region->start << "- " << region->end << std::endl;
         col.alignmentFile->cached_alignments[region->chrom].findOverlaps(region->start, region->end, readQueueGAF);
         std::reverse(readQueueGAF.begin(), readQueueGAF.end());
+//        std::sort(readQueueGAF.begin(), readQueueGAF.end(), [](auto &a, auto &b) {
+//            return a->pos < b->pos; });
         if (coverage) {
             std::fill(col.covArr.begin(), col.covArr.end(), 0);
             for (const auto &i : readQueueGAF) {
+                std::cout << i->pos << " " << i->end << std::endl;
                 Segs::addToCovArray(col.covArr, i->blocks, region->start, region->end);
             }
         }
