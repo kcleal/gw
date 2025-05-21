@@ -25,9 +25,28 @@ jobs:
          msystem: ${{ matrix.sys }}
          update: true
          install: make
-         pacboy: toolchain:p glfw:p skia:p htslib:p freeglut:p glew:p ncurses:p fontconfig:p dlfcn:p libpng:p
+         pacboy: >-
+           toolchain:p 
+           glfw:p 
+           skia:p 
+           htslib:p 
+           freeglut:p 
+           glew:p 
+           ncurses:p 
+           fontconfig:p 
+           dlfcn:p 
+           libpng:p 
+           libwebp:p 
+           libjpeg-turbo:p 
+           icu:p 
+           pkg-config:p
+     - name: build env
+       run: |
+        echo "PKG_CONFIG_PATH=/ucrt64/lib/pkgconfig" >> $GITHUB_ENV
+        pkg-config --list-all | grep skia
      - name: build
        run: |
+         export OLD_SKIA=1
          make
      - name: upload
        uses: actions/upload-artifact@v4

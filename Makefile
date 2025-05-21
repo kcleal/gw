@@ -79,7 +79,6 @@ SKIA_PATH := $(shell find ./lib/skia/out -type d -name '*Release*' | sort | head
 
 ##########################################################
 # Flags and libs
-
 ifdef OLD_SKIA
 	CXXFLAGS += -D OLD_SKIA -D USE_GL
 endif
@@ -88,7 +87,6 @@ LIBGW_INCLUDE=
 CPPFLAGS += -I./lib/skia -I./lib/libBigWig -I./include -I. $(LIBGW_INCLUDE) -I./src
 LDFLAGS += -L$(SKIA_PATH)
 LDLIBS += -lskia -lm -ljpeg -lpng -lpthread
-
 ifeq ($(TARGET_OS),"Linux")  # set platform flags and libs
     CXXFLAGS += -D LINUX -D __STDC_FORMAT_MACROS
     LDLIBS += -lX11
@@ -108,10 +106,12 @@ else ifeq ($(TARGET_OS),"MacOS")
     LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=11 -L/usr/local/lib
     LDLIBS += -lhts -lglfw -lzlib -lcurl -licu -ldl -lsvg -lfontconfig
 else ifeq ($(PLATFORM),"Windows")
-    CXXFLAGS += -D WIN32 #-D OLD_SKIA
-    CPPFLAGS += $(shell pkgconf -cflags skia) $(shell ncursesw6-config --cflags)
-    LDLIBS += $(shell pkgconf -libs skia)
-    LDLIBS += -lhts -lharfbuzz-subset -lglfw3 -lcurl -lsvg -lfontconfig
+    CXXFLAGS += -D WIN32 -D OLD_SKIA
+    SKIA_CFLAGS := $(shell pkg-config --cflags skia 2>/dev/null || echo "-I/ucrt64/include/skia")
+    SKIA_LIBS := $(shell pkg-config --libs skia 2>/dev/null || echo "-lskia")
+    NCURSES_CFLAGS := $(shell pkg-config --cflags ncursesw 2>/dev/null || echo "")
+    CPPFLAGS += $(SKIA_CFLAGS) $(NCURSES_CFLAGS)
+    LDLIBS += $(SKIA_LIBS) -lhts -lharfbuzz-subset -lglfw3 -lcurl -lsvg -lfontconfig
 else ifeq ($(PLATFORM),"Emscripten")
     CPPFLAGS += -v --use-port=contrib.glfw3 -sUSE_ZLIB=1 -sUSE_FREETYPE=1 -sUSE_ICU=1  -I/usr/local/include
     CFLAGS += -fPIC
