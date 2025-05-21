@@ -951,7 +951,8 @@ namespace Manager {
                 if (mode == Show::SINGLE) {
                     drawScreen();
                 } else if (mode == Show::TILED) {
-                    drawTiles(sSurface->getCanvas(), sContext, sSurface);
+//                    drawTiles(sSurface->getCanvas(), sContext, sSurface);
+                    drawTiles();
                     printIndexInfo();
                 }
             }
@@ -1651,7 +1652,8 @@ namespace Manager {
         }
     }
 
-    void GwPlot::tileDrawingThread(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface) {
+//    void GwPlot::tileDrawingThread(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface) {
+    void GwPlot::tileDrawingThread() {
         currentVarTrack = &variantTracks[variantFileSelection];
         int bStart = currentVarTrack->blockStart;
         int bLen = (int)opts.number.x * (int)opts.number.y;
@@ -1661,10 +1663,12 @@ namespace Manager {
             bool c = imageCache.find(i) != imageCache.end();
             if (!c && i < (int)currentVarTrack->multiRegions.size() && !bams.empty()) {
                 this->regions = currentVarTrack->multiRegions[i];
-                runDrawOnCanvas(canvas);
-                sContext->flush();
-                sk_sp<SkImage> img(sSurface->makeImageSnapshot());
-                imageCache[i] = img;
+//                runDrawOnCanvas(canvas);
+                runDrawOnCanvas(rasterCanvas);
+//                sContext->flush();
+//                sk_sp<SkImage> img(sSurface->makeImageSnapshot());
+//                imageCache[i] = img;
+                imageCache[i] = rasterSurfacePtr[0]->makeImageSnapshot();
             }
         }
     }
@@ -1718,7 +1722,7 @@ namespace Manager {
         }
     }
 
-    void GwPlot::drawTiles(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface) {
+    void GwPlot::drawTiles() {
         currentVarTrack = &variantTracks[variantFileSelection];
         int bStart = currentVarTrack->blockStart;
 
@@ -1727,7 +1731,7 @@ namespace Manager {
         float y_gap = (variantTracks.size() <= 1) ? 0 : (10 * monitorScale);
         bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height - 6 * monitorScale, 6 * monitorScale, 6 * monitorScale, y_gap);
         if (currentVarTrack->image_glob.empty()) {
-            tileDrawingThread(canvas, sContext, sSurface);  // draws images from variant file
+            tileDrawingThread();  // draws images from variant file
         } else {
             tileLoadingThread();  // loads static images in .png format
         }
@@ -1747,7 +1751,7 @@ namespace Manager {
             std::rotate(srtLabels.begin(), pivot, pivot + 1);
         }
 
-        canvas->drawPaint(opts.theme.bgPaintTiled);
+        rasterCanvas->drawPaint(opts.theme.bgPaintTiled);
         SkSamplingOptions sampOpts = SkSamplingOptions();
         int i = bStart;
         for (auto &b : bboxes) {
@@ -1768,19 +1772,19 @@ namespace Manager {
                     float newHeight = newWidth / ratio;
                     rect.setXYWH(b.xStart, b.yStart, newWidth, newHeight);
                 }
-                canvas->drawImageRect(imageCache[i], rect, sampOpts);
+                rasterCanvas->drawImageRect(imageCache[i], rect, sampOpts);
                 if (currentVarTrack->multiLabels.empty()) {
                     ++i; continue;
                 }
                 if (i - bStart != mouseOverTileIndex) {
                     currentVarTrack->multiLabels[i].mouseOver = false;
                 }
-                Drawing::drawLabel(opts, canvas, rect, currentVarTrack->multiLabels[i], fonts, seenLabels[fileName], srtLabels);
+                Drawing::drawLabel(opts, rasterCanvas, rect, currentVarTrack->multiLabels[i], fonts, seenLabels[fileName], srtLabels);
             }
             ++i;
         }
-        imageCacheQueue.emplace_back(frameId, sSurface->makeImageSnapshot());
-        sContext->flush();
+        imageCacheQueue.emplace_back(frameId, rasterSurfacePtr[0]->makeImageSnapshot());
+
         glfwSwapBuffers(window);
         redraw = false;
     }
@@ -2156,7 +2160,7 @@ namespace Manager {
 #else
         sk_sp<SkData> png(img->encodeToData());
 #endif
-        if (!png) { return; }
+        if (!png) { std::cerr << "Error: Png creation failed\n"; return; }
         FILE* fout = fopen(path.c_str(), "w");
         fwrite(png->data(), 1, png->size(), fout);
         fclose(fout);

@@ -1721,18 +1721,19 @@ namespace Drawing {
         } else if (add_rect) {
             if (!shaded) {
                 if (strand == 1) {  // +
-                    drawRightPointedRectangleNoEdge(canvas, h, (int)(y + padY) + 1, x + padX, w, 0, opts.theme.lcJoins, path, pointSlop);
+                    drawRightPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, opts.theme.lcJoins, path, pointSlop);
                 } else if (strand == 2) {  // -
-                    drawLeftPointedRectangleNoEdge(canvas, h, (int)(y + padY), x + padX, w, 0, opts.theme.lcJoins, path, pointSlop);
+                    drawLeftPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, opts.theme.lcJoins, path, pointSlop);
                 }
                 if (faceColour2->getStyle() != SkPaint::kStroke_Style) {
                     canvas->drawRect(rect, *faceColour2);
                 }
+
             } else {
                 if (strand == 1) {  // +
-                    drawRightPointedRectangleNoEdge(canvas, h, (int)(y + padY), x + padX, w, 0, *faceColour2, path, pointSlop);
+                    drawRightPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, *faceColour2, path, pointSlop);
                 } else if (strand == 2) {  // -
-                    drawLeftPointedRectangleNoEdge(canvas, h, (int)(y + padY), x + padX, w, 0, *faceColour2, path, pointSlop);
+                    drawLeftPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, *faceColour2, path, pointSlop);
                 }
             }
         }

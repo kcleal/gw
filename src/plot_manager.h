@@ -278,11 +278,11 @@ namespace Manager {
 
         void drawOverlay(SkCanvas* canvas);
 
-        void tileDrawingThread(SkCanvas* canvas, GrDirectContext* sContext, SkSurface *sSurface);
+        void tileDrawingThread();
 
         void tileLoadingThread();
 
-        void drawTiles(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface);
+        void drawTiles();
 
         int registerKey(GLFWwindow* window, int key, int scancode, int action, int mods);
 

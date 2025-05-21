@@ -126,20 +126,24 @@ namespace Utils {
 
     template<typename Out>
     void split(const std::string &s, char delim, Out result) {
-        std::istringstream iss(s);
-        std::string item;
-        while (std::getline(iss, item, delim)) {
-            *result++ = item;
+        size_t start = 0;
+        size_t end = s.find(delim);
+        while (end != std::string::npos) {
+            if (start != end) {  // Skip empty strings inline
+                *result++ = s.substr(start, end - start);
+            }
+            start = end + 1;
+            end = s.find(delim, start);
+        }
+        if (start < s.length()) {  // Add the last segment
+            *result++ = s.substr(start);
         }
     }
 
     std::vector<std::string> split(const std::string &s, char delim) {
         std::vector<std::string> elems;
+        elems.reserve(std::count(s.begin(), s.end(), delim) + 1);  // Pre-allocate for expected size
         split(s, delim, std::back_inserter(elems));
-        elems.erase(std::remove_if(elems.begin(), elems.end(),  // remove empty strings
-                                   [&](std::string const &cmp) -> bool {
-                                       return cmp == "";
-                                   }), elems.end());
         return elems;
     }
 
@@ -176,13 +180,19 @@ namespace Utils {
 
     EXPORT Region parseRegion(std::string &s) {
         Region reg;
-        std::regex pattern1("(.*)[: \t-]([0-9][0-9,]*)[: \t-]([0-9][0-9,]*)");
-        std::regex pattern2("(.*),([0-9]+),([0-9]+)");
+        std::regex pattern1("(.*)[: \t-]([0-9][0-9,]*)[: \t-]([0-9][0-9,]*)");  // chr1:1-20000
+        std::regex pattern2("(.*),([0-9]+),([0-9]+)");                          // chr1,1,20000
+        std::regex pattern3("(.*)[: \t]([0-9][0-9,]*)");                        // chr1:10000
+        std::regex pattern4("(.*)[, \t]([0-9][0-9,]*)");                        // chr1,10000
         std::smatch match;
         if (std::regex_match(s, match, pattern1) || std::regex_match(s, match, pattern2)) {
             reg.chrom = match[1].str();
             reg.start = atoi_wo_comma(match[2].str());
             reg.end = atoi_wo_comma(match[3].str());
+        } else if (std::regex_match(s, match, pattern3) || std::regex_match(s, match, pattern4)) {
+            reg.chrom = match[1].str();
+            reg.start = atoi_wo_comma(match[2].str());
+            reg.end = reg.start + 1;  // End = start + 1 for single position
         } else {
             reg.chrom = s;
             reg.start = 1;
@@ -190,9 +200,6 @@ namespace Utils {
         }
         if (reg.chrom.length() == 0 || reg.start > reg.end) {
             throw std::runtime_error("Error: unable to parse region");
-        }
-        if (reg.start == reg.end) {
-            reg.end += 1;
         }
         return reg;
     }

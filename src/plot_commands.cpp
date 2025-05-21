@@ -926,6 +926,8 @@ namespace Commands {
                     Manager::imagePngToFile(p->imageCacheQueue.back().second, out_path.string());
                     Term::clearLine(out);
                     out << "\rSaved to " << out_path << std::endl;
+                } else {
+                    out << termcolor::red << "Error:" << termcolor::reset << " no image in image queue " << std::endl;
                 }
             } else if (out_path.extension() == ".pdf" || out_path.extension() == ".svg") {
                 std::string format_str = (out_path.extension() == ".pdf") ? "pdf" : "svg";
@@ -944,12 +946,20 @@ namespace Commands {
                     cl.resetDrawState();
                 }
                 if (format_str == "pdf") {
+                    if (p->mode == Manager::TILED) {
+                        out << termcolor::red << "Error:" << termcolor::reset << " file type not supported for tiled images, only .png is" << out_path.extension() << std::endl;
+                        return Err::OPTION_NOT_SUPPORTED;
+                    }
                     auto pdfDocument = SkPDF::MakeDocument(&buffer);
                     SkCanvas *pageCanvas = pdfDocument->beginPage(p->fb_width, p->fb_height);
                     p->runDrawOnCanvas(pageCanvas);
                     pdfDocument->close();
                     buffer.writeToStream(&out_stream);
                 } else {
+                    if (p->mode == Manager::TILED) {
+                        out << termcolor::red << "Error:" << termcolor::reset << " file type not supported for tiled images, only .png is" << out_path.extension() << std::endl;
+                        return Err::OPTION_NOT_SUPPORTED;
+                    }
                     SkPictureRecorder recorder;
                     SkCanvas* canvas = recorder.beginRecording(SkRect::MakeWH(p->fb_width, p->fb_height));
                     p->runDrawOnCanvas(canvas);
@@ -957,12 +967,11 @@ namespace Commands {
                     std::unique_ptr<SkCanvas> svgCanvas = SkSVGCanvas::Make(SkRect::MakeWH(p->fb_width, p->fb_height), &out_stream);
                     if (svgCanvas) {
                         picture->playback(svgCanvas.get());
-//                        svgCanvas->flush();
                     };
                 }
                 out << "\rSaved to " << out_path << std::endl;
             } else {
-                out << termcolor::red << "Error:" << termcolor::reset << " extension not supported " << out_path.extension() << std::endl;
+                out << termcolor::red << "Error:" << termcolor::reset << " file type not supported (Need one of .png|.pdf|.svg) " << out_path.extension() << std::endl;
                 return Err::OPTION_NOT_SUPPORTED;
             }
         }
