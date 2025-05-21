@@ -108,7 +108,7 @@ else ifeq ($(TARGET_OS),"MacOS")
     LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=11 -L/usr/local/lib
     LDLIBS += -lhts -lglfw -lzlib -lcurl -licu -ldl -lsvg -lfontconfig
 else ifeq ($(PLATFORM),"Windows")
-    CXXFLAGS += -D WIN32 -D OLD_SKIA
+    CXXFLAGS += -D WIN32 #-D OLD_SKIA
     CPPFLAGS += $(shell pkgconf -cflags skia) $(shell ncursesw6-config --cflags)
     LDLIBS += $(shell pkgconf -libs skia)
     LDLIBS += -lhts -lharfbuzz-subset -lglfw3 -lcurl -lsvg -lfontconfig
