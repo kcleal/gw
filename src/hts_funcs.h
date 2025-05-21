@@ -7,8 +7,6 @@
 #include <string>
 #include <vector>
 
-#include "include/core/SkColorSpace.h"
-
 #include "htslib/faidx.h"
 #include "htslib/hfile.h"
 #include "htslib/hts.h"
