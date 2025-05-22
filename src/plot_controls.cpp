@@ -1903,6 +1903,7 @@ namespace Manager {
         for (auto &cl: collections) {
             cl.resetDrawState();
         }
+        imageCacheQueue.clear();
         glfwPostEmptyEvent();
     }
 

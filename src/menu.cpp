@@ -10,10 +10,6 @@
 #include <vector>
 #include <unordered_map>
 
-//#ifdef __APPLE__
-//#include <OpenGL/gl.h>
-//#endif
-
 #include "htslib/faidx.h"
 #include "htslib/hts.h"
 #include "htslib/sam.h"
@@ -341,6 +337,7 @@ namespace Menu {
             else if (opts.menu_level == "threads") { tip = "The number of threads to use for file readings"; }
             else if (opts.menu_level == "pad") { tip = "The number of bases to pad a region by"; }
             else if (opts.menu_level == "scroll_speed") { tip = "The speed of scrolling, increase for faster speeds"; }
+            else if (opts.menu_level == "read_y_gap") { tip = "The y-axis gap between rows of alignments"; }
             else if (opts.menu_level == "tabix_track_height") { tip = "The space taken up by tracks from tab separated files"; }
             else if (opts.menu_level == "soft_clip") { tip = "The distance in base-pairs when soft-clips become visible"; }
             else if (opts.menu_level == "small_indel") { tip = "The distance in base-pairs when small indels become visible"; }
@@ -375,12 +372,8 @@ namespace Menu {
             else if (opts.control_level == "delete") { tip = "Delete the selected entry"; }
         }
         if (!tip.empty()) {
-            SkPaint tip_paint;
-            tip_paint.setARGB(255, 100, 100, 100);
-            tip_paint.setStyle(SkPaint::kStrokeAndFill_Style);
-            tcMenu.setAntiAlias(true);
             sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(tip.c_str(), fonts.overlay);
-            canvas->drawTextBlob(blob.get(), m_width + v_gap + v_gap, pad + v_gap, tip_paint);
+            canvas->drawTextBlob(blob.get(), m_width + v_gap + v_gap, pad + v_gap, opts.theme.tcDel);
         }
     }
 
@@ -717,7 +710,7 @@ namespace Menu {
         for (const auto& v : {"indel_length", "ylim", "split_view_size", "threads", "pad", "soft_clip", "small_indel", "snp", "edge_highlights", "font_size", "variant_distance", "mods_qual_threshold"}) {
             option_map[v] = Int;
         }
-        for (const auto& v : {"scroll_speed", "tabix_track_height"}) {
+        for (const auto& v : {"scroll_speed", "tabix_track_height", "read_y_gap"}) {
             option_map[v] = Float;
         }
         for (const auto& v : {"coverage", "log2_cov", "expand_tracks", "scale_bar", "vcf_as_tracks", "bed_as_tracks", "sv_arcs", "mods", "data_labels"}) {
@@ -762,7 +755,10 @@ namespace Menu {
             else if (new_opt.name == "font_size") { opts.font_size = std::max(1, v); }
             else if (new_opt.name == "variant_distance") { opts.variant_distance = std::max(1, v); }
             else if (new_opt.name == "mods_qual_threshold") { opts.mods_qual_threshold = std::min(std::max(0, v), 255); new_opt.value = std::to_string(opts.mods_qual_threshold); }
-            else { return; }
+            else {
+                std::cerr << "Error: not implemented: " << new_opt.name << std::endl;
+                return;
+            }
             opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
         }
     }
@@ -777,7 +773,11 @@ namespace Menu {
         }
         if (new_opt.name == "scroll_speed") { opts.scroll_speed = v; }
         else if (new_opt.name == "tabix_track_height") { opts.tab_track_height = v; }
-        else { return; }
+        else if (new_opt.name == "read_y_gap") { opts.read_y_gap = v; }
+        else {
+            std::cerr << "Error: not implemented: " << new_opt.name << std::endl;
+            return;
+        }
         opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
     }
 
@@ -800,7 +800,10 @@ namespace Menu {
         else if (new_opt.name == "sv_arcs") { opts.sv_arcs = v; }
         else if (new_opt.name == "mods") { opts.parse_mods = v; }
         else if (new_opt.name == "data_labels") { opts.data_labels = v; std::cout << " YO\n";}
-        else { return; }
+        else {
+            std::cerr << "Error: not implemented: " << new_opt.name << std::endl;
+            return;
+        }
         opts.myIni[new_opt.table][new_opt.name] = (v) ? "true" : "false";
     }
 
@@ -822,7 +825,10 @@ namespace Menu {
         else if (new_opt.name == "scroll_up") { opts.scroll_up = v; }
         else if (new_opt.name == "cycle_link_mode") { opts.cycle_link_mode = v; }
         else if (new_opt.name == "find_alignments") { opts.find_alignments = v; }
-        else { return; }
+        else {
+            std::cerr << "Error: not implemented: " << new_opt.name << std::endl;
+            return;
+        }
         opts.myIni[new_opt.table][new_opt.name] = k;
     }
 

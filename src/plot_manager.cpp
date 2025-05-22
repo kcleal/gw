@@ -786,8 +786,6 @@ namespace Manager {
         }
         int xpos, ypos;
         glfwGetWindowPos(window, &xpos, &ypos);
-//        int windX = fb_width / monitorScale;
-//        int windY = fb_height / monitorScale;
 
         int windX, windY;
         glfwGetWindowSize(window, &windX, &windY);
@@ -1164,7 +1162,8 @@ namespace Manager {
                     yScaling *= 0.95;
                 } else {
                     if (yScaling > 3 * monitorScale) {
-                        pH = yScaling - monitorScale;
+                        pH = yScaling - (monitorScale * opts.read_y_gap);
+//                        pH = yScaling - monitorScale;
                     } else {
                         pH = yScaling;
                     }

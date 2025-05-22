@@ -105,7 +105,7 @@ else ifeq ($(TARGET_OS),"MacOS")
     CXXFLAGS += -D OSX -stdlib=libc++ -fvisibility=hidden -mmacosx-version-min=11 -Wno-deprecated-declarations
     LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=11 -L/usr/local/lib
     LDLIBS += -lhts -lglfw -lzlib -lcurl -licu -ldl -lsvg -lfontconfig
-else ifeq ($(PLATFORM),"Windows")
+else ifeq ($(PLATFORM),"Windows")  # Targets an msys2 build environment
     CXXFLAGS += -D WIN32 -D OLD_SKIA
     SKIA_CFLAGS := $(shell pkg-config --cflags skia 2>/dev/null || echo "-I/ucrt64/include/skia")
     SKIA_LIBS := $(shell pkg-config --libs skia 2>/dev/null || echo "-lskia")

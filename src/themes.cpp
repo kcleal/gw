@@ -510,6 +510,7 @@ namespace Themes {
 
         scroll_speed = 0.15;
         tab_track_height = 0.25;
+        read_y_gap = 1;
         scroll_right = GLFW_KEY_RIGHT;
         scroll_left = GLFW_KEY_LEFT;
         scroll_down = GLFW_KEY_PAGE_DOWN;
@@ -613,6 +614,12 @@ namespace Themes {
             mods_qual_threshold = std::stoi(sub["mods_qual_threshold"]);
         } else {
             sub["mods_qual_threshold"] = "50";
+            update_ini = true;
+        }
+        if (sub.has("read_y_gap")) {
+            read_y_gap = std::stoi(sub["read_y_gap"]);
+        } else {
+            sub["read_y_gap"] = "1";
             update_ini = true;
         }
         if (sub.has("session_file")) {
@@ -841,6 +848,9 @@ namespace Themes {
             if (sub.has("pad")) {
                 pad = std::stoi(sub["pad"]);
             }
+            if (sub.has("read_y_gap")) {
+                read_y_gap = std::stof(sub["read_y_gap"]);
+            }
             if (sub.has("tabix_track_height")) {
                 tab_track_height = std::stof(sub["tabix_track_height"]);
             }
@@ -1058,6 +1068,7 @@ namespace Themes {
         sub["link"] = link;
         sub["split_view_size"] = std::to_string(split_view_size);
         sub["pad"] = std::to_string(pad);
+        sub["read_y_gap"] = std::to_string(read_y_gap);
         sub["tabix_track_height"] = std::to_string(tab_track_height);
         sub["font"] = font_str;
         sub["font_size"] = std::to_string(font_size);

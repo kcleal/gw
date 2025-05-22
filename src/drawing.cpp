@@ -31,7 +31,6 @@
 namespace Drawing {
 
     char indelChars[50];
-    constexpr float polygonHeight = 0.85;
 
     struct TextItem{
         sk_sp<SkTextBlob> text;
@@ -797,7 +796,7 @@ namespace Drawing {
         }
         const float delBegin = lastEnd * xScaling;
         const float delEnd = delBegin + (size * xScaling);
-        const float yh = (Y + halfPolygonHeight) * yScaling + yOffset;
+        const float yh = (Y * yScaling + yOffset) + halfPolygonHeight;
         if (isize >= opts.indel_length) {
             if (regionLen < 500000 && indelTextFits) {
                 const int digits = countDigits(isize);
@@ -960,7 +959,7 @@ namespace Drawing {
         const float yOffset = cl.yOffset;
         const float regionPixels = cl.regionPixels;
 
-        const float halfPolygonHeight = polygonHeight * 0.5f;
+        const float halfPolygonHeight = pH * 0.5f;
 
         const float ins_block_h = std::fmin(pH * 0.3, monitorScale * 2);
         const float ins_block_w = std::fmax(ins_block_h, xScaling * 0.5);
@@ -1153,7 +1152,7 @@ namespace Drawing {
                                 size_t sl = strlen(indelChars);
                                 text_ins.emplace_back() = {SkTextBlob::MakeFromString(indelChars, fonts.overlay),
                                                            p + mm_textOffsetX,  // x
-                                                           yScaledOffset + polygonHeight - textDrop, // y
+                                                           yScaledOffset + pH - textDrop, // y
                                                            yScaledOffset,  // box_y
                                                            fonts.textWidths[sl - 1]};
 
