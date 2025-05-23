@@ -47,9 +47,9 @@ endif
 
 ##########################################################
 # Skia info
-
+OLD_SKIA ?= 0
 prep:
-ifndef OLD_SKIA
+ifeq ($(OLD_SKIA),0)
 	@if [ "$(PLATFORM)" = "MacOS-x64" ]; then \
 		echo "Downloading pre-built skia-m133 for MacOS-Intel"; mkdir -p lib/skia; \
 		cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.1.0/skia-m133-macos-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
@@ -79,7 +79,7 @@ SKIA_PATH := $(shell find ./lib/skia/out -type d -name '*Release*' | sort | head
 
 ##########################################################
 # Flags and libs
-ifdef OLD_SKIA
+ifeq ($(OLD_SKIA),1)
 	CXXFLAGS += -D OLD_SKIA -D USE_GL
 endif
 CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG -g
