@@ -147,17 +147,25 @@ ifeq ($(UNAME_S),Darwin)
     FORCELOAD_SKIA = -Wl,-force_load,$(SKIA_PATH)/libskia.a
 endif
 
-# Remove duplicates before linking Skia
-LDLIBS := $(filter-out -lskia -ljpeg -lpng -lzlib,$(LDLIBS)) $(FORCELOAD_SKIA)
-
 shared: CXXFLAGS += -fPIC -DBUILDING_LIBGW
 shared: CFLAGS += -fPIC
 shared: $(OBJECTS)
 
-ifeq ($(UNAME_S),Darwin)
-	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -dynamiclib -DBUILDING_LIBGW -install_name @rpath/libgw.dylib -current_version $(VERSION) -compatibility_version $(VERSION) -o $(SHARED_TARGET)
+ifeq ($(PLATFORM),"Windows")
+	$(error Shared library build is not supported on Windows)
+endif
+
+# Create shared library-specific LDLIBS with force-loaded Skia (Linux/macOS only)
+ifdef FORCELOAD_SKIA
+	$(eval SHARED_LDLIBS := $(filter-out -lskia -ljpeg -lpng -lzlib,$(LDLIBS)) $(FORCELOAD_SKIA))
 else
-	$(CXX) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -shared -DBUILDING_LIBGW -Wl,-soname,libgw.so -Wl,-rpath,\$$ORIGIN -o $(SHARED_TARGET)
+	$(eval SHARED_LDLIBS := $(LDLIBS))
+endif
+
+ifeq ($(UNAME_S),Darwin)
+	$(CXX) $(OBJECTS) $(LDFLAGS) $(SHARED_LDLIBS) -dynamiclib -DBUILDING_LIBGW -install_name @rpath/libgw.dylib -current_version $(VERSION) -compatibility_version $(VERSION) -o $(SHARED_TARGET)
+else
+	$(CXX) $(OBJECTS) $(LDFLAGS) $(SHARED_LDLIBS) -shared -DBUILDING_LIBGW -Wl,-soname,libgw.so -Wl,-rpath,\$$ORIGIN -o $(SHARED_TARGET)
 endif
 	-mkdir -p libgw libgw/GW
 	-cp $(SKIA_PATH)/libskia.a libgw
