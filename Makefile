@@ -140,10 +140,15 @@ clean:
 
 ifeq ($(UNAME_S),Linux)
     SHARED_TARGET = libgw.so
+    FORCELOAD_SKIA = -Wl,--whole-archive $(SKIA_PATH)/libskia.a -Wl,--no-whole-archive
 endif
 ifeq ($(UNAME_S),Darwin)
     SHARED_TARGET = libgw.dylib
+    FORCELOAD_SKIA = -Wl,-force_load,$(SKIA_PATH)/libskia.a
 endif
+
+# Remove duplicates before linking Skia
+LDLIBS := $(filter-out -lskia -ljpeg -lpng -lzlib,$(LDLIBS)) $(FORCELOAD_SKIA)
 
 shared: CXXFLAGS += -fPIC -DBUILDING_LIBGW
 shared: CFLAGS += -fPIC
