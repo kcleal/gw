@@ -4,9 +4,9 @@ VERSION = "1.2.1"
 default: $(TARGET)
 all: default
 debug: default
+
 ##########################################################
 # System info
-
 PLATFORM=
 TARGET_OS=
 UNAME_S := $(shell uname -s)
@@ -34,7 +34,6 @@ else
         endif
     endif
 endif
-
 $(info   PLATFORM=$(PLATFORM))
 ifneq ($(PLATFORM),"Emscripten")
     ifdef CONDA_PREFIX
@@ -104,7 +103,8 @@ else ifeq ($(TARGET_OS),"MacOS")
     CPPFLAGS += -I/usr/local/include
     CXXFLAGS += -D OSX -stdlib=libc++ -fvisibility=hidden -mmacosx-version-min=11 -Wno-deprecated-declarations
     LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=11 -L/usr/local/lib
-    LDLIBS += -lhts -lglfw -lzlib -lcurl -licu -ldl -lsvg -lfontconfig
+    LGLFW := $(shell pkg-config --libs glfw3 2>/dev/null || echo "-lglfw")
+	LDLIBS += -lhts $(LGLFW) -lzlib -lcurl -licu -ldl -lsvg -lfontconfig
 else ifeq ($(PLATFORM),"Windows")  # Targets an msys2 build environment
     CXXFLAGS += -D WIN32 -D OLD_SKIA
     SKIA_CFLAGS := $(shell pkg-config --cflags skia 2>/dev/null || echo "-I/ucrt64/include/skia")

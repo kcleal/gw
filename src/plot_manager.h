@@ -207,6 +207,7 @@ namespace Manager {
         void addAlignmentToSelectedRegion();
 
         // Draw functions
+        void drawBackground();
         void drawScreen(bool force_buffered_reads=false);
         void drawScreenNoBuffer();
         void runDraw(bool force_buffered_reads=false);
@@ -214,6 +215,7 @@ namespace Manager {
         void runDrawNoBuffer();  // draws to canvas managed by GwPlot (slower)
         void runDrawNoBufferOnCanvas(SkCanvas* canvas);  // draws to external canvas (faster)
         void syncImageCacheQueue();
+        void clearImageCacheQueue();
         bool collectionsNeedRedrawing();
 
         // Printing information functions

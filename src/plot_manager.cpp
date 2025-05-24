@@ -1225,6 +1225,10 @@ namespace Manager {
         return false;
     }
 
+    void GwPlot::drawBackground() {
+        rasterCanvas->drawPaint(opts.theme.bgPaint);
+    }
+
     void GwPlot::drawScreen(bool force_buffered_reads) {
 //        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
         SkCanvas *canvasR = rasterCanvas;
@@ -1363,6 +1367,10 @@ namespace Manager {
         while (!imageCacheQueue.empty() && imageCacheQueue.front().first != frameId) {
             imageCacheQueue.pop_front();
         }
+    }
+
+    void GwPlot::clearImageCacheQueue() {
+        imageCacheQueue.clear();
     }
 
     void GwPlot::drawOverlay(SkCanvas *canvas) {
