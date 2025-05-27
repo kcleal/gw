@@ -1473,11 +1473,7 @@ namespace Drawing {
                 path.reset();
                 path.moveTo(gap, y);
                 path.lineTo(fb_width - gap, y);
-                if (i == 0) {
-                    canvas->drawPath(path, opts.theme.lcJoins);
-                } else {
-                    canvas->drawPath(path, opts.theme.lcLightJoins);
-                }
+                canvas->drawPath(path, opts.theme.lcLightJoins);
                 y += step;
             }
 
@@ -1744,12 +1740,12 @@ namespace Drawing {
         if (spaceRemaining < fonts.overlayHeight) {
             return;
         }
-        float estimatedTextWidth = (float) rid.size() * fonts.overlayWidth;
+        float estimatedTextWidth = (float) (rid.size()-1) * fonts.overlayWidth;
         if (estimatedTextWidth > stepX - gap2) {
             return;
         }
         float halfInterval = estimatedTextWidth / 2;
-        float midPoint = rect.right() - ((rect.right() - rect.left()) / 2);
+        float midPoint = (rect.left() + rect.right()) / 2;
         float leftPoint = midPoint - halfInterval;
         if (leftPoint < padX) {
             leftPoint = padX;
@@ -1765,7 +1761,7 @@ namespace Drawing {
         *labelsEnd = leftPoint + estimatedTextWidth;
         rect.fLeft = leftPoint;
         text.emplace_back() = {SkTextBlob::MakeFromString(rid.c_str(), fonts.overlay),
-                               rect.left(),
+                               leftPoint,
                                rect.bottom() + fonts.overlayHeight + monitorScale * 2};
 
     }
