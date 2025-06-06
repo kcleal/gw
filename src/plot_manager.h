@@ -239,6 +239,8 @@ namespace Manager {
         size_t sizeOfBams();
         size_t sizeOfRegions();
 
+//        void getTerminalSize();
+
     private:
 
         bool resizeTriggered;

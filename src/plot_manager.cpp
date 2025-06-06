@@ -152,7 +152,6 @@ namespace Manager {
         if (window != nullptr) {
             glfwDestroyWindow(window);
         }
-//        glfwTerminate();
         for (auto &bm: bams) {
             hts_close(bm);
         }
@@ -162,9 +161,6 @@ namespace Manager {
         for (auto &idx: indexes) {
             hts_idx_destroy(idx);
         }
-//        if (fai != nullptr) {
-//            fai_destroy(fai);
-//        }
     }
 
     void ErrorCallback(int, const char *err_str) {
@@ -2203,4 +2199,36 @@ namespace Manager {
         return regions.size();
     }
 
+    // Get terminal size
+//    void GwPlot::getTerminalSize() {
+//        terminal_cols = 80;  // defaults
+//        terminal_rows = 24;
+//        terminal_width_pixels = -1;
+//        terminal_height_pixels = -1;
+//
+//#ifdef G_OS_WIN32
+//        HANDLE chd = GetStdHandle(STD_OUTPUT_HANDLE);
+//        CONSOLE_SCREEN_BUFFER_INFO csb_info;
+//
+//        if (chd != INVALID_HANDLE_VALUE && GetConsoleScreenBufferInfo(chd, &csb_info)) {
+//            terminal_cols = csb_info.srWindow.Right - csb_info.srWindow.Left + 1;
+//            terminal_rows = csb_info.srWindow.Bottom - csb_info.srWindow.Top + 1;
+//        }
+//#else
+//        struct winsize w;
+//        if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) >= 0 ||
+//            ioctl(STDERR_FILENO, TIOCGWINSZ, &w) >= 0 ||
+//            ioctl(STDIN_FILENO, TIOCGWINSZ, &w) >= 0) {
+//            terminal_cols = w.ws_col;
+//            terminal_rows = w.ws_row;
+//            terminal_width_pixels = w.ws_xpixel;
+//            terminal_height_pixels = w.ws_ypixel;
+//        }
+//#endif
+//
+//        if (terminal_cols <= 0) terminal_cols = 80;
+//        if (terminal_rows <= 2) terminal_rows = 24;
+//        if (terminal_width_pixels <= 0) terminal_width_pixels = -1;
+//        if (terminal_height_pixels <= 0) terminal_height_pixels = -1;
+//    }
 }

@@ -1151,8 +1151,8 @@ namespace Drawing {
                                 std::sprintf(indelChars, "%d", ins.length);
                                 size_t sl = strlen(indelChars);
                                 text_ins.emplace_back() = {SkTextBlob::MakeFromString(indelChars, fonts.overlay),
-                                                           p + mm_textOffsetX,  // x
-                                                           yScaledOffset + pH - textDrop, // y
+                                                           p + mm_textOffsetX + xOffset,  // x
+                                                           yScaledOffset - textDrop, // y
                                                            yScaledOffset,  // box_y
                                                            fonts.textWidths[sl - 1]};
 

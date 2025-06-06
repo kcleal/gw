@@ -79,6 +79,8 @@ namespace Parse {
         Property property;
         Property op;
         bool result;
+        bool numeric_like{true};
+        bool exists{true};  // Set to false if tag field is missing
         void eval();
     };
 

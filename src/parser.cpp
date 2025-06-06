@@ -397,6 +397,7 @@ namespace Parse {
             e.property = lhs;
             e.op = mid;
             e.sval = output.back();
+            e.numeric_like = false;
         } else {
             out << "Left-hand side operation not available: " << output[0] << std::endl; return -1;
         }
@@ -456,25 +457,27 @@ namespace Parse {
         }
     }
 
-    void getStrTag(const char* tag, std::string &str_val, const Segs::Align &aln) {
+    void getStrTag(const char* tag, std::string& str_val, const Segs::Align& aln, bool& exists) {
         const uint8_t *tag_ptr;
         tag_ptr = bam_aux_get(aln.delegate, tag);
         if (tag_ptr == nullptr) {
+            exists = false;
             return;
         }
         str_val = std::string(bam_aux2Z(tag_ptr));
     }
 
-    void getIntTag(const char* tag, int &int_val, const Segs::Align &aln) {
+    void getIntTag(const char* tag, int& int_val, const Segs::Align& aln, bool& exists) {
         const uint8_t *tag_ptr;
         tag_ptr = bam_aux_get(aln.delegate, tag);
         if (tag_ptr == nullptr) {
+            exists = false;
             return;
         }
         int_val = bam_aux2i(tag_ptr);
     }
 
-    void getCigarStr(std::string &str_val, const Segs::Align &aln) {
+    void getCigarStr(std::string& str_val, const Segs::Align& aln) {
         uint32_t l, cigar_l, op, k;
         uint32_t *cigar_p;
         cigar_l = aln.delegate->core.n_cigar;
@@ -502,12 +505,10 @@ namespace Parse {
 
     bool Parser::eval(const Segs::Align& aln, const sam_hdr_t* hdr, int bamIdx, int regionIdx) {
 
-        bool block_result = true;
-
         if (bamIdx >= 0 && !targetIndexes.empty() && targetIndexes[bamIdx][regionIdx] == 0) {
             return true;
         }
-
+        bool block_result = true;
         if (!evaluations_block.empty()) {
             for (auto &e : evaluations_block) {
                 int int_val = 0;
@@ -529,7 +530,6 @@ namespace Parse {
                         break;
                     case TLEN:
                         int_val = aln.delegate->core.isize;
-
                         break;
                     case ABS_TLEN:
                         int_val = std::abs(aln.delegate->core.isize);
@@ -545,6 +545,7 @@ namespace Parse {
                         break;
                     case REF_END:
                         int_val = bam_endpos(aln.delegate);
+                        break;
                     case PNEXT:
                         int_val = aln.delegate->core.mpos;
                         break;
@@ -563,71 +564,74 @@ namespace Parse {
                         int_val = aln.delegate->core.mtid;
                         break;
                     case RG:
-                        getStrTag("RG", str_val, aln);
+                        getStrTag("RG", str_val, aln, e.exists);
                         break;
                     case BC:
-                        getStrTag("BC", str_val, aln);
+                        getStrTag("BC", str_val, aln, e.exists);
                         break;
                     case LB:
-                        getStrTag("LB", str_val, aln);
+                        getStrTag("LB", str_val, aln, e.exists);
                         break;
                     case MD:
-                        getStrTag("MD", str_val, aln);
+                        getStrTag("MD", str_val, aln, e.exists);
                         break;
                     case PU:
-                        getStrTag("PU", str_val, aln);
+                        getStrTag("PU", str_val, aln, e.exists);
                         break;
                     case SA:
-                        getStrTag("SA", str_val, aln);
+                        getStrTag("SA", str_val, aln, e.exists);
                         break;
                     case MC:
-                        getStrTag("MC", str_val, aln);
+                        getStrTag("MC", str_val, aln, e.exists);
                         break;
                     case BX:
-                        getStrTag("BX", str_val, aln);
+                        getStrTag("BX", str_val, aln, e.exists);
                         break;
                     case RX:
-                        getStrTag("RX", str_val, aln);
+                        getStrTag("RX", str_val, aln, e.exists);
                         break;
                     case MI:
-                        getStrTag("MI", str_val, aln);
+                        getStrTag("MI", str_val, aln, e.exists);
                         break;
                     case NM:
-                        getIntTag("NM", int_val, aln);
+                        getIntTag("NM", int_val, aln, e.exists);
                         break;
                     case CM:
-                        getIntTag("CM", int_val, aln);
+                        getIntTag("CM", int_val, aln, e.exists);
                         break;
                     case FI:
-                        getIntTag("FI", int_val, aln);
+                        getIntTag("FI", int_val, aln, e.exists);
                         break;
                     case HO:
-                        getIntTag("HO", int_val, aln);
+                        getIntTag("HO", int_val, aln, e.exists);
                         break;
                     case MQ:
-                        getIntTag("MQ", int_val, aln);
+                        getIntTag("MQ", int_val, aln, e.exists);
                         break;
                     case SM:
-                        getIntTag("SM", int_val, aln);
+                        getIntTag("SM", int_val, aln, e.exists);
                         break;
                     case TC:
-                        getIntTag("TC", int_val, aln);
+                        getIntTag("TC", int_val, aln, e.exists);
                         break;
                     case UQ:
-                        getIntTag("UQ", int_val, aln);
+                        getIntTag("UQ", int_val, aln, e.exists);
                         break;
                     case AS:
-                        getIntTag("AS", int_val, aln);
+                        getIntTag("AS", int_val, aln, e.exists);
                         break;
                     case HP:
-                        getIntTag("HP", int_val, aln);
+                        getIntTag("HP", int_val, aln, e.exists);
                         break;
                     case CIGAR:
-                         getCigarStr(str_val, aln);
-                         break;
+                        getCigarStr(str_val, aln);
+                        break;
                     default:
                         break;
 
+                }
+                if (!e.exists) {
+                    return false;
                 }
                 if (e.property == SEQ) {
                     switch (e.op) {
@@ -638,7 +642,7 @@ namespace Parse {
                         default: break;
                     }
 
-                } else if (str_val.empty()) {
+                } else if (e.numeric_like) {
                     switch (e.op) {
                         case GT: this_result = int_val > e.ival; break;
                         case GE: this_result = int_val >= e.ival; break;
@@ -649,7 +653,7 @@ namespace Parse {
                         case AND: this_result = int_val & e.ival; break;
                         default: break;
                     }
-                } else {
+                } else {  // str type
                     switch (e.op) {
                         case EQ: this_result = str_val == e.sval; break;
                         case NE: this_result = str_val != e.sval; break;
@@ -660,13 +664,15 @@ namespace Parse {
                 }
 
                 if (orBlock && this_result) {
-                    return this_result;
+                    return this_result;  // Early return for OR when true found
+                } else if (!orBlock && !this_result) {
+                    return false;        // Early return for AND when false found
                 } else {
-                    block_result &= this_result;
+                    block_result &= this_result; // Accumulate
                 }
             }
         }
-        return block_result;
+        return orBlock ? false : block_result;
     }
 
 
