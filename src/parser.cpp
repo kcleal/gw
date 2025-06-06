@@ -347,56 +347,66 @@ namespace Parse {
         }
 
         Eval e;
-        if (lhs >= 3000 && lhs < 4000) {
+        bool is_none = (output.back() == "none" || output.back() == "''" || output.back() == "\"\"");
+
+        if (lhs >= 3000 && lhs < 4000) {  // Numeric-like
             e.property = lhs;
             e.op = mid;
-            try {
-                e.ival = std::stoi(output.back());
-            } catch (...) {
-                if (output.back() == "del" || output.back() == "deletion") {
-                    e.ival = Segs::Pattern::DEL;
-                } else if (output.back() == "inv_f" || output.back() == "inversion_forward") {
-                    e.ival = Segs::Pattern::INV_F;
-                } else if (output.back() == "inv_r" || output.back() == "inversion_reverse") {
-                    e.ival = Segs::Pattern::INV_R;
-                } else if (output.back() == "dup" || output.back() == "duplication") {
-                    e.ival = Segs::Pattern::DUP;
-                } else if (output.back() == "tra" || output.back() == "translocation") {
-                    e.ival = Segs::Pattern::TRA;
-                } else if (output.back() == "paired") {
-                    e.ival = Property::PAIRED;
-                } else if (output.back() == "proper-pair") {
-                    e.ival = Property::PROPER_PAIR;
-                } else if (output.back() == "unmapped") {
-                    e.ival = Property::UNMAP;
-                } else if (output.back() == "munmap") {
-                    e.ival = Property::MUNMAP;
-                } else if (output.back() == "reverse") {
-                    e.ival = Property::REVERSE;
-                } else if (output.back() == "mreverse") {
-                    e.ival = Property::MREVERSE;
-                } else if (output.back() == "read1") {
-                    e.ival = Property::READ1;
-                } else if (output.back() == "read2") {
-                    e.ival = Property::READ2;
-                } else if (output.back() == "secondary") {
-                    e.ival = Property::SECONDARY;
-                } else if (output.back() == "qcfail") {
-                    e.ival = Property::QCFAIL;
-                } else if (output.back() == "duplicate") {
-                    e.ival = Property::FLAG_DUPLICATE;
-                } else if (output.back() == "supplementary") {
-                    e.ival = Property::SUPPLEMENTARY;
-                } else {
-                    out << "Right-hand side value must be an integer or named-value: " << output[2] << std::endl;
-                    out << "Named values can be one of: paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary, qcfail, dup, supplementary\n";
-                    return -1;
+            if (is_none) {
+                e.ival = INT_MAX;
+            } else {
+                try {
+                    e.ival = std::stoi(output.back());
+                } catch (...) {
+                    if (output.back() == "del" || output.back() == "deletion") {
+                        e.ival = Segs::Pattern::DEL;
+                    } else if (output.back() == "inv_f" || output.back() == "inversion_forward") {
+                        e.ival = Segs::Pattern::INV_F;
+                    } else if (output.back() == "inv_r" || output.back() == "inversion_reverse") {
+                        e.ival = Segs::Pattern::INV_R;
+                    } else if (output.back() == "dup" || output.back() == "duplication") {
+                        e.ival = Segs::Pattern::DUP;
+                    } else if (output.back() == "tra" || output.back() == "translocation") {
+                        e.ival = Segs::Pattern::TRA;
+                    } else if (output.back() == "paired") {
+                        e.ival = Property::PAIRED;
+                    } else if (output.back() == "proper-pair") {
+                        e.ival = Property::PROPER_PAIR;
+                    } else if (output.back() == "unmapped") {
+                        e.ival = Property::UNMAP;
+                    } else if (output.back() == "munmap") {
+                        e.ival = Property::MUNMAP;
+                    } else if (output.back() == "reverse") {
+                        e.ival = Property::REVERSE;
+                    } else if (output.back() == "mreverse") {
+                        e.ival = Property::MREVERSE;
+                    } else if (output.back() == "read1") {
+                        e.ival = Property::READ1;
+                    } else if (output.back() == "read2") {
+                        e.ival = Property::READ2;
+                    } else if (output.back() == "secondary") {
+                        e.ival = Property::SECONDARY;
+                    } else if (output.back() == "qcfail") {
+                        e.ival = Property::QCFAIL;
+                    } else if (output.back() == "duplicate") {
+                        e.ival = Property::FLAG_DUPLICATE;
+                    } else if (output.back() == "supplementary") {
+                        e.ival = Property::SUPPLEMENTARY;
+                    } else {
+                        out << "Right-hand side value must be an integer or named-value: " << output[2] << std::endl;
+                        out << "Named values can be one of: paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary, qcfail, dup, supplementary\n";
+                        return -1;
+                    }
                 }
             }
-        } else if (lhs >= 4000) {
+        } else if (lhs >= 4000) {  // String-like
             e.property = lhs;
             e.op = mid;
-            e.sval = output.back();
+            if (is_none) {
+                e.sval = "''";
+            } else {
+                e.sval = output.back();
+            }
             e.numeric_like = false;
         } else {
             out << "Left-hand side operation not available: " << output[0] << std::endl; return -1;
@@ -462,6 +472,7 @@ namespace Parse {
         tag_ptr = bam_aux_get(aln.delegate, tag);
         if (tag_ptr == nullptr) {
             exists = false;
+            str_val = "''";
             return;
         }
         str_val = std::string(bam_aux2Z(tag_ptr));
@@ -472,6 +483,7 @@ namespace Parse {
         tag_ptr = bam_aux_get(aln.delegate, tag);
         if (tag_ptr == nullptr) {
             exists = false;
+            int_val = INT_MAX;
             return;
         }
         int_val = bam_aux2i(tag_ptr);
@@ -629,9 +641,6 @@ namespace Parse {
                     default:
                         break;
 
-                }
-                if (!e.exists) {
-                    return false;
                 }
                 if (e.property == SEQ) {
                     switch (e.op) {
