@@ -1736,14 +1736,8 @@ namespace Drawing {
         if (!add_text) {
             return;
         }
-        float spaceRemaining = stepY;// - h - h;
-        if (spaceRemaining < fonts.overlayHeight) {
-            return;
-        }
+
         float estimatedTextWidth = (float) (rid.size()-1) * fonts.overlayWidth;
-        if (estimatedTextWidth > stepX - gap2) {
-            return;
-        }
         float halfInterval = estimatedTextWidth / 2;
         float midPoint = (rect.left() + rect.right()) / 2;
         float leftPoint = midPoint - halfInterval;
@@ -1754,8 +1748,9 @@ namespace Drawing {
             return;
         }
         float rightPoint = midPoint + halfInterval;
-        if (rightPoint > padX + stepX - gap2) {
-            return;
+        if (rightPoint > padX + stepX - gap2 - gap) {
+            rightPoint = padX + stepX - gap2 - gap;
+            leftPoint = rightPoint - estimatedTextWidth;
         }
 
         *labelsEnd = leftPoint + estimatedTextWidth;
@@ -1804,24 +1799,6 @@ namespace Drawing {
                     path2.moveTo(x, yy);
                     path2.lineTo(w, yy);
                     canvas->drawPath(path2, opts.theme.lcGTFJoins);
-//                    if (stranded != 0 && w - x > 50) {
-//                        while (x + 50 < w) {
-//                            x += 50;
-//                            path2.reset();
-//                            if (stranded == 1) {
-//                                path2.moveTo(x, yy);
-//                                path2.lineTo(x - 6, yy + 6);
-//                                path2.moveTo(x, yy);
-//                                path2.lineTo(x - 6, yy - 6);
-//                            } else {
-//                                path2.moveTo(x, yy);
-//                                path2.lineTo(x + 6, yy + 6);
-//                                path2.moveTo(x, yy);
-//                                path2.lineTo(x + 6, yy - 6);
-//                            }
-//                            canvas->drawPath(path2, opts.theme.lcJoins);
-//                        }
-//                    }
                 }
             }
         }
@@ -1833,16 +1810,10 @@ namespace Drawing {
             }
             assert (i < trk.drawThickness.size());
             uint8_t thickness = trk.drawThickness[i];
-//            if (trk.name == "DDX11L1") {
-//                std::cerr << " " << trk.name << " " << (int)thickness << " " << s << "-" << e << std::endl;
-//            }
 
             if (s < rgn.end && e > rgn.start) {
                 int left_cds = std::min(trk.coding_start, trk.coding_end);
                 int right_cds = std::max(trk.coding_start, trk.coding_end);
-//                if (trk.name == "DDX11L1") {
-//                    std::cerr << (s < right_cds && e > right_cds) << " " << (s < left_cds && e > left_cds) << std::endl;
-//                }
                 if (s < right_cds && e > right_cds) { //overlaps, split into two blocks!
                     drawTrackBlock(right_cds, e, trk.name, rgn, rect, path, padX, padY, y + (h * 0.25), h * 0.5, stepX, stepY, gap,
                                    gap2, xScaling, opts, canvas, fonts, false, true, true, labelsEnd, empty_str, 0, text, false, false,  shadedFaceColour, pointSlop / 2, strand);
@@ -1895,7 +1866,6 @@ namespace Drawing {
         SkPath path{};
         SkPath path2{};
 
-
         bool expanded = opts.expand_tracks;
 
         int regionIdx = 0;
@@ -1916,7 +1886,6 @@ namespace Drawing {
 
                 float right = ((float) (rgn.end - rgn.start) * xScaling) + padX;
                 canvas->save();
-//                canvas->clipRect({padX, y + padY, right, y + padY + stepY}, false);
                 canvas->clipRect({padX, y + padY, right, fb_height}, false);
 
                 trk.fetch(&rgn);
@@ -1930,8 +1899,7 @@ namespace Drawing {
 
                 std::vector<TextItem> text;
 
-                bool isGFF = trk.kind == HGW::GFF3_NOI || trk.kind == HGW::GFF3_IDX || trk.kind == HGW::GTF_NOI ||
-                             trk.kind == HGW::GTF_IDX;
+                bool isGFF = trk.kind == HGW::GFF3_NOI || trk.kind == HGW::GFF3_IDX || trk.kind == HGW::GTF_NOI || trk.kind == HGW::GTF_IDX;
 
                 std::vector<Utils::TrackBlock> &features = rgn.featuresInView[trackIdx];
                 features.clear();

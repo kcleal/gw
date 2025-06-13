@@ -1326,6 +1326,9 @@ namespace HGW {
                 parseVcfRecord(b);
                 allBlocks[b.chrom].add(b.start, b.end, b);
             }
+            for (auto &item : allBlocks) {
+                item.second.index();
+            }
         } else if (kind == BED_NOI || kind == GW_LABEL) {
 
 #if !defined(__EMSCRIPTEN__)
@@ -1388,6 +1391,9 @@ namespace HGW {
                 }
                 allBlocks[b.chrom].add(b.start, b.end, b);
             }
+            for (auto &item : allBlocks) {
+                item.second.index();
+            }
         } else if (kind == PAF_NOI) {
 #if !defined(__EMSCRIPTEN__)
             if (Utils::startsWith(path, "http") || Utils::startsWith(path, "ftp")) {
@@ -1431,6 +1437,9 @@ namespace HGW {
                 b.strand = (parts[4] == "+") ? 1 : 2;
                 b.end = std::stoi(parts[8]);
                 allBlocks[b.chrom].add(b.start, b.end, b);
+            }
+            for (auto &item : allBlocks) {
+                item.second.index();
             }
         } else if (kind == GFF3_IDX || kind == GTF_IDX) {
             fp = hts_open(p.c_str(), "r");
@@ -1506,73 +1515,65 @@ namespace HGW {
                 for (const auto &item :  Utils::split(b.parts[8], ';')) {
                     if (kind == GFF3_NOI) {
                         std::vector<std::string> keyval = Utils::split(item, '=');
-//                        if (keyval[0] == "Name" || keyval[0] == "gene_name") {
-//                            b.name = keyval[1];
-//                            if (!b.parent.empty()) {
-//                                break;
-//                            }
-//                        } else if (b.name.empty() && keyval[0] == "ID") {
-//                            b.name = keyval[1];
-//                            if (b.parent.empty()) {
-//                                b.parent = keyval[1];
-//                            }
-//                        } else if (keyval[0] == "Parent") {
-//                            b.parent = keyval[1];
-//                            b.name = keyval[1];
-//                        }
                         if (keyval[0] == "Name" || keyval[0] == "gene_name") {
                             b.name = keyval[1];
-//                            b.parent = keyval[1];
-//                            break;
                         }
                         else if (b.name.empty() && keyval[0] == "ID") {
                             b.name = keyval[1];
-//                            if (b.parent.empty()) {
-//                                b.parent = keyval[1];
-//                            }
                         }
                         else if (b.parent.empty() && keyval[0] == "Parent") {
                             b.parent = keyval[1];
                             b.name = b.parent;
                         }
                     } else {  // GTF_NOI
+                        if (b.vartype != "exon") {
+                            continue;
+                        }
                         std::vector<std::string> keyval = Utils::split(item, ' ');
                         if (keyval[0] == "gene_id") {
                             b.parent = keyval[1];
                             b.name = keyval[1];
+//                            break;
                         } else if (keyval[0] == "gene_name") {
                             b.parent = keyval[1];
                             b.name = keyval[1];
-                            break;
-                        } else if (b.name.empty() && keyval[0] == "transcript_id") {
-                            b.name = keyval[1];
+//                            break;
+//                        } else if (b.name.empty() && keyval[0] == "transcript_id") {
+                        } else if (keyval[0] == "transcript_id") {
+//                            b.name = keyval[1];
+                            b.parent = keyval[1];
                         }
                     }
                 }
                 if (b.name.empty()) {
                     continue;
                 }
-                track_blocks[b.parent].push_back(std::move(b));
-
+                allBlocks[b.chrom].add(b.start, b.end, b);
+//                track_blocks[b.parent].push_back(std::move(b));
             }
-            for (const auto& kv : track_blocks) {
-                int left = 1000000000;
-                int right = 0;
-                for (const auto &b : kv.second) {
-                    if (b.start < left) {
-                        left = b.start;
-                    }
-                    if (b.end > right) {
-                        right = b.end;
-                    }
-                }
-                if (left == 1000000000 || right == 0) {
-                    continue;
-                }
-                for (const auto &b : kv.second) {
-                    allBlocks[b.chrom].add(left, right, b);
-                }
+//            for (const auto& kv : track_blocks) {
+//                int left = 1000000000;
+//                int right = 0;
+//                for (const auto &b : kv.second) {
+//                    if (b.start < left) {
+//                        left = b.start;
+//                    }
+//                    if (b.end > right) {
+//                        right = b.end;
+//                    }
+//                }
+//                if (left == 1000000000 || right == 0) {
+//                    continue;
+//                }
+//                for (const auto &b : kv.second) {
+////                    allBlocks[b.chrom].add(left, right, b);
+//                    allBlocks[b.chrom].add(b.start, b.end, b);
+//                }
+//            }
+            for (auto &item : allBlocks) {
+                item.second.index();
             }
+            return;
 
         } else if (kind == BED_IDX) {
             fp = hts_open(p.c_str(), "r");
@@ -1637,10 +1638,6 @@ namespace HGW {
             std::cerr << "Error: file stype not supported for " << path << std::endl;
             throw std::exception();
         }
-
-        for (auto &item : allBlocks) {
-            item.second.index();
-        }
     }
 
     void GwTrack::fetch(const Utils::Region *rgn) {
@@ -1649,20 +1646,22 @@ namespace HGW {
 
             } else {
                 if (allBlocks.contains(rgn->chrom)) {
-                    std::vector<size_t> a;
-                    allBlocks[rgn->chrom].overlap(rgn->start, rgn->end, a);
                     overlappingBlocks.clear();
-                    if (a.empty()) {
+
+                    allBlocks[rgn->chrom].findOverlaps(rgn->start - 200000, rgn->end + 200000, overlappingBlocks);
+
+                    if (overlappingBlocks.empty()) {
                         done = true;
                         return;
                     }
                     done = false;
+                    // Superintervals return items in reverse order
+                    std::reverse(overlappingBlocks.begin(), overlappingBlocks.end());
+//                    std::sort(overlappingBlocks.begin(), overlappingBlocks.end(),
+//                              [](const Utils::TrackBlock &a, const Utils::TrackBlock &b)-> bool
+//                              { return a.start < b.start || (a.start == b.start && a.end < b.end); });
                     fetch_start = rgn->start;
                     fetch_end = rgn->end;
-                    overlappingBlocks.resize(a.size());
-                    for (size_t i = 0; i < a.size(); ++i) {
-                        overlappingBlocks[i] = allBlocks[rgn->chrom].data(a[i]);
-                    }
                     iter_blk = overlappingBlocks.begin();
                     vals_end = overlappingBlocks.end();
                 } else {
@@ -1917,32 +1916,22 @@ namespace HGW {
                             rid = keyval[1];
                         }
 
-//                        if (keyval[0] == "Name" || keyval[0] == "gene_name") {
-//                            rid = keyval[1];
-//                            parent = keyval[1];
-//                            break;
-//                        }
-//                        else if (rid.empty() && keyval[0] == "ID") {
-//                            rid = keyval[1];
-//                            if (parent.empty()) {
-//                                parent = keyval[1];
-//                            }
-//                        }
-//                        else if (parent.empty() && keyval[0] == "Parent") {
-//                            parent = keyval[1];
-//                        }
-
                     } else {  // GTF_IDX
+                        if (vartype != "exon") {
+                            continue;
+                        }
                         std::vector<std::string> keyval = Utils::split(item, ' ');
-                        if (keyval[0] == "gene_name") {
+                        if (keyval[0] == "gene_id") {
                             parent = keyval[1];
-			                rid = keyval[1];
+                            rid = keyval[1];
                             break;
-                        } else if (keyval[0] == "gene_id") {
+                        } else if (keyval[0] == "gene_name") {
                             parent = keyval[1];
                             rid = keyval[1];
-                        } else if (keyval[0] == "transcript_id") {
+                            break;
+                        } else if (rid.empty() && keyval[0] == "transcript_id") {
                             rid = keyval[1];
+                            parent = keyval[1];
                         }
                     }
                 }
@@ -2006,32 +1995,20 @@ namespace HGW {
                 }
             }
         } else if (kind > BCF_IDX) {
-//            if (!allBlocks_flat.empty()) {
-//                for (auto &b : allBlocks_flat) {
-//                    if (b.name == feature) {
-//                        region.chrom = b.chrom;
-//                        region.start = b.start;
-//                        region.end = b.end;
-//                        region.markerPos = b.start;
-//                        region.markerPosEnd = b.end;
-//                        return true;
-//                    }
-//                }
-//            } else {
-                for (auto &chrom_blocks : allBlocks) {
-                    for (size_t i=0; i < chrom_blocks.second.size(); ++i) {
-                        const Utils::TrackBlock &b = chrom_blocks.second.data(i);
-                        if (b.name == feature) {
-                            region.chrom = b.chrom;
-                            region.start = b.start;
-                            region.end = b.end;
-                            region.markerPos = b.start;
-                            region.markerPosEnd = b.end;
-                            return true;
-                        }
+
+            for (auto &chrom_blocks : allBlocks) {
+                for (int i=chrom_blocks.second.data.size() - 1; i >= 0; --i) {
+                    auto& b = chrom_blocks.second.data[i];
+                    if (b.name.find(feature) != std::string::npos) {
+                        region.chrom = b.chrom;
+                        region.start = b.start;
+                        region.end = b.end;
+                        region.markerPos = b.start;
+                        region.markerPosEnd = b.end;
+                        return true;
                     }
                 }
-//            }
+            }
         }
         return false;
     }
@@ -2416,8 +2393,8 @@ namespace HGW {
                     track.drawThickness.push_back(2);  // fat line
                 } else if (g->vartype == "gene") {
                     track.drawThickness.push_back(3);  // border only
-                } else if (g->vartype == "mRNA" || g->vartype == "gene" || g->vartype == "exon") {
-                    track.drawThickness.push_back(0);  // no line
+                } else if (g->vartype == "exon" || g->vartype == "mRNA" || g->vartype == "gene") {
+                    track.drawThickness.push_back(2);  // no line
                     if (!track.anyToDraw) { track.anyToDraw = true; }
                 } else if (g->vartype == "start_codon") {
                     between_codons = !between_codons;
@@ -2459,10 +2436,6 @@ namespace HGW {
             b->anyToDraw = true;
             b->strand = trk.strand;
 
-//            if (kind)
-//            if (trk.parts.size() >= 5 && b->strand == 0) {
-//                b->strand = (trk.parts[5] == "+") ? 1 : (trk.parts[5] == "-") ? 2 : 0;
-//            }
             if (isVCF) {
                 b->vartype = trk.vartype;
             }

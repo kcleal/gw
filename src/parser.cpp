@@ -35,6 +35,7 @@ namespace Parse {
         opMap["ref-end"] = REF_END;
         opMap["pnext"] = PNEXT;
         opMap["seq"] = SEQ;
+        opMap["seq-rc"] = SEQ_RC;
         opMap["seq-len"] = SEQ_LEN;
         opMap["cigar"] = CIGAR;
 
@@ -116,6 +117,7 @@ namespace Parse {
         permit[TID] = numeric_like;
         permit[MID] = numeric_like;
         permit[SEQ] = string_like;
+        permit[SEQ_RC] = string_like;
         permit[SEQ_LEN] = numeric_like;
         permit[CIGAR] = string_like;
 
@@ -328,6 +330,23 @@ namespace Parse {
         return 1;
     }
 
+    char complement(char base) {
+        switch (base) {
+            case 'A': return 'T';
+            case 'T': return 'A';
+            case 'C': return 'G';
+            case 'G': return 'C';
+            default: return 'N';
+        }
+    }
+
+    std::string reverseComplement(const std::string& dna) {
+        std::string result;
+        result.reserve(dna.size());
+        std::transform(dna.rbegin(), dna.rend(), std::back_inserter(result), complement);
+        return result;
+    }
+
     int Parser::prep_evaluations(std::vector<Eval> &evaluations, std::vector<std::string> &output) {
         if (! opMap.contains(output[0])) {
             out << "Left-hand side property not available: " << output[0] << std::endl;
@@ -408,6 +427,9 @@ namespace Parse {
                 e.sval = output.back();
             }
             e.numeric_like = false;
+            if (lhs == SEQ_RC) {  // Reverse-complement value
+                e.sval = reverseComplement(output.back());
+            }
         } else {
             out << "Left-hand side operation not available: " << output[0] << std::endl; return -1;
         }
@@ -642,7 +664,7 @@ namespace Parse {
                         break;
 
                 }
-                if (e.property == SEQ) {
+                if (e.property == SEQ || e.property == SEQ_RC) {
                     switch (e.op) {
                         case EQ: this_result = str_val == e.sval; break;
                         case NE: this_result = str_val != e.sval; break;

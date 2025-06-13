@@ -1,5 +1,5 @@
 TARGET = gw
-VERSION = "1.2.2"
+VERSION = "1.2.3"
 .PHONY: default all debug clean
 default: $(TARGET)
 all: default
@@ -84,11 +84,11 @@ endif
 CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG -g
 LIBGW_INCLUDE=
 CPPFLAGS += -I./lib/skia -I./lib/libBigWig -I./include -I. $(LIBGW_INCLUDE) -I./src
-LDFLAGS += -L$(SKIA_PATH)
-LDLIBS += -lskia -lm -ljpeg -lpng -lpthread
+LDFLAGS += $(if $(SKIA_PATH),-L$(SKIA_PATH))
+SKIA_LIBS := -lskia -lm -ljpeg -lpng -lpthread
 ifeq ($(TARGET_OS),"Linux")  # set platform flags and libs
     CXXFLAGS += -D LINUX -D __STDC_FORMAT_MACROS
-    LDLIBS += -lX11
+    LDLIBS += $(SKIA_LIBS) -lX11
     ifeq ($(USE_WAYLAND),1)
     	LDLIBS += -lwayland-client -lwayland-egl
     endif
@@ -104,10 +104,10 @@ else ifeq ($(TARGET_OS),"MacOS")
     CXXFLAGS += -D OSX -stdlib=libc++ -fvisibility=hidden -mmacosx-version-min=11 -Wno-deprecated-declarations
     LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=11 -L/usr/local/lib
     LGLFW := $(shell pkg-config --libs glfw3 2>/dev/null || echo "-lglfw")
-    LDLIBS += -lhts $(LGLFW) -lzlib -lcurl -licu -ldl -lsvg -lfontconfig
+    LDLIBS += $(SKIA_LIBS) -lhts $(LGLFW) -lzlib -lcurl -licu -ldl -lsvg -lfontconfig
 else ifeq ($(PLATFORM),"Windows")  # Targets an msys2 build environment
     CXXFLAGS += -D WIN32 -D OLD_SKIA
-    SKIA_CFLAGS := $(shell pkg-config --cflags skia 2>/dev/null || echo "-I/ucrt64/include/skia")
+    SKIA_CFLAGS := $(shell pkg-config --cflags skia 2>/dev/null || echo "$(if $(MINGW_PREFIX),-I$(MINGW_PREFIX)/include/skia)")
     SKIA_LIBS := $(shell pkg-config --libs skia 2>/dev/null || echo "-lskia")
     NCURSES_CFLAGS := $(shell pkg-config --cflags ncursesw 2>/dev/null || echo "")
     CPPFLAGS += $(SKIA_CFLAGS) $(NCURSES_CFLAGS)
@@ -117,7 +117,7 @@ else ifeq ($(PLATFORM),"Emscripten")
     CFLAGS += -fPIC
     CXXFLAGS += -DBUILDING_LIBGW -D__STDC_FORMAT_MACROS -fPIC
     LDFLAGS += -v -L./wasm_libs/htslib -s RELOCATABLE=1 --no-entry -s STANDALONE_WASM
-    LDLIBS += -lwebgl.js -l:libhts.a
+    LDLIBS += $(SKIA_LIBS) -lwebgl.js -l:libhts.a
 endif
 
 ##########################################################

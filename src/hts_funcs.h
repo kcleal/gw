@@ -15,7 +15,8 @@
 #include "htslib/tbx.h"
 
 #include "parser.h"
-#include "IITree.h"
+//#include "IITree.h"
+#include "superintervals.hpp"
 #include "ankerl_unordered_dense.h"
 #include "bigWig.h"
 
@@ -165,7 +166,7 @@ namespace HGW {
         std::vector<Utils::TrackBlock>::iterator vals_end;
         std::vector<Utils::TrackBlock>::iterator iter_blk;
 
-        ankerl::unordered_dense::map< std::string, IITree<int, Utils::TrackBlock>> allBlocks;
+        ankerl::unordered_dense::map< std::string, SuperIntervals<int, Utils::TrackBlock>> allBlocks;
         std::vector<Utils::TrackBlock> overlappingBlocks, allBlocks_flat;
 
         Utils::TrackBlock block;

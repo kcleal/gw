@@ -1652,10 +1652,6 @@ namespace Manager {
     void GwPlot::handleReadSelection(int idx, float xW, float yW) {
         Segs::ReadCollection &cl = collections[idx];
         int pos = (int)(((xW - (float)cl.xOffset) / cl.xScaling) + (float)cl.region->start);
-//        if (ctrlPress) {
-//            zoomToPosition(pos);
-//            return;
-//        }
         selectReadAtPosition(cl, pos, xW, yW);
         xDrag = DRAG_UNSET;
         yDrag = DRAG_UNSET;

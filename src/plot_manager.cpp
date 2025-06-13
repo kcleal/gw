@@ -1122,8 +1122,13 @@ namespace Manager {
             totalTabixY = 0;
             tabixY = 0;
         } else {
-            totalTabixY = availableHeight * (float)opts.tab_track_height;
-            tabixY = totalTabixY / nTracks;
+            if (nbams == 0) {
+                totalTabixY = availableHeight;
+                tabixY = totalTabixY / nTracks;
+            } else {
+                totalTabixY = availableHeight * (float) opts.tab_track_height;
+                tabixY = totalTabixY / nTracks;
+            }
         }
         availableHeight -= totalTabixY;
         if (nbams == 0 || opts.max_coverage == 0) {
@@ -1159,7 +1164,6 @@ namespace Manager {
                 } else {
                     if (yScaling > 3 * monitorScale) {
                         pH = yScaling - (monitorScale * opts.read_y_gap);
-//                        pH = yScaling - monitorScale;
                     } else {
                         pH = yScaling;
                     }

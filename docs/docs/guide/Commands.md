@@ -56,15 +56,16 @@ files, because when using indexed files, GW will only load the data that is on-s
 ```shell
 hTERT
 ```
+<br>
 
 - ## add
 
 This will add a new region view to the right-hand-side of your screen.
-<br>
 
 ```shell
 add chr1:1-20000
 ```
+<br>
 
 - ## colour
 
@@ -153,6 +154,7 @@ Count after applying a filter expression:
 count flag & 2
 count flag & proper-pair
 ```
+<br>
 
 - ## cov
 
@@ -170,9 +172,9 @@ reads that have an unmapped mate-pair.
 Toggle expand-tracks. Features in the tracks panel are expanded so overlapping features can be seen.
 <br>
 
-- ## filter
+## filter
 
-Filters visible reads, and removes them from view if a filter is 'failed'.
+Filter visible reads.
 
 Reads can be filtered using an expression '{property} {operation} {value}' (the white-spaces are also needed).
 For example, here are some useful expressions:
@@ -181,67 +183,110 @@ For example, here are some useful expressions:
     filter flag & 2048
     filter seq contains TTAGGG
 
-Here are a list of '{property}' values you can use, consult the SAM specification for more details on the meaning of these:
+Properties are interpreted as either Numeric-like or String-like.
 
-    pattern, mapq, flag, ~flag, rname, tlen, abs-tlen, rnext, pos, ref-end, pnext, seq, seq-len, tid, mid,
-    RG, BC, BX, RX, LB, MD, MI, PU, SA, MC, NM, CM, FI, HO, MQ, SM, TC, UQ, AS
+### Numeric Properties
 
-These can be combined with '{operator}' values:
+These properties can be used with numeric operators:
 
-    &, ==, !=, >, <, >=, <=, eq, ne, gt, lt, ge, le, contains, omit
+- `mapq` - Mapping quality
+- `flag` - Bit flag
+- `~flag` - Bit-wise NOT flag
+- `tlen` - Template-length
+- `abs-tlen` - Absolute template-length
+- `pos` - Alignment start position
+- `ref-end` - Alignment end position
+- `pnext` - Position of mate
+- `seq-len` - Sequence length
+- `NM`, `CM`, `FI`, `HO`, `MQ`, `SM`, `TC`, `UQ`, `AS`, `HP` - BAM tags
 
-Bitwise flags can also be applied with named values, including:
+### String Properties
 
-    paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary, qcfail,
-    duplicate, supplementary
+These properties can be used with string operators:
 
-These can be used as a shorthand for filtering with the `flag &` and `~flag &` properties + operators. For example, to filter for
-proper-pair alignments you can use:
+- `name` - Read name
+- `rname` - Chromosome name
+- `rnext` - Chromosome name of mate
+- `cigar` - CIGAR string of alignment
+- `seq` - Sequence of this alignment
+- `seq-rc` - Reverse-complement sequence of this alignment
+- `RG`, `BC`, `BX`, `RX`, `LB`, `MD`, `MI`, `PU`, `SA`, `MC` - BAM tags
 
-    filter proper-pair
+### Numeric Operators
 
-This is a shorthand for `filter flag & proper-pair`. For the inverse (keeping discordant reads only), you can use:
+Numeric types can be combined with these operators:
 
-    filter ~proper-pair
+- `==` - Equal to; or use `=` or `eq`
+- `!=` - Not equal to; or `ne`
+- `>` - Greater than; `gt`
+- `<` - Less than; `lt`
+- `>=` - Greater-or-equal; `ge`
+- `<=` - Less-or-equal; `le`
 
+### String Operators
 
-The `pattern` property can accept the values `deletion`, `duplication`, `translocation`, `inversion_forward`, or
-`inversion_reverse`. These pattern can also be used with a shorthand name e.g.:
+String types can be combined with these operators:
 
-    filter pattern == del    # deletion pattern
-    filter pattern == dup    # duplication pattern
-    filter pattern == inv_f  # invertion-forward pattern
-    filter pattern == inv_r  # inversion-reverse pattern
-    filter pattern == tra    # translocation pattern
+- `==` - Equal to; or use `=` or `eq`
+- `!=` - Not equal to; or `ne`
+- `contains` - String contains substring
+- `omit` - Removes read if string contains substring
+
+### Missing Values
+
+If you want to filter using missing values, you can use `none` or `''`, e.g:
+
+    filter SA == none  # Only reads with no SA tag are kept
+
+### Pattern Filtering
+
+Reads can be filtered on their mapping orientation/pattern:
+
+    filter pattern == del    # deletion-like pattern
+    filter pattern == inv_f  # inversion-forward
+    filter pattern == inv_r  # inversion-reverse
+    filter pattern != tra    # translocation
+
+### Bitwise Flag Names
+
+Bitwise flags can also be applied with named values:
+
+`paired`, `proper-pair`, `unmapped`, `munmap`, `reverse`, `mreverse`, `read1`, `read2`, `secondary`, `dup`, `supplementary`
+
+Examples:
+
+    filter paired
+    filter read1
+
+### Chaining Expressions
 
 Expressions can be chained together providing all expressions are 'AND' or 'OR' blocks:
 
     filter mapq >= 20 and mapq < 30
-    filter mapq >= 20 or supplementary
+    filter mapq >= 20 or flag & supplementary
 
-Multiple filters can be applied by typing in the filter command several times, or by separating filter blocks using
-the semicolon:
+### Panel-Specific Filtering
 
-    filter pattern == del or pattern == dup; mapq >= 30 
+You can apply filters to specific panels using array indexing notation:
 
-Finally, you can apply filters to specific panels using array indexing notation:
-
-    filter mapq > 0 [0]      # First column 0 (when one bam is loaded)
     filter mapq > 0 [:, 0]   # All rows, column 0 (all bams, first region only)
     filter mapq > 0 [0, :]   # Row 0, all columns (the first bam only, all regions)
     filter mapq > 0 [1, -1]  # Row 1, last column
 
-Here are a list of some example filtering commands:
+### Example Commands
 
-    filter mapq >= 20             # only reads with mapping quality >= 20 will be shown
-    filter flag & 2048            # only supplementary alignments are shown
-    filter supplementary   # same as above
-    filter ~supplementary  # supplementary reads will be removed
-    filter seq contains TTAGGG    # Only reads with TTAGGG kmer will be shown
-    filter seq omit AAAAAA        # Reads with this kmer will be removed
-    filter mapq > 30 and ~duplicate  #  also removes duplicate reads
-    filter mapq > 10 or seq-len > 100; ~flag & duplicate  # multiple commands
+Here are some example filtering commands:
 
+    filter mapq >= 20                    # only reads with mapping quality >= 20 will be shown
+    filter flag & 2048                   # only supplementary alignments are shown
+    filter supplementary                 # same as above
+    filter ~supplementary                # supplementary reads will be removed
+    filter seq contains TTAGGG           # Only reads with TTAGGG kmer will be shown
+    filter seq omit AAAAAA               # Reads with this kmer will be removed
+    filter mapq > 30 and ~dup            # also removes duplicate reads
+    filter mapq > 10 or seq-len > 100    # multiple conditions with OR
+
+<br>
 
 - ## find, f
 
@@ -251,6 +296,7 @@ All alignments with the same name will be highlighted with a bright edge border.
 
     find D00360:18:H8VC6ADXX:1:1107:5538:24033
 
+<br>
 
 - ## goto
 
@@ -263,6 +309,7 @@ Searching for track features works mainly for non-indexed files that are loaded 
     goto chr1
     goto hTERT
 
+<br>
 
 - ## grid
 
@@ -270,12 +317,16 @@ Set the grid size for viewing image tiles.
 
     grid 8x8   # this will display 64 image tiles
 
+<br>
+
 - ## header
 
 Prints the header of the current selected bam to the terminal. Use `header names` to print only the @SQ lines.
 
     header        # print the full header
     header names  # prints only the @SQ lines (chromosome names)
+
+<br>
 
 - ## indel-length
 
@@ -285,15 +336,18 @@ Indels (gaps in alignments) will be labelled with text if they have length ≥ '
 
     indel-length 30
 
+<br>
 
 - ## insertions, ins
 
 Toggle insertions. Insertions smaller than 'indel-length' are turned on or off.
+
 <br>
 
 - ## line
 
 Toggles a vertical line drawn over cursor position.
+
 <br>
 
 - ## link, l
@@ -302,6 +356,7 @@ Link alignments.
 
 This will change how alignments are linked, options are 'none', 'sv', 'all'. Linking by 'sv' will draw
 links between alignments that have either a discordant flag, or have a supplementary mapping.
+
 <br>
 
 
@@ -319,6 +374,7 @@ Either moves the current view to the mate locus, or adds a new view of the mate 
     mate
     mate add
 
+<br>
 
 - ## mismatches, mm
 
@@ -372,12 +428,16 @@ To remove a bam or track add a 'bam' or 'track' prefix.
     rm bam1     # this will remove BAM FILE at index 1
     rm track2   # removes track at index 2
 
+<br>
+
 - ## roi
 
 Add a region of interest. If no arguments are added, the visible region will be added to the roi track.
 
     roi
     roi chr1:1-20000
+
+<br>
 
 - ## sam
 
@@ -404,6 +464,8 @@ This command can be used to save visible reads, a snapshot, or a session file. T
     save region.png  # Image saved, same as snapshot command
 
     save current_session.ini  # Save a session file
+
+<br>
 
 - ## settings
 
@@ -448,6 +510,8 @@ Sort reads by strand, haplotype (defined by HP tag in bam file), or pos. Sorting
     sort strand 120000 # By strand and then position
     sort hap 120000    # Haplotype then position
 
+<br>
+
 - ## tags
 
 This will print all the tags of the selected read (select a read with the mouse first).
@@ -466,6 +530,7 @@ Currently, 'igv', 'dark' or 'slate' themes are supported.
     
     theme slate
 
+<br>
 
 - ## tlen-y
 
@@ -480,6 +545,7 @@ You can set a maximum y-limit on the template-length by adding a number argument
     tlen-y
     tlen-y 50000
 
+<br>
 
 - ## var, v
 
@@ -510,4 +576,5 @@ The y limit is the maximum height of stacked reads shown on the drawing.
 ```shell
 ylim 100
 ```   
+<br>
 

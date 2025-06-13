@@ -1351,6 +1351,26 @@ namespace Commands {
         return Err::NONE;
     }
 
+    Err search_for_feature(Plot* p, std::string& command, Utils::Region& rgn) {
+        p->redraw = true;
+        if (p->tracks.empty()) {
+            return Err::NONE;
+        }
+        bool res = HGW::searchTracks(p->tracks, command, rgn);
+        if (!res) {
+            return Err::FEATURE_NOT_IN_TRACKS;
+        }
+        if (p->mode != Manager::Show::SINGLE) { p->mode = Manager::Show::SINGLE; }
+        if (p->regions.empty()) {
+            p->regions.push_back(rgn);
+            p->fetchRefSeq(p->regions.back());
+        } else if (p->regionSelection < (int)p->regions.size()) {
+            p->regions[p->regionSelection] = rgn;
+            p->fetchRefSeq(p->regions[p->regionSelection]);
+        }
+        return Err::NONE;
+    }
+
     Err infer_region_or_feature(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
         Utils::Region rgn;
         Err reason = Err::NONE;
@@ -1358,28 +1378,31 @@ namespace Commands {
             rgn = Utils::parseRegion(command);
         } catch (...) {
             p->redraw = true;
-            return Err::BAD_REGION;
+            reason = Err::BAD_REGION;
+//            return Err::BAD_REGION;
         }
         if (reason == Err::NONE) {
             int res = faidx_has_seq(p->fai, rgn.chrom.c_str());
             if (res <= 0) {
-                p->redraw = true;
-                int num_sequences = faidx_nseq(p->fai);
-                out << "Error: Command not understood\n";
-                out << "Chromosome names in the fasta index:" << std::endl;
-                for (int i = 0; i < num_sequences; ++i) {
-                    const char* seq_name = faidx_iseq(p->fai, i);
-                    out << seq_name;
-                    if (i < num_sequences - 1) {
-                        out << ", ";
+                reason = search_for_feature(p, command, rgn);
+                if (reason == Err::FEATURE_NOT_IN_TRACKS) {
+                    p->redraw = true;
+                    int num_sequences = faidx_nseq(p->fai);
+                    out << "Chromosome names in the fasta index:" << std::endl;
+                    for (int i = 0; i < num_sequences; ++i) {
+                        const char* seq_name = faidx_iseq(p->fai, i);
+                        out << seq_name;
+                        if (i < num_sequences - 1) {
+                            out << ", ";
+                        }
+                        if (i > 25) {
+                            out << " ... ";
+                            break;
+                        }
                     }
-                    if (i > 25) {
-                        out << " ... ";
-                        break;
-                    }
+                    out << std::endl << std::endl;
+                    return Err::OPTION_NOT_UNDERSTOOD;
                 }
-                out << std::endl << std::endl;
-                return Err::OPTION_NOT_UNDERSTOOD;
             }
             if (p->mode != Manager::Show::SINGLE) { p->mode = Manager::Show::SINGLE; }
             if (p->regions.empty()) {
@@ -1400,24 +1423,7 @@ namespace Commands {
                 p->regions[p->regionSelection].chromLen = faidx_seq_len(p->fai, p->regions[p->regionSelection].chrom.c_str());
             }
         } else {  // search all tracks for matching name, slow but ok for small tracks
-            if (!p->tracks.empty()) {
-                bool res = HGW::searchTracks(p->tracks, command, rgn);
-                if (res) {
-                    if (p->mode != Manager::Show::SINGLE) { p->mode = Manager::Show::SINGLE; }
-                    if (p->regions.empty()) {
-                        p->regions.push_back(rgn);
-                        p->fetchRefSeq(p->regions.back());
-                    } else {
-                        if (p->regionSelection < (int)p->regions.size()) {
-                            p->regions[p->regionSelection] = rgn;
-                            p->fetchRefSeq(p->regions[p->regionSelection]);
-                        }
-                    }
-                } else {
-                    p->redraw = true;
-                    reason = Err::SILENT;
-                }
-            }
+            reason = search_for_feature(p, command, rgn);
         }
         if (reason == Err::NONE && p->frameId >= 0) {
             p->processed = false;
