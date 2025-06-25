@@ -19,13 +19,15 @@ GW
     :align: center
 
 
-
 GW is a fast browser for genomic sequencing data (.bam/.cram format) used directly from the terminal. GW also
 allows you to view and annotate variants from vcf/bcf files.
 
-Check out the `documentation here. <https://kcleal.github.io/gw/>`_
+📖 Documentation: `<https://kcleal.github.io/gw/>`_
 
-Check out the `pre-print here. <https://www.biorxiv.org/content/10.1101/2024.07.26.605272v5>`_
+🐍 Python interface: `<https://github.com/kcleal/gwplot>`_
+
+📄 Pre-print: `here. <https://www.biorxiv.org/content/10.1101/2024.07.26.605272v5>`_
+
 
 
 ⚙️ Install
