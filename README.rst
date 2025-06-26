@@ -26,7 +26,7 @@ allows you to view and annotate variants from vcf/bcf files.
 
 🐍 Python interface: `<https://github.com/kcleal/gwplot>`_
 
-📄 Pre-print: `here. <https://www.biorxiv.org/content/10.1101/2024.07.26.605272v5>`_
+📄 Paper: `<https://www.nature.com/articles/s41592-025-02749-5>`_
 
 
 
