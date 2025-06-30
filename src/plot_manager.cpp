@@ -24,6 +24,11 @@
 #include "include/core/SkPictureRecorder.h"
 #include "include/core/SkPicture.h"
 #include "include/svg/SkSVGCanvas.h"
+#if !defined(OLD_SKIA) || OLD_SKIA == 0
+    #include "include/gpu/ganesh/gl/GrGLAssembleInterface.h"
+#else
+    #include "include/gpu/gl/GrGLAssembleInterface.h"
+#endif
 
 #include "ankerl_unordered_dense.h"
 #include "drawing.h"
@@ -859,6 +864,20 @@ namespace Manager {
 
                 sContext->abandonContext();
                 sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
+
+                if (!interface) {
+                    interface = GrGLMakeAssembledInterface(
+                            nullptr,
+                            [](void*, const char* name) -> GrGLFuncPtr {
+                                return (GrGLFuncPtr)glfwGetProcAddress(name);
+                            }
+                    );
+                }
+                if (!interface) {
+                    std::cerr << "Error: could not create OpenGL interface\n";
+                    std::exit(-1);
+                }
+
 #if !defined(OLD_SKIA) || OLD_SKIA == 0
                 sContext = GrDirectContexts::MakeGL(interface).release();
 
