@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
 
         sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
 
-#ifndef OLD_SKIA
+#if !defined(OLD_SKIA) || OLD_SKIA == 0
         if (!interface || !interface->validate()) {
             std::cerr << "Error: skia GrGLInterface was not valid" << std::endl;
             if (!interface) {
@@ -365,7 +365,7 @@ int main(int argc, char *argv[]) {
                 sk_sp<SkImage> img;
                 if (!plotter.regions.empty()) {  // plot target regions
 
-#ifndef OLD_SKIA
+#if !defined(OLD_SKIA) || OLD_SKIA == 0
                     auto imageInfo = SkImageInfo::MakeN32Premul(
                             iopts.dimensions.x * plotter.monitorScale,
                             iopts.dimensions.y * plotter.monitorScale);

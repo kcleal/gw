@@ -12,7 +12,7 @@
 #include "include/core/SkFontMgr.h"
 #include "include/core/SkPathEffect.h"
 #include "include/effects/SkDashPathEffect.h"
-#ifndef OLD_SKIA
+#if !defined(OLD_SKIA) || OLD_SKIA == 0
     #if defined(__APPLE__)
         #include <CoreText/CoreText.h>
         #include "include/ports/SkFontMgr_mac_ct.h"
@@ -1090,7 +1090,7 @@ namespace Themes {
     }
 
     void printAvailableFonts() {
-#ifndef OLD_SKIA
+#if !defined(OLD_SKIA) || OLD_SKIA == 0
         sk_sp<SkFontMgr> fontManager = SkFontMgr::RefEmpty();
 #else
         sk_sp<SkFontMgr> fontManager = SkFontMgr::RefDefault();
@@ -1117,7 +1117,7 @@ namespace Themes {
         path = SkPath();
     }
 
-#ifndef OLD_SKIA
+#if !defined(OLD_SKIA) || OLD_SKIA == 0
     sk_sp<SkFontMgr> createFontManager(bool system_default) {
         sk_sp<SkFontMgr> fontMgr;
 

@@ -168,7 +168,7 @@ namespace Manager {
     }
 
     int GwPlot::makeRasterSurface() {
-#ifndef OLD_SKIA
+#if !defined(OLD_SKIA) || OLD_SKIA == 0
         SkImageInfo imageInfo = SkImageInfo::MakeN32Premul(opts.dimensions.x * monitorScale,
                                                            opts.dimensions.y * monitorScale);
         size_t rowBytes = imageInfo.minRowBytes();
@@ -859,7 +859,7 @@ namespace Manager {
 
                 sContext->abandonContext();
                 sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
-#ifndef OLD_SKIA
+#if !defined(OLD_SKIA) || OLD_SKIA == 0
                 sContext = GrDirectContexts::MakeGL(interface).release();
 
                 GrGLFramebufferInfo framebufferInfo;
@@ -1708,7 +1708,7 @@ namespace Manager {
                                           data = SkData::MakeFromFileName(fname);
                                           if (!data)
                                               throw std::runtime_error("Error: file not found");
-#ifndef OLD_SKIA
+#if !defined(OLD_SKIA) || OLD_SKIA == 0
                                           sk_sp<SkImage> image = SkImages::DeferredFromEncodedData(data);
 #else
                                           sk_sp<SkImage> image = SkImage::MakeFromEncoded(data);
@@ -2002,7 +2002,7 @@ namespace Manager {
         sk_sp<SkImage> img(rasterSurfacePtr[0]->makeImageSnapshot());
         if (!img) { return; }
 
-#ifndef OLD_SKIA
+#if !defined(OLD_SKIA) || OLD_SKIA == 0
         SkPngEncoder::Options options;
         sk_sp<SkData> png(SkPngEncoder::Encode(nullptr, img.get(), options));
 #else
@@ -2068,7 +2068,7 @@ namespace Manager {
     std::pair<const uint8_t*, size_t> GwPlot::encodeToPng(int compression_level) {
         assert (resterSurface != nullptr);
         sk_sp<SkImage> img = rasterSurface->makeImageSnapshot();
-#ifndef OLD_SKIA
+#if !defined(OLD_SKIA) || OLD_SKIA == 0
         SkPngEncoder::Options options;
         options.fZLibLevel = compression_level;
         sk_sp<SkData> png(SkPngEncoder::Encode(nullptr, img.get(), options));
@@ -2088,7 +2088,7 @@ namespace Manager {
         std::cerr << "Error: this function is not supported for Windows at the moment\n";
         return {nullptr, 0};
 #else
-    #ifndef OLD_SKIA
+    #if !defined(OLD_SKIA) || OLD_SKIA == 0
         m_encodedJpegData = SkJpegEncoder::Encode(nullptr, img.get(), options);
         return {static_cast<const uint8_t*>(m_encodedJpegData->data()), m_encodedJpegData->size()};
     #else
@@ -2117,7 +2117,7 @@ namespace Manager {
 
     void imageToPng(sk_sp<SkImage> &img, std::filesystem::path &path) {
         if (!img) { return; }
-#ifndef OLD_SKIA
+#if !defined(OLD_SKIA) || OLD_SKIA == 0
         SkPngEncoder::Options options;
         sk_sp<SkData> png(SkPngEncoder::Encode(nullptr, img.get(), options));
 #else
@@ -2137,7 +2137,7 @@ namespace Manager {
 
     void imagePngToStdOut(sk_sp<SkImage> &img) {
         if (!img) { return; }
-#ifndef OLD_SKIA
+#if !defined(OLD_SKIA) || OLD_SKIA == 0
         SkPngEncoder::Options options;
         sk_sp<SkData> png(SkPngEncoder::Encode(nullptr, img.get(), options));
 #else
@@ -2161,7 +2161,7 @@ namespace Manager {
 
     void imagePngToFile(sk_sp<SkImage> &img, std::string path) {
         if (!img) { return; }
-#ifndef OLD_SKIA
+#if !defined(OLD_SKIA) || OLD_SKIA == 0
         SkPngEncoder::Options options;
         sk_sp<SkData> png(SkPngEncoder::Encode(nullptr, img.get(), options));
 #else

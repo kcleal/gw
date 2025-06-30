@@ -38,7 +38,7 @@
 #include "export_definitions.h"
 
 #define SK_GL
-#ifndef OLD_SKIA
+#if !defined(OLD_SKIA) || OLD_SKIA == 0
     #include "include/gpu/ganesh/GrBackendSurface.h"
     #include "include/gpu/ganesh/gl/GrGLDirectContext.h"
     #include "include/gpu/ganesh/gl/GrGLInterface.h"
