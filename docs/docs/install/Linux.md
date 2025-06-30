@@ -36,7 +36,7 @@ Before building GW, you need to install the glfw3 and htslib libraries.
 For Ubuntu, fetch these using:
 
 ```shell
-sudo apt install libgl1-mesa-dev libfontconfig-dev libhts-dev glfw
+sudo apt install libgl1-mesa-dev libfontconfig-dev libhts-dev libglfw3 libglfw3-dev
 ```
 
 GW can be built and installed using:

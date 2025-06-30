@@ -18,7 +18,6 @@
 #include "plot_manager.h"
 #include "themes.h"
 #include "utils.h"
-#include "gw_version.h"
 
 #include "termcolor.h"
 #include "GLFW/glfw3.h"
@@ -61,8 +60,19 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
     static const std::vector<std::string> img_themes = { "igv", "dark", "slate" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
-    options.program = argparse::ArgumentParser("gw", std::string(GW_VERSION));
     argparse::ArgumentParser& program = options.program;
+
+    program = argparse::ArgumentParser("gw", std::string(GW_VERSION));
+    program.add_argument("--version")
+            .action([](const std::string& value) {
+                std::cout << GW_VERSION << std::endl;
+                std::exit(0);
+                return value;
+            })
+            .default_value(false)
+            .implicit_value(true)
+            .nargs(0)
+            .help("Show version information");
 
     program.add_argument("genome")
             .default_value(std::string{""}).append()
@@ -204,6 +214,11 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
             .help("Display path of loaded .gw.ini config");
 
     options.showBanner = true;
+
+    if (argc == 2 && (std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h")) {
+        std::cout << program.help().str() << std::endl;
+        std::exit(0);
+    }
 
     // check input for errors and merge input options with IniOptions
     try {
