@@ -1354,7 +1354,7 @@ namespace Commands {
     Err search_for_feature(Plot* p, std::string& command, Utils::Region& rgn) {
         p->redraw = true;
         if (p->tracks.empty()) {
-            return Err::NONE;
+            return Err::FEATURE_NOT_IN_TRACKS;
         }
         bool res = HGW::searchTracks(p->tracks, command, rgn);
         if (!res) {
@@ -1379,7 +1379,6 @@ namespace Commands {
         } catch (...) {
             p->redraw = true;
             reason = Err::BAD_REGION;
-//            return Err::BAD_REGION;
         }
         if (reason == Err::NONE) {
             int res = faidx_has_seq(p->fai, rgn.chrom.c_str());
