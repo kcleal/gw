@@ -1,4 +1,7 @@
 name: gw
+permissions:
+  contents: read
+  pull-requests: write
 
 on:
   push:
