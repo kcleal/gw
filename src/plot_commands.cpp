@@ -124,6 +124,9 @@ namespace Commands {
                 rgn.sortOption = Utils::SortType::NONE, rgn.sortPos = -1;
                 rgn.refBaseAtPos = '\0';
             }
+            for (auto &trk : p->tracks) {
+                trk.px_height = 0;
+            }
         }
         return Err::NONE;
     }

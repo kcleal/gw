@@ -1,5 +1,5 @@
 TARGET = gw
-VERSION = "1.2.5"
+VERSION = "1.2.6"
 .PHONY: default all debug clean
 default: $(TARGET)
 all: default

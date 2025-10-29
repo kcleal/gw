@@ -1321,17 +1321,24 @@ namespace Manager {
         if (y <= refSpace) {
             return REFERENCE_TRACK;
         } else if (!tracks.empty() && y > (fb_height - sliderSpace - totalTabixY) && y < (fb_height - sliderSpace)) {
-            int index = -3;
-            float top_y = (float)fb_height - sliderSpace - totalTabixY; // + (gap);
-            float step = tabixY;
-            index -= (int)((y - top_y) / step);
-			if ((index * -1) - 3 > (int)tracks.size()) {
-				index = -1;
-			}
-            if (index <= TRACK) {
-                return index;
+            float top_y = (float)fb_height - sliderSpace - totalTabixY;
+            // Track index counts down from -3, to find the actual index
+            // idx=0 --> index=-3
+            // idx=1 --> index=-4
+            int index = 0;
+            bool found = false;
+            for (auto& trk: tracks) {
+                if (y > top_y && y < top_y + trk.px_height) {
+                    found = true;
+                    break;
+                }
+                index += 1;
+                top_y += trk.px_height;
             }
-			return NO_REGIONS;  // track
+            if (found) {
+                return -3 - index ;
+            }
+			return NO_REGIONS;
 		}
         if (regions.empty()) {
             return NO_REGIONS;
@@ -1550,9 +1557,10 @@ namespace Manager {
             return;
         }
         int idx = getCollectionIdx(xW, yW);
-        if (handleTrackClick(idx, action, xW, yW)) {
-            return;
-        }
+        handleTrackClick(idx, action, xW, yW);
+        // if (handleTrackClick(idx, action, xW, yW)) {
+            // return;
+        // }
         // Handle region selection
         if (action == GLFW_PRESS) {
             selectRegion(idx);
@@ -1578,14 +1586,10 @@ namespace Manager {
                 printTrackInformation(idx, xW, yW);
             }
             clickedIdx = -1;
-            xOri = xPos_fb;
-            yOri = yPos_fb;
-            xDrag = DRAG_UNSET;
-            yDrag = DRAG_UNSET;
             return true;
         }
 
-        if (ctrlPress && action == GLFW_PRESS) {
+        if (ctrlPress && action == GLFW_PRESS && idx >= 0) {
             Segs::ReadCollection &cl = collections[idx];
             int pos = (int)(((xW - (float)cl.xOffset) / cl.xScaling) + (float)cl.region->start);
             zoomToPosition(pos);
@@ -1626,15 +1630,17 @@ namespace Manager {
             if (relX < 0 || relX > 1) {
                 return;
             }
-
             int trackIdx = (idx * -1) - 3;
+            // Sum up the px heights of tracks 'above' target track
+            float track_px_start = totalCovY + refSpace + (trackY*(float)headers.size());
+            for (int i=0; i < trackIdx; ++i) {
+                track_px_start += tracks[i].px_height;
+            }
             HGW::GwTrack &targetTrack = tracks[trackIdx];
-            float stepY = (totalTabixY) / (float)tracks.size();
+            float stepY = targetTrack.px_height;
             float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[trackIdx]);
-            float y = totalCovY + refSpace + (trackY*(float)headers.size()) + (gap * 0.5);
-            int featureLevel = (int)(yW - y - (trackIdx * stepY)) / step_track;
-            Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx,
-                            target_qname, &target_pos, out);
+            int featureLevel = (int)(yW - track_px_start) / step_track;
+            Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx, target_qname, &target_pos, out);
         }
     }
 
@@ -1754,6 +1760,9 @@ namespace Manager {
     }
 
     void GwPlot::handleRegionDragging() {
+        if (xDrag == DRAG_UNSET) {
+            return;
+        }
         Utils::Region &region = regions[regionSelection];
         auto w = (float)(region.end - region.start) * (float)regions.size();
         if (w >= 75000 || window == nullptr) {  // windowlessMode
@@ -2091,11 +2100,26 @@ namespace Manager {
             commandToolTipIndex = -1;
         }
 
-        float trackBoundary = totalCovY + refSpace + (trackY*(float)sizeOfBams()) + (gap * 0.5);
+        std::vector<float> trackBoundaries;
+        bool nearBoundary = false;
         if (!tracks.empty()) {
-            if (std::fabs(yPos_fb - trackBoundary) < 5 * monitorScale) {
-                glfwSetCursor(window, vCursor);
-            } else {
+            float currentY = totalCovY + refSpace + (trackY*(float)sizeOfBams()) + (gap * 0.5);
+            trackBoundaries.push_back(currentY);
+            for (size_t i = 0; i < tracks.size() - 1; ++i) {
+                trackBoundaries.push_back(trackBoundaries.back() + tracks[i].px_height);
+            }
+        }
+        // Update cursor if hovering over any boundary
+        if (!tracks.empty() && !trackBoundaries.empty() && !tabBorderPress) {
+            for (size_t i = 0; i < trackBoundaries.size(); ++i) {
+                if (std::fabs(yPos_fb - trackBoundaries[i]) < 5 * monitorScale) {
+                    glfwSetCursor(window, vCursor);
+                    nearBoundary = true;
+                    boundaryIndex = i;
+                    break;
+                }
+            }
+            if (!nearBoundary) {
                 glfwSetCursor(window, normalCursor);
             }
         }
@@ -2119,18 +2143,68 @@ namespace Manager {
                     return;
                 }
                 if (!tracks.empty()) {
-                    if (tabBorderPress || (std::fabs(yPos_fb - trackBoundary) < 5 * monitorScale && xDrag < 5 && yDrag < 5)) {
+                    if (nearBoundary || tabBorderPress) {
                         if (yPos_fb > fb_height - sliderSpace + (10 * monitorScale)) {
                             return;
                         }
                         tabBorderPress = true;
-                        float drawingArea = ((float)fb_height);
-                        float new_boundary = fb_height - yPos_fb;
-                        opts.tab_track_height = new_boundary / drawingArea;
-                        redraw = true;
-                        for (auto & cl: collections) {
-                            cl.resetDrawState();
+                        if (boundaryIndex == 0) {
+                            float drawingArea = (float)fb_height - gap - refSpace - gap;
+                            double old_th = opts.tab_track_height;
+                            opts.tab_track_height = 1 - ((yPos_fb - sliderSpace) / drawingArea);
+                            if (old_th == opts.tab_track_height) {
+                                return;
+                            }
+                            for (auto & cl: collections) {
+                                cl.resetDrawState();
+                            }
+                            double ratio = opts.tab_track_height / old_th;
+                            double consumedHeight = 0;
+                            for (auto &trk: tracks) {
+                                trk.px_height = trk.px_height * ratio;
+                                consumedHeight += trk.px_height;
+                            }
+                            totalTabixY = consumedHeight;
+                        } else {
+
+                            double top_px_height = tracks[boundaryIndex - 1].px_height;
+                            double bottom_px_height = tracks[boundaryIndex].px_height;
+                            double combined_height = top_px_height + bottom_px_height;
+
+                            // Calculate the new position relative to the start of the top track
+                            float top_track_start = trackBoundaries[boundaryIndex] - top_px_height;
+                            float new_top_height = yPos_fb - top_track_start;
+                            float new_bottom_height = combined_height - new_top_height;
+
+                            // Apply minimum height constraints
+                            float minHeight = 20.0f * monitorScale;
+                            if (new_top_height < minHeight) {
+                                new_top_height = minHeight;
+                                new_bottom_height = combined_height - minHeight;
+                            } else if (new_bottom_height < minHeight) {
+                                new_bottom_height = minHeight;
+                                new_top_height = combined_height - minHeight;
+                            }
+
+                            // Only update if there's an actual change
+                            if (std::abs(new_top_height - top_px_height) > 0.5) {
+                                tracks[boundaryIndex - 1].px_height = new_top_height;
+                                tracks[boundaryIndex].px_height = new_bottom_height;
+
+                                // Recalculate total height (should remain the same, but good to update)
+                                double consumedHeight = 0;
+                                for (auto &trk: tracks) {
+                                    consumedHeight += trk.px_height;
+                                }
+                                totalTabixY = consumedHeight;
+                                for (auto & cl: collections) {
+                                    cl.resetDrawState();
+                                }
+                            } else {
+                                return;
+                            }
                         }
+                        redraw = true;
                         imageCacheQueue.clear();
                         return;
                     }
@@ -2185,10 +2259,6 @@ namespace Manager {
                         float travel_y;
                         if (!opts.tlen_yscale) {
                             travel_y = ((yDrag / monitorScale) /  (windowH / (trackY / fb_height)) ) * windowH;
-
-//                            travel_y = yDrag /
-//                                         ((float) ((windowH * (1 - opts.tab_track_height)) / (float) bams.size()) /
-//                                          (float) cl.levelsStart.size());
                         } else {
                             travel_y = yDrag /
                                        ((float) ((windowH * (1 - opts.tab_track_height)) / (float) bams.size()) /
@@ -2222,6 +2292,7 @@ namespace Manager {
         } else {
             if (mode == Manager::SINGLE) {
                 tabBorderPress = false;
+                boundaryIndex = 0;
                 if (regions.empty()) {
                     return;
                 }

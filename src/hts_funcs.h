@@ -130,8 +130,8 @@ namespace HGW {
         ~GwTrack();
         // The iterator state is cached here during iteration:
         std::string path, genome_tag;
-        std::string chrom, chrom2, rid, vartype, parent;
-        int start, stop;
+        std::string chrom, chrom2, rid, vartype, parent, gene_name, unique_id;
+        int start, stop;  // genome coordinates
         int strand;
         int fetch_start, fetch_end;
         int *variant_distance;
@@ -173,7 +173,9 @@ namespace HGW {
         bool done;
 		std::string variantString;
 
+        // Display options
         SkPaint faceColour, shadedFaceColour;
+        double px_height{0};
 
         void setPaint(SkPaint &faceColour);
         void open(const std::string &p, bool add_to_dict);

@@ -160,7 +160,8 @@ namespace Themes {
         int indel_length, ylim, split_view_size, threads, pad, link_op, max_coverage, max_tlen, mods_qual_threshold;
         bool no_show, log2_cov, tlen_yscale, expand_tracks, vcf_as_tracks, bed_as_tracks, sv_arcs, parse_mods,
             scale_bar, alignments, data_labels;
-        float scroll_speed, tab_track_height, read_y_gap;
+        float scroll_speed, read_y_gap;
+        double tab_track_height;
         int scroll_right;
         int scroll_left;
         int scroll_down;

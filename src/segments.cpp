@@ -1565,13 +1565,16 @@ namespace Segs {
         int start, end;
     };
 
-    int findTrackY(std::vector<Utils::TrackBlock> &features, bool expanded, const Utils::Region &rgn) {
+    int findTrackY(std::vector<Utils::TrackBlock> &features, const bool expanded, const Utils::Region &rgn) {
         if (!expanded || features.empty()) {
             return 1;
         }
         std::vector<TrackRange> levels;
         levels.reserve(100);
         for (auto &b : features) {
+            if (!(rgn.start <= b.end && b.start <= rgn.end)) {
+                continue;
+            }
             if (!b.anyToDraw) {
                 b.level = -1;
                 continue;
@@ -1590,7 +1593,6 @@ namespace Segs {
                 b.level = memLen;
             }
         }
-//        assert (levels.size() >= 1);
         return (int)levels.size();
     }
 }

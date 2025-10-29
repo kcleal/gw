@@ -35,6 +35,28 @@
 
 namespace Drawing {
 
+    struct drawContext {
+        float fb_width;
+        float fb_height;
+        float covYh;
+        float refSpace;
+        float sliderSpace;
+        float gap;
+        float monitorScale;
+        float trackY;
+        float covY;
+        float yScaling;
+        int linkOp;
+        float totalTabixY;
+        float pointSlop;
+        float textDrop;
+        float pH;
+        size_t nRegions;
+        size_t nbams;
+        size_t nTracks;
+        bool scale_bar;
+    };
+
     void drawCoverage(const Themes::IniOptions &opts, std::vector<Segs::ReadCollection> &collections,
                       SkCanvas * const canvas, const Themes::Fonts &fonts, const float covYh, const float refSpace,
                       const float gap, float monitorScale, std::vector<std::string> &bam_paths);
@@ -51,15 +73,15 @@ namespace Drawing {
 
     void drawBorders(const Themes::IniOptions &opts, const float fb_width, const float fb_height,
                      SkCanvas *const canvas, const size_t nRegions, const size_t nbams, const float trackY, const float covY, const int nTracks,
-                     const float totalTabixY, const float refSpace, const float gap, const float totalCovY);
+                     const float totalTabixY, const float refSpace, const float gap, const float totalCovY, std::vector<HGW::GwTrack> &tracks);
 
     void drawLabel(const Themes::IniOptions &opts, SkCanvas *const canvas, SkRect &rect, Utils::Label &label, const Themes::Fonts &fonts,
               const ankerl::unordered_dense::set<std::string> &seenLabels, const std::vector<std::string> &srtLabels);
 
-    void drawTracks(Themes::IniOptions &opts, const float fb_width, const float fb_height,
-                    SkCanvas *const canvas, const float totalTabixY, const float tabixY, std::vector<HGW::GwTrack> &tracks,
-                    std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, const float gap, const float monitorScale, const float sliderSpace);
 
+    void drawTracks(Themes::IniOptions &opts, SkCanvas *const canvas, std::vector<HGW::GwTrack> &tracks,
+                    std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, const drawContext& ctx);
+        
     void drawChromLocation(const Themes::IniOptions &opts,
                            const Themes::Fonts &fonts,
                            std::vector<Utils::Region> &regions,

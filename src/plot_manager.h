@@ -100,6 +100,9 @@ namespace Manager {
         bool terminalOutput;  // recoverable runtime errors and output sent to terminal or outStr
 
         float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace, sliderSpace;
+        int boundaryIndex{0};
+
+        Drawing::drawContext ctx;
 
         std::ostringstream outStr;
 
@@ -297,6 +300,8 @@ namespace Manager {
         void updateSlider(float xPos);
 
         void drawCursorPosOnRefSlider(SkCanvas *canvas);
+
+        void setDrawContext(Drawing::drawContext& ctx);
 
         // Helper methods for mouse interaction
         void calculateCursorCoordinates(int button, int action, float& xW, float& yW);

@@ -1281,9 +1281,9 @@ namespace HGW {
             kind = VCF_IDX;
         } else if (Utils::endsWith(p, ".bcf")) {
             kind = BCF_IDX;
-        } else if (Utils::endsWith(p, ".gff3.gz")) {
+        } else if (Utils::endsWith(p, ".gff3.gz") || Utils::endsWith(p, ".gff.gz")) {
             kind = GFF3_IDX;
-        } else if (Utils::endsWith(p, ".gff3")) {
+        } else if (Utils::endsWith(p, ".gff3") || Utils::endsWith(p, ".gff")) {
             kind = GFF3_NOI;
         } else if (Utils::endsWith(p, ".gtf.gz")) {
             kind = GTF_IDX;
@@ -1511,20 +1511,27 @@ namespace HGW {
                 } else {
                     b.strand = 0;
                 }
-
+                size_t count = 0;
                 for (const auto &item :  Utils::split(b.parts[8], ';')) {
                     if (kind == GFF3_NOI) {
                         std::vector<std::string> keyval = Utils::split(item, '=');
-                        if (keyval[0] == "Name" || keyval[0] == "gene_name") {
+                        // if (b.name.empty() && (keyval[0] == "Name" || keyval[0] == "gene_name" || keyval[0] == "ID")) {
+                        if (keyval[0] == "gene_name" || keyval[0] == "Name") {
                             b.name = keyval[1];
+                            count |= 1;
                         }
-                        else if (b.name.empty() && keyval[0] == "ID") {
-                            b.name = keyval[1];
-                        }
-                        else if (b.parent.empty() && keyval[0] == "Parent") {
+                        else if (keyval[0] == "Parent") { 
                             b.parent = keyval[1];
-                            b.name = b.parent;
+                            count |= 2;
                         }
+                        else if (keyval[0] == "ID") { 
+                            b.unique_id = keyval[1];
+                            count |= 4;
+                        }
+                        if (count == 7) {
+                            break;
+                        }
+
                     } else {  // GTF_NOI
                         if (b.vartype != "exon") {
                             continue;
@@ -1549,27 +1556,7 @@ namespace HGW {
                     continue;
                 }
                 allBlocks[b.chrom].add(b.start, b.end, b);
-//                track_blocks[b.parent].push_back(std::move(b));
             }
-//            for (const auto& kv : track_blocks) {
-//                int left = 1000000000;
-//                int right = 0;
-//                for (const auto &b : kv.second) {
-//                    if (b.start < left) {
-//                        left = b.start;
-//                    }
-//                    if (b.end > right) {
-//                        right = b.end;
-//                    }
-//                }
-//                if (left == 1000000000 || right == 0) {
-//                    continue;
-//                }
-//                for (const auto &b : kv.second) {
-////                    allBlocks[b.chrom].add(left, right, b);
-//                    allBlocks[b.chrom].add(b.start, b.end, b);
-//                }
-//            }
             for (auto &item : allBlocks) {
                 item.second.index();
             }
@@ -1657,9 +1644,6 @@ namespace HGW {
                     done = false;
                     // Superintervals return items in reverse order
                     std::reverse(overlappingBlocks.begin(), overlappingBlocks.end());
-//                    std::sort(overlappingBlocks.begin(), overlappingBlocks.end(),
-//                              [](const Utils::TrackBlock &a, const Utils::TrackBlock &b)-> bool
-//                              { return a.start < b.start || (a.start == b.start && a.end < b.end); });
                     fetch_start = rgn->start;
                     fetch_end = rgn->end;
                     iter_blk = overlappingBlocks.begin();
@@ -1776,6 +1760,7 @@ namespace HGW {
                         stop = iter_blk->end;
                         rid = iter_blk->name;
                         parent = iter_blk->parent;
+                        unique_id = iter_blk->unique_id;
                         vartype = iter_blk->vartype;
                         strand = iter_blk->strand;
                         variantString = iter_blk->line;
@@ -1898,22 +1883,24 @@ namespace HGW {
                 vartype = parts[2];
                 rid.clear();
                 parent.clear();
+                size_t count = 0;
                 for (const auto &item :  Utils::split(parts[8], ';')) {
                     if (kind == GFF3_IDX) {
                         std::vector<std::string> keyval = Utils::split(item, '=');
-                        if (keyval[0] == "Name" || keyval[0] == "gene_name") {
+                        if (keyval[0] == "gene_name" || keyval[0] == "Name") {
                             rid = keyval[1];
-                            if (!parent.empty()) {
-                                break;
-                            }
-                        } else if (rid.empty() && keyval[0] == "ID") {
-                            rid = keyval[1];
-                            if (parent.empty()) {
-                                parent = keyval[1];
-                            }
-                        } else if (keyval[0] == "Parent") {
+                            count |= 1;
+                        }
+                        else if (keyval[0] == "Parent") {
                             parent = keyval[1];
-                            rid = keyval[1];
+                            count |= 2;
+                        }
+                        else if (keyval[0] == "ID") {
+                            unique_id = keyval[1];
+                            count |= 4;
+                        }
+                        if (count == 7) {
+                            break;
                         }
 
                     } else {  // GTF_IDX
@@ -1939,7 +1926,6 @@ namespace HGW {
         } else if (kind == BIGBED) {
             if (current_iter_index == num_intervals) {
                 done = true;
-//                bbDestroyOverlappingEntries(bigBed_entries);
                 return;
             }
             start = (int)bigBed_entries->start[current_iter_index];
@@ -2026,7 +2012,6 @@ namespace HGW {
 			if (allBlocks.contains(chrm)) {
 				return print_cached(overlappingBlocks, chrm, pos, false, variantString);
 			} else {
-//				return print_cached(allBlocks_flat, chrm, pos, true, variantString);
 			}
 		}
     }
@@ -2338,23 +2323,41 @@ namespace HGW {
             g->chrom = trk.chrom;
             g->start = trk.start;
             g->end = trk.stop;
-            g->name = trk.rid;
+            if (!trk.rid.empty()) {
+               g->name = trk.rid;
+            } else {
+               g->name = trk.parent;
+            }
+//            g->name = trk.rid;
             g->vartype = trk.vartype;
             g->strand = (trk.parts[6] == "-") ? 2 : 1; // assume all on same strand
             g->parts.insert(g->parts.end(), trk.parts.begin(), trk.parts.end());
             gffParentMap[trk.parent].push_back(g);
-
+            // gffParentMap[trk.rid].push_back(g);
         }
-        // assume gff is sorted
-
+        
         features.resize(gffParentMap.size());
         int i = 0;
         for (auto &pg : gffParentMap) {
             int j = 0;
             Utils::TrackBlock &track = features[i];
+            // std::sort(pg.second.begin(), pg.second.end(),
+            //           [](const std::shared_ptr<Utils::GFFTrackBlock> &a, const std::shared_ptr<Utils::GFFTrackBlock> &b)-> bool
+            //           { return ( (a->start < b->start) || 
+            //             (a->start == b->start && (a->end < b->end || a->vartype != "exon")
+            //           ));
+            //           });
             std::sort(pg.second.begin(), pg.second.end(),
-                      [](const std::shared_ptr<Utils::GFFTrackBlock> &a, const std::shared_ptr<Utils::GFFTrackBlock> &b)-> bool
-                      { return a->start < b->start || (a->start == b->start && a->end < b->end);});
+          [](const std::shared_ptr<Utils::GFFTrackBlock> &a, const std::shared_ptr<Utils::GFFTrackBlock> &b)-> bool
+          { 
+              return ( (a->start < b->start) || 
+                       (a->start == b->start && 
+                        ((a->end < b->end) || 
+                         (a->end == b->end && a->vartype != "exon" && b->vartype == "exon")
+                        )
+                       )
+              );
+          });
 
             track.anyToDraw = false;
             bool between_codons = false;
@@ -2363,7 +2366,7 @@ namespace HGW {
                     track.chrom = g->chrom;
                     track.start = g->start;
                     track.name = g->name;
-
+        
                     if (track.name.front() == '"') {
                         track.name.erase(0, 1);
                     }

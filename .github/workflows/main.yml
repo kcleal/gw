@@ -5,7 +5,7 @@ on:
   pull_request:
 
 env:
-  version: 1.2.5
+  version: 1.2.6
 
 jobs:
   mingw:

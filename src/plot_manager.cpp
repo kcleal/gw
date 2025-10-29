@@ -41,6 +41,7 @@
 #include "window_icon.h"
 
 
+
 using namespace std::literals;
 
 namespace Manager {
@@ -136,7 +137,7 @@ namespace Manager {
         }
         samMaxY = 0;
         yScaling = 0;
-        covY = totalCovY = totalTabixY = tabixY = 0;
+        covY = totalCovY = totalTabixY = 0;
         captureText = shiftPress = ctrlPress = processText = tabBorderPress = false;
         xDrag = xOri = yDrag = yOri = -1000000;
         lastX = lastY = -1;
@@ -950,7 +951,9 @@ namespace Manager {
 
                 imageCache.clear();
                 imageCacheQueue.clear();
-
+                if (!tracks.empty()) {
+                    tracks.front().px_height = 0; // trigger reset of track heights
+                }
                 resizeTimer = std::chrono::high_resolution_clock::now();
 
             }
@@ -1139,14 +1142,19 @@ namespace Manager {
         float nTracks = (float)tracks.size();
         if (tracks.empty()) {
             totalTabixY = 0;
-            tabixY = 0;
         } else {
-            if (nbams == 0) {
-                totalTabixY = availableHeight;
-                tabixY = totalTabixY / nTracks;
-            } else {
-                totalTabixY = availableHeight * (float) opts.tab_track_height;
-                tabixY = totalTabixY / nTracks;
+            bool px_height_set = tracks.front().px_height > 0;
+            if (!px_height_set) {  // If not set elsewhere, this makes tracks same height
+                if (nbams == 0) {
+                    totalTabixY = availableHeight;
+                    tabixY = totalTabixY / nTracks;
+                } else {
+                    totalTabixY = availableHeight * opts.tab_track_height;
+                    tabixY = totalTabixY / nTracks;
+                }
+                for (auto &item : tracks) {
+                    item.px_height = tabixY;
+                }
             }
         }
         availableHeight -= totalTabixY;
@@ -1233,6 +1241,7 @@ namespace Manager {
                 opts.theme.ModPaints[2][i].setStrokeWidth(sw);
             }
         }
+        setDrawContext(ctx);
     }
 
     bool GwPlot::collectionsNeedRedrawing() {
@@ -1323,8 +1332,8 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvasR, fonts, covY, refSpace, gap, monitorScale, bam_paths);
         }
         Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, refSpace, (float)regions.size(), gap, monitorScale, opts.scale_bar);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY);
-        Drawing::drawTracks(opts, fb_width, fb_height, canvasR, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
+        Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY, tracks);   
+        Drawing::drawTracks(opts, canvasR, tracks, regions, fonts, ctx);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, fb_width, fb_height, monitorScale, gap, drawLocation, sliderSpace);
 
         imageCacheQueue.emplace_back(frameId, rasterSurfacePtr[0]->makeImageSnapshot());
@@ -1390,6 +1399,27 @@ namespace Manager {
 
     void GwPlot::clearImageCacheQueue() {
         imageCacheQueue.clear();
+    }
+
+    void GwPlot::setDrawContext(Drawing::drawContext& ctx) {
+        ctx.fb_width = fb_width;
+        ctx.fb_height = fb_height;
+        ctx.refSpace = refSpace;
+        ctx.sliderSpace = sliderSpace;
+        ctx.gap = gap;
+        ctx.monitorScale = monitorScale;
+        ctx.trackY = trackY;
+        ctx.covY = covY;
+        ctx.yScaling = yScaling;
+        ctx.linkOp = opts.link_op;
+        ctx.totalTabixY = totalTabixY;
+        ctx.refSpace = refSpace;
+        ctx.pointSlop = pointSlop;
+        ctx.textDrop = textDrop;
+        ctx.pH = pH;
+        ctx.nRegions = regions.size();
+        ctx.nbams = bams.size();
+        ctx.nTracks = tracks.size();
     }
 
     void GwPlot::drawOverlay(SkCanvas *canvas) {
@@ -1869,8 +1899,8 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace, gap, monitorScale, bam_paths);
         }
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap, monitorScale, opts.scale_bar);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY);
-        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY, tracks);
+        Drawing::drawTracks(opts, canvas, tracks, regions, fonts, ctx);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fb_width, fb_height, monitorScale, gap, drawLocation, sliderSpace);
     }
 
@@ -1967,8 +1997,8 @@ namespace Manager {
         }
 
         Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap, monitorScale, opts.scale_bar);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY);
-        Drawing::drawTracks(opts, fb_width, fb_height, canvas, totalTabixY, tabixY, tracks, regions, fonts, gap, monitorScale, sliderSpace);
+        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY, tracks);  
+        Drawing::drawTracks(opts, canvas, tracks, regions, fonts, ctx);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fb_width, fb_height, monitorScale, gap, drawLocation, sliderSpace);
 //        std::cerr << " time runDrawNoBufferOnCanvas " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }

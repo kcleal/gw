@@ -46,7 +46,7 @@ namespace Utils {
 
     class EXPORT TrackBlock {
     public:
-        std::string chrom, name, line, vartype, parent;
+        std::string chrom, name, line, vartype, parent, unique_id;
         int start{0}, end{0};
         int coding_start{-1}, coding_end{-1};
         int strand{0};  // 0 is none, 1 forward, 2 reverse
