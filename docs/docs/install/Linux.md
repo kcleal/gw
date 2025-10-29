@@ -10,7 +10,7 @@ nav_order: 2
 For best performance, install GW as a desktop application on (Intel debian systems only), or build from source.
 
 
-For debian systems use the package below:
+For debian systems download the package below:
 
 
 [GW Intel x86_64 debian installer](https://github.com/kcleal/gw/releases/download/v1.2.5/gw_1.2.5_amd64.deb)
