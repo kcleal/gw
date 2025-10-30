@@ -1182,6 +1182,12 @@ namespace Themes {
             }
 
         }
+#elif defined(_WIN32) || defined(_WIN64)
+        // Windows - uses DirectWrite internally via RefDefault
+        fontMgr = SkFontMgr::RefDefault();
+        if (!fontMgr) {
+            std::cerr << "Error: failed to create font manager on Windows\n";
+        }
 #else
         // Use FontConfig for all other platforms
         FcInit();

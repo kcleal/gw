@@ -111,7 +111,7 @@ else ifeq ($(PLATFORM),"Windows")  # Targets an msys2 build environment
     SKIA_LIBS := $(shell pkg-config --libs skia 2>/dev/null || echo "-lskia")
     NCURSES_CFLAGS := $(shell pkg-config --cflags ncursesw 2>/dev/null || echo "")
     CPPFLAGS += $(SKIA_CFLAGS) $(NCURSES_CFLAGS)
-    LDLIBS += $(SKIA_LIBS) -lhts -lharfbuzz-subset -lglfw3 -lcurl -lfontconfig
+    LDLIBS += $(SKIA_LIBS) -lhts -lharfbuzz-subset -lglfw3 -lcurl
 else ifeq ($(PLATFORM),"Emscripten")
     CPPFLAGS += -v --use-port=contrib.glfw3 -sUSE_ZLIB=1 -sUSE_FREETYPE=1 -sUSE_ICU=1  -I/usr/local/include
     CFLAGS += -fPIC
