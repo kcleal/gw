@@ -17,7 +17,7 @@
         #include <CoreText/CoreText.h>
         #include "include/ports/SkFontMgr_mac_ct.h"
     #elif defined(_WIN32) || defined(_WIN64)
-        // Windows uses RefDefault() - no special includes needed
+        #include "include/ports/SkTypeface_win.h"
     #else
         #include <fontconfig/fontconfig.h>
         #include "include/ports/SkFontMgr_fontconfig.h"
@@ -1185,10 +1185,9 @@ namespace Themes {
 
         }
 #elif defined(_WIN32) || defined(_WIN64)
-        // Windows - uses DirectWrite internally via RefDefault
-        fontMgr = SkFontMgr::RefDefault();
+        fontMgr = SkFontMgr_New_DirectWrite();
         if (!fontMgr) {
-            std::cerr << "Error: failed to create font manager on Windows\n";
+            std::cerr << "Error: failed to create DirectWrite font manager on Windows\n";
         }
 #else
         // Use FontConfig for all other platforms
