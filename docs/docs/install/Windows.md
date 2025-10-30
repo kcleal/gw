@@ -25,7 +25,7 @@ Follow the installation instructions on the website to set up MSYS2 on your Wind
 Download the GW installer script below:
 
 
-[GW Intel x86_64 Windows installer](https://github.com/kcleal/gw/releases/download/v1.2.5/gw-windows-installer.vbs)
+[GW Intel x86_64 Windows installer](https://github.com/kcleal/gw/releases/download/v1.2.6/gw-windows-installer.vbs)
 
 
 Run the downloaded visual-basic script by double-clicking, or right-clicking and selecting Run as program.
