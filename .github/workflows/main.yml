@@ -36,7 +36,6 @@ jobs:
            freeglut:p 
            glew:p 
            ncurses:p 
-           fontconfig:p 
            dlfcn:p 
            libpng:p 
            libwebp:p 
@@ -49,10 +48,13 @@ jobs:
         pkg-config --list-all | grep skia
      - name: build
        run: |
-         echo "Inspect pacman -Si"
+         echo "Inspect skia"
          pacman -Si mingw-w64-ucrt-x86_64-skia
          echo "Inspect pkg-config skia"
          pkg-config --libs skia
+         echo "Inspecting fontconfig"
+         pacman -Si mingw-w64-ucrt-x86_64-fontconfig
+         echo "Inspect pkg-config skia"
          make
      - name: upload
        uses: actions/upload-artifact@v4
