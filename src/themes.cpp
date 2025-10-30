@@ -16,6 +16,8 @@
     #if defined(__APPLE__)
         #include <CoreText/CoreText.h>
         #include "include/ports/SkFontMgr_mac_ct.h"
+    #elif defined(_WIN32) || defined(_WIN64)
+        // Windows uses RefDefault() - no special includes needed
     #else
         #include <fontconfig/fontconfig.h>
         #include "include/ports/SkFontMgr_fontconfig.h"
