@@ -106,12 +106,12 @@ else ifeq ($(TARGET_OS),"MacOS")
     LGLFW := $(shell pkg-config --libs glfw3 2>/dev/null || echo "-lglfw")
     LDLIBS += $(SKIA_LIBS) -lhts $(LGLFW) -lzlib -lcurl -licu -ldl -lsvg -lfontconfig
 else ifeq ($(PLATFORM),"Windows")  # Targets an msys2 build environment
-    CXXFLAGS += -D WIN32 # -D OLD_SKIA
+    CXXFLAGS += -D WIN32
     SKIA_CFLAGS := $(shell pkg-config --cflags skia 2>/dev/null || echo "$(if $(MINGW_PREFIX),-I$(MINGW_PREFIX)/include/skia)")
     SKIA_LIBS := $(shell pkg-config --libs skia 2>/dev/null || echo "-lskia")
     NCURSES_CFLAGS := $(shell pkg-config --cflags ncursesw 2>/dev/null || echo "")
     CPPFLAGS += $(SKIA_CFLAGS) $(NCURSES_CFLAGS)
-    LDLIBS += $(SKIA_LIBS) -lhts -lharfbuzz-subset -lglfw3 -lcurl -lsvg -lfontconfig
+    LDLIBS += $(SKIA_LIBS) -lhts -lharfbuzz-subset -lglfw3 -lcurl -lfontconfig
 else ifeq ($(PLATFORM),"Emscripten")
     CPPFLAGS += -v --use-port=contrib.glfw3 -sUSE_ZLIB=1 -sUSE_FREETYPE=1 -sUSE_ICU=1  -I/usr/local/include
     CFLAGS += -fPIC
