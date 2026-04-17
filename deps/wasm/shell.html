@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GW — Genome Browser</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100vh;      /* fallback */
+      height: 100dvh;     /* dynamic viewport — accounts for browser chrome */
+      overflow: hidden;
+      background: #1a1a2e;
+      display: flex; flex-direction: column;
+    }
+
+    /* Thin toolbar strip at the top of the page */
+    #gw-toolbar {
+      flex: 0 0 34px;
+      height: 34px;
+      background: rgba(15,15,30,0.95);
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+      display: flex; align-items: center;
+      padding: 0 8px;
+      gap: 8px;
+      z-index: 5;
+    }
+
+    /* Canvas container fills the remaining space below the toolbar */
+    #gw-canvas-container {
+      flex: 1 1 0;
+      min-height: 0;      /* prevents flex children from overflowing */
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* File-load button — lives in the toolbar, hidden until GW starts */
+    #gw-upload-btn {
+      padding: 3px 10px;
+      background: rgba(255,255,255,0.10);
+      color: #bbb;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 4px;
+      font-family: monospace; font-size: 12px;
+      cursor: pointer;
+      display: none;
+    }
+    #gw-upload-btn:hover { background: rgba(255,255,255,0.20); }
+
+    /* Loading overlay — hidden once GW starts */
+    #gw-loading {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: #1a1a2e; color: #ccc;
+      font-family: monospace; font-size: 14px;
+      z-index: 10;
+    }
+    #gw-loading progress { margin-top: 12px; width: 220px; }
+
+    /* WebGL canvas — fills its container div */
+    canvas#canvas {
+      display: block;
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+    }
+
+    /* Toast notification — appears below the toolbar on the left */
+    #gw-toast {
+      position: absolute; top: 8px; left: 8px;
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.85);
+      color: #9f9;
+      border-radius: 4px;
+      font-family: monospace; font-size: 11px;
+      max-width: 340px; word-break: break-all;
+      white-space: pre-wrap;
+      z-index: 6;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Toolbar (always visible above the canvas) -->
+  <div id="gw-toolbar">
+    <button id="gw-upload-btn" title="Load genomic files into the GW sandbox">&#128194; Load files</button>
+  </div>
+
+  <div id="gw-loading">
+    <span id="gw-status">Loading GW…</span>
+    <progress id="gw-progress" value="0" max="100"></progress>
+  </div>
+
+  <div id="gw-canvas-container">
+    <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+    <div id="gw-toast"></div>
+  </div>
+
+  <!-- Hidden file picker (accepts common genomic formats) -->
+  <input id="gw-file-input" type="file" multiple style="display:none"
+         accept=".fa,.fasta,.fai,.bam,.bai,.cram,.crai,.vcf,.bcf,.bed,.gff,.gff3,.gtf,.bw,.bb,.bigwig,.bigbed">
+
+  <script>
+    var statusEl   = document.getElementById('gw-status');
+    var progressEl = document.getElementById('gw-progress');
+    var loadingEl  = document.getElementById('gw-loading');
+    var uploadBtn  = document.getElementById('gw-upload-btn');
+    var fileInput  = document.getElementById('gw-file-input');
+    var toast      = document.getElementById('gw-toast');
+
+    // ── Canvas resize ─────────────────────────────────────────────────────────
+    // Keep canvas pixel dimensions in sync with its CSS container.
+    // Called before callMain() (sets initial size) and by ResizeObserver on
+    // every browser-window resize (updates canvas + notifies GW via C export).
+    var gwContainer = document.getElementById('gw-canvas-container');
+    var gwCanvas    = document.getElementById('canvas');
+    // Set to true after callMain() completes so syncCanvasSize knows GW is live.
+    // Module._gw_notify_resize exists before callMain() (EMSCRIPTEN_KEEPALIVE),
+    // so we cannot use its presence as the "GW is running" signal.
+    var gwRunning = false;
+    function syncCanvasSize() {
+      var w = gwContainer.clientWidth;
+      var h = gwContainer.clientHeight;
+      if (w <= 0 || h <= 0) return;
+
+      if (gwRunning) {
+        // GW is running: glfwSetWindowSize (inside gw_notify_resize) resizes
+        // the canvas and fires the GLFW callback → resizeTriggered → Skia rebuild.
+        Module._gw_notify_resize(w, h);
+      } else {
+        // Before callMain(): set the canvas pixel buffer directly so the
+        // EM_ASM_INT in C++ init reads the container dimensions, not 300×150.
+        gwCanvas.width  = w;
+        gwCanvas.height = h;
+      }
+    }
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(syncCanvasSize).observe(gwContainer);
+    } else {
+      window.addEventListener('resize', syncCanvasSize);
+    }
+
+    // ── Toast helper ─────────────────────────────────────────────────────────
+    function showToast(msg, ms) {
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      clearTimeout(toast._t);
+      toast._t = setTimeout(function() { toast.style.display = 'none'; }, ms || 5000);
+    }
+
+    // ── File upload ───────────────────────────────────────────────────────────
+    // With Asyncify enabled (-sASYNCIFY=1), mountAsyncFile() creates a virtual
+    // FS node backed by the browser File object.  HTSlib reads are satisfied by
+    // file.slice(pos, end).arrayBuffer() — only the requested byte ranges are
+    // ever loaded into memory, so large BAMs (10+ GB) work fine.
+    //
+    // If Asyncify is not available (old build), falls back to FS.writeFile
+    // which copies the whole file into WASM memory.
+
+    function mountAsyncFile(dir, name, file) {
+      try { FS.mkdir(dir); } catch(e) {}
+
+      // Create a zero-byte placeholder so FS has a valid node to look up.
+      FS.createDataFile(dir, name, new Uint8Array(0),
+                        /*canRead=*/true, /*canWrite=*/false, /*canOwn=*/false);
+      var path = dir + '/' + name;
+      var node = FS.lookupPath(path, {follow: true}).node;
+
+      // Report the real file size so stat() / lseek(SEEK_END) work.
+      var baseGetattr = node.node_ops.getattr;
+      node.node_ops = Object.assign({}, node.node_ops, {
+        getattr: function(n) {
+          var attr = baseGetattr.call(node.node_ops, n);
+          attr.size = file.size;
+          return attr;
+        }
+      });
+
+      // Replace stream_ops with Asyncify-suspending range reads.
+      // Each fread() from C++ slices only the bytes HTSlib actually needs.
+      node.stream_ops = Object.assign({}, node.stream_ops, {
+        read: function(stream, buffer, offset, length, position) {
+          if (length === 0 || position >= file.size) return 0;
+          return Module['Asyncify'].handleAsync(async function() {
+            var end = Math.min(position + length, file.size);
+            var ab  = await file.slice(position, end).arrayBuffer();
+            var src = new Uint8Array(ab);
+            buffer.set(src, offset);
+            return src.byteLength;
+          });
+        },
+        llseek: function(stream, offset, whence) {
+          var pos = offset;
+          if (whence === 1) pos += stream.position;  // SEEK_CUR
+          if (whence === 2) pos += file.size;          // SEEK_END
+          if (pos < 0) throw new FS.ErrnoError(28);
+          return pos;
+        }
+      });
+
+      return path;
+    }
+
+    uploadBtn.addEventListener('click', function() { fileInput.click(); });
+
+    fileInput.addEventListener('change', function() {
+      var files = Array.from(fileInput.files);
+      if (!files.length) return;
+      fileInput.value = '';
+
+      files.forEach(function(file) {
+        var sizeMB = file.size / 1048576;
+        var dest   = '/uploads/' + file.name;
+
+        if (Module['Asyncify']) {
+          // Asyncify build: lazy range-reads, no full copy into WASM memory.
+          try {
+            mountAsyncFile('/uploads', file.name, file);
+            console.log('[GW] Async lazy file: ' + dest +
+                        ' (' + sizeMB.toFixed(1) + ' MB)');
+            showToast(
+              'File ready: ' + dest +
+              '\n\nIn GW press / then type:\n  load ' + dest,
+              8000
+            );
+          } catch(err) {
+            console.error('[GW] mountAsyncFile failed:', err);
+            showToast('Failed to mount ' + file.name + ': ' + err.message, 8000);
+          }
+        } else {
+          // Fallback: copy entire file into WASM memory (works up to ~500 MB).
+          showToast('Loading ' + file.name + ' (' + sizeMB.toFixed(1) + ' MB)…', 30000);
+          var reader = new FileReader();
+          reader.onload = function(ev) {
+            try {
+              try { FS.mkdir('/uploads'); } catch(ignore) {}
+              FS.writeFile(dest, new Uint8Array(ev.target.result));
+              showToast(
+                'File ready: ' + dest +
+                '\n\nIn GW press / then type:\n  load ' + dest,
+                8000
+              );
+            } catch(err) {
+              showToast('Failed to load ' + file.name + ': ' + err.message, 8000);
+            }
+          };
+          reader.onerror = function() { showToast('Failed to read ' + file.name, 5000); };
+          reader.readAsArrayBuffer(file);
+        }
+      });
+    });
+
+    // ── Emscripten Module ─────────────────────────────────────────────────────
+    var Module = {
+      canvas: (function() {
+        var c = document.getElementById('canvas');
+        c.addEventListener('webglcontextlost', function(e) {
+          alert('WebGL context lost — please reload the page.');
+          e.preventDefault();
+        }, false);
+        return c;
+      })(),
+
+      // Do NOT run main() automatically — we start it after persistent storage
+      // is synchronised so that readIni() sees /persistent/.gw.ini.
+      noInitialRun: true,
+
+      onRuntimeInitialized: function() {
+        // Mount IndexedDB-backed filesystem so .gw.ini persists across reloads.
+        try {
+          FS.mkdir('/persistent');
+          FS.mount(IDBFS, {}, '/persistent');
+          // Sync IndexedDB → MemFS (first=true), then start GW.
+          FS.syncfs(true, function(err) {
+            if (err) console.warn('[GW] IDBFS initial sync error:', err);
+            startGW();
+          });
+        } catch(e) {
+          console.warn('[GW] Persistent storage (IDBFS) unavailable:', e);
+          startGW();
+        }
+      },
+
+      setStatus: function(text) {
+        if (!text) return;  // empty = "done" — loading overlay hidden by startGW()
+        statusEl.textContent = text;
+        var m = text.match(/\((\d+)\/(\d+)\)/);
+        if (m) {
+          progressEl.value = parseInt(m[1]);
+          progressEl.max   = parseInt(m[2]);
+        }
+      },
+
+      print: function() {
+        return function() {
+          console.log(Array.prototype.slice.call(arguments).join(' '));
+        };
+      }(),
+
+      printErr: function(text) { console.error(text); }
+    };
+
+    function startGW() {
+      syncCanvasSize();  // sets canvas.width/height before GLFW window is created
+      try {
+        Module.callMain(Module['arguments'] || []);
+      } catch(e) {
+        // emscripten_set_main_loop(simulate_infinite_loop=1) throws ExitStatus(0)
+        // to unwind the stack — that is expected, not an error.
+        if (!e || e.name !== 'ExitStatus') {
+          console.error('[GW] callMain error:', e);
+        }
+      }
+      gwRunning = true;   // ResizeObserver now routes through gw_notify_resize
+      loadingEl.style.display = 'none';
+      uploadBtn.style.display = 'block';
+    }
+
+    window.onerror = function(msg) { Module.setStatus('Error: ' + msg); };
+  </script>
+
+  {{{ SCRIPT }}}
+</body>
+</html>

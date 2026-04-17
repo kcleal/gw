@@ -49,6 +49,7 @@ namespace DefaultIni {
                "tabix_track_height=0.15\n"
                "font=Default\n"
                "font_size=14\n"
+               "track_label_parser_rules=auto\n"
                "sv_arcs=true\n"
                "mods=false\n"
                "mods_qual_threshold=150\n"

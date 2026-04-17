@@ -3,10 +3,15 @@
 //
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <future>
 #include <memory>
+#include <optional>
+#include <sstream>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "htslib/hts.h"
@@ -24,6 +29,186 @@
 #include "themes.h"
 #include "hts_funcs.h"
 
+
+namespace {
+
+    enum class AnnotationLabelFormat {
+        GFF3,
+        GTF,
+    };
+
+    std::string stripQuotes(std::string value) {
+        Utils::trim(value);
+        if (value.size() >= 2 && value.front() == '"' && value.back() == '"') {
+            value = value.substr(1, value.size() - 2);
+        }
+        return value;
+    }
+
+    std::unordered_map<std::string, std::string> parseTrackLabelRules(const std::string &rules) {
+        std::unordered_map<std::string, std::string> parsed;
+        for (auto item : Utils::split(rules, ';')) {
+            Utils::trim(item);
+            if (item.empty()) {
+                continue;
+            }
+            auto colon = item.find(':');
+            if (colon == std::string::npos) {
+                continue;
+            }
+            std::string format = item.substr(0, colon);
+            std::string key = item.substr(colon + 1);
+            Utils::trim(format);
+            Utils::trim(key);
+            std::transform(format.begin(), format.end(), format.begin(),
+                           [](unsigned char c) { return (char)std::toupper(c); });
+            if (!format.empty() && !key.empty()) {
+                parsed[format] = key;
+            }
+        }
+        return parsed;
+    }
+
+    std::string toLowerCopy(std::string value) {
+        std::transform(value.begin(), value.end(), value.begin(),
+                       [](unsigned char c) { return (char)std::tolower(c); });
+        return value;
+    }
+
+    bool regionLooksSpecific(const Utils::Region &region, const std::string &query) {
+        if (query.empty() || region.chrom.empty()) {
+            return false;
+        }
+        return query == region.chrom
+            || Utils::startsWith(query, region.chrom + ":")
+            || Utils::startsWith(query, region.chrom + ",")
+            || Utils::startsWith(query, region.chrom + " ")
+            || Utils::startsWith(query, region.chrom + "\t");
+    }
+
+    bool regionOverlapsVariant(const Utils::Region &query, const std::string &chrom, long start, long stop,
+                               const std::string &chrom2) {
+        if (query.chrom.empty()) {
+            return false;
+        }
+        long qStart = std::min<long>(query.start, query.end);
+        long qEnd = std::max<long>(query.start, query.end);
+        long left = std::min(start, stop);
+        long right = std::max(start, stop);
+        if (chrom == query.chrom &&
+            Utils::isOverlapping((uint32_t)left, (uint32_t)right, (uint32_t)qStart, (uint32_t)qEnd)) {
+            return true;
+        }
+        if (!chrom2.empty() && chrom2 == query.chrom &&
+            Utils::isOverlapping((uint32_t)right, (uint32_t)right, (uint32_t)qStart, (uint32_t)qEnd)) {
+            return true;
+        }
+        return false;
+    }
+
+    bool textMatchesQuery(const std::string &queryLower, const std::vector<std::string> &parts) {
+        if (queryLower.empty()) {
+            return true;
+        }
+        for (const auto &part : parts) {
+            if (!part.empty() && toLowerCopy(part).find(queryLower) != std::string::npos) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    std::string makeVariantSearchKey(const std::string &chrom, long start, const std::string &chrom2,
+                                     long stop, const std::string &rid) {
+        std::ostringstream ss;
+        ss << chrom << '\t' << start << '\t' << chrom2 << '\t' << stop << '\t' << rid;
+        return ss.str();
+    }
+
+    std::unordered_map<std::string, std::string> parseGffAttributes(const std::string &raw) {
+        std::unordered_map<std::string, std::string> attrs;
+        for (auto item : Utils::split(raw, ';')) {
+            Utils::trim(item);
+            if (item.empty()) {
+                continue;
+            }
+            auto eq = item.find('=');
+            if (eq == std::string::npos) {
+                continue;
+            }
+            std::string key = item.substr(0, eq);
+            std::string value = item.substr(eq + 1);
+            Utils::trim(key);
+            attrs[key] = stripQuotes(value);
+        }
+        return attrs;
+    }
+
+    std::unordered_map<std::string, std::string> parseGtfAttributes(const std::string &raw) {
+        std::unordered_map<std::string, std::string> attrs;
+        for (auto item : Utils::split(raw, ';')) {
+            Utils::trim(item);
+            if (item.empty()) {
+                continue;
+            }
+            auto ws = item.find_first_of(" \t");
+            if (ws == std::string::npos) {
+                continue;
+            }
+            std::string key = item.substr(0, ws);
+            std::string value = item.substr(ws + 1);
+            Utils::trim(key);
+            attrs[key] = stripQuotes(value);
+        }
+        return attrs;
+    }
+
+    std::string getTrackLabelRuleForFormat(const std::string &rules, AnnotationLabelFormat format) {
+        if (rules.empty()) {
+            return "auto";
+        }
+        std::string trimmed = rules;
+        Utils::trim(trimmed);
+        if (trimmed.empty() || trimmed == "auto") {
+            return "auto";
+        }
+        const auto parsed = parseTrackLabelRules(trimmed);
+        const std::string key = (format == AnnotationLabelFormat::GTF) ? "GTF" : "GFF3";
+        auto it = parsed.find(key);
+        if (it == parsed.end() && format == AnnotationLabelFormat::GFF3) {
+            it = parsed.find("GFF");
+        }
+        return (it == parsed.end() || it->second.empty()) ? "auto" : it->second;
+    }
+
+    std::string firstAvailableAttr(const std::unordered_map<std::string, std::string> &attrs,
+                                   std::initializer_list<const char*> keys) {
+        for (const char *key : keys) {
+            auto it = attrs.find(key);
+            if (it != attrs.end() && !it->second.empty()) {
+                return it->second;
+            }
+        }
+        return "";
+    }
+
+    std::string resolveTrackLabel(const std::unordered_map<std::string, std::string> &attrs,
+                                  AnnotationLabelFormat format,
+                                  const std::string &rules) {
+        const std::string chosen = getTrackLabelRuleForFormat(rules, format);
+        if (chosen != "auto") {
+            auto it = attrs.find(chosen);
+            if (it != attrs.end() && !it->second.empty()) {
+                return it->second;
+            }
+        }
+        if (format == AnnotationLabelFormat::GTF) {
+            return firstAvailableAttr(attrs, {"gene_name", "gene_id", "transcript_id"});
+        }
+        return firstAvailableAttr(attrs, {"gene_name", "Name", "ID"});
+    }
+
+} // namespace
 
 namespace HGW {
 
@@ -128,30 +313,49 @@ namespace HGW {
 
     void applyFilters(std::vector<Parse::Parser> &filters, std::vector<Segs::Align>& readQueue, const sam_hdr_t* hdr,
                       int bamIdx, int regionIdx) {
-        auto end = readQueue.end();
-        auto rm_iter = readQueue.begin();
-        const auto pred = [&](const Segs::Align &align) {
-            if (rm_iter == end) { return false; }
-            bool drop = false;
-            for (auto &f: filters) {
-                bool passed = f.eval(align, hdr, bamIdx, regionIdx);
-                if (!passed) {
-                    drop = true;
-                    break;
+        for (auto &f: filters) {
+            if (f.keepsReadFamily()) {
+                ankerl::unordered_dense::set<std::string> keep_qnames;
+                for (const auto &align : readQueue) {
+                    if (f.eval(align, hdr, bamIdx, regionIdx)) {
+                        keep_qnames.emplace(bam_get_qname(align.delegate));
+                    }
                 }
+                readQueue.erase(std::remove_if(readQueue.begin(), readQueue.end(),
+                                               [&](const Segs::Align &align) {
+                                                   return keep_qnames.find(bam_get_qname(align.delegate)) == keep_qnames.end();
+                                               }),
+                                readQueue.end());
+            } else {
+                readQueue.erase(std::remove_if(readQueue.begin(), readQueue.end(),
+                                               [&](const Segs::Align &align) {
+                                                   return !f.eval(align, hdr, bamIdx, regionIdx);
+                                               }),
+                                readQueue.end());
             }
-            return drop;
-        };
-        readQueue.erase(std::remove_if(readQueue.begin(), readQueue.end(), pred), readQueue.end());
+        }
     }
 
     void applyFilters_noDelete(std::vector<Parse::Parser> &filters, std::vector<Segs::Align>& readQueue, const sam_hdr_t* hdr,
                       int bamIdx, int regionIdx) {
-        for (auto &align: readQueue) {
-            for (auto &f: filters) {
-                bool passed = f.eval(align, hdr, bamIdx, regionIdx);
-                if (!passed) {
-                    align.y = -2;
+        for (auto &f: filters) {
+            if (f.keepsReadFamily()) {
+                ankerl::unordered_dense::set<std::string> keep_qnames;
+                for (const auto &align : readQueue) {
+                    if (f.eval(align, hdr, bamIdx, regionIdx)) {
+                        keep_qnames.emplace(bam_get_qname(align.delegate));
+                    }
+                }
+                for (auto &align : readQueue) {
+                    if (keep_qnames.find(bam_get_qname(align.delegate)) == keep_qnames.end()) {
+                        align.y = -2;
+                    }
+                }
+            } else {
+                for (auto &align: readQueue) {
+                    if (!f.eval(align, hdr, bamIdx, regionIdx)) {
+                        align.y = -2;
+                    }
                 }
             }
         }
@@ -172,6 +376,9 @@ namespace HGW {
 
         bam1_t *src;
         hts_itr_t *iter_q;
+        if (region == nullptr || region->end <= region->start) {
+            return;
+        }
 
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
         std::vector<Segs::Align>& readQueue = col.readQueue;
@@ -357,16 +564,10 @@ namespace HGW {
                           std::vector<Parse::Parser> &filters,
                           Themes::IniOptions &opts,
                           SkCanvas *canvas,
-                          float trackY,
-                          float yScaling,
                           Themes::Fonts &fonts,
-                          float refSpace,
                           BS::thread_pool &pool,
-                          float pointSlop,
-                          float textDrop,
-                          float pH,
-                          float monitorScale,
-                          std::vector<std::string> &bam_paths) {
+                          std::vector<std::string> &bam_paths,
+                          const Drawing::drawContext& ctx) {
         const int BATCH = 1500;
         bam1_t *src;
         hts_itr_t *iter_q;
@@ -426,8 +627,7 @@ namespace HGW {
             Segs::findYNoSortForward(readQueue, col.levelsStart, col.levelsEnd, col.vScroll);
 
             if (opts.alignments) {
-                Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop,
-                                        textDrop, pH, monitorScale, bam_paths);
+                Drawing::drawCollection(opts, col, canvas, fonts, bam_paths, ctx);
             }
 
             for (int i=0; i < BATCH; ++ i) {
@@ -451,8 +651,7 @@ namespace HGW {
                     }
                 }
                 Segs::findYNoSortForward(readQueue, col.levelsStart, col.levelsEnd, col.vScroll);
-                Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop,
-                                        textDrop, pH, monitorScale, bam_paths);
+                Drawing::drawCollection(opts, col, canvas, fonts, bam_paths, ctx);
 
                 for (int i=0; i < BATCH; ++ i) {
                     Segs::align_clear(&readQueue[i]);
@@ -465,9 +664,8 @@ namespace HGW {
                   hts_idx_t *index, Utils::Region *region,
                   bool coverage,
                   std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
-                  float trackY, float yScaling, Themes::Fonts &fonts, float refSpace,
-                  float pointSlop, float textDrop, float pH, float monitorScale,
-                  std::vector<std::string> &bam_paths) {
+                  Themes::Fonts &fonts,
+                  std::vector<std::string> &bam_paths, const Drawing::drawContext& ctx) {
 
         bam1_t *src;
         hts_itr_t *iter_q;
@@ -509,8 +707,7 @@ namespace HGW {
                 Segs::addToCovArray(col.covArr, readQueue.back(), region->start, region->end);
             }
             Segs::alignFindYForward(readQueue.back(), col.levelsStart, col.levelsEnd, col.vScroll);
-            Drawing::drawCollection(opts, col, canvas, trackY, yScaling, fonts, opts.link_op, refSpace, pointSlop,
-                                    textDrop, pH, monitorScale, bam_paths);
+            Drawing::drawCollection(opts, col, canvas, fonts, bam_paths, ctx);
             Segs::align_clear(&readQueue.back());
         }
     }
@@ -1055,6 +1252,9 @@ namespace HGW {
                 break;
             }
         }
+        hts_itr_destroy(iter_q);
+        bcf_destroy1(tv);
+        if (kstr.s) free(kstr.s);
         fp = fp2;
     }
 
@@ -1073,6 +1273,10 @@ namespace HGW {
                 break;
             }
         }
+        bcf_hdr_destroy(_hdr);
+        bcf_close(_fp);
+        bcf_destroy1(tv);
+        if (kstr.s) free(kstr.s);
     }
 
     void print_VCF_IDX(std::string &path, std::string &id_str, std::string &chrom, int pos, std::string &variantString) {
@@ -1103,6 +1307,12 @@ namespace HGW {
                 break;
             }
         }
+        hts_itr_destroy(_iter_q);
+        if (_idx_t) tbx_destroy(_idx_t);
+        bcf_hdr_destroy(_hdr);
+        bcf_close(_fp);
+        bcf_destroy1(tv);
+        if (kstr.s) free(kstr.s);
     }
 
 	void print_BED_IDX(std::string &path, std::string &chrom, int pos, std::string &variantString) {
@@ -1118,13 +1328,16 @@ namespace HGW {
 			return;
 		}
 		int res = tbx_itr_next(fp, idx_t, iter_q, &kstr);
-		if (res < 0) {
-			if (res < -1) {
-				std::cerr << "Error: iterating vcf file returned " << res << std::endl;
-				return;
-			}
-		}
-		variantString = kstr.s;
+        if (res >= 0) {
+            variantString = kstr.s;
+        } else if (res < -1) {
+            std::cerr << "Error: iterating vcf file returned " << res << std::endl;
+        }
+        
+        hts_itr_destroy(iter_q);
+        tbx_destroy(idx_t);
+        hts_close(fp);
+        if (kstr.s) free(kstr.s);
 	}
 
 	void print_cached(std::vector<Utils::TrackBlock> &vals, std::string &chrom, int pos, bool flat, std::string &variantString) {
@@ -1271,29 +1484,32 @@ namespace HGW {
         path = p;
         done = false;
         this->add_to_dict = add_to_dict;
-        if (Utils::endsWith(p, ".bed")) {
+        std::string path_lower = p;
+        std::transform(path_lower.begin(), path_lower.end(), path_lower.begin(),
+                       [](unsigned char c) { return (char)std::tolower(c); });
+        if (Utils::endsWith(path_lower, ".bed")) {
             kind = BED_NOI;
-        } else if (Utils::endsWith(p, ".bed.gz")) {
+        } else if (Utils::endsWith(path_lower, ".bed.gz")) {
             kind = BED_IDX;
-        } else if (Utils::endsWith(p, ".vcf")) {
+        } else if (Utils::endsWith(path_lower, ".vcf")) {
             kind = VCF_NOI;
-        } else if (Utils::endsWith(p, ".vcf.gz")) {
+        } else if (Utils::endsWith(path_lower, ".vcf.gz")) {
             kind = VCF_IDX;
-        } else if (Utils::endsWith(p, ".bcf")) {
+        } else if (Utils::endsWith(path_lower, ".bcf")) {
             kind = BCF_IDX;
-        } else if (Utils::endsWith(p, ".gff3.gz") || Utils::endsWith(p, ".gff.gz")) {
+        } else if (Utils::endsWith(path_lower, ".gff3.gz") || Utils::endsWith(path_lower, ".gff.gz")) {
             kind = GFF3_IDX;
-        } else if (Utils::endsWith(p, ".gff3") || Utils::endsWith(p, ".gff")) {
+        } else if (Utils::endsWith(path_lower, ".gff3") || Utils::endsWith(path_lower, ".gff")) {
             kind = GFF3_NOI;
-        } else if (Utils::endsWith(p, ".gtf.gz")) {
+        } else if (Utils::endsWith(path_lower, ".gtf.gz")) {
             kind = GTF_IDX;
-        } else if (Utils::endsWith(p, ".gtf")) {
+        } else if (Utils::endsWith(path_lower, ".gtf")) {
             kind = GTF_NOI;
-        } else if (Utils::endsWith(p, ".bigwig") || Utils::endsWith(p, ".bw")) {
+        } else if (Utils::endsWith(path_lower, ".bigwig") || Utils::endsWith(path_lower, ".bw")) {
             kind = BIGWIG;
-        } else if (Utils::endsWith(p, ".bigbed") || Utils::endsWith(p, ".bb")) {
+        } else if (Utils::endsWith(path_lower, ".bigbed") || Utils::endsWith(path_lower, ".bb")) {
             kind = BIGBED;
-        } else if (Utils::endsWith(p, ".paf")) {
+        } else if (Utils::endsWith(path_lower, ".paf")) {
             kind = PAF_NOI;
         } else {
             kind = GW_LABEL;
@@ -1345,11 +1561,13 @@ namespace HGW {
                 fpu = file_stream;
             }
 #else
-            fpu = std::make_shared<std::ifstream>();
-            fpu->open(p);
-            if (!fpu->is_open()) {
-                std::cerr << "Error: opening track file " << path << std::endl;
-                throw std::exception();
+            {
+                auto fs = std::make_shared<std::ifstream>(p);
+                if (!fs->is_open()) {
+                    std::cerr << "Error: opening track file " << path << std::endl;
+                    throw std::exception();
+                }
+                fpu = fs;
             }
 #endif
 
@@ -1408,11 +1626,13 @@ namespace HGW {
                 fpu = file_stream;
             }
 #else
-            fpu = std::make_shared<std::ifstream>();
-            fpu->open(p);
-            if (!fpu->is_open()) {
-                std::cerr << "Error: opening track file " << path << std::endl;
-                throw std::exception();
+            {
+                auto fs = std::make_shared<std::ifstream>(p);
+                if (!fs->is_open()) {
+                    std::cerr << "Error: opening track file " << path << std::endl;
+                    throw std::exception();
+                }
+                fpu = fs;
             }
 #endif
 
@@ -1468,11 +1688,13 @@ namespace HGW {
                 fpu = file_stream;
             }
 #else
-            fpu = std::make_shared<std::ifstream>();
-            fpu->open(p);
-            if (!fpu->is_open()) {
-                std::cerr << "Error: opening track file " << path << std::endl;
-                throw std::exception();
+            {
+                auto fs = std::make_shared<std::ifstream>(p);
+                if (!fs->is_open()) {
+                    std::cerr << "Error: opening track file " << path << std::endl;
+                    throw std::exception();
+                }
+                fpu = fs;
             }
 #endif
 
@@ -1511,46 +1733,35 @@ namespace HGW {
                 } else {
                     b.strand = 0;
                 }
-                size_t count = 0;
-                for (const auto &item :  Utils::split(b.parts[8], ';')) {
-                    if (kind == GFF3_NOI) {
-                        std::vector<std::string> keyval = Utils::split(item, '=');
-                        // if (b.name.empty() && (keyval[0] == "Name" || keyval[0] == "gene_name" || keyval[0] == "ID")) {
-                        if (keyval[0] == "gene_name" || keyval[0] == "Name") {
-                            b.name = keyval[1];
-                            count |= 1;
-                        }
-                        else if (keyval[0] == "Parent") { 
-                            b.parent = keyval[1];
-                            count |= 2;
-                        }
-                        else if (keyval[0] == "ID") { 
-                            b.unique_id = keyval[1];
-                            count |= 4;
-                        }
-                        if (count == 7) {
-                            break;
-                        }
-
-                    } else {  // GTF_NOI
-                        if (b.vartype != "exon") {
-                            continue;
-                        }
-                        std::vector<std::string> keyval = Utils::split(item, ' ');
-                        if (keyval[0] == "gene_id") {
-                            b.parent = keyval[1];
-                            b.name = keyval[1];
-//                            break;
-                        } else if (keyval[0] == "gene_name") {
-                            b.parent = keyval[1];
-                            b.name = keyval[1];
-//                            break;
-//                        } else if (b.name.empty() && keyval[0] == "transcript_id") {
-                        } else if (keyval[0] == "transcript_id") {
-//                            b.name = keyval[1];
-                            b.parent = keyval[1];
-                        }
+                if (kind == GFF3_NOI) {
+                    const auto attrs = parseGffAttributes(b.parts[8]);
+                    b.name = resolveTrackLabel(attrs, AnnotationLabelFormat::GFF3, track_label_parser_rules);
+                    auto parent_it = attrs.find("Parent");
+                    if (parent_it != attrs.end()) {
+                        b.parent = parent_it->second;
                     }
+                    auto id_it = attrs.find("ID");
+                    if (id_it != attrs.end()) {
+                        b.unique_id = id_it->second;
+                    }
+                } else {  // GTF_NOI
+                    if (b.vartype != "exon") {
+                        continue;
+                    }
+                    const auto attrs = parseGtfAttributes(b.parts[8]);
+                    auto gene_id_it = attrs.find("gene_id");
+                    if (gene_id_it != attrs.end()) {
+                        b.parent = gene_id_it->second;
+                    }
+                    auto gene_name_it = attrs.find("gene_name");
+                    if (gene_name_it != attrs.end()) {
+                        b.parent = gene_name_it->second;
+                    }
+                    auto transcript_id_it = attrs.find("transcript_id");
+                    if (transcript_id_it != attrs.end()) {
+                        b.parent = transcript_id_it->second;
+                    }
+                    b.name = resolveTrackLabel(attrs, AnnotationLabelFormat::GTF, track_label_parser_rules);
                 }
                 if (b.name.empty()) {
                     continue;
@@ -1828,47 +2039,50 @@ namespace HGW {
 
         } else if (kind == BED_IDX || kind == GFF3_IDX || kind == GTF_IDX) {
             kstring_t str = {0,0, nullptr};
-            if (iter_q != nullptr) {
-                res = tbx_itr_next(fp, idx_t, iter_q, &str);
-                if (res < 0) {
-                    if (res < -1) {
-                        std::cerr << "Error: iterating returned code: " << res << " from file: " << path  << std::endl;
-                    }
-                    done = true;
-                    return;
-                }
-            } else {
-                res = hts_getline(fp, '\n', &str);
-                if (res < 0) {
-                    if (res < -1) {
-                        std::cerr << "Error: iterating returned code: " << res << " from file: " << path  << std::endl;
-                    }
-                    done = true;
-                    return;
-                }
-            }
-            if (kind == BED_IDX) {
-                parts.clear();
-                parts = Utils::split(str.s, '\t');
-                chrom = parts[0];
-                chrom2 = chrom;
-                start = std::stoi(parts[1]);
-                stop = std::stoi(parts[2]);
-                if (parts.size() > 2) {
-                    rid = parts[3];
-                    if (parts.size() >= 6) {
-                        if (parts[5] == "+") {
-                            strand = 1;
-                        } else if (parts[5] == "-") {
-                            strand = 2;
+            while (true) {
+                if (iter_q != nullptr) {
+                    res = tbx_itr_next(fp, idx_t, iter_q, &str);
+                    if (res < 0) {
+                        if (res < -1) {
+                            std::cerr << "Error: iterating returned code: " << res << " from file: " << path  << std::endl;
                         }
+                        done = true;
+                        return;
                     }
                 } else {
-                    rid = std::to_string(fileIndex);
-                    fileIndex += 1;
+                    res = hts_getline(fp, '\n', &str);
+                    if (res < 0) {
+                        if (res < -1) {
+                            std::cerr << "Error: iterating returned code: " << res << " from file: " << path  << std::endl;
+                        }
+                        done = true;
+                        return;
+                    }
                 }
-                vartype = "";
-            } else if (kind == GFF3_IDX || kind == GTF_IDX) {
+                if (kind == BED_IDX) {
+                    parts.clear();
+                    parts = Utils::split(str.s, '\t');
+                    chrom = parts[0];
+                    chrom2 = chrom;
+                    start = std::stoi(parts[1]);
+                    stop = std::stoi(parts[2]);
+                    if (parts.size() > 2) {
+                        rid = parts[3];
+                        if (parts.size() >= 6) {
+                            if (parts[5] == "+") {
+                                strand = 1;
+                            } else if (parts[5] == "-") {
+                                strand = 2;
+                            }
+                        }
+                    } else {
+                        rid = std::to_string(fileIndex);
+                        fileIndex += 1;
+                    }
+                    vartype = "";
+                    break;
+                }
+
                 parts.clear();
                 parts = Utils::split(str.s, '\t');
                 chrom = parts[0];
@@ -1883,45 +2097,38 @@ namespace HGW {
                 vartype = parts[2];
                 rid.clear();
                 parent.clear();
-                size_t count = 0;
-                for (const auto &item :  Utils::split(parts[8], ';')) {
-                    if (kind == GFF3_IDX) {
-                        std::vector<std::string> keyval = Utils::split(item, '=');
-                        if (keyval[0] == "gene_name" || keyval[0] == "Name") {
-                            rid = keyval[1];
-                            count |= 1;
-                        }
-                        else if (keyval[0] == "Parent") {
-                            parent = keyval[1];
-                            count |= 2;
-                        }
-                        else if (keyval[0] == "ID") {
-                            unique_id = keyval[1];
-                            count |= 4;
-                        }
-                        if (count == 7) {
-                            break;
-                        }
-
-                    } else {  // GTF_IDX
-                        if (vartype != "exon") {
-                            continue;
-                        }
-                        std::vector<std::string> keyval = Utils::split(item, ' ');
-                        if (keyval[0] == "gene_id") {
-                            parent = keyval[1];
-                            rid = keyval[1];
-                            break;
-                        } else if (keyval[0] == "gene_name") {
-                            parent = keyval[1];
-                            rid = keyval[1];
-                            break;
-                        } else if (rid.empty() && keyval[0] == "transcript_id") {
-                            rid = keyval[1];
-                            parent = keyval[1];
-                        }
-                    }
+                unique_id.clear();
+                if (kind == GTF_IDX && vartype != "exon") {
+                    continue;
                 }
+                if (kind == GFF3_IDX) {
+                    const auto attrs = parseGffAttributes(parts[8]);
+                    rid = resolveTrackLabel(attrs, AnnotationLabelFormat::GFF3, track_label_parser_rules);
+                    auto parent_it = attrs.find("Parent");
+                    if (parent_it != attrs.end()) {
+                        parent = parent_it->second;
+                    }
+                    auto id_it = attrs.find("ID");
+                    if (id_it != attrs.end()) {
+                        unique_id = id_it->second;
+                    }
+                } else {  // GTF_IDX
+                    const auto attrs = parseGtfAttributes(parts[8]);
+                    auto gene_id_it = attrs.find("gene_id");
+                    if (gene_id_it != attrs.end()) {
+                        parent = gene_id_it->second;
+                    }
+                    auto gene_name_it = attrs.find("gene_name");
+                    if (gene_name_it != attrs.end()) {
+                        parent = gene_name_it->second;
+                    }
+                    auto transcript_id_it = attrs.find("transcript_id");
+                    if (transcript_id_it != attrs.end()) {
+                        parent = transcript_id_it->second;
+                    }
+                    rid = resolveTrackLabel(attrs, AnnotationLabelFormat::GTF, track_label_parser_rules);
+                }
+                break;
             }
         } else if (kind == BIGBED) {
             if (current_iter_index == num_intervals) {
@@ -2042,8 +2249,8 @@ namespace HGW {
         ankerl::unordered_dense::map< std::string, std::vector<std::string>> label_dict;
         ankerl::unordered_dense::set<std::string> seen_labels;
 
-#if !defined(__EMSCRIPTEN__)
         std::shared_ptr<std::istream> fpu;
+#if !defined(__EMSCRIPTEN__)
         if (Utils::startsWith(labels_path, "http") || Utils::startsWith(labels_path, "ftp")) {
             std::string content = Utils::fetchOnlineFileContent(labels_path);
             fpu = std::make_shared<std::istringstream>(content);
@@ -2056,7 +2263,14 @@ namespace HGW {
             fpu = file_stream;
         }
 #else
-        fpu = std::make_shared<std::ifstream>();
+        {
+            auto fs = std::make_shared<std::ifstream>(labels_path);
+            if (!fs->is_open()) {
+                std::cerr << "Error: opening labels file " << labels_path << std::endl;
+                throw std::runtime_error("Error opening file");
+            }
+            fpu = fs;
+        }
 #endif
 
         std::string s;
@@ -2191,6 +2405,7 @@ namespace HGW {
             type =  GW_TRACK;
             vcf.done = true;
             variantTrack.done = false;
+            variantTrack.track_label_parser_rules = m_opts->track_label_parser_rules;
             variantTrack.open(path, false);
             trackDone = &variantTrack.done;
             variantTrack.fetch(nullptr);  // initialize iterators
@@ -2266,6 +2481,96 @@ namespace HGW {
             } else {
                 multiLabels.push_back(Utils::makeLabel(info.chrom, info.pos, label, labelChoices, key, info.varType, "", false, false, empty_comment));
             }
+        }
+    }
+
+    void GwVariantTrack::appendSearchMatches(const std::string &query) {
+        if (query.empty() || type == IMAGES) {
+            return;
+        }
+
+        std::string trimmed = query;
+        Utils::trim(trimmed);
+        if (trimmed.empty()) {
+            return;
+        }
+
+        std::unordered_set<std::string> seen;
+        seen.reserve(multiLabels.size() + 32);
+        for (size_t i = 0; i < multiLabels.size() && i < multiRegions.size(); ++i) {
+            const auto &regions = multiRegions[i];
+            const auto &lbl = multiLabels[i];
+            std::string chrom2 = regions.size() > 1 ? regions[1].chrom : lbl.chrom;
+            long stop = regions.size() > 1 ? regions[1].markerPos : (regions.empty() ? lbl.pos : regions[0].markerPosEnd);
+            seen.insert(makeVariantSearchKey(lbl.chrom, lbl.pos, chrom2, stop, lbl.variantId));
+        }
+
+        std::optional<Utils::Region> queryRegion;
+        try {
+            Utils::Region parsed = Utils::parseRegion(trimmed);
+            if (regionLooksSpecific(parsed, trimmed)) {
+                queryRegion = parsed;
+            }
+        } catch (...) {
+        }
+        std::string queryLower = toLowerCopy(trimmed);
+
+        auto appendIfMatch = [&](std::string &chrom, long start, std::string &chrom2, long stop,
+                                 std::string &rid, std::string &label, std::string &vartype) {
+            bool keep = false;
+            if (queryRegion.has_value()) {
+                keep = regionOverlapsVariant(*queryRegion, chrom, start, stop, chrom2);
+            }
+            if (!keep) {
+                keep = textMatchesQuery(queryLower, {
+                    rid,
+                    label,
+                    vartype,
+                    chrom,
+                    chrom2,
+                    chrom + ":" + std::to_string(start),
+                    chrom2.empty() ? "" : (chrom2 + ":" + std::to_string(stop))
+                });
+            }
+            if (!keep) {
+                return;
+            }
+            std::string key = makeVariantSearchKey(chrom, start, chrom2, stop, rid);
+            if (seen.find(key) != seen.end()) {
+                return;
+            }
+            seen.insert(key);
+            appendVariantSite(chrom, start, chrom2, stop, rid, label, vartype);
+        };
+
+        if (type == VCF) {
+            HGW::VCFfile reader;
+            reader.cacheStdin = false;
+            reader.label_to_parse = m_opts->parse_label.c_str();
+            reader.open(path);
+            while (!reader.done) {
+                reader.next();
+                if (reader.done) {
+                    break;
+                }
+                appendIfMatch(reader.chrom, reader.start, reader.chrom2, reader.stop,
+                              reader.rid, reader.label, reader.vartype);
+            }
+            return;
+        }
+
+        HGW::GwTrack reader;
+        reader.track_label_parser_rules = variantTrack.track_label_parser_rules;
+        reader.open(path, false);
+        reader.fetch(nullptr);
+        while (!reader.done) {
+            reader.next();
+            if (reader.done) {
+                break;
+            }
+            std::string label = reader.gene_name;
+            appendIfMatch(reader.chrom, reader.start, reader.chrom2, reader.stop,
+                          reader.rid, label, reader.vartype);
         }
     }
 
@@ -2443,6 +2748,7 @@ namespace HGW {
                 b->vartype = trk.vartype;
             }
             if (trk.kind == BIGBED) {
+                if (trk.parts.size() > 2) {
                 if (trk.parts[2] == "-") {
                     b->strand = 1;
                 } else if (trk.parts[2] == "+") {
@@ -2450,12 +2756,28 @@ namespace HGW {
                 } else {
                     b->strand = 0;
                 }
+                }
             }
-            bool tryBed12 = !trk.parts.empty() && trk.parts.size() >= 12;
+            bool tryBed12 = false;
+            size_t thickStartIdx = 6;
+            size_t thickEndIdx = 7;
+            size_t blockSizesIdx = 10;
+            size_t blockStartsIdx = 11;
+            if (trk.kind == BIGBED) {
+                // libBigWig returns the payload after chrom/start/end, so BED12-style
+                // columns are shifted left by 3 compared with plain BED records.
+                tryBed12 = trk.parts.size() >= 9;
+                thickStartIdx = 3;
+                thickEndIdx = 4;
+                blockSizesIdx = 7;
+                blockStartsIdx = 8;
+            } else {
+                tryBed12 = !trk.parts.empty() && trk.parts.size() >= 12;
+            }
             if (tryBed12) {
                 std::vector<std::string> lens, starts;
-                Utils::split(trk.parts[10], ',', lens);
-                Utils::split(trk.parts[11], ',', starts);
+                Utils::split(trk.parts[blockSizesIdx], ',', lens);
+                Utils::split(trk.parts[blockStartsIdx], ',', starts);
                 if (starts.size() != lens.size()) {
                     continue;
                 }
@@ -2463,8 +2785,8 @@ namespace HGW {
                 int gene_start = trk.start;
                 int thickStart, thickEnd;
                 try {
-                    thickStart = std::stoi(trk.parts[6]);
-                    thickEnd = (std::stoi(trk.parts[7]));
+                    thickStart = std::stoi(trk.parts[thickStartIdx]);
+                    thickEnd = (std::stoi(trk.parts[thickEndIdx]));
                 } catch (...) {
                     continue;
                 }

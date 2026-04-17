@@ -46,7 +46,6 @@ bool str_is_number(const std::string &s) {
 
 
 CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptions& iopts) {
-
     CLIOptions options;
 
     bool success = iopts.readIni();
@@ -267,7 +266,11 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
     if (iopts.myIni["genomes"].has(genome)) {
         iopts.genome_tag = genome;
         genome = iopts.myIni["genomes"][genome];
-    } else if (genome.empty() && !program.is_used("--images") && !iopts.ini_path.empty() && !program.is_used("--no-show") && !program.is_used("--session")) {
+    } else if (genome.empty() && !program.is_used("--images") && !iopts.ini_path.empty() && !program.is_used("--no-show") && !program.is_used("--session")
+#ifdef __EMSCRIPTEN__
+               && false  // No interactive stdin in WebAssembly — provide genome via Module.arguments in pre.js
+#endif
+               ) {
         // prompt for genome
         print_gw_banner();
         options.showBanner = false;

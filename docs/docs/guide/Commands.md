@@ -196,6 +196,7 @@ These properties can be used with numeric operators:
 - `abs-tlen` - Absolute template-length
 - `pos` - Alignment start position
 - `ref-end` - Alignment end position
+- `soft-clips` - Maximum of the left and right soft-clip lengths on the alignment
 - `pnext` - Position of mate
 - `seq-len` - Sequence length
 - `NM`, `CM`, `FI`, `HO`, `MQ`, `SM`, `TC`, `UQ`, `AS`, `HP` - BAM tags
@@ -232,6 +233,20 @@ String types can be combined with these operators:
 - `contains` - String contains substring
 - `omit` - Removes read if string contains substring
 
+### SA Location Operator
+
+The `SA` tag also supports a location-style operator:
+
+- `at` - Matches reads with an SA alignment at a chromosome, point, or interval
+
+Examples:
+
+    filter sa at chr1
+    filter sa at chr1:20000
+    filter sa at chr1:1-20000
+
+For `sa at ...` filters, all alignments from the same read are kept if any alignment from that read matches the SA-location test.
+
 ### Missing Values
 
 If you want to filter using missing values, you can use `none` or `''`, e.g:
@@ -257,6 +272,13 @@ Examples:
 
     filter paired
     filter read1
+
+### Special Examples
+
+    filter soft-clips >= 30
+    filter sa at chr1
+    filter sa at chr1:20000
+    filter sa at chr1:1-20000
 
 ### Chaining Expressions
 
@@ -577,4 +599,3 @@ The y limit is the maximum height of stacked reads shown on the drawing.
 ylim 100
 ```   
 <br>
-

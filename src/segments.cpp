@@ -1349,8 +1349,9 @@ namespace Segs {
         std::vector<int> &le = rc.levelsEnd;
         if (sortReadsBy == Utils::SortType::NONE) {
             if (ls.empty()) {
-                ls.resize(opts.ylim + vScroll, 1215752191);
-                le.resize(opts.ylim + vScroll, 0);
+                size_t sz = (size_t)std::max(1, opts.ylim + vScroll);
+                ls.resize(sz, 1215752191);
+                le.resize(sz, 0);
             }
             findYNoSort(rQ, ls, le, joinLeft, vScroll, lm, linkedSeen, linkType);
         } else if (sortReadsBy >= Utils::SortType::POS) {
@@ -1369,8 +1370,9 @@ namespace Segs {
 
             if (sortReadsBy == Utils::SortType::POS) {
                 if (ls.empty()) {
-                    ls.resize(opts.ylim + vScroll, 1215752191);
-                    le.resize(opts.ylim + vScroll, 0);
+                    size_t sz = (size_t)std::max(1, opts.ylim + vScroll);
+                    ls.resize(sz, 1215752191);
+                    le.resize(sz, 0);
                 }
                 findYNoSort(rQ, ls, le, joinLeft, vScroll, lm, linkedSeen, linkType);
             } else {

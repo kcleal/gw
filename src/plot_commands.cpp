@@ -39,7 +39,9 @@
 #include "include/core/SkStream.h"
 #include "include/core/SkPictureRecorder.h"
 #include "include/core/SkPicture.h"
+#ifndef __EMSCRIPTEN__
 #include "include/svg/SkSVGCanvas.h"
+#endif
 
 
 /* Notes for adding new commands:
@@ -541,6 +543,7 @@ namespace Commands {
         if (p->regionSelection >= 0 && p->regionSelection < (int)p->regions.size()) {
             if (command == "mate") {
                 p->regions[p->regionSelection] = Utils::parseRegion(mate);
+                p->fetchRefSeq(p->regions[p->regionSelection]);
                 p->processed = false;
                 for (auto &cl: p->collections) {
                     if (cl.regionIdx == p->regionSelection) {
@@ -737,6 +740,7 @@ namespace Commands {
         } else {
             return Err::OPTION_NOT_UNDERSTOOD;
         }
+        Themes::applyImGuiTheme(p->opts.theme_str);
         for (auto &t: p->tracks) {
             t.setPaint(p->opts.theme.fcTrack);
         }
@@ -932,6 +936,7 @@ namespace Commands {
                 } else {
                     out << termcolor::red << "Error:" << termcolor::reset << " no image in image queue " << std::endl;
                 }
+#ifndef __EMSCRIPTEN__
             } else if (out_path.extension() == ".pdf" || out_path.extension() == ".svg") {
                 std::string format_str = (out_path.extension() == ".pdf") ? "pdf" : "svg";
 
@@ -973,6 +978,7 @@ namespace Commands {
                     };
                 }
                 out << "\rSaved to " << out_path << std::endl;
+#endif
             } else {
                 out << termcolor::red << "Error:" << termcolor::reset << " file type not supported (Need one of .png|.pdf|.svg) " << out_path.extension() << std::endl;
                 return Err::OPTION_NOT_SUPPORTED;
@@ -1105,38 +1111,96 @@ namespace Commands {
         // process queue and write to bam
         int count = 0;
         bool filter_reads = !p->filters.empty();
-        while (!pq.empty()) {
-            qItem item = pq.top();  // take copy
-            if (filter_reads) {
+        bool family_filters = false;
+        for (const auto& f : p->filters) {
+            if (f.keepsReadFamily()) {
+                family_filters = true;
+                break;
+            }
+        }
+        if (filter_reads && family_filters) {
+            std::vector<Segs::Align> buffered_alignments;
+            while (!pq.empty()) {
+                qItem item = pq.top();
+                buffered_alignments.push_back(item.align);
+                if (sam_itr_next(item.file_ptr, item.bam_iter, item.align.delegate) >= 0) {
+                    Segs::align_init(&item.align, 0, 1);
+                    pq.push(item);
+                } else {
+                    item.align.delegate = nullptr;
+                }
+                pq.pop();
+                count += 1;
+            }
+
+            std::vector<ankerl::unordered_dense::set<std::string>> family_keep_qnames(p->filters.size());
+            for (size_t i = 0; i < p->filters.size(); ++i) {
+                if (p->filters[i].keepsReadFamily()) {
+                    for (const auto& align : buffered_alignments) {
+                        if (p->filters[i].eval(align, hdr, -1, -1)) {
+                            family_keep_qnames[i].emplace(bam_get_qname(align.delegate));
+                        }
+                    }
+                }
+            }
+
+            for (auto& align : buffered_alignments) {
                 bool good = true;
-                for (auto &f: p->filters) {
-                    if (!f.eval(item.align, hdr, -1, -1)) {
+                for (size_t i = 0; i < p->filters.size(); ++i) {
+                    auto &f = p->filters[i];
+                    if (f.keepsReadFamily()) {
+                        if (family_keep_qnames[i].find(bam_get_qname(align.delegate)) == family_keep_qnames[i].end()) {
+                            good = false;
+                            break;
+                        }
+                    } else if (!f.eval(align, hdr, -1, -1)) {
                         good = false;
                         break;
                     }
                 }
-                if (good) {
+                if (!good) {
+                    continue;
+                }
+                res = sam_write1(h_out, hdr, align.delegate);
+                if (res < 0) {
+                    out << termcolor::red << "Error:" << termcolor::reset << " Write alignment failed" << std::endl;
+                    break;
+                }
+            }
+        } else {
+            while (!pq.empty()) {
+                qItem item = pq.top();  // take copy
+                if (filter_reads) {
+                    bool good = true;
+                    for (auto &f: p->filters) {
+                        if (!f.eval(item.align, hdr, -1, -1)) {
+                            good = false;
+                            break;
+                        }
+                    }
+                    if (good) {
+                        res = sam_write1(h_out, hdr, item.align.delegate);
+                        if (res < 0) {
+                            out << termcolor::red << "Error:" << termcolor::reset << " Write alignment failed" << std::endl;
+                            break;
+                        }
+                    }
+                } else {
                     res = sam_write1(h_out, hdr, item.align.delegate);
                     if (res < 0) {
                         out << termcolor::red << "Error:" << termcolor::reset << " Write alignment failed" << std::endl;
                         break;
                     }
                 }
-            } else {
-                res = sam_write1(h_out, hdr, item.align.delegate);
-                if (res < 0) {
-                    out << termcolor::red << "Error:" << termcolor::reset << " Write alignment failed" << std::endl;
-                    break;
+                if (sam_itr_next(item.file_ptr, item.bam_iter, item.align.delegate) >= 0) {
+                    Segs::align_init(&item.align, 0, 1);
+                    pq.push(item);
+                } else {
+                    bam_destroy1(item.align.delegate);
                 }
+                pq.pop();
+                count += 1;
             }
-            if (sam_itr_next(item.file_ptr, item.bam_iter, item.align.delegate) >= 0) {
-                Segs::align_init(&item.align, 0, 1);
-                pq.push(item);
-            } else {
-                bam_destroy1(item.align.delegate);
-            }
-            pq.pop();
-            count += 1;
         }
         // clean up
         for (size_t i=0; i < region_iters.size(); ++i) {
@@ -1349,7 +1413,14 @@ namespace Commands {
                 return Err::INVALID_PATH;
             }
         }
-        p->addTrack(filename, true, p->opts.vcf_as_tracks, p->opts.bed_as_tracks);
+        // Auto-detect FASTA reference genomes by extension and route to loadGenome().
+        if (Utils::endsWith(filename, ".fa")       || Utils::endsWith(filename, ".fasta")    ||
+            Utils::endsWith(filename, ".fa.gz")    || Utils::endsWith(filename, ".fasta.gz") ||
+            Utils::endsWith(filename, ".fa.bgz")   || Utils::endsWith(filename, ".fasta.bgz")) {
+            p->loadGenome(filename, out);
+        } else {
+            p->addTrack(filename, true, p->opts.vcf_as_tracks, p->opts.bed_as_tracks);
+        }
         refreshGw(p);
         return Err::NONE;
     }
@@ -1815,8 +1886,8 @@ namespace Commands {
                 {"colour",   PARAMS { return update_colour(p, command, parts, out); }},
                 {"color",    PARAMS { return update_colour(p, command, parts, out); }},
                 {"roi",      PARAMS { return add_roi(p, command, parts, out); }},
-                {"sort",    PARAMS { return sort_command(p, command, parts, out); }},
-                {"header",    PARAMS { return header_command(p, command, parts, out); }},
+                {"sort",     PARAMS { return sort_command(p, command, parts, out); }},
+                {"header",   PARAMS { return header_command(p, command, parts, out); }},
 
                 {"count",    PARAMS { return count(p, command, out); }},
                 {"filter",   PARAMS { return addFilter(p, command, out); }},

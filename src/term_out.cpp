@@ -42,7 +42,7 @@ namespace Term {
         out << termcolor::green << "cov              value?          " << termcolor::reset << "Change max coverage value. Use 'cov' to toggle coverage\n";
         out << termcolor::green << "edges                            " << termcolor::reset << "Toggle edges\n";
         out << termcolor::green << "expand-tracks                    " << termcolor::reset << "Toggle showing expanded tracks\n";
-        out << termcolor::green << "filter           expression      " << termcolor::reset << "Examples 'filter mapq > 0', 'filter ~flag & secondary'\n                                 'filter mapq >= 30 or seq-len > 100'\n";
+        out << termcolor::green << "filter           expression      " << termcolor::reset << "Examples 'filter mapq > 0', 'filter soft-clips >= 30'\n                                 'filter sa at chr1:1-20000'\n";
         out << termcolor::green << "find, f          qname?          " << termcolor::reset << "To find other alignments from selected read use 'find'\n                                 Or use 'find [QNAME]' to find target read'\n";
         out << termcolor::green << "goto             loci/feature    " << termcolor::reset << "e.g. 'goto chr1:1-20000'. 'goto hTERT' \n";
         out << termcolor::green << "grid             width x height  " << termcolor::reset << "Set the grid size for --variant images 'grid 8x8' \n";
@@ -178,6 +178,7 @@ namespace Term {
                          "             abs-tlen   # Absolute template-length\n"
                          "             pos        # Alignment start position\n"
                          "             ref-end    # Alignment end position\n"
+                         "             soft-clips # Max left/right soft-clip length on the alignment\n"
                          "             pnext      # Position of mate\n"
                          "             seq-len    # Sequence length\n"
                          "             NM, CM, FI, HO, MQ, SM, TC, UQ, AS, HP  # Bam-tags\n\n"
@@ -189,6 +190,8 @@ namespace Term {
                          "             seq        # Sequence of this alignment\n"
                          "             seq-rc     # Reverse-complement sequence of this alignment\n"
                          "             RG, BC, BX, RX, LB, MD, MI, PU, SA, MC  # Bam-tags\n\n"
+                         "        SA tags also support a location-style operator:\n"
+                         "            at         # Matches reads with an SA alignment at a chrom / point / interval\n\n"
                          "        Numeric types can be combined with operators:\n"
                          "            ==         # Equal to; or use '=' or 'eq'\n"
                          "            !=         # Not equal to; or 'ne'\n"
@@ -203,6 +206,12 @@ namespace Term {
                          "            omit       # Removes read if string contains substring\n\n"
                          "        If you want to filter using missing values, you can use 'none' or '', e.g:\n"
                          "            filter SA == none  # Only reads with no SA tag are kept\n\n"
+                         "        Special filter examples:\n"
+                         "            filter soft-clips >= 30\n"
+                         "            filter sa at chr1\n"
+                         "            filter sa at chr1:20000\n"
+                         "            filter sa at chr1:1-20000\n"
+                         "        For 'sa at ...' filters, all alignments from the same read are kept if any alignment from that read matches.\n\n"
                          "        Reads can be filtered on their mapping orientation/pattern e.g:\n"
                          "            filter pattern == del    # deletion-like pattern\n"
                          "            filter pattern == inv_f  # inversion-forward\n"

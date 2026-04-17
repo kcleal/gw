@@ -25,6 +25,14 @@
     #include <curl/easy.h>
 #endif
 
+#ifdef __EMSCRIPTEN__
+// Resolve a genome path: if it is an http/https URL, mount it as a virtual
+// Emscripten FS node via fetch() Range requests (defined in wasm_stubs.cpp).
+// Returns the local /remote/<name> path on success, or empty string on failure.
+// For local paths the original string is returned unchanged.
+std::string resolve_genome_path(const std::string& path);
+#endif
+
 
 namespace Utils {
 
@@ -164,6 +172,7 @@ namespace Utils {
 
     std::string removeZeros(float value);
     std::string getSize(long num);
+    std::string formatNum(int num);
 
     void parseMateLocation(std::string &selectedAlign, std::string &mate, std::string &target_qname);
 

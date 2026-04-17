@@ -1,12 +1,14 @@
-TARGET = gw
-VERSION = "1.2.6"
+ifdef EMSCRIPTEN
+    TARGET = gw.html
+else
+    TARGET = gw
+endif
+VERSION = "2.0.0"
 .PHONY: default all debug clean
 default: $(TARGET)
 all: default
 debug: default
-
-##########################################################
-# System info
+# System info ----------------------------------------------
 PLATFORM=
 TARGET_OS=
 UNAME_S := $(shell uname -s)
@@ -43,9 +45,7 @@ ifneq ($(PLATFORM),"Emscripten")
         LDFLAGS += -Wl,-rpath,$(CONDA_PREFIX)/lib
     endif
 endif
-
-##########################################################
-# Skia info
+# Skia info ---------------------------------------------
 OLD_SKIA ?= 0
 prep:
 ifeq ($(OLD_SKIA),0)
@@ -75,15 +75,14 @@ else
 	fi
 endif
 SKIA_PATH := $(shell find ./lib/skia/out -type d -name '*Release*' | sort | head -n 1)
-
-##########################################################
-# Flags and libs
+# Flags and libs -----------------------------------------
 ifeq ($(OLD_SKIA),1)
 	CXXFLAGS += -D OLD_SKIA -D USE_GL
 endif
 CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG -g
 LIBGW_INCLUDE=
-CPPFLAGS += -I./lib/skia -I./lib/libBigWig -I./include -I. $(LIBGW_INCLUDE) -I./src
+IMGUI = ./lib/dear_imgui
+CPPFLAGS += -I./lib/skia -I./lib/libBigWig -I$(IMGUI) -I$(IMGUI)/backends -I./include -I. $(LIBGW_INCLUDE) -I./src
 LDFLAGS += $(if $(SKIA_PATH),-L$(SKIA_PATH))
 SKIA_LIBS := -lskia -lm -ljpeg -lpng -lpthread
 ifeq ($(TARGET_OS),"Linux")  # set platform flags and libs
@@ -112,20 +111,21 @@ else ifeq ($(PLATFORM),"Windows")  # Targets an msys2 build environment
     NCURSES_CFLAGS := $(shell pkg-config --cflags ncursesw 2>/dev/null || echo "")
     CPPFLAGS += $(SKIA_CFLAGS) $(NCURSES_CFLAGS)
     LDLIBS += $(SKIA_LIBS) -lhts -lharfbuzz-subset -lglfw3 -lcurl
-else ifeq ($(PLATFORM),"Emscripten")
-    CPPFLAGS += -v --use-port=contrib.glfw3 -sUSE_ZLIB=1 -sUSE_FREETYPE=1 -sUSE_ICU=1  -I/usr/local/include
-    CFLAGS += -fPIC
-    CXXFLAGS += -DBUILDING_LIBGW -D__STDC_FORMAT_MACROS -fPIC
-    LDFLAGS += -v -L./wasm_libs/htslib -s RELOCATABLE=1 --no-entry -s STANDALONE_WASM
-    LDLIBS += $(SKIA_LIBS) -lwebgl.js -l:libhts.a
 endif
-
-##########################################################
-# Compile
+ifdef EMSCRIPTEN
+include deps/wasm/flags.mk
+endif
+# Compile --------------------------------------------------
 OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 OBJECTS += $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
+ifdef EMSCRIPTEN
+OBJECTS += $(patsubst %.c, %.o, $(filter-out ./include/glad.c, $(wildcard ./include/*.c)))
+else
 OBJECTS += $(patsubst %.c, %.o, $(wildcard ./include/*.c))
+endif
+OBJECTS += $(patsubst %.cpp, %.o, $(wildcard $(IMGUI)/*.cpp)) $(patsubst %.cpp, %.o, $(wildcard $(IMGUI)/backends/imgui_impl_glfw.cpp $(IMGUI)/backends/imgui_impl_opengl3.cpp))
 
+./lib/libBigWig/%.o: ./lib/libBigWig/%.c $(CC) $(CPPFLAGS) $(CFLAGS) -Wno-attribute-warning -c $< -o $@
 debug: LDFLAGS += -fsanitize=address -fsanitize=undefined
 
 $(TARGET): $(OBJECTS)  # line 131
@@ -134,6 +134,7 @@ $(TARGET): $(OBJECTS)  # line 131
 
 clean:
 	-rm -f *.o ./src/*.o ./src/*.o.tmp ./lib/libBigWig/*.o ./include/*.o
+	-rm -f ./lib/dear_imgui/*.o ./lib/dear_imgui/backends/*.o
 	-rm -f $(TARGET) *.wasm
 	-rm -rf libgw
 

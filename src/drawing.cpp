@@ -51,8 +51,12 @@ namespace Drawing {
     };
 
     void drawCoverage(const Themes::IniOptions &opts, std::vector<Segs::ReadCollection> &collections,
-                      SkCanvas * const canvas, const Themes::Fonts &fonts, const float covYh, const float refSpace,
-                      const float gap, float monitorScale, std::vector<std::string> &bam_paths) {
+                      SkCanvas * const canvas, const Themes::Fonts &fonts,
+                      std::vector<std::string> &bam_paths, const drawContext& ctx) {
+        const float covYh = ctx.covYh;
+        const float refSpace = ctx.refSpace;
+        // const float gap = ctx.gap;
+        const float monitorScale = ctx.monitorScale;
 
         const Themes::BaseTheme &theme = opts.theme;
         SkPaint paint = theme.fcCoverage;
@@ -263,11 +267,7 @@ namespace Drawing {
             if (cl.region->markerPos != -1) {
                 float rp;
 
-                if (opts.scale_bar) {
-                    rp = gap + fonts.overlayHeight + gap + fonts.overlayHeight + gap + (cl.bamIdx * cl.yPixels);
-                } else {
-                    rp = gap + fonts.overlayHeight + gap + (cl.bamIdx * cl.yPixels);
-                }
+                rp = refSpace + (cl.bamIdx * cl.yPixels);
                 float xp = fonts.overlayHeight * 0.5;
                 float markerP = (cl.xScaling * (float) (cl.region->markerPos - cl.region->start)) + cl.xOffset;
                 if (markerP > cl.xOffset && markerP < cl.regionPixels - cl.xOffset) {
@@ -935,9 +935,14 @@ namespace Drawing {
     }
 
     void drawCollection(const Themes::IniOptions &opts, Segs::ReadCollection &cl,
-                  SkCanvas *const canvas, const float trackY, const float yScaling, const Themes::Fonts &fonts, const int linkOp,
-                  const float refSpace, const float pointSlop, const float textDrop, const float pH, const float monitorScale,
-                  std::vector<std::string> &bam_paths) {
+                  SkCanvas *const canvas, const Themes::Fonts &fonts,
+                  std::vector<std::string> &bam_paths, const drawContext& ctx) {
+        const float yScaling = ctx.yScaling;
+        const int linkOp = ctx.linkOp;
+        const float pointSlop = ctx.pointSlop;
+        const float textDrop = ctx.textDrop;
+        const float pH = ctx.pH;
+        const float monitorScale = ctx.monitorScale;
 
         SkPaint faceColor;
         SkPaint edgeColor;
@@ -1323,9 +1328,11 @@ namespace Drawing {
     }
 
     void drawRef(const Themes::IniOptions &opts,
-                 std::vector<Utils::Region> &regions, const int fb_width,
-                 SkCanvas *const canvas, const Themes::Fonts &fonts, const float refSpace, const float nRegions, const float gap, const float monitorScale,
-                 const bool scale_bar) {
+                 std::vector<Utils::Region> &regions,
+                 SkCanvas *const canvas, const Themes::Fonts &fonts, const drawContext& ctx) {
+        const int fb_width = (int)ctx.fb_width;
+        const float refSpace = ctx.refSpace;
+        const float gap = ctx.gap;
         if (regions.empty()) {
             return;
         }
@@ -1440,10 +1447,27 @@ namespace Drawing {
         }
     }
 
-    void drawBorders(const Themes::IniOptions &opts, const float fb_width, const float fb_height,
-                     SkCanvas *const canvas, const size_t nRegions, const size_t nbams, const float trackY, const float covY, const int nTracks,
-                     const float totalTabixY, const float refSpace, const float gap, const float totalCovY, std::vector<HGW::GwTrack> &tracks) {
+    void drawBorders(const Themes::IniOptions &opts,
+                     SkCanvas *const canvas, std::vector<HGW::GwTrack> &tracks, const drawContext& ctx) {
+        const float fb_width = ctx.fb_width;
+        const float fb_height = ctx.fb_height;
+        const size_t nRegions = ctx.nRegions;
+        const size_t nbams = ctx.nbams;
+        const float trackY = ctx.trackY;
+        const float covY = ctx.covY;
+        const int nTracks = (int)ctx.nTracks;
+        const float refSpace = ctx.refSpace;
+        const float gap = ctx.gap;
+        const float totalCovY = ctx.totalCovY;
         SkPath path;
+        // Separator line below top menu buttons
+        // if (ctx.topMenuSpace > 0) {
+        //     float sepY = ctx.topMenuSpace;
+        //     path.moveTo(0, sepY);
+        //     path.lineTo(fb_width, sepY);
+        //     canvas->drawPath(path, opts.theme.lcLightJoins);
+        //     path.reset();
+        // }
         if (nRegions > 1) {
             float x = fb_width / nRegions;
             float step = x;
@@ -1459,6 +1483,9 @@ namespace Drawing {
             float y = trackY + covY;
             float step = y;
             y += refSpace;
+            // When coverage is off, cl.yOffset includes fonts.overlayHeight as a header gap;
+            // separators must match the actual bottom of each BAM's read area.
+            if (totalCovY == 0) y += ctx.overlayHeight;
             path.reset();
             for (int i = 0; i < (int) nbams - 1; ++i) {
                 path.moveTo(gap, y);
@@ -1468,7 +1495,9 @@ namespace Drawing {
             canvas->drawPath(path, opts.theme.lcLightJoins);
         }
         if (nTracks > 0) {
-            float y = totalCovY + refSpace + (trackY*(float)nbams) + (gap * 0.5);
+            float y = totalCovY + refSpace + (trackY*(float)nbams);
+            // Same correction: when no coverage, account for the overlayHeight header gap.
+            if (totalCovY == 0 && nbams > 0) y += ctx.overlayHeight;
             for (const auto &trk: tracks) {
                 path.reset();
                 path.moveTo(gap, y);
@@ -1943,14 +1972,14 @@ namespace Drawing {
 
                 float customPointSlop = (tan(0.6) * (h2));
 
-                bool isBed12 = !trk.parts.empty() && trk.parts.size() >= 12;
                 float textLevelEnd = 0;  // makes sure text doesnt overlap on same level
                 
                 for (auto &f: features) {
                     float padY_track = padY + (blockStep * f.level) + (blockStep * 0.5) - (fonts.overlayHeight);
                     float *fLevelEnd = (nLevels > 1) ? &labelsEndLevels[f.level] : &textLevelEnd;
                     int strand = f.strand;
-                    if (isGFF || isBed12) {
+                    bool isBed12Feature = !f.s.empty() && !f.e.empty() && f.s.size() == f.e.size();
+                    if (isGFF || isBed12Feature) {
                         if (!f.anyToDraw || f.start > rgn.end || f.end < rgn.start) {
                             continue;
                         }
@@ -1975,16 +2004,18 @@ namespace Drawing {
                 // Draw data labels
                 if (opts.data_labels && regionIdx == 0) {
 
-                    std::filesystem::path fsp(trk.path);
+                    if (trk.name.empty()) {
+                        std::filesystem::path fsp(trk.path);
     #if defined(_WIN32) || defined(_WIN64)
-                    const wchar_t* pc = fsp.filename().c_str();
-                    std::wstring ws(pc);
-                    std::string name(ws.begin(), ws.end());
+                        const wchar_t* pc = fsp.filename().c_str();
+                        std::wstring ws(pc);
+                        trk.name = std::string(ws.begin(), ws.end());
     #else
-                    std::string name = fsp.filename();
+                        trk.name = fsp.filename();
     #endif
+                    }
 
-                    const char * name_s = name.c_str();
+                    const char * name_s = trk.name.c_str();
                     sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(name_s, fonts.overlay);
                     float text_width = fonts.measureTextWidth(name_s);
                     float rr = 2.5*monitorScale;
@@ -2121,9 +2152,12 @@ namespace Drawing {
                            const Themes::Fonts &fonts,
                            std::vector<Utils::Region> &regions,
                            const std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
-                           SkCanvas *const canvas,
-                           const float fb_width, const float fb_height, const float monitorScale,
-                           const float plot_gap, const bool addLocation, const float sliderSpace) {
+                           SkCanvas *const canvas, const drawContext& ctx) {
+        const float fb_width = ctx.fb_width;
+        const float fb_height = ctx.fb_height;
+        const float monitorScale = ctx.monitorScale;
+        const float plot_gap = ctx.gap;
+        const bool addLocation = ctx.drawLocation;
 
         SkPaint paint, light_paint, line;
 //        paint.setARGB(255, 240, 32, 73);
@@ -2221,16 +2255,18 @@ namespace Drawing {
             // draw scale bar at top
             if (opts.scale_bar) {
 
-                float top2 = fonts.overlayHeight + plot_gap;
+                float top2 = fonts.overlayHeight + plot_gap + ctx.topMenuSpace;
 
+                // Scale number of tick divisions by column width (10 ticks at ~800px, fewer for narrower)
+                int nTicks = std::max(2, (int)(scaleWidth / (80 * monitorScale)));
                 double nice_range = NiceNumber((double)region.regionLen, 0);
-                double nice_tick = NiceNumber(nice_range/(10 - 1), 1) * 2;
+                double nice_tick = NiceNumber(nice_range/(nTicks - 1), 1) * 2;
                 if (nice_tick < 1) {
                     continue;
                 }
 
                 canvas->save();
-                clip.setXYWH(plot_gap + (regionIdx * colWidth), 1, scaleWidth, fonts.overlayHeight * 2 + plot_gap);
+                clip.setXYWH(plot_gap + (regionIdx * colWidth), ctx.topMenuSpace + 1, scaleWidth, fonts.overlayHeight * 2 + plot_gap);
                 canvas->clipRect(clip, SkClipOp::kIntersect );
 
                 int position = (region.start / (int)nice_tick) * (int)nice_tick;

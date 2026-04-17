@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iomanip>
+#include <sstream>
 #include <iterator>
 #include <cstdlib>
 #include <cstdio>
@@ -147,6 +148,7 @@ namespace Manager {
 
         if ( (key == GLFW_KEY_SLASH && !captureText) || (shiftPress && key == GLFW_KEY_SEMICOLON && !captureText)) {
             captureText = true;
+            skipNextChar = true;  // don't forward the activating '/' or ':' into the command box
             inputText = "";
             charIndex = 0;
             textFromSettings = false;
@@ -214,6 +216,7 @@ namespace Manager {
                 }
                 return GLFW_KEY_UNKNOWN;
             } else if ((key == GLFW_KEY_RIGHT || key == GLFW_KEY_LEFT || key == GLFW_KEY_UP || key == GLFW_KEY_DOWN) && shiftPress) {
+#ifndef __EMSCRIPTEN__
                 GLFWmonitor * monitor = glfwGetPrimaryMonitor();
                 int monitor_xpos, monitor_ypos, monitor_w, monitor_h;
                 int current_x, current_y;
@@ -283,6 +286,7 @@ namespace Manager {
                     glfwSetWindowSize(wind, current_w, new_height);
                 }
                 return GLFW_KEY_UNKNOWN;
+#endif  // __EMSCRIPTEN__
             }
         } else { //  captureText here
             if (key == GLFW_KEY_ESCAPE) {
@@ -433,24 +437,8 @@ namespace Manager {
                         inputText.erase(charIndex, 1);
                     }
                 }
-                const char *letter = glfwGetKeyName(key, scancode);
-                if (letter || key == GLFW_KEY_SPACE) {
-                    if (key == GLFW_KEY_SPACE) {  // deal with special keys first
-                        Term::editInputText(inputText, " ", charIndex);
-                    }
-                    else {
-                        std::string str = letter;
-                        if (mods == GLFW_MOD_SHIFT && opts.shift_keymap.find(str) != opts.shift_keymap.end()) {
-                            Term::editInputText(inputText, opts.shift_keymap[str].c_str(), charIndex);
-                        } else if (mods == GLFW_MOD_SHIFT) { // uppercase
-
-                            std::transform(str.begin(), str.end(),str.begin(), ::toupper);
-                            Term::editInputText(inputText, str.c_str(), charIndex);
-                        } else {  // normal text here
-                            Term::editInputText(inputText, letter, charIndex);
-                        }
-                    }
-                }
+                // Printable character insertion is handled by glfwSetCharCallback
+                // (which receives correct Unicode codepoints from the OS).
                 // determine which command prefix the user has typed
                 TipBounds tip_bounds = getToolTipBounds(inputText);
                 if (key == GLFW_KEY_TAB || key == GLFW_KEY_DOWN) {
@@ -555,6 +543,92 @@ namespace Manager {
         inputText = "";
         imageCache.clear();
         imageCacheQueue.clear();
+    }
+
+    void GwPlot::reloadPathBackedTracks() {
+        bool reloaded = false;
+        for (auto &rgn : regions) {
+            rgn.featuresInView.clear();
+            rgn.featureLevels.clear();
+        }
+        for (auto &trk : tracks) {
+            if (trk.path.empty() || trk.kind == HGW::FType::ROI) {
+                continue;
+            }
+            std::string path = trk.path;
+            trk.close();
+            trk.clear();
+            trk.track_label_parser_rules = opts.track_label_parser_rules;
+            trk.open(path, true);
+            trk.variant_distance = &opts.variant_distance;
+            trk.setPaint((trk.kind == HGW::FType::BIGWIG) ? opts.theme.fcBigWig : opts.theme.fcTrack);
+            reloaded = true;
+        }
+        if (reloaded) {
+            processed = false;
+            redraw = true;
+            imageCache.clear();
+            imageCacheQueue.clear();
+        }
+    }
+
+    bool GwPlot::selectVariantFile(int index) {
+        if (index < 0 || index >= (int)variantTracks.size()) {
+            return false;
+        }
+        variantFileSelection = index;
+        currentVarTrack = &variantTracks[variantFileSelection];
+        if (mode == Show::TILED) {
+            imageCache.clear();
+            imageCacheQueue.clear();
+            mouseOverTileIndex = 0;
+            processed = false;
+            redraw = true;
+            glfwPostEmptyEvent();
+        }
+        return true;
+    }
+
+    bool GwPlot::toggleCurrentVariantTiledView() {
+        if (variantTracks.empty()) {
+            return false;
+        }
+        if (variantFileSelection < 0 || variantFileSelection >= (int)variantTracks.size()) {
+            variantFileSelection = 0;
+        }
+        currentVarTrack = &variantTracks[variantFileSelection];
+        if (currentVarTrack == nullptr) {
+            return false;
+        }
+
+        if (mode == Show::TILED) {
+            mode = Manager::Show::SINGLE;
+            imageCacheQueue.clear();
+            auto& vt = *currentVarTrack;
+            if (vt.blockStart < (int)vt.multiRegions.size() &&
+                !vt.multiRegions[vt.blockStart].empty() &&
+                !vt.multiRegions[vt.blockStart][0].chrom.empty()) {
+                regions = vt.multiRegions[vt.blockStart];
+                fetchRefSeqs();
+            }
+            redraw = true;
+            processed = false;
+            glfwPostEmptyEvent();
+            return true;
+        }
+
+        auto& vt = *currentVarTrack;
+        if (vt.multiRegions.empty() && vt.type != HGW::TrackType::IMAGES) {
+            return false;
+        }
+        mode = Manager::Show::TILED;
+        imageCache.clear();
+        imageCacheQueue.clear();
+        mouseOverTileIndex = 0;
+        redraw = true;
+        processed = false;
+        glfwPostEmptyEvent();
+        return true;
     }
 
     void GwPlot::removeRegion(int index) {
@@ -722,9 +796,19 @@ namespace Manager {
     void GwPlot::loadGenome(std::string genome_tag_or_path, std::ostream& outerr) {
 
         if (opts.myIni.get("genomes").has(genome_tag_or_path) && reference != opts.myIni["genomes"][genome_tag_or_path]) {
-            faidx_t *fai_test = fai_load(opts.myIni["genomes"][genome_tag_or_path].c_str());
+            std::string ini_path = opts.myIni["genomes"][genome_tag_or_path];
+#ifdef __EMSCRIPTEN__
+            std::string resolved = resolve_genome_path(ini_path);
+            if (resolved.empty()) {
+                outerr << termcolor::red << "Error:" << termcolor::reset
+                       << " could not mount remote genome " << ini_path << std::endl;
+                return;
+            }
+            ini_path = resolved;
+#endif
+            faidx_t *fai_test = fai_load(ini_path.c_str());
             if (fai_test != nullptr) {
-                reference = opts.myIni["genomes"][genome_tag_or_path];
+                reference = ini_path;
                 opts.genome_tag = genome_tag_or_path;
                 fai = fai_load(reference.c_str());
                 for (auto &bm: bams) {
@@ -745,7 +829,14 @@ namespace Manager {
             }
             fai_destroy(fai_test);
         } else {
-            faidx_t *fai_test = fai_load( genome_tag_or_path.c_str());
+#ifdef __EMSCRIPTEN__
+            {
+                std::string resolved = resolve_genome_path(genome_tag_or_path);
+                if (!resolved.empty() && resolved != genome_tag_or_path)
+                    genome_tag_or_path = resolved;
+            }
+#endif
+            faidx_t *fai_test = fai_load(genome_tag_or_path.c_str());
             if (fai_test != nullptr) {
                 reference = genome_tag_or_path;
                 fai = fai_load(reference.c_str());
@@ -802,9 +893,16 @@ namespace Manager {
         std::ostream& outerr = (terminalOutput) ? std::cerr : outStr;
 
         if (opts.myIni.get("genomes").has(opts.genome_tag) && reference != opts.myIni["genomes"][opts.genome_tag]) {
-            faidx_t *fai_test = fai_load( opts.myIni["genomes"][opts.genome_tag].c_str());
+            std::string ini_genome = opts.myIni["genomes"][opts.genome_tag];
+#ifdef __EMSCRIPTEN__
+            {
+                std::string resolved = resolve_genome_path(ini_genome);
+                if (!resolved.empty()) ini_genome = resolved;
+            }
+#endif
+            faidx_t *fai_test = fai_load(ini_genome.c_str());
             if (fai_test != nullptr) {
-                reference =  opts.myIni["genomes"][opts.genome_tag];
+                reference = ini_genome;
                 fai = fai_load(reference.c_str());
                 for (auto &bm: bams) {
                     hts_set_fai_filename(bm, reference.c_str());
@@ -869,6 +967,12 @@ namespace Manager {
             }
         } catch (CloseException & mce) {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
+        // Cancel scale-bar drag on Escape
+        if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS && scaleBarDragging) {
+            scaleBarDragging = false;
+            redraw = true;
+            return;
         }
         // key events concerning the menu are handled here
         if (mode != Show::SETTINGS && key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
@@ -1048,6 +1152,11 @@ namespace Manager {
                         fetchRefSeq(region);
                         for (auto &cl : collections) {
                             if (cl.regionIdx == regionSelection) {
+                                // Refresh the region pointer before any use. If regions was
+                                // reassigned during a variant switch (potentially reallocating),
+                                // cl.region would be a dangling pointer. trimToRegion() and
+                                // collectReadsAndCoverage() both dereference it, so update it first.
+                                cl.region = &regions[regionSelection];
                                 if (!bams.empty() && cl.regionLen >= opts.low_memory && region.end - region.start < opts.low_memory) {
                                     cl.clear();
                                     const int parse_mods_threshold = (opts.parse_mods) ? opts.mods_qual_threshold: 0;
@@ -1063,7 +1172,6 @@ namespace Manager {
                                     }
                                 }
                                 cl.resetDrawState();
-                                cl.region = &regions[regionSelection];
                                 cl.collection_processed = false;
                             }
                         }
@@ -1220,7 +1328,7 @@ namespace Manager {
         }
     }
 
-    void GwPlot::addTrack(std::string &path, bool print_message=true, bool vcf_as_track=false, bool bed_as_track=true) {
+    bool GwPlot::addTrack(std::string &path, bool print_message=true, bool vcf_as_track=false, bool bed_as_track=true) {
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
         bool good = false;
         if (Utils::endsWith(path, ".bam") || Utils::endsWith(path, ".cram")) {
@@ -1267,7 +1375,7 @@ namespace Manager {
                 if (print_message) {
                     outStr << termcolor::red << "Error:" << termcolor::reset << " session file is missing 'data' or 'show' headings. Invalid session file\n";
                 }
-                return;
+                return false;
             }
             opts.getOptionsFromSessionIni(opts.seshIni);
             opts.theme.setAlphas();
@@ -1277,6 +1385,7 @@ namespace Manager {
         } else {
             tracks.push_back(HGW::GwTrack());
             try {
+                tracks.back().track_label_parser_rules = opts.track_label_parser_rules;
                 tracks.back().open(path, true);
                 tracks.back().variant_distance = &opts.variant_distance;
                 tracks.back().setPaint((tracks.back().kind == HGW::FType::BIGWIG) ? opts.theme.fcBigWig : opts.theme.fcTrack);
@@ -1302,6 +1411,7 @@ namespace Manager {
         } else {
             redraw = false;
         }
+        return good;
     }
 
     void GwPlot::pathDrop(int count, const char** paths) {
@@ -1411,6 +1521,13 @@ namespace Manager {
         }
         updateDragState();
 
+        // Right-click cancels an in-progress scale-bar drag without zooming
+        if (scaleBarDragging && button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
+            scaleBarDragging = false;
+            redraw = true;
+            return;
+        }
+
         // Dispatch to mode-specific handlers
         if (mode == Manager::SINGLE) {
             if (button == GLFW_MOUSE_BUTTON_LEFT) {
@@ -1454,6 +1571,7 @@ namespace Manager {
                 yOri = y;
                 xDrag = 0;
                 yDrag = 0;
+                mouseDragged = false;
             }
             xW = x;
             yW = y;
@@ -1470,11 +1588,7 @@ namespace Manager {
         if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE && tool_popup) {
             xDrag = DRAG_UNSET;
             yDrag = DRAG_UNSET;
-            if (yW < half_h) {
-                toggleSettingsMode();
-            } else {
-                toggleCommandCapture();
-            }
+            toggleCommandCapture();
             return true;
         }
         return false;
@@ -1530,6 +1644,7 @@ namespace Manager {
             xOri = xPos_fb;
             yDrag = 0;
             yOri = yPos_fb;
+            mouseDragged = false;  // new press — clear drag flag
         }
         xDrag = xPos_fb - xOri;
         yDrag = yPos_fb - yOri;
@@ -1540,6 +1655,8 @@ namespace Manager {
         yDrag = DRAG_UNSET;
         xOri = xPos_fb;
         yOri = yPos_fb;
+        mouseDragged = false;
+        scaleBarDragging = false;
     }
 
     void GwPlot::handleSingleModeLeftClick(int button, int action, float xW, float yW) {
@@ -1548,6 +1665,53 @@ namespace Manager {
             yDrag = DRAG_UNSET;
             return;
         }
+        // Scale-bar drag-to-zoom: click+drag on the scale bar draws a selection box,
+        // release zooms into the highlighted genomic range.
+        // Note: release check is placed before the slider check so that dragging from
+        // the scale bar down to the slider area still triggers the zoom on release.
+        if (opts.scale_bar) {
+            float yh = std::fmax(fb_height * 0.0175f, 10.0f * monitorScale);
+            // Match the visual bottom of the scale bar (ticks end at top2 + yh*0.70).
+            // top2 = overlayHeight + gap + topMenuSpace
+            float scaleBarBottom = topMenuSpace + fonts.overlayHeight + gap + yh * 0.70f;
+            if (action == GLFW_RELEASE && scaleBarDragging) {
+                scaleBarDragging = false;
+                // xW is in framebuffer coords (same as scaleBarDragStartX)
+                if (std::abs(xW - (float)scaleBarDragStartX) >= 5) {
+                    float colWidth = (float)fb_width / (float)regions.size();
+                    float xOffset = gap + colWidth * (float)scaleBarDragRegionIdx;
+                    float scaleWidth = colWidth - gap - gap;
+                    Utils::Region& region = regions[scaleBarDragRegionIdx];
+                    double xScaling = scaleWidth / (double)(region.end - region.start);
+                    double dragMin = std::min(scaleBarDragStartX, (double)xW);
+                    double dragMax = std::max(scaleBarDragStartX, (double)xW);
+                    int gStart = (int)((dragMin - xOffset) / xScaling) + region.start;
+                    int gEnd   = (int)((dragMax - xOffset) / xScaling) + region.start;
+                    gStart = std::max(1, gStart);
+                    if (region.chromLen > 0) gEnd = std::min(region.chromLen, gEnd);
+                    if (gStart < gEnd - 1) {
+                        region.start = gStart;
+                        region.end   = gEnd;
+                        regionSelection = scaleBarDragRegionIdx;
+                        fetchRefSeq(region);
+                        processed = false;
+                        redraw = true;
+                    }
+                }
+                resetDragState();
+                return;
+            }
+            if (action == GLFW_PRESS && yW >= topMenuSpace && yW <= scaleBarBottom) {
+                scaleBarDragging = true;
+                scaleBarDragStartX = xW;  // stored in framebuffer coords
+                float colWidth = (float)fb_width / (float)regions.size();
+                scaleBarDragRegionIdx = std::clamp((int)(xW / colWidth), 0, (int)regions.size() - 1);
+                xDrag = DRAG_UNSET;
+                yDrag = DRAG_UNSET;
+                return;
+            }
+        }
+
         if (yW >= (fb_height - sliderSpace + (gap*0.5))) {
             if (action == GLFW_PRESS) {
                 updateSlider(xW);
@@ -1556,8 +1720,16 @@ namespace Manager {
             yOri = yPos_fb;
             return;
         }
-        int idx = getCollectionIdx(xW, yW);
-        handleTrackClick(idx, action, xW, yW);
+
+        // During a drag-release, do NOT call getCollectionIdx: it recalculates
+        // regionSelection from the current mouse X and would switch to the adjacent
+        // region if the cursor crossed a region boundary mid-drag.  Use clickedIdx
+        // (captured at press time) so the drag stays locked to the original region.
+        bool isDrag = (action == GLFW_RELEASE) && (mouseDragged || std::abs(xDrag) >= 5);
+        int idx = isDrag ? clickedIdx : getCollectionIdx(xW, yW);
+        if (!isDrag) {
+            handleTrackClick(idx, action, xW, yW);
+        }
         // if (handleTrackClick(idx, action, xW, yW)) {
             // return;
         // }
@@ -1566,7 +1738,7 @@ namespace Manager {
             selectRegion(idx);
             handleRegionDragging();
         } else if (action == GLFW_RELEASE) {
-            if (std::abs(xDrag) < 5 && !bams.empty() && idx >= 0) {
+            if (!mouseDragged && std::abs(xDrag) < 5 && !bams.empty() && idx >= 0) {
                 handleReadSelection(idx, xW, yW);
             } else {
                 handleRegionDragging();
@@ -1579,7 +1751,7 @@ namespace Manager {
 
     bool GwPlot::handleTrackClick(int idx, int action, float xW, float yW) {
         if (idx == REFERENCE_TRACK && action == GLFW_RELEASE && std::fabs(xDrag) < 5 && std::fabs(yDrag) < 5) {
-            printReferenceSequence(xW);
+            printReferenceSequence(xW, yW);
             return true;
         } else if (idx <= TRACK && action == GLFW_RELEASE) {
             if (std::abs(xDrag) < 5 && std::abs(yDrag) < 5) {
@@ -1598,19 +1770,36 @@ namespace Manager {
         return false;
     }
 
-    void GwPlot::printReferenceSequence(float xW) {
+    void GwPlot::printReferenceSequence(float xW, float yW) {
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
+        // Helper: capture ANSI output and push a RefPopup
+        auto pushRefPopup = [&](Utils::Region* region, float xOffset, float xScaling) {
+            std::ostringstream uiOut;
+            uiOut << termcolor::colorize;
+            Term::printRefSeq(region, xW, xOffset, xScaling, uiOut);
+            std::string ansiStr = uiOut.str();
+            if (!ansiStr.empty()) {
+                RefPopup rp;
+                rp.ansi = std::move(ansiStr);
+                rp.x    = xW / monitorScale;
+                rp.y    = yW / monitorScale;
+                rp.uid  = nextPopupUid++;
+                refPopups.push_back(std::move(rp));
+            }
+        };
         if (collections.empty()) {
             float xScaling = (float)((regionWidth - gap - gap) /
                               ((double)(regions[regionSelection].end - regions[regionSelection].start)));
             float xOffset = (regionWidth * (float)regionSelection) + gap;
             Term::printRefSeq(&regions[regionSelection], xW, xOffset, xScaling, out);
+            pushRefPopup(&regions[regionSelection], xOffset, xScaling);
         } else {
             for (auto &cl: collections) {
                 float min_x = cl.xOffset;
                 float max_x = cl.xScaling * ((float)(cl.region->end - cl.region->start)) + min_x;
                 if (xW > min_x && xW < max_x) {
                     Term::printRefSeq(cl.region, xW, cl.xOffset, cl.xScaling, out);
+                    pushRefPopup(cl.region, cl.xOffset, cl.xScaling);
                     break;
                 }
             }
@@ -1640,7 +1829,30 @@ namespace Manager {
             float stepY = targetTrack.px_height;
             float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[trackIdx]);
             int featureLevel = (int)(yW - track_px_start) / step_track;
+            // Save state that printTrack mutates (same-name/same-pos detection)
+            std::string saved_qname = target_qname;
+            int saved_pos = target_pos;
+            // Capture ANSI output for on-screen popup (colorize forces ANSI codes into the stream)
+            std::ostringstream uiOut;
+            uiOut << termcolor::colorize;
+            Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx, target_qname, &target_pos, uiOut);
+            // Restore state so the terminal call sees the same initial conditions
+            target_qname = saved_qname;
+            target_pos = saved_pos;
             Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx, target_qname, &target_pos, out);
+            // Build track popup
+            std::string ansiStr = uiOut.str();
+            if (!ansiStr.empty()) {
+                TrackPopup tp;
+                tp.ansi  = std::move(ansiStr);
+                tp.x     = xW / monitorScale;
+                tp.y     = yW / monitorScale;
+                tp.uid   = nextPopupUid++;
+                tp.isVcf = (targetTrack.kind == HGW::FType::VCF_IDX ||
+                             targetTrack.kind == HGW::FType::VCF_NOI ||
+                             targetTrack.kind == HGW::FType::BCF_IDX);
+                trackPopups.push_back(std::move(tp));
+            }
         }
     }
 
@@ -1658,6 +1870,22 @@ namespace Manager {
     void GwPlot::handleReadSelection(int idx, float xW, float yW) {
         Segs::ReadCollection &cl = collections[idx];
         int pos = (int)(((xW - (float)cl.xOffset) / cl.xScaling) + (float)cl.region->start);
+        // Coverage-area click (above the reads): open coverage popup
+        if (yW < cl.yOffset && cl.region->end - cl.region->start < 75000) {
+            std::ostringstream uiOut;
+            Term::printCoverage(pos, cl, uiOut);
+            CovPopup cp;
+            cp.ansi     = uiOut.str();
+            cp.chromPos = cl.region->chrom + ":" + Term::intToStringCommas(pos);
+            cp.x        = xW / monitorScale;
+            cp.y        = yW / monitorScale;
+            cp.uid      = nextPopupUid++;
+            covPopups.push_back(std::move(cp));
+            xDrag = DRAG_UNSET;
+            yDrag = DRAG_UNSET;
+            clickedIdx = -1;
+            return;
+        }
         selectReadAtPosition(cl, pos, xW, yW);
         xDrag = DRAG_UNSET;
         yDrag = DRAG_UNSET;
@@ -1751,6 +1979,21 @@ namespace Manager {
             Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq,
                            cl.region->start, cl.region->end, opts.low_memory, out,
                            pos, opts.indel_length, opts.parse_mods);
+            // Capture for on-screen popup (enable ANSI codes on the stringstream)
+            std::ostringstream uiOut;
+            uiOut << termcolor::colorize;
+            Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq,
+                           cl.region->start, cl.region->end, opts.low_memory, uiOut,
+                           pos, opts.indel_length, opts.parse_mods);
+            ReadPopup rp;
+            rp.ansi = uiOut.str();
+            rp.sam  = selectedAlign;
+            rp.qname = target_qname;
+            rp.x    = (float)(xPos_fb / monitorScale);
+            rp.y    = (float)(yPos_fb / monitorScale);
+            rp.uid  = nextPopupUid++;
+            rp.regionSelection = cl.regionIdx;
+            readPopups.push_back(std::move(rp));
         }
         redraw = true;
         processed = true;
@@ -1849,6 +2092,10 @@ namespace Manager {
             resetDragState();
             return;
         }
+        // Update tile selection so the label table dialog syncs to this tile
+        if (currentVarTrack->blockStart + boxIdx < (int)currentVarTrack->multiLabels.size()) {
+            mouseOverTileIndex = boxIdx;
+        }
         if (!bams.empty()) {
             if (boxIdx < (int)currentVarTrack->multiRegions.size()) {
                 handleMultiRegionSelection(boxIdx);
@@ -1926,11 +2173,6 @@ namespace Manager {
             resetTextCapture();
             return;
         }
-        bool variantFile_click = variantTracks.size() > 1 && yW < fb_height * 0.02;
-        if (variantFile_click) {
-            handleVariantFileSelection(xW);
-            return;
-        }
         if (std::fabs(xDrag) > fb_width / 16.) {
             handleTiledModeScroll();
         }
@@ -1940,20 +2182,6 @@ namespace Manager {
         resetDragState();
     }
 
-    void GwPlot::handleVariantFileSelection(float xW) {
-        float tile_box_w = std::fmin(100 * monitorScale, (fb_width - (variantTracks.size() * gap + 1)) / variantTracks.size());
-        float x_val = gap;
-        for (int i = 0; i < (int)variantTracks.size(); ++i) {
-            if (x_val - gap <= xW && x_val + tile_box_w >= xW) {
-                variantFileSelection = i;
-                redraw = true;
-                processed = false;
-                imageCache.clear();
-                break;
-            }
-            x_val += tile_box_w + gap;
-        }
-    }
 
     void GwPlot::handleTiledModeScroll() {
         int nmb = opts.number.x * opts.number.y;
@@ -2129,6 +2357,7 @@ namespace Manager {
             yDrag = yPos - yOri;
             if (std::abs(xDrag) > 5 || std::abs(yDrag) > 5) {
                 captureText = false;
+                mouseDragged = true;
             }
 
             if (mode == Manager::SINGLE) {
@@ -2140,6 +2369,10 @@ namespace Manager {
                     updateSlider((float) xPos_fb);
                     yDrag = DRAG_UNSET;
                     xDrag = DRAG_UNSET;
+                    return;
+                }
+                if (scaleBarDragging) {
+                    redraw = true;
                     return;
                 }
                 if (!tracks.empty()) {
@@ -2210,11 +2443,16 @@ namespace Manager {
                     }
                 }
 
+                // Save regionSelection before getCollectionIdx overwrites it.
+                // Horizontal drags must stay locked to the region where the press
+                // originated, even if the cursor has crossed into an adjacent column.
+                int dragRegionSelection = regionSelection;
                 int idx = getCollectionIdx((float) xPos_fb, (float) yPos_fb);
                 int windowW, windowH;
                 glfwGetWindowSize(wind, &windowW, &windowH);
-                Utils::Region &region = regions[regionSelection];
+                Utils::Region &region = regions[dragRegionSelection];
                 if (std::fabs(xDrag) > std::fabs(yDrag) && region.end - region.start < 75000) {
+                    regionSelection = dragRegionSelection;  // restore before updating reads
                     printRegionInfo();
                     auto w = (float) (region.end - region.start) * (float) regions.size();
                     int travel = (int) (w * (xDrag / windowW));
@@ -2281,6 +2519,7 @@ namespace Manager {
                             int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, srt_option);
                             samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
                             yOri = yPos;
+                            mouseDragged = true;
                         }
                     }
                     processed = true;
@@ -2420,9 +2659,9 @@ namespace Manager {
             }
         } else if (std::fabs(yoffset) > std::fabs(xoffset) && 0.1 < std::fabs(yoffset)) {
             if (yoffset < 0) {
-                keyPress(opts.scroll_left, 0, GLFW_PRESS, 0);
-            } else {
                 keyPress(opts.scroll_right, 0, GLFW_PRESS, 0);
+            } else {
+                keyPress(opts.scroll_left, 0, GLFW_PRESS, 0);
             }
         }
     }
@@ -2430,6 +2669,10 @@ namespace Manager {
     void GwPlot::windowResize(int x, int y) {
         resizeTriggered = true;
         resizeTimer = std::chrono::high_resolution_clock::now();
+#ifndef __EMSCRIPTEN__
+        // In the WASM build the main loop (startUIwasm) re-reads the framebuffer
+        // size and rebuilds the Skia surface each time resizeTriggered is set.
+        // GL calls here would access GLctx outside the main loop and crash.
         glfwGetFramebufferSize(window, &fb_width, &fb_height);
         bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
         if (opts.theme_str == "igv") {
@@ -2438,5 +2681,6 @@ namespace Manager {
             glClearColor(0.f, 0.f, 0.f, 1.0f);
         }
         glClear(GL_COLOR_BUFFER_BIT);
+#endif
     }
 }

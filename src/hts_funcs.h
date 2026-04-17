@@ -14,6 +14,8 @@
 #include "htslib/sam.h"
 #include "htslib/tbx.h"
 
+namespace Drawing { struct drawContext; }
+
 #include "parser.h"
 //#include "IITree.h"
 #include "superintervals.hpp"
@@ -96,17 +98,15 @@ namespace HGW {
 
     void iterDrawParallel(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr, hts_idx_t *index, int threads,
                           Utils::Region *region, bool coverage, std::vector<Parse::Parser> &filters,
-                          Themes::IniOptions &opts, SkCanvas *canvas, float trackY, float yScaling,
-                          Themes::Fonts &fonts, float refSpace, BS::thread_pool &pool,
-                          float pointSlop, float textDrop, float pH, float monitorScale,
-                          std::vector<std::string> &bam_paths);
+                          Themes::IniOptions &opts, SkCanvas *canvas,
+                          Themes::Fonts &fonts, BS::thread_pool &pool,
+                          std::vector<std::string> &bam_paths, const Drawing::drawContext& ctx);
 
     void iterDraw(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                   hts_idx_t *index, Utils::Region *region,
                   bool coverage, std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
-                  float trackY, float yScaling, Themes::Fonts &fonts, float refSpace,
-                  float pointSlop, float textDrop, float pH, float monitorScale,
-                  std::vector<std::string> &bam_paths);
+                  Themes::Fonts &fonts,
+                  std::vector<std::string> &bam_paths, const Drawing::drawContext& ctx);
 
     void trimToRegion(Segs::ReadCollection &col, bool coverage, int snp_threshold);
 
@@ -131,6 +131,7 @@ namespace HGW {
         // The iterator state is cached here during iteration:
         std::string path, genome_tag;
         std::string chrom, chrom2, rid, vartype, parent, gene_name, unique_id;
+        std::string track_label_parser_rules;
         int start, stop;  // genome coordinates
         int strand;
         int fetch_start, fetch_end;
@@ -174,6 +175,7 @@ namespace HGW {
 		std::string variantString;
 
         // Display options
+        std::string name;  // editable label, defaults to filename
         SkPaint faceColour, shadedFaceColour;
         double px_height{0};
 
@@ -236,6 +238,7 @@ namespace HGW {
         void nextN(int number);
         void iterateToIndex(int index);
         void appendImageLabels(int startIdx, int number);  // adds labels for use with IMAGES only
+        void appendSearchMatches(const std::string &query);
 
     private:
         void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label, std::string &vartype);

@@ -49,3 +49,11 @@ libgw.so
 /src/cli_interface.o
 /.vscode
 /.idea
+/lib/dear_imgui/backends/imgui_impl_glfw.o
+/lib/dear_imgui/backends/imgui_impl_opengl3.o
+/lib/dear_imgui/imgui.o
+/lib/dear_imgui/imgui_demo.o
+/lib/dear_imgui/imgui_draw.o
+/lib/dear_imgui/imgui_tables.o
+/lib/dear_imgui/imgui_widgets.o
+/src/wasm_stubs.o

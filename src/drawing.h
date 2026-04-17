@@ -55,25 +55,26 @@ namespace Drawing {
         size_t nbams;
         size_t nTracks;
         bool scale_bar;
+        float totalCovY;
+        float topMenuSpace;
+        float overlayHeight;
+        bool drawLocation;
     };
 
     void drawCoverage(const Themes::IniOptions &opts, std::vector<Segs::ReadCollection> &collections,
-                      SkCanvas * const canvas, const Themes::Fonts &fonts, const float covYh, const float refSpace,
-                      const float gap, float monitorScale, std::vector<std::string> &bam_paths);
+                      SkCanvas * const canvas, const Themes::Fonts &fonts,
+                      std::vector<std::string> &bam_paths, const drawContext& ctx);
 
     void drawCollection(const Themes::IniOptions &opts, Segs::ReadCollection &cl,
-                  SkCanvas *const canvas, const float trackY, const float yScaling, const Themes::Fonts &fonts, const int linkOp,
-                  const float refSpace, const float pointSlop, const float textDrop, const float pH, const float monitorScale,
-                  std::vector<std::string> &bam_paths);
+                  SkCanvas *const canvas, const Themes::Fonts &fonts,
+                  std::vector<std::string> &bam_paths, const drawContext& ctx);
 
     void drawRef(const Themes::IniOptions &opts,
-                 std::vector<Utils::Region> &regions, const int fb_width,
-                 SkCanvas *const canvas, const Themes::Fonts &fonts, const float refSpace, const float nRegions, const float gap, const float monitorScale,
-                 const bool scale_bar);
+                 std::vector<Utils::Region> &regions,
+                 SkCanvas *const canvas, const Themes::Fonts &fonts, const drawContext& ctx);
 
-    void drawBorders(const Themes::IniOptions &opts, const float fb_width, const float fb_height,
-                     SkCanvas *const canvas, const size_t nRegions, const size_t nbams, const float trackY, const float covY, const int nTracks,
-                     const float totalTabixY, const float refSpace, const float gap, const float totalCovY, std::vector<HGW::GwTrack> &tracks);
+    void drawBorders(const Themes::IniOptions &opts,
+                     SkCanvas *const canvas, std::vector<HGW::GwTrack> &tracks, const drawContext& ctx);
 
     void drawLabel(const Themes::IniOptions &opts, SkCanvas *const canvas, SkRect &rect, Utils::Label &label, const Themes::Fonts &fonts,
               const ankerl::unordered_dense::set<std::string> &seenLabels, const std::vector<std::string> &srtLabels);
@@ -86,8 +87,6 @@ namespace Drawing {
                            const Themes::Fonts &fonts,
                            std::vector<Utils::Region> &regions,
                            const std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
-                           SkCanvas *const canvas,
-                           const float fb_width, const float fb_height, const float monitorScale,
-                           const float plot_gap, const bool addLocation, const float sliderSpace);
+                           SkCanvas *const canvas, const drawContext& ctx);
 
 }
