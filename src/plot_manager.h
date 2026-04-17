@@ -97,9 +97,15 @@ namespace Manager {
         bool processed;
         bool drawLine;
         bool drawLocation;
+        bool commandDialogOpen{false};
+        bool openDialogOpen{false};
+        bool helpDialogOpen{false};
+        bool closeDialogOpen{false};
+        bool labelTableDialogOpen{false};
         bool terminalOutput;  // recoverable runtime errors and output sent to terminal or outStr
-
-        float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace, sliderSpace;
+        bool debug_gw{false};    // general debug information
+        bool showUIOverlay{false};  // set to true when startUI loop is entered, reserves top menu space
+        float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace, sliderSpace, topMenuSpace{0};
         int boundaryIndex{0};
 
         Drawing::drawContext ctx;
@@ -161,7 +167,42 @@ namespace Manager {
         Show mode;
         Show last_mode;
 
-        std::string selectedAlign;
+        std::string selectedAlign;  // SAM text of most-recently clicked read (used by commands)
+
+        struct ReadPopup {
+            std::string ansi;  // ANSI-coded read info text
+            std::string sam;   // plain SAM text for clipboard copy
+            std::string qname; // read name captured when the popup was opened
+            float x{0}, y{0};
+            int uid{0};
+            int regionSelection{-1};
+        };
+        std::vector<ReadPopup> readPopups;
+
+        struct CovPopup {
+            std::string ansi;      // ANSI-coded coverage text
+            std::string chromPos;  // e.g. "chr1:28,440"
+            float x{0}, y{0};     // screen position for initial placement
+            int uid{0};
+        };
+        std::vector<CovPopup> covPopups;
+
+        struct TrackPopup {
+            std::string ansi;     // ANSI-coded track info text
+            float x{0}, y{0};    // screen position near click
+            int uid{0};
+            bool isVcf{false};   // true for VCF/BCF tracks (changes copy-all behaviour)
+        };
+        std::vector<TrackPopup> trackPopups;
+
+        struct RefPopup {
+            std::string ansi;    // ANSI-coded output from printRefSeq
+            float x{0}, y{0};   // screen position near click
+            int uid{0};
+        };
+        std::vector<RefPopup> refPopups;
+
+        int nextPopupUid{0};
 
         // Initialisation functions
         void init(int width, int height);
@@ -174,12 +215,15 @@ namespace Manager {
         void loadGenome(std::string genome_tag_or_path, std::ostream& outerr);
         void addBam(std::string &bam_path);
         void removeBam(int index);
-        void addTrack(std::string &path, bool print_message, bool vcf_as_track, bool bed_as_track);
+        bool addTrack(std::string &path, bool print_message, bool vcf_as_track, bool bed_as_track);
         void removeTrack(int index);
         // addRegion missing todo
         void removeRegion(int index);
         void addVariantTrack(std::string &path, int startIndex, bool cacheStdin, bool useFullPath);
         void removeVariantTrack(int index);
+        void reloadPathBackedTracks();
+        bool selectVariantFile(int index);
+        bool toggleCurrentVariantTiledView();
         void addIdeogram(std::string path);
         bool loadIdeogramTag();
         // removeIdeogram missing todo
@@ -197,6 +241,10 @@ namespace Manager {
         void setScaling();
         void setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop);
         int startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay, std::vector<std::string> &extra_commands);
+#ifdef __EMSCRIPTEN__
+        int startUIwasm(GrDirectContext* sContext, SkSurface* sSurface, GLFWwindow* wind, int delay,
+                        std::chrono::high_resolution_clock::time_point autoSaveTimer);
+#endif
 
         // Interactions
         void keyPress(int key, int scancode, int action, int mods);
@@ -231,8 +279,10 @@ namespace Manager {
         sk_sp<SkImage> makeImage();
         void saveSession(std::string out_session);
         void rasterToPng(const char* path);
+#ifndef __EMSCRIPTEN__
         void saveToPdf(const char* path, bool force_buffered_reads=false);
         void saveToSvg(const char* path, bool force_buffered_reads=false);
+#endif
 
         std::pair<const uint8_t*, size_t> encodeToPng(int compression_level=6);
         std::pair<const uint8_t*, size_t> encodeToJpeg(int quality=80);
@@ -258,12 +308,14 @@ namespace Manager {
 
         bool captureText, shiftPress, ctrlPress, processText;
         bool tabBorderPress;
+        bool skipNextChar;  // suppress the activating '/' or ':' from landing in the command box
 
         int commandIndex, charIndex;
 
         double pointSlop, textDrop, pH;
 
         double xDrag, xOri, lastX, yDrag, yOri, lastY;
+        bool mouseDragged;  // true if any significant drag (x or y) occurred since last press
         int windowW, windowH;  // Window width dn height
 
         double yScaling;
@@ -279,11 +331,17 @@ namespace Manager {
         int clickedIdx;
         int commandToolTipIndex;
 
+        // Scale-bar drag-to-zoom state
+        bool scaleBarDragging{false};
+        double scaleBarDragStartX{0};
+        int scaleBarDragRegionIdx{0};
+
         std::vector<Utils::BoundingBox> bboxes;
 
         BS::thread_pool pool;
 
         void drawOverlay(SkCanvas* canvas);
+        void overlayImGui(bool& pending_settings_close);
 
         void tileDrawingThread();
 
@@ -321,7 +379,7 @@ namespace Manager {
 
         // Track-specific handlers
         bool handleTrackClick(int idx, int action, float xW, float yW);
-        void printReferenceSequence(float xW);
+        void printReferenceSequence(float xW, float yW);
         void printTrackInformation(int idx, float xW, float yW);
 
         // Region handlers
@@ -345,7 +403,6 @@ namespace Manager {
         // Tiled mode handlers
         void handleMultiRegionSelection(int boxIdx);
         void handleImageSelection(int boxIdx, float xW);
-        void handleVariantFileSelection(float xW);
         void handleTiledModeScroll();
         void handleTiledModeBoxClick(float xW, float yW);
 

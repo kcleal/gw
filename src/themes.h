@@ -153,6 +153,7 @@ namespace Themes {
         std::string session_file;
         std::string genome_tag;
         std::string theme_str, font_str, parse_label, labels, link, dimensions_str, number_str, ini_path, outdir;
+        std::string track_label_parser_rules;
         std::string menu_level, control_level, previous_level;
         MenuTable menu_table;
         bool editing_underway;
@@ -211,6 +212,8 @@ namespace Themes {
         void setOverlayHeight(float yScale);
         float measureTextWidth(const std::string& text) const;
     };
+
+    void applyImGuiTheme(const std::string &theme_str);
 
     void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
                           Themes::BaseTheme &theme);

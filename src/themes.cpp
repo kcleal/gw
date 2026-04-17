@@ -2,6 +2,10 @@
 // Created by kez on 01/08/22.
 //
 #include <filesystem>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+#include "imgui.h"
 #include "menu.h"
 #include "themes.h"
 #include "glfw_keys.h"
@@ -18,6 +22,10 @@
         #include "include/ports/SkFontMgr_mac_ct.h"
     #elif defined(_WIN32) || defined(_WIN64)
         #include "include/ports/SkTypeface_win.h"
+    #elif defined(__EMSCRIPTEN__)
+        // No platform font service in WASM. Use the custom/FreeType manager so
+        // that makeFromData() can parse the embedded Aileron font bytes.
+        #include "include/ports/SkFontMgr_empty.h"
     #else
         #include <fontconfig/fontconfig.h>
         #include "include/ports/SkFontMgr_fontconfig.h"
@@ -484,6 +492,7 @@ namespace Themes {
         start_index = 0;
         font_str = "Menlo";
         font_size = 14;
+        track_label_parser_rules = "auto";
         mods_qual_threshold = 50;
 
         soft_clip_threshold = 20000;
@@ -580,6 +589,12 @@ namespace Themes {
             font_size = std::stoi(sub["font_size"]);
         } else {
             sub["font_size"] = "14";
+            update_ini = true;
+        }
+        if (sub.has("track_label_parser_rules")) {
+            track_label_parser_rules = sub["track_label_parser_rules"];
+        } else {
+            sub["track_label_parser_rules"] = "auto";
             update_ini = true;
         }
         if (sub.has("expand_tracks")) {
@@ -862,6 +877,9 @@ namespace Themes {
             if (sub.has("font_size")) {
                 font_size = std::stoi(sub["font_size"]);
             }
+            if (sub.has("track_label_parser_rules")) {
+                track_label_parser_rules = sub["track_label_parser_rules"];
+            }
             if (sub.has("mods_qual_threshold")) {
                 mods_qual_threshold = std::stoi(sub["mods_qual_threshold"]);
             }
@@ -921,6 +939,31 @@ namespace Themes {
 
     bool IniOptions::readIni() {
 
+        std::filesystem::path path;
+        std::filesystem::path gwini(".gw.ini");
+
+#ifdef __EMSCRIPTEN__
+        // In WASM, use the IndexedDB-backed /persistent directory mounted in shell.html.
+        // Falls back to /tmp if /persistent is not available (e.g. private browsing).
+        {
+            std::filesystem::path pers("/persistent");
+            std::filesystem::path empty;
+            if (std::filesystem::exists(pers / gwini)) {
+                path = pers / gwini;
+            } else if (std::filesystem::exists(pers)) {
+                path = writeDefaultIni(pers, empty, gwini);
+            }
+            if (path.empty()) {
+                std::filesystem::path tmp("/tmp");
+                path = writeDefaultIni(tmp, empty, gwini);
+            }
+            if (path.empty()) {
+                std::cerr << "Error: .gw.ini could not be created in WASM sandbox\n";
+                theme = Themes::DarkTheme();
+                return false;
+            }
+        }
+#else
 #if defined(_WIN32) || defined(_WIN64)
         const char *homedrive_c = std::getenv("HOMEDRIVE");
         const char *homepath_c = std::getenv("HOMEPATH");
@@ -931,9 +974,7 @@ namespace Themes {
         struct passwd *pw = getpwuid(getuid());
         std::string home(pw->pw_dir);
 #endif
-        std::filesystem::path path;
         std::filesystem::path homedir(home);
-        std::filesystem::path gwini(".gw.ini");
 //        std::filesystem::path gw_session(".gw_session.ini");
         if (std::filesystem::exists(homedir / gwini)) {
             path = homedir / gwini;
@@ -950,12 +991,12 @@ namespace Themes {
                     if (path.empty()) {
                         std::cerr << "Error: .gw.ini file could not be read or created. Unexpected behavior may arise\n";
                         theme = Themes::DarkTheme();
-
                         return false;
                     }
                 }
             }
         }
+#endif
         ini_path = path.string();
         mINI::INIFile file(ini_path);
         file.read(myIni);
@@ -966,6 +1007,17 @@ namespace Themes {
     void IniOptions::saveIniChanges() {
         mINI::INIFile file(ini_path);
         file.write(myIni, true);
+#ifdef __EMSCRIPTEN__
+        // Flush the updated .gw.ini from MemFS back to IndexedDB so it
+        // survives page reloads.
+        EM_ASM(
+            if (typeof IDBFS !== 'undefined') {
+                FS.syncfs(false, function(err) {
+                    if (err) console.warn('[GW] IDBFS save error:', err);
+                });
+            }
+        );
+#endif
     }
 
     void IniOptions::saveCurrentSession(std::string& genome_path, std::string& ideogram_path, std::vector<std::string>& bam_paths,
@@ -1074,6 +1126,7 @@ namespace Themes {
         sub["tabix_track_height"] = std::to_string(tab_track_height);
         sub["font"] = font_str;
         sub["font_size"] = std::to_string(font_size);
+        sub["track_label_parser_rules"] = track_label_parser_rules;
         sub["mods_qual_threshold"] = std::to_string(mods_qual_threshold);
 
         mINI::INIMap<std::string>& vt = seshIni["view_thresholds"];
@@ -1189,6 +1242,11 @@ namespace Themes {
         if (!fontMgr) {
             std::cerr << "Error: failed to create DirectWrite font manager on Windows\n";
         }
+#elif defined(__EMSCRIPTEN__)
+        // No platform font service in WASM. SkFontMgr_New_Custom_Empty() gives
+        // a FreeType-backed manager that starts empty but supports makeFromData(),
+        // which is how setTypeface() loads the embedded Aileron font bytes.
+        fontMgr = SkFontMgr_New_Custom_Empty();
 #else
         // Use FontConfig for all other platforms
         FcInit();
@@ -1218,6 +1276,30 @@ namespace Themes {
 
     void Fonts::setTypeface(std::string &fontStr, int size) {
 
+#ifdef __EMSCRIPTEN__
+        // CanvasKit's libskia.a includes FreeType and skia_enable_fontmgr_custom_empty=true,
+        // so SkFontMgr_New_Custom_Empty() is available and makeFromData() works.
+        // The earlier "no-op" here was a workaround for a stack-overflow crash on the
+        // old 64KB WASM stack; with -sTOTAL_STACK=4MB that crash is gone.
+        {
+            sk_sp<SkFontMgr> fontMgr = SkFontMgr_New_Custom_Empty();
+            sk_sp<SkTypeface> face;
+            if (fontMgr) {
+                sk_sp<SkData> fontData = SkData::MakeWithoutCopy(
+                    GwFonts::Aileron_Regular_otf, GwFonts::Aileron_Regular_otf_len);
+                face = fontMgr->makeFromData(fontData);
+            }
+            if (face) {
+                overlay = SkFont(face);
+            } else {
+                std::cerr << "WASM: font loading failed, falling back to default typeface\n";
+                overlay = SkFont();
+            }
+            overlay.setSize(SkScalar(size));
+            fontTypefaceSize = size;
+            return;
+        }
+#endif
         bool system_default = (fontStr == "Default");
         sk_sp<SkFontMgr> fontMgr = createFontManager(system_default);
         sk_sp<SkTypeface> face;
@@ -1323,6 +1405,35 @@ namespace Themes {
 
     #define next_t std::getline(iss, token, '\t')
 
+    void applyImGuiTheme(const std::string &theme_str) {
+        ImGuiStyle& style = ImGui::GetStyle();
+        if (theme_str == "igv") {
+            ImGui::StyleColorsLight();
+            // Tweak for GW: semi-transparent window backgrounds so Skia content shows through
+            style.Colors[ImGuiCol_WindowBg]        = ImVec4(0.96f, 0.96f, 0.96f, 0.95f);
+            style.Colors[ImGuiCol_PopupBg]         = ImVec4(0.98f, 0.98f, 0.97f, 0.98f);
+            style.Colors[ImGuiCol_FrameBg]         = ImVec4(0.92f, 0.92f, 0.92f, 1.00f);
+            style.Colors[ImGuiCol_FrameBgHovered]  = ImVec4(0.86f, 0.86f, 0.86f, 1.00f);
+            style.Colors[ImGuiCol_FrameBgActive]   = ImVec4(0.82f, 0.82f, 0.82f, 1.00f);
+            style.Colors[ImGuiCol_Button]          = ImVec4(0.88f, 0.88f, 0.88f, 1.00f);
+            style.Colors[ImGuiCol_ButtonHovered]    = ImVec4(0.78f, 0.78f, 0.78f, 1.00f);
+            style.Colors[ImGuiCol_ButtonActive]     = ImVec4(0.70f, 0.70f, 0.70f, 1.00f);
+            style.Colors[ImGuiCol_Text]            = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
+            style.Colors[ImGuiCol_CheckMark]       = ImVec4(0.20f, 0.45f, 0.80f, 1.00f);
+            style.Colors[ImGuiCol_Header]          = ImVec4(0.85f, 0.85f, 0.85f, 1.00f);
+            style.Colors[ImGuiCol_HeaderHovered]   = ImVec4(0.78f, 0.78f, 0.78f, 1.00f);
+            style.Colors[ImGuiCol_HeaderActive]    = ImVec4(0.70f, 0.70f, 0.70f, 1.00f);
+            style.Colors[ImGuiCol_Separator]       = ImVec4(0.70f, 0.70f, 0.70f, 1.00f);
+        } else {
+            ImGui::StyleColorsDark();
+            style.Colors[ImGuiCol_WindowBg]        = ImVec4(0.10f, 0.10f, 0.13f, 0.95f);
+            style.Colors[ImGuiCol_PopupBg]         = ImVec4(0.12f, 0.12f, 0.16f, 0.98f);
+        }
+        style.AntiAliasedLines    = true;
+        style.AntiAliasedFill     = true;
+        style.AntiAliasedLinesUseTex = true;
+    }
+
     void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
                           Themes::BaseTheme &theme) {
         std::shared_ptr<std::istream> fpu;
@@ -1340,12 +1451,14 @@ namespace Themes {
             fpu = file_stream;
         }
 #else
-        fpu = std::make_shared<std::ifstream>();
-            fpu->open(p);
-            if (!fpu->is_open()) {
+        {
+            auto fs = std::make_shared<std::ifstream>(file_path);
+            if (!fs->is_open()) {
                 std::cerr << "Error: opening track file " << file_path << std::endl;
                 throw std::exception();
             }
+            fpu = fs;
+        }
 #endif
 
         std::unordered_map<std::string, Ideo::Band> custom;

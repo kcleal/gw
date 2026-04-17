@@ -7,7 +7,15 @@
 #include <string>
 #include <cstdio>
 #include <vector>
+#ifndef __EMSCRIPTEN__
 #include <glad.h>
+#endif
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include <emscripten/html5.h>
+#include <GLES3/gl3.h>
+#endif
 
 #include "htslib/faidx.h"
 #include "htslib/hts.h"
@@ -23,7 +31,9 @@
 #include "include/docs/SkPDFDocument.h"
 #include "include/core/SkPictureRecorder.h"
 #include "include/core/SkPicture.h"
+#ifndef __EMSCRIPTEN__
 #include "include/svg/SkSVGCanvas.h"
+#endif
 #if !defined(OLD_SKIA) || OLD_SKIA == 0
     #include "include/gpu/ganesh/gl/GrGLAssembleInterface.h"
 #else
@@ -32,6 +42,10 @@
 
 #include "ankerl_unordered_dense.h"
 #include "drawing.h"
+#include "utils.h"
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 #include "plot_manager.h"
 #include "menu.h"
 #include "segments.h"
@@ -89,11 +103,29 @@ namespace Manager {
         fonts = Themes::Fonts();
         fonts.setTypeface(opt.font_str, opt.font_size);
         if (!reference.empty()) {
+#ifdef __EMSCRIPTEN__
+            // For http/https URLs, mount as a virtual FS node before fai_load.
+            std::string resolved = resolve_genome_path(reference);
+            if (resolved.empty()) {
+                std::cerr << "Warning: could not mount remote genome, starting without reference" << std::endl;
+            } else {
+                if (resolved != reference) {
+                    std::cerr << "Remote genome mounted at " << resolved << std::endl;
+                    reference = resolved;
+                }
+                fai = fai_load(reference.c_str());
+                if (fai == nullptr) {
+                    std::cerr << "Warning: fai_load failed for " << reference
+                              << " — starting without reference genome" << std::endl;
+                }
+            }
+#else
             fai = fai_load(reference.c_str());
             if (fai == nullptr) {
                 std::cerr << "Error: reference genome could not be opened " << reference << std::endl;
                 std::exit(-1);
             }
+#endif
         }
         for (auto &fn: bampaths) {
             htsFile *f = sam_open(fn.c_str(), "r");
@@ -117,6 +149,7 @@ namespace Manager {
                 } else {
                     tracks.emplace_back() = HGW::GwTrack();
                     tracks.back().genome_tag = opts.genome_tag;
+                    tracks.back().track_label_parser_rules = opts.track_label_parser_rules;
                     tracks.back().open(trk_item, true);
                     tracks.back().variant_distance = &opts.variant_distance;
                     tracks.back().setPaint((tracks.back().kind == HGW::FType::BIGWIG) ? opts.theme.fcBigWig : opts.theme.fcTrack);
@@ -131,6 +164,7 @@ namespace Manager {
         }
         for (const auto &tp: track_paths) {
             tracks.emplace_back() = HGW::GwTrack();
+            tracks.back().track_label_parser_rules = opts.track_label_parser_rules;
             tracks.back().open(tp, true);
             tracks.back().variant_distance = &opts.variant_distance;
             tracks.back().setPaint((tracks.back().kind == HGW::FType::BIGWIG) ? opts.theme.fcBigWig : opts.theme.fcTrack);
@@ -138,7 +172,7 @@ namespace Manager {
         samMaxY = 0;
         yScaling = 0;
         covY = totalCovY = totalTabixY = 0;
-        captureText = shiftPress = ctrlPress = processText = tabBorderPress = false;
+        captureText = shiftPress = ctrlPress = processText = tabBorderPress = mouseDragged = false;
         xDrag = xOri = yDrag = yOri = -1000000;
         lastX = lastY = -1;
         commandIndex = 0;
@@ -170,6 +204,13 @@ namespace Manager {
     }
 
     void ErrorCallback(int, const char *err_str) {
+#ifdef __EMSCRIPTEN__
+        // Filter out harmless per-frame WASM warnings that spam the console.
+        if (err_str && (strstr(err_str, "glfwSwapBuffers") ||
+                        strstr(err_str, "glfwSetDropCallback"))) {
+            return;
+        }
+#endif
         std::cerr << "GLFW Error: " << err_str << std::endl;
     }
 
@@ -223,6 +264,7 @@ namespace Manager {
         bool use_gl = (val != nullptr && *val != '0');
         val = getenv("GW_DEBUG");
         bool debug = (val != nullptr && *val != '0');
+        this->debug_gw = debug;
         if (debug) {
             std::cerr << "GW_USE_GL=" << use_gl << std::endl;
             const char *env_vars[] = {"DISPLAY",
@@ -250,7 +292,13 @@ namespace Manager {
         }
         bool opengl_es_loader;
 
+#ifdef __EMSCRIPTEN__
+        // pongasoft emscripten-glfw uses GLFW_SCALE_FRAMEBUFFER (GLFW 3.4 name)
+        // to create a HiDPI framebuffer sized to devicePixelRatio * CSS size.
+        glfwWindowHint(GLFW_SCALE_FRAMEBUFFER, GLFW_TRUE);
+#else
         glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
+#endif
         glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
         glfwWindowHint(GLFW_RED_BITS, 8);
         glfwWindowHint(GLFW_GREEN_BITS, 8);
@@ -265,21 +313,60 @@ namespace Manager {
         // Default window setup
 
 #ifndef __APPLE__  // linux, windows, termux
-#ifdef USE_GL
-        // Use OpenGL 4.1 context
+    // Detect at runtime whether we should use EGL or GLX
+    // EGL fails over X11 forwarding - need to use GLX in that case
+    bool forceGL = use_gl;  // existing GW_USE_GL env var
+    
+    if (!forceGL) {
+        // Detect X11 forwarding: DISPLAY set but not Wayland
+        const char* display    = getenv("DISPLAY");
+        const char* wayland    = getenv("WAYLAND_DISPLAY");
+        const char* xdgSession = getenv("XDG_SESSION_TYPE");
+        
+        bool hasWayland = (wayland != nullptr && strlen(wayland) > 0);
+        bool hasX11     = (display != nullptr && strlen(display) > 0);
+        bool sessionIsX11 = (xdgSession && strcmp(xdgSession, "x11") == 0);
+        
+        // X11 forwarding: DISPLAY looks like "localhost:10.0" or "hostname:10.0"
+        // Local X11: DISPLAY looks like ":0" or ":1"
+        bool isRemoteX11 = false;
+        if (hasX11 && !hasWayland) {
+            // If DISPLAY contains a hostname before the colon, it's remote
+            isRemoteX11 = (display[0] != ':');
+        }
+        
+        // Force GLX if: explicitly X11 session, remote X11, 
+        // or no Wayland (pure X11 local)
+        if (isRemoteX11 || sessionIsX11 || (hasX11 && !hasWayland)) {
+            forceGL = true;
+            if (debug) {
+                std::cerr << "X11 detected (DISPLAY=" << display 
+                          << "), switching from EGL to GLX\n";
+            }
+        }
+    }
+
+    #ifdef USE_GL
+    forceGL = true;  // compile-time flag still works as override
+    #endif
+
+    if (forceGL) {
+        // Use desktop OpenGL via GLX - works over X11 forwarding
         glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
-        major_v = (major_v == -1) ? 4 : major_v;
-        minor_v = (minor_v == -1) ? 1 : minor_v;
+        glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_NATIVE_CONTEXT_API);  // forces GLX on Linux
+        major_v = (major_v == -1) ? 3 : major_v;
+        minor_v = (minor_v == -1) ? 3 : minor_v;
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major_v);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor_v);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
         opengl_es_loader = false;
         if (debug) {
-            std::cerr << "Using OpenGL " << major_v << "." << minor_v << " core profile (forward compatible)\n";
+            std::cerr << "Using desktop OpenGL " << major_v << "." 
+                      << minor_v << " via GLX\n";
         }
-#else
-        // OpenGL ES 2.0
+    } else {
+        // Native display (Wayland or direct): use EGL + OpenGL ES as before
         glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
         glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
         major_v = (major_v == -1) ? 2 : major_v;
@@ -288,9 +375,37 @@ namespace Manager {
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor_v);
         opengl_es_loader = true;
         if (debug) {
-            std::cerr << "Using OpenGL ES " << major_v << "." << minor_v << " with EGL\n";
+            std::cerr << "Using OpenGL ES " << major_v << "." 
+                      << minor_v << " via EGL\n";
         }
-#endif
+    }
+
+    // #ifdef USE_GL
+    //     // Use OpenGL 4.1 context
+    //     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+    //     major_v = (major_v == -1) ? 4 : major_v;
+    //     minor_v = (minor_v == -1) ? 1 : minor_v;
+    //     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major_v);
+    //     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor_v);
+    //     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    //     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    //     opengl_es_loader = false;
+    //     if (debug) {
+    //         std::cerr << "Using OpenGL " << major_v << "." << minor_v << " core profile (forward compatible)\n";
+    //     }
+    // #else
+    //     // OpenGL ES 2.0
+    //     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+    //     glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
+    //     major_v = (major_v == -1) ? 2 : major_v;
+    //     minor_v = (minor_v == -1) ? 0 : minor_v;
+    //     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major_v);
+    //     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor_v);
+    //     opengl_es_loader = true;
+    //     if (debug) {
+    //         std::cerr << "Using OpenGL ES " << major_v << "." << minor_v << " with EGL\n";
+    //     }
+    // #endif
 #else
         // Native macOS use OpenGL 4.1
         major_v = (major_v == -1) ? 4 : major_v;
@@ -306,6 +421,22 @@ namespace Manager {
 #endif
 
 
+#ifdef __EMSCRIPTEN__
+        // JS syncCanvasSize() sets canvas.width/height to the container dimensions
+        // (full window minus toolbar) before callMain() runs — read those values so
+        // glfwCreateWindow uses the correct initial size.
+        {
+            int vp_w = EM_ASM_INT({ return document.getElementById('canvas').width  || window.innerWidth;  });
+            int vp_h = EM_ASM_INT({ return document.getElementById('canvas').height || window.innerHeight; });
+            if (vp_w > 0 && vp_h > 0) {
+                width  = vp_w;
+                height = vp_h;
+                // Keep opts.dimensions in sync so makeRasterSurface() uses the right size.
+                opts.dimensions.x = vp_w;
+                opts.dimensions.y = vp_h;
+            }
+        }
+#endif
         if (debug) {
             std::cerr << "Creating window with size " << width << "x" << height << std::endl;
         }
@@ -326,10 +457,44 @@ namespace Manager {
         // https://stackoverflow.com/questions/7676971/pointing-to-a-function-that-is-a-class-member-glfw-setkeycallback/28660673#28660673
         glfwSetWindowUserPointer(window, this);
 
+        // Note: ImGui_ImplGlfw_InitForOpenGL (called after init()) installs its own callbacks on
+        // top of these, chaining back here. By the time these lambdas run, ImGui has already
+        // processed the event and WantCapture* flags are up-to-date.
         auto func_key = [](GLFWwindow *w, int k, int s, int a, int m) {
+            if (ImGui::GetIO().WantCaptureKeyboard) return;
             static_cast<GwPlot *>(glfwGetWindowUserPointer(w))->keyPress(k, s, a, m);
         };
         glfwSetKeyCallback(window, func_key);
+
+        // Character input callback: handles printable Unicode text in captureText mode.
+        // glfwGetKeyName() returns "DOM_PK_*" strings in the pongasoft emscripten-glfw
+        // port, so all text insertion is done here via the char callback instead.
+        auto func_char = [](GLFWwindow *w, unsigned int codepoint) {
+            if (ImGui::GetIO().WantCaptureKeyboard) return;
+            auto *p = static_cast<GwPlot *>(glfwGetWindowUserPointer(w));
+            if (!p->captureText) return;
+            if (p->skipNextChar) { p->skipNextChar = false; return; }
+            // Encode the Unicode codepoint as UTF-8.
+            char utf8[5] = {};
+            if (codepoint < 0x80u) {
+                utf8[0] = (char)codepoint;
+            } else if (codepoint < 0x800u) {
+                utf8[0] = (char)(0xC0u | (codepoint >> 6));
+                utf8[1] = (char)(0x80u | (codepoint & 0x3Fu));
+            } else if (codepoint < 0x10000u) {
+                utf8[0] = (char)(0xE0u | (codepoint >> 12));
+                utf8[1] = (char)(0x80u | ((codepoint >> 6) & 0x3Fu));
+                utf8[2] = (char)(0x80u | (codepoint & 0x3Fu));
+            } else {
+                utf8[0] = (char)(0xF0u | (codepoint >> 18));
+                utf8[1] = (char)(0x80u | ((codepoint >> 12) & 0x3Fu));
+                utf8[2] = (char)(0x80u | ((codepoint >> 6) & 0x3Fu));
+                utf8[3] = (char)(0x80u | (codepoint & 0x3Fu));
+            }
+            Term::editInputText(p->inputText, utf8, p->charIndex);
+            p->redraw = true;
+        };
+        glfwSetCharCallback(window, func_char);
 
         auto func_drop = [](GLFWwindow *w, int c, const char **paths) {
             static_cast<GwPlot *>(glfwGetWindowUserPointer(w))->pathDrop(c, paths);
@@ -337,16 +502,19 @@ namespace Manager {
         glfwSetDropCallback(window, func_drop);
 
         auto func_mouse = [](GLFWwindow *w, int b, int a, int m) {
+            if (ImGui::GetIO().WantCaptureMouse) return;
             static_cast<GwPlot *>(glfwGetWindowUserPointer(w))->mouseButton(b, a, m);
         };
         glfwSetMouseButtonCallback(window, func_mouse);
 
         auto func_pos = [](GLFWwindow *w, double x, double y) {
+            if (ImGui::GetIO().WantCaptureMouse) return;
             static_cast<GwPlot *>(glfwGetWindowUserPointer(w))->mousePos(x, y);
         };
         glfwSetCursorPosCallback(window, func_pos);
 
         auto func_scroll = [](GLFWwindow *w, double x, double y) {
+            if (ImGui::GetIO().WantCaptureMouse) return;
             static_cast<GwPlot *>(glfwGetWindowUserPointer(w))->scrollGesture(x, y);
         };
         glfwSetScrollCallback(window, func_scroll);
@@ -362,7 +530,7 @@ namespace Manager {
             std::exit(-1);
         }
         glfwMakeContextCurrent(window);
-#ifndef BUILDING_LIBGW
+#if !defined(BUILDING_LIBGW) && !defined(__EMSCRIPTEN__)
         // Use glad loader
         if (opengl_es_loader) {
             if (!gladLoadGLES2Loader((GLADloadproc) glfwGetProcAddress)) {
@@ -444,12 +612,15 @@ namespace Manager {
     void GwPlot::fetchRefSeq(Utils::Region & rgn) {
         // This will be called for every new region visited
         assert (rgn.start >= 0);
+        if (rgn.end <= rgn.start) {
+            rgn.end = rgn.start + 1;
+        }
         rgn.regionLen = rgn.end - rgn.start;
         if (rgn.chromLen == 0) {
             rgn.chromLen = faidx_seq_len(fai, rgn.chrom.c_str());
         }
         if (rgn.regionLen < opts.snp_threshold || rgn.regionLen < 20000) {
-            rgn.refSeq = faidx_fetch_seq(fai, rgn.chrom.c_str(), rgn.start, rgn.end - 1, &rgn.regionLen - 1);
+            rgn.refSeq = faidx_fetch_seq(fai, rgn.chrom.c_str(), rgn.start, rgn.end - 1, &rgn.regionLen);
             if (rgn.end <= rgn.chromLen) {
                 rgn.refSeqLen = rgn.end - rgn.start;
             } else {
@@ -683,12 +854,26 @@ namespace Manager {
             }
         }
         if (!reference.empty()) {
+#ifdef __EMSCRIPTEN__
+            std::string resolved = resolve_genome_path(reference);
+            if (!resolved.empty()) {
+                if (resolved != reference) reference = resolved;
+                fai = fai_load(reference.c_str());
+                if (fai == nullptr)
+                    std::cerr << "Warning: fai_load failed for " << reference << std::endl;
+                else
+                    std::cout << "Genome:  " << reference << std::endl;
+            } else {
+                std::cerr << "Warning: could not mount remote genome, continuing without reference" << std::endl;
+            }
+#else
             fai = fai_load(reference.c_str());
             if (fai == nullptr) {
                 std::cerr << "Error: reference genome could not be opened " << reference << std::endl;
                 std::exit(-1);
             }
             std::cout << "Genome:  " << reference << std::endl;
+#endif
         }
 
         if (opts.seshIni.has("labelling") && opts.seshIni["labelling"].has("labels")) {
@@ -718,6 +903,7 @@ namespace Manager {
                 bam_paths.push_back(item.second);
             } else if (Utils::startsWith(item.first, "track")) {
                 tracks.emplace_back(HGW::GwTrack());
+                tracks.back().track_label_parser_rules = opts.track_label_parser_rules;
                 tracks.back().open(item.second, true);
                 tracks.back().setPaint((tracks.back().kind == HGW::FType::BIGWIG) ? opts.theme.fcBigWig : opts.theme.fcTrack);
                 tracks.back().variant_distance = &opts.variant_distance;
@@ -810,6 +996,7 @@ namespace Manager {
 #if !defined(__EMSCRIPTEN__)
         Term::startVersionCheck();
 #endif
+        showUIOverlay = true;
         fonts.setOverlayHeight(monitorScale);
         vCursor = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
 	    normalCursor = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
@@ -839,13 +1026,29 @@ namespace Manager {
             }
         }
         bool wasResized = false;
+        bool pending_settings_close = false;
         redraw = true;
         processed = false;
         glfwSwapInterval(1);
         std::chrono::high_resolution_clock::time_point autoSaveTimer = std::chrono::high_resolution_clock::now();
+
+#ifdef __EMSCRIPTEN__
+        return startUIwasm(sContext, sSurface, wind, delay, autoSaveTimer);
+#endif
+
         while (true) {
             if (glfwWindowShouldClose(wind) || triggerClose) {
                 break;
+            }
+
+            // Deferred settings-close: applied at the top of the frame so the GW render
+            // below sees the restored mode and redraws the scene in the same pass.
+            if (pending_settings_close) {
+                pending_settings_close = false;
+                mode = last_mode;
+                opts.editing_underway = false;
+                processed = false;
+                redraw = true;
             }
 
             if (delay > 0) {
@@ -864,15 +1067,39 @@ namespace Manager {
                 resizeTriggered = false;
 
                 sContext->abandonContext();
-                sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
+                // sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
 
-                if (!interface) {
-                    interface = GrGLMakeAssembledInterface(
+                // if (!interface) {
+                //     interface = GrGLMakeAssembledInterface(
+                //             nullptr,
+                //             [](void*, const char* name) -> GrGLFuncPtr {
+                //                 return (GrGLFuncPtr)glfwGetProcAddress(name);
+                //             }
+                //     );
+                // }
+                
+                // Detect ES vs desktop
+                const char* glVersionStr = (const char*)glGetString(GL_VERSION);
+                bool usingGLES = (glVersionStr && strstr(glVersionStr, "OpenGL ES") != nullptr);
+
+                sk_sp<const GrGLInterface> interface;
+                if (usingGLES) {
+                    interface = GrGLMakeAssembledGLESInterface(
+                        nullptr,
+                        [](void*, const char* name) -> GrGLFuncPtr {
+                            return (GrGLFuncPtr)glfwGetProcAddress(name);
+                        }
+                    );
+                } else {
+                    interface = GrGLMakeNativeInterface();
+                    if (!interface) {
+                        interface = GrGLMakeAssembledInterface(
                             nullptr,
                             [](void*, const char* name) -> GrGLFuncPtr {
                                 return (GrGLFuncPtr)glfwGetProcAddress(name);
                             }
-                    );
+                        );
+                    }
                 }
                 if (!interface) {
                     std::cerr << "Error: could not create OpenGL interface\n";
@@ -976,8 +1203,19 @@ namespace Manager {
                 drawOverlay(sSurface->getCanvas());
             }
             sContext->flush();
-            glfwSwapBuffers(window);
             redraw = false;
+            overlayImGui(pending_settings_close);
+            glfwSwapBuffers(window);
+            if (redraw) {
+                glfwPostEmptyEvent();
+            }
+            // Keep the render loop awake while ImGui is capturing mouse or keyboard
+            // input (hovering over a popup, clicking a button, etc.) so that hover
+            // highlights and clipboard actions take effect without waiting for the
+            // next OS event (e.g. mouse move).
+            if (ImGui::GetIO().WantCaptureMouse || ImGui::GetIO().WantCaptureKeyboard) {
+                glfwPostEmptyEvent();
+            }
 
             if (frameId == 1) {  // This is a fix for wayland, not sure why its needed
                 glfwPostEmptyEvent();
@@ -1005,6 +1243,129 @@ namespace Manager {
 
         return 1;
     }
+
+#ifdef __EMSCRIPTEN__
+    int GwPlot::startUIwasm(GrDirectContext* sContext, SkSurface* sSurface, GLFWwindow* wind,
+                            int delay,
+                            std::chrono::high_resolution_clock::time_point autoSaveTimer) {
+        // Local struct keeps all per-frame state alive beyond the stack frame.
+        // Being inside a GwPlot member function, the non-capturing lambda below
+        // inherits full private-member access per C++ [expr.prim.lambda].
+        struct WasmState {
+            GwPlot*          plot{nullptr};
+            GrDirectContext* sCtx{nullptr};
+            SkSurface*       sSurf{nullptr};
+            GLFWwindow*      wind{nullptr};
+            bool             pending_settings_close{false};
+            bool             wasResized{false};
+            int              delay{0};
+            std::chrono::high_resolution_clock::time_point autoSaveTimer;
+        };
+        static WasmState s_ws;
+        s_ws = WasmState{this, sContext, sSurface, wind, false, false, delay, autoSaveTimer};
+
+        // Non-capturing lambda → implicitly convertible to a plain C function pointer.
+        static auto wasm_cb = [](void* arg) noexcept {
+            WasmState& s  = *static_cast<WasmState*>(arg);
+            GwPlot*    p  = s.plot;
+            GrDirectContext*& sCtx  = s.sCtx;
+            SkSurface*&       sSurf = s.sSurf;
+
+            // Non-blocking — glfwWaitEvents() would stall the browser event loop.
+            glfwPollEvents();
+
+            if (glfwWindowShouldClose(s.wind) || p->triggerClose) {
+                emscripten_cancel_main_loop();
+                return;
+            }
+
+            if (s.pending_settings_close) {
+                s.pending_settings_close = false;
+                p->mode = p->last_mode;
+                p->opts.editing_underway = false;
+                p->processed = false;
+                p->redraw = true;
+            }
+
+            // Resize: update layout geometry and rebuild the Skia render surface.
+            // The WebGL backbuffer auto-resizes with canvas.width/canvas.height,
+            // but the Skia GrBackendRenderTarget must be explicitly re-created.
+            if (p->resizeTriggered && std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::high_resolution_clock::now() - p->resizeTimer) > 100ms) {
+                p->redraw    = true;
+                p->processed = false;
+                s.wasResized = true;
+                p->setGlfwFrameBufferSize();  // reads new fb_width/fb_height from canvas
+
+                // Resize GL viewport to match new canvas dimensions.
+                glViewport(0, 0, p->fb_width, p->fb_height);
+
+                // Recreate the Skia GPU surface at the new dimensions.
+                {
+                    GrGLFramebufferInfo fbInfo;
+                    fbInfo.fFBOID  = 0;
+                    fbInfo.fFormat = GL_RGBA8;
+                    auto newTarget = GrBackendRenderTargets::MakeGL(
+                            p->fb_width, p->fb_height, 0, 0, fbInfo);
+                    SkSurfaceProps props(0, kUnknown_SkPixelGeometry);
+                    SkSurface* newSurf = SkSurfaces::WrapBackendRenderTarget(
+                            sCtx, newTarget, kBottomLeft_GrSurfaceOrigin,
+                            kRGBA_8888_SkColorType, nullptr, &props).release();
+                    if (newSurf) {
+                        if (sSurf) sSurf->unref();
+                        sSurf = newSurf;
+                    }
+                }
+
+                // Recreate the CPU raster surface for off-screen drawing.
+                auto newInfo = SkImageInfo::MakeN32Premul(p->fb_width, p->fb_height);
+                p->rasterSurface    = SkSurfaces::Raster(newInfo);
+                p->rasterCanvas     = p->rasterSurface->getCanvas();
+                p->rasterSurfacePtr = &p->rasterSurface;
+
+                p->setScaling();
+                p->bboxes = Utils::imageBoundingBoxes(p->opts.number,
+                                                      (float)p->fb_width,
+                                                      (float)p->fb_height);
+                p->resizeTriggered = false;
+                p->resizeTimer     = std::chrono::high_resolution_clock::now();
+                if (!p->tracks.empty()) { p->tracks.front().px_height = 0; }
+                p->imageCache.clear();
+                p->imageCacheQueue.clear();
+            }
+
+            if (std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::high_resolution_clock::now() - s.autoSaveTimer) > 1min) {
+                p->saveLabels();
+                s.autoSaveTimer = std::chrono::high_resolution_clock::now();
+            }
+
+            if (p->redraw) {
+                if (p->mode == Show::SINGLE) {
+                    p->drawScreen();
+                } else if (p->mode == Show::TILED) {
+                    p->drawTiles();
+                    p->printIndexInfo();
+                }
+            }
+            if (!p->resizeTriggered) {
+                p->drawOverlay(sSurf->getCanvas());
+            }
+            sCtx->flush();
+            p->redraw = false;
+            p->overlayImGui(s.pending_settings_close);
+            glfwSwapBuffers(s.wind);
+
+            while (p->imageCacheQueue.size() > 100) { p->imageCacheQueue.pop_front(); }
+            if (p->imageCache.size() > 1000)         { p->imageCache.clear(); }
+        };
+
+        // 0 fps → driven by requestAnimationFrame.
+        // simulate_infinite_loop=1 → Emscripten never returns from startUIwasm.
+        emscripten_set_main_loop_arg(wasm_cb, &s_ws, 0, 1);
+        return 1;  // unreachable; silences -Wreturn-type
+    }
+#endif  // __EMSCRIPTEN__
 
     void GwPlot::clearCollections() {
 //        regions.clear();
@@ -1131,7 +1492,9 @@ namespace Manager {
         } else {
             refSpace = gap + fonts.overlayHeight + gap;
         }
-        sliderSpace = gap * 4; // gap + (fonts.overlayHeight * 2) + gap;
+        topMenuSpace = showUIOverlay ? (gap + fonts.overlayHeight + gap * 0.5f) : 0;
+        refSpace += topMenuSpace;
+        sliderSpace = gap * 4;
 
         // Calculate available space
         float availableHeight = fb_height - refSpace - sliderSpace;
@@ -1158,10 +1521,36 @@ namespace Manager {
             }
         }
         availableHeight -= totalTabixY;
-        if (nbams == 0 || opts.max_coverage == 0) {
+        if (nbams == 0) {
             covY = 0;
             totalCovY = 0;
             trackY = 0;
+        } else if (opts.max_coverage == 0) {
+            // Coverage is off - give all available height to alignment tracks.
+            covY = 0;
+            totalCovY = 0;
+            trackY = (availableHeight - fonts.overlayHeight) / nbams;
+            if (samMaxY > 0) {
+                yScaling = trackY / (double)samMaxY;
+                if (yScaling > 1) {
+                    yScaling = std::ceil(yScaling);
+                }
+                if (opts.tlen_yscale) {
+                    pH = trackY / (float)opts.ylim;
+                    yScaling *= 0.95;
+                } else {
+                    if (yScaling > 3 * monitorScale) {
+                        pH = yScaling - (monitorScale * opts.read_y_gap);
+                    } else {
+                        pH = yScaling;
+                    }
+                }
+                if (pH > 8) {
+                    pH = (float)(int)pH;
+                } else if (opts.tlen_yscale) {
+                    pH = std::fmax(pH, 8);
+                }
+            }
         } else if (!opts.alignments) {  // Only coverage, no alignments
             totalCovY = availableHeight;
             covY = totalCovY / nbams;
@@ -1277,9 +1666,14 @@ namespace Manager {
             // Draw background image
             if (!imageCacheQueue.empty() && !collections.empty()) {
                 canvasR->drawImage(imageCacheQueue.back().second, 0, 0);
-                clip.setXYWH(0, 0, fb_width, refSpace);
+                // When coverage is off, cl.yOffset is shifted down by overlayHeight; extend
+                // the top clear to cover that gap so ghost coverage bars don't linger.
+                float topH = refSpace + (totalCovY == 0 && !bams.empty() ? fonts.overlayHeight : 0);
+                clip.setXYWH(0, 0, fb_width, topH);
                 canvasR->drawRect(clip, opts.theme.bgPaint);
-                clip.setXYWH(0, refSpace + totalCovY + (trackY * bams.size()), fb_width, fb_height);
+                // Bottom clear: start exactly where BAM content ends (same formula as topH + bam tracks).
+                float bamBottomY = topH + totalCovY + (trackY * (float)bams.size());
+                clip.setXYWH(0, bamBottomY, fb_width, fb_height);
                 canvasR->drawRect(clip, opts.theme.bgPaint);
                 canvasR->restore();
             }
@@ -1292,10 +1686,10 @@ namespace Manager {
                 canvasR->save();
                 // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
                 if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
-                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, trackY + covY);
+                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, trackY + covY - gap);
                     canvasR->clipRect(clip, false);
                 } else if (cl.skipDrawingCoverage) {
-                    clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, cl.yPixels);
+                    clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, trackY - gap);
                     canvasR->clipRect(clip, false);
                 } else if (cl.skipDrawingReads){
                     clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, covY);
@@ -1311,17 +1705,14 @@ namespace Manager {
                         if (opts.threads == 1) {
                             HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                           &regions[cl.regionIdx], (bool) opts.max_coverage,
-                                          filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pointSlop,
-                                          textDrop, pH, monitorScale, bam_paths);
+                                          filters, opts, canvasR, fonts, bam_paths, ctx);
                         } else {
                             HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                                   opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
-                                                  filters, opts, canvasR, trackY, yScaling, fonts, refSpace, pool,
-                                                  pointSlop, textDrop, pH, monitorScale, bam_paths);
+                                                  filters, opts, canvasR, fonts, pool, bam_paths, ctx);
                         }
                     } else {
-                        Drawing::drawCollection(opts, cl, canvasR, trackY, yScaling, fonts, opts.link_op, refSpace,
-                                                pointSlop, textDrop, pH, monitorScale, bam_paths);
+                        Drawing::drawCollection(opts, cl, canvasR, fonts, bam_paths, ctx);
                     }
                 }
                 canvasR->restore();
@@ -1329,12 +1720,12 @@ namespace Manager {
         }
 
         if (opts.max_coverage) {
-            Drawing::drawCoverage(opts, collections, canvasR, fonts, covY, refSpace, gap, monitorScale, bam_paths);
+            Drawing::drawCoverage(opts, collections, canvasR, fonts, bam_paths, ctx);
         }
-        Drawing::drawRef(opts, regions, fb_width, canvasR, fonts, refSpace, (float)regions.size(), gap, monitorScale, opts.scale_bar);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvasR, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY, tracks);   
+        Drawing::drawRef(opts, regions, canvasR, fonts, ctx);
+        Drawing::drawBorders(opts, canvasR, tracks, ctx);
         Drawing::drawTracks(opts, canvasR, tracks, regions, fonts, ctx);
-        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, fb_width, fb_height, monitorScale, gap, drawLocation, sliderSpace);
+        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, ctx);
 
         imageCacheQueue.emplace_back(frameId, rasterSurfacePtr[0]->makeImageSnapshot());
 
@@ -1404,6 +1795,7 @@ namespace Manager {
     void GwPlot::setDrawContext(Drawing::drawContext& ctx) {
         ctx.fb_width = fb_width;
         ctx.fb_height = fb_height;
+        ctx.covYh = covY;
         ctx.refSpace = refSpace;
         ctx.sliderSpace = sliderSpace;
         ctx.gap = gap;
@@ -1413,13 +1805,94 @@ namespace Manager {
         ctx.yScaling = yScaling;
         ctx.linkOp = opts.link_op;
         ctx.totalTabixY = totalTabixY;
-        ctx.refSpace = refSpace;
         ctx.pointSlop = pointSlop;
         ctx.textDrop = textDrop;
         ctx.pH = pH;
         ctx.nRegions = regions.size();
         ctx.nbams = bams.size();
         ctx.nTracks = tracks.size();
+        ctx.scale_bar = opts.scale_bar;
+        ctx.totalCovY = totalCovY;
+        ctx.topMenuSpace = topMenuSpace;
+        ctx.overlayHeight = fonts.overlayHeight;
+        ctx.drawLocation = drawLocation;
+    }
+
+    void GwPlot::overlayImGui(bool& pending_settings_close) {
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        ImGui::GetIO().FontGlobalScale = std::max(0.5f, opts.font_size / 14.0f);
+
+        // Scale-bar drag-to-zoom: draw shaded selection box over the data area.
+        // scaleBarDragStartX is in framebuffer coords; ImGui works in logical (display) coords.
+        // Use ImGui::GetMousePos() for the live end-point to avoid the coordinate mismatch
+        // that occurs because xPos_fb is set to un-converted window coords in mouseButton().
+        if (scaleBarDragging && opts.scale_bar && !regions.empty()) {
+            float startImGui = (float)scaleBarDragStartX / monitorScale;
+            float curImGui   = ImGui::GetMousePos().x;
+            float x0 = std::min(startImGui, curImGui);
+            float x1 = std::max(startImGui, curImGui);
+            float y0 = topMenuSpace / monitorScale;
+            float y1 = (float)(fb_height - sliderSpace) / monitorScale;
+            ImDrawList* dl = ImGui::GetForegroundDrawList();
+            dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, y1), IM_COL32(100, 150, 255, 50));
+            dl->AddRect(ImVec2(x0, y0), ImVec2(x1, y1), IM_COL32(100, 150, 255, 200), 0.0f, 0, 1.5f);
+        }
+
+        bool settings_open = (mode == Show::SETTINGS);
+        bool redraw_before = redraw;
+        std::string themeBefore = opts.theme_str;
+        Menu::drawImGuiSettings(this, &settings_open, redraw, &drawLine);
+
+        if (!settings_open && mode == Show::SETTINGS) {
+            pending_settings_close = true;
+            glfwPostEmptyEvent();
+        } else if (redraw && !redraw_before) {
+            processed = false;
+        }
+        if (opts.theme_str != themeBefore) {
+            imageCache.clear();
+            imageCacheQueue.clear();
+            for (auto &t : tracks) { t.setPaint(opts.theme.fcTrack); }
+        }
+
+        redraw_before = redraw;
+        Menu::drawImGuiCommandDialog(this, &commandDialogOpen, redraw);
+        if (redraw && !redraw_before) {
+            processed = false;
+        }
+
+        Menu::drawImGuiTopMenu(this, gap, fonts.overlayHeight, redraw);
+        redraw_before = redraw;
+        Menu::drawImGuiDataLabels(this, gap, fonts.overlayHeight, redraw);
+        if (redraw && !redraw_before) {
+            processed = false;
+        }
+        redraw_before = redraw;
+        Menu::drawImGuiOpenDialog(this, &openDialogOpen, redraw);
+        if (redraw && !redraw_before) {
+            processed = false;
+        }
+        redraw_before = redraw;
+        Menu::drawImGuiHelpDialog(this, &helpDialogOpen, redraw);
+        if (redraw && !redraw_before) {
+            processed = false;
+        }
+        redraw_before = redraw;
+        Menu::drawImGuiCloseDialog(this, &closeDialogOpen, redraw);
+        if (redraw && !redraw_before) {
+            processed = false;
+        }
+
+        Menu::drawImGuiInfoPopup(this);
+        Menu::drawImGuiCovPopup(this);
+        Menu::drawImGuiTrackPopup(this);
+        Menu::drawImGuiRefPopup(this);
+        Menu::drawImGuiLabelTableDialog(this, redraw);
+
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     }
 
     void GwPlot::drawOverlay(SkCanvas *canvas) {
@@ -1434,24 +1907,20 @@ namespace Manager {
             canvas->drawPaint(opts.theme.bgPaint);
         }
 
+        // Top menu background bar (matches command box color; drawn before ImGui renders on top)
+        if (showUIOverlay && topMenuSpace > 0) {
+            SkRect menuBar;
+            menuBar.setXYWH(0, 0, fb_width, topMenuSpace);
+            canvas->drawRect(menuBar, opts.theme.bgMenu);
+        }
+
         // slider overlay
         if (mode == Show::SINGLE && bams.size() > 0) {
             drawCursorPosOnRefSlider(canvas);
         }
 
-        // draw main settings menu
-        if (mode == Show::SETTINGS) {
-            if (!imageCacheQueue.empty()) {
-                SkPaint bg = opts.theme.bgPaint;
-                bg.setAlpha(220);
-                canvas->drawPaint(bg);
-            } else {
-                canvas->drawPaint(opts.theme.bgPaint);
-            }
-            Menu::drawMenu(canvas, opts, fonts, monitorScale, fb_width, fb_height, inputText, charIndex);
-
         // draw box when a change in region selection happens via keyboard
-        } else if (regionSelectionTriggered && regions.size() > 1) {
+        if (regionSelectionTriggered && regions.size() > 1) {
             SkRect rect{};
             float step = (float)fb_width / (float)regions.size();
             if (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - regionTimer) > 500ms) {
@@ -1473,29 +1942,6 @@ namespace Manager {
         }
 
         // icon information for vcf-file
-        if (mode == Show::TILED && variantTracks.size() > 1) {
-            float tile_box_w = std::fmin(100 * monitorScale, (fb_width - (variantTracks.size() * gap + 1)) / variantTracks.size());
-            SkPaint box{};
-            SkRect rect{};
-            box = opts.theme.ecSelected;
-            box.setStyle(SkPaint::kStroke_Style);
-            float x_val = gap;
-            float h = fb_height * 0.01;
-            float y_val;
-            for (int i=0; i < (int)variantTracks.size(); ++i) {
-                if (i == variantFileSelection) {
-                    box = opts.theme.fcDup;
-                    y_val = 0;
-                } else {
-                    box = opts.theme.fcCoverage;
-                    box.setStyle(SkPaint::kStrokeAndFill_Style);
-                    y_val = -h / 2;
-                }
-                rect.setXYWH(x_val, y_val, tile_box_w, h);
-                canvas->drawRect(rect,  box);
-                x_val += tile_box_w + gap;
-            }
-        }
 
         double xposm, yposm;
         glfwGetCursorPos(window, &xposm, &yposm);
@@ -1506,26 +1952,6 @@ namespace Manager {
             yposm *= (float) fb_height / (float) windowH;
         }
 
-        // Text overlay for vcf file info
-        bool variantFile_info = mode == TILED && variantTracks.size() > 1 && yposm < fb_height * 0.02;
-        if (variantFile_info) {
-            float tile_box_w = std::fmin(100 * monitorScale, (fb_width - (variantTracks.size() * gap + 1)) / variantTracks.size());
-            float x_val = gap;
-            float h = fonts.overlayHeight / 2;
-            SkRect rect{};
-            for (int i=0; i < (int)variantTracks.size(); ++i) {
-                if (x_val - gap <= xposm && x_val + tile_box_w >= xposm) {
-                    std::string fname = "var" + std::to_string(i) + " - " + variantTracks[i].path;
-                    rect.setXYWH(x_val, h, fname.size() * fonts.overlayWidth + gap + gap, fonts.overlayHeight*2);
-                    canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale,opts.theme.bgPaint);
-                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(fname.c_str(), fonts.overlay);
-                    canvas->drawTextBlob(blob, x_val + gap, h + (fonts.overlayHeight * 1.3), opts.theme.tcDel);
-                    rect.setXYWH(x_val, 0, tile_box_w, fb_width * 0.005);
-                    canvas->drawRect(rect,  opts.theme.fcDup);
-                }
-                x_val += tile_box_w + gap;
-            }
-        }
 
         // command popup box
         if (captureText && !opts.editing_underway) {
@@ -1627,9 +2053,9 @@ namespace Manager {
             }
         }
 
-        // cog and bubble
+        // bubble — command box shortcut (">_" prompt icon)
         float half_h = (float)fb_height / 2;
-        bool tool_popup = (xposm > 0 && xposm <= 60 && yposm >= half_h - 150 && yposm <= half_h + 150 && (xDrag == -1000000 || xDrag == 0) && (yDrag == -1000000 || yDrag == 0));
+        bool tool_popup = (xposm > 0 && xposm <= 30 * monitorScale && yposm >= half_h - 30 * monitorScale && yposm <= half_h + 30 * monitorScale && (xDrag == -1000000 || xDrag == 0) && (yDrag == -1000000 || yDrag == 0));
         if (tool_popup) {
             SkRect rect{};
             SkPaint pop_paint = opts.theme.bgPaint;
@@ -1637,34 +2063,17 @@ namespace Manager {
             pop_paint.setStyle(SkPaint::kStrokeAndFill_Style);
             pop_paint.setAntiAlias(true);
             pop_paint.setAlpha(255);
-            rect.setXYWH(-10, half_h - 35 * monitorScale, 30 * monitorScale + 10, 70 * monitorScale);
+            float bbl_size = 15 * monitorScale;
+            rect.setXYWH(-10, half_h - bbl_size, 30 * monitorScale + 10, bbl_size * 2);
             canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, pop_paint);
 
-            SkPaint cog_paint = opts.theme.lcBright;
-            cog_paint.setAntiAlias(true);
-            cog_paint.setStrokeWidth(3 * monitorScale);
-            cog_paint.setStyle(SkPaint::kStrokeAndFill_Style);
-            canvas->drawCircle(15 * monitorScale, half_h - 12.5 * monitorScale, 5 * monitorScale, cog_paint);
-
-            SkPath path;
-            path.moveTo(15 * monitorScale, half_h - (22.5 * monitorScale));
-            path.lineTo(15 * monitorScale, half_h - (2.5 * monitorScale));
-            canvas->drawPath(path, cog_paint);
-            path.moveTo(5 * monitorScale, half_h - 12.5 * monitorScale);
-            path.lineTo((25 * monitorScale), half_h - 12.5 * monitorScale);
-            canvas->drawPath(path, cog_paint);
-            path.moveTo(8 * monitorScale, half_h - (19.5 * monitorScale));
-            path.lineTo(22 * monitorScale, half_h - (5.5 * monitorScale));
-            canvas->drawPath(path, cog_paint);
-            path.moveTo(8 * monitorScale, half_h - (5.5 * monitorScale));
-            path.lineTo(22 * monitorScale, half_h - (19.5 * monitorScale));
-            canvas->drawPath(path, cog_paint);
-            canvas->drawCircle(15 * monitorScale, half_h - 12.5 * monitorScale, 2.5 * monitorScale, pop_paint);
-
-            rect.setXYWH(7.5 * monitorScale, half_h + 7.5 * monitorScale, 15 * monitorScale, 15 * monitorScale);
-            cog_paint.setStrokeWidth(monitorScale);
-            cog_paint.setStyle(SkPaint::kStroke_Style);
-            canvas->drawRoundRect(rect, 3.5 * monitorScale, 3.5 * monitorScale, cog_paint);
+            SkPaint prompt_paint = opts.theme.lcBright;
+            prompt_paint.setAntiAlias(true);
+            prompt_paint.setStrokeWidth(1.5f * monitorScale);
+            prompt_paint.setStyle(SkPaint::kStrokeAndFill_Style);
+            sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(">_", fonts.overlay);
+            float tw = fonts.overlay.measureText(">_", 2, SkTextEncoding::kUTF8);
+            canvas->drawTextBlob(blob, 15 * monitorScale - tw * 0.5f, half_h + fonts.overlayHeight * 0.35f, prompt_paint);
 
         // Line at mouse position
         } else if (drawLine && mode != SETTINGS) {
@@ -1690,7 +2099,7 @@ namespace Manager {
                 canvas->drawTextBlob(blob.get(), txt_start, (float)fb_height / 2, tcMenu);
             }
         } else if (regions.empty() && !current_view_is_images && mode != SETTINGS && frameId < 10) {
-            std::string dd_msg = "Open the command box ('/' key) and enter a chromosome name or location e.g. 'chr1'";
+            std::string dd_msg = "Open the command box '/' and enter a chromosome name or location";
             float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
             float txt_start = ((float)fb_width / 2) - (msg_width / 2);
             sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(dd_msg.c_str(), fonts.overlay);
@@ -1784,7 +2193,7 @@ namespace Manager {
 
         setGlfwFrameBufferSize();
         setScaling();
-        float y_gap = (variantTracks.size() <= 1) ? 0 : (10 * monitorScale);
+        float y_gap = 0;
         bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height - 6 * monitorScale, 6 * monitorScale, 6 * monitorScale, y_gap);
         if (currentVarTrack->image_glob.empty()) {
             tileDrawingThread();  // draws images from variant file
@@ -1859,10 +2268,10 @@ namespace Manager {
             canvas->save();
             // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
             if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
-                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, trackY + covY);
+                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, trackY + covY - gap);
                 canvas->clipRect(clip, false);
             } else if (cl.skipDrawingCoverage) {
-                clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, cl.yPixels);
+                clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, trackY - gap);
                 canvas->clipRect(clip, false);
             } else if (cl.skipDrawingReads){
                 clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, covY);
@@ -1879,29 +2288,26 @@ namespace Manager {
                     if (opts.threads == 1) {
                         HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                       &regions[cl.regionIdx], (bool) opts.max_coverage,
-                                      filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop,
-                                      textDrop, pH, monitorScale, bam_paths);
+                                      filters, opts, canvas, fonts, bam_paths, ctx);
                     } else {
                         HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                               opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
-                                              filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool,
-                                              pointSlop, textDrop, pH, monitorScale, bam_paths);
+                                              filters, opts, canvas, fonts, pool, bam_paths, ctx);
                     }
                 } else {
-                    Drawing::drawCollection(opts, cl, canvas, trackY, yScaling, fonts, opts.link_op, refSpace,
-                                            pointSlop, textDrop, pH, monitorScale, bam_paths);
+                    Drawing::drawCollection(opts, cl, canvas, fonts, bam_paths, ctx);
                 }
             }
             canvas->restore();
         }
 
         if (opts.max_coverage) {
-            Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace, gap, monitorScale, bam_paths);
+            Drawing::drawCoverage(opts, collections, canvas, fonts, bam_paths, ctx);
         }
-        Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap, monitorScale, opts.scale_bar);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY, tracks);
+        Drawing::drawRef(opts, regions, canvas, fonts, ctx);
+        Drawing::drawBorders(opts, canvas, tracks, ctx);
         Drawing::drawTracks(opts, canvas, tracks, regions, fonts, ctx);
-        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fb_width, fb_height, monitorScale, gap, drawLocation, sliderSpace);
+        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, ctx);
     }
 
     void GwPlot::runDraw(bool force_buffered_reads) {
@@ -1948,9 +2354,11 @@ namespace Manager {
         SkRect clip;
         if (!imageCacheQueue.empty() && collections.size() > 1) {
             canvas->drawImage(imageCacheQueue.back().second, 0, 0);
-            clip.setXYWH(0, 0, fb_width, refSpace);
+            float topH = refSpace + (totalCovY == 0 && !bams.empty() ? fonts.overlayHeight : 0);
+            clip.setXYWH(0, 0, fb_width, topH);
             canvas->drawRect(clip, opts.theme.bgPaint);
-            clip.setXYWH(0, refSpace + totalCovY + (trackY * bams.size()), fb_width, fb_height);
+            float bamBottomY = topH + totalCovY + (trackY * (float)bams.size());
+            clip.setXYWH(0, bamBottomY, fb_width, fb_height);
             canvas->drawRect(clip, opts.theme.bgPaint);
             canvas->restore();
 
@@ -1964,10 +2372,10 @@ namespace Manager {
 
             // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
             if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
-                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yPixels);
+                clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, cl.yPixels - gap);
                 canvas->clipRect(clip, false);
             } else if (cl.skipDrawingCoverage) {
-                clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, cl.yPixels);
+                clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, trackY - gap);
                 canvas->clipRect(clip, false);
             } else if (cl.skipDrawingReads){
                 clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, covY);
@@ -1980,26 +2388,24 @@ namespace Manager {
                 if (opts.threads == 1) {
                     HGW::iterDraw(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                   &regions[cl.regionIdx], (bool) opts.max_coverage,
-                                  filters, opts, canvas, trackY, yScaling, fonts, refSpace, pointSlop,
-                                  textDrop, pH, monitorScale, bam_paths);
+                                  filters, opts, canvas, fonts, bam_paths, ctx);
                 } else {
                     HGW::iterDrawParallel(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                           opts.threads, &regions[cl.regionIdx], (bool) opts.max_coverage,
-                                          filters, opts, canvas, trackY, yScaling, fonts, refSpace, pool,
-                                          pointSlop, textDrop, pH, monitorScale, bam_paths);
+                                          filters, opts, canvas, fonts, pool, bam_paths, ctx);
                 }
             }
             canvas->restore();
         }
 
         if (opts.max_coverage) {
-            Drawing::drawCoverage(opts, collections, canvas, fonts, covY, refSpace, gap, monitorScale, bam_paths);
+            Drawing::drawCoverage(opts, collections, canvas, fonts, bam_paths, ctx);
         }
 
-        Drawing::drawRef(opts, regions, fb_width, canvas, fonts, refSpace, (float)regions.size(), gap, monitorScale, opts.scale_bar);
-        Drawing::drawBorders(opts, fb_width, fb_height, canvas, regions.size(), bams.size(), trackY, covY, (int)tracks.size(), totalTabixY, refSpace, gap, totalCovY, tracks);  
+        Drawing::drawRef(opts, regions, canvas, fonts, ctx);
+        Drawing::drawBorders(opts, canvas, tracks, ctx);
         Drawing::drawTracks(opts, canvas, tracks, regions, fonts, ctx);
-        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, fb_width, fb_height, monitorScale, gap, drawLocation, sliderSpace);
+        Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, ctx);
 //        std::cerr << " time runDrawNoBufferOnCanvas " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
 
@@ -2064,6 +2470,7 @@ namespace Manager {
         fclose(fout);
     }
 
+#ifndef __EMSCRIPTEN__
     void GwPlot::saveToPdf(const char* path, bool force_buffered_reads) {
         SkFILEWStream out(path);
         SkDynamicMemoryWStream buffer;
@@ -2113,6 +2520,7 @@ namespace Manager {
             cl.resetDrawState();
         }
     }
+#endif  // __EMSCRIPTEN__
 
     std::pair<const uint8_t*, size_t> GwPlot::encodeToPng(int compression_level) {
         assert (resterSurface != nullptr);
@@ -2150,13 +2558,11 @@ namespace Manager {
             std::cerr << "Error: failed to read pixels from image\n";
             return {nullptr, 0};
         }
-        // Create a memory stream to write JPEG data
         SkDynamicMemoryWStream stream;
         if (!SkJpegEncoder::Encode(&stream, bitmap.pixmap(), options)) {
             std::cerr << "Error: JPEG encoding failed\n";
             return {nullptr, 0};
         }
-        // Copy encoded data to a data object that your code can manage
         sk_sp<SkData> data = stream.detachAsData();
         m_encodedJpegData = data;
         return {static_cast<const uint8_t*>(data->data()), data->size()};

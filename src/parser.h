@@ -43,7 +43,7 @@ namespace Parse {
         ABS_TLEN = 3007,
         SEQ_LEN = 3008,
         NM = 3009, CM = 3010, FI = 3011, HO = 3012, MQ = 3013, SM = 3014, TC = 3015, UQ = 3016, AS = 3017,
-        TID = 3018, MID = 3019, HP = 3020,
+        TID = 3018, MID = 3019, HP = 3020, SOFT_CLIPS = 3021,
 
         // Patterns
         PATTERN = 3500,
@@ -70,7 +70,8 @@ namespace Parse {
         LE = -6,
         CONTAINS = -7,
         OMIT = -8,
-        AND = -9
+        AND = -9,
+        AT = -10
     };
 
     class Eval {
@@ -82,6 +83,8 @@ namespace Parse {
         bool result;
         bool numeric_like{true};
         bool exists{true};  // Set to false if tag field is missing
+        bool sa_target_whole_chrom{false};
+        Utils::Region sa_target_region;
         void eval();
     };
 
@@ -113,6 +116,7 @@ namespace Parse {
 
         int set_filter(std::string &f, int nBams, int nRegions);
         bool eval(const Segs::Align &aln, const sam_hdr_t* hdr, int bamIdx, int regionIdx);
+        bool keepsReadFamily() const;
 
     private:
         int prep_evaluations(std::vector<Eval> &results, std::vector<std::string> &tokens);
@@ -139,5 +143,4 @@ namespace Parse {
 
     void tryTabCompletion(std::string &inputText, std::ostream& out, int& charIndex);
 }
-
 

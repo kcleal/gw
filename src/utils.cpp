@@ -83,6 +83,12 @@ namespace Utils {
 
 #endif
 
+#ifdef __EMSCRIPTEN__
+    std::string getExecutableDir() {
+        return "";  // No executable path in the browser sandbox
+    }
+#endif
+
 #ifdef __APPLE__
     std::string getExecutablePath() {
         char rawPathName[PATH_MAX];
@@ -600,6 +606,15 @@ namespace Utils {
             a = std::to_string(num);
         }
         return a + b;
+    }
+
+    std::string formatNum(int num) {
+        std::string s = std::to_string(num);
+        int n = (int)s.size();
+        for (int i = n - 3; i > 0; i -= 3) {
+            s.insert(i, ",");
+        }
+        return s;
     }
 
     void parseMateLocation(std::string &selectedAlign, std::string &mate, std::string &target_qname) {

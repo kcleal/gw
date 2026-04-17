@@ -1,5 +1,10 @@
 #pragma once
 
+#ifdef __EMSCRIPTEN__
+// On Emscripten (no pthreads) use a synchronous single-threaded stub instead.
+#include "BS_thread_pool_stub.h"
+#else
+
 /**
  * @file BS_thread_pool.hpp
  * @author Barak Shoshany (baraksh@gmail.com) (http://baraksh.com)
@@ -817,3 +822,5 @@ namespace BS
 // ============================================================================================= //
 
 } // namespace BS
+
+#endif  // !__EMSCRIPTEN__

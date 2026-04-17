@@ -17,13 +17,19 @@
 
 #include "termcolor.h"
 #include "GLFW/glfw3.h"
+#include "gw_fonts.h"
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 
 #define SK_GL
 #include "include/core/SkDocument.h"
 #include "include/docs/SkPDFDocument.h"
 #include "include/core/SkPictureRecorder.h"
 #include "include/core/SkPicture.h"
+#ifndef __EMSCRIPTEN__
 #include "include/svg/SkSVGCanvas.h"
+#endif
 #if !defined(OLD_SKIA) || OLD_SKIA == 0
     #include "include/gpu/ganesh/gl/GrGLAssembleInterface.h"
 #else
@@ -41,9 +47,22 @@ GrDirectContext *sContext = nullptr;
 SkSurface *sSurface = nullptr;
 std::mutex mtx;
 
+#ifdef __EMSCRIPTEN__
+// Global plot pointer so the exported resize notification can reach it.
+static Manager::GwPlot* g_wasm_plot = nullptr;
+// Called from JavaScript (via Module._gw_notify_resize(w, h)) when the
+// canvas container changes size.  Calls glfwSetWindowSize so the
+// contrib.glfw3 port resizes the canvas and fires the GLFW window-size
+// callback → windowResize → resizeTriggered, letting startUIwasm rebuild
+// the Skia surface with the correct DPR-scaled framebuffer dimensions.
+extern "C" EMSCRIPTEN_KEEPALIVE void gw_notify_resize(int w, int h) {
+    if (!g_wasm_plot || !g_wasm_plot->window) return;
+    glfwSetWindowSize(g_wasm_plot->window, w, h);
+}
+#endif
+
 
 int main(int argc, char *argv[]) {
-
     // Options needed by GW at runtime
     Themes::IniOptions iopts;
 
@@ -65,10 +84,10 @@ int main(int argc, char *argv[]) {
         } else {
             iopts.session_file = "";
         }
-        /*
-         * / Gw start
-         */
         Manager::GwPlot plotter = Manager::GwPlot(options.genome, options.bamPaths, iopts, options.regions, options.tracks);
+#ifdef __EMSCRIPTEN__
+        g_wasm_plot = &plotter;
+#endif
 
         if (options.showBanner) {
             print_gw_banner();
@@ -88,18 +107,77 @@ int main(int argc, char *argv[]) {
         plotter.init(iopts.dimensions.x, iopts.dimensions.y);
         int fb_height, fb_width;
         glfwGetFramebufferSize(plotter.window, &fb_width, &fb_height);
+#ifdef __EMSCRIPTEN__
+        // The canvas may not be sized yet at init time; fall back to the
+        // logical window dimensions requested via --dimensions / defaults.
+        if (fb_width == 0 || fb_height == 0) {
+            fb_width  = (int)iopts.dimensions.x;
+            fb_height = (int)iopts.dimensions.y;
+        }
+#endif
 
         plotter.setGlfwFrameBufferSize();
 
-        sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
-        if (!interface) {
-            interface = GrGLMakeAssembledInterface(
+        // sk_sp<const GrGLInterface> interface = GrGLMakeNativeInterface();
+        // if (!interface) {
+        //     interface = GrGLMakeAssembledInterface(
+        //             nullptr,
+        //             [](void*, const char* name) -> GrGLFuncPtr {
+        //                 return (GrGLFuncPtr)glfwGetProcAddress(name);
+        //             }
+        //     );
+        // }
+        // if (!interface) {
+        //     std::cerr << "Error: could not create OpenGL interface\n";
+        //     std::exit(-1);
+        // }
+
+        // Detect what context was actually created.
+        // In WebGL, GL_VERSION may return "WebGL 2.0" without "OpenGL ES", so
+        // always use the ES path in WASM — WebGL is inherently OpenGL ES-based.
+#ifdef __EMSCRIPTEN__
+        bool usingGLES = true;
+#else
+        const char* glVersionStr = (const char*)glGetString(GL_VERSION);
+        bool usingGLES = (glVersionStr && strstr(glVersionStr, "OpenGL ES") != nullptr);
+        if (plotter.debug_gw) {
+            std::cerr << "GL version string: " << (glVersionStr ? glVersionStr : "null") << std::endl;
+            std::cerr << "Using GLES: " << usingGLES << std::endl;
+        }
+#endif
+
+        sk_sp<const GrGLInterface> interface;
+
+        if (usingGLES) {
+            // ES path (EGL on Linux / WebGL in WASM)
+#ifdef __EMSCRIPTEN__
+            // In Emscripten, GL symbols are statically linked — glfwGetProcAddress returns
+            // NULL for them.  GrGLMakeNativeInterface() uses Skia's built-in symbol table
+            // which works correctly for WebGL2 (same approach as CanvasKit).
+            interface = GrGLMakeNativeInterface();
+#else
+            interface = GrGLMakeAssembledGLESInterface(
+                nullptr,
+                [](void*, const char* name) -> GrGLFuncPtr {
+                    return (GrGLFuncPtr)glfwGetProcAddress(name);
+                }
+            );
+#endif
+            if (plotter.debug_gw) { std::cerr << "Created GLES interface\n"; }
+        } else {
+            // Desktop GL path (GLX on Linux, native on macOS)
+            interface = GrGLMakeNativeInterface();
+            if (!interface) {
+                interface = GrGLMakeAssembledInterface(
                     nullptr,
                     [](void*, const char* name) -> GrGLFuncPtr {
                         return (GrGLFuncPtr)glfwGetProcAddress(name);
                     }
-            );
+                );
+            }
+            if (plotter.debug_gw) { std::cerr << "Created desktop GL interface\n"; }
         }
+
         if (!interface) {
             std::cerr << "Error: could not create OpenGL interface\n";
             std::exit(-1);
@@ -118,7 +196,6 @@ int main(int argc, char *argv[]) {
             std::exit(-1);
         }
 
-        //
         sContext = GrDirectContexts::MakeGL(interface).release();
         if (!sContext) {
             std::cerr << "Error: could not create skia context using MakeGL\n";
@@ -128,8 +205,8 @@ int main(int argc, char *argv[]) {
         GrGLFramebufferInfo framebufferInfo;
         framebufferInfo.fFBOID = 0;
 
-        constexpr int fbFormats[2] = {GL_RGBA8, GL_RGB8};  // GL_SRGB8_ALPHA8
-        constexpr SkColorType colorTypes[2] = {kRGBA_8888_SkColorType, kRGB_888x_SkColorType};
+        constexpr int fbFormats[3] = {GL_RGBA8, GL_RGB8, GL_RGBA4};
+        constexpr SkColorType colorTypes[3] = {kRGBA_8888_SkColorType, kRGB_888x_SkColorType, kARGB_4444_SkColorType};
         int valid = false;
         for (int i=0; i < 2; ++i) {
 
@@ -175,9 +252,11 @@ int main(int argc, char *argv[]) {
             std::exit(-1);
         }
 
+        // In WASM, init() updates plotter.opts.dimensions to the browser viewport;
+        // use plotter.opts.dimensions so the raster surface matches what was created.
         auto imageInfo = SkImageInfo::MakeN32Premul(
-                iopts.dimensions.x * plotter.monitorScale,
-                iopts.dimensions.y * plotter.monitorScale);
+                (int)(plotter.opts.dimensions.x * plotter.monitorScale),
+                (int)(plotter.opts.dimensions.y * plotter.monitorScale));
         sk_sp<SkSurface> rasterSurface = SkSurfaces::Raster(imageInfo);
 #else
         sContext = GrDirectContext::MakeGL(interface).release();
@@ -220,17 +299,41 @@ int main(int argc, char *argv[]) {
             std::cerr << "ERROR: could not create a valid frame buffer\n";
             std::exit(-1);
         }
-        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x * plotter.monitorScale,
-                                                                        iopts.dimensions.y * plotter.monitorScale);
+        sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(
+                (int)(plotter.opts.dimensions.x * plotter.monitorScale),
+                (int)(plotter.opts.dimensions.y * plotter.monitorScale));
 #endif
 
         plotter.rasterCanvas = rasterSurface->getCanvas();
         plotter.rasterSurfacePtr = &rasterSurface;
 
+        // Dear ImGui setup - must run after GL context is current and GW GLFW callbacks are installed.
+        // install_callbacks=true chains ImGui's handlers in front of the existing GW callbacks.
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGui::GetIO().IniFilename = nullptr;  // disable imgui.ini
+        Themes::applyImGuiTheme(plotter.opts.theme_str);
+        {
+            // Load the same Aileron font GW uses for Skia rendering.
+            // FontDataOwnedByAtlas=false because the data is a constexpr array.
+            ImFontConfig cfg;
+            cfg.FontDataOwnedByAtlas = false;
+            cfg.OversampleH = 3;
+            cfg.OversampleV = 3;
+            ImGui::GetIO().Fonts->AddFontFromMemoryTTF(
+                (void*)GwFonts::Aileron_Regular_otf,
+                (int)sizeof(GwFonts::Aileron_Regular_otf),
+                14.0f, &cfg);
+        }
+        // WebGL2 requires GLSL ES 3.00; desktop GL 3.2+ uses GLSL 1.50.
+#ifdef __EMSCRIPTEN__
+        const char* glsl_version = "#version 300 es";
+#else
+        const char* glsl_version = usingGLES ? "#version 100" : "#version 150";
+#endif
+        ImGui_ImplGlfw_InitForOpenGL(plotter.window, true);
+        ImGui_ImplOpenGL3_Init(glsl_version);
 
-        /*
-         * / UI starts here
-         */
         if (!program.is_used("--variants") && !program.is_used("--images")) {
             int res = plotter.startUI(sContext, sSurface,
                                       program.get<int>("--delay"),
@@ -298,6 +401,10 @@ int main(int argc, char *argv[]) {
             }
         }
 
+        ImGui_ImplOpenGL3_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext();
+
     // save plot to file. If no regions are
     // provided, but if --outdir is present then the whole genome is plotted using raster backend
     } else {
@@ -329,6 +436,7 @@ int main(int argc, char *argv[]) {
                 format_str = "." + program.get<std::string>("--fmt");
             }
 
+#ifndef __EMSCRIPTEN__
             if (format_str != ".png") {
                 if (options.regions.empty()) {
                     std::cerr << "Error: please provide a --region\n";
@@ -378,6 +486,9 @@ int main(int argc, char *argv[]) {
                 }
 
             } else {
+#else
+            if (true) {  // EMSCRIPTEN: only PNG output path is compiled
+#endif
                 // Plot a png image, either of target region or whole chromosome
                 sk_sp<SkImage> img;
                 if (!plotter.regions.empty()) {  // plot target regions

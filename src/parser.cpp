@@ -6,6 +6,7 @@
 #include <utility>
 #include <string>
 #include <regex>
+#include <climits>
 #include <htslib/sam.h>
 #include <glob_cpp.hpp>
 #include "termcolor.h"
@@ -19,11 +20,13 @@ namespace Parse {
 
     constexpr std::string_view numeric_like = "eq ne gt lt ge le = == != > < >= <=";
     constexpr std::string_view string_like = "eq ne contains = == != omit";
+    constexpr std::string_view sa_location_like = "at";
 
     Parser::Parser(std::ostream& errOutput) : out(errOutput) {
         opMap["mapq"] = MAPQ;
         opMap["flag"] = FLAG;
         opMap["~flag"] = NFLAG;
+        opMap["name"] = QNAME;
         opMap["qname"] = QNAME;
         opMap["tlen"] = TLEN;
         opMap["abs-tlen"] = ABS_TLEN;
@@ -33,6 +36,8 @@ namespace Parse {
         opMap["mid"] = MID;
         opMap["pos"] = POS;
         opMap["ref-end"] = REF_END;
+        opMap["soft-clips"] = SOFT_CLIPS;
+        opMap["soft-clip"] = SOFT_CLIPS;
         opMap["pnext"] = PNEXT;
         opMap["seq"] = SEQ;
         opMap["seq-rc"] = SEQ_RC;
@@ -46,6 +51,7 @@ namespace Parse {
         opMap["MI"] = MI;
         opMap["PU"] = PU;
         opMap["SA"] = SA;
+        opMap["sa"] = SA;
         opMap["MC"] = MC;
 
         opMap["NM"] = NM;
@@ -77,6 +83,7 @@ namespace Parse {
         opMap["contains"] = CONTAINS;
         opMap["omit"] = OMIT;
         opMap["&"] = AND;
+        opMap["at"] = AT;
 
         opMap["paired"] = PAIRED;
         opMap["proper-pair"] = PROPER_PAIR;
@@ -111,6 +118,7 @@ namespace Parse {
         permit[ABS_TLEN] = numeric_like;
         permit[POS] = numeric_like;
         permit[REF_END] = numeric_like;
+        permit[SOFT_CLIPS] = numeric_like;
         permit[PNEXT] = numeric_like;
         permit[RNAME] = string_like;
         permit[RNEXT] = string_like;
@@ -128,7 +136,7 @@ namespace Parse {
         permit[MD] = string_like;
         permit[MI] = string_like;
         permit[PU] = string_like;
-        permit[SA] = string_like;
+        permit[SA] = std::string(string_like) + " " + std::string(sa_location_like);
         permit[MC] = string_like;
         permit[BX] = string_like;
         permit[RX] = string_like;
@@ -145,6 +153,108 @@ namespace Parse {
 
         permit[PATTERN] = string_like;
 
+    }
+
+    namespace {
+        bool parseSaTarget(const std::string& token, Eval& e, std::ostream& out) {
+            e.sa_target_whole_chrom = false;
+            e.sa_target_region = Utils::Region();
+            if (token.find(':') == std::string::npos &&
+                token.find(',') == std::string::npos &&
+                token.find('-') == std::string::npos &&
+                token.find(' ') == std::string::npos &&
+                token.find('\t') == std::string::npos) {
+                e.sa_target_whole_chrom = true;
+                e.sa_target_region.chrom = token;
+                e.sa_target_region.start = 1;
+                e.sa_target_region.end = INT_MAX;
+                return true;
+            }
+            try {
+                std::string target = token;
+                e.sa_target_region = Utils::parseRegion(target);
+                if (token.find('-') == std::string::npos &&
+                    (token.find(':') != std::string::npos || token.find(',') != std::string::npos)) {
+                    e.sa_target_region.end = e.sa_target_region.start;
+                }
+                return true;
+            } catch (const std::exception&) {
+                out << "Could not parse SA target region: " << token << std::endl;
+                return false;
+            }
+        }
+
+        int cigarReferenceLength(const std::string& cigar) {
+            int ref_len = 0;
+            int current = 0;
+            for (char c : cigar) {
+                if (std::isdigit(static_cast<unsigned char>(c))) {
+                    current = current * 10 + (c - '0');
+                    continue;
+                }
+                switch (c) {
+                    case 'M':
+                    case '=':
+                    case 'X':
+                    case 'D':
+                    case 'N':
+                        ref_len += current;
+                        break;
+                    default:
+                        break;
+                }
+                current = 0;
+            }
+            return ref_len;
+        }
+
+        bool saTagAtTarget(const std::string& sa_tag, const Eval& e) {
+            if (sa_tag.empty() || sa_tag == "''") {
+                return false;
+            }
+            for (const auto& item : Utils::split(sa_tag, ';')) {
+                auto fields = Utils::split(item, ',');
+                if (fields.size() < 4) {
+                    continue;
+                }
+                if (fields[0] != e.sa_target_region.chrom) {
+                    continue;
+                }
+                if (e.sa_target_whole_chrom) {
+                    return true;
+                }
+                int sa_start = 0;
+                try {
+                    sa_start = std::stoi(fields[1]);
+                } catch (...) {
+                    continue;
+                }
+                int ref_len = cigarReferenceLength(fields[3]);
+                int sa_end = (ref_len > 0) ? (sa_start + ref_len - 1) : sa_start;
+                if (Utils::isOverlapping((uint32_t)sa_start, (uint32_t)sa_end,
+                                         (uint32_t)e.sa_target_region.start, (uint32_t)e.sa_target_region.end)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    namespace {
+        ankerl::unordered_dense::set<std::string> collectFamilyMatches(
+                const std::vector<Segs::Align>& alignments,
+                Parse::Parser& filter,
+                const sam_hdr_t* hdr,
+                int bamIdx,
+                int regionIdx) {
+            ankerl::unordered_dense::set<std::string> keep_qnames;
+            for (const auto& align : alignments) {
+                if (filter.eval(align, hdr, bamIdx, regionIdx)) {
+                    keep_qnames.emplace(bam_get_qname(align.delegate));
+                }
+            }
+            return keep_qnames;
+        }
     }
 
     int parse_indexing(std::string &s, size_t nBams, size_t nRegions, std::vector< std::vector<size_t> > &v, std::ostream& out) {
@@ -368,7 +478,14 @@ namespace Parse {
         Eval e;
         bool is_none = (output.back() == "none" || output.back() == "''" || output.back() == "\"\"");
 
-        if (lhs >= 3000 && lhs < 4000) {  // Numeric-like
+        if (lhs == SA && mid == AT) {
+            e.property = lhs;
+            e.op = mid;
+            e.numeric_like = false;
+            if (!parseSaTarget(output.back(), e, out)) {
+                return -1;
+            }
+        } else if (lhs >= 3000 && lhs < 4000) {  // Numeric-like
             e.property = lhs;
             e.op = mid;
             if (is_none) {
@@ -445,6 +562,15 @@ namespace Parse {
         }
         int res1 = split_into_or(s, evaluations_block, nBams, nRegions);
         return res1;
+    }
+
+    bool Parser::keepsReadFamily() const {
+        for (const auto& e : evaluations_block) {
+            if (e.property == SA && e.op == AT) {
+                return true;
+            }
+        }
+        return false;
     }
 
     bool seq_contains(const uint8_t *seq, uint32_t len, const std::string &fstr) {
@@ -580,6 +706,9 @@ namespace Parse {
                     case REF_END:
                         int_val = bam_endpos(aln.delegate);
                         break;
+                    case SOFT_CLIPS:
+                        int_val = std::max(aln.left_soft_clip, aln.right_soft_clip);
+                        break;
                     case PNEXT:
                         int_val = aln.delegate->core.mpos;
                         break;
@@ -685,12 +814,16 @@ namespace Parse {
                         default: break;
                     }
                 } else {  // str type
-                    switch (e.op) {
-                        case EQ: this_result = str_val == e.sval; break;
-                        case NE: this_result = str_val != e.sval; break;
-                        case CONTAINS: this_result = str_val.find(e.sval) != std::string::npos; break;
-                        case OMIT: this_result = str_val.find(e.sval) == std::string::npos; break;
-                        default: break;
+                    if (e.property == SA && e.op == AT) {
+                        this_result = saTagAtTarget(str_val, e);
+                    } else {
+                        switch (e.op) {
+                            case EQ: this_result = str_val == e.sval; break;
+                            case NE: this_result = str_val != e.sval; break;
+                            case CONTAINS: this_result = str_val.find(e.sval) != std::string::npos; break;
+                            case OMIT: this_result = str_val.find(e.sval) == std::string::npos; break;
+                            default: break;
+                        }
                     }
                 }
 
@@ -737,11 +870,24 @@ namespace Parse {
             int inv_f = 0;
             int inv_r = 0;
             int tra = 0;
+            std::vector<ankerl::unordered_dense::set<std::string>> family_keep_qnames(filters.size());
+            for (size_t i = 0; i < filters.size(); ++i) {
+                if (filters[i].keepsReadFamily()) {
+                    family_keep_qnames[i] = collectFamilyMatches(col.readQueue, filters[i], hdrs[col.bamIdx],
+                                                                 col.bamIdx, col.regionIdx);
+                }
+            }
             for (auto &align: col.readQueue) {
                 bool drop = false;
                 sam_hdr_t* hdr = hdrs[col.bamIdx];
-                for (auto &f : filters) {
-                    if (!f.eval(align, hdr, col.bamIdx, col.regionIdx)) {
+                for (size_t i = 0; i < filters.size(); ++i) {
+                    auto &f = filters[i];
+                    if (f.keepsReadFamily()) {
+                        if (family_keep_qnames[i].find(bam_get_qname(align.delegate)) == family_keep_qnames[i].end()) {
+                            drop = true;
+                            break;
+                        }
+                    } else if (!f.eval(align, hdr, col.bamIdx, col.regionIdx)) {
                         drop = true;
                         break;
                     }
