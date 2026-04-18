@@ -115,6 +115,7 @@ endif
 ifdef EMSCRIPTEN
 include deps/wasm/flags.mk
 endif
+debug: LDFLAGS += -fsanitize=address -fsanitize=undefined
 # Compile --------------------------------------------------
 OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 OBJECTS += $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
@@ -124,9 +125,8 @@ else
 OBJECTS += $(patsubst %.c, %.o, $(wildcard ./include/*.c))
 endif
 OBJECTS += $(patsubst %.cpp, %.o, $(wildcard $(IMGUI)/*.cpp)) $(patsubst %.cpp, %.o, $(wildcard $(IMGUI)/backends/imgui_impl_glfw.cpp $(IMGUI)/backends/imgui_impl_opengl3.cpp))
-
-./lib/libBigWig/%.o: ./lib/libBigWig/%.c $(CC) $(CPPFLAGS) $(CFLAGS) -Wno-attribute-warning -c $< -o $@
-debug: LDFLAGS += -fsanitize=address -fsanitize=undefined
+./lib/libBigWig/%.o: ./lib/libBigWig/%.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -Wno-attribute-warning -c $< -o $@
 
 $(TARGET): $(OBJECTS)  # line 131
 	$(CXX) $(CXXFLAGS) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $@
