@@ -55,6 +55,12 @@ jobs:
          echo "Inspecting fontconfig"
          pacman -Si mingw-w64-ucrt-x86_64-fontconfig
          echo "Inspect pkg-config skia"
+         
+         echo "Patching Skia API changes for MSYS2 (m143-->m134)..."
+         sed -i 's/path.addPoly(points, 5, true);/path.addPoly(points, true);/g' src/drawing.cpp
+         sed -i 's/SkDashPathEffect::Make(intervals, 2, 0.0f)/SkDashPathEffect::Make(intervals, 0.0f)/g' src/themes.cpp
+         sed -i 's/overlay.getBounds(glyphs, 1, bounds, pnt);/overlay.getBounds({glyphs, 1}, {bounds, 1}, pnt);/g' src/themes.cpp
+         
          make
      - name: upload
        uses: actions/upload-artifact@v4
@@ -69,8 +75,8 @@ jobs:
       matrix:
         os: [ macos-14 ]  # macos-12,
         include:
-          - os: macos-13
-            arch: intel
+#          - os: macos-13
+#            arch: intel
           - os: macos-14
             arch: m1
 
