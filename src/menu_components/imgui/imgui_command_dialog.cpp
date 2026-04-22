@@ -237,6 +237,51 @@ void drawImGuiCommandDialog(Manager::GwPlot* plot,
     }
 
     // -------------------------------------------------------------------------
+    // Introns
+    // -------------------------------------------------------------------------
+
+    if (ImGui::CollapsingHeader("Introns")) {
+        Themes::IniOptions &opts = plot->opts;
+
+        ImGui::TextWrapped(
+            "RNA-seq splice junctions (N-op CIGAR). Toggle the intron track "
+            "for a BAM, and tune how donor/acceptor positions are clustered.");
+        ImGui::Spacing();
+
+        if (ImGui::Button("Toggle intron track")) {
+            execCommand(plot, "introns", redraw);
+        }
+
+        ImGui::Spacing();
+
+        int eps = opts.splice_cluster_eps;
+        if (ImGui::SliderInt("Cluster eps (bp)", &eps, 0, 20)) {
+            opts.splice_cluster_eps = eps;
+            redraw = true;
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip(
+                "Maximum distance in bp between donor or acceptor positions "
+                "that are merged into one canonical intron.");
+        }
+
+        int minR = opts.min_junction_reads;
+        if (ImGui::SliderInt("Min support", &minR, 1, 50)) {
+            opts.min_junction_reads = minR;
+            redraw = true;
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip(
+                "Minimum number of reads supporting a junction before it "
+                "is drawn.");
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // Actions
     // -------------------------------------------------------------------------
 

@@ -179,6 +179,8 @@ namespace Themes {
         int soft_clip_threshold, small_indel_threshold, snp_threshold, mod_threshold, variant_distance, low_memory;
         int edge_highlights;
         int font_size;
+        int splice_cluster_eps{2};
+        int min_junction_reads{2};
 
         bool readIni();
         static std::filesystem::path writeDefaultIni(std::filesystem::path &homedir, std::filesystem::path &home_config, std::filesystem::path &gwIni);
