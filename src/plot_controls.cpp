@@ -975,13 +975,8 @@ namespace Manager {
             return;
         }
         // key events concerning the menu are handled here
-        if (mode != Show::SETTINGS && key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-            last_mode = mode;
-            mode = Show::SETTINGS;
-            opts.menu_table = Themes::MenuTable::MAIN;
-            for (auto &cl: collections) { cl.resetDrawState(); }
-            return;
-        } else if (mode == Show::SETTINGS && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        // ESC no longer opens SETTINGS — it was conflicting with ESC to close ImGui popups/text boxes.
+        if (mode == Show::SETTINGS && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
             if (key == GLFW_KEY_ESCAPE && opts.menu_table == Themes::MenuTable::MAIN) {
                 mode = last_mode;
                 redraw = true;
@@ -1275,10 +1270,12 @@ namespace Manager {
                     size_t currentSize = (currentVarTrack->image_glob.empty()) ? currentVarTrack->multiRegions.size() : currentVarTrack->image_glob.size();
                     if (currentVarTrack->type == HGW::TrackType::IMAGES && currentVarTrack->blockStart + bLen < (int)currentSize) {
                         currentVarTrack->blockStart += bLen;
+                        mouseOverTileIndex = 0;
                         redraw = true;
                     }
                     else if (!*currentVarTrack->trackDone) {
                         currentVarTrack->blockStart += bLen;
+                        mouseOverTileIndex = 0;
                         redraw = true;
                     }
                 } else if (key == opts.scroll_left) {
@@ -1286,6 +1283,7 @@ namespace Manager {
                         return;
                     }
                     currentVarTrack->blockStart = (currentVarTrack->blockStart - bLen > 0) ? currentVarTrack->blockStart - bLen : 0;
+                    mouseOverTileIndex = 0;
                     redraw = true;
                     (*currentVarTrack->trackDone) = false;
                 } else if (key == opts.zoom_out) {
