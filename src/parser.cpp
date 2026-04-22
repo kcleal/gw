@@ -714,11 +714,11 @@ namespace Parse {
                         break;
                     case RNAME:
                         char_ptr = sam_hdr_tid2name(hdr, aln.delegate->core.tid);
-                        str_val = char_ptr;
+                        str_val = char_ptr ? char_ptr : "*";
                         break;
                     case RNEXT:
                         char_ptr = sam_hdr_tid2name(hdr, aln.delegate->core.mtid);
-                        str_val = char_ptr;
+                        str_val = char_ptr ? char_ptr : "*";
                         break;
                     case TID:
                         int_val = aln.delegate->core.tid;
