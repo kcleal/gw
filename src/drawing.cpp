@@ -1888,6 +1888,7 @@ namespace Drawing {
     }
 
     inline SkColor getIntronColor(float support) {
+        // stolen from https://vega.github.io/vega/docs/schemes/
         static SkColor precomputedColors[30];
         static bool initialized = false;
 
