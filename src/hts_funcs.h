@@ -45,6 +45,7 @@ namespace HGW {
          GW_LABEL,
          STDIN,
          ROI,
+         INTRON,   // synthetic track: splice introns extracted from a BAM ReadCollection
     };
 
     void guessRefGenomeFromBam(std::string &inputName, Themes::IniOptions &opts, std::vector<std::string> &bam_paths, std::vector<Utils::Region> &regions);
@@ -138,6 +139,7 @@ namespace HGW {
         int *variant_distance;
         float value;  // for continuous data
         int fileIndex;
+        int bamIndex{-1};  // INTRON track: index into Manager::GwPlot::collections (and bam_paths)
         bool add_to_dict; // add to dict of interval tree in file has no index, or process in stream
 
         FType kind;  // VCF_IDX,BED_NOI etc

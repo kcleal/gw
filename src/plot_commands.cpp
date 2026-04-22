@@ -1675,6 +1675,48 @@ namespace Commands {
         return Err::NONE;
     }
 
+    // :introns           → toggle intron track for bam 0
+    // :introns <bamIdx>  → toggle intron track for the given bam
+    Err add_introns(Plot* p, std::string& /*command*/, std::vector<std::string> parts, std::ostream& out) {
+        if (p->bam_paths.empty()) {
+            out << termcolor::red << "Error:" << termcolor::reset << " no BAM loaded\n";
+            return Err::NONE;
+        }
+        int bamIdx = 0;
+        if (parts.size() >= 2) {
+            try {
+                bamIdx = std::stoi(parts[1]);
+            } catch (...) {
+                return Err::PARSE_INPUT;
+            }
+        }
+        if (bamIdx < 0 || bamIdx >= (int)p->bam_paths.size()) {
+            out << termcolor::red << "Error:" << termcolor::reset
+                << " bam index " << bamIdx << " out of range (0.."
+                << p->bam_paths.size() - 1 << ")\n";
+            return Err::NONE;
+        }
+        // Toggle: if an intron track for this bam already exists, remove it.
+        for (auto it = p->tracks.begin(); it != p->tracks.end(); ++it) {
+            if (it->kind == HGW::FType::INTRON && it->bamIndex == bamIdx) {
+                p->tracks.erase(it);
+                refreshGw(p);
+                return Err::NONE;
+            }
+        }
+        p->tracks.emplace_back() = HGW::GwTrack();
+        auto& trk = p->tracks.back();
+        trk.kind = HGW::FType::INTRON;
+        trk.add_to_dict = false;
+        trk.bamIndex = bamIdx;
+        trk.name = std::string("introns:") + std::filesystem::path(p->bam_paths[bamIdx]).filename().string();
+        trk.path = trk.name;  // non-empty so the track isn't confused with a file-less ROI
+        trk.faceColour = p->opts.theme.fcRoi;
+        p->redraw = true;
+        refreshGw(p);
+        return Err::NONE;
+    }
+
     Err sort_command(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
         if (parts.size() == 1 || (parts.size() == 2 && parts[1] == "none")) {
             refreshGw(p);
@@ -1886,6 +1928,7 @@ namespace Commands {
                 {"colour",   PARAMS { return update_colour(p, command, parts, out); }},
                 {"color",    PARAMS { return update_colour(p, command, parts, out); }},
                 {"roi",      PARAMS { return add_roi(p, command, parts, out); }},
+                {"introns",  PARAMS { return add_introns(p, command, parts, out); }},
                 {"sort",     PARAMS { return sort_command(p, command, parts, out); }},
                 {"header",   PARAMS { return header_command(p, command, parts, out); }},
 

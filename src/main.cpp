@@ -19,6 +19,7 @@
 #include "GLFW/glfw3.h"
 #include "gw_fonts.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
@@ -312,6 +313,8 @@ int main(int argc, char *argv[]) {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGui::GetIO().IniFilename = nullptr;  // disable imgui.ini
+        // TAB is a GW hotkey (TILED/SINGLE toggle). Stop ImGui from stealing it for nav.
+        ImGui::GetCurrentContext()->ConfigNavEnableTabbing = false;
         Themes::applyImGuiTheme(plotter.opts.theme_str);
         {
             // Load the same Aileron font GW uses for Skia rendering.

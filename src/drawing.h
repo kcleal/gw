@@ -81,7 +81,8 @@ namespace Drawing {
 
 
     void drawTracks(Themes::IniOptions &opts, SkCanvas *const canvas, std::vector<HGW::GwTrack> &tracks,
-                    std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, const drawContext& ctx);
+                    std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, const drawContext& ctx,
+                    std::vector<Segs::ReadCollection>* collections = nullptr);
         
     void drawChromLocation(const Themes::IniOptions &opts,
                            const Themes::Fonts &fonts,
