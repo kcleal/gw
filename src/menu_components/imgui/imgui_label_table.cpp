@@ -298,6 +298,7 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
         static std::unordered_map<std::string, std::string> detailFieldFilterPendingByTrack;
         static std::unordered_map<std::string, int> tileMarkerIndexByTrack; // set on row click, -1 = hidden
         static std::unordered_map<std::string, int> lastSyncedTileByTrack;  // detect external tile changes
+        static std::unordered_map<std::string, int> lastSyncedBlockByTrack; // detect blockStart changes from arrow keys
 
         std::string trackKey = vt.fileName.empty() ? vt.path : vt.fileName;
         int& selectedRow = selectedByTrack[trackKey];
@@ -321,14 +322,19 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
         std::string& detailFieldFilterPending = detailFieldFilterPendingByTrack[trackKey];
         int& tileMarkerIndex        = tileMarkerIndexByTrack[trackKey];
         int& lastSyncedTile         = lastSyncedTileByTrack[trackKey];
+        int& lastSyncedBlock        = lastSyncedBlockByTrack[trackKey];
 
-        // Sync when an external tile selection changes (e.g. right-click on tile)
-        if (plot->mode == Manager::Show::TILED && plot->mouseOverTileIndex != lastSyncedTile) {
-            lastSyncedTile = plot->mouseOverTileIndex;
-            int newRow = vt.blockStart + plot->mouseOverTileIndex;
+        // Sync when the tile selection or page changes externally
+        // (right-click on tile, or LEFT/RIGHT arrow page flips)
+        if (plot->mode == Manager::Show::TILED &&
+            (plot->mouseOverTileIndex != lastSyncedTile || vt.blockStart != lastSyncedBlock)) {
+            lastSyncedTile  = plot->mouseOverTileIndex;
+            lastSyncedBlock = vt.blockStart;
+            int tileIdx = std::max(plot->mouseOverTileIndex, 0);
+            int newRow = vt.blockStart + tileIdx;
             if (newRow >= 0 && newRow < labelCount) {
                 selectedRow     = newRow;
-                tileMarkerIndex = plot->mouseOverTileIndex;
+                tileMarkerIndex = tileIdx;
             }
         }
 
@@ -338,7 +344,7 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
         auto& labels = vt.multiLabels;
 
         ImGuiIO& io = ImGui::GetIO();
-        float initW = std::min(280.0f, io.DisplaySize.x * 0.40f);
+        float initW = std::min(240.0f, io.DisplaySize.x * 0.32f);
         // Leave room for top menu and bottom ideogram/slider
         float topOff    = plot->topMenuSpace / plot->monitorScale;
         float botOff    = plot->sliderSpace  / plot->monitorScale;
@@ -421,13 +427,27 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                 if (keep) visibleRows.push_back(i);
             }
 
-            // --- Section 1: Master List ---
-            float topH = ImGui::GetContentRegionAvail().y * 0.40f;
+            // --- Section 1: Master List (top pane, resizable) ---
+            // Per-track persisted fraction of the remaining vertical space used by the master list.
+            static std::unordered_map<std::string, float> splitFracByTrack;
+            auto splitIt = splitFracByTrack.find(trackKey);
+            if (splitIt == splitFracByTrack.end()) {
+                splitFracByTrack[trackKey] = 0.40f;
+            }
+            float& splitFrac = splitFracByTrack[trackKey];
+
+            float availH = ImGui::GetContentRegionAvail().y;
+            float minPane = ImGui::GetFrameHeight() * 2.0f;
+            float topH = std::max(minPane, std::min(availH - minPane, availH * splitFrac));
             if (ImGui::BeginChild("##labels_master", ImVec2(0, topH), false)) {
                 // Dot column width: fits two small dots side-by-side
                 float dotColW = ImGui::GetFrameHeight() * 1.4f;
-                if (ImGui::BeginTable("##ltbl", 3,
-                        ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp)) {
+                // Tighten vertical cell padding so more rows fit on screen
+                ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4.0f, 1.0f));
+                ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(ImGui::GetStyle().ItemSpacing.x, 2.0f));
+                bool tableOpen = ImGui::BeginTable("##ltbl", 3,
+                        ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp);
+                if (tableOpen) {
                     ImGui::TableSetupColumn("##dots",     ImGuiTableColumnFlags_WidthFixed,   dotColW);
                     ImGui::TableSetupColumn("Position",   ImGuiTableColumnFlags_WidthStretch);
                     ImGui::TableSetupColumn("Label",      ImGuiTableColumnFlags_WidthStretch);
@@ -474,10 +494,10 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
 
                         {
                             ImVec2 cellPos  = ImGui::GetCursorScreenPos();
-                            float  cellH    = ImGui::GetFrameHeight();
-                            float  lineH    = ImGui::GetTextLineHeightWithSpacing();
-                            float  r        = lineH * 0.22f;
-                            float  cy       = cellPos.y + lineH * 0.5f;
+                            float  textH    = ImGui::GetTextLineHeight();
+                            float  cellH    = textH + ImGui::GetStyle().CellPadding.y * 2.0f;
+                            float  r        = textH * 0.28f;
+                            float  cy       = cellPos.y + cellH * 0.5f;
                             float  xCursor  = cellPos.x + r + 2.0f;
 
                             if (hasDate) {
@@ -488,22 +508,26 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                                 drawList->AddCircleFilled(ImVec2(xCursor, cy), r, dotCommentCol);
                             }
 
-                            // Invisible button over the dot area — opens Label details for THIS row
-                            if (hasDots) {
-                                ImGui::SetCursorScreenPos(cellPos);
-                                if (ImGui::InvisibleButton("##dotbtn", ImVec2(dotColW, cellH))) {
-                                    labelDetailsRow  = i;
-                                    labelDetailsOpen = true;
-                                    commentEdit      = lbl.comment;
-                                }
-                                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
-                                    std::string tip;
-                                    if (hasDate)    tip += "Date: "    + lbl.savedDate + "\n";
-                                    if (hasComment) tip += "Comment: " + lbl.comment;
-                                    ImGui::SetTooltip("%s", tip.c_str());
-                                }
-                            } else {
-                                ImGui::Dummy(ImVec2(dotColW, cellH));
+                            // Invisible button always present — opens Label details for THIS row.
+                            // When the row has no dots, an empty hint circle appears on hover.
+                            ImGui::SetCursorScreenPos(cellPos);
+                            if (ImGui::InvisibleButton("##dotbtn", ImVec2(dotColW, cellH))) {
+                                labelDetailsRow  = i;
+                                labelDetailsOpen = true;
+                                commentEdit      = lbl.comment;
+                            }
+                            bool hovered = ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort);
+                            if (!hasDots && ImGui::IsItemHovered()) {
+                                float xEmpty = cellPos.x + r + 2.0f;
+                                drawList->AddCircle(ImVec2(xEmpty, cy), r,
+                                                    IM_COL32(160, 160, 160, 180), 0, 1.2f);
+                            }
+                            if (hovered) {
+                                std::string tip;
+                                if (hasDate)    tip += "Date: "    + lbl.savedDate + "\n";
+                                if (hasComment) tip += "Comment: " + lbl.comment;
+                                if (tip.empty()) tip = "Click to add a comment";
+                                ImGui::SetTooltip("%s", tip.c_str());
                             }
                         }
 
@@ -531,6 +555,7 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                     }
                     ImGui::EndTable();
                 }
+                ImGui::PopStyleVar(2);
             }
             ImGui::EndChild();
 
@@ -608,7 +633,33 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                 if (!detOpen) labelDetailsOpen = false;
             }
 
-            ImGui::Separator();
+            // --- Draggable splitter between master list and details ---
+            {
+                const float splitterH = 6.0f;
+                ImVec2 sp = ImGui::GetCursorScreenPos();
+                float splitterW = ImGui::GetContentRegionAvail().x;
+                ImGui::InvisibleButton("##vsplit", ImVec2(splitterW, splitterH));
+                bool hovered = ImGui::IsItemHovered();
+                bool active  = ImGui::IsItemActive();
+                if (hovered || active) {
+                    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+                }
+                if (active) {
+                    float dy = ImGui::GetIO().MouseDelta.y;
+                    if (availH > 0.0f) {
+                        splitFrac = std::max(0.05f,
+                                             std::min(0.95f,
+                                                      (topH + dy) / availH));
+                    }
+                }
+                ImU32 col = active  ? ImGui::GetColorU32(ImGuiCol_SeparatorActive)
+                          : hovered ? ImGui::GetColorU32(ImGuiCol_SeparatorHovered)
+                                    : ImGui::GetColorU32(ImGuiCol_Separator);
+                ImDrawList* dl = ImGui::GetWindowDrawList();
+                float lineY = sp.y + splitterH * 0.5f;
+                dl->AddLine(ImVec2(sp.x, lineY),
+                            ImVec2(sp.x + splitterW, lineY), col, 1.0f);
+            }
             ImGui::TextDisabled("Variant Details");
 
             // Field filter (comma-separated keys, e.g. "ID, INFO.SU, FORMAT.PROB")
