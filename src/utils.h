@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <string>
+#include <utility>
 #include <vector>
 #include "ankerl_unordered_dense.h"
 #include "export_definitions.h"
@@ -89,6 +90,7 @@ namespace Utils {
         std::string chrom{};
         int start{1}, end{20000};
         int markerPos{-1}, markerPosEnd{-1};
+        std::vector<std::pair<int,int>> extraMarkers;
         int chromLen{0};
         int refSeqLen{0};
         int regionLen{0};
