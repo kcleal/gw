@@ -506,6 +506,9 @@ namespace Manager {
         tracks[index].close();
         tracks.erase(tracks.begin() + index, tracks.begin() + index + 1);
         for (auto &trk: tracks) {
+            if (trk.kind == HGW::FType::INTRON || trk.kind == HGW::FType::ROI) {
+                continue;
+            }
             trk.clear();
             trk.open(trk.path, true);
         }
@@ -552,7 +555,8 @@ namespace Manager {
             rgn.featureLevels.clear();
         }
         for (auto &trk : tracks) {
-            if (trk.path.empty() || trk.kind == HGW::FType::ROI) {
+            if (trk.path.empty() || trk.kind == HGW::FType::ROI
+                || trk.kind == HGW::FType::INTRON) {
                 continue;
             }
             std::string path = trk.path;
