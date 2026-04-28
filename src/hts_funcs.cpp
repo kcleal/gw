@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <cstring>
 #include <future>
 #include <memory>
 #include <optional>
@@ -206,6 +207,191 @@ namespace {
             return firstAvailableAttr(attrs, {"gene_name", "gene_id", "transcript_id"});
         }
         return firstAvailableAttr(attrs, {"gene_name", "Name", "ID"});
+    }
+
+    // ---------- Fast-path helpers for the bulk GFF3/GTF non-indexed load ----------
+    // The non-indexed load reads the entire file into `allBlocks` — for a 2.2M-line
+    // GENCODE GFF3 the per-line cost dominates startup. The generic
+    // parseGff/GtfAttributes paths allocate a full unordered_map<string,string>
+    // and a vector<string> per line. The load only needs 3-4 specific keys, so
+    // we walk the attribute column once and copy only the values that match.
+
+    static inline const char* skipWs(const char* p, const char* e) {
+        while (p < e && (*p == ' ' || *p == '\t')) ++p;
+        return p;
+    }
+    static inline const char* rTrim(const char* p, const char* e) {
+        while (e > p && (e[-1] == ' ' || e[-1] == '\t' || e[-1] == '\r' || e[-1] == '\n')) --e;
+        return e;
+    }
+    static inline void stripQuotesView(const char*& p, const char*& e) {
+        if (e - p >= 2 && *p == '"' && e[-1] == '"') { ++p; --e; }
+    }
+
+    // Single-pass extractor for GFF3 attributes. Each out-param can be nullptr
+    // to skip. Stops scanning a key once it is filled.
+    static void extractGff3Attrs(const std::string &raw,
+                                 std::string *outId,
+                                 std::string *outName,
+                                 std::string *outParent,
+                                 std::string *outGeneName) {
+        const char* p = raw.data();
+        const char* e = p + raw.size();
+        while (p < e) {
+            const char* fieldStart = p;
+            while (p < e && *p != ';') ++p;
+            const char* fieldEnd = p;
+            if (p < e) ++p;
+            const char* a = skipWs(fieldStart, fieldEnd);
+            const char* b = rTrim(a, fieldEnd);
+            if (a == b) continue;
+            const char* eq = a;
+            while (eq < b && *eq != '=') ++eq;
+            if (eq == b) continue;
+            const char* ke = rTrim(a, eq);
+            const char* va = skipWs(eq + 1, b);
+            const char* ve = b;
+            stripQuotesView(va, ve);
+            size_t klen = ke - a;
+            auto matches = [&](const char* lit, size_t litN) -> bool {
+                return klen == litN && std::memcmp(a, lit, klen) == 0;
+            };
+            if (outId && outId->empty() && matches("ID", 2)) {
+                outId->assign(va, ve - va);
+            } else if (outName && outName->empty() && matches("Name", 4)) {
+                outName->assign(va, ve - va);
+            } else if (outParent && outParent->empty() && matches("Parent", 6)) {
+                outParent->assign(va, ve - va);
+            } else if (outGeneName && outGeneName->empty() && matches("gene_name", 9)) {
+                outGeneName->assign(va, ve - va);
+            }
+        }
+    }
+
+    // Single-pass extractor for GTF attributes (key "value" pairs).
+    static void extractGtfAttrs(const std::string &raw,
+                                std::string *outGeneId,
+                                std::string *outGeneName,
+                                std::string *outTranscriptId) {
+        const char* p = raw.data();
+        const char* e = p + raw.size();
+        while (p < e) {
+            const char* fieldStart = p;
+            while (p < e && *p != ';') ++p;
+            const char* fieldEnd = p;
+            if (p < e) ++p;
+            const char* a = skipWs(fieldStart, fieldEnd);
+            const char* b = rTrim(a, fieldEnd);
+            if (a == b) continue;
+            const char* ws = a;
+            while (ws < b && *ws != ' ' && *ws != '\t') ++ws;
+            if (ws == b) continue;
+            const char* va = skipWs(ws + 1, b);
+            const char* ve = b;
+            stripQuotesView(va, ve);
+            size_t klen = ws - a;
+            auto matches = [&](const char* lit, size_t litN) -> bool {
+                return klen == litN && std::memcmp(a, lit, klen) == 0;
+            };
+            if (outGeneId && outGeneId->empty() && matches("gene_id", 7)) {
+                outGeneId->assign(va, ve - va);
+            } else if (outGeneName && outGeneName->empty() && matches("gene_name", 9)) {
+                outGeneName->assign(va, ve - va);
+            } else if (outTranscriptId && outTranscriptId->empty() && matches("transcript_id", 13)) {
+                outTranscriptId->assign(va, ve - va);
+            }
+        }
+    }
+
+    // GFF3 label resolution that mirrors resolveTrackLabel but never builds a map.
+    static std::string resolveGff3LabelFast(const std::string &attrsRaw,
+                                            const std::string &chosen) {
+        if (chosen != "auto") {
+            const char* p = attrsRaw.data();
+            const char* e = p + attrsRaw.size();
+            const char* cd = chosen.data();
+            size_t cn = chosen.size();
+            while (p < e) {
+                const char* fieldStart = p;
+                while (p < e && *p != ';') ++p;
+                const char* fieldEnd = p;
+                if (p < e) ++p;
+                const char* a = skipWs(fieldStart, fieldEnd);
+                const char* b = rTrim(a, fieldEnd);
+                if (a == b) continue;
+                const char* eq = a;
+                while (eq < b && *eq != '=') ++eq;
+                if (eq == b) continue;
+                size_t klen = rTrim(a, eq) - a;
+                if (klen == cn && std::memcmp(a, cd, klen) == 0) {
+                    const char* va = skipWs(eq + 1, b);
+                    const char* ve = b;
+                    stripQuotesView(va, ve);
+                    if (va != ve) return std::string(va, ve - va);
+                }
+            }
+        }
+        std::string id, name, geneName;
+        extractGff3Attrs(attrsRaw, &id, &name, /*parent=*/nullptr, &geneName);
+        if (!geneName.empty()) return geneName;
+        if (!name.empty())     return name;
+        return id;
+    }
+
+    // GTF label resolution.
+    static std::string resolveGtfLabelFast(const std::string &attrsRaw,
+                                           const std::string &chosen) {
+        if (chosen != "auto") {
+            const char* p = attrsRaw.data();
+            const char* e = p + attrsRaw.size();
+            const char* cd = chosen.data();
+            size_t cn = chosen.size();
+            while (p < e) {
+                const char* fieldStart = p;
+                while (p < e && *p != ';') ++p;
+                const char* fieldEnd = p;
+                if (p < e) ++p;
+                const char* a = skipWs(fieldStart, fieldEnd);
+                const char* b = rTrim(a, fieldEnd);
+                if (a == b) continue;
+                const char* ws = a;
+                while (ws < b && *ws != ' ' && *ws != '\t') ++ws;
+                if (ws == b) continue;
+                size_t klen = ws - a;
+                if (klen == cn && std::memcmp(a, cd, klen) == 0) {
+                    const char* va = skipWs(ws + 1, b);
+                    const char* ve = b;
+                    stripQuotesView(va, ve);
+                    if (va != ve) return std::string(va, ve - va);
+                }
+            }
+        }
+        std::string geneId, geneName, transcriptId;
+        extractGtfAttrs(attrsRaw, &geneId, &geneName, &transcriptId);
+        if (!geneName.empty())   return geneName;
+        if (!geneId.empty())     return geneId;
+        return transcriptId;
+    }
+
+    // In-place tab split: writes column [start,end) offsets into `colStart` /
+    // `colEnd` arrays. Returns the column count. No allocations.
+    static int splitTabsInPlace(const std::string &line,
+                                size_t *colStart, size_t *colEnd, int maxCols) {
+        int n = 0;
+        size_t i = 0, L = line.size();
+        if (maxCols > 0) colStart[0] = 0;
+        while (i <= L && n < maxCols) {
+            if (i == L || line[i] == '\t') {
+                colEnd[n] = i;
+                ++n;
+                if (i == L) break;
+                if (n < maxCols) colStart[n] = i + 1;
+                ++i;
+            } else {
+                ++i;
+            }
+        }
+        return n;
     }
 
 } // namespace
@@ -1701,6 +1887,13 @@ namespace HGW {
             if (!add_to_dict) {
                 return;
             }
+            // Resolve label-rule key once outside the loop.
+            const std::string chosenLabelKey = getTrackLabelRuleForFormat(
+                track_label_parser_rules,
+                (kind == GTF_NOI) ? AnnotationLabelFormat::GTF
+                                  : AnnotationLabelFormat::GFF3);
+            constexpr int MAX_COLS = 9;
+            size_t colStart[MAX_COLS], colEnd[MAX_COLS];
             int count = 0;
             ankerl::unordered_dense::map< std::string, std::vector<Utils::TrackBlock>> track_blocks;
             while (true) {
@@ -1710,58 +1903,71 @@ namespace HGW {
                     break;
                 }
                 count += 1;
-                if (tp[0] == '#') {
+                if (tp.empty() || tp[0] == '#') {
                     continue;
                 }
 
-                Utils::TrackBlock b;
-                b.parts = Utils::split(tp, '\t');
-                if (b.parts.size() < 9) {
+                int nCols = splitTabsInPlace(tp, colStart, colEnd, MAX_COLS);
+                if (nCols < 9) {
                     std::cerr << "Error: parsing file, not enough columns in line split by tab. n columns = "
-                              << b.parts.size() << ", line was: " << tp << ", at file index " << count << std::endl;
+                              << nCols << ", line was: " << tp << ", at file index " << count << std::endl;
+                    continue;
                 }
-                b.line = tp;
-                b.chrom = b.parts[0];
-                b.vartype = b.parts[2];
-                b.start = std::stoi(b.parts[3]) - 1;
-                b.end = std::stoi(b.parts[4]);
 
-                if (b.parts[6] == "+") {
-                    b.strand = 1;
-                } else if (b.parts[6] == "-") {
-                    b.strand = 2;
-                } else {
-                    b.strand = 0;
-                }
-                if (kind == GFF3_NOI) {
-                    const auto attrs = parseGffAttributes(b.parts[8]);
-                    b.name = resolveTrackLabel(attrs, AnnotationLabelFormat::GFF3, track_label_parser_rules);
-                    auto parent_it = attrs.find("Parent");
-                    if (parent_it != attrs.end()) {
-                        b.parent = parent_it->second;
-                    }
-                    auto id_it = attrs.find("ID");
-                    if (id_it != attrs.end()) {
-                        b.unique_id = id_it->second;
-                    }
-                } else {  // GTF_NOI
-                    if (b.vartype != "exon") {
+                // GTF_NOI: only "exon" rows are kept. Check before any allocation.
+                if (kind == GTF_NOI) {
+                    size_t ts = colStart[2], te = colEnd[2];
+                    if (te - ts != 4 || std::memcmp(tp.data() + ts, "exon", 4) != 0) {
                         continue;
                     }
-                    const auto attrs = parseGtfAttributes(b.parts[8]);
-                    auto gene_id_it = attrs.find("gene_id");
-                    if (gene_id_it != attrs.end()) {
-                        b.parent = gene_id_it->second;
+                }
+
+                Utils::TrackBlock b;
+                b.line = tp;
+                // Populate b.parts from the precomputed offsets — cheaper than a
+                // second Utils::split, but keeps b.parts available for downstream
+                // consumers (e.g. collectGFFTrackData reading parts[6]).
+                b.parts.resize(nCols);
+                for (int ci = 0; ci < nCols; ++ci) {
+                    b.parts[ci].assign(tp, colStart[ci], colEnd[ci] - colStart[ci]);
+                }
+                b.chrom.assign(tp, colStart[0], colEnd[0] - colStart[0]);
+                b.vartype.assign(tp, colStart[2], colEnd[2] - colStart[2]);
+                // strtol on raw buffer beats std::stoi(temporary string).
+                b.start = (int)std::strtol(tp.c_str() + colStart[3], nullptr, 10) - 1;
+                b.end   = (int)std::strtol(tp.c_str() + colStart[4], nullptr, 10);
+
+                char strandCh = (colEnd[6] > colStart[6]) ? tp[colStart[6]] : '.';
+                b.strand = (strandCh == '+') ? 1 : (strandCh == '-' ? 2 : 0);
+
+                std::string attrs_raw(tp, colStart[8], colEnd[8] - colStart[8]);
+                if (kind == GFF3_NOI) {
+                    std::string id, name, parent, geneName;
+                    extractGff3Attrs(attrs_raw, &id, &name, &parent, &geneName);
+                    if (!parent.empty()) b.parent = std::move(parent);
+                    if (!id.empty())     b.unique_id = std::move(id);
+                    if (chosenLabelKey != "auto") {
+                        b.name = resolveGff3LabelFast(attrs_raw, chosenLabelKey);
+                    } else {
+                        if (!geneName.empty())          b.name = std::move(geneName);
+                        else if (!name.empty())         b.name = std::move(name);
+                        else if (!b.unique_id.empty())  b.name = b.unique_id;
                     }
-                    auto gene_name_it = attrs.find("gene_name");
-                    if (gene_name_it != attrs.end()) {
-                        b.parent = gene_name_it->second;
+                } else {  // GTF_NOI
+                    std::string geneId, geneName, transcriptId;
+                    extractGtfAttrs(attrs_raw, &geneId, &geneName, &transcriptId);
+                    // Preserve old last-wins precedence: gene_id, then gene_name
+                    // overwrites, then transcript_id overwrites.
+                    if (!geneId.empty())       b.parent = geneId;
+                    if (!geneName.empty())     b.parent = geneName;
+                    if (!transcriptId.empty()) b.parent = transcriptId;
+                    if (chosenLabelKey != "auto") {
+                        b.name = resolveGtfLabelFast(attrs_raw, chosenLabelKey);
+                    } else {
+                        if (!geneName.empty())          b.name = std::move(geneName);
+                        else if (!geneId.empty())       b.name = std::move(geneId);
+                        else if (!transcriptId.empty()) b.name = std::move(transcriptId);
                     }
-                    auto transcript_id_it = attrs.find("transcript_id");
-                    if (transcript_id_it != attrs.end()) {
-                        b.parent = transcript_id_it->second;
-                    }
-                    b.name = resolveTrackLabel(attrs, AnnotationLabelFormat::GTF, track_label_parser_rules);
                 }
                 if (b.name.empty()) {
                     continue;
@@ -2633,12 +2839,10 @@ namespace HGW {
             } else {
                g->name = trk.parent;
             }
-//            g->name = trk.rid;
             g->vartype = trk.vartype;
             g->strand = (trk.parts[6] == "-") ? 2 : 1; // assume all on same strand
             g->parts.insert(g->parts.end(), trk.parts.begin(), trk.parts.end());
             gffParentMap[trk.parent].push_back(g);
-            // gffParentMap[trk.rid].push_back(g);
         }
         
         features.resize(gffParentMap.size());
@@ -2671,7 +2875,7 @@ namespace HGW {
                     track.chrom = g->chrom;
                     track.start = g->start;
                     track.name = g->name;
-        
+
                     if (track.name.front() == '"') {
                         track.name.erase(0, 1);
                     }
