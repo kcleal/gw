@@ -378,6 +378,53 @@ namespace Commands {
         return Err::NONE;
     }
 
+    Err add_marker_command(Plot* p, std::vector<std::string>& parts, std::ostream& out) {
+        if (parts.size() < 2) {
+            out << "Usage: marker <chrom:start-end>  or  marker <chrom> <pos> [end]\n";
+            return Err::OPTION_NOT_UNDERSTOOD;
+        }
+        std::string chrom;
+        int pos, end;
+        if (parts.size() == 2) {
+            // Accept region string format: chr1:15000-20000
+            try {
+                Utils::Region rgn = Utils::parseRegion(parts[1]);
+                chrom = rgn.chrom;
+                pos   = rgn.start;
+                end   = rgn.end;
+            } catch (...) {
+                out << "marker: could not parse '" << parts[1] << "' as a region\n";
+                return Err::OPTION_NOT_SUPPORTED;
+            }
+        } else {
+            chrom = parts[1];
+            try {
+                pos = std::stoi(parts[2]);
+                end = (parts.size() >= 4) ? std::stoi(parts[3]) : pos + 1;
+            } catch (...) {
+                out << "marker: invalid position\n";
+                return Err::OPTION_NOT_SUPPORTED;
+            }
+        }
+        for (auto& rgn : p->regions) {
+            if (rgn.chrom == chrom) {
+                rgn.extraMarkers.push_back({pos, end});
+            }
+        }
+        p->redraw = true;
+        return Err::NONE;
+    }
+
+    Err clear_markers_command(Plot* p) {
+        for (auto& rgn : p->regions) {
+            rgn.markerPos    = -1;
+            rgn.markerPosEnd = -1;
+            rgn.extraMarkers.clear();
+        }
+        p->redraw = true;
+        return Err::NONE;
+    }
+
     Err link(Plot* p, std::string& command, std::vector<std::string>& parts) {
         bool relink = false;
         if (command == "link" || command == "link all") {
@@ -1916,7 +1963,8 @@ namespace Commands {
                 {"tlen-y",   PARAMS { return tlen_y(p); }},
                 {"alignments",   PARAMS { return alignments(p); }},
                 {"labels",   PARAMS { return labels(p); }},
-
+                {"marker",        PARAMS { return add_marker_command(p, parts, out); }},
+                {"clear-markers", PARAMS { return clear_markers_command(p); }},
                 {"sam",      PARAMS { return sam(p, command, parts, out); }},
                 {"h",        PARAMS { return getHelp(p, command, parts, out); }},
                 {"help",     PARAMS { return getHelp(p, command, parts, out); }},
