@@ -129,6 +129,10 @@ namespace HGW {
     public:
         GwTrack() = default;
         ~GwTrack();
+        GwTrack(GwTrack&&) noexcept = default;
+        GwTrack& operator=(GwTrack&&) noexcept = default;
+        GwTrack(const GwTrack&) = default;
+        GwTrack& operator=(const GwTrack&) = default;
         // The iterator state is cached here during iteration:
         std::string path, genome_tag;
         std::string chrom, chrom2, rid, vartype, parent, gene_name, unique_id;
