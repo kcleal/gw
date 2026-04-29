@@ -265,35 +265,7 @@ namespace Drawing {
                 }
             }
 
-            if (cl.region->markerPos != -1) {
-                float rp;
-
-                rp = refSpace + (cl.bamIdx * cl.yPixels);
-                float xp = fonts.overlayHeight * 0.5;
-                float markerP = (cl.xScaling * (float) (cl.region->markerPos - cl.region->start)) + cl.xOffset;
-                if (markerP > cl.xOffset && markerP < cl.regionPixels - cl.xOffset) {
-                    path.reset();
-                    path.moveTo(markerP, rp);
-                    path.lineTo(markerP - xp, rp);
-                    path.lineTo(markerP, rp + (fonts.overlayHeight));
-                    path.lineTo(markerP + xp, rp);
-                    path.lineTo(markerP, rp);
-                    canvas->drawPath(path, theme.fcMarkers);
-                }
-                if (cl.region->markerPosEnd > cl.region->markerPos + 1) {
-                    float markerP2 = (cl.xScaling * (float) (cl.region->markerPosEnd - cl.region->start)) + cl.xOffset;
-                    if (markerP2 > cl.xOffset && markerP2 < (cl.regionPixels + cl.xOffset)) {
-                        path.reset();
-                        path.moveTo(markerP2, rp);
-                        path.lineTo(markerP2 - xp, rp);
-                        path.lineTo(markerP2, rp + (fonts.overlayHeight));
-                        path.lineTo(markerP2 + xp, rp);
-                        path.lineTo(markerP2, rp);
-                        canvas->drawPath(path, theme.fcMarkers);
-                    }
-                }
-            }
-            for (const auto& mp : cl.region->extraMarkers) {
+            for (const auto& mp : cl.region->markers) {
                 float rp = refSpace + (cl.bamIdx * cl.yPixels);
                 float xp = fonts.overlayHeight * 0.5;
                 float markerP = (cl.xScaling * (float)(mp.first - cl.region->start)) + cl.xOffset;
