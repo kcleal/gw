@@ -408,7 +408,12 @@ namespace Commands {
         }
         for (auto& rgn : p->regions) {
             if (rgn.chrom == chrom) {
-                rgn.extraMarkers.push_back({pos, end});
+                rgn.markers.push_back({pos, end});
+            }
+        }
+        if (p->frameId >= 0) {
+            for (auto& cl : p->collections) {
+                cl.resetDrawState();
             }
         }
         p->redraw = true;
@@ -417,9 +422,12 @@ namespace Commands {
 
     Err clear_markers_command(Plot* p) {
         for (auto& rgn : p->regions) {
-            rgn.markerPos    = -1;
-            rgn.markerPosEnd = -1;
-            rgn.extraMarkers.clear();
+            rgn.markers.clear();
+        }
+        if (p->frameId >= 0) {
+            for (auto& cl : p->collections) {
+                cl.resetDrawState();
+            }
         }
         p->redraw = true;
         return Err::NONE;
@@ -818,8 +826,7 @@ namespace Commands {
                 } else {
                     if (index < (int)p->regions.size()) {
                         if (p->regions[index].chrom == rgn.chrom) {
-                            rgn.markerPos = p->regions[index].markerPos;
-                            rgn.markerPosEnd = p->regions[index].markerPosEnd;
+                            rgn.markers = p->regions[index].markers;
                         }
                         p->regions[index] = rgn;
                         p->fetchRefSeq(p->regions[index]);
@@ -1532,8 +1539,7 @@ namespace Commands {
             } else {
                 Utils::Region &old = p->regions[p->regionSelection];
                 if (old.chrom == rgn.chrom) {
-                    rgn.markerPos = old.markerPos;
-                    rgn.markerPosEnd = old.markerPosEnd;
+                    rgn.markers = old.markers;
                     rgn.sortOption = old.sortOption;
                     rgn.sortPos = old.sortPos;
                     rgn.refBaseAtPos = old.refBaseAtPos;

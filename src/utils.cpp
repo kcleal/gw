@@ -237,7 +237,7 @@ namespace Utils {
 
     std::string Region::toString() {
         return chrom + ":" + std::to_string(start) + "-" + std::to_string(end)
-           + ((markerPos >= 0) ? ":" + std::to_string(markerPos) + ":" + std::to_string(markerPosEnd) : "");
+           + (!markers.empty() ? ":" + std::to_string(markers[0].first) + ":" + std::to_string(markers[0].second) : "");
     }
 
     std::filesystem::path makeFilenameFromRegions(std::vector<Utils::Region> &regions) {
@@ -284,20 +284,17 @@ namespace Utils {
                     regions[0].chrom = parts[0];
                     regions[0].start = (start - pad > 0) ? start - pad : 1;
                     regions[0].end = start + pad;
-                    regions[0].markerPos = start;
-                    regions[0].markerPosEnd = end;
+                    regions[0].markers = {{start, end}};
                     regions[1].chrom = parts[2];
                     regions[1].start = (end - pad > 0) ? end - pad : 1;
                     regions[1].end = end + pad;
-                    regions[1].markerPos = end;
-                    regions[1].markerPosEnd = start;
+                    regions[1].markers = {{end, start}};
                 } else {
                     regions.resize(1);
                     regions[0].chrom = parts[0];
                     regions[0].start = (start - pad > 0) ? start - pad : 1;
                     regions[0].end = end + pad;
-                    regions[0].markerPos = start;
-                    regions[0].markerPosEnd = end;
+                    regions[0].markers = {{start, end}};
                 }
             }
         } else {
@@ -322,8 +319,6 @@ namespace Utils {
                     N.chrom = parts[i];
                     N.start = start;
                     N.end = end;
-                    N.markerPos = -1;
-                    N.markerPosEnd = -1;
                     regions.push_back(N);
                     i += 3;
                 }
