@@ -89,8 +89,7 @@ namespace Utils {
     public:
         std::string chrom{};
         int start{1}, end{20000};
-        int markerPos{-1}, markerPosEnd{-1};
-        std::vector<std::pair<int,int>> extraMarkers;
+        std::vector<std::pair<int,int>> markers;
         int chromLen{0};
         int refSeqLen{0};
         int regionLen{0};
