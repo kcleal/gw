@@ -2370,8 +2370,7 @@ namespace HGW {
                     region.chrom = parts[0];
                     region.start = std::stoi(parts[1]);
                     region.end = std::stoi(parts[2]);
-                    region.markerPos = region.start;
-                    region.markerPosEnd = region.end;
+                    region.markers = {{region.start, region.end}};
                     return true;
                 }
             }
@@ -2388,8 +2387,7 @@ namespace HGW {
                     region.chrom = bcf_hdr_id2name(hdr2, v2->rid);
                     region.start = (int)v2->pos;
                     region.end = region.start + v2->rlen;
-                    region.markerPos = region.start;
-                    region.markerPosEnd = region.end;
+                    region.markers = {{region.start, region.end}};
                     return true;
                 }
             }
@@ -2402,8 +2400,7 @@ namespace HGW {
                         region.chrom = b.chrom;
                         region.start = b.start;
                         region.end = b.end;
-                        region.markerPos = b.start;
-                        region.markerPosEnd = b.end;
+                        region.markers = {{b.start, b.end}};
                         return true;
                     }
                 }
@@ -2707,7 +2704,7 @@ namespace HGW {
             const auto &regions = multiRegions[i];
             const auto &lbl = multiLabels[i];
             std::string chrom2 = regions.size() > 1 ? regions[1].chrom : lbl.chrom;
-            long stop = regions.size() > 1 ? regions[1].markerPos : (regions.empty() ? lbl.pos : regions[0].markerPosEnd);
+            long stop = regions.size() > 1 ? regions[1].markers[0].first : (regions.empty() ? lbl.pos : regions[0].markers[0].second);
             seen.insert(makeVariantSearchKey(lbl.chrom, lbl.pos, chrom2, stop, lbl.variantId));
         }
 
@@ -2792,22 +2789,19 @@ namespace HGW {
             r1->chrom = chrom;
             r1->start = (1 > start - m_opts->pad) ? 1 : start - m_opts->pad;
             r1->end = stop + m_opts->pad;
-            r1->markerPos = start;
-            r1->markerPosEnd = stop;
+            r1->markers = {{start, stop}};
         } else {
             v.resize(2);
             r1 = &v[0];
             r1->chrom = chrom;
             r1->start = (1 > start - m_opts->pad) ? 1 : start - m_opts->pad;
             r1->end = start + m_opts->pad;
-            r1->markerPos = start;
-            r1->markerPosEnd = start;
+            r1->markers = {{start, start}};
             r2 = &v[1];
             r2->chrom = chrom2;
             r2->start = (1 > stop - m_opts->pad) ? 1 : stop - m_opts->pad;
             r2->end = stop + m_opts->pad;
-            r2->markerPos = stop;
-            r2->markerPosEnd = stop;
+            r2->markers = {{stop, stop}};
         }
         multiRegions.push_back(v);
         if (inputLabels->contains(rid)) {

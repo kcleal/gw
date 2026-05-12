@@ -800,8 +800,7 @@ namespace Manager {
             regions[0].chrom = chrom;
             regions[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
             regions[0].end = stop + opts.pad;
-            regions[0].markerPos = start;
-            regions[0].markerPosEnd = stop;
+            regions[0].markers = {{start, stop}};
             if (opts.tlen_yscale) {
                 opts.max_tlen = stop - start;
             }
@@ -810,13 +809,11 @@ namespace Manager {
             regions[0].chrom = chrom;
             regions[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
             regions[0].end = start + opts.pad;
-            regions[0].markerPos = start;
-            regions[0].markerPosEnd = start;
+            regions[0].markers = {{start, start}};
             regions[1].chrom = chrom2;
             regions[1].start = (1 > stop - opts.pad) ? 1 : stop - opts.pad;
             regions[1].end = stop + opts.pad;
-            regions[1].markerPos = stop;
-            regions[1].markerPosEnd = stop;
+            regions[1].markers = {{stop, stop}};
             if (opts.tlen_yscale) {
                 opts.max_tlen = 1500;
             }
