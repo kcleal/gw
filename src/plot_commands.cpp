@@ -714,6 +714,7 @@ namespace Commands {
             }
             p->totalTabixY = consumedHeight;
         }
+        p->imageCacheQueue.clear();
         for (auto& cl : p->collections) {
             cl.resetDrawState();
         }
