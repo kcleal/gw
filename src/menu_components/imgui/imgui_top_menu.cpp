@@ -17,25 +17,34 @@ namespace Menu {
 // Icon drawing helpers (local to this translation unit)
 // -----------------------------------------------------------------------------
 
-static void drawCloseIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col) {
+// Per-button icon stroke thickness scales with monitorScale / DisplayFramebufferScale
+// so that on Linux HiDPI (where ImGui's framebuffer scale is 1 but content scale is >1)
+// strokes don't render as 1-pixel hairlines inside oversized buttons.
+static float iconStrokeThickness(float monitorScale) {
+    float fbScale = ImGui::GetIO().DisplayFramebufferScale.x;
+    if (fbScale <= 0.f) fbScale = 1.f;
+    return std::max(1.0f, monitorScale / fbScale);
+}
+
+static void drawCloseIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, float thickness) {
     float pad = (max.x - min.x) * 0.30f;
     float l = min.x + pad, r = max.x - pad;
     float t = min.y + pad, b = max.y - pad;
-    dl->AddLine(ImVec2(l, t), ImVec2(r, b), col, 1.0f);
-    dl->AddLine(ImVec2(r, t), ImVec2(l, b), col, 1.0f);
+    dl->AddLine(ImVec2(l, t), ImVec2(r, b), col, thickness);
+    dl->AddLine(ImVec2(r, t), ImVec2(l, b), col, thickness);
 }
 
-static void drawPlusIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col) {
+static void drawPlusIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, float thickness) {
     float pad = (max.x - min.x) * 0.30f;
     float l = min.x + pad, r = max.x - pad;
     float t = min.y + pad, b = max.y - pad;
     float midX = (l + r) * 0.5f;
     float midY = (t + b) * 0.5f;
-    dl->AddLine(ImVec2(midX, t), ImVec2(midX, b), col, 1.0f);
-    dl->AddLine(ImVec2(l, midY), ImVec2(r, midY), col, 1.0f);
+    dl->AddLine(ImVec2(midX, t), ImVec2(midX, b), col, thickness);
+    dl->AddLine(ImVec2(l, midY), ImVec2(r, midY), col, thickness);
 }
 
-static void drawClipboardIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col) {
+static void drawClipboardIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, float thickness) {
     float w = max.x - min.x;
     float h = max.y - min.y;
     float hPad = w * 0.20f;
@@ -43,14 +52,14 @@ static void drawClipboardIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col)
     float tabW = w * 0.38f;
     dl->AddRect(ImVec2(min.x + hPad, min.y + tabH * 0.5f),
                 ImVec2(max.x - hPad, max.y - hPad * 0.5f),
-                col, 0, 0, 1.0f);
+                col, 0, 0, thickness);
     float tx = min.x + (w - tabW) * 0.5f;
     dl->AddRectFilled(ImVec2(tx, min.y + hPad * 0.4f),
                       ImVec2(tx + tabW, min.y + tabH),
                       col);
 }
 
-static void drawHamburgerIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col) {
+static void drawHamburgerIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, float thickness) {
     float w = max.x - min.x;
     float h = max.y - min.y;
     float hPad = w * 0.25f;
@@ -58,26 +67,25 @@ static void drawHamburgerIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col)
     float l = min.x + hPad, r = max.x - hPad;
     float t = min.y + vPad, b = max.y - vPad;
     float midY = (t + b) * 0.5f;
-    dl->AddLine(ImVec2(l, t),    ImVec2(r, t),    col, 1.0f);
-    dl->AddLine(ImVec2(l, midY), ImVec2(r, midY), col, 1.0f);
-    dl->AddLine(ImVec2(l, b),    ImVec2(r, b),    col, 1.0f);
+    dl->AddLine(ImVec2(l, t),    ImVec2(r, t),    col, thickness);
+    dl->AddLine(ImVec2(l, midY), ImVec2(r, midY), col, thickness);
+    dl->AddLine(ImVec2(l, b),    ImVec2(r, b),    col, thickness);
 }
 
-static void drawSquareIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col) {
+static void drawSquareIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, float thickness) {
     float pad = (max.x - min.x) * 0.28f;
     dl->AddRect(ImVec2(min.x + pad, min.y + pad),
                 ImVec2(max.x - pad, max.y - pad),
-                col, 0.0f, 0, 1.0f);
+                col, 0.0f, 0, thickness);
 }
 
-static void drawRefreshIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col) {
+static void drawRefreshIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, float thickness) {
     float w = max.x - min.x;
     float h = max.y - min.y;
     float cx = min.x + w * 0.5f;
     float cy = min.y + h * 0.5f;
     float r  = std::min(w, h) * 0.30f;
     constexpr float PI = 3.14159265f;
-    float thickness = 1.0f;
     dl->PathArcTo(ImVec2(cx, cy), r, -PI * 0.4f, PI * 1.6f, 18);
     dl->PathStroke(col, false, thickness);
     // arrowhead
@@ -95,7 +103,7 @@ static void drawRefreshIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col) {
                 col, thickness);
 }
 
-static void drawChainIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col) {
+static void drawChainIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, float thickness) {
     float w        = max.x - min.x;
     float h        = max.y - min.y;
     float cy       = min.y + h * 0.5f;
@@ -105,7 +113,6 @@ static void drawChainIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col) {
     float overlap  = w * 0.09f;
     float totalW   = pillW * 2.0f - overlap;
     float x0       = min.x + (w - totalW) * 0.5f;
-    float thickness = 1.0f;
     dl->AddRect(ImVec2(x0,                   cy - pillH * 0.5f),
                 ImVec2(x0 + pillW,           cy + pillH * 0.5f), col, rounding, 0, thickness);
     dl->AddRect(ImVec2(x0 + pillW - overlap, cy - pillH * 0.5f),
@@ -152,6 +159,7 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
 
     float btnSide = overlayHeight;
     ImVec2 btnSize(btnSide, btnSide);
+    float iconStroke = iconStrokeThickness(ms);
     bool lightTheme = (plot->opts.theme_str == "igv");
     ImU32 iconCol = lightTheme ? IM_COL32(80, 80, 80, 255) : IM_COL32(200, 200, 200, 255);
     ImU32 iconHoverCol = lightTheme ? IM_COL32(0, 0, 0, 255) : IM_COL32(255, 255, 255, 255);
@@ -164,7 +172,7 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
     bool hovered = ImGui::IsItemHovered();
     drawHamburgerIcon(ImGui::GetWindowDrawList(), cursor,
                         ImVec2(cursor.x + btnSide, cursor.y + btnSide),
-                        hovered ? iconHoverCol : iconCol);
+                        hovered ? iconHoverCol : iconCol, iconStroke);
 
     // View button — to the right of the burger (tight spacing like + and X buttons)
     ImGui::SameLine(0, gap * 0.25f);
@@ -175,7 +183,7 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
     bool viewHovered = ImGui::IsItemHovered();
     drawSquareIcon(ImGui::GetWindowDrawList(), viewCursor,
                     ImVec2(viewCursor.x + btnSide, viewCursor.y + btnSide),
-                    viewHovered ? iconHoverCol : iconCol);
+                    viewHovered ? iconHoverCol : iconCol, iconStroke);
 
 
     // Hamburger popup — increased padding for tablet-friendly touch targets
@@ -249,7 +257,7 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
                 ImVec2 cur = ImGui::GetCursorScreenPos();
                 bool clicked = ImGui::Button("##ic_refresh", icBtnSz);
                 bool hov = ImGui::IsItemHovered();
-                drawRefreshIcon(dl, cur, ImVec2(cur.x + icSz, cur.y + icSz), hov ? iconHoverCol : iconCol);
+                drawRefreshIcon(dl, cur, ImVec2(cur.x + icSz, cur.y + icSz), hov ? iconHoverCol : iconCol, iconStroke);
                 if (hov) ImGui::SetTooltip("Refresh");
                 if (clicked) { execCommand(plot, "refresh", redraw); plot->processed = false; }
             }
@@ -263,7 +271,7 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
                 ImVec2 cur = ImGui::GetCursorScreenPos();
                 bool clicked = ImGui::Button("##ic_link", icBtnSz);
                 bool hov = ImGui::IsItemHovered();
-                drawChainIcon(dl, cur, ImVec2(cur.x + icSz, cur.y + icSz), hov ? iconHoverCol : iconCol);
+                drawChainIcon(dl, cur, ImVec2(cur.x + icSz, cur.y + icSz), hov ? iconHoverCol : iconCol, iconStroke);
                 if (hov) ImGui::SetTooltip("Link: %s  (click for %s)", linkModes[lc], linkModes[(lc + 1) % 3]);
                 if (clicked) {
                     execCommand(plot, std::string("link ") + linkModes[(lc + 1) % 3], redraw);
@@ -500,7 +508,7 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
                 bool cbHovered = ImGui::IsItemHovered();
                 ImU32 xCol = cbHovered ? iconHoverCol : iconCol;
                 drawCloseIcon(ImGui::GetWindowDrawList(), cbCursor,
-                                ImVec2(cbCursor.x + cbSide, cbCursor.y + cbSide), xCol);
+                                ImVec2(cbCursor.x + cbSide, cbCursor.y + cbSide), xCol, iconStroke);
 
                 // Duplicate region button (to the left of close, with small gap)
                 float dupX = cbX - cbSide - btnGap;
@@ -519,7 +527,7 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
                 bool dupHovered = ImGui::IsItemHovered();
                 ImU32 plusCol = dupHovered ? iconHoverCol : iconCol;
                 drawPlusIcon(ImGui::GetWindowDrawList(), dupCursor,
-                                ImVec2(dupCursor.x + cbSide, dupCursor.y + cbSide), plusCol);
+                                ImVec2(dupCursor.x + cbSide, dupCursor.y + cbSide), plusCol, iconStroke);
             }
         }  // end if (!inTiled)
 
