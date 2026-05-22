@@ -378,6 +378,61 @@ namespace Commands {
         return Err::NONE;
     }
 
+    Err add_marker_command(Plot* p, std::vector<std::string>& parts, std::ostream& out) {
+        if (parts.size() < 2) {
+            out << "Usage: marker <chrom:start-end>  or  marker <chrom> <pos> [end]\n";
+            return Err::OPTION_NOT_UNDERSTOOD;
+        }
+        std::string chrom;
+        int pos, end;
+        if (parts.size() == 2) {
+            // Accept region string format: chr1:15000-20000
+            try {
+                Utils::Region rgn = Utils::parseRegion(parts[1]);
+                chrom = rgn.chrom;
+                pos   = rgn.start;
+                end   = rgn.end;
+            } catch (...) {
+                out << "marker: could not parse '" << parts[1] << "' as a region\n";
+                return Err::OPTION_NOT_SUPPORTED;
+            }
+        } else {
+            chrom = parts[1];
+            try {
+                pos = std::stoi(parts[2]);
+                end = (parts.size() >= 4) ? std::stoi(parts[3]) : pos + 1;
+            } catch (...) {
+                out << "marker: invalid position\n";
+                return Err::OPTION_NOT_SUPPORTED;
+            }
+        }
+        for (auto& rgn : p->regions) {
+            if (rgn.chrom == chrom) {
+                rgn.markers.push_back({pos, end});
+            }
+        }
+        if (p->frameId >= 0) {
+            for (auto& cl : p->collections) {
+                cl.resetDrawState();
+            }
+        }
+        p->redraw = true;
+        return Err::NONE;
+    }
+
+    Err clear_markers_command(Plot* p) {
+        for (auto& rgn : p->regions) {
+            rgn.markers.clear();
+        }
+        if (p->frameId >= 0) {
+            for (auto& cl : p->collections) {
+                cl.resetDrawState();
+            }
+        }
+        p->redraw = true;
+        return Err::NONE;
+    }
+
     Err link(Plot* p, std::string& command, std::vector<std::string>& parts) {
         bool relink = false;
         if (command == "link" || command == "link all") {
@@ -771,8 +826,7 @@ namespace Commands {
                 } else {
                     if (index < (int)p->regions.size()) {
                         if (p->regions[index].chrom == rgn.chrom) {
-                            rgn.markerPos = p->regions[index].markerPos;
-                            rgn.markerPosEnd = p->regions[index].markerPosEnd;
+                            rgn.markers = p->regions[index].markers;
                         }
                         p->regions[index] = rgn;
                         p->fetchRefSeq(p->regions[index]);
@@ -1485,8 +1539,7 @@ namespace Commands {
             } else {
                 Utils::Region &old = p->regions[p->regionSelection];
                 if (old.chrom == rgn.chrom) {
-                    rgn.markerPos = old.markerPos;
-                    rgn.markerPosEnd = old.markerPosEnd;
+                    rgn.markers = old.markers;
                     rgn.sortOption = old.sortOption;
                     rgn.sortPos = old.sortPos;
                     rgn.refBaseAtPos = old.refBaseAtPos;
@@ -1671,6 +1724,48 @@ namespace Commands {
             p->tracks.back().allBlocks[b.chrom].index();
             p->tracks.back().faceColour = p->opts.theme.fcRoi;
         }
+        refreshGw(p);
+        return Err::NONE;
+    }
+
+    // :introns           → toggle intron track for bam 0
+    // :introns <bamIdx>  → toggle intron track for the given bam
+    Err add_introns(Plot* p, std::string& /*command*/, std::vector<std::string> parts, std::ostream& out) {
+        if (p->bam_paths.empty()) {
+            out << termcolor::red << "Error:" << termcolor::reset << " no BAM loaded\n";
+            return Err::NONE;
+        }
+        int bamIdx = 0;
+        if (parts.size() >= 2) {
+            try {
+                bamIdx = std::stoi(parts[1]);
+            } catch (...) {
+                return Err::PARSE_INPUT;
+            }
+        }
+        if (bamIdx < 0 || bamIdx >= (int)p->bam_paths.size()) {
+            out << termcolor::red << "Error:" << termcolor::reset
+                << " bam index " << bamIdx << " out of range (0.."
+                << p->bam_paths.size() - 1 << ")\n";
+            return Err::NONE;
+        }
+        // Toggle: if an intron track for this bam already exists, remove it.
+        for (auto it = p->tracks.begin(); it != p->tracks.end(); ++it) {
+            if (it->kind == HGW::FType::INTRON && it->bamIndex == bamIdx) {
+                p->tracks.erase(it);
+                refreshGw(p);
+                return Err::NONE;
+            }
+        }
+        p->tracks.emplace_back() = HGW::GwTrack();
+        auto& trk = p->tracks.back();
+        trk.kind = HGW::FType::INTRON;
+        trk.add_to_dict = false;
+        trk.bamIndex = bamIdx;
+        trk.name = std::string("introns:") + std::filesystem::path(p->bam_paths[bamIdx]).filename().string();
+        trk.path = trk.name;  // non-empty so the track isn't confused with a file-less ROI
+        trk.faceColour = p->opts.theme.fcRoi;
+        p->redraw = true;
         refreshGw(p);
         return Err::NONE;
     }
@@ -1874,7 +1969,8 @@ namespace Commands {
                 {"tlen-y",   PARAMS { return tlen_y(p); }},
                 {"alignments",   PARAMS { return alignments(p); }},
                 {"labels",   PARAMS { return labels(p); }},
-
+                {"marker",        PARAMS { return add_marker_command(p, parts, out); }},
+                {"clear-markers", PARAMS { return clear_markers_command(p); }},
                 {"sam",      PARAMS { return sam(p, command, parts, out); }},
                 {"h",        PARAMS { return getHelp(p, command, parts, out); }},
                 {"help",     PARAMS { return getHelp(p, command, parts, out); }},
@@ -1886,6 +1982,7 @@ namespace Commands {
                 {"colour",   PARAMS { return update_colour(p, command, parts, out); }},
                 {"color",    PARAMS { return update_colour(p, command, parts, out); }},
                 {"roi",      PARAMS { return add_roi(p, command, parts, out); }},
+                {"introns",  PARAMS { return add_introns(p, command, parts, out); }},
                 {"sort",     PARAMS { return sort_command(p, command, parts, out); }},
                 {"header",   PARAMS { return header_command(p, command, parts, out); }},
 

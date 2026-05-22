@@ -81,13 +81,12 @@ static void execReadPopupCommand(Manager::GwPlot* plot,
     }
 
 // Magnifying glass icon (Find)
-    static void drawMagnifyIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col) {
+    static void drawMagnifyIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, float thickness) {
         float w = max.x - min.x;
         float h = max.y - min.y;
         float r  = std::min(w, h) * 0.24f;
         float cx = min.x + w * 0.40f;
         float cy = min.y + h * 0.36f;
-        float thickness = 1.0f;
         dl->AddCircle(ImVec2(cx, cy), r, col, 12, thickness);
         // Handle: 45° from circle centre toward bottom-right
         float hx1 = cx + r * 0.707f;
@@ -450,6 +449,7 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
                 ImDrawList* fgDl = ImGui::GetForegroundDrawList();
                 ImVec2 mp  = ImGui::GetIO().MousePos;
 
+                float titleIconStroke = iconStrokeThickness(ms);
                 auto drawTitleIconButton = [&](const char* tooltip,
                                                int slotFromRight,
                                                const auto& iconDrawer) {
@@ -466,7 +466,7 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
                     }
                     ImU32 col = hov ? ImGui::GetColorU32(ImGuiCol_Text)
                                     : ImGui::GetColorU32(ImGuiCol_Text, 0.7f);
-                    iconDrawer(fgDl, iconMin, iconMax, col);
+                    iconDrawer(fgDl, iconMin, iconMax, col, titleIconStroke);
                     return hov && ImGui::IsMouseClicked(0);
                 };
 
@@ -731,7 +731,8 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
                 }
                 ImU32 iconCol = hov ? ImGui::GetColorU32(ImGuiCol_Text)
                                     : ImGui::GetColorU32(ImGuiCol_Text, 0.7f);
-                drawClipboardIcon(fgDl, iconMin, iconMax, iconCol);
+                drawClipboardIcon(fgDl, iconMin, iconMax, iconCol,
+                                  iconStrokeThickness(plot->monitorScale));
 
                 if (hov && ImGui::IsMouseClicked(0))
                     ImGui::SetClipboardText(clipText.c_str());
@@ -857,7 +858,8 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                 }
                 ImU32 col = hov ? ImGui::GetColorU32(ImGuiCol_Text)
                                 : ImGui::GetColorU32(ImGuiCol_Text, 0.7f);
-                drawClipboardIcon(fgDl, iconMin, iconMax, col);
+                drawClipboardIcon(fgDl, iconMin, iconMax, col,
+                                  iconStrokeThickness(plot->monitorScale));
 
                 if (hov && ImGui::IsMouseClicked(0)) {
                     if (tp.isVcf) {
@@ -1089,7 +1091,8 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                     ImGui::SetTooltip("Copy as FASTA");
                 }
                 drawClipboardIcon(fgDl, iMin, iMax,
-                    hov ? ImGui::GetColorU32(ImGuiCol_Text) : ImGui::GetColorU32(ImGuiCol_Text, 0.7f));
+                    hov ? ImGui::GetColorU32(ImGuiCol_Text) : ImGui::GetColorU32(ImGuiCol_Text, 0.7f),
+                    iconStrokeThickness(plot->monitorScale));
                 if (hov && ImGui::IsMouseClicked(0))
                     ImGui::SetClipboardText(rc.fasta.c_str());
             }

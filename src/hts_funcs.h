@@ -45,6 +45,7 @@ namespace HGW {
          GW_LABEL,
          STDIN,
          ROI,
+         INTRON,   // synthetic track: splice introns extracted from a BAM ReadCollection
     };
 
     void guessRefGenomeFromBam(std::string &inputName, Themes::IniOptions &opts, std::vector<std::string> &bam_paths, std::vector<Utils::Region> &regions);
@@ -128,6 +129,10 @@ namespace HGW {
     public:
         GwTrack() = default;
         ~GwTrack();
+        GwTrack(GwTrack&&) noexcept = default;
+        GwTrack& operator=(GwTrack&&) noexcept = default;
+        GwTrack(const GwTrack&) = default;
+        GwTrack& operator=(const GwTrack&) = default;
         // The iterator state is cached here during iteration:
         std::string path, genome_tag;
         std::string chrom, chrom2, rid, vartype, parent, gene_name, unique_id;
@@ -138,6 +143,7 @@ namespace HGW {
         int *variant_distance;
         float value;  // for continuous data
         int fileIndex;
+        int bamIndex{-1};  // INTRON track: index into Manager::GwPlot::collections (and bam_paths)
         bool add_to_dict; // add to dict of interval tree in file has no index, or process in stream
 
         FType kind;  // VCF_IDX,BED_NOI etc

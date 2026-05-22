@@ -678,6 +678,7 @@ namespace Manager {
                                     inLabels,
                                     sLabels)
         );
+        labelTableDialogOpen = true;
     }
 
     void GwPlot::setOutLabelFile(const std::string &path) {
@@ -799,8 +800,7 @@ namespace Manager {
             regions[0].chrom = chrom;
             regions[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
             regions[0].end = stop + opts.pad;
-            regions[0].markerPos = start;
-            regions[0].markerPosEnd = stop;
+            regions[0].markers = {{start, stop}};
             if (opts.tlen_yscale) {
                 opts.max_tlen = stop - start;
             }
@@ -809,13 +809,11 @@ namespace Manager {
             regions[0].chrom = chrom;
             regions[0].start = (1 > start - opts.pad) ? 1 : start - opts.pad;
             regions[0].end = start + opts.pad;
-            regions[0].markerPos = start;
-            regions[0].markerPosEnd = start;
+            regions[0].markers = {{start, start}};
             regions[1].chrom = chrom2;
             regions[1].start = (1 > stop - opts.pad) ? 1 : stop - opts.pad;
             regions[1].end = stop + opts.pad;
-            regions[1].markerPos = stop;
-            regions[1].markerPosEnd = stop;
+            regions[1].markers = {{stop, stop}};
             if (opts.tlen_yscale) {
                 opts.max_tlen = 1500;
             }
@@ -1685,11 +1683,15 @@ namespace Manager {
                 }
                 canvasR->save();
                 // for now cl.skipDrawingCoverage and cl.skipDrawingReads are almost always the same
+                // When alignments are off, trackY == 0; don't leave a `-gap` strip at
+                // the bottom of coverage uncleared, since no reads region sits below it
+                // to absorb that strip — otherwise the previous frame bleeds through.
+                const float bottomPad = (trackY > 0) ? gap : 0;
                 if ((!cl.skipDrawingCoverage && !cl.skipDrawingReads) || imageCacheQueue.empty()) {
-                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, trackY + covY - gap);
+                    clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, trackY + covY - bottomPad);
                     canvasR->clipRect(clip, false);
                 } else if (cl.skipDrawingCoverage) {
-                    clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, trackY - gap);
+                    clip.setXYWH(cl.xOffset, cl.yOffset, cl.regionPixels, trackY - bottomPad);
                     canvasR->clipRect(clip, false);
                 } else if (cl.skipDrawingReads){
                     clip.setXYWH(cl.xOffset, cl.yOffset - covY, cl.regionPixels, covY);
@@ -1724,7 +1726,7 @@ namespace Manager {
         }
         Drawing::drawRef(opts, regions, canvasR, fonts, ctx);
         Drawing::drawBorders(opts, canvasR, tracks, ctx);
-        Drawing::drawTracks(opts, canvasR, tracks, regions, fonts, ctx);
+        Drawing::drawTracks(opts, canvasR, tracks, regions, fonts, ctx, &collections);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, ctx);
 
         imageCacheQueue.emplace_back(frameId, rasterSurfacePtr[0]->makeImageSnapshot());
@@ -2306,7 +2308,7 @@ namespace Manager {
         }
         Drawing::drawRef(opts, regions, canvas, fonts, ctx);
         Drawing::drawBorders(opts, canvas, tracks, ctx);
-        Drawing::drawTracks(opts, canvas, tracks, regions, fonts, ctx);
+        Drawing::drawTracks(opts, canvas, tracks, regions, fonts, ctx, &collections);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, ctx);
     }
 
@@ -2404,7 +2406,7 @@ namespace Manager {
 
         Drawing::drawRef(opts, regions, canvas, fonts, ctx);
         Drawing::drawBorders(opts, canvas, tracks, ctx);
-        Drawing::drawTracks(opts, canvas, tracks, regions, fonts, ctx);
+        Drawing::drawTracks(opts, canvas, tracks, regions, fonts, ctx, &collections);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, ctx);
 //        std::cerr << " time runDrawNoBufferOnCanvas " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }

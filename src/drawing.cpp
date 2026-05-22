@@ -25,6 +25,7 @@
 #include "BS_thread_pool.h"
 #include "ankerl_unordered_dense.h"
 #include "hts_funcs.h"
+#include "introns.h"
 #include "drawing.h"
 #include "term_out.h"
 
@@ -264,12 +265,10 @@ namespace Drawing {
                 }
             }
 
-            if (cl.region->markerPos != -1) {
-                float rp;
-
-                rp = refSpace + (cl.bamIdx * cl.yPixels);
+            for (const auto& mp : cl.region->markers) {
+                float rp = refSpace + (cl.bamIdx * cl.yPixels);
                 float xp = fonts.overlayHeight * 0.5;
-                float markerP = (cl.xScaling * (float) (cl.region->markerPos - cl.region->start)) + cl.xOffset;
+                float markerP = (cl.xScaling * (float)(mp.first - cl.region->start)) + cl.xOffset;
                 if (markerP > cl.xOffset && markerP < cl.regionPixels - cl.xOffset) {
                     path.reset();
                     path.moveTo(markerP, rp);
@@ -279,15 +278,17 @@ namespace Drawing {
                     path.lineTo(markerP, rp);
                     canvas->drawPath(path, theme.fcMarkers);
                 }
-                float markerP2 = (cl.xScaling * (float) (cl.region->markerPosEnd - cl.region->start)) + cl.xOffset;
-                if (markerP2 > cl.xOffset && markerP2 < (cl.regionPixels + cl.xOffset)) {
-                    path.reset();
-                    path.moveTo(markerP2, rp);
-                    path.lineTo(markerP2 - xp, rp);
-                    path.lineTo(markerP2, rp + (fonts.overlayHeight));
-                    path.lineTo(markerP2 + xp, rp);
-                    path.lineTo(markerP2, rp);
-                    canvas->drawPath(path, theme.fcMarkers);
+                if (mp.second > mp.first + 1) {
+                    float markerP2 = (cl.xScaling * (float)(mp.second - cl.region->start)) + cl.xOffset;
+                    if (markerP2 > cl.xOffset && markerP2 < (cl.regionPixels + cl.xOffset)) {
+                        path.reset();
+                        path.moveTo(markerP2, rp);
+                        path.lineTo(markerP2 - xp, rp);
+                        path.lineTo(markerP2, rp + (fonts.overlayHeight));
+                        path.lineTo(markerP2 + xp, rp);
+                        path.lineTo(markerP2, rp);
+                        canvas->drawPath(path, theme.fcMarkers);
+                    }
                 }
             }
 
@@ -1886,9 +1887,99 @@ namespace Drawing {
         }
     }
 
+    inline SkColor getIntronColor(float support) {
+        // stolen from https://vega.github.io/vega/docs/schemes/
+        static SkColor precomputedColors[30];
+        static bool initialized = false;
+
+        // Calculate the 30 colors exactly once
+        if (!initialized) {
+            const int pal[5][3] = {
+                {197, 228, 195}, {202, 223, 149}, {245, 220, 130}, {235, 182, 95}, {228, 134, 78}, 
+            };
+            for (int i = 0; i < 30; ++i) {
+                float t = i / 29.0f;
+                float seg = t * 4.0f;
+                int i0 = (int)seg; 
+                if (i0 > 3) i0 = 3;
+                float u = seg - (float)i0;
+                
+                int R = pal[i0][0] + (pal[i0+1][0] - pal[i0][0]) * u;
+                int G = pal[i0][1] + (pal[i0+1][1] - pal[i0][1]) * u;
+                int B = pal[i0][2] + (pal[i0+1][2] - pal[i0][2]) * u;
+                
+                precomputedColors[i] = SkColorSetARGB(230, R, G, B);
+            }
+            initialized = true;
+        }
+
+        // Clamp support to index bounds (0 to 29)
+        int idx = (int)support - 1;
+        if (idx < 0) idx = 0;
+        if (idx > 29) idx = 29;
+        
+        return precomputedColors[idx];
+    }
+
+    void drawIntronBlock(SkCanvas* canvas, const Themes::IniOptions& opts,
+                        const Utils::TrackBlock& f, const Utils::Region& rgn,
+                        float xScaling, float padX, float y, float padY_track, float h,
+                        float monitorScale, float customPointSlop,
+                        const Themes::Fonts& fonts, int trk_px_height, int nLevels,
+                        std::vector<TextItem>& text, SkPath& path) {
+        
+        if (!f.anyToDraw) return;
+        
+        // Allow off-screen endpoints: we still want a bar drawn when the
+        // intron straddles the viewport. Only skip if both ends are off.
+        if (f.end < rgn.start || f.start > rgn.end) return;
+
+        float xStart = ((f.start - rgn.start) * xScaling) + padX;
+        float xEnd   = ((f.end   - rgn.start) * xScaling) + padX;
+        if (xEnd - xStart < 1.0f) xEnd = xStart + 1.0f;
+
+        float support = f.value;
+        if (support < 1.0f) support = 1.0f;
+        if (support > 30.0f) support = 30.0f;
+        float t = (support - 1.0f) / 29.0f;
+
+        // Thickness grows with support (1→35% of h, 30→100%).
+        float barH = std::fmax(monitorScale, h * (0.35f + 0.65f * t));
+        float yMid = y + padY_track + (h * 0.5f);
+        float yTop = yMid - barH * 0.5f;
+
+        SkPaint p;
+        p.setAntiAlias(true);
+        p.setStyle(SkPaint::kFill_Style);
+        p.setColor(getIntronColor(support)); // Uses our fast O(1) precomputed lookup
+
+        int strand = f.strand;
+        float slop = std::fmin(customPointSlop, (xEnd - xStart) * 0.5f);
+
+        // Draw a strand-pointed bar so the direction of splicing is visible.
+        if (strand == 1) {
+            drawRightPointedRectangleNoEdge(canvas, barH, yTop, xStart, xEnd - xStart, 0, p, path, slop);
+        } else if (strand == 2) {
+            drawLeftPointedRectangleNoEdge(canvas, barH, yTop, xStart, xEnd - xStart, 0, p, path, slop);
+        } else {
+            SkRect r = SkRect::MakeLTRB(xStart, yTop, xEnd, yTop + barH);
+            canvas->drawRect(r, p);
+        }
+
+        // Support label: midpoint, only if the bar is wide enough.
+        if (xEnd - xStart > 30.0f && fonts.overlayHeight * nLevels < trk_px_height / 2) {
+            TextItem ti;
+            ti.text = SkTextBlob::MakeFromString(f.name.c_str(), fonts.overlay);
+            ti.x = (xStart + xEnd) * 0.5f;
+            ti.y = yTop + barH + (fonts.overlayHeight * 1.1);
+            text.push_back(std::move(ti));
+        }
+    }
+
 
     void drawTracks(Themes::IniOptions &opts, SkCanvas *const canvas, std::vector<HGW::GwTrack> &tracks,
-                    std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, const drawContext& ctx) {
+                    std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, const drawContext& ctx,
+                    std::vector<Segs::ReadCollection>* collections) {
 
         // Extract values from ctx
         const float fb_width = ctx.fb_width;
@@ -1936,7 +2027,9 @@ namespace Drawing {
                 canvas->save();
                 canvas->clipRect({padX, y + padY, right, fb_height}, false);
 
-                trk.fetch(&rgn);
+                if (trk.kind != HGW::INTRON) {
+                    trk.fetch(&rgn);
+                }
                 if (trk.kind == HGW::BIGWIG) {
                     drawTrackBigWig(trk, rgn, rect, padX, padY, y + (trk.px_height * trackIdx), stepX, trk.px_height,
                                     xScaling, t, opts, canvas, fonts, faceColour, ctx);
@@ -1952,7 +2045,18 @@ namespace Drawing {
                 // features are the visible blocks (bed, genes, transcripts etc)
                 std::vector<Utils::TrackBlock> &features = rgn.featuresInView[trackIdx];
                 features.clear();
-                if (isGFF) {
+                if (trk.kind == HGW::INTRON) {
+                    if (collections != nullptr && trk.bamIndex >= 0) {
+                        // Match the ReadCollection for this bam + this region.
+                        for (auto& rc : *collections) {
+                            if (rc.bamIdx == trk.bamIndex && rc.region == &rgn) {
+                                Intron::extractCanonicalIntrons(rc, opts.splice_cluster_eps,
+                                                                opts.min_junction_reads, features);
+                                break;
+                            }
+                        }
+                    }
+                } else if (isGFF) {
                     HGW::collectGFFTrackData(trk, features);
                 } else {
                     HGW::collectTrackData(trk, features);
@@ -1973,17 +2077,30 @@ namespace Drawing {
                 float customPointSlop = (tan(0.6) * (h2));
 
                 float textLevelEnd = 0;  // makes sure text doesnt overlap on same level
-                
+
+                // For INTRON tracks the colour/thickness encoding uses a FIXED support
+                // range of 1..30 (anything >=30 is clamped). Palette is theme-aware
+                // light=low for 'igv', reversed for dark/slate.
+                // const bool intronLightIsLow = (opts.theme_str == "igv");
+
                 for (auto &f: features) {
                     float padY_track = padY + (blockStep * f.level) + (blockStep * 0.5) - (fonts.overlayHeight);
                     float *fLevelEnd = (nLevels > 1) ? &labelsEndLevels[f.level] : &textLevelEnd;
                     int strand = f.strand;
+
+                    if (trk.kind == HGW::INTRON) {
+                        drawIntronBlock(canvas, opts, f, rgn, xScaling, padX, y, padY_track, h,
+                                        monitorScale, customPointSlop, fonts, trk.px_height, nLevels,
+                                        text, path);
+                        continue;
+                    }
+
                     bool isBed12Feature = !f.s.empty() && !f.e.empty() && f.s.size() == f.e.size();
                     if (isGFF || isBed12Feature) {
                         if (!f.anyToDraw || f.start > rgn.end || f.end < rgn.start) {
                             continue;
                         }
-                        drawGappedTrackBlock(opts, canvas, tracks, regions, fonts, f, any_text, rgn, rect, path, path2, 
+                        drawGappedTrackBlock(opts, canvas, tracks, regions, fonts, f, any_text, rgn, rect, path, path2,
                                             padX, padY_track, stepX, blockStep, y, h, h2, h4, xScaling, nLevels, fLevelEnd,
                                             text, faceColour, shadedFaceColour, strand, customPointSlop, ctx);
 

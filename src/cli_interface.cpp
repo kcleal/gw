@@ -193,6 +193,15 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
     program.add_argument("--max-tlen")
             .default_value(iopts.max_tlen).append().scan<'i', int>()
             .help("Maximum tlen to display on plot");
+    program.add_argument("--introns")
+            .default_value(false).implicit_value(true)
+            .help("Show splice-junction (intron) track for each loaded BAM on startup");
+    program.add_argument("--splice-cluster-eps")
+            .default_value(iopts.splice_cluster_eps).append().scan<'i', int>()
+            .help("Max bp gap merged into one donor/acceptor when clustering introns");
+    program.add_argument("--min-junction-reads")
+            .default_value(iopts.min_junction_reads).append().scan<'i', int>()
+            .help("Minimum reads supporting a junction before it is drawn");
     program.add_argument("--link")
             .default_value(iopts.link)
             .action([](const std::string& value) {
@@ -549,6 +558,21 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
         extra_commands = program.get<std::vector<std::string>>("--command");
     }
 
+    if (program.is_used("--splice-cluster-eps")) {
+        iopts.splice_cluster_eps = program.get<int>("--splice-cluster-eps");
+    }
+    if (program.is_used("--min-junction-reads")) {
+        iopts.min_junction_reads = program.get<int>("--min-junction-reads");
+    }
+    if (program.is_used("--introns") && program.get<bool>("--introns")) {
+        // Queue one toggle per loaded BAM so the intron track appears on startup.
+        int nbams = program.is_used("-b")
+            ? (int)program.get<std::vector<std::string>>("-b").size() : 0;
+        if (nbams == 0) nbams = 1;
+        for (int i = 0; i < nbams; ++i) {
+            extra_commands.push_back("introns " + std::to_string(i));
+        }
+    }
 
     return options;
 }
