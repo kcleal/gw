@@ -687,6 +687,41 @@ namespace Commands {
         return Err::NONE;
     }
 
+    Err setTabTrackHeight(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        if (parts.size() < 2) {
+            out << "Usage: tab-track-height <value>  (0.0–1.0)\n";
+            return Err::NONE;
+        }
+        double value;
+        try {
+            value = std::stod(parts[1]);
+        } catch (...) {
+            out << termcolor::red << "Error:" << termcolor::reset << " tab-track-height invalid value\n";
+            return Err::NONE;
+        }
+        if (value < 0.0 || value > 1.0) {
+            out << termcolor::red << "Error:" << termcolor::reset << " tab-track-height must be between 0.0 and 1.0\n";
+            return Err::NONE;
+        }
+        double old_th = p->opts.tab_track_height;
+        p->opts.tab_track_height = value;
+        if (old_th > 0.0 && !p->tracks.empty()) {
+            double ratio = value / old_th;
+            double consumedHeight = 0;
+            for (auto& trk : p->tracks) {
+                trk.px_height *= ratio;
+                consumedHeight += trk.px_height;
+            }
+            p->totalTabixY = consumedHeight;
+        }
+        p->imageCacheQueue.clear();
+        for (auto& cl : p->collections) {
+            cl.resetDrawState();
+        }
+        p->redraw = true;
+        return Err::NONE;
+    }
+
     Err remove(Plot* p, std::vector<std::string> parts, std::ostream& out) {
         int ind = 0;
         p->redraw = true;
@@ -1994,7 +2029,8 @@ namespace Commands {
                 {"f",        PARAMS { return findRead(p, parts, out); }},
                 {"find",     PARAMS { return findRead(p, parts, out); }},
                 {"ylim",     PARAMS { return setYlim(p, parts, out); }},
-                {"indel-length", PARAMS { return indelLength(p, parts, out); }},
+                {"indel-length",      PARAMS { return indelLength(p, parts, out); }},
+                {"tab-track-height",  PARAMS { return setTabTrackHeight(p, parts, out); }},
                 {"rm",       PARAMS { return remove(p, parts, out); }},
                 {"remove",   PARAMS { return remove(p, parts, out); }},
                 {"cov",      PARAMS { return cov(p, parts, out); }},
