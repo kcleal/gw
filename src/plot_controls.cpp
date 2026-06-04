@@ -68,6 +68,32 @@ namespace Manager {
         }
     }
 
+    // Set an absolute vertical read-scroll offset across all collections and
+    // re-run the layout. Mirrors the Ctrl+[ / Ctrl+] handling in registerKey
+    // (see the reset block below), but takes an absolute value rather than a step.
+    void GwPlot::setVScroll(int value) {
+        if (collections.empty() || regions.empty()) {
+            return;
+        }
+        int v = std::max(0, value);
+        for (auto & cl : collections) {
+            cl.vScroll = v;
+        }
+        redraw = true;
+        processed = true;
+        imageCacheQueue.clear();
+        for (auto & cl : collections) {
+            cl.resetDrawState();
+            cl.levelsStart.clear();
+            cl.levelsEnd.clear();
+            cl.linked.clear();
+            Utils::SortType srt_option = regions[regionSelection].getSortOption();
+            for (auto &itm: cl.readQueue) { itm.y = -1; }
+            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, srt_option);
+            samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
+        }
+    }
+
     // keeps track of input commands. returning GLFW_KEY_UNKNOWN stops further processing of key codes
     int GwPlot::registerKey(GLFWwindow* wind, int key, int scancode, int action, int mods) {
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
