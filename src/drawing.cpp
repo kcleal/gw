@@ -1926,8 +1926,8 @@ namespace Drawing {
                         float xScaling, float padX, float y, float padY_track, float h,
                         float monitorScale, float customPointSlop,
                         const Themes::Fonts& fonts, int trk_px_height, int nLevels,
-                        std::vector<TextItem>& text, SkPath& path) {
-        
+                        std::vector<TextItem>& text, SkPath& path, bool selected) {
+
         if (!f.anyToDraw) return;
         
         // Allow off-screen endpoints: we still want a bar drawn when the
@@ -1964,6 +1964,17 @@ namespace Drawing {
         } else {
             SkRect r = SkRect::MakeLTRB(xStart, yTop, xEnd, yTop + barH);
             canvas->drawRect(r, p);
+        }
+
+        // Outline the clicked intron with the selection edge colour (matches reads).
+        if (selected) {
+            SkPaint hl = opts.theme.ecSelected;
+            hl.setStyle(SkPaint::kStroke_Style);
+            hl.setStrokeWidth(monitorScale * 2.0f);
+            hl.setAntiAlias(true);
+            SkRect hr = SkRect::MakeLTRB(xStart, yTop, xEnd, yTop + barH);
+            hr.outset(monitorScale, monitorScale);
+            canvas->drawRect(hr, hl);
         }
 
         // Support label: midpoint, only if the bar is wide enough.
@@ -2089,9 +2100,13 @@ namespace Drawing {
                     int strand = f.strand;
 
                     if (trk.kind == HGW::INTRON) {
+                        bool intronSelected = ctx.selectedIntronStart == f.start
+                                           && ctx.selectedIntronEnd == f.end
+                                           && ctx.selectedIntronStrand == f.strand
+                                           && ctx.selectedIntronChrom == rgn.chrom;
                         drawIntronBlock(canvas, opts, f, rgn, xScaling, padX, y, padY_track, h,
                                         monitorScale, customPointSlop, fonts, trk.px_height, nLevels,
-                                        text, path);
+                                        text, path, intronSelected);
                         continue;
                     }
 

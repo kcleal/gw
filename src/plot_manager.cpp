@@ -1818,6 +1818,10 @@ namespace Manager {
         ctx.topMenuSpace = topMenuSpace;
         ctx.overlayHeight = fonts.overlayHeight;
         ctx.drawLocation = drawLocation;
+        ctx.selectedIntronChrom = selectedIntronChrom;
+        ctx.selectedIntronStart = selectedIntronStart;
+        ctx.selectedIntronEnd = selectedIntronEnd;
+        ctx.selectedIntronStrand = selectedIntronStrand;
     }
 
     void GwPlot::overlayImGui(bool& pending_settings_close) {

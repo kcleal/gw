@@ -168,6 +168,11 @@ namespace Manager {
         Show last_mode;
 
         std::string selectedAlign;  // SAM text of most-recently clicked read (used by commands)
+        std::string selectedIntron;  // TSV (chrom,start,end,strand,count) of most-recently clicked intron
+        std::string selectedIntronChrom;  // identity of the highlighted intron (persists across redraws)
+        int selectedIntronStart{-1};
+        int selectedIntronEnd{-1};
+        int selectedIntronStrand{-2};  // -2 = none (0/1/2 are valid gw strands)
 
         struct ReadPopup {
             std::string ansi;  // ANSI-coded read info text

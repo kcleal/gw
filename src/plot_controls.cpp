@@ -1842,6 +1842,28 @@ namespace Manager {
             target_qname = saved_qname;
             target_pos = saved_pos;
             Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx, target_qname, &target_pos, out);
+            // Capture a clicked intron's data for Python (mirrors selectedAlign for reads).
+            selectedIntron.clear();
+            if (targetTrack.kind == HGW::FType::INTRON && trackIdx < (int)regions[tIdx].featuresInView.size()) {
+                auto *rgn = &regions[tIdx];
+                int target = (int)((float)(rgn->end - rgn->start) * relX) + rgn->start;
+                int jitter = (rgn->end - rgn->start) * 0.025;
+                for (auto &b : rgn->featuresInView.at(trackIdx)) {
+                    if (b.start - jitter <= target && b.end + jitter >= target && b.level == featureLevel) {
+                        selectedIntron = b.chrom + "\t" + std::to_string(b.start) + "\t"
+                                       + std::to_string(b.end) + "\t" + std::to_string(b.strand) + "\t"
+                                       + std::to_string((int)b.value);
+                        // Record the highlight identity (persists across redraws) and force a
+                        // redraw so the selection outline renders on this click.
+                        selectedIntronChrom = b.chrom;
+                        selectedIntronStart = b.start;
+                        selectedIntronEnd = b.end;
+                        selectedIntronStrand = b.strand;
+                        redraw = true;
+                        break;
+                    }
+                }
+            }
             // Build track popup
             std::string ansiStr = uiOut.str();
             if (!ansiStr.empty()) {

@@ -59,6 +59,10 @@ namespace Drawing {
         float topMenuSpace;
         float overlayHeight;
         bool drawLocation;
+        std::string selectedIntronChrom;  // identity of the highlighted intron (empty = none)
+        int selectedIntronStart = -1;
+        int selectedIntronEnd = -1;
+        int selectedIntronStrand = -2;
     };
 
     void drawCoverage(const Themes::IniOptions &opts, std::vector<Segs::ReadCollection> &collections,
