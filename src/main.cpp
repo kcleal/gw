@@ -328,6 +328,14 @@ int main(int argc, char *argv[]) {
                 (int)sizeof(GwFonts::Aileron_Regular_otf),
                 14.0f, &cfg);
         }
+        {
+            // Load a scalable vector monospace font for the reference-sequence
+            // popup so every DNA base has exactly the same width.  ProggyForever
+            // is ImGui's embedded vector alternative to the pixelated ProggyClean.
+            ImFontConfig cfg;
+            cfg.SizePixels = 14.0f;
+            plotter.monoFont = ImGui::GetIO().Fonts->AddFontDefaultVector(&cfg);
+        }
         // WebGL2 requires GLSL ES 3.00; desktop GL 3.2+ uses GLSL 1.50.
 #ifdef __EMSCRIPTEN__
         const char* glsl_version = "#version 300 es";

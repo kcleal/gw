@@ -37,17 +37,16 @@ static ImGui::FileBrowser& getFileBrowser()
     if (!initialised) {
         browser.SetTitle("Open File");
         browser.SetTypeFilters({
-            ".*",
-            ".bam", ".cram",
-            ".bed", ".bed.gz",
+            ".bam", ".cram", ".sam",
+            ".bed", ".bed.gz", ".bed.bgz",
             ".vcf", ".vcf.gz", ".bcf",
-            ".gff3", ".gff3.gz",
+            ".gff3", ".gff3.gz", ".gff", ".gff.gz",
             ".gtf", ".gtf.gz",
+            ".tsv", ".tsv.gz", ".txt", ".txt.gz",
+            ".bigwig", ".bw", ".bigbed", ".bb",
+            ".paf",
+            ".fa", ".fasta", ".fa.gz", ".fasta.gz", ".fa.bgz", ".fasta.bgz",
             ".png",
-            ".tsv", ".tsv.gz",
-            ".txt", ".txt.gz",
-            ".fa", ".fasta",
-            ".fa.gz", ".fasta.gz",
         });
         initialised = true;
     }
@@ -95,6 +94,11 @@ void drawImGuiOpenDialog(Manager::GwPlot* plot,
 
     static std::string openFileError;
     static float openFileErrorTimer = 0.f;
+
+    // Genome-tag input shown after a FASTA is selected in the file browser.
+    static bool showGenomeTagDialog = false;
+    static std::string pendingGenomePath;
+    static char genomeTagBuf[128] = {};
 
     // Open browser when requested
     if (p_open && *p_open && !browser.IsOpened()) {
@@ -149,14 +153,13 @@ void drawImGuiOpenDialog(Manager::GwPlot* plot,
         auto selections = browser.GetMultiSelected();
         std::vector<std::string> failed;
 
-        std::ostream& out =
-            plot->terminalOutput ? std::cout : plot->outStr;
-
         for (auto& sel : selections) {
             std::string path = sel.string();
 
             if (isFastaPath(sel)) {
-                plot->loadGenome(path, out);
+                // Defer loading until the user has a chance to enter a tag.
+                pendingGenomePath = path;
+                showGenomeTagDialog = true;
             }
             else if (isVariantPath(sel)) {
                 pendingVariantFiles.push_back(path);
@@ -175,7 +178,9 @@ void drawImGuiOpenDialog(Manager::GwPlot* plot,
 
         browser.ClearSelected();
 
-        if (!pendingVariantFiles.empty())
+        if (!pendingGenomePath.empty())
+            showGenomeTagDialog = true;
+        else if (!pendingVariantFiles.empty())
             showVariantDialog = true;
 
         if (!failed.empty()) {
@@ -200,15 +205,76 @@ void drawImGuiOpenDialog(Manager::GwPlot* plot,
     }
 
     // -------------------------------------------------------------------------
+    // Genome tag dialog (shown after selecting a FASTA)
+    // -------------------------------------------------------------------------
+
+    if (showGenomeTagDialog)
+        ImGui::OpenPopup("Load reference genome##gw_genometag");
+
+    bool tagPopupOpen = true;
+    if (ImGui::BeginPopupModal(
+            "Load reference genome##gw_genometag",
+            &tagPopupOpen,
+            ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("Genome: %s",
+            std::filesystem::path(pendingGenomePath).filename().string().c_str());
+
+        ImGui::Spacing();
+        ImGui::TextUnformatted("Optional tag name for .gw.ini:");
+        ImGui::InputText("##genometag", genomeTagBuf, sizeof(genomeTagBuf));
+
+        ImGui::Spacing();
+
+        if (ImGui::Button("Load genome", ImVec2(120, 0))) {
+            std::ostream& out =
+                plot->terminalOutput ? std::cout : plot->outStr;
+            plot->loadGenome(pendingGenomePath, out);
+
+            // If the user supplied a tag, store it in the ini file.
+            if (genomeTagBuf[0] != '\0') {
+                plot->opts.myIni["genomes"][genomeTagBuf] = pendingGenomePath;
+                plot->opts.genome_tag = genomeTagBuf;
+            }
+
+            pendingGenomePath.clear();
+            genomeTagBuf[0] = '\0';
+            showGenomeTagDialog = false;
+            redraw = true;
+            plot->processed = false;
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::SameLine();
+
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            pendingGenomePath.clear();
+            genomeTagBuf[0] = '\0';
+            showGenomeTagDialog = false;
+            ImGui::CloseCurrentPopup();
+        }
+
+        if (!tagPopupOpen) {
+            pendingGenomePath.clear();
+            genomeTagBuf[0] = '\0';
+            showGenomeTagDialog = false;
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
+
+    // -------------------------------------------------------------------------
     // Variant load chooser dialog
     // -------------------------------------------------------------------------
 
     if (showVariantDialog)
         ImGui::OpenPopup("Load variant/annotation files##gw_varload");
 
+    bool varPopupOpen = true;
     if (ImGui::BeginPopupModal(
             "Load variant/annotation files##gw_varload",
-            nullptr,
+            &varPopupOpen,
             ImGuiWindowFlags_AlwaysAutoResize))
     {
         ImGui::Text("%d file(s) selected:",
@@ -249,7 +315,7 @@ void drawImGuiOpenDialog(Manager::GwPlot* plot,
 
         ImGui::SameLine();
 
-        if (ImGui::Button("Cancel")) {
+        if (!varPopupOpen) {
             pendingVariantFiles.clear();
             showVariantDialog = false;
             ImGui::CloseCurrentPopup();

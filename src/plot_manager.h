@@ -25,6 +25,8 @@
 #include <utility>
 #include <vector>
 
+struct ImFont;  // Forward declaration for Dear ImGui font handle
+
 #include "ankerl_unordered_dense.h"
 #include "BS_thread_pool.h"
 #include "drawing.h"
@@ -156,6 +158,8 @@ namespace Manager {
 
         Themes::IniOptions opts;
         Themes::Fonts fonts;
+
+        ImFont* monoFont{nullptr};  // Monospace font for ImGui (reference sequence popup)
 
         faidx_t* fai;
         GLFWwindow* window;
