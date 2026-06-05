@@ -5,7 +5,105 @@
 #include "imgui_impl_opengl3.h"
 #include "imfilebrowser.h"
 
+#include <sstream>
+#include <regex>
+
 namespace Menu {
+
+#if !defined(__EMSCRIPTEN__)
+// Simple JSON entry for IGV online genomes.
+struct OnlineGenome {
+    std::string id;
+    std::string name;
+    std::string fastaURL;
+};
+
+// Flag shared between renderNamePathTable (button) and drawImGuiSettings (popup).
+static bool openOnlineGenomesPopup = false;
+
+// Parse the IGV genomes JSON.  We only need id, name and fastaURL from each
+// top-level object in the array.  Objects may contain nested arrays/objects
+// (e.g. "tracks"), so we split by tracking brace depth rather than regex.
+static std::vector<OnlineGenome> parseIgvGenomes(const std::string& jsonText) {
+    std::vector<OnlineGenome> result;
+
+    // Find array content between [ and ]
+    size_t arrStart = jsonText.find('[');
+    size_t arrEnd   = jsonText.rfind(']');
+    if (arrStart == std::string::npos || arrEnd == std::string::npos || arrEnd <= arrStart)
+        return result;
+
+    // Split top-level objects by tracking brace depth, respecting strings.
+    std::vector<std::string> objects;
+    std::string current;
+    int depth = 0;
+    bool inString = false;
+    bool escape = false;
+
+    for (size_t i = arrStart + 1; i < arrEnd; ++i) {
+        char ch = jsonText[i];
+        if (escape) {
+            current += ch;
+            escape = false;
+            continue;
+        }
+        if (ch == '\\') {
+            current += ch;
+            escape = true;
+            continue;
+        }
+        if (ch == '"' && !inString) {
+            inString = true;
+            current += ch;
+            continue;
+        }
+        if (ch == '"' && inString) {
+            inString = false;
+            current += ch;
+            continue;
+        }
+        if (inString) {
+            current += ch;
+            continue;
+        }
+        if (ch == '{') {
+            ++depth;
+            current += ch;
+        } else if (ch == '}') {
+            --depth;
+            current += ch;
+            if (depth == 0) {
+                // trim whitespace
+                size_t a = 0, b = current.size();
+                while (a < b && std::isspace(static_cast<unsigned char>(current[a]))) ++a;
+                while (b > a && std::isspace(static_cast<unsigned char>(current[b - 1]))) --b;
+                if (a < b)
+                    objects.emplace_back(current.substr(a, b - a));
+                current.clear();
+            }
+        } else if (ch == ',' && depth == 0) {
+            // skip separator between top-level objects
+        } else {
+            current += ch;
+        }
+    }
+
+    static const std::regex idRe(R"--("id"\s*:\s*"([^"]*)")--");
+    static const std::regex nameRe(R"--("name"\s*:\s*"([^"]*)")--");
+    static const std::regex fastaRe(R"--("fastaURL"\s*:\s*"([^"]*)")--");
+
+    for (const std::string& body : objects) {
+        std::smatch m;
+        OnlineGenome g;
+        if (std::regex_search(body, m, idRe))    g.id = m[1];
+        if (std::regex_search(body, m, nameRe))  g.name = m[1];
+        if (std::regex_search(body, m, fastaRe)) g.fastaURL = m[1];
+        if (!g.id.empty() && !g.fastaURL.empty())
+            result.push_back(std::move(g));
+    }
+    return result;
+}
+#endif
 
 static const char* getOptionTooltip(const std::string& key) {
     static const std::unordered_map<std::string, const char*> tips = {
@@ -176,6 +274,7 @@ static void renderNamePathTable(
 ) {
     static char add_name[128] = {};
     static char add_path[512] = {};
+    static std::string genomeLoadError;  // modal error message
 
     constexpr ImGuiTableFlags flags =
         ImGuiTableFlags_Borders |
@@ -193,11 +292,51 @@ static void renderNamePathTable(
         std::string to_delete;
 
         for (auto& pair : opts.myIni[section]) {
-            ImGui::PushID(pair.first.c_str());
+            const std::string& name = pair.first;
+            ImGui::PushID(name.c_str());
             ImGui::TableNextRow();
 
             ImGui::TableSetColumnIndex(0);
-            ImGui::TextUnformatted(pair.first.c_str());
+            // Genome names are clickable buttons; the active one is underlined.
+            bool isActiveGenome = (section == "genomes" && name == opts.genome_tag);
+            if (isActiveGenome) {
+                ImVec4 textColor = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+                ImGui::Text("%s  *", name.c_str());
+                // Draw an underline beneath the active-genome label.
+                {
+                    ImVec2 rMin = ImGui::GetItemRectMin();
+                    ImVec2 rMax = ImGui::GetItemRectMax();
+                    ImGui::GetWindowDrawList()->AddLine(
+                        ImVec2(rMin.x, rMax.y),
+                        ImVec2(rMin.x + ImGui::CalcTextSize(name.c_str()).x, rMax.y),
+                        ImGui::ColorConvertFloat4ToU32(textColor), 1.0f);
+                }
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                    ImGui::SetTooltip("Active genome");
+            } else if (section == "genomes") {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.2f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 0.4f));
+                if (ImGui::SmallButton(name.c_str())) {
+                    opts.genome_tag = name;
+                    if (plot) {
+                        std::ostringstream capture;
+                        plot->loadGenome(name, capture);
+                        std::string output = capture.str();
+                        if (output.find("Error:") != std::string::npos) {
+                            genomeLoadError = output;
+                            ImGui::OpenPopup("Genome Load Error");
+                        }
+                        redraw = true;
+                        plot->processed = false;
+                    }
+                }
+                ImGui::PopStyleColor(3);
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                    ImGui::SetTooltip("Load %s", name.c_str());
+            } else {
+                ImGui::TextUnformatted(name.c_str());
+            }
 
             ImGui::TableSetColumnIndex(1);
             char buf[512];
@@ -206,25 +345,53 @@ static void renderNamePathTable(
             ImGui::SetNextItemWidth(-1.f);
             if (ImGui::InputText("##path", buf, sizeof(buf),
                                  ImGuiInputTextFlags_EnterReturnsTrue)) {
-                Option opt(pair.first, Path, buf, mt);
+                Option opt(name, Path, buf, mt);
                 applyPathOption(opt, opts);
                 redraw = true;
             }
 
             ImGui::TableSetColumnIndex(2);
             if (ImGui::SmallButton("Delete"))
-                to_delete = pair.first;
+                to_delete = name;
 
             ImGui::PopID();
         }
 
         if (!to_delete.empty()) {
             opts.myIni[section].remove(to_delete);
+            if (section == "genomes" && opts.genome_tag == to_delete)
+                opts.genome_tag.clear();
             redraw = true;
         }
 
         ImGui::EndTable();
     }
+
+    // ── Error modal for genome load failures ────────────────────────────────
+    if (!genomeLoadError.empty()) {
+        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        if (ImGui::BeginPopupModal("Genome Load Error", nullptr,
+                                   ImGuiWindowFlags_AlwaysAutoResize |
+                                   ImGuiWindowFlags_NoNav)) {
+            ImGui::TextUnformatted(genomeLoadError.c_str());
+            ImGui::Separator();
+            if (ImGui::Button("OK", ImVec2(120, 0))) {
+                genomeLoadError.clear();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+    }
+
+#if !defined(__EMSCRIPTEN__)
+    // ── Online genomes button (Genomes tab only) ────────────────────────────
+    if (section == "genomes") {
+        ImGui::Separator();
+        if (ImGui::Button("Online genomes"))
+            openOnlineGenomesPopup = true;
+    }
+#endif
 
     ImGui::Separator();
     ImGui::TextDisabled("Add");
@@ -242,6 +409,14 @@ static void renderNamePathTable(
 // ----------------------------------------------------------------------------
 // Settings window
 // ----------------------------------------------------------------------------
+#if !defined(__EMSCRIPTEN__)
+static void drawOnlineGenomesDialog(
+    Themes::IniOptions& opts,
+    bool& redraw,
+    Manager::GwPlot* plot
+);
+#endif
+
 void drawImGuiSettings(
     Manager::GwPlot* plot,
     bool* p_open,
@@ -309,7 +484,164 @@ void drawImGuiSettings(
         ImGui::EndTabBar();
     }
 
+#if !defined(__EMSCRIPTEN__)
+    // Online genomes modal is triggered from renderNamePathTable but rendered here
+    // so it isn't clipped by the tab content window.
+    if (openOnlineGenomesPopup) {
+        ImGui::OpenPopup("Online Genomes");
+        openOnlineGenomesPopup = false;
+    }
+    drawOnlineGenomesDialog(opts, redraw, plot);
+#endif
+
     ImGui::End();
 }
+
+#if !defined(__EMSCRIPTEN__)
+// ----------------------------------------------------------------------------
+// Online genomes dialog
+// ----------------------------------------------------------------------------
+static void drawOnlineGenomesDialog(
+    Themes::IniOptions& opts,
+    bool& redraw,
+    Manager::GwPlot* plot
+) {
+    static std::vector<OnlineGenome> onlineGenomes;
+    static bool fetchInProgress = false;
+    static std::string fetchError;
+    static char filterBuf[128] = {};
+
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(520, 420), ImGuiCond_Appearing);
+
+    bool popupOpen = true;
+    if (!ImGui::BeginPopupModal("Online Genomes", &popupOpen,
+                                ImGuiWindowFlags_NoCollapse))
+        return;
+
+    // ── Fetch on first open ─────────────────────────────────────────────────
+    if (onlineGenomes.empty() && !fetchInProgress && fetchError.empty()) {
+        fetchInProgress = true;
+        try {
+            std::string json = Utils::fetchOnlineFileContent(
+                "https://s3.amazonaws.com/igv.org.genomes/genomes.json");
+            onlineGenomes = parseIgvGenomes(json);
+            fetchInProgress = false;
+        } catch (const std::exception& e) {
+            fetchError = e.what();
+            fetchInProgress = false;
+        }
+    }
+
+    if (fetchInProgress) {
+        ImGui::Text("Loading genome list…");
+        ImGui::EndPopup();
+        return;
+    }
+
+    if (!fetchError.empty()) {
+        ImGui::TextColored(ImVec4(1, 0, 0, 1), "Error: %s", fetchError.c_str());
+        if (ImGui::Button("Retry")) {
+            fetchError.clear();
+            onlineGenomes.clear();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Close"))
+            ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        return;
+    }
+
+    // ── Filter ──────────────────────────────────────────────────────────────
+    ImGui::InputTextWithHint("##filter", "Filter genomes…", filterBuf,
+                             sizeof(filterBuf));
+
+    // ── Table ───────────────────────────────────────────────────────────────
+    constexpr ImGuiTableFlags tflags =
+        ImGuiTableFlags_Borders |
+        ImGuiTableFlags_RowBg |
+        ImGuiTableFlags_ScrollY |
+        ImGuiTableFlags_SizingStretchProp;
+
+    std::string selectedId;   // genome to add this frame
+    bool closePopup = false;
+
+    if (ImGui::BeginTable("##online_genomes_tbl", 3, tflags,
+                          ImVec2(0, -ImGui::GetFrameHeightWithSpacing()))) {
+        ImGui::TableSetupScrollFreeze(0, 1);
+        ImGui::TableSetupColumn("ID",   ImGuiTableColumnFlags_WidthFixed, 90.f);
+        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn("",     ImGuiTableColumnFlags_WidthFixed, 60.f);
+        ImGui::TableHeadersRow();
+
+        std::string filterLower = filterBuf;
+        std::transform(filterLower.begin(), filterLower.end(),
+                       filterLower.begin(), ::tolower);
+
+        for (const auto& g : onlineGenomes) {
+            // apply filter
+            if (!filterLower.empty()) {
+                std::string idLower = g.id;
+                std::string nameLower = g.name;
+                std::transform(idLower.begin(), idLower.end(), idLower.begin(), ::tolower);
+                std::transform(nameLower.begin(), nameLower.end(), nameLower.begin(), ::tolower);
+                if (idLower.find(filterLower) == std::string::npos &&
+                    nameLower.find(filterLower) == std::string::npos)
+                    continue;
+            }
+
+            ImGui::TableNextRow();
+
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextUnformatted(g.id.c_str());
+
+            ImGui::TableSetColumnIndex(1);
+            ImGui::TextUnformatted(g.name.c_str());
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                ImGui::SetTooltip("%s", g.fastaURL.c_str());
+
+            ImGui::TableSetColumnIndex(2);
+            // If already in ini, show "Update" instead of "Open"
+            bool alreadyExists = opts.myIni["genomes"].has(g.id);
+            const char* btnLabel = alreadyExists ? "Update" : "Open";
+            ImGui::PushID(g.id.c_str());
+            if (ImGui::SmallButton(btnLabel)) {
+                selectedId = g.id;
+                // add / update in ini
+                opts.myIni["genomes"][g.id] = g.fastaURL;
+                opts.genome_tag = g.id;
+                redraw = true;
+                if (plot) {
+                    std::ostringstream capture;
+                    plot->loadGenome(g.id, capture);
+                    std::string output = capture.str();
+                    if (output.find("Error:") != std::string::npos) {
+                        // Show error inline – the modal is about to close,
+                        // so we rely on the Genome Load Error modal in
+                        // renderNamePathTable to catch it.  To trigger it
+                        // we would need a shared static, but for simplicity
+                        // just print to the terminal output stream.
+                        if (plot->terminalOutput)
+                            std::cout << output << "\n";
+                        else
+                            plot->outStr << output << "\n";
+                    } else {
+                        plot->processed = false;
+                    }
+                }
+                closePopup = true;
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndTable();
+    }
+
+    if (closePopup || !popupOpen)
+        ImGui::CloseCurrentPopup();
+
+    ImGui::EndPopup();
+}
+#endif
 
 } // namespace Menu
