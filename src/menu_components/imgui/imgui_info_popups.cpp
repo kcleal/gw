@@ -1047,7 +1047,7 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                         }
                         // Convert selection offsets to absolute genomic coordinates
                         std::string chrom;
-                        int regionStart = 0, regionEnd = 0;
+                        int regionStart = 0; //, regionEnd = 0;
                         size_t colonPos = rc.region.find(':');
                         if (colonPos != std::string::npos) {
                             chrom = rc.region.substr(0, colonPos);
@@ -1055,7 +1055,7 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                             if (dashPos != std::string::npos) {
                                 try {
                                     regionStart = std::stoi(rc.region.substr(colonPos + 1, dashPos - colonPos - 1));
-                                    regionEnd = std::stoi(rc.region.substr(dashPos + 1));
+                                    //regionEnd = std::stoi(rc.region.substr(dashPos + 1));
                                 } catch (...) {}
                             }
                         }
@@ -1099,7 +1099,7 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                     }
                     // Parse base region to extract chrom:start-end
                     std::string chrom;
-                    int regionStart = 0, regionEnd = 0;
+                    int regionStart = 0; //, regionEnd = 0;
                     size_t colonPos = rc.region.find(':');
                     if (colonPos != std::string::npos) {
                         chrom = rc.region.substr(0, colonPos);
@@ -1107,7 +1107,7 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                         if (dashPos != std::string::npos) {
                             try {
                                 regionStart = std::stoi(rc.region.substr(colonPos + 1, dashPos - colonPos - 1));
-                                regionEnd = std::stoi(rc.region.substr(dashPos + 1));
+                                //regionEnd = std::stoi(rc.region.substr(dashPos + 1));
                             } catch (...) {}
                         }
                     }
