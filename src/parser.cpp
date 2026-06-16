@@ -8,9 +8,11 @@
 #include <regex>
 #include <climits>
 #include <cstdlib>
+#ifndef _WIN32
 #include <pwd.h>
 #include <sys/types.h>
 #include <unistd.h>
+#endif
 #include <htslib/sam.h>
 #include <glob_cpp.hpp>
 #include "termcolor.h"
