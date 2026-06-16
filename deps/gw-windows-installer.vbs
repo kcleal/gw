@@ -1,127 +1,134 @@
-''' Download gw on msys2 '''
-set msysShell = CreateObject("WScript.Shell")
-msysShell.run "C:\msys64\ucrt64.exe pacman -Sy --noconfirm mingw-w64-ucrt-x86_64-gw", 0, True
-
-''' Add gw to PATH so can be used in CMD and PS '''
-Function AddPath(ByVal PathToAdd)
-  ' Adds a new path to the user path
-  ' unless the path is already present
-  ' in either user or system path.
-
-  Dim oWSH, uENV, pENV, UserPath, PathElement, PathExists, OldPath
-
-  Set oWSH = CreateObject("Wscript.Shell")
-  Set uENV = oWSH.Environment("USER")
-  Set pENV = oWSH.Environment("PROCESS")
-  UserPath = uENV("path")
-
-
-  ' Check if path already exists:
-  OldPath = Split(pENV("path"), ";", -1, vbTextCompare)
-  PathExists = False
-  For Each PathElement In OldPath
-    If StrComp(PathElement, PathToAdd, vbTextCompare) = 0 Then
-      PathExists = True
-      AddPath = False
-      Exit For
-    End If
-  Next
-
-  ' Only do if path not already exists:
-  If Not PathExists Then
-    ' Strip off trailing semicolons if present:
-    Do While Right(UserPath, 1) = ";"
-      UserPath = Left(UserPath, Len(UserPath) - 1)
-    Loop
-
-    ' Add new path to current path:
-    If UserPath = "" Then
-      UserPath = PathToAdd
-    Else
-      UserPath = UserPath & ";" & PathToAdd
-    End If
-
-    ' Set the new path into environment:
-    uENV("path") = UserPath
-    AddPath = True
-  End If
-  
-  ' Destroy the objects:
-  Set uENV = Nothing
-  Set pENV = Nothing
-  Set oWSH = Nothing
-End Function
-
-AddPath("C:\msys64\ucrt64\bin")
-
-''' Write .bat launch script '''
-Set fso=createobject("Scripting.FileSystemObject")
-Set qfile=fso.OpenTextFile("C:\msys64\home\launch_gw.bat",2,True)
-qfile.Write  "C:\msys64\ucrt64.exe gw"
-qfile.Close
-Set qfile=nothing
-Set fso=nothing
-
-''' Create shortcut to desktop '''
-Const strProgramTitle = "gw"
-Const strProgram = "C:\msys64\home\launch_gw.bat"
-Const strWorkDir = "C:\msys64\home\"
-Dim objShortcut, objShell
-Set objShell = WScript.CreateObject ("Wscript.Shell")
-strLPath = objShell.SpecialFolders ("Desktop")
-strAPath = objShell.SpecialFolders ("AppData")
-WinDir = objShell.ExpandEnvironmentStrings("%WinDir%") ' tmp
-Set objShortcut = objShell.CreateShortcut (strLPath & "\" & strProgramTitle & ".lnk")
-objShortcut.TargetPath = strProgram
-objShortcut.WorkingDirectory = strWorkDir
-objShortcut.Description = strProgramTitle
-' change icon
-' objShortcut.IconLocation = Windir & "\System32\moricons.dll,6"
-' objShortcut.Save
-
-''' Downlaod icon '''
-Sub HTTPDownload( myURL, myPath )
-    Dim i, objFile, objFSO, objHTTP, strFile, strMsg
-    Const ForReading = 1, ForWriting = 2, ForAppending = 8
-    Set objFSO = CreateObject( "Scripting.FileSystemObject" )
-    If objFSO.FolderExists( myPath ) Then
-        strFile = objFSO.BuildPath( myPath, Mid( myURL, InStrRev( myURL, "/" ) + 1 ) )
-    ElseIf objFSO.FolderExists( Left( myPath, InStrRev( myPath, "\" ) - 1 ) ) Then
-        strFile = myPath
-    Else
-        WScript.Echo "ERROR: Target folder not found."
-        Exit Sub
-    End If
-    Set objFile = objFSO.OpenTextFile( strFile, ForWriting, True )
-    Set objHTTP = CreateObject( "WinHttp.WinHttpRequest.5.1" )
-    objHTTP.Open "GET", myURL, False
-    objHTTP.Send
-    For i = 1 To LenB( objHTTP.ResponseBody )
-        objFile.Write Chr( AscB( MidB( objHTTP.ResponseBody, i, 1 ) ) )
-    Next
-    objFile.Close( )
-End Sub
-
-''' (strAPath & "\" & strProgramTitle & "\gw_icon.ico") '''
-HTTPDownload "https://raw.githubusercontent.com/kcleal/gw/master/include/gw_icon.ico", (strAPath & "\gw_icon.ico")
-
-' change icon
-objShortcut.IconLocation = (strAPath & "\gw_icon.ico")
-objShortcut.Save
-
-''' Give admin priv - required for adding to applications folder '''
+' ==============================================================================
+' 1. Elevate to Administrator Immediately
+' ==============================================================================
 If Not WScript.Arguments.Named.Exists("elevate") Then
   CreateObject("Shell.Application").ShellExecute WScript.FullName _
     , """" & WScript.ScriptFullName & """ /elevate", "", "runas", 1
   WScript.Quit
 End If
 
-''' Add to applications folder '''
-Set objShortcutP = objShell.CreateShortcut ("C:\ProgramData\Microsoft\Windows\Start Menu\Programs\gw.lnk")
-objShortcutP.TargetPath = strProgram
-objShortcutP.WorkingDirectory = strWorkDir
-objShortcutP.Description = strProgramTitle
-objShortcutP.IconLocation = (strAPath & "\gw_icon.ico")
-objShortcutP.Save
+Dim objShell, fso, strAPath, strLPath
+Set objShell = CreateObject("WScript.Shell")
+Set fso = CreateObject("Scripting.FileSystemObject")
+strLPath = objShell.SpecialFolders("Desktop")
+strAPath = objShell.SpecialFolders("AppData")
+
+' ==============================================================================
+' 2. Download and Install 'gw' via MSYS2 UCRT64
+' ==============================================================================
+' We set MSYSTEM=UCRT64 and call bash directly to safely execute the pacman command.
+Dim msysCommand
+msysCommand = "cmd.exe /c set MSYSTEM=UCRT64 && C:\msys64\usr\bin\bash.exe --login -c ""pacman -Sy --noconfirm mingw-w64-ucrt-x86_64-gw"""
+objShell.Run msysCommand, 0, True
+
+' ==============================================================================
+' 3. Add UCRT64 Binary Directory to PATH
+' ==============================================================================
+Function AddPath(ByVal PathToAdd)
+  Dim uENV, pENV, UserPath, PathElement, PathExists, OldPath
+  Set uENV = objShell.Environment("USER")
+  Set pENV = objShell.Environment("PROCESS")
+  UserPath = uENV("path")
+
+  OldPath = Split(pENV("path"), ";", -1, vbTextCompare)
+  PathExists = False
+  For Each PathElement In OldPath
+    If StrComp(Trim(PathElement), Trim(PathToAdd), vbTextCompare) = 0 Then
+      PathExists = True
+      Exit For
+    End If
+  Next
+
+  If Not PathExists Then
+    Do While Right(UserPath, 1) = ";"
+      UserPath = Left(UserPath, Len(UserPath) - 1)
+    Loop
+    If UserPath = "" Then
+      UserPath = PathToAdd
+    Else
+      UserPath = UserPath & ";" & PathToAdd
+    End If
+    uENV("path") = UserPath
+    AddPath = True
+  Else
+    AddPath = False
+  End If
+End Function
+
+AddPath("C:\msys64\ucrt64\bin")
+
+' ==============================================================================
+' 4. Create Launch Script (Optimized for Windows Terminal)
+' ==============================================================================
+Dim launchBatPath, qfile
+launchBatPath = "C:\msys64\home\launch_gw.bat"
+
+Set qfile = fso.OpenTextFile(launchBatPath, 2, True)
+
+qfile.WriteLine "@echo off"
+qfile.WriteLine "set MSYSTEM=UCRT64"
+
+' Check if Windows Terminal (wt.exe) exists in the system path
+qfile.WriteLine "where wt.exe >nul 2>nul"
+qfile.WriteLine "if %errorlevel% equ 0 ("
+' If WT exists, launch bash inside it with a clean title and focus
+qfile.WriteLine "    wt.exe --title ""gw"" C:\msys64\usr\bin\bash.exe --login -c ""gw"""
+qfile.WriteLine ") else ("
+' Fallback for older Windows 10 machines without Windows Terminal
+qfile.WriteLine "    C:\msys64\usr\bin\bash.exe --login -c ""gw"""
+qfile.WriteLine ")"
+
+qfile.Close
+Set qfile = Nothing
+
+' ==============================================================================
+' 5. Download Icon safely (Binary Stream Fix)
+' ==============================================================================
+Sub HTTPDownloadBinary(myURL, targetFile)
+    Dim objHTTP, objStream
+    Set objHTTP = CreateObject("WinHttp.WinHttpRequest.5.1")
+    objHTTP.Open "GET", myURL, False
+    objHTTP.Send
+
+    If objHTTP.Status = 200 Then
+        Set objStream = CreateObject("ADODB.Stream")
+        objStream.Type = 1 ' adTypeBinary
+        objStream.Open
+        objStream.Write objHTTP.ResponseBody
+        objStream.SaveToFile targetFile, 2 ' adSaveCreateOverWrite
+        objStream.Close
+        Set objStream = Nothing
+    End If
+    Set objHTTP = Nothing
+End Sub
+
+Dim iconPath
+iconPath = strAPath & "\gw_icon.ico"
+HTTPDownloadBinary "https://raw.githubusercontent.com/kcleal/gw/master/include/gw_icon.ico", iconPath
+
+' ==============================================================================
+' 6. Create Shortcuts (Desktop & Start Menu)
+' ==============================================================================
+Const strProgramTitle = "gw"
+Const strWorkDir = "C:\msys64\home\"
+Dim objShortcut
+
+' Desktop Shortcut
+Set objShortcut = objShell.CreateShortcut(strLPath & "\" & strProgramTitle & ".lnk")
+objShortcut.TargetPath = launchBatPath
+objShortcut.WorkingDirectory = strWorkDir
+objShortcut.Description = strProgramTitle
+objShortcut.IconLocation = iconPath
+objShortcut.Save
+
+' Start Menu Shortcut (All Users)
+Dim startMenuPath
+startMenuPath = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\gw.lnk"
+Set objShortcut = objShell.CreateShortcut(startMenuPath)
+objShortcut.TargetPath = launchBatPath
+objShortcut.WorkingDirectory = strWorkDir
+objShortcut.Description = strProgramTitle
+objShortcut.IconLocation = iconPath
+objShortcut.Save
 
 WScript.Quit
