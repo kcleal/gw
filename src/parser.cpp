@@ -7,6 +7,10 @@
 #include <string>
 #include <regex>
 #include <climits>
+#include <cstdlib>
+#include <pwd.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <htslib/sam.h>
 #include <glob_cpp.hpp>
 #include "termcolor.h"
@@ -325,12 +329,12 @@ namespace Parse {
         }
         iRow = (iRow < 0) ? nBams + iRow : iRow;  // support negative indexing
         iCol = (iCol < 0) ? nRegions + iCol : iCol;
-        if (std::abs(iRow) >= (int)nBams) {
-            out << "Error: row index is > nBams\n";
+        if (iRow < 0 || iRow >= (int)nBams) {
+            out << "Error: row index is out of range\n";
             return -1;
         }
-        if (std::abs(iCol) >= (int)nRegions) {
-            out << "Error: column index is > nRegions\n";
+        if (iCol < 0 || iCol >= (int)nRegions) {
+            out << "Error: column index is out of range\n";
             return -1;
         }
         v.resize(nBams, std::vector<size_t>(nRegions));
@@ -575,9 +579,13 @@ namespace Parse {
 
     bool seq_contains(const uint8_t *seq, uint32_t len, const std::string &fstr) {
         auto slen = (int)fstr.size();
+        if (slen == 0) {
+            return false;
+        }
         int target = slen - 1;
         int j;
-        for (int i=0; i < (int)len; i++){
+        int last_start = (int)len - slen;
+        for (int i=0; i <= last_start; i++){
             for (j=0; j < slen; j++) {
                 if (fstr[j] != seq_nt16_str[bam_seqi(seq, i + j)]) {
                     break;
@@ -1046,6 +1054,10 @@ namespace Parse {
 
 
 	void parse_vcf_split(std::string &result, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names, std::ostream& out) {
+		if (vcfCols.size() < 8) {
+			out << termcolor::red << "Error:" << termcolor::reset << " malformed VCF record\n";
+			return;
+		}
 		if (request == "chrom") {
 			result = vcfCols[0];
 		} else if (request == "pos") {
@@ -1073,13 +1085,18 @@ namespace Parse {
 		rexpr.insert(0, "\\");
 		std::regex form("format");
 		if (std::regex_search(rexpr, form)) {
-			int open = rexpr.find("\\[");  // should be \\ ?
-			rexpr.insert(open, "\\");
-			int close = rexpr.find("\\]");
-			rexpr.insert(close, "\\");
+			size_t open = rexpr.find('[');
+			if (open != std::string::npos) {
+				rexpr.insert(open, "\\");
+				size_t close = rexpr.find(']');
+				if (close != std::string::npos) {
+					rexpr.insert(close, "\\");
+				}
+			}
 		}
-		int rexprs = rexpr.size();
-		rexpr.insert(rexprs-1, "\\");
+		if (!rexpr.empty()) {
+			rexpr.insert(rexpr.size() - 1, "\\");
+		}
 	}
 
 	void parse_sample_variable(std::string &fname, std::vector<std::string> &bam_paths) {
@@ -1144,7 +1161,18 @@ namespace Parse {
         std::string home = homedrive + homepath;
 #else
         struct passwd *pw = getpwuid(getuid());
-        std::string home(pw->pw_dir);
+        std::string home;
+        if (pw && pw->pw_dir) {
+            home = pw->pw_dir;
+        } else {
+            const char *env_home = std::getenv("HOME");
+            if (env_home) {
+                home = env_home;
+            }
+        }
+        if (home.empty()) {
+            return fpath;
+        }
 #endif
         std::filesystem::path path;
         std::filesystem::path homedir(home);

@@ -1,6 +1,7 @@
 //
 // Created by Kez Cleal on 23/08/2022.
 //
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdlib>
@@ -411,10 +412,13 @@ namespace Manager {
 
             if (ctrlPress) {
                 if (key == GLFW_KEY_V) {
-                    std::string string = glfwGetClipboardString(window);
-                    if (!string.empty()) {
-                        inputText.append(string);
-                        charIndex = (int)inputText.size();
+                    const char* clipboard = glfwGetClipboardString(window);
+                    if (clipboard != nullptr) {
+                        std::string string = clipboard;
+                        if (!string.empty()) {
+                            inputText.append(string);
+                            charIndex = (int)inputText.size();
+                        }
                     }
                 } else if (!inputText.empty()) {
                     if (key == GLFW_KEY_A) {
@@ -482,6 +486,14 @@ namespace Manager {
         collections.erase(std::remove_if(collections.begin(), collections.end(), [&index](const auto &col) {
             return col.bamIdx == index;
         }), collections.end());
+        for (auto &cl: collections) {
+            if (cl.bamIdx > index) {
+                cl.bamIdx -= 1;
+            }
+        }
+        hts_close(bams[index]);
+        bam_hdr_destroy(headers[index]);
+        hts_idx_destroy(indexes[index]);
         bams.erase(bams.begin() + index, bams.begin() + index + 1);
         bam_paths.erase(bam_paths.begin() + index, bam_paths.begin() + index + 1);
         indexes.erase(indexes.begin() + index, indexes.begin() + index + 1);
@@ -534,7 +546,7 @@ namespace Manager {
         if (variantTracks.empty()) {
             variantFileSelection = -1;
             mode = Show::SINGLE;
-        } else if (variantFileSelection > (int)variantTracks.size()) {
+        } else if (variantFileSelection >= (int)variantTracks.size()) {
             variantFileSelection = 0;
         }
 //        for (auto &trk: variantTracks) {
@@ -651,6 +663,12 @@ namespace Manager {
         collections.erase(std::remove_if(collections.begin(), collections.end(), [&index](const auto col) {
             return col.regionIdx == index;
         }), collections.end());
+        for (auto &cl: collections) {
+            if (cl.regionIdx > index) {
+                cl.regionIdx -= 1;
+                cl.region = &regions[cl.regionIdx];
+            }
+        }
         processed = false;
         redraw = true;
         inputText = "";
@@ -769,6 +787,9 @@ namespace Manager {
             out << "\r" << std::flush;
             return term_width;
         }
+        if (regionSelection < 0 || regionSelection >= (int)regions.size()) {
+            regionSelection = 0;
+        }
         std::string pos_str = "\rPos     ";
         if (term_width <= (int)pos_str.size()) {
             return term_width;
@@ -814,6 +835,7 @@ namespace Manager {
             if (fai_test != nullptr) {
                 reference = ini_path;
                 opts.genome_tag = genome_tag_or_path;
+                if (fai != nullptr) { fai_destroy(fai); }
                 fai = fai_load(reference.c_str());
                 for (auto &bm: bams) {
                     hts_set_fai_filename(bm, reference.c_str());
@@ -831,7 +853,7 @@ namespace Manager {
             } else {
                 outerr << termcolor::red << "Error:" << termcolor::reset << " could not open tag " << opts.myIni["genomes"][opts.genome_tag].c_str() << std::endl;
             }
-            fai_destroy(fai_test);
+            if (fai_test != nullptr) { fai_destroy(fai_test); }
         } else {
 #ifdef __EMSCRIPTEN__
             {
@@ -843,6 +865,7 @@ namespace Manager {
             faidx_t *fai_test = fai_load(genome_tag_or_path.c_str());
             if (fai_test != nullptr) {
                 reference = genome_tag_or_path;
+                if (fai != nullptr) { fai_destroy(fai); }
                 fai = fai_load(reference.c_str());
                 for (auto &bm: bams) {
                     hts_set_fai_filename(bm, reference.c_str());
@@ -851,6 +874,7 @@ namespace Manager {
             } else {
                 outerr << termcolor::red << "Error:" << termcolor::reset << " could not open " << genome_tag_or_path << std::endl;
             }
+            if (fai_test != nullptr) { fai_destroy(fai_test); }
         }
         if (opts.myIni.get("tracks").has(opts.genome_tag)) {
             std::vector<std::string> track_paths_temp = Utils::split(opts.myIni["tracks"][opts.genome_tag], ',');
@@ -907,6 +931,7 @@ namespace Manager {
             faidx_t *fai_test = fai_load(ini_genome.c_str());
             if (fai_test != nullptr) {
                 reference = ini_genome;
+                if (fai != nullptr) { fai_destroy(fai); }
                 fai = fai_load(reference.c_str());
                 for (auto &bm: bams) {
                     hts_set_fai_filename(bm, reference.c_str());
@@ -915,7 +940,7 @@ namespace Manager {
             } else {
                 outerr << termcolor::red << "Error:" << termcolor::reset << " could not open " << opts.myIni["genomes"][opts.genome_tag].c_str() << std::endl;
             }
-            fai_destroy(fai_test);
+            if (fai_test != nullptr) { fai_destroy(fai_test); }
         }
         if (opts.myIni.get("tracks").has(opts.genome_tag)) {
             std::vector<std::string> track_paths_temp = Utils::split(opts.myIni["tracks"][opts.genome_tag], ',');
@@ -1335,6 +1360,10 @@ namespace Manager {
         bool good = false;
         if (Utils::endsWith(path, ".bam") || Utils::endsWith(path, ".cram")) {
             htsFile* f = sam_open(path.c_str(), "r");
+            if (f == nullptr) {
+                out << termcolor::red << "Error:" << termcolor::reset << " could not open " << path << "\n";
+                return false;
+            }
             hts_set_threads(f, opts.threads);
             sam_hdr_t *hdr_ptr = sam_hdr_read(f);
             hts_idx_t* idx = sam_index_load(f, path.c_str());
@@ -1347,6 +1376,9 @@ namespace Manager {
                 bams.push_back(f);
                 headers.push_back(hdr_ptr);
                 indexes.push_back(idx);
+            } else {
+                hts_close(f);
+                bam_hdr_destroy(hdr_ptr);
             }
         } else if (
                 (!vcf_as_track && (Utils::endsWith(path, ".vcf.gz") || Utils::endsWith(path, ".vcf") || Utils::endsWith(path, ".bcf")))
@@ -1418,7 +1450,7 @@ namespace Manager {
 
     void GwPlot::pathDrop(int count, const char** paths) {
         for (int i=0; i < count; ++ i) {
-            std::string pth = *paths;
+            std::string pth = paths[i];
             addTrack(pth, true, opts.vcf_as_tracks, opts.bed_as_tracks);
         }
         redraw = true;
@@ -1430,6 +1462,9 @@ namespace Manager {
 
     int GwPlot::getCollectionIdx(float x, float y) {
         regionSelection = (int)(x / (fb_width / (float)regions.size()));
+        if (!regions.empty()) {
+            regionSelection = std::clamp(regionSelection, 0, (int)regions.size() - 1);
+        }
         if (y <= refSpace) {
             return REFERENCE_TRACK;
         } else if (!tracks.empty() && y > (fb_height - sliderSpace - totalTabixY) && y < (fb_height - sliderSpace)) {
@@ -1740,7 +1775,7 @@ namespace Manager {
             selectRegion(idx);
             handleRegionDragging();
         } else if (action == GLFW_RELEASE) {
-            if (!mouseDragged && std::abs(xDrag) < 5 && !bams.empty() && idx >= 0) {
+            if (!mouseDragged && std::abs(xDrag) < 5 && !bams.empty() && idx >= 0 && !ctrlPress) {
                 handleReadSelection(idx, xW, yW);
             } else {
                 handleRegionDragging();
@@ -1752,10 +1787,10 @@ namespace Manager {
     }
 
     bool GwPlot::handleTrackClick(int idx, int action, float xW, float yW) {
-        if (idx == REFERENCE_TRACK && action == GLFW_RELEASE && std::fabs(xDrag) < 5 && std::fabs(yDrag) < 5) {
+        if (idx == REFERENCE_TRACK && action == GLFW_RELEASE && !ctrlPress && std::fabs(xDrag) < 5 && std::fabs(yDrag) < 5) {
             printReferenceSequence(xW, yW);
             return true;
-        } else if (idx <= TRACK && action == GLFW_RELEASE) {
+        } else if (idx <= TRACK && action == GLFW_RELEASE && !ctrlPress) {
             if (std::abs(xDrag) < 5 && std::abs(yDrag) < 5) {
                 printTrackInformation(idx, xW, yW);
             }
@@ -1894,13 +1929,81 @@ namespace Manager {
         clickedIdx = -1;
     }
 
+    void GwPlot::clearZoomCache() {
+        if (zoomCacheActive) {
+            for (auto &cl : zoomCacheCollections) {
+                cl.clear();
+            }
+            zoomCacheCollections.clear();
+            zoomCacheImage.reset();
+            zoomCacheActive = false;
+        }
+    }
+
     void GwPlot::zoomToPosition(int pos) {
+        if (regions.empty() || regionSelection < 0 || regionSelection >= (int)regions.size()) {
+            return;
+        }
+        int currentSelection = regionSelection;
+
+        // If we already have a cached zoom and the current view still overlaps
+        // the zoomed-in window (with a small tolerance), restore the original view.
+        int zoomedLen = zoomCacheZoomedEnd - zoomCacheZoomedStart;
+        int tol = zoomedLen / 10;
+        if (zoomCacheActive &&
+            currentSelection == zoomCacheZoomedSelection &&
+            regions[currentSelection].chrom == zoomCacheChrom &&
+            regions[currentSelection].start <= zoomCacheZoomedEnd + tol &&
+            regions[currentSelection].end >= zoomCacheZoomedStart - tol) {
+
+            regions[zoomCacheOriginalSelection].start = zoomCacheOriginalStart;
+            regions[zoomCacheOriginalSelection].end = zoomCacheOriginalEnd;
+            regionSelection = zoomCacheOriginalSelection;
+            fetchRefSeq(regions[zoomCacheOriginalSelection]);
+
+            for (auto &cl : collections) {
+                cl.clear();
+            }
+            collections = std::move(zoomCacheCollections);
+            resetCollectionRegionPtrs();
+
+            samMaxY = zoomCacheSamMaxY;
+            setScaling();
+
+            if (zoomCacheImage && rasterCanvas) {
+                rasterCanvas->drawImage(zoomCacheImage, 0, 0);
+                imageCacheQueue.emplace_back(frameId, std::move(zoomCacheImage));
+            }
+
+            zoomCacheActive = false;
+            processed = true;
+            redraw = false;
+            return;
+        }
+
+        // Not toggling back: discard any stale cache and cache the current view
+        // before zooming in.
+        clearZoomCache();
+
+        zoomCacheOriginalSelection = currentSelection;
+        zoomCacheOriginalStart = regions[currentSelection].start;
+        zoomCacheOriginalEnd = regions[currentSelection].end;
+        zoomCacheChrom = regions[currentSelection].chrom;
+        zoomCacheSamMaxY = samMaxY;
+        zoomCacheCollections = std::move(collections);
+        if (rasterSurfacePtr != nullptr) {
+            zoomCacheImage = rasterSurfacePtr[0]->makeImageSnapshot();
+        }
+        zoomCacheActive = true;
+
         int strt = pos - 2500;
         strt = (strt < 0) ? 0 : strt;
-        Utils::Region &region = regions[regionSelection];
+        Utils::Region &region = regions[currentSelection];
         region.start = strt;
         region.end = region.start + 5000;
-        regionSelection = collections[clickedIdx].regionIdx;
+        zoomCacheZoomedStart = region.start;
+        zoomCacheZoomedEnd = region.end;
+        zoomCacheZoomedSelection = currentSelection;
         fetchRefSeq(region);
         processed = false;
         redraw = true;
@@ -1937,12 +2040,23 @@ namespace Manager {
         }
 
         // Find the read at the position
+        if (cl.readQueue.empty()) {
+            xDrag = DRAG_UNSET;
+            yDrag = DRAG_UNSET;
+            return;
+        }
         std::vector<Segs::Align>::iterator bnd;
         bnd = std::lower_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
                               [&](const Segs::Align &lhs, const int pos) { return (int)lhs.pos <= pos; });
+        if (bnd == cl.readQueue.end()) {
+            bnd = cl.readQueue.end() - 1;
+        }
         redraw = false;
         // Find and toggle the read highlight
         while (true) {
+            if (bnd == cl.readQueue.end()) {
+                break;
+            }
             if (!opts.tlen_yscale) {
                 if (bnd->y == level && (int)bnd->cov_start <= pos && pos < (int)bnd->cov_end) {
                     toggleReadHighlight(bnd, cl, pos);
@@ -1964,6 +2078,9 @@ namespace Manager {
     // Toggle read highlight state
     void GwPlot::toggleReadHighlight(std::vector<Segs::Align>::iterator bnd, Segs::ReadCollection &cl, int pos) {
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
+        if (bnd == cl.readQueue.end() || bnd->delegate == nullptr) {
+            return;
+        }
         if (bnd->edge_type == 4) {
             // Currently highlighted, un-highlight
             if (bnd->has_SA || bnd->delegate->core.flag & 2048) {
@@ -2595,9 +2712,9 @@ namespace Manager {
                     return;
                 }
                 assert (rs < collections.size());
+                Segs::ReadCollection &cl = collections[rs];
                 assert (!cl.levelsStart.empty());
                 assert (cl.region != nullptr);
-                Segs::ReadCollection &cl = collections[rs];
                 regionSelection = cl.regionIdx;
 	            int pos = (int) ((((double)xPos_fb - (double)cl.xOffset) / (double)cl.xScaling) + (double)cl.region->start);
                 float f_level = ((yPos_fb - (float) cl.yOffset) / (trackY / (float)(cl.levelsStart.size() - cl.vScroll )));

@@ -136,12 +136,17 @@ EM_ASYNC_JS(int, gw_mount_remote_js, (const char* url, const char* local_path), 
         // Fetch the small .fai index completely (required by fai_load).
         try {
             var fr = await fetch(urlStr + '.fai');
-            if (fr.ok) {
-                FS.createDataFile(dir, name + '.fai',
-                                  new Uint8Array(await fr.arrayBuffer()),
-                                  true, false, false);
+            if (!fr.ok) {
+                console.error('[GW] Could not fetch .fai index for', urlStr);
+                return 0;
             }
-        } catch(e) { console.warn('[GW] Could not fetch .fai:', e); }
+            FS.createDataFile(dir, name + '.fai',
+                              new Uint8Array(await fr.arrayBuffer()),
+                              true, false, false);
+        } catch(e) {
+            console.error('[GW] Could not fetch .fai:', e);
+            return 0;
+        }
 
         // Fetch the small .gzi index completely (required for bgzf-compressed FASTA).
         try {
