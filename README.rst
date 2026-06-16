@@ -44,7 +44,7 @@ Using a package manager:
 
 To build from source, using conda to fetch htslib + glfw3 dependencies::
 
-    conda create -y -n gw_env -c conda-forge glfw htslib
+    conda create -y -n gw_env -c conda-forge glfw htslib ncurses
     conda activate gw_env
     git clone https://github.com/kcleal/gw.git
     cd gw && make prep

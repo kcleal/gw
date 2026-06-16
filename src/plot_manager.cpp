@@ -2,10 +2,12 @@
 #include <array>
 #include <chrono>
 #include <cstdlib>
+#include <fcntl.h>
 #include <filesystem>
 #include <mutex>
 #include <string>
 #include <cstdio>
+#include <unistd.h>
 #include <vector>
 #ifndef __EMSCRIPTEN__
 #include <glad.h>
@@ -61,6 +63,32 @@ using namespace std::literals;
 namespace Manager {
 
     std::mutex g_mutex;
+
+    // Load a FASTA index, suppressing htslib's stderr chatter for remote URLs.
+    static faidx_t* fai_load_quiet(const char* path) {
+        bool isRemote = (strncmp(path, "http://", 7) == 0 ||
+                         strncmp(path, "https://", 8) == 0 ||
+                         strncmp(path, "ftp://", 6) == 0);
+        int old_stderr = -1;
+        if (isRemote) {
+            fflush(stderr);
+            old_stderr = dup(STDERR_FILENO);
+            int dev_null = open("/dev/null", O_WRONLY);
+            if (dev_null >= 0) {
+                dup2(dev_null, STDERR_FILENO);
+                close(dev_null);
+            }
+        }
+        faidx_t* fai = fai_load(path);
+        if (isRemote) {
+            fflush(stderr);
+            if (old_stderr >= 0) {
+                dup2(old_stderr, STDERR_FILENO);
+                close(old_stderr);
+            }
+        }
+        return fai;
+    }
 
     void HiddenWindow::init(int width, int height) {
         if (!glfwInit()) {
@@ -120,7 +148,7 @@ namespace Manager {
                 }
             }
 #else
-            fai = fai_load(reference.c_str());
+            fai = fai_load_quiet(reference.c_str());
             if (fai == nullptr) {
                 std::cerr << "Error: reference genome could not be opened " << reference << std::endl;
                 std::exit(-1);
@@ -865,7 +893,7 @@ namespace Manager {
                 std::cerr << "Warning: could not mount remote genome, continuing without reference" << std::endl;
             }
 #else
-            fai = fai_load(reference.c_str());
+            fai = fai_load_quiet(reference.c_str());
             if (fai == nullptr) {
                 std::cerr << "Error: reference genome could not be opened " << reference << std::endl;
                 std::exit(-1);

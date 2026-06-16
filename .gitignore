@@ -27,6 +27,7 @@
 /test/test.fa.fai
 /lbl.txt
 /src/menu.o
+/src/menu_components/*.o
 
 /lib/libBigWig/bwRead.o
 /lib/libBigWig/bwStats.o
