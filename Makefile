@@ -45,6 +45,9 @@ ifneq ($(PLATFORM),"Emscripten")
         LDFLAGS += -Wl,-rpath,$(CONDA_PREFIX)/lib
     endif
 endif
+# ncurses info --------------------------------------------
+NCURSES_CFLAGS := $(shell pkg-config --cflags ncurses 2>/dev/null || echo "")
+NCURSES_LIBS := $(shell pkg-config --libs ncurses 2>/dev/null || echo "-lncurses")
 # Skia info ---------------------------------------------
 OLD_SKIA ?= 0
 prep:
@@ -92,7 +95,8 @@ ifeq ($(TARGET_OS),"Linux")  # set platform flags and libs
     	LDLIBS += -lwayland-client -lwayland-egl
     endif
     LGLFW := $(shell pkg-config --libs glfw3 2>/dev/null || echo "-lglfw")
-    LDLIBS += -lGL -lEGL -lGLESv2 -lhts -lfreetype -luuid -lz -lcurl -licu -ldl $(LGLFW) -lsvg -lfontconfig
+    CPPFLAGS += $(NCURSES_CFLAGS)
+    LDLIBS += -lGL -lEGL -lGLESv2 -lhts -lfreetype -luuid -lz -lcurl -licu -ldl $(LGLFW) -lsvg -lfontconfig $(NCURSES_LIBS)
 else ifeq ($(TARGET_OS),"MacOS")
     ifeq ($(PLATFORM),"MacOS-x64")
         CXXFLAGS += -arch x86_64
@@ -103,31 +107,27 @@ else ifeq ($(TARGET_OS),"MacOS")
     CXXFLAGS += -D OSX -stdlib=libc++ -fvisibility=hidden -mmacosx-version-min=11 -Wno-deprecated-declarations
     LDFLAGS += -undefined dynamic_lookup -framework OpenGL -framework AppKit -framework ApplicationServices -mmacosx-version-min=11 -L/usr/local/lib
     LGLFW := $(shell pkg-config --libs glfw3 2>/dev/null || echo "-lglfw")
-    LDLIBS += $(SKIA_LIBS) -lhts $(LGLFW) -lzlib -lcurl -licu -ldl -lsvg -lfontconfig
+    CPPFLAGS += $(NCURSES_CFLAGS)
+    LDLIBS += $(SKIA_LIBS) -lhts $(LGLFW) -lzlib -lcurl -licu -ldl -lsvg -lfontconfig $(NCURSES_LIBS)
 else ifeq ($(PLATFORM),"Windows")  # Targets an msys2 build environment
     CXXFLAGS += -D WIN32
     SKIA_CFLAGS := $(shell pkg-config --cflags skia 2>/dev/null || echo "$(if $(MINGW_PREFIX),-I$(MINGW_PREFIX)/include/skia)")
     SKIA_LIBS := $(shell pkg-config --libs skia 2>/dev/null || echo "-lskia")
     NCURSES_CFLAGS := $(shell pkg-config --cflags ncursesw 2>/dev/null || echo "")
+    NCURSES_LIBS := $(shell pkg-config --libs ncursesw 2>/dev/null || echo "-lncursesw")
     CPPFLAGS += $(SKIA_CFLAGS) $(NCURSES_CFLAGS)
-    LDLIBS += $(SKIA_LIBS) -lhts -lharfbuzz-subset -lglfw3 -lcurl
+    LDLIBS += $(SKIA_LIBS) -lhts -lharfbuzz-subset -lglfw3 -lcurl $(NCURSES_LIBS)
 endif
 ifdef EMSCRIPTEN
 include deps/wasm/flags.mk
 endif
 debug: LDFLAGS += -fsanitize=address -fsanitize=undefined
 # Compile --------------------------------------------------
-OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
-OBJECTS += $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
-ifdef EMSCRIPTEN
-OBJECTS += $(patsubst %.c, %.o, $(filter-out ./include/glad.c, $(wildcard ./include/*.c)))
-else
-OBJECTS += $(patsubst %.c, %.o, $(wildcard ./include/*.c))
-endif
-OBJECTS += $(patsubst %.cpp, %.o, $(wildcard $(IMGUI)/*.cpp)) $(patsubst %.cpp, %.o, $(wildcard $(IMGUI)/backends/imgui_impl_glfw.cpp $(IMGUI)/backends/imgui_impl_opengl3.cpp))
+OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp) ./src/menu_components/online_genome_utils.cpp ./src/menu_components/startup_genome_dialog.cpp) $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
+OBJECTS += $(patsubst %.c, %.o, $(if $(EMSCRIPTEN),$(filter-out ./include/glad.c, $(wildcard ./include/*.c)),$(wildcard ./include/*.c)))
+OBJECTS += $(patsubst %.cpp, %.o, $(wildcard $(IMGUI)/*.cpp) $(IMGUI)/backends/imgui_impl_glfw.cpp $(IMGUI)/backends/imgui_impl_opengl3.cpp)
 ./lib/libBigWig/%.o: ./lib/libBigWig/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Wno-attribute-warning -c $< -o $@
-
 $(TARGET): $(OBJECTS)  # line 131
 	$(CXX) $(CXXFLAGS) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $@
 

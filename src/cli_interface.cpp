@@ -21,6 +21,9 @@
 
 #include "termcolor.h"
 #include "GLFW/glfw3.h"
+#include "menu_components/startup_genome_dialog.h"
+
+#include <unistd.h>
 
 
 void print_gw_banner() {
@@ -281,111 +284,92 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
 #endif
                ) {
         // prompt for genome
-        print_gw_banner();
         options.showBanner = false;
 
-        std::cout << "\nReference genomes listed in " << iopts.ini_path << std::endl << std::endl;
-        std::string online = "https://github.com/kcleal/ref_genomes/releases/download/v0.1.0";
-#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
-        const char *block_char = "*";
-#else
-        const char *block_char = "▀";
-#endif
-        std::cout << " " << block_char << " " << online << std::endl << std::endl;
-        int i = 0;
-        int tag_wd = 11;
-        std::vector<std::pair<std::string, std::string>> vals;
-
-#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
-        std::cout << "  Number | Genome-tag | Path \n";
-        std::cout << "  -------|------------|----------------------------------------------" << std::endl;
-#else
-        std::cout << "  Number │ Genome-tag │ Path \n";
-        std::cout << "  ───────┼────────────┼─────────────────────────────────────────────" << std::endl;
-#endif
-        for (auto &rg: iopts.myIni["genomes"]) {
-            std::string tag = rg.first;
-            std::string g_path = rg.second;
-#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
-            std::cout << "    " << i << ((i < 10) ? "    " : "   ")  << "| " << tag;
-#else
-            std::cout << "    " << termcolor::bold << i << termcolor::reset  << ((i < 10) ? "    " : "   ")  << "│ " << tag;
-#endif
-
-            for (int j=0; j < tag_wd - (int)tag.size(); ++j) {
-                std::cout << " ";
-            }
-#if defined(_WIN32) || defined(_WIN64) || defined(__MSYS__)
-            std::cout << "|  ";
-#else
-            std::cout << "│  ";
-#endif
-
-            if (g_path.find(online) != std::string::npos) {
-                g_path.erase(g_path.find(online), online.size());
-                std::cout << block_char << " " << g_path << std::endl;
-            } else {
-                std::cout << g_path << std::endl;
-            }
-            vals.push_back(rg);
-            i += 1;
-        }
-        if (i == 0 && !have_session_file && !std::filesystem::exists(iopts.session_file)) {
+        if (iopts.myIni["genomes"].size() == 0 && !have_session_file && !std::filesystem::exists(iopts.session_file)) {
             std::cerr << "No genomes listed, finishing\n";
             std::exit(0);
         }
 
+        // Interactive terminal dialog when stdin/stdout are connected to a TTY.
+        if (isatty(STDIN_FILENO) && isatty(STDOUT_FILENO)) {
+            auto choice = Menu::runStartupGenomeDialog(iopts);
+            switch (choice.result) {
+                case Menu::StartupResult::Genome:
+                    options.genome = choice.genomePath;
+                    iopts.genome_tag = choice.genomeTag;
+                    break;
+                case Menu::StartupResult::Session:
+                    options.useSession = true;
+                    break;
+                case Menu::StartupResult::Quit:
+                    std::exit(0);
+                case Menu::StartupResult::Error:
+                    // Fall through to the legacy stdin prompt.
+                    break;
+            }
+        }
+
+        // Legacy plain-stdin prompt, used when the TUI is unavailable or the user
+        // pipes input into GW.
+        if (options.genome.empty() && !options.useSession) {
+            std::vector<std::pair<std::string, std::string>> vals;
+            for (auto &rg: iopts.myIni["genomes"]) {
+                vals.push_back(rg);
+            }
+
         user_prompt:
 
-        if (have_session_file && std::filesystem::exists(iopts.session_file)) {
-            std::cout << "\nPress ENTER to load previous session \nInput a genome number/tag, path, or session: " << std::flush;
-        } else {
-            std::cout << "\nEnter genome number/tag, path or session: " << std::flush;
-        }
-
-        std::string user_input;
-        std::getline(std::cin, user_input);
-        size_t user_i = 0;
-        if (user_input == "q" || user_input == "quit" || user_input == "exit") {
-            std::exit(0);
-        }
-        if (user_input.empty()) {
-            have_session_file = std::filesystem::exists(iopts.session_file);
-            if (have_session_file) {
-                options.useSession = true;
+            if (have_session_file && std::filesystem::exists(iopts.session_file)) {
+                std::cout << "\nPress ENTER to load previous session \nInput a genome number/tag, path, or session: " << std::flush;
             } else {
-                goto user_prompt;
+                std::cout << "\nEnter genome number/tag, path or session: " << std::flush;
             }
-        } else {
-            bool is_number = str_is_number(user_input);
-            if (Utils::endsWith(user_input, ".ini")) {  // Assume session
-                iopts.session_file = user_input;
-                have_session_file = true;
-                options.useSession = true;
-            } else if (is_number) {
-                try {
-                    user_i = std::stoi(user_input);
-                    options.genome = vals[user_i].second;
-                    iopts.genome_tag = vals[user_i].first;
-                    std::cout << "Genome:  " << iopts.genome_tag << std::endl;
-                } catch (...) {
+
+            std::string user_input;
+            std::getline(std::cin, user_input);
+            size_t user_i = 0;
+            if (user_input == "q" || user_input == "quit" || user_input == "exit") {
+                std::exit(0);
+            }
+            if (user_input.empty()) {
+                have_session_file = std::filesystem::exists(iopts.session_file);
+                if (have_session_file) {
+                    options.useSession = true;
+                } else {
                     goto user_prompt;
                 }
-                if (user_i < 0 || user_i > vals.size() -1) {
-                    goto user_prompt;
-                }
-            } else {  // try tag or path
-                bool found_tag = false;
-                for (auto &rg: iopts.myIni["genomes"]) {
-                    std::string tag = rg.first;
-                    if (tag == user_input) {
-                        options.genome = rg.second;
-                        found_tag = true;
-                        break;
+            } else {
+                bool is_number = str_is_number(user_input);
+                if (Utils::endsWith(user_input, ".ini")) {  // Assume session
+                    iopts.session_file = user_input;
+                    have_session_file = true;
+                    options.useSession = true;
+                } else if (is_number) {
+                    try {
+                        user_i = std::stoi(user_input);
+                        options.genome = vals[user_i].second;
+                        iopts.genome_tag = vals[user_i].first;
+                        std::cout << "Genome:  " << iopts.genome_tag << std::endl;
+                    } catch (...) {
+                        goto user_prompt;
                     }
-                }
-                if (!found_tag) {
-                    options.genome = user_input;
+                    if (user_i < 0 || user_i > vals.size() - 1) {
+                        goto user_prompt;
+                    }
+                } else {  // try tag or path
+                    bool found_tag = false;
+                    for (auto &rg: iopts.myIni["genomes"]) {
+                        std::string tag = rg.first;
+                        if (tag == user_input) {
+                            options.genome = rg.second;
+                            found_tag = true;
+                            break;
+                        }
+                    }
+                    if (!found_tag) {
+                        options.genome = user_input;
+                    }
                 }
             }
         }
