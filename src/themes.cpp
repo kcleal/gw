@@ -3,9 +3,11 @@
 //
 #include <filesystem>
 #include <cstdlib>
+#if !defined(_WIN32) && !defined(_WIN64)
 #include <pwd.h>
 #include <sys/types.h>
 #include <unistd.h>
+#endif
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif

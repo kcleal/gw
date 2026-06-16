@@ -216,7 +216,7 @@ jobs:
 
           cd ${BUILD_DIR}
 
-          sed -i '133 i \\t-mv gw usr/bin' Makefile
+          sed -i '133 a \\t-mv gw usr/bin' Makefile
           sed -i 's@-L/usr/local/lib@-L/usr/local/lib -L/usr/lib/gwhts@g' Makefile
 
           make prep
