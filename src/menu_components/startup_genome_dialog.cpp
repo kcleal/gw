@@ -25,6 +25,11 @@
 #include <ncurses.h>
 #include <curl/curl.h>
 
+// Some ncurses builds (e.g. macOS conda) do not define BUTTON5_PRESSED.
+#ifndef BUTTON5_PRESSED
+#define BUTTON5_PRESSED 0x00002000L
+#endif
+
 namespace Menu {
 
 namespace {

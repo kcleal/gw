@@ -328,7 +328,7 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
 
             std::string user_input;
             std::getline(std::cin, user_input);
-            size_t user_i = 0;
+            int user_i = -1;
             if (user_input == "q" || user_input == "quit" || user_input == "exit") {
                 std::exit(0);
             }
@@ -348,15 +348,15 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
                 } else if (is_number) {
                     try {
                         user_i = std::stoi(user_input);
-                        options.genome = vals[user_i].second;
-                        iopts.genome_tag = vals[user_i].first;
-                        std::cout << "Genome:  " << iopts.genome_tag << std::endl;
                     } catch (...) {
                         goto user_prompt;
                     }
-                    if (user_i < 0 || user_i > vals.size() - 1) {
+                    if (user_i < 0 || static_cast<size_t>(user_i) >= vals.size()) {
                         goto user_prompt;
                     }
+                    options.genome = vals[user_i].second;
+                    iopts.genome_tag = vals[user_i].first;
+                    std::cout << "Genome:  " << iopts.genome_tag << std::endl;
                 } else {  // try tag or path
                     bool found_tag = false;
                     for (auto &rg: iopts.myIni["genomes"]) {
