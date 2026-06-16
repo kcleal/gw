@@ -578,7 +578,7 @@ namespace Segs {
 //                        break;
 
                 if (i >= 0) {
-                    char *cp_begin = state->MMend[0];
+                    char *cp_begin = state->MM[i];
                     char *cp2 = state->MMend[i];
                     if (cp_begin == nullptr || cp2 == nullptr) {
                         return -1;
@@ -692,20 +692,20 @@ namespace Segs {
 
     constexpr uint32_t PP_RR_MR = 50;
 
-    alignas(64) constexpr std::array<Pattern, 49> posFirst = {INV_F, u, u, u, u, u, u, u,
+    alignas(64) constexpr std::array<Pattern, 51> posFirst = {INV_F, u, u, u, u, u, u, u,
                                                   u, u, u, u, u, u, u, u,
                                                   DUP, u, u, u, u, u, u, u,
                                                   u, u, u, u, u, u, u, u,
                                                   DEL, u, u, u, u, u, u, u,
                                                   u, u, u, u, u, u, u, u,
-                                                  INV_R};
-    alignas(64) constexpr std::array<Pattern, 49> mateFirst = {INV_R, u, u, u, u, u, u, u,
+                                                  INV_R, u, u};
+    alignas(64) constexpr std::array<Pattern, 51> mateFirst = {INV_R, u, u, u, u, u, u, u,
                                                   u, u, u, u, u, u, u, u,
                                                   DEL, u, u, u, u, u, u, u,
                                                   u, u, u, u, u, u, u, u,
                                                   DUP, u, u, u, u, u, u, u,
                                                   u, u, u, u, u, u, u, u,
-                                                  INV_F};
+                                                  INV_F, u, u};
 
     void align_init(Align *self, const int parse_mods_threshold, const bool add_clip_space) {
 //        auto start = std::chrono::high_resolution_clock::now();

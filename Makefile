@@ -121,7 +121,8 @@ endif
 ifdef EMSCRIPTEN
 include deps/wasm/flags.mk
 endif
-debug: LDFLAGS += -fsanitize=address -fsanitize=undefined
+debug: CXXFLAGS += -O0 -DDEBUG
+debug: CFLAGS += -O0 -DDEBUG
 # Compile --------------------------------------------------
 OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp) ./src/menu_components/online_genome_utils.cpp ./src/menu_components/startup_genome_dialog.cpp) $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
 OBJECTS += $(patsubst %.c, %.o, $(if $(EMSCRIPTEN),$(filter-out ./include/glad.c, $(wildcard ./include/*.c)),$(wildcard ./include/*.c)))

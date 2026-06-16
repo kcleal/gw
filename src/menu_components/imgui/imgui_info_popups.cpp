@@ -1156,7 +1156,8 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
             float seqH = std::min(maxSeqH, ImGui::GetContentRegionAvail().y);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
             ImGui::BeginChild("##refseq", ImVec2(0, seqH), ImGuiChildFlags_None,
-                              ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoNav);
+                              ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoNav |
+                              ImGuiWindowFlags_AlwaysVerticalScrollbar);
             ImGui::PopStyleVar();
             // Zero item spacing so each Dummy advances the cursor by exactly rowH,
             // keeping the clipper item height and the hit-test divisor in sync.

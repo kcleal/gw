@@ -69,6 +69,7 @@ int main(int argc, char *argv[]) {
 
     // Additional setup options for initializing GW
     CLIOptions options = CLIInterface::parseArguments(argc, argv, iopts);
+    iopts.threads = std::max(1, iopts.threads);
 
     // All cli arguments and options, some parsing is deferred below
     argparse::ArgumentParser& program = options.program;
@@ -209,7 +210,7 @@ int main(int argc, char *argv[]) {
         constexpr int fbFormats[3] = {GL_RGBA8, GL_RGB8, GL_RGBA4};
         constexpr SkColorType colorTypes[3] = {kRGBA_8888_SkColorType, kRGB_888x_SkColorType, kARGB_4444_SkColorType};
         int valid = false;
-        for (int i=0; i < 2; ++i) {
+        for (int i=0; i < 3; ++i) {
 
             framebufferInfo.fFormat = fbFormats[i];
 
@@ -259,6 +260,10 @@ int main(int argc, char *argv[]) {
                 (int)(plotter.opts.dimensions.x * plotter.monitorScale),
                 (int)(plotter.opts.dimensions.y * plotter.monitorScale));
         sk_sp<SkSurface> rasterSurface = SkSurfaces::Raster(imageInfo);
+        if (!rasterSurface) {
+            std::cerr << "ERROR: could not create raster surface\n";
+            std::exit(-1);
+        }
 #else
         sContext = GrDirectContext::MakeGL(interface).release();
         if (!sContext) {
@@ -303,6 +308,10 @@ int main(int argc, char *argv[]) {
         sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(
                 (int)(plotter.opts.dimensions.x * plotter.monitorScale),
                 (int)(plotter.opts.dimensions.y * plotter.monitorScale));
+        if (!rasterSurface) {
+            std::cerr << "ERROR: could not create raster surface\n";
+            std::exit(-1);
+        }
 #endif
 
         plotter.rasterCanvas = rasterSurface->getCanvas();
@@ -455,10 +464,6 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (fname.empty()) {
-                    if (fname.empty()) {
-                        std::cerr << "Error: please provide an output directory using --outdir, or direct to --file\n";
-                        std::exit(-1);
-                    }
                     fname = options.regions[0].chrom + "_" + std::to_string(options.regions[0].start) + "_" +
                             std::to_string(options.regions[0].end) + format_str;
 
@@ -475,8 +480,17 @@ int main(int argc, char *argv[]) {
 #endif
                 SkDynamicMemoryWStream buffer;
 
+                if (!out.isValid()) {
+                    std::cerr << "Error: could not open output stream: " << out_path << std::endl;
+                    std::exit(-1);
+                }
+
                 if (format_str == ".pdf") {
                     auto pdfDocument = SkPDF::MakeDocument(&buffer);
+                    if (!pdfDocument) {
+                        std::cerr << "Error: could not create PDF document\n";
+                        std::exit(-1);
+                    }
                     SkCanvas *canvas = pdfDocument->beginPage(iopts.dimensions.x, iopts.dimensions.y);
                     Manager::drawImageCommands(plotter, canvas, options.extra_commands);
 
@@ -509,6 +523,10 @@ int main(int argc, char *argv[]) {
                             iopts.dimensions.x * plotter.monitorScale,
                             iopts.dimensions.y * plotter.monitorScale);
                     sk_sp<SkSurface> rasterSurface = SkSurfaces::Raster(imageInfo);
+                    if (!rasterSurface) {
+                        std::cerr << "ERROR: could not create raster surface\n";
+                        std::exit(-1);
+                    }
 #else
                     sk_sp<SkSurface> rasterSurface = SkSurface::MakeRasterN32Premul(iopts.dimensions.x,
                                                                                     iopts.dimensions.y);
@@ -597,7 +615,8 @@ int main(int argc, char *argv[]) {
 
                                               for (auto &rgn: all_regions) {
                                                   plt->collections.clear();
-                                                  delete plt->regions[0].refSeq;
+                                                  free(const_cast<char*>(plt->regions[0].refSeq));
+                                                  plt->regions[0].refSeq = nullptr;
                                                   plt->regions[0].chrom = rgn.chrom;
                                                   plt->regions[0].start = rgn.start;
                                                   plt->regions[0].end = rgn.end;

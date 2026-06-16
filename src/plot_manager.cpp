@@ -1,4 +1,5 @@
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstdlib>
@@ -157,6 +158,10 @@ namespace Manager {
         }
         for (auto &fn: bampaths) {
             htsFile *f = sam_open(fn.c_str(), "r");
+            if (f == nullptr) {
+                std::cerr << "Error: could not open " << fn << std::endl;
+                std::exit(-1);
+            }
             hts_set_fai_filename(f, reference.c_str());
             hts_set_threads(f, opt.threads);
             bams.push_back(f);
@@ -667,6 +672,11 @@ namespace Manager {
 
     void GwPlot::addBam(std::string &bam_path) {
         htsFile *f = sam_open(bam_path.c_str(), "r");
+        if (f == nullptr) {
+            std::ostream& outerr = (terminalOutput) ? std::cerr : outStr;
+            outerr << termcolor::red << "Error:" << termcolor::reset << " could not open " << bam_path << "\n";
+            return;
+        }
         hts_set_fai_filename(f, reference.c_str());
         hts_set_threads(f, opts.threads);
         bams.push_back(f);
@@ -880,6 +890,10 @@ namespace Manager {
             }
         }
         if (!reference.empty()) {
+            if (fai != nullptr) {
+                fai_destroy(fai);
+                fai = nullptr;
+            }
 #ifdef __EMSCRIPTEN__
             std::string resolved = resolve_genome_path(reference);
             if (!resolved.empty()) {
@@ -907,6 +921,10 @@ namespace Manager {
             setLabelChoices(labels);
         }
 
+        clearCollections();
+        for (auto &bm: bams) { hts_close(bm); }
+        for (auto &hd: headers) { bam_hdr_destroy(hd); }
+        for (auto &idx: indexes) { hts_idx_destroy(idx); }
         bam_paths.clear();
         tracks.clear();
         regions.clear();
@@ -964,6 +982,10 @@ namespace Manager {
 
         for (auto &fn: bam_paths) {
             htsFile *f = sam_open(fn.c_str(), "r");
+            if (f == nullptr) {
+                std::cerr << "Error: could not open " << fn << std::endl;
+                continue;
+            }
             hts_set_fai_filename(f, reference.c_str());
             hts_set_threads(f, opts.threads);
             bams.push_back(f);
@@ -1204,6 +1226,7 @@ namespace Manager {
 
                 imageCache.clear();
                 imageCacheQueue.clear();
+                clearZoomCache();
                 if (!tracks.empty()) {
                     tracks.front().px_height = 0; // trigger reset of track heights
                 }
@@ -1358,6 +1381,7 @@ namespace Manager {
                 if (!p->tracks.empty()) { p->tracks.front().px_height = 0; }
                 p->imageCache.clear();
                 p->imageCacheQueue.clear();
+                p->clearZoomCache();
             }
 
             if (std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -1701,7 +1725,6 @@ namespace Manager {
                 float bamBottomY = topH + totalCovY + (trackY * (float)bams.size());
                 clip.setXYWH(0, bamBottomY, fb_width, fb_height);
                 canvasR->drawRect(clip, opts.theme.bgPaint);
-                canvasR->restore();
             }
 
             // Update changes parts of image
@@ -1783,6 +1806,7 @@ namespace Manager {
         }
         float colWidth = (float) fb_width / (float) regions.size();
         regionSelection = (int)(xPos_fb / colWidth);
+        regionSelection = std::clamp(regionSelection, 0, (int)regions.size() - 1);
         Utils::Region &rgn = regions[regionSelection];
         if (rgn.ideogramStart <= 0 || xPos_fb < rgn.ideogramStart || xPos_fb > rgn.ideogramEnd) {
             return;
@@ -2390,7 +2414,6 @@ namespace Manager {
             float bamBottomY = topH + totalCovY + (trackY * (float)bams.size());
             clip.setXYWH(0, bamBottomY, fb_width, fb_height);
             canvas->drawRect(clip, opts.theme.bgPaint);
-            canvas->restore();
 
         }
 
@@ -2496,6 +2519,10 @@ namespace Manager {
 
         if (!png) { return; }
         FILE* fout = fopen(path, "w");
+        if (fout == nullptr) {
+            std::cerr << "Error: could not open " << path << " for writing\n";
+            return;
+        }
         fwrite(png->data(), 1, png->size(), fout);
         fclose(fout);
     }
@@ -2553,7 +2580,7 @@ namespace Manager {
 #endif  // __EMSCRIPTEN__
 
     std::pair<const uint8_t*, size_t> GwPlot::encodeToPng(int compression_level) {
-        assert (resterSurface != nullptr);
+        assert (rasterSurface != nullptr);
         sk_sp<SkImage> img = rasterSurface->makeImageSnapshot();
 #if !defined(OLD_SKIA) || OLD_SKIA == 0
         SkPngEncoder::Options options;
@@ -2641,7 +2668,6 @@ namespace Manager {
         }
 #endif
         fwrite(png->data(), 1, png->size(), fout);
-        fclose(fout);
     }
 
     void imagePngToFile(sk_sp<SkImage> &img, std::string path) {
@@ -2654,6 +2680,10 @@ namespace Manager {
 #endif
         if (!png) { std::cerr << "Error: Png creation failed\n"; return; }
         FILE* fout = fopen(path.c_str(), "w");
+        if (fout == nullptr) {
+            std::cerr << "Error: could not open " << path << " for writing\n";
+            return;
+        }
         fwrite(png->data(), 1, png->size(), fout);
         fclose(fout);
     }

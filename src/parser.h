@@ -126,7 +126,7 @@ namespace Parse {
     void countExpression(std::vector<Segs::ReadCollection> &collections, std::string &str, std::vector<sam_hdr_t*> hdrs,
                          std::vector<std::string> &bam_paths, int nBams, int nRegions, std::ostream& out);
 
-	void parse_INFO(std::string &line, std::string &infoCol, std::string &request, std::ostream& out);
+	void parse_INFO(std::string &result, std::string &infoCol, std::string &request);
 
 	void parse_FORMAT(std::string &line, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names, std::ostream& out);
 

@@ -413,6 +413,9 @@ namespace HGW {
     };
 
     bool guessGenomeJob(GenomeJob *j, sam_hdr_t *hdr_ptr) {
+        if (hdr_ptr == nullptr) {
+            return false;
+        }
         j->fai = fai_load(j->path.c_str());
         if (!j->fai) {
             return false;
@@ -426,6 +429,8 @@ namespace HGW {
             }
             if (!faidx_has_seq(j->fai, chrom_name) || (bam_length != faidx_seq_len(j->fai, chrom_name))) {
                 j->success = false;
+                fai_destroy(j->fai);
+                j->fai = nullptr;
                 return false;
             }
             if (tid > 23) {
@@ -433,7 +438,9 @@ namespace HGW {
             }
             j->success = true;
         }
-        return false;
+        fai_destroy(j->fai);
+        j->fai = nullptr;
+        return j->success;
     }
 
     // takes an input bam (inputName) and sets the genome_tag in opts, puts inputName in bam_paths if bam_paths is empty,
@@ -444,13 +451,23 @@ namespace HGW {
         if (inputName.empty()) {
             if (bam_paths.empty()) {
                 std::cerr << "Error: either a genome tag/file or a bam path must be provided\n";
+                return;
             }
             query_bam = bam_paths[0];
         } else {
             query_bam = inputName;
         }
         htsFile* f = sam_open(query_bam.c_str(), "r");
+        if (f == nullptr) {
+            std::cerr << "Error: could not open " << query_bam << std::endl;
+            return;
+        }
         sam_hdr_t *hdr_ptr = sam_hdr_read(f);
+        if (hdr_ptr == nullptr) {
+            std::cerr << "Error: could not read header from " << query_bam << std::endl;
+            sam_close(f);
+            return;
+        }
         int online = 0;
         for (auto & refName : opts.myIni["genomes"]) {
             if (!Utils::startsWith(refName.second, "http")) {
@@ -465,6 +482,8 @@ namespace HGW {
                         std::cerr << j.longestName << std::endl;
                         regions.push_back(Utils::parseRegion(j.longestName));
                     }
+                    bam_hdr_destroy(hdr_ptr);
+                    sam_close(f);
                     return;
                 }
             } else {
@@ -491,9 +510,13 @@ namespace HGW {
                 if (regions.empty() && j.longest) {
                     regions.push_back(Utils::parseRegion(j.longestName));
                 }
+                bam_hdr_destroy(hdr_ptr);
+                sam_close(f);
                 return;
             }
         }
+        bam_hdr_destroy(hdr_ptr);
+        sam_close(f);
         std::cerr << "Error: could not find suitable reference genome in .gw.ini. Try a local file?\n";
     }
 
@@ -567,6 +590,10 @@ namespace HGW {
         }
 
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
+        if (tid < 0) {
+            std::cerr << "\nError: unknown sequence " << region->chrom << " in collectReadsAndCoverage" << std::endl;
+            return;
+        }
         std::vector<Segs::Align>& readQueue = col.readQueue;
         if (region->end - region->start < 1000000) {
             try {
@@ -600,6 +627,7 @@ namespace HGW {
             bam_destroy1(src);
             readQueue.pop_back();
         }
+        hts_itr_destroy(iter_q);
 
         Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold, add_soft_clip_space);
 
@@ -758,6 +786,10 @@ namespace HGW {
         bam1_t *src;
         hts_itr_t *iter_q;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
+        if (tid < 0) {
+            std::cerr << "\nError: unknown sequence " << region->chrom << " in iterDrawParallel" << std::endl;
+            return;
+        }
         std::vector<Segs::Align>& readQueue = col.readQueue;
 
         if (col.levelsStart.empty()) {
@@ -844,6 +876,7 @@ namespace HGW {
                 }
             }
         }
+        hts_itr_destroy(iter_q);
     }
 
     void iterDraw(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
@@ -856,6 +889,10 @@ namespace HGW {
         bam1_t *src;
         hts_itr_t *iter_q;
         int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
+        if (tid < 0) {
+            std::cerr << "\nError: unknown sequence " << region->chrom << " in iterDraw" << std::endl;
+            return;
+        }
         if (col.levelsStart.empty()) {
             col.levelsStart.resize(opts.ylim + col.vScroll, 1215752191);
             col.levelsEnd.resize(opts.ylim + col.vScroll, 0);
@@ -896,6 +933,7 @@ namespace HGW {
             Drawing::drawCollection(opts, col, canvas, fonts, bam_paths, ctx);
             Segs::align_clear(&readQueue.back());
         }
+        hts_itr_destroy(iter_q);
     }
 
 
@@ -966,7 +1004,7 @@ namespace HGW {
                                  hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *samMaxY,
                                 std::vector<Parse::Parser> &filters, BS::thread_pool &pool, Utils::Region &reg) {
         bam1_t *src;
-        hts_itr_t *iter_q;
+        hts_itr_t *iter_q = nullptr;
         std::vector<Segs::Align>& readQueue = col.readQueue;
         Utils::Region *region = col.region;
         bool tlen_y = opts.tlen_yscale;
@@ -1173,11 +1211,17 @@ namespace HGW {
             col.mmVector.clear();
         }
         col.collection_processed = false;
+        hts_itr_destroy(iter_q);
     }
 
     VCFfile::VCFfile() {
         label_to_parse = nullptr;
         cacheStdin = false;
+        fp = nullptr;
+        hdr = nullptr;
+        idx_v = nullptr;
+        idx_t = nullptr;
+        v = nullptr;
     }
 
     VCFfile::~VCFfile() {
@@ -1196,37 +1240,75 @@ namespace HGW {
     void VCFfile::open(const std::string &f) {
         done = false;
         path = f;
+        kind = VCF_NOI;
+        fp = nullptr;
+        hdr = nullptr;
+        idx_v = nullptr;
+        idx_t = nullptr;
+        v = nullptr;
+
+        htsFile *fp_ = nullptr;
+        bcf_hdr_t *hdr_ = nullptr;
+        hts_idx_t *idx_v_ = nullptr;
+        tbx_t *idx_t_ = nullptr;
+        bcf1_t *v_ = nullptr;
+
         if (Utils::endsWith(path, ".vcf")) {
             kind = VCF_NOI;
         } else if (cacheStdin) {
             kind = STDIN;
         } else if (Utils::endsWith(path, ".bcf")) {
             kind = BCF_IDX;
-            idx_v = bcf_index_load(path.c_str());
+            idx_v_ = bcf_index_load(path.c_str());
+            if (!idx_v_) {
+                throw std::runtime_error("Error: could not open index of " + path);
+            }
         } else {
             kind = VCF_IDX;
-            idx_t = tbx_index_load(path.c_str());
+            idx_t_ = tbx_index_load(path.c_str());
+            if (!idx_t_) {
+                throw std::runtime_error("Error: could not open index of " + path);
+            }
         }
-        fp = bcf_open(f.c_str(), "r");
-        hdr = bcf_hdr_read(fp);
-		samples_loaded = false;
-        v = bcf_init1();
+
+        fp_ = bcf_open(f.c_str(), "r");
+        if (!fp_) {
+            if (idx_v_) hts_idx_destroy(idx_v_);
+            if (idx_t_) tbx_destroy(idx_t_);
+            throw std::runtime_error("Error: could not open " + path);
+        }
+        hdr_ = bcf_hdr_read(fp_);
+        if (!hdr_) {
+            bcf_close(fp_);
+            if (idx_v_) hts_idx_destroy(idx_v_);
+            if (idx_t_) tbx_destroy(idx_t_);
+            throw std::runtime_error("Error: could not open header of " + path);
+        }
+        v_ = bcf_init1();
+        if (!v_) {
+            bcf_hdr_destroy(hdr_);
+            bcf_close(fp_);
+            if (idx_v_) hts_idx_destroy(idx_v_);
+            if (idx_t_) tbx_destroy(idx_t_);
+            throw std::runtime_error("Error: could not allocate VCF record");
+        }
+
         std::string l2p;
         if (label_to_parse != nullptr) {
             l2p = label_to_parse;
         }
-        v->max_unpack = BCF_UN_INFO;
-		if (cacheStdin) {
-			v->max_unpack = BCF_UN_ALL;
-		}
+        v_->max_unpack = BCF_UN_INFO;
+        if (cacheStdin) {
+            v_->max_unpack = BCF_UN_ALL;
+        }
         if (l2p.empty()) {
             parse = -1;
         } else if (l2p.rfind("info.", 0) == 0) {
             parse = 7;
             info_field_type = -1;
             tag = l2p.substr(5, l2p.size() - 5);
-            bcf_idpair_t *id = hdr->id[0];
-            for (int i=0; i< hdr->n[0]; ++i) {
+            bcf_idpair_t *id = hdr_->id[0];
+            for (int i=0; i< hdr_->n[0]; ++i) {
                 std::string key = id->key;
                 if (key == tag) {
                     // this gives the info field type?! ouff
@@ -1236,6 +1318,11 @@ namespace HGW {
                 ++id;
             }
             if (info_field_type == -1) {
+                bcf_destroy1(v_);
+                bcf_hdr_destroy(hdr_);
+                bcf_close(fp_);
+                if (idx_v_) hts_idx_destroy(idx_v_);
+                if (idx_t_) tbx_destroy(idx_t_);
                 throw std::runtime_error("Error: could not find --parse-label in info");
             }
         } else if (l2p.find("filter") != std::string::npos) {
@@ -1245,8 +1332,20 @@ namespace HGW {
         } else if (l2p.find("id") != std::string::npos) {
             parse = 2;
         } else {
+            bcf_destroy1(v_);
+            bcf_hdr_destroy(hdr_);
+            bcf_close(fp_);
+            if (idx_v_) hts_idx_destroy(idx_v_);
+            if (idx_t_) tbx_destroy(idx_t_);
             throw std::runtime_error("Error: --label-to-parse was not understood, accepted fields are 'id / qual / filter / info.$NAME'");
         }
+
+        fp = fp_;
+        hdr = hdr_;
+        idx_v = idx_v_;
+        idx_t = idx_t_;
+        v = v_;
+        samples_loaded = false;
     }
 
     void VCFfile::next() {
@@ -1317,8 +1416,8 @@ namespace HGW {
         }
 
         info_field = bcf_get_info(hdr, v, "SVTYPE");  // try and find chrom2 in info
+        char *svtmem = nullptr;
         if (info_field != nullptr) {
-            char *svtmem = nullptr;
             mem = 0;
             int resc = bcf_get_info_string(hdr, v, "SVTYPE", &svtmem,&mem);
             if (resc < 0) {
@@ -1375,7 +1474,13 @@ namespace HGW {
                 }
                 break;
         }
-        if (seenLabels != nullptr && !(*seenLabels).empty() && !seenLabels->contains(label)) {
+        free(strmem);
+        free(intmem);
+        free(svtmem);
+        free(strmem2);
+        free(ires);
+        free(fres);
+        if (seenLabels != nullptr && !seenLabels->contains(label)) {
             seenLabels->insert(label);
         }
     }
@@ -1622,7 +1727,9 @@ namespace HGW {
             } else {
                 b.vartype = svtmem;
             }
+            free(svtmem);
         }
+        free(kstr.s);
     }
 
     void GwTrack::parseVcfRecord() {
@@ -1654,7 +1761,9 @@ namespace HGW {
             } else {
                 vartype = svtmem;
             }
+            free(svtmem);
         }
+        free(kstr.s);
     }
 
     void GwTrack::setPaint(SkPaint &faceColour) {
@@ -1767,15 +1876,23 @@ namespace HGW {
                     done = true;
                     break;
                 }
-                if (tp[0] == '#') {
+                if (tp.empty() || tp[0] == '#') {
                     continue;
                 }
                 std::vector<std::string> parts = Utils::split(tp, '\t');
+                if (parts.size() < 2) {
+                    std::cerr << "Warning: skipping malformed line in " << path << ": " << tp << std::endl;
+                    continue;
+                }
                 Utils::TrackBlock b;
                 b.line = tp;
                 b.chrom = parts[0];
                 b.start = std::stoi(parts[1]);
                 if (kind == BED_NOI) {  // bed
+                    if (parts.size() < 3) {
+                        std::cerr << "Warning: skipping malformed BED line in " << path << ": " << tp << std::endl;
+                        continue;
+                    }
                     b.end = std::stoi(parts[2]);
                     if (parts.size() > 3) {
                         b.name = parts[3];
@@ -1831,10 +1948,14 @@ namespace HGW {
                     done = true;
                     break;
                 }
-                if (tp[0] == '#') {
+                if (tp.empty() || tp[0] == '#') {
                     continue;
                 }
                 std::vector<std::string> parts = Utils::split(tp, '\t');
+                if (parts.size() < 9) {
+                    std::cerr << "Warning: skipping malformed PAF line in " << path << ": " << tp << std::endl;
+                    continue;
+                }
                 Utils::TrackBlock b;
                 b.line = tp;
                 b.name = parts[0];
@@ -2133,10 +2254,14 @@ namespace HGW {
                         done = true;
                         return;
                     }
-                    if (tp[0] == '#') {
+                    if (tp.empty() || tp[0] == '#') {
                         continue;
                     }
                     std::vector<std::string> parts = Utils::split_keep_empty_str(tp, '\t');
+                    if (parts.size() < 3) {
+                        std::cerr << "Warning: skipping malformed line in " << path << ": " << tp << std::endl;
+                        continue;
+                    }
                     chrom = parts[0];
                     chrom2 = chrom;
                     start = std::stoi(parts[1]);
@@ -2268,11 +2393,15 @@ namespace HGW {
                 if (kind == BED_IDX) {
                     parts.clear();
                     parts = Utils::split(str.s, '\t');
+                    if (parts.size() < 3) {
+                        std::cerr << "Warning: skipping malformed BED line in " << path << ": " << str.s << std::endl;
+                        continue;
+                    }
                     chrom = parts[0];
                     chrom2 = chrom;
                     start = std::stoi(parts[1]);
                     stop = std::stoi(parts[2]);
-                    if (parts.size() > 2) {
+                    if (parts.size() > 3) {
                         rid = parts[3];
                         if (parts.size() >= 6) {
                             if (parts[5] == "+") {
@@ -2291,6 +2420,10 @@ namespace HGW {
 
                 parts.clear();
                 parts = Utils::split(str.s, '\t');
+                if (parts.size() < 9) {
+                    std::cerr << "Warning: skipping malformed GFF/GTF line in " << path << ": " << str.s << std::endl;
+                    continue;
+                }
                 chrom = parts[0];
                 chrom2 = chrom;
                 start = std::stoi(parts[3]) - 1;
@@ -2355,12 +2488,20 @@ namespace HGW {
     bool GwTrack::findFeature(std::string &feature, Utils::Region &region) {
         if (kind == BED_IDX) {
             htsFile *fp_temp = hts_open(path.c_str(), "r");
+            if (!fp_temp) {
+                std::cerr << "Error: could not open " << path << std::endl;
+                return false;
+            }
             kstring_t str = {0,0, nullptr};
             int fileIndex_tmp = 0;
+            bool found = false;
             while (hts_getline(fp_temp, '\n', &str) >= 0) {
                 parts.clear();
                 parts = Utils::split(str.s, '\t');
-                if (parts.size() > 2) {
+                if (parts.size() < 3) {
+                    continue;
+                }
+                if (parts.size() > 3) {
                     rid = parts[3];
                 } else {
                     rid = std::to_string(fileIndex_tmp);
@@ -2371,14 +2512,28 @@ namespace HGW {
                     region.start = std::stoi(parts[1]);
                     region.end = std::stoi(parts[2]);
                     region.markers = {{region.start, region.end}};
-                    return true;
+                    found = true;
+                    break;
                 }
             }
+            if (str.s) free(str.s);
+            hts_close(fp_temp);
+            return found;
         } else if (kind == BCF_IDX || kind == VCF_IDX) {
             htsFile *fp2 = bcf_open(path.c_str(), "r");
+            if (!fp2) {
+                std::cerr << "Error: could not open " << path << std::endl;
+                return false;
+            }
             bcf_hdr_t *hdr2 = bcf_hdr_read(fp2);
+            if (!hdr2) {
+                std::cerr << "Error: could not open header of " << path << std::endl;
+                bcf_close(fp2);
+                return false;
+            }
             bcf1_t *v2 = bcf_init1();
             v2->max_unpack = BCF_UN_INFO;
+            bool found = false;
             while (bcf_read(fp2, hdr2, v2) >= 0) {
                 std::string id_temp;
                 bcf_unpack(v2, BCF_UN_INFO);
@@ -2388,13 +2543,18 @@ namespace HGW {
                     region.start = (int)v2->pos;
                     region.end = region.start + v2->rlen;
                     region.markers = {{region.start, region.end}};
-                    return true;
+                    found = true;
+                    break;
                 }
             }
+            bcf_destroy1(v2);
+            bcf_hdr_destroy(hdr2);
+            bcf_close(fp2);
+            return found;
         } else if (kind > BCF_IDX) {
 
             for (auto &chrom_blocks : allBlocks) {
-                for (int i=chrom_blocks.second.data.size() - 1; i >= 0; --i) {
+                for (int i = (int)chrom_blocks.second.data.size() - 1; i >= 0; --i) {
                     auto& b = chrom_blocks.second.data[i];
                     if (b.name.find(feature) != std::string::npos) {
                         region.chrom = b.chrom;
@@ -2556,6 +2716,22 @@ namespace HGW {
                 }
             }
         }
+        for (auto &rec : input_vcf.lines) {
+            bcf_destroy1(rec);
+        }
+        input_vcf.lines.clear();
+        bcf_destroy1(input_vcf.v);
+        bcf_hdr_destroy(input_vcf.hdr);
+        if (input_vcf.kind == BCF_IDX && input_vcf.idx_v) {
+            hts_idx_destroy(input_vcf.idx_v);
+            input_vcf.idx_v = nullptr;
+        } else if (input_vcf.kind == VCF_IDX && input_vcf.idx_t) {
+            tbx_destroy(input_vcf.idx_t);
+            input_vcf.idx_t = nullptr;
+        }
+        bcf_close(input_vcf.fp);
+        input_vcf.fp = nullptr;
+
         bcf_hdr_destroy(new_hdr);
         bcf_close(fp_out);
     }

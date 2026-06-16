@@ -160,9 +160,7 @@ void applyBoolOption(Option &new_opt, Themes::IniOptions &opts) {
         return;
     }
     bool v = bool_keys[new_opt.value];
-    if (new_opt.name == "scroll_spped") { opts.scroll_speed = v; }
-    else if (new_opt.name == "tabix_track_height") { opts.tab_track_height = v; }
-    else if (new_opt.name == "log2_cov") { opts.log2_cov = v; }
+    if (new_opt.name == "log2_cov") { opts.log2_cov = v; }
     else if (new_opt.name == "expand_tracks") { opts.expand_tracks = v; }
     else if (new_opt.name == "scale_bar") { opts.scale_bar = v; }
     else if (new_opt.name == "vcf_as_tracks") { opts.vcf_as_tracks = v; }
@@ -170,7 +168,7 @@ void applyBoolOption(Option &new_opt, Themes::IniOptions &opts) {
     else if (new_opt.name == "coverage") { opts.max_coverage = (v) ? 1410065408 : 0; }
     else if (new_opt.name == "sv_arcs") { opts.sv_arcs = v; }
     else if (new_opt.name == "mods") { opts.parse_mods = v; }
-    else if (new_opt.name == "data_labels") { opts.data_labels = v; std::cout << " YO\n";}
+    else if (new_opt.name == "data_labels") { opts.data_labels = v; }
     else {
         std::cerr << "Error: not implemented: " << new_opt.name << std::endl;
         return;
@@ -295,13 +293,13 @@ void processTextEntry(Themes::IniOptions &opts,
                       inputText);
 
     switch (opt.kind) {
-        case Int:        /* applyIntOption */ break;
-        case Float:      /* applyFloatOption */ break;
-        case Bool:       /* applyBoolOption */ break;
-        case KeyboardKey:/* applyKeyboardKeyOption */ break;
-        case ThemeOption:/* applyThemeOption */ break;
-        case LinkOption: /* applyLinkOption */ break;
-        case IntByInt:   /* applyIntByIntOption */ break;
+        case Int:        applyIntOption(opt, opts); break;
+        case Float:      applyFloatOption(opt, opts); break;
+        case Bool:       applyBoolOption(opt, opts); break;
+        case KeyboardKey:applyKeyboardKeyOption(opt, opts); break;
+        case ThemeOption:applyThemeOption(opt, opts); break;
+        case LinkOption: applyLinkOption(opt, opts); break;
+        case IntByInt:   applyIntByIntOption(opt, opts); break;
         case Path:       applyPathOption(opt, opts); break;
         case String:     applyStringOption(opt, opts); break;
     }

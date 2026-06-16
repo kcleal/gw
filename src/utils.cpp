@@ -267,6 +267,9 @@ namespace Utils {
             }
             p += 1;
             std::vector<std::string> parts = split(fn.substr(p, fn.size()), '~');
+            if (parts.size() < 4) {
+                return false;
+            }
             if (parts.size() == 5) {
                 int start, end;
                 try {
@@ -302,6 +305,9 @@ namespace Utils {
             if (p != std::string::npos) {
                 p += 3;
                 std::vector<std::string> parts = split(fn.substr(p, fn.size()), '~');
+                if (parts.size() % 3 != 0) {
+                    return false;
+                }
                 int i = 0;
                 while (i < (int)parts.size()) {
                     Utils::Region N;
@@ -375,6 +381,9 @@ namespace Utils {
             r.chrom2 = parts[1];
             r.pos2 = end;
         } else {
+            if (parts.size() < 6) {
+                return r;
+            }
             try {
                 start = std::stoi(parts[2]);
                 end = std::stoi(parts[4]);
@@ -537,7 +546,10 @@ namespace Utils {
         while (std::getline(f, s)) {
             if (idx > 0) {
                 std::unique_ptr<std::vector<std::string>> v = split_keep_empty(s, '\t');
-                bool clicked = !v->at(5).empty();
+                if (v->size() < 5) {
+                    continue;
+                }
+                bool clicked = (v->size() > 5 && !v->at(5).empty());
                 int pos = std::stoi(v->at(1));
                 if (v->size() == 5) {
                     savedDate = "";
@@ -546,7 +558,7 @@ namespace Utils {
                 }
 
                 if (image_glob_path.empty()) {
-                    variantFilename = v->at(6);
+                    variantFilename = (v->size() > 6) ? v->at(6) : "";
                 } else {
                     variantFilename = image_glob_path;
                 }

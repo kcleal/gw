@@ -44,32 +44,56 @@ bool menuSelect(Themes::IniOptions &opts) {
     else if (opts.menu_level == "general") {
         opts.menu_table = Themes::MenuTable::GENERAL;
         opts.previous_level = opts.menu_level;
-        opts.menu_level = opts.myIni["general"].begin()->first;
+        if (opts.myIni["general"].size() == 0) {
+            opts.menu_level.clear();
+        } else {
+            opts.menu_level = opts.myIni["general"].begin()->first;
+        }
     }
     else if (opts.menu_level == "view_thresholds") {
         opts.menu_table = Themes::MenuTable::VIEW_THRESHOLDS;
         opts.previous_level = opts.menu_level;
-        opts.menu_level = opts.myIni["view_thresholds"].begin()->first;
+        if (opts.myIni["view_thresholds"].size() == 0) {
+            opts.menu_level.clear();
+        } else {
+            opts.menu_level = opts.myIni["view_thresholds"].begin()->first;
+        }
     }
     else if (opts.menu_level == "navigation") {
         opts.menu_table = Themes::MenuTable::NAVIGATION;
         opts.previous_level = opts.menu_level;
-        opts.menu_level = opts.myIni["navigation"].begin()->first;
+        if (opts.myIni["navigation"].size() == 0) {
+            opts.menu_level.clear();
+        } else {
+            opts.menu_level = opts.myIni["navigation"].begin()->first;
+        }
     }
     else if (opts.menu_level == "interaction") {
         opts.menu_table = Themes::MenuTable::INTERACTION;
         opts.previous_level = opts.menu_level;
-        opts.menu_level = opts.myIni["interaction"].begin()->first;
+        if (opts.myIni["interaction"].size() == 0) {
+            opts.menu_level.clear();
+        } else {
+            opts.menu_level = opts.myIni["interaction"].begin()->first;
+        }
     }
     else if (opts.menu_level == "labelling") {
         opts.menu_table = Themes::MenuTable::LABELLING;
         opts.previous_level = opts.menu_level;
-        opts.menu_level = opts.myIni["labelling"].begin()->first;
+        if (opts.myIni["labelling"].size() == 0) {
+            opts.menu_level.clear();
+        } else {
+            opts.menu_level = opts.myIni["labelling"].begin()->first;
+        }
     }
     else if (opts.menu_level == "shift_keymap") {
         opts.menu_table = Themes::MenuTable::SHIFT_KEYMAP;
         opts.previous_level = opts.menu_level;
-        opts.menu_level = opts.myIni["shift_keymap"].begin()->first;
+        if (opts.myIni["shift_keymap"].size() == 0) {
+            opts.menu_level.clear();
+        } else {
+            opts.menu_level = opts.myIni["shift_keymap"].begin()->first;
+        }
     }
     else if (opts.menu_level == "controls") {
         if (opts.control_level == "close") {
@@ -95,7 +119,7 @@ bool menuSelect(Themes::IniOptions &opts) {
                 (opts.menu_table == Themes::MenuTable::GENOMES)
                     ? "genomes"
                     : "tracks";
-            opts.myIni[key].remove(opts.genome_tag);
+            opts.myIni[key].remove(opts.menu_level);
             opts.menu_level.clear();
             opts.control_level = "close";
         }

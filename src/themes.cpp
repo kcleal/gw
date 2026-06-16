@@ -2,6 +2,10 @@
 // Created by kez on 01/08/22.
 //
 #include <filesystem>
+#include <cstdlib>
+#include <pwd.h>
+#include <sys/types.h>
+#include <unistd.h>
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
@@ -972,7 +976,20 @@ namespace Themes {
         std::string home = homedrive + homepath;
 #else
         struct passwd *pw = getpwuid(getuid());
-        std::string home(pw->pw_dir);
+        std::string home;
+        if (pw && pw->pw_dir) {
+            home = pw->pw_dir;
+        } else {
+            const char *env_home = std::getenv("HOME");
+            if (env_home) {
+                home = env_home;
+            }
+        }
+        if (home.empty()) {
+            std::cerr << "Error: could not determine home directory\n";
+            theme = Themes::DarkTheme();
+            return false;
+        }
 #endif
         std::filesystem::path homedir(home);
 //        std::filesystem::path gw_session(".gw_session.ini");
@@ -1303,7 +1320,10 @@ namespace Themes {
         bool system_default = (fontStr == "Default");
         sk_sp<SkFontMgr> fontMgr = createFontManager(system_default);
         sk_sp<SkTypeface> face;
-        if (system_default) {
+        if (!fontMgr) {
+            std::cerr << "Error: failed to create font manager. Falling back to empty typeface\n";
+            face = SkTypeface::MakeEmpty();
+        } else if (system_default) {
             sk_sp<SkData> fontData = SkData::MakeWithoutCopy(GwFonts::Aileron_Regular_otf, GwFonts::Aileron_Regular_otf_len);
             face = fontMgr->makeFromData(fontData);
             if (!face) {
@@ -1467,6 +1487,9 @@ namespace Themes {
         int gvar = theme.fcC.getColor();
         while (std::getline(*fpu, line)) {
             std::istringstream iss(line);
+            if (line.empty()) {
+                continue;
+            }
             if (line[0] == '#') {
                 if (Utils::startsWith(line, "#gw ")) {
                     std::vector<std::string> parts = Utils::split( line, ' ');
@@ -1546,6 +1569,9 @@ namespace Themes {
         int gvar = theme.fcC.getColor();
         while (std::getline(fpu, line)) {
             std::istringstream iss(line);
+            if (line.empty()) {
+                continue;
+            }
             if (line[0] == '#') {
                 if (Utils::startsWith(line, "#gw ")) {
                     std::vector<std::string> parts = Utils::split(line, ' ');
@@ -1561,7 +1587,7 @@ namespace Themes {
 
             next_t;
             chrom = token;
-            if (strip_chr) {
+            if (strip_chr && chrom.size() >= 3) {
                 chrom.erase(chrom.begin(), chrom.begin() + 3);
             }
             next_t;

@@ -839,7 +839,7 @@ namespace Term {
 
         out << std::endl << std::endl;
         out << termcolor::bold << "qname    " << termcolor::reset << bam_get_qname(r->delegate) << std::endl;
-        out << termcolor::bold << "span     " << termcolor::reset << rname << ":" << r->pos << "-" << r->reference_end << std::endl;
+        out << termcolor::bold << "span     " << termcolor::reset << (rname ? rname : "*") << ":" << r->pos << "-" << r->reference_end << std::endl;
         if (rnext) {
             out << termcolor::bold << "mate     " << termcolor::reset << rnext << ":" << r->delegate->core.mpos << std::endl;
         }
@@ -939,6 +939,9 @@ namespace Term {
 		                       [&](const Segs::Align &lhs, const int pos) {
 			return (int)lhs.pos <= pos;
 		});
+		if (bnd == cl.readQueue.end()) {
+		    return;
+		}
 		int mA = 0, mT = 0, mC = 0, mG = 0, mN = 0;  // mismatch
 		int A = 0, T = 0, C = 0, G = 0, N = 0;  // ref
 		std::vector <int> dels;
@@ -1301,6 +1304,9 @@ namespace Term {
         CURL *curl;
         CURLcode response;
         curl = curl_easy_init();
+        if (!curl) {
+            return 0;
+        }
         curl_easy_setopt(curl, CURLOPT_URL, url);
         curl_easy_setopt(curl, CURLOPT_NOBODY, 1);
         response = curl_easy_perform(curl);
@@ -1507,8 +1513,15 @@ namespace Term {
                 // Simple JSON parsing to find the latest version
                 size_t pos = readBuffer.find("\"name\"");
                 if (pos != std::string::npos) {
-                    size_t start = readBuffer.find("\"", pos + 7) + 1;
+                    size_t start = readBuffer.find("\"", pos + 7);
+                    if (start == std::string::npos) {
+                        return "";
+                    }
+                    start += 1;
                     size_t end = readBuffer.find("\"", start);
+                    if (end == std::string::npos || end <= start) {
+                        return "";
+                    }
                     return readBuffer.substr(start, end - start);
                 }
             }
@@ -1521,9 +1534,11 @@ namespace Term {
         if (!latestVersion.empty()) {
             std::vector<std::string> partsLatest = Utils::split(latestVersion, '.');
             std::vector<std::string> partsCurrent = Utils::split(GW_VERSION, '.');
-            if ( std::stoi(partsLatest[1]) > std::stoi(partsCurrent[1]) ||
-                 std::stoi(partsLatest[2]) > std::stoi(partsCurrent[2]) ) {
-                std::cout << "\nA new update is available: https://github.com/kcleal/gw/releases/tag/" << latestVersion << std::endl;
+            if (partsLatest.size() >= 3 && partsCurrent.size() >= 3) {
+                if ( std::stoi(partsLatest[1]) > std::stoi(partsCurrent[1]) ||
+                     std::stoi(partsLatest[2]) > std::stoi(partsCurrent[2]) ) {
+                    std::cout << "\nA new update is available: https://github.com/kcleal/gw/releases/tag/" << latestVersion << std::endl;
+                }
             }
         }
     }
