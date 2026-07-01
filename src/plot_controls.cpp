@@ -1788,6 +1788,15 @@ namespace Manager {
                 rp.uid  = nextPopupUid++;
                 refPopups.push_back(std::move(rp));
             }
+            // Machine-readable record for the web popup: the reference base under the cursor.
+            int pos = (int)((xW - xOffset) / xScaling) + region->start;
+            int i = pos - region->start;
+            if (region->refSeq != nullptr && i >= 0 && i < region->refSeqLen) {
+                char b = region->refSeq[i];
+                char up = (b >= 'a' && b <= 'z') ? (char)(b - 32) : b;
+                selectedFeature = "Reference\tPosition\t" + region->chrom + ":"
+                                + Term::intToStringCommas(pos) + "\tBase\t" + std::string(1, up);
+            }
         };
         if (collections.empty()) {
             float xScaling = (float)((regionWidth - gap - gap) /
@@ -1842,24 +1851,37 @@ namespace Manager {
             target_qname = saved_qname;
             target_pos = saved_pos;
             Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx, target_qname, &target_pos, out);
-            // Capture a clicked intron's data for Python (mirrors selectedAlign for reads).
+            // Capture the clicked feature for Python (mirrors selectedAlign for reads):
+            // introns use the dedicated selectedIntron TSV; other GFF/BED features use the
+            // generic selectedFeature record consumed by the web popup.
             selectedIntron.clear();
-            if (targetTrack.kind == HGW::FType::INTRON && trackIdx < (int)regions[tIdx].featuresInView.size()) {
+            selectedFeature.clear();
+            if (trackIdx < (int)regions[tIdx].featuresInView.size()) {
                 auto *rgn = &regions[tIdx];
                 int target = (int)((float)(rgn->end - rgn->start) * relX) + rgn->start;
                 int jitter = (rgn->end - rgn->start) * 0.025;
                 for (auto &b : rgn->featuresInView.at(trackIdx)) {
                     if (b.start - jitter <= target && b.end + jitter >= target && b.level == featureLevel) {
-                        selectedIntron = b.chrom + "\t" + std::to_string(b.start) + "\t"
-                                       + std::to_string(b.end) + "\t" + std::to_string(b.strand) + "\t"
-                                       + std::to_string((int)b.value);
-                        // Record the highlight identity (persists across redraws) and force a
-                        // redraw so the selection outline renders on this click.
-                        selectedIntronChrom = b.chrom;
-                        selectedIntronStart = b.start;
-                        selectedIntronEnd = b.end;
-                        selectedIntronStrand = b.strand;
-                        redraw = true;
+                        if (targetTrack.kind == HGW::FType::INTRON) {
+                            selectedIntron = b.chrom + "\t" + std::to_string(b.start) + "\t"
+                                           + std::to_string(b.end) + "\t" + std::to_string(b.strand) + "\t"
+                                           + std::to_string((int)b.value);
+                            // Record the highlight identity (persists across redraws) and force a
+                            // redraw so the selection outline renders on this click.
+                            selectedIntronChrom = b.chrom;
+                            selectedIntronStart = b.start;
+                            selectedIntronEnd = b.end;
+                            selectedIntronStrand = b.strand;
+                            redraw = true;
+                        } else {
+                            const char *strand = (b.strand == 1) ? "+" : (b.strand == 2) ? "-" : ".";
+                            selectedFeature = std::string("Gene\tName\t") + (b.name.empty() ? "(unnamed)" : b.name)
+                                            + "\tType\t" + (b.vartype.empty() ? "-" : b.vartype)
+                                            + "\tStrand\t" + strand
+                                            + "\tLocation\t" + b.chrom + ":" + Term::intToStringCommas(b.start)
+                                            + "-" + Term::intToStringCommas(b.end)
+                                            + "\tParent\t" + (b.parent.empty() ? "-" : b.parent);
+                        }
                         break;
                     }
                 }
@@ -1897,7 +1919,8 @@ namespace Manager {
         // Coverage-area click (above the reads): open coverage popup
         if (yW < cl.yOffset && cl.region->end - cl.region->start < 75000) {
             std::ostringstream uiOut;
-            Term::printCoverage(pos, cl, uiOut);
+            // Capture a machine-readable record for the web popup (depth + per-base counts).
+            Term::printCoverage(pos, cl, uiOut, &selectedFeature);
             CovPopup cp;
             cp.ansi     = uiOut.str();
             cp.chromPos = cl.region->chrom + ":" + Term::intToStringCommas(pos);

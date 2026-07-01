@@ -169,6 +169,7 @@ namespace Manager {
 
         std::string selectedAlign;  // SAM text of most-recently clicked read (used by commands)
         std::string selectedIntron;  // TSV (chrom,start,end,strand,count) of most-recently clicked intron
+        std::string selectedFeature;  // TAB record "TITLE\tkey\tval..." for a clicked gff/coverage/reference element
         std::string selectedIntronChrom;  // identity of the highlighted intron (persists across redraws)
         int selectedIntronStart{-1};
         int selectedIntronEnd{-1};
