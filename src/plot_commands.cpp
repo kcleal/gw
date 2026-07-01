@@ -1770,6 +1770,43 @@ namespace Commands {
         return Err::NONE;
     }
 
+    Err set_track_height(Plot* p, std::string& /*command*/, std::vector<std::string> parts, std::ostream& out) {
+        if (parts.size() < 3) {
+            return Err::PARSE_INPUT;
+        }
+        int idx;
+        double frac;
+        try {
+            idx = std::stoi(parts[1]);
+            frac = std::stod(parts[2]);
+        } catch (...) {
+            return Err::PARSE_INPUT;
+        }
+        if (idx < 0 || idx >= (int)p->tracks.size()) {
+            out << termcolor::red << "Error:" << termcolor::reset
+                << " track index " << idx << " out of range (0.."
+                << (p->tracks.empty() ? 0 : (int)p->tracks.size() - 1) << ")\n";
+            return Err::NONE;
+        }
+        // Clamp to the same range the UI slider exposes.
+        if (frac < 0.02) frac = 0.02;
+        if (frac > 0.9) frac = 0.9;
+        p->tracks[idx].height_fraction = frac;
+        // setScaling() re-derives every track's px_height from its fraction on the next
+        // drawScreen(); a redraw is all that's needed - no full refreshGw() (which would
+        // also wipe filters/sort/scroll).
+        p->redraw = true;
+        p->processed = false;
+        // Resizing a track changes the alignment area height (trackY). The incremental
+        // renderer would otherwise blit the previous full-frame raster and leave stale
+        // read pixels below the new boundary (a "ghost"). Drop the frame cache so the next
+        // drawScreen() repaints the whole canvas - same invalidation the window-resize path
+        // uses. processBam() resets each collection's draw state because processed==false.
+        p->imageCache.clear();
+        p->imageCacheQueue.clear();
+        return Err::NONE;
+    }
+
     Err sort_command(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
         if (parts.size() == 1 || (parts.size() == 2 && parts[1] == "none")) {
             refreshGw(p);
@@ -1983,6 +2020,7 @@ namespace Commands {
                 {"color",    PARAMS { return update_colour(p, command, parts, out); }},
                 {"roi",      PARAMS { return add_roi(p, command, parts, out); }},
                 {"introns",  PARAMS { return add_introns(p, command, parts, out); }},
+                {"track-height", PARAMS { return set_track_height(p, command, parts, out); }},
                 {"sort",     PARAMS { return sort_command(p, command, parts, out); }},
                 {"header",   PARAMS { return header_command(p, command, parts, out); }},
 

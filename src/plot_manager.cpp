@@ -1504,19 +1504,20 @@ namespace Manager {
         if (tracks.empty()) {
             totalTabixY = 0;
         } else {
-            bool px_height_set = tracks.front().px_height > 0;
-            if (!px_height_set) {  // If not set elsewhere, this makes tracks same height
-                if (nbams == 0) {
-                    totalTabixY = availableHeight;
-                    tabixY = totalTabixY / nTracks;
-                } else {
-                    totalTabixY = availableHeight * opts.tab_track_height;
-                    tabixY = totalTabixY / nTracks;
-                }
-                for (auto &item : tracks) {
-                    item.px_height = tabixY;
-                }
+            // Each track gets its own height. Tracks with an explicit height_fraction
+            // override use it; the rest share the default annotation area equally. This
+            // lets GFF3/intron/etc. tracks be resized independently while newly-added
+            // tracks (e.g. introns toggled on) still get a sensible default.
+            float default_frac = (nbams == 0) ? (1.0f / nTracks)
+                                              : (opts.tab_track_height / nTracks);
+            totalTabixY = 0;
+            for (auto &item : tracks) {
+                float frac = (item.height_fraction > 0.0) ? (float)item.height_fraction
+                                                          : default_frac;
+                item.px_height = availableHeight * frac;
+                totalTabixY += item.px_height;
             }
+            tabixY = totalTabixY / nTracks;
         }
         availableHeight -= totalTabixY;
         if (nbams == 0) {
