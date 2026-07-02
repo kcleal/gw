@@ -63,6 +63,10 @@ namespace Drawing {
         int selectedIntronStart = -1;
         int selectedIntronEnd = -1;
         int selectedIntronStrand = -2;
+        std::string selectedFeatureChrom;  // identity of the highlighted gff exon/intron (empty = none)
+        std::string selectedFeatureName;
+        int selectedFeatureStart = -1;
+        int selectedFeatureEnd = -1;
     };
 
     void drawCoverage(const Themes::IniOptions &opts, std::vector<Segs::ReadCollection> &collections,

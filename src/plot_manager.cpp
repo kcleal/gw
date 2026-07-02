@@ -1822,6 +1822,10 @@ namespace Manager {
         ctx.selectedIntronStart = selectedIntronStart;
         ctx.selectedIntronEnd = selectedIntronEnd;
         ctx.selectedIntronStrand = selectedIntronStrand;
+        ctx.selectedFeatureChrom = selectedFeatureChrom;
+        ctx.selectedFeatureName = selectedFeatureName;
+        ctx.selectedFeatureStart = selectedFeatureStart;
+        ctx.selectedFeatureEnd = selectedFeatureEnd;
     }
 
     void GwPlot::overlayImGui(bool& pending_settings_close) {

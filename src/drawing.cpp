@@ -1885,6 +1885,23 @@ namespace Drawing {
                 }
             }
         }
+        // Outline the clicked exon/intron segment with the selection colour (mirrors reads/introns).
+        if (!ctx.selectedFeatureChrom.empty()
+                && ctx.selectedFeatureChrom == rgn.chrom
+                && ctx.selectedFeatureName == trk.name
+                && ctx.selectedFeatureStart >= trk.start && ctx.selectedFeatureEnd <= trk.end) {
+            float hx = std::fmax(((float)(ctx.selectedFeatureStart - rgn.start) * xScaling) + padX, screenLeftEdge);
+            float hw = std::fmin(((float)(ctx.selectedFeatureEnd - rgn.start) * xScaling) + padX, screenRightEdge);
+            if (hw > hx) {
+                SkPaint hl = opts.theme.ecSelected;
+                hl.setStyle(SkPaint::kStroke_Style);
+                hl.setStrokeWidth(ctx.monitorScale * 2.0f);
+                hl.setAntiAlias(true);
+                SkRect hr = SkRect::MakeLTRB(hx, y + padY, hw, y + padY + h);
+                hr.outset(ctx.monitorScale, ctx.monitorScale);
+                canvas->drawRect(hr, hl);
+            }
+        }
     }
 
     inline SkColor getIntronColor(float support) {

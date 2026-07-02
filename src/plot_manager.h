@@ -174,6 +174,11 @@ namespace Manager {
         int selectedIntronStart{-1};
         int selectedIntronEnd{-1};
         int selectedIntronStrand{-2};  // -2 = none (0/1/2 are valid gw strands)
+        // Identity of a highlighted gff exon/intron segment (persists across redraws).
+        std::string selectedFeatureChrom;
+        std::string selectedFeatureName;   // transcript name, to disambiguate overlapping features
+        int selectedFeatureStart{-1};
+        int selectedFeatureEnd{-1};
 
         struct ReadPopup {
             std::string ansi;  // ANSI-coded read info text

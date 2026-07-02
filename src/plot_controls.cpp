@@ -1856,6 +1856,10 @@ namespace Manager {
             // generic selectedFeature record consumed by the web popup.
             selectedIntron.clear();
             selectedFeature.clear();
+            selectedFeatureChrom.clear();
+            selectedFeatureName.clear();
+            selectedFeatureStart = -1;
+            selectedFeatureEnd = -1;
             if (trackIdx < (int)regions[tIdx].featuresInView.size()) {
                 auto *rgn = &regions[tIdx];
                 int target = (int)((float)(rgn->end - rgn->start) * relX) + rgn->start;
@@ -1874,13 +1878,48 @@ namespace Manager {
                             selectedIntronStrand = b.strand;
                             redraw = true;
                         } else {
+                            // Resolve the click to a specific exon (a drawn box) or intron
+                            // (a gap between boxes). Merge the drawn sub-blocks
+                            // (drawThickness>=1; skip undrawn codons) into disjoint spans so
+                            // overlapping exon/CDS/UTR entries collapse to the visible box.
+                            std::vector<std::pair<int,int>> spans;
+                            for (size_t k = 0; k < b.s.size() && k < b.e.size(); ++k) {
+                                if (k < b.drawThickness.size() && b.drawThickness[k] == 0) continue;  // undrawn codon
+                                if (b.s[k] <= b.start && b.e[k] >= b.end) continue;  // whole-transcript container (mRNA/gene) — would swallow the introns
+                                spans.emplace_back(b.s[k], b.e[k]);
+                            }
+                            if (spans.empty()) spans.emplace_back(b.start, b.end);
+                            std::sort(spans.begin(), spans.end());
+                            std::vector<std::pair<int,int>> merged;
+                            for (auto &sp : spans) {
+                                if (!merged.empty() && sp.first <= merged.back().second) {
+                                    merged.back().second = std::max(merged.back().second, sp.second);
+                                } else {
+                                    merged.push_back(sp);
+                                }
+                            }
+                            const char *label = "Gene";  // fallback when the click resolves to no specific exon/intron
+                            int segStart = b.start, segEnd = b.end;  // fallback: whole transcript/gene span
+                            for (size_t k = 0; k < merged.size(); ++k) {
+                                if (merged[k].first <= target && target <= merged[k].second) {
+                                    label = "Exon"; segStart = merged[k].first; segEnd = merged[k].second; break;
+                                }
+                                if (k + 1 < merged.size() && target > merged[k].second && target < merged[k + 1].first) {
+                                    label = "Intron"; segStart = merged[k].second; segEnd = merged[k + 1].first; break;
+                                }
+                            }
                             const char *strand = (b.strand == 1) ? "+" : (b.strand == 2) ? "-" : ".";
-                            selectedFeature = std::string("Gene\tName\t") + (b.name.empty() ? "(unnamed)" : b.name)
-                                            + "\tType\t" + (b.vartype.empty() ? "-" : b.vartype)
+                            selectedFeature = std::string(label) + "\tName\t" + (b.name.empty() ? "(unnamed)" : b.name)
+                                            + "\tLocation\t" + b.chrom + ":" + Term::intToStringCommas(segStart)
+                                            + "-" + Term::intToStringCommas(segEnd)
                                             + "\tStrand\t" + strand
-                                            + "\tLocation\t" + b.chrom + ":" + Term::intToStringCommas(b.start)
-                                            + "-" + Term::intToStringCommas(b.end)
                                             + "\tParent\t" + (b.parent.empty() ? "-" : b.parent);
+                            // Highlight identity (persists across redraws) + force redraw.
+                            selectedFeatureChrom = b.chrom;
+                            selectedFeatureName = b.name;
+                            selectedFeatureStart = segStart;
+                            selectedFeatureEnd = segEnd;
+                            redraw = true;
                         }
                         break;
                     }
