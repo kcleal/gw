@@ -743,6 +743,27 @@ namespace Commands {
         return Err::NONE;
     }
 
+    // Set the minimum supporting-read count for drawing an intron/splice junction.
+    // Introns are re-extracted every frame (see drawTracks -> extractCanonicalIntrons),
+    // so changing this and refreshing re-filters the track live.
+    Err minJunctionReads(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        p->redraw = true;
+        int n;
+        try {
+            n = std::stoi(parts.back());
+        } catch (...) {
+            out << termcolor::red << "Error:" << termcolor::reset << " min-junction-reads invalid value\n";
+            return Err::NONE;
+        }
+        p->opts.min_junction_reads = std::max(1, n);
+        if (p->frameId >= 0) {
+            p->processed = false;
+            p->imageCache.clear();
+            p->imageCacheQueue.clear();
+        }
+        return Err::NONE;
+    }
+
     Err remove(Plot* p, std::vector<std::string> parts, std::ostream& out) {
         int ind = 0;
         p->redraw = true;
@@ -2056,8 +2077,9 @@ namespace Commands {
                 {"f",        PARAMS { return findRead(p, parts, out); }},
                 {"find",     PARAMS { return findRead(p, parts, out); }},
                 {"ylim",     PARAMS { return setYlim(p, parts, out); }},
-                {"indel-length",      PARAMS { return indelLength(p, parts, out); }},
                 {"tab-track-height",  PARAMS { return setTabTrackHeight(p, parts, out); }},
+                {"indel-length", PARAMS { return indelLength(p, parts, out); }},
+                {"min-junction-reads", PARAMS { return minJunctionReads(p, parts, out); }},
                 {"rm",       PARAMS { return remove(p, parts, out); }},
                 {"remove",   PARAMS { return remove(p, parts, out); }},
                 {"cov",      PARAMS { return cov(p, parts, out); }},
