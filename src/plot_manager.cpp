@@ -1876,6 +1876,7 @@ namespace Manager {
         ctx.selectedIntronStrand = selectedIntronStrand;
         ctx.selectedFeatureChrom = selectedFeatureChrom;
         ctx.selectedFeatureName = selectedFeatureName;
+        ctx.selectedFeatureParent = selectedFeatureParent;
         ctx.selectedFeatureStart = selectedFeatureStart;
         ctx.selectedFeatureEnd = selectedFeatureEnd;
     }

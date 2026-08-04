@@ -181,6 +181,7 @@ namespace Manager {
         // Identity of a highlighted gff exon/intron segment (persists across redraws).
         std::string selectedFeatureChrom;
         std::string selectedFeatureName;   // transcript name, to disambiguate overlapping features
+        std::string selectedFeatureParent; // unique GFF transcript id (Parent), to isolate one isoform
         int selectedFeatureStart{-1};
         int selectedFeatureEnd{-1};
 

@@ -119,6 +119,17 @@ namespace Commands {
             p->clearZoomCache();
             p->filters.clear();
             p->target_qname = "";
+            // Clear the GFF exon/intron and splice-junction highlight identities so
+            // the selection outline is dropped on refresh (mirrors read deselection).
+            p->selectedFeatureChrom.clear();
+            p->selectedFeatureName.clear();
+            p->selectedFeatureParent.clear();
+            p->selectedFeatureStart = -1;
+            p->selectedFeatureEnd = -1;
+            p->selectedIntronChrom.clear();
+            p->selectedIntronStart = -1;
+            p->selectedIntronEnd = -1;
+            p->selectedIntronStrand = -2;
             for (auto &cl: p->collections) {
                 cl.vScroll = 0;
                 cl.resetDrawState();

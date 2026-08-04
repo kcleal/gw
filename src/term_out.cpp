@@ -1079,7 +1079,7 @@ namespace Term {
 		}
 		int totCov = A + T + C + G + N + mA + mT + mC + mG + mN;
 
-        // Machine-readable record for the web popup: title + key/value pairs. The ref-match
+        // Machine-readable record for the terminal: title + key/value pairs. The ref-match
         // branch above is disabled, so mA/mC/mG/mT hold the totals for each base at this pos.
         if (summary != nullptr) {
             *summary = "Coverage\tPosition\t" + cl.region->chrom + ":" + intToStringCommas(pos)

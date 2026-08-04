@@ -1823,7 +1823,7 @@ namespace Manager {
                 rp.uid  = nextPopupUid++;
                 refPopups.push_back(std::move(rp));
             }
-            // Machine-readable record for the web popup: the reference base under the cursor.
+            // create a parsable text output of selected feature 
             int pos = (int)((xW - xOffset) / xScaling) + region->start;
             int i = pos - region->start;
             if (region->refSeq != nullptr && i >= 0 && i < region->refSeqLen) {
@@ -1886,13 +1886,14 @@ namespace Manager {
             target_qname = saved_qname;
             target_pos = saved_pos;
             Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx, target_qname, &target_pos, out);
-            // Capture the clicked feature for Python (mirrors selectedAlign for reads):
+            // Capture the clicked feature for  terminal output
             // introns use the dedicated selectedIntron TSV; other GFF/BED features use the
-            // generic selectedFeature record consumed by the web popup.
+            // generic selectedFeature record
             selectedIntron.clear();
             selectedFeature.clear();
             selectedFeatureChrom.clear();
             selectedFeatureName.clear();
+            selectedFeatureParent.clear();
             selectedFeatureStart = -1;
             selectedFeatureEnd = -1;
             if (trackIdx < (int)regions[tIdx].featuresInView.size()) {
@@ -1952,6 +1953,7 @@ namespace Manager {
                             // Highlight identity (persists across redraws) + force redraw.
                             selectedFeatureChrom = b.chrom;
                             selectedFeatureName = b.name;
+                            selectedFeatureParent = b.parent;
                             selectedFeatureStart = segStart;
                             selectedFeatureEnd = segEnd;
                             redraw = true;
@@ -1993,7 +1995,7 @@ namespace Manager {
         // Coverage-area click (above the reads): open coverage popup
         if (yW < cl.yOffset && cl.region->end - cl.region->start < 75000) {
             std::ostringstream uiOut;
-            // Capture a machine-readable record for the web popup (depth + per-base counts).
+            // Capture a machine-readable record for the terminal (depth + per-base counts).
             Term::printCoverage(pos, cl, uiOut, &selectedFeature);
             CovPopup cp;
             cp.ansi     = uiOut.str();
@@ -2011,7 +2013,7 @@ namespace Manager {
         xDrag = DRAG_UNSET;
         yDrag = DRAG_UNSET;
         clickedIdx = -1;
-    }
+    plto}
 
     void GwPlot::clearZoomCache() {
         if (zoomCacheActive) {
