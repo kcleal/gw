@@ -2013,7 +2013,7 @@ namespace Manager {
         xDrag = DRAG_UNSET;
         yDrag = DRAG_UNSET;
         clickedIdx = -1;
-    plto}
+    }
 
     void GwPlot::clearZoomCache() {
         if (zoomCacheActive) {
