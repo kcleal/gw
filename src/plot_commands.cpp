@@ -116,6 +116,7 @@ namespace Commands {
         if (p->frameId >= 0) {
             p->imageCache.clear();
             p->imageCacheQueue.clear();
+            p->clearZoomCache();
             p->filters.clear();
             p->target_qname = "";
             for (auto &cl: p->collections) {
@@ -196,6 +197,11 @@ namespace Commands {
                     out << "Creating new file: " << outf << "\n";
                     if (Utils::endsWith(o_str, ".sam")) {
                         h_out = hts_open(outf, "w");
+                        if (h_out == nullptr) {
+                            out << termcolor::red << "Error:" << termcolor::reset << " Could not open " << outf << " for writing\n";
+                            sam_hdr_destroy(hdr);
+                            return Err::NONE;
+                        }
                         res = sam_hdr_write(h_out, hdr);
                         if (res < 0) {
                             out << termcolor::red << "Error:" << termcolor::reset << " Failed to copy header\n";
@@ -204,6 +210,11 @@ namespace Commands {
                         }
                     } else if (Utils::endsWith(o_str, ".bam")) {
                         h_out = hts_open(outf, "wb");
+                        if (h_out == nullptr) {
+                            out << termcolor::red << "Error:" << termcolor::reset << " Could not open " << outf << " for writing\n";
+                            sam_hdr_destroy(hdr);
+                            return Err::NONE;
+                        }
                         res = sam_hdr_write(h_out, hdr);
                         if (res < 0) {
                             out << termcolor::red << "Error:" << termcolor::reset << " Failed to copy header\n";
@@ -212,6 +223,11 @@ namespace Commands {
                         }
                     } else {
                         h_out = hts_open(outf, "wc");
+                        if (h_out == nullptr) {
+                            out << termcolor::red << "Error:" << termcolor::reset << " Could not open " << outf << " for writing\n";
+                            sam_hdr_destroy(hdr);
+                            return Err::NONE;
+                        }
                         fc = h_out->fp.cram;
                         write_cram = true;
                         cram_fd_set_header(fc, hdr);
@@ -232,6 +248,11 @@ namespace Commands {
                         h_out = hts_open(outf, "ac");
                         fc = h_out->fp.cram;
                         write_cram = true;
+                    }
+                    if (h_out == nullptr) {
+                        out << termcolor::red << "Error:" << termcolor::reset << " Could not open " << outf << " for appending\n";
+                        sam_hdr_destroy(hdr);
+                        return Err::NONE;
                     }
                 }
                 bam1_t* b = bam_init1();
@@ -508,11 +529,11 @@ namespace Commands {
         } else {
             p->currentVarTrack->variantTrack.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
             if (p->currentVarTrack->variantTrack.variantString.empty()) {
-                Term::clearLine(out);
-                out << "\r" << p->currentVarTrack->variantTrack.variantString << std::endl;
-            } else {
                 out << termcolor::red << "Error:" << termcolor::reset << " could not parse variant line";
                 return Err::PARSE_VCF;
+            } else {
+                Term::clearLine(out);
+                out << "\r" << p->currentVarTrack->variantTrack.variantString << std::endl;
             }
         }
         return Err::NONE;
@@ -684,6 +705,41 @@ namespace Commands {
             p->imageCache.clear();
             p->imageCacheQueue.clear();
         }
+        return Err::NONE;
+    }
+
+    Err setTabTrackHeight(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        if (parts.size() < 2) {
+            out << "Usage: tab-track-height <value>  (0.0–1.0)\n";
+            return Err::NONE;
+        }
+        double value;
+        try {
+            value = std::stod(parts[1]);
+        } catch (...) {
+            out << termcolor::red << "Error:" << termcolor::reset << " tab-track-height invalid value\n";
+            return Err::NONE;
+        }
+        if (value < 0.0 || value > 1.0) {
+            out << termcolor::red << "Error:" << termcolor::reset << " tab-track-height must be between 0.0 and 1.0\n";
+            return Err::NONE;
+        }
+        double old_th = p->opts.tab_track_height;
+        p->opts.tab_track_height = value;
+        if (old_th > 0.0 && !p->tracks.empty()) {
+            double ratio = value / old_th;
+            double consumedHeight = 0;
+            for (auto& trk : p->tracks) {
+                trk.px_height *= ratio;
+                consumedHeight += trk.px_height;
+            }
+            p->totalTabixY = consumedHeight;
+        }
+        p->imageCacheQueue.clear();
+        for (auto& cl : p->collections) {
+            cl.resetDrawState();
+        }
+        p->redraw = true;
         return Err::NONE;
     }
 
@@ -954,7 +1010,7 @@ namespace Commands {
             std::string nameFormat = parts[1];
             // try and parse information from vcf record e.g. {pos}.png
             if (p->currentVarTrack != nullptr && p->currentVarTrack->type == HGW::TrackType::VCF && p->mode == Manager::Show::SINGLE) {
-                if (p->mouseOverTileIndex == -1 || p->currentVarTrack->blockStart + p->mouseOverTileIndex > (int) p->currentVarTrack->multiLabels.size()) {
+                if (p->mouseOverTileIndex == -1 || p->currentVarTrack->blockStart + p->mouseOverTileIndex >= (int) p->currentVarTrack->multiLabels.size()) {
                     return Err::SILENT;
                 }
                 Utils::Label &lbl = p->currentVarTrack->multiLabels[p->currentVarTrack->blockStart + p->mouseOverTileIndex];
@@ -1056,6 +1112,10 @@ namespace Commands {
     }
 
     Err write_bam(Plot* p, std::string& o_str, std::vector< std::vector<size_t>> targets, std::ostream& out) {
+        if (p->headers.empty() || p->regionSelection < 0 || p->regionSelection >= (int)p->headers.size()) {
+            out << termcolor::red << "Error:" << termcolor::reset << " no valid BAM header for current region\n";
+            return Err::SILENT;
+        }
         sam_hdr_t* hdr = p->headers[p->regionSelection];
         cram_fd* fc = nullptr;
         htsFile *h_out = nullptr;
@@ -1181,6 +1241,7 @@ namespace Commands {
                     Segs::align_init(&item.align, 0, 1);
                     pq.push(item);
                 } else {
+                    bam_destroy1(item.align.delegate);
                     item.align.delegate = nullptr;
                 }
                 pq.pop();
@@ -1584,7 +1645,7 @@ namespace Commands {
         else if (c == "fcDup") { e = Themes::GwPaint::fcDup; }
         else if (c == "fcInvF") { e = Themes::GwPaint::fcInvF; }
         else if (c == "fcInvR") { e = Themes::GwPaint::fcInvR; }
-        else if (c == "fcT ra") { e = Themes::GwPaint::fcTra; }
+        else if (c == "fcTra") { e = Themes::GwPaint::fcTra; }
         else if (c == "fcIns") { e = Themes::GwPaint::fcIns; }
         else if (c == "fcSoftClip") { e = Themes::GwPaint::fcSoftClip; }
         else if (c == "fcA") { e = Themes::GwPaint::fcA; }
@@ -1652,7 +1713,7 @@ namespace Commands {
                 out << termcolor::red << "Error:" << termcolor::reset << " track index not understood\n";
                 return Err::SILENT;
             }
-            if (ind > (int)p->tracks.size()) {
+            if (ind < 0 || ind >= (int)p->tracks.size()) {
                 out << termcolor::red << "Error:" << termcolor::reset << " track index out of range\n";
                 return Err::SILENT;
             }
@@ -1809,13 +1870,14 @@ namespace Commands {
             switch (p->regions[p->regionSelection].sortOption) {
                 case (Utils::SortType::HP):
                     p->regions[p->regionSelection].sortOption = Utils::SortType::HP_AND_POS;
+                    break;
                 case (Utils::SortType::STRAND):
                     p->regions[p->regionSelection].sortOption = Utils::SortType::STRAND_AND_POS;
+                    break;
                 default:
                     p->regions[p->regionSelection].sortOption = Utils::SortType::POS;
+                    break;
             }
-            if (p->regions[p->regionSelection].sortOption)
-            p->regions[p->regionSelection].sortOption = Utils::SortType::POS;
         }
         p->redraw = true;
         p->processed = false;
@@ -1994,7 +2056,8 @@ namespace Commands {
                 {"f",        PARAMS { return findRead(p, parts, out); }},
                 {"find",     PARAMS { return findRead(p, parts, out); }},
                 {"ylim",     PARAMS { return setYlim(p, parts, out); }},
-                {"indel-length", PARAMS { return indelLength(p, parts, out); }},
+                {"indel-length",      PARAMS { return indelLength(p, parts, out); }},
+                {"tab-track-height",  PARAMS { return setTabTrackHeight(p, parts, out); }},
                 {"rm",       PARAMS { return remove(p, parts, out); }},
                 {"remove",   PARAMS { return remove(p, parts, out); }},
                 {"cov",      PARAMS { return cov(p, parts, out); }},

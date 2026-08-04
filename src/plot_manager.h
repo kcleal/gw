@@ -25,6 +25,8 @@
 #include <utility>
 #include <vector>
 
+struct ImFont;  // Forward declaration for Dear ImGui font handle
+
 #include "ankerl_unordered_dense.h"
 #include "BS_thread_pool.h"
 #include "drawing.h"
@@ -73,7 +75,7 @@ namespace Manager {
     public:
         HiddenWindow () = default;
         ~HiddenWindow () = default;
-        GLFWwindow *window;
+        GLFWwindow *window{nullptr};
         void init(int width, int height);
     };
 
@@ -157,11 +159,13 @@ namespace Manager {
         Themes::IniOptions opts;
         Themes::Fonts fonts;
 
-        faidx_t* fai;
+        ImFont* monoFont{nullptr};  // Monospace font for ImGui (reference sequence popup)
+
+        faidx_t* fai{nullptr};
         GLFWwindow* window;
 
         sk_sp<SkSurface> rasterSurface;
-        sk_sp<SkSurface>* rasterSurfacePtr;  // option to use externally managed surface (faster)
+        sk_sp<SkSurface>* rasterSurfacePtr{nullptr};  // option to use externally managed surface (faster)
         SkCanvas* rasterCanvas;
 
         Show mode;
@@ -201,6 +205,22 @@ namespace Manager {
             int uid{0};
         };
         std::vector<RefPopup> refPopups;
+
+        // Cache for Ctrl+click point-zoom toggle: stores the original view's
+        // region bounds, read collections, and rendered image so a second
+        // Ctrl+click in the zoomed area can restore it without reloading BAMs
+        // or redrawing.
+        bool zoomCacheActive{false};
+        int zoomCacheOriginalSelection{0};
+        int zoomCacheOriginalStart{0};
+        int zoomCacheOriginalEnd{0};
+        int zoomCacheZoomedSelection{0};
+        int zoomCacheZoomedStart{0};
+        int zoomCacheZoomedEnd{0};
+        int zoomCacheSamMaxY{0};
+        std::string zoomCacheChrom;
+        std::vector<Segs::ReadCollection> zoomCacheCollections;
+        sk_sp<SkImage> zoomCacheImage;
 
         int nextPopupUid{0};
 
@@ -268,6 +288,7 @@ namespace Manager {
         void runDrawNoBufferOnCanvas(SkCanvas* canvas);  // draws to external canvas (faster)
         void syncImageCacheQueue();
         void clearImageCacheQueue();
+        void clearZoomCache();
         bool collectionsNeedRedrawing();
 
         // Printing information functions

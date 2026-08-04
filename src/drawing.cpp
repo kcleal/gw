@@ -88,6 +88,9 @@ namespace Drawing {
                 Segs::findMismatches(opts, cl);
             }
 
+            if (cl.covArr.empty()) {
+                continue;
+            }
             const std::vector<int> &covArr_r = cl.covArr;
             std::vector<float> c;
             c.resize(cl.covArr.size());
@@ -166,6 +169,9 @@ namespace Drawing {
 
             if (draw_mismatch_info) {
                 const char *refSeq = cl.region->refSeq;
+                if (refSeq == nullptr) {
+                    continue;
+                }
                 float mmPosOffset, mmScaling;
                 if ((int) mmVector.size() < 500) {
                     mmPosOffset = 0.05;
@@ -347,9 +353,12 @@ namespace Drawing {
                 case Segs::DUP:
                     faceColor = theme.fcDup0;
                     break;
-                case Segs::TRA:
-                    faceColor = theme.mate_fc0[(a.delegate->core.tid + ((a.delegate->core.mtid >= 0) ?  a.delegate->core.mtid : 0)) % 48];
+                case Segs::TRA: {
+                    int mate_idx = (a.delegate->core.tid + ((a.delegate->core.mtid >= 0) ? a.delegate->core.mtid : 0)) % 48;
+                    if (mate_idx < 0) mate_idx += 48;
+                    faceColor = theme.mate_fc0[mate_idx];
                     break;
+                }
             }
         } else {
             switch (a.orient_pattern) {
@@ -368,9 +377,12 @@ namespace Drawing {
                 case Segs::DUP:
                     faceColor = theme.fcDup;
                     break;
-                case Segs::TRA:
-                    faceColor = theme.mate_fc[(a.delegate->core.tid + ((a.delegate->core.mtid >= 0) ?  a.delegate->core.mtid : 0)) % 48];
+                case Segs::TRA: {
+                    int mate_idx = (a.delegate->core.tid + ((a.delegate->core.mtid >= 0) ? a.delegate->core.mtid : 0)) % 48;
+                    if (mate_idx < 0) mate_idx += 48;
+                    faceColor = theme.mate_fc[mate_idx];
                     break;
+                }
             }
         }
     }
@@ -960,6 +972,9 @@ namespace Drawing {
         const int regionBegin = cl.region->start;
         const int regionEnd = cl.region->end;
         const int regionLen = regionEnd - regionBegin;
+        if (regionLen <= 0) {
+            return;
+        }
 
         const float xScaling = cl.xScaling;
         const float xOffset = cl.xOffset;
@@ -1351,6 +1366,9 @@ namespace Drawing {
         for (auto &rgn: regions) {
 
             const int size = rgn.end - rgn.start;
+            if (size <= 0) {
+                continue;
+            }
             const double xScaling = xPixels / size;
             const char *ref = rgn.refSeq;
             if (ref == nullptr) {
@@ -1595,7 +1613,7 @@ namespace Drawing {
             return;
         }
         // see chr19:5,930,464-5,931,225 in test/test_fixedStep.bigwig
-        float cMax = std::numeric_limits<float>::min();
+        float cMax = -std::numeric_limits<float>::max();
         float cMin = std::numeric_limits<float>::max();
         float v;
         int length = (int) trk.bigWig_intervals->l;
@@ -1612,6 +1630,9 @@ namespace Drawing {
             range = std::fmax(std::fabs(cMin), cMax) * 2;
         } else {
             y_negativeValueOffset = 0;
+        }
+        if (range == 0.0f) {
+            range = 1.0f;
         }
         // normalize to space available
         for (int i = 0; i < length; ++i) {
@@ -1681,30 +1702,30 @@ namespace Drawing {
         float w;
 
         SkPaint arcColour;
-        SkPaint *faceColour2 = &faceColour;
+        SkPaint faceColour2 = faceColour;
 
         if (!vartype.empty()) {
             if (vartype == "DEL") {
                 if (addArc) {
                     arcColour = opts.theme.fcT;
                 } else {
-                    faceColour2 = &opts.theme.fcT;
-                    faceColour2->setAlpha(150);
+                    faceColour2 = opts.theme.fcT;
+                    faceColour2.setAlpha(150);
                 }
 
             } else if (vartype == "DUP") {
                 if (addArc) {
                     arcColour = opts.theme.fcC;
                 } else {
-                    faceColour2 = &opts.theme.fcC;
-                    faceColour2->setAlpha(150);
+                    faceColour2 = opts.theme.fcC;
+                    faceColour2.setAlpha(150);
                 }
             } else if (vartype == "INV") {
                 if (addArc) {
                     arcColour = opts.theme.fcA;
                 } else {
-                    faceColour2 = &opts.theme.fcA;
-                    faceColour2->setAlpha(150);
+                    faceColour2 = opts.theme.fcA;
+                    faceColour2.setAlpha(150);
                 }
             } else {
                 addArc = false;
@@ -1763,15 +1784,15 @@ namespace Drawing {
                 } else if (strand == 2) {  // -
                     drawLeftPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, opts.theme.lcJoins, path, pointSlop);
                 }
-                if (faceColour2->getStyle() != SkPaint::kStroke_Style) {
-                    canvas->drawRect(rect, *faceColour2);
+                if (faceColour2.getStyle() != SkPaint::kStroke_Style) {
+                    canvas->drawRect(rect, faceColour2);
                 }
 
             } else {
                 if (strand == 1) {  // +
-                    drawRightPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, *faceColour2, path, pointSlop);
+                    drawRightPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, faceColour2, path, pointSlop);
                 } else if (strand == 2) {  // -
-                    drawLeftPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, *faceColour2, path, pointSlop);
+                    drawLeftPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, faceColour2, path, pointSlop);
                 }
             }
         }
@@ -2009,6 +2030,9 @@ namespace Drawing {
 
         int regionIdx = 0;
         for (auto &rgn: regions) {
+            if (rgn.end <= rgn.start) {
+                continue;
+            }
             bool any_text = true;
             float xScaling = (stepX - gap2) / (float) (rgn.end - rgn.start);
             float padY = gap;
@@ -2310,6 +2334,11 @@ namespace Drawing {
         float regionIdx = 0;
         for (auto& region: regions) {
 
+            if (region.regionLen <= 0 || region.chromLen <= 0) {
+                regionIdx += 1;
+                continue;
+            }
+
             sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(region.chrom.c_str(), fonts.overlay);
             canvas->drawTextBlob(blob, (regionIdx * colWidth) + plot_gap, chrom_name_text_bottom, opts.theme.tcDel);
 
@@ -2323,7 +2352,7 @@ namespace Drawing {
             if (drawWidth < 0) {
                 region.ideogramStart = -1;
                 region.ideogramEnd = -1;
-                return;
+                continue;
             }
 
             float s = (float)region.start / (float)region.chromLen;

@@ -1,11 +1,14 @@
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstdlib>
+#include <fcntl.h>
 #include <filesystem>
 #include <mutex>
 #include <string>
 #include <cstdio>
+#include <unistd.h>
 #include <vector>
 #ifndef __EMSCRIPTEN__
 #include <glad.h>
@@ -61,6 +64,32 @@ using namespace std::literals;
 namespace Manager {
 
     std::mutex g_mutex;
+
+    // Load a FASTA index, suppressing htslib's stderr chatter for remote URLs.
+    static faidx_t* fai_load_quiet(const char* path) {
+        bool isRemote = (strncmp(path, "http://", 7) == 0 ||
+                         strncmp(path, "https://", 8) == 0 ||
+                         strncmp(path, "ftp://", 6) == 0);
+        int old_stderr = -1;
+        if (isRemote) {
+            fflush(stderr);
+            old_stderr = dup(STDERR_FILENO);
+            int dev_null = open("/dev/null", O_WRONLY);
+            if (dev_null >= 0) {
+                dup2(dev_null, STDERR_FILENO);
+                close(dev_null);
+            }
+        }
+        faidx_t* fai = fai_load(path);
+        if (isRemote) {
+            fflush(stderr);
+            if (old_stderr >= 0) {
+                dup2(old_stderr, STDERR_FILENO);
+                close(old_stderr);
+            }
+        }
+        return fai;
+    }
 
     void HiddenWindow::init(int width, int height) {
         if (!glfwInit()) {
@@ -120,7 +149,7 @@ namespace Manager {
                 }
             }
 #else
-            fai = fai_load(reference.c_str());
+            fai = fai_load_quiet(reference.c_str());
             if (fai == nullptr) {
                 std::cerr << "Error: reference genome could not be opened " << reference << std::endl;
                 std::exit(-1);
@@ -129,6 +158,10 @@ namespace Manager {
         }
         for (auto &fn: bampaths) {
             htsFile *f = sam_open(fn.c_str(), "r");
+            if (f == nullptr) {
+                std::cerr << "Error: could not open " << fn << std::endl;
+                std::exit(-1);
+            }
             hts_set_fai_filename(f, reference.c_str());
             hts_set_threads(f, opt.threads);
             bams.push_back(f);
@@ -639,6 +672,11 @@ namespace Manager {
 
     void GwPlot::addBam(std::string &bam_path) {
         htsFile *f = sam_open(bam_path.c_str(), "r");
+        if (f == nullptr) {
+            std::ostream& outerr = (terminalOutput) ? std::cerr : outStr;
+            outerr << termcolor::red << "Error:" << termcolor::reset << " could not open " << bam_path << "\n";
+            return;
+        }
         hts_set_fai_filename(f, reference.c_str());
         hts_set_threads(f, opts.threads);
         bams.push_back(f);
@@ -852,6 +890,10 @@ namespace Manager {
             }
         }
         if (!reference.empty()) {
+            if (fai != nullptr) {
+                fai_destroy(fai);
+                fai = nullptr;
+            }
 #ifdef __EMSCRIPTEN__
             std::string resolved = resolve_genome_path(reference);
             if (!resolved.empty()) {
@@ -865,7 +907,7 @@ namespace Manager {
                 std::cerr << "Warning: could not mount remote genome, continuing without reference" << std::endl;
             }
 #else
-            fai = fai_load(reference.c_str());
+            fai = fai_load_quiet(reference.c_str());
             if (fai == nullptr) {
                 std::cerr << "Error: reference genome could not be opened " << reference << std::endl;
                 std::exit(-1);
@@ -879,6 +921,10 @@ namespace Manager {
             setLabelChoices(labels);
         }
 
+        clearCollections();
+        for (auto &bm: bams) { hts_close(bm); }
+        for (auto &hd: headers) { bam_hdr_destroy(hd); }
+        for (auto &idx: indexes) { hts_idx_destroy(idx); }
         bam_paths.clear();
         tracks.clear();
         regions.clear();
@@ -936,6 +982,10 @@ namespace Manager {
 
         for (auto &fn: bam_paths) {
             htsFile *f = sam_open(fn.c_str(), "r");
+            if (f == nullptr) {
+                std::cerr << "Error: could not open " << fn << std::endl;
+                continue;
+            }
             hts_set_fai_filename(f, reference.c_str());
             hts_set_threads(f, opts.threads);
             bams.push_back(f);
@@ -1176,6 +1226,7 @@ namespace Manager {
 
                 imageCache.clear();
                 imageCacheQueue.clear();
+                clearZoomCache();
                 if (!tracks.empty()) {
                     tracks.front().px_height = 0; // trigger reset of track heights
                 }
@@ -1330,6 +1381,7 @@ namespace Manager {
                 if (!p->tracks.empty()) { p->tracks.front().px_height = 0; }
                 p->imageCache.clear();
                 p->imageCacheQueue.clear();
+                p->clearZoomCache();
             }
 
             if (std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -1673,7 +1725,6 @@ namespace Manager {
                 float bamBottomY = topH + totalCovY + (trackY * (float)bams.size());
                 clip.setXYWH(0, bamBottomY, fb_width, fb_height);
                 canvasR->drawRect(clip, opts.theme.bgPaint);
-                canvasR->restore();
             }
 
             // Update changes parts of image
@@ -1755,6 +1806,7 @@ namespace Manager {
         }
         float colWidth = (float) fb_width / (float) regions.size();
         regionSelection = (int)(xPos_fb / colWidth);
+        regionSelection = std::clamp(regionSelection, 0, (int)regions.size() - 1);
         Utils::Region &rgn = regions[regionSelection];
         if (rgn.ideogramStart <= 0 || xPos_fb < rgn.ideogramStart || xPos_fb > rgn.ideogramEnd) {
             return;
@@ -2362,7 +2414,6 @@ namespace Manager {
             float bamBottomY = topH + totalCovY + (trackY * (float)bams.size());
             clip.setXYWH(0, bamBottomY, fb_width, fb_height);
             canvas->drawRect(clip, opts.theme.bgPaint);
-            canvas->restore();
 
         }
 
@@ -2468,6 +2519,10 @@ namespace Manager {
 
         if (!png) { return; }
         FILE* fout = fopen(path, "w");
+        if (fout == nullptr) {
+            std::cerr << "Error: could not open " << path << " for writing\n";
+            return;
+        }
         fwrite(png->data(), 1, png->size(), fout);
         fclose(fout);
     }
@@ -2525,7 +2580,7 @@ namespace Manager {
 #endif  // __EMSCRIPTEN__
 
     std::pair<const uint8_t*, size_t> GwPlot::encodeToPng(int compression_level) {
-        assert (resterSurface != nullptr);
+        assert (rasterSurface != nullptr);
         sk_sp<SkImage> img = rasterSurface->makeImageSnapshot();
 #if !defined(OLD_SKIA) || OLD_SKIA == 0
         SkPngEncoder::Options options;
@@ -2613,7 +2668,6 @@ namespace Manager {
         }
 #endif
         fwrite(png->data(), 1, png->size(), fout);
-        fclose(fout);
     }
 
     void imagePngToFile(sk_sp<SkImage> &img, std::string path) {
@@ -2626,6 +2680,10 @@ namespace Manager {
 #endif
         if (!png) { std::cerr << "Error: Png creation failed\n"; return; }
         FILE* fout = fopen(path.c_str(), "w");
+        if (fout == nullptr) {
+            std::cerr << "Error: could not open " << path << " for writing\n";
+            return;
+        }
         fwrite(png->data(), 1, png->size(), fout);
         fclose(fout);
     }
