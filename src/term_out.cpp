@@ -931,7 +931,7 @@ namespace Term {
         return s;
     }
 
-	void printCoverage(int pos, Segs::ReadCollection &cl, std::ostream& out) {
+	void printCoverage(int pos, Segs::ReadCollection &cl, std::ostream& out, std::string* summary) {
         if (cl.readQueue.empty()) {
             return;
         }
@@ -1078,6 +1078,17 @@ namespace Term {
 			--bnd;
 		}
 		int totCov = A + T + C + G + N + mA + mT + mC + mG + mN;
+
+        // Machine-readable record for the terminal: title + key/value pairs. The ref-match
+        // branch above is disabled, so mA/mC/mG/mT hold the totals for each base at this pos.
+        if (summary != nullptr) {
+            *summary = "Coverage\tPosition\t" + cl.region->chrom + ":" + intToStringCommas(pos)
+                     + "\tDepth\t" + std::to_string(totCov)
+                     + "\tA\t" + std::to_string(A + mA)
+                     + "\tC\t" + std::to_string(C + mC)
+                     + "\tG\t" + std::to_string(G + mG)
+                     + "\tT\t" + std::to_string(T + mT);
+        }
 
         int term_space = Utils::get_terminal_width();
         std::string line = "Coverage    " + std::to_string(totCov) + "      A:" + std::to_string(A) + "  T:" + std::to_string(T) + "  C:" + std::to_string(C) + "  G:" + std::to_string(T) + "     ";

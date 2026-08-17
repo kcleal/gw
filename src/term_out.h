@@ -39,7 +39,8 @@ namespace Term {
 
     void printRefSeq(Utils::Region *region, float x, float xOffset, float xScaling, std::ostream& out);
 
-	void printCoverage(int pos, Segs::ReadCollection &cl, std::ostream& out);
+	// If `summary` is non-null it is filled with "depth\tA\tC\tG\tT" for the clicked base.
+	void printCoverage(int pos, Segs::ReadCollection &cl, std::ostream& out, std::string* summary = nullptr);
 
 	void printTrack(float x, HGW::GwTrack &track, Utils::Region *rgn, bool mouseOver, int targetLevel, int trackIdx,
                     std::string &target_name, int *target_pos, std::ostream& out);

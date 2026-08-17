@@ -172,6 +172,18 @@ namespace Manager {
         Show last_mode;
 
         std::string selectedAlign;  // SAM text of most-recently clicked read (used by commands)
+        std::string selectedIntron;  // TSV (chrom,start,end,strand,count) of most-recently clicked intron
+        std::string selectedFeature;  // TAB record "TITLE\tkey\tval..." for a clicked gff/coverage/reference element
+        std::string selectedIntronChrom;  // identity of the highlighted intron (persists across redraws)
+        int selectedIntronStart{-1};
+        int selectedIntronEnd{-1};
+        int selectedIntronStrand{-2};  // -2 = none (0/1/2 are valid gw strands)
+        // Identity of a highlighted gff exon/intron segment (persists across redraws).
+        std::string selectedFeatureChrom;
+        std::string selectedFeatureName;   // transcript name, to disambiguate overlapping features
+        std::string selectedFeatureParent; // unique GFF transcript id (Parent), to isolate one isoform
+        int selectedFeatureStart{-1};
+        int selectedFeatureEnd{-1};
 
         struct ReadPopup {
             std::string ansi;  // ANSI-coded read info text
