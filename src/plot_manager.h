@@ -276,6 +276,7 @@ namespace Manager {
         bool commandProcessed();
         void prepareSelectedRegion();
         void addAlignmentToSelectedRegion();
+        void setVScroll(int value);  // set absolute vertical read-scroll offset and re-layout
 
         // Draw functions
         void drawBackground();
