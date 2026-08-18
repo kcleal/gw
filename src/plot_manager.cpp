@@ -1227,9 +1227,7 @@ namespace Manager {
                 imageCache.clear();
                 imageCacheQueue.clear();
                 clearZoomCache();
-                if (!tracks.empty()) {
-                    tracks.front().px_height = 0; // trigger reset of track heights
-                }
+                tracksLayoutDirty = true;  // re-derive track heights after the resize
                 resizeTimer = std::chrono::high_resolution_clock::now();
 
             }
@@ -1378,7 +1376,7 @@ namespace Manager {
                                                       (float)p->fb_height);
                 p->resizeTriggered = false;
                 p->resizeTimer     = std::chrono::high_resolution_clock::now();
-                if (!p->tracks.empty()) { p->tracks.front().px_height = 0; }
+                p->tracksLayoutDirty = true;  // re-derive track heights after the resize
                 p->imageCache.clear();
                 p->imageCacheQueue.clear();
                 p->clearZoomCache();
@@ -1534,6 +1532,46 @@ namespace Manager {
         fonts.setOverlayHeight(monitorScale);
     }
 
+    // Derives each annotation track's pixel height from its height_fraction. Only
+    // called when one of the cached inputs changed, so this must always recompute from
+    // scratch (never scale px_height in place) to keep the clamp from compounding.
+    void GwPlot::computeTrackHeights(float availableHeight) {
+        float nbams = (float)bams.size();
+        float nTracks = (float)tracks.size();
+        if (tracks.empty()) {
+            totalTabixY = 0;
+        } else {
+            // Each track gets its own height
+            float default_frac = (nbams == 0) ? (1.0f / nTracks)
+                                              : (opts.tab_track_height / nTracks);
+            totalTabixY = 0;
+            for (auto &item : tracks) {
+                float frac = (item.height_fraction > 0.0) ? (float)item.height_fraction
+                                                          : default_frac;
+                item.px_height = availableHeight * frac;
+                totalTabixY += item.px_height;
+            }
+            // Alignment space is only reserved when there are bams to put in it.
+            float reserve = (nbams > 0) ? (MIN_ALIGN_PX * monitorScale) : 0.0f;
+            float maxPanel = std::fmax(availableHeight - reserve, 0.0f);
+            if (totalTabixY > maxPanel && totalTabixY > 0) {
+                double shrink = maxPanel / totalTabixY;  // keeps each track's relative share
+                for (auto &item : tracks) {
+                    item.px_height *= shrink;
+                }
+                totalTabixY = maxPanel;
+            }
+            tabixY = totalTabixY / nTracks;
+        }
+        // Refresh the cache here
+        tracksLayoutDirty     = false;
+        cachedAvailableHeight = availableHeight;
+        cachedNbams           = bams.size();
+        cachedNTracks         = tracks.size();
+        cachedTabTrackHeight  = opts.tab_track_height;
+        cachedMonitorScale    = monitorScale;
+    }
+
     // sets scaling of y-position for various elements
     void GwPlot::setScaling() {
 
@@ -1550,33 +1588,15 @@ namespace Manager {
         float availableHeight = fb_height - refSpace - sliderSpace;
         float availableWidth = (float)fb_width;
 
-        // Calculate track heights
+        // Calculate track heights when flagged or when values change from cache
         float nbams = (float)bams.size();
-        float nTracks = (float)tracks.size();
-        if (tracks.empty()) {
-            totalTabixY = 0;
-        } else {
-            // Each track gets its own height
-            float default_frac = (nbams == 0) ? (1.0f / nTracks)
-                                              : (opts.tab_track_height / nTracks);
-            totalTabixY = 0;
-            for (auto &item : tracks) {
-                float frac = (item.height_fraction > 0.0) ? (float)item.height_fraction
-                                                          : default_frac;
-                item.px_height = availableHeight * frac;
-                totalTabixY += item.px_height;
-            }
-            // Alignment space is only resered when there are bams to put in it.
-            float reserve = (nbams > 0) ? (MIN_ALIGN_PX * monitorScale) : 0.0f;
-            float maxPanel = std::fmax(availableHeight - reserve, 0.0f);
-            if (totalTabixY > maxPanel && totalTabixY > 0) {
-                double shrink = maxPanel / totalTabixY;  // keeps each track's relative share
-                for (auto &item : tracks) {
-                    item.px_height *= shrink;
-                }
-                totalTabixY = maxPanel;
-            }
-            tabixY = totalTabixY / nTracks;
+        if (tracksLayoutDirty
+                || availableHeight       != cachedAvailableHeight
+                || bams.size()           != cachedNbams
+                || tracks.size()         != cachedNTracks
+                || opts.tab_track_height != cachedTabTrackHeight
+                || monitorScale          != cachedMonitorScale) {
+            computeTrackHeights(availableHeight);
         }
         availableHeight -= totalTabixY;
         if (nbams == 0) {

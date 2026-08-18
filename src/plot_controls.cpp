@@ -2529,6 +2529,7 @@ namespace Manager {
                                 for (auto &trk: tracks) {
                                     trk.height_fraction = std::fmax((double)trk.px_height / availableHeight, 0.005);
                                 }
+                                tracksLayoutDirty = true;
                             }
                             for (auto & cl: collections) {
                                 cl.resetDrawState();
@@ -2564,6 +2565,7 @@ namespace Manager {
                                         std::fmax((double)new_top_height / availableHeight, 0.005);
                                     tracks[boundaryIndex].height_fraction =
                                         std::fmax((double)new_bottom_height / availableHeight, 0.005);
+                                    tracksLayoutDirty = true;
                                 }
 
                                 // Recalculate total height

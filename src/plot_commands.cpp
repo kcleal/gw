@@ -129,9 +129,7 @@ namespace Commands {
                 rgn.sortOption = Utils::SortType::NONE, rgn.sortPos = -1;
                 rgn.refBaseAtPos = '\0';
             }
-            for (auto &trk : p->tracks) {
-                trk.px_height = 0;
-            }
+            p->tracksLayoutDirty = true;  // re-derive track heights on refresh
         }
         return Err::NONE;
     }
@@ -2001,6 +1999,7 @@ namespace Commands {
 
         // redraw the tracks
         p->redraw = true;
+        p->tracksLayoutDirty = true;  // height_fraction changed; nothing else detects it
         for (auto& cl : p->collections) {
             cl.resetDrawState();
         }
