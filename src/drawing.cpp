@@ -1517,6 +1517,9 @@ namespace Drawing {
             float y = totalCovY + refSpace + (trackY*(float)nbams);
             // Same correction: when no coverage, account for the overlayHeight header gap.
             if (totalCovY == 0 && nbams > 0) y += ctx.overlayHeight;
+            // trackY can go negative if the layout is over-subscribed; never draw
+            // separators up inside the reference band.
+            y = std::fmax(y, refSpace);
             for (const auto &trk: tracks) {
                 path.reset();
                 path.moveTo(gap, y);
@@ -2049,7 +2052,9 @@ namespace Drawing {
 
         float stepX = fb_width / (float) regions.size();
 
-        float y = fb_height - totalTabixY - sliderSpace; // start of tracks on canvas
+        // start of tracks on canvas. Floored at refSpace: drawRef() paints the reference
+        // bases before this runs, so an oversized panel would otherwise cover that row.
+        float y = std::fmax(fb_height - totalTabixY - sliderSpace, ctx.refSpace);
         float t = (float) 0.005 * fb_width;
 
         SkRect rect{};

@@ -109,6 +109,21 @@ namespace Manager {
         bool showUIOverlay{false};  // set to true when startUI loop is entered, reserves top menu space
         float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace, sliderSpace, topMenuSpace{0};
         int boundaryIndex{0};
+        // Minimum vertical extents (multiply by monitorScale). Shared by setScaling()
+        // and the divider-drag handler so the annotation panel can never squeeze the
+        // alignment area out and paint over the reference row.
+        static constexpr float MIN_TRACK_PX = 20.0f;  // per annotation track
+        static constexpr float MIN_ALIGN_PX = 60.0f;  // reserved for coverage + reads
+
+        // track pixel heights are determined by the below cached values. Here we cache them
+        // and if they change the track heights are re-calculated
+        void computeTrackHeights(float availableHeight);
+        bool   tracksLayoutDirty{true};
+        float  cachedAvailableHeight{-1.0f};
+        size_t cachedNbams{SIZE_MAX};
+        size_t cachedNTracks{SIZE_MAX};
+        double cachedTabTrackHeight{-1.0};
+        float  cachedMonitorScale{-1.0f};
 
         Drawing::drawContext ctx;
 

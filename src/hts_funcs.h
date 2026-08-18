@@ -184,6 +184,7 @@ namespace HGW {
         std::string name;  // editable label, defaults to filename
         SkPaint faceColour, shadedFaceColour;
         double px_height{0};
+        double height_fraction{0};  // 0 = use default share; >0 = this track's fraction of canvas height
 
         void setPaint(SkPaint &faceColour);
         void open(const std::string &p, bool add_to_dict);

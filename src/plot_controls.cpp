@@ -2562,7 +2562,8 @@ namespace Manager {
         std::vector<float> trackBoundaries;
         bool nearBoundary = false;
         if (!tracks.empty()) {
-            float currentY = totalCovY + refSpace + (trackY*(float)sizeOfBams()) + (gap * 0.5);
+            // Must match where drawTracks() starts the panel (drawing.cpp)
+            float currentY = (float)fb_height - sliderSpace - (float)totalTabixY;
             trackBoundaries.push_back(currentY);
             for (size_t i = 0; i < tracks.size() - 1; ++i) {
                 trackBoundaries.push_back(trackBoundaries.back() + tracks[i].px_height);
@@ -2612,23 +2613,39 @@ namespace Manager {
                             return;
                         }
                         tabBorderPress = true;
+                        // Inverse of setScaling()'s px_height = availableHeight * height_fraction,
+                        // so a drag can persist by writing the source-of-truth height_fraction.
+                        float availableHeight = (float)fb_height - refSpace - sliderSpace;
                         if (boundaryIndex == 0) {
-                            float drawingArea = (float)fb_height - gap - refSpace - gap;
-                            double old_th = opts.tab_track_height;
-                            opts.tab_track_height = 1 - ((yPos_fb - sliderSpace) / drawingArea);
-                            if (old_th == opts.tab_track_height) {
+                            // Map the mouse to the panel top 
+                            if (totalTabixY <= 0) {
                                 return;
                             }
-                            for (auto & cl: collections) {
-                                cl.resetDrawState();
+                            float desiredTotal = (float)fb_height - sliderSpace - yPos_fb;
+                            float minTotal = MIN_TRACK_PX * monitorScale * (float)tracks.size();
+                            float maxTotal = std::fmax(availableHeight - (MIN_ALIGN_PX * monitorScale), 0.0f);
+                            if (minTotal > maxTotal) minTotal = maxTotal;
+                            desiredTotal = std::clamp(desiredTotal, minTotal, maxTotal);
+                            if (std::abs(desiredTotal - (float)totalTabixY) < 0.5f) {
+                                return;
                             }
-                            double ratio = opts.tab_track_height / old_th;
+                            double ratio = desiredTotal / totalTabixY;
                             double consumedHeight = 0;
                             for (auto &trk: tracks) {
                                 trk.px_height = trk.px_height * ratio;
                                 consumedHeight += trk.px_height;
                             }
                             totalTabixY = consumedHeight;
+                            // Persist: pin every track's fraction so setScaling() keeps the panel.
+                            if (availableHeight > 0) {
+                                for (auto &trk: tracks) {
+                                    trk.height_fraction = std::fmax((double)trk.px_height / availableHeight, 0.005);
+                                }
+                                tracksLayoutDirty = true;
+                            }
+                            for (auto & cl: collections) {
+                                cl.resetDrawState();
+                            }
                         } else {
 
                             double top_px_height = tracks[boundaryIndex - 1].px_height;
@@ -2641,7 +2658,7 @@ namespace Manager {
                             float new_bottom_height = combined_height - new_top_height;
 
                             // Apply minimum height constraints
-                            float minHeight = 20.0f * monitorScale;
+                            float minHeight = MIN_TRACK_PX * monitorScale;
                             if (new_top_height < minHeight) {
                                 new_top_height = minHeight;
                                 new_bottom_height = combined_height - minHeight;
@@ -2655,7 +2672,15 @@ namespace Manager {
                                 tracks[boundaryIndex - 1].px_height = new_top_height;
                                 tracks[boundaryIndex].px_height = new_bottom_height;
 
-                                // Recalculate total height (should remain the same, but good to update)
+                                if (availableHeight > 0) {
+                                    tracks[boundaryIndex - 1].height_fraction =
+                                        std::fmax((double)new_top_height / availableHeight, 0.005);
+                                    tracks[boundaryIndex].height_fraction =
+                                        std::fmax((double)new_bottom_height / availableHeight, 0.005);
+                                    tracksLayoutDirty = true;
+                                }
+
+                                // Recalculate total height
                                 double consumedHeight = 0;
                                 for (auto &trk: tracks) {
                                     consumedHeight += trk.px_height;
