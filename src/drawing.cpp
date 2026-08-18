@@ -1517,6 +1517,9 @@ namespace Drawing {
             float y = totalCovY + refSpace + (trackY*(float)nbams);
             // Same correction: when no coverage, account for the overlayHeight header gap.
             if (totalCovY == 0 && nbams > 0) y += ctx.overlayHeight;
+            // trackY can go negative if the layout is over-subscribed; never draw
+            // separators up inside the reference band.
+            y = std::fmax(y, refSpace);
             for (const auto &trk: tracks) {
                 path.reset();
                 path.moveTo(gap, y);
@@ -1906,6 +1909,24 @@ namespace Drawing {
                 }
             }
         }
+        // Outline the clicked exon/intron segment with the selection colour (mirrors reads/introns).
+        if (!ctx.selectedFeatureChrom.empty()
+                && ctx.selectedFeatureChrom == rgn.chrom
+                && ctx.selectedFeatureParent == trk.parent
+                && ctx.selectedFeatureName == trk.name
+                && ctx.selectedFeatureStart >= trk.start && ctx.selectedFeatureEnd <= trk.end) {
+            float hx = std::fmax(((float)(ctx.selectedFeatureStart - rgn.start) * xScaling) + padX, screenLeftEdge);
+            float hw = std::fmin(((float)(ctx.selectedFeatureEnd - rgn.start) * xScaling) + padX, screenRightEdge);
+            if (hw > hx) {
+                SkPaint hl = opts.theme.ecSelected;
+                hl.setStyle(SkPaint::kStroke_Style);
+                hl.setStrokeWidth(ctx.monitorScale * 2.0f);
+                hl.setAntiAlias(true);
+                SkRect hr = SkRect::MakeLTRB(hx, y + padY, hw, y + padY + h);
+                hr.outset(ctx.monitorScale, ctx.monitorScale);
+                canvas->drawRect(hr, hl);
+            }
+        }
     }
 
     inline SkColor getIntronColor(float support) {
@@ -1947,8 +1968,8 @@ namespace Drawing {
                         float xScaling, float padX, float y, float padY_track, float h,
                         float monitorScale, float customPointSlop,
                         const Themes::Fonts& fonts, int trk_px_height, int nLevels,
-                        std::vector<TextItem>& text, SkPath& path) {
-        
+                        std::vector<TextItem>& text, SkPath& path, bool selected) {
+
         if (!f.anyToDraw) return;
         
         // Allow off-screen endpoints: we still want a bar drawn when the
@@ -1987,6 +2008,17 @@ namespace Drawing {
             canvas->drawRect(r, p);
         }
 
+        // Outline the clicked intron with the selection edge colour (matches reads).
+        if (selected) {
+            SkPaint hl = opts.theme.ecSelected;
+            hl.setStyle(SkPaint::kStroke_Style);
+            hl.setStrokeWidth(monitorScale * 2.0f);
+            hl.setAntiAlias(true);
+            SkRect hr = SkRect::MakeLTRB(xStart, yTop, xEnd, yTop + barH);
+            hr.outset(monitorScale, monitorScale);
+            canvas->drawRect(hr, hl);
+        }
+
         // Support label: midpoint, only if the bar is wide enough.
         if (xEnd - xStart > 30.0f && fonts.overlayHeight * nLevels < trk_px_height / 2) {
             TextItem ti;
@@ -1996,6 +2028,7 @@ namespace Drawing {
             text.push_back(std::move(ti));
         }
     }
+
 
 
     void drawTracks(Themes::IniOptions &opts, SkCanvas *const canvas, std::vector<HGW::GwTrack> &tracks,
@@ -2019,7 +2052,9 @@ namespace Drawing {
 
         float stepX = fb_width / (float) regions.size();
 
-        float y = fb_height - totalTabixY - sliderSpace; // start of tracks on canvas
+        // start of tracks on canvas. Floored at refSpace: drawRef() paints the reference
+        // bases before this runs, so an oversized panel would otherwise cover that row.
+        float y = std::fmax(fb_height - totalTabixY - sliderSpace, ctx.refSpace);
         float t = (float) 0.005 * fb_width;
 
         SkRect rect{};
@@ -2113,9 +2148,13 @@ namespace Drawing {
                     int strand = f.strand;
 
                     if (trk.kind == HGW::INTRON) {
+                        bool intronSelected = ctx.selectedIntronStart == f.start
+                                           && ctx.selectedIntronEnd == f.end
+                                           && ctx.selectedIntronStrand == f.strand
+                                           && ctx.selectedIntronChrom == rgn.chrom;
                         drawIntronBlock(canvas, opts, f, rgn, xScaling, padX, y, padY_track, h,
                                         monitorScale, customPointSlop, fonts, trk.px_height, nLevels,
-                                        text, path);
+                                        text, path, intronSelected);
                         continue;
                     }
 

@@ -2,7 +2,9 @@
 // Created by kez on 10/05/24.
 //
 
+#include <algorithm>
 #include <array>
+#include <cctype>
 #include <iomanip>
 #include <cstdlib>
 #include <cstdio>
@@ -119,6 +121,17 @@ namespace Commands {
             p->clearZoomCache();
             p->filters.clear();
             p->target_qname = "";
+            // Clear the GFF exon/intron and splice-junction highlight identities so
+            // the selection outline is dropped on refresh (mirrors read deselection).
+            p->selectedFeatureChrom.clear();
+            p->selectedFeatureName.clear();
+            p->selectedFeatureParent.clear();
+            p->selectedFeatureStart = -1;
+            p->selectedFeatureEnd = -1;
+            p->selectedIntronChrom.clear();
+            p->selectedIntronStart = -1;
+            p->selectedIntronEnd = -1;
+            p->selectedIntronStrand = -2;
             for (auto &cl: p->collections) {
                 cl.vScroll = 0;
                 cl.resetDrawState();
@@ -127,9 +140,7 @@ namespace Commands {
                 rgn.sortOption = Utils::SortType::NONE, rgn.sortPos = -1;
                 rgn.refBaseAtPos = '\0';
             }
-            for (auto &trk : p->tracks) {
-                trk.px_height = 0;
-            }
+            p->tracksLayoutDirty = true;  // re-derive track heights on refresh
         }
         return Err::NONE;
     }
@@ -1852,6 +1863,184 @@ namespace Commands {
         return Err::NONE;
     }
 
+    // Return the fraction of the plot taken up by a track
+    static double trackFractionOf(Plot* p, const HGW::GwTrack& trk, double drawingArea) {
+        if (trk.height_fraction > 0.0) {
+            return trk.height_fraction;
+        }
+        if (drawingArea > 0 && trk.px_height > 0) {
+            return trk.px_height / drawingArea;
+        }
+        return p->tracks.empty() ? 0.0 : (p->opts.tab_track_height / (double)p->tracks.size());
+    }
+
+    // GwTrack::name is only populated for introns tracks; file-backed tracks carry
+    // just a path. Fall back to the filename if no name.
+    static std::string trackLabel(const HGW::GwTrack& trk) {
+        if (!trk.name.empty()) {
+            return trk.name;
+        }
+        if (!trk.path.empty()) {
+            return std::filesystem::path(trk.path).filename().string();
+        }
+        return std::string();
+    }
+
+    static void trackHeightUsage(std::ostream& out) {
+        out << "Usage:\n"
+            << "    track-height                     list current heights\n"
+            << "    track-height alignments <frac>   size the alignment panel (0.1-0.9)\n"
+            << "    track-height <index> <frac>      size a tabix track by index (0.02-0.9)\n"
+            << "    track-height <name> <frac>       size a tabix track by name\n";
+    }
+
+    Err set_track_height(Plot* p, std::string& /*command*/, std::vector<std::string> parts, std::ostream& out) {
+        const double drawingArea = (double)p->fb_height - p->refSpace - p->sliderSpace;
+
+        if (parts.size() < 2) {
+            if (p->tracks.empty()) {
+                out << "No tabix tracks loaded\n";
+                trackHeightUsage(out);
+                return Err::NONE;
+            }
+            double used = 0;
+            for (auto& trk : p->tracks) {
+                used += trackFractionOf(p, trk, drawingArea);
+            }
+            out << "Index  Fraction  Height(px)  Name\n";
+            for (size_t i = 0; i < p->tracks.size(); ++i) {
+                out << std::setw(5) << std::left << i << "  "
+                    << std::setw(8) << std::fixed << std::setprecision(3)
+                    << trackFractionOf(p, p->tracks[i], drawingArea) << "  "
+                    << std::setw(10) << (int)p->tracks[i].px_height << "  "
+                    << trackLabel(p->tracks[i]) << "\n";
+            }
+            out << "alignments: " << std::fixed << std::setprecision(3)
+                << std::fmax(0.0, 1.0 - used) << " of the drawing area\n";
+            if (used > 1.0 && !p->bams.empty()) {
+                out << termcolor::yellow << "Note:" << termcolor::reset
+                    << " track fractions total " << used
+                    << "; they are scaled down at draw time to keep the alignment panel visible\n";
+            }
+            return Err::NONE;
+        }
+        if (parts.size() < 3) {
+            trackHeightUsage(out);
+            return Err::NONE;
+        }
+
+        double frac;
+        try {
+            frac = std::stod(parts[2]);
+        } catch (...) {
+            out << termcolor::red << "Error:" << termcolor::reset
+                << " '" << parts[2] << "' is not a number\n";
+            trackHeightUsage(out);
+            return Err::NONE;
+        }
+
+        std::string target = parts[1];
+        std::string lower = target;
+        std::transform(lower.begin(), lower.end(), lower.begin(),
+                       [](unsigned char c){ return std::tolower(c); });
+
+        if (lower == "alignments" || lower == "alignment" || lower == "bam" || lower == "bams") {
+            if (p->bams.empty()) {
+                out << termcolor::red << "Error:" << termcolor::reset << " no alignment files loaded\n";
+                return Err::NONE;
+            }
+            if (p->tracks.empty()) {
+                out << "No tabix tracks loaded - the alignment panel already uses the full area\n";
+                return Err::NONE;
+            }
+            double clamped = std::clamp(frac, 0.1, 0.9);
+            if (clamped != frac) {
+                out << "Clamped alignment fraction to " << clamped << "\n";
+            }
+            // Give the tracks the remainder, preserving their relative shares. The alignment area is 
+            // whatever is left over, so there is nothing to keep in sync.
+            double used = 0;
+            for (auto& trk : p->tracks) {
+                used += trackFractionOf(p, trk, drawingArea);
+            }
+            double targetPanel = 1.0 - clamped;
+            if (used <= 0) {
+                for (auto& trk : p->tracks) {
+                    trk.height_fraction = targetPanel / (double)p->tracks.size();
+                }
+            } else {
+                double scale = targetPanel / used;
+                for (auto& trk : p->tracks) {
+                    trk.height_fraction = std::fmax(trackFractionOf(p, trk, drawingArea) * scale, 0.005);
+                }
+            }
+        } else {
+            int idx = -1;
+            bool numeric = !target.empty()
+                           && target.find_first_not_of("0123456789") == std::string::npos;
+            if (numeric) {
+                try {
+                    idx = std::stoi(target);
+                } catch (...) {
+                    idx = -1;
+                }
+                if (idx < 0 || idx >= (int)p->tracks.size()) {
+                    out << termcolor::red << "Error:" << termcolor::reset
+                        << " track index " << target << " out of range (0.."
+                        << (p->tracks.empty() ? 0 : (int)p->tracks.size() - 1) << ")\n";
+                    return Err::NONE;
+                }
+            } else {
+                // Exact name first, then a unique case-insensitive substring.
+                std::vector<int> hits;
+                for (size_t i = 0; i < p->tracks.size(); ++i) {
+                    std::string label = trackLabel(p->tracks[i]);
+                    if (label == target) {
+                        hits.assign(1, (int)i);
+                        break;
+                    }
+                    std::transform(label.begin(), label.end(), label.begin(),
+                                   [](unsigned char c){ return std::tolower(c); });
+                    if (!lower.empty() && label.find(lower) != std::string::npos) {
+                        hits.push_back((int)i);
+                    }
+                }
+                if (hits.empty()) {
+                    out << termcolor::red << "Error:" << termcolor::reset
+                        << " no track matching '" << target << "'\n";
+                    return Err::NONE;
+                }
+                if (hits.size() > 1) {
+                    out << termcolor::red << "Error:" << termcolor::reset
+                        << " '" << target << "' matches " << hits.size() << " tracks:";
+                    for (int h : hits) {
+                        out << " " << trackLabel(p->tracks[h]);
+                    }
+                    out << "\n";
+                    return Err::NONE;
+                }
+                idx = hits.front();
+            }
+            // Clamp to the same range the UI slider exposes, but say so.
+            double clamped = std::clamp(frac, 0.02, 0.9);
+            if (clamped != frac) {
+                out << "Clamped track fraction to " << clamped << "\n";
+            }
+            p->tracks[idx].height_fraction = clamped;
+        }
+
+        // redraw the tracks
+        p->redraw = true;
+        p->tracksLayoutDirty = true;  // height_fraction changed; nothing else detects it
+        for (auto& cl : p->collections) {
+            cl.resetDrawState();
+        }
+        // Drop the frame cache; prevent ghost images
+        p->imageCache.clear();
+        p->imageCacheQueue.clear();
+        return Err::NONE;
+    }
+
     Err sort_command(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
         if (parts.size() == 1 || (parts.size() == 2 && parts[1] == "none")) {
             refreshGw(p);
@@ -2066,6 +2255,7 @@ namespace Commands {
                 {"color",    PARAMS { return update_colour(p, command, parts, out); }},
                 {"roi",      PARAMS { return add_roi(p, command, parts, out); }},
                 {"introns",  PARAMS { return add_introns(p, command, parts, out); }},
+                {"track-height", PARAMS { return set_track_height(p, command, parts, out); }},
                 {"sort",     PARAMS { return sort_command(p, command, parts, out); }},
                 {"header",   PARAMS { return header_command(p, command, parts, out); }},
 

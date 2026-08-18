@@ -69,6 +69,32 @@ namespace Manager {
         }
     }
 
+    // Set an absolute vertical read-scroll offset across all collections and
+    // re-run the layout. Mirrors the Ctrl+[ / Ctrl+] handling in registerKey
+    // (see the reset block below), but takes an absolute value rather than a step.
+    void GwPlot::setVScroll(int value) {
+        if (collections.empty() || regions.empty()) {
+            return;
+        }
+        int v = std::max(0, value);
+        for (auto & cl : collections) {
+            cl.vScroll = v;
+        }
+        redraw = true;
+        processed = true;
+        imageCacheQueue.clear();
+        for (auto & cl : collections) {
+            cl.resetDrawState();
+            cl.levelsStart.clear();
+            cl.levelsEnd.clear();
+            cl.linked.clear();
+            Utils::SortType srt_option = regions[regionSelection].getSortOption();
+            for (auto &itm: cl.readQueue) { itm.y = -1; }
+            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, srt_option);
+            samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
+        }
+    }
+
     // keeps track of input commands. returning GLFW_KEY_UNKNOWN stops further processing of key codes
     int GwPlot::registerKey(GLFWwindow* wind, int key, int scancode, int action, int mods) {
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
@@ -1823,6 +1849,15 @@ namespace Manager {
                 rp.uid  = nextPopupUid++;
                 refPopups.push_back(std::move(rp));
             }
+            // create a parsable text output of selected feature 
+            int pos = (int)((xW - xOffset) / xScaling) + region->start;
+            int i = pos - region->start;
+            if (region->refSeq != nullptr && i >= 0 && i < region->refSeqLen) {
+                char b = region->refSeq[i];
+                char up = (b >= 'a' && b <= 'z') ? (char)(b - 32) : b;
+                selectedFeature = "Reference\tPosition\t" + region->chrom + ":"
+                                + Term::intToStringCommas(pos) + "\tBase\t" + std::string(1, up);
+            }
         };
         if (collections.empty()) {
             float xScaling = (float)((regionWidth - gap - gap) /
@@ -1877,6 +1912,82 @@ namespace Manager {
             target_qname = saved_qname;
             target_pos = saved_pos;
             Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx, target_qname, &target_pos, out);
+            // Capture the clicked feature for  terminal output
+            // introns use the dedicated selectedIntron TSV; other GFF/BED features use the
+            // generic selectedFeature record
+            selectedIntron.clear();
+            selectedFeature.clear();
+            selectedFeatureChrom.clear();
+            selectedFeatureName.clear();
+            selectedFeatureParent.clear();
+            selectedFeatureStart = -1;
+            selectedFeatureEnd = -1;
+            if (trackIdx < (int)regions[tIdx].featuresInView.size()) {
+                auto *rgn = &regions[tIdx];
+                int target = (int)((float)(rgn->end - rgn->start) * relX) + rgn->start;
+                int jitter = (rgn->end - rgn->start) * 0.025;
+                for (auto &b : rgn->featuresInView.at(trackIdx)) {
+                    if (b.start - jitter <= target && b.end + jitter >= target && b.level == featureLevel) {
+                        if (targetTrack.kind == HGW::FType::INTRON) {
+                            selectedIntron = b.chrom + "\t" + std::to_string(b.start) + "\t"
+                                           + std::to_string(b.end) + "\t" + std::to_string(b.strand) + "\t"
+                                           + std::to_string((int)b.value);
+                            // Record the highlight identity (persists across redraws) and force a
+                            // redraw so the selection outline renders on this click.
+                            selectedIntronChrom = b.chrom;
+                            selectedIntronStart = b.start;
+                            selectedIntronEnd = b.end;
+                            selectedIntronStrand = b.strand;
+                            redraw = true;
+                        } else {
+                            // Resolve the click to a specific exon (a drawn box) or intron
+                            // (a gap between boxes). Merge the drawn sub-blocks
+                            // (drawThickness>=1; skip undrawn codons) into disjoint spans so
+                            // overlapping exon/CDS/UTR entries collapse to the visible box.
+                            std::vector<std::pair<int,int>> spans;
+                            for (size_t k = 0; k < b.s.size() && k < b.e.size(); ++k) {
+                                if (k < b.drawThickness.size() && b.drawThickness[k] == 0) continue;  // undrawn codon
+                                if (b.s[k] <= b.start && b.e[k] >= b.end) continue;  // whole-transcript container (mRNA/gene) — would swallow the introns
+                                spans.emplace_back(b.s[k], b.e[k]);
+                            }
+                            if (spans.empty()) spans.emplace_back(b.start, b.end);
+                            std::sort(spans.begin(), spans.end());
+                            std::vector<std::pair<int,int>> merged;
+                            for (auto &sp : spans) {
+                                if (!merged.empty() && sp.first <= merged.back().second) {
+                                    merged.back().second = std::max(merged.back().second, sp.second);
+                                } else {
+                                    merged.push_back(sp);
+                                }
+                            }
+                            const char *label = "Gene";  // fallback when the click resolves to no specific exon/intron
+                            int segStart = b.start, segEnd = b.end;  // fallback: whole transcript/gene span
+                            for (size_t k = 0; k < merged.size(); ++k) {
+                                if (merged[k].first <= target && target <= merged[k].second) {
+                                    label = "Exon"; segStart = merged[k].first; segEnd = merged[k].second; break;
+                                }
+                                if (k + 1 < merged.size() && target > merged[k].second && target < merged[k + 1].first) {
+                                    label = "Intron"; segStart = merged[k].second; segEnd = merged[k + 1].first; break;
+                                }
+                            }
+                            const char *strand = (b.strand == 1) ? "+" : (b.strand == 2) ? "-" : ".";
+                            selectedFeature = std::string(label) + "\tName\t" + (b.name.empty() ? "(unnamed)" : b.name)
+                                            + "\tLocation\t" + b.chrom + ":" + Term::intToStringCommas(segStart)
+                                            + "-" + Term::intToStringCommas(segEnd)
+                                            + "\tStrand\t" + strand
+                                            + "\tParent\t" + (b.parent.empty() ? "-" : b.parent);
+                            // Highlight identity (persists across redraws) + force redraw.
+                            selectedFeatureChrom = b.chrom;
+                            selectedFeatureName = b.name;
+                            selectedFeatureParent = b.parent;
+                            selectedFeatureStart = segStart;
+                            selectedFeatureEnd = segEnd;
+                            redraw = true;
+                        }
+                        break;
+                    }
+                }
+            }
             // Build track popup
             std::string ansiStr = uiOut.str();
             if (!ansiStr.empty()) {
@@ -1910,7 +2021,8 @@ namespace Manager {
         // Coverage-area click (above the reads): open coverage popup
         if (yW < cl.yOffset && cl.region->end - cl.region->start < 75000) {
             std::ostringstream uiOut;
-            Term::printCoverage(pos, cl, uiOut);
+            // Capture a machine-readable record for the terminal (depth + per-base counts).
+            Term::printCoverage(pos, cl, uiOut, &selectedFeature);
             CovPopup cp;
             cp.ansi     = uiOut.str();
             cp.chromPos = cl.region->chrom + ":" + Term::intToStringCommas(pos);
@@ -2450,7 +2562,8 @@ namespace Manager {
         std::vector<float> trackBoundaries;
         bool nearBoundary = false;
         if (!tracks.empty()) {
-            float currentY = totalCovY + refSpace + (trackY*(float)sizeOfBams()) + (gap * 0.5);
+            // Must match where drawTracks() starts the panel (drawing.cpp)
+            float currentY = (float)fb_height - sliderSpace - (float)totalTabixY;
             trackBoundaries.push_back(currentY);
             for (size_t i = 0; i < tracks.size() - 1; ++i) {
                 trackBoundaries.push_back(trackBoundaries.back() + tracks[i].px_height);
@@ -2500,23 +2613,39 @@ namespace Manager {
                             return;
                         }
                         tabBorderPress = true;
+                        // Inverse of setScaling()'s px_height = availableHeight * height_fraction,
+                        // so a drag can persist by writing the source-of-truth height_fraction.
+                        float availableHeight = (float)fb_height - refSpace - sliderSpace;
                         if (boundaryIndex == 0) {
-                            float drawingArea = (float)fb_height - gap - refSpace - gap;
-                            double old_th = opts.tab_track_height;
-                            opts.tab_track_height = 1 - ((yPos_fb - sliderSpace) / drawingArea);
-                            if (old_th == opts.tab_track_height) {
+                            // Map the mouse to the panel top 
+                            if (totalTabixY <= 0) {
                                 return;
                             }
-                            for (auto & cl: collections) {
-                                cl.resetDrawState();
+                            float desiredTotal = (float)fb_height - sliderSpace - yPos_fb;
+                            float minTotal = MIN_TRACK_PX * monitorScale * (float)tracks.size();
+                            float maxTotal = std::fmax(availableHeight - (MIN_ALIGN_PX * monitorScale), 0.0f);
+                            if (minTotal > maxTotal) minTotal = maxTotal;
+                            desiredTotal = std::clamp(desiredTotal, minTotal, maxTotal);
+                            if (std::abs(desiredTotal - (float)totalTabixY) < 0.5f) {
+                                return;
                             }
-                            double ratio = opts.tab_track_height / old_th;
+                            double ratio = desiredTotal / totalTabixY;
                             double consumedHeight = 0;
                             for (auto &trk: tracks) {
                                 trk.px_height = trk.px_height * ratio;
                                 consumedHeight += trk.px_height;
                             }
                             totalTabixY = consumedHeight;
+                            // Persist: pin every track's fraction so setScaling() keeps the panel.
+                            if (availableHeight > 0) {
+                                for (auto &trk: tracks) {
+                                    trk.height_fraction = std::fmax((double)trk.px_height / availableHeight, 0.005);
+                                }
+                                tracksLayoutDirty = true;
+                            }
+                            for (auto & cl: collections) {
+                                cl.resetDrawState();
+                            }
                         } else {
 
                             double top_px_height = tracks[boundaryIndex - 1].px_height;
@@ -2529,7 +2658,7 @@ namespace Manager {
                             float new_bottom_height = combined_height - new_top_height;
 
                             // Apply minimum height constraints
-                            float minHeight = 20.0f * monitorScale;
+                            float minHeight = MIN_TRACK_PX * monitorScale;
                             if (new_top_height < minHeight) {
                                 new_top_height = minHeight;
                                 new_bottom_height = combined_height - minHeight;
@@ -2543,7 +2672,15 @@ namespace Manager {
                                 tracks[boundaryIndex - 1].px_height = new_top_height;
                                 tracks[boundaryIndex].px_height = new_bottom_height;
 
-                                // Recalculate total height (should remain the same, but good to update)
+                                if (availableHeight > 0) {
+                                    tracks[boundaryIndex - 1].height_fraction =
+                                        std::fmax((double)new_top_height / availableHeight, 0.005);
+                                    tracks[boundaryIndex].height_fraction =
+                                        std::fmax((double)new_bottom_height / availableHeight, 0.005);
+                                    tracksLayoutDirty = true;
+                                }
+
+                                // Recalculate total height
                                 double consumedHeight = 0;
                                 for (auto &trk: tracks) {
                                     consumedHeight += trk.px_height;

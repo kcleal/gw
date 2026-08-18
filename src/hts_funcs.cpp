@@ -2512,8 +2512,7 @@ namespace HGW {
                     region.start = std::stoi(parts[1]);
                     region.end = std::stoi(parts[2]);
                     region.markers = {{region.start, region.end}};
-                    found = true;
-                    break;
+                    return true;
                 }
             }
             if (str.s) free(str.s);
@@ -2543,8 +2542,7 @@ namespace HGW {
                     region.start = (int)v2->pos;
                     region.end = region.start + v2->rlen;
                     region.markers = {{region.start, region.end}};
-                    found = true;
-                    break;
+                    return true;
                 }
             }
             bcf_destroy1(v2);

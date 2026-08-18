@@ -68,9 +68,11 @@ namespace Term {
 		    out << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window as image e.g. 's', or 's view.png',\n                                 or vcf columns can be used 's {pos}_{info.SU}.png'\n";
         out << termcolor::green << "soft-clips, sc                   " << termcolor::reset << "Toggle soft-clips\n";
         out << termcolor::green << "sort             strand/hap/pos  " << termcolor::reset << "Sort reads by strand, haplotype, and/or pos\n";
+        out << termcolor::green << "tab-track-height number          " << termcolor::reset << "Fraction of the window used by all tabix tracks\n";
         out << termcolor::green << "tags                             " << termcolor::reset << "Print selected sam tags\n";
         out << termcolor::green << "theme            igv/dark/slate  " << termcolor::reset << "Switch color theme e.g. 'theme dark'\n";
         out << termcolor::green << "tlen-y                           " << termcolor::reset << "Toggle --tlen-y option\n";
+        out << termcolor::green << "track-height     target? number? " << termcolor::reset << "Resize one track or the alignment panel. Use\n                                 'track-height' alone to list current heights\n";
         out << termcolor::green << "var, v           vcf_column?     " << termcolor::reset << "Print variant information e.g. 'var', 'var info',\n                                 or a list of columns 'var pos qual format.SU'\n";
         out << termcolor::green << "ylim             number          " << termcolor::reset << "The maximum y-limit for the image e.g. 'ylim 100'\n";
         out << termcolor::green << "min-junction-reads  number       " << termcolor::reset << "The minimum support for junction/intron drawing e.g. 'min-junction-reads 10'\n";
@@ -355,8 +357,25 @@ namespace Term {
                    "        sort 6400234       # Sorting based on genomic position\n"
                    "        sort strand 120000 # By strand and then position\n"
                    "        sort hap 120000    # Haplotype then position\n";
+        } else if (s == "tab-track-height") {
+            out << "    Set the fraction of the window used by the tabix track panel.\n"
+                   "        Applies to tracks that have no individual height set.\n"
+                   "        Use 'track-height' to size a single track.\n"
+                   "    Examples:\n"
+                   "        tab-track-height 0.25\n\n";
         } else if (s == "tags") {
             out << "    Print selected sam tags.\n        This will print all the tags of the selected read\n\n";
+        } else if (s == "track-height") {
+            out << "    Resize a single track, or the alignment panel.\n"
+                   "        Fractions are of the drawing area (the window minus the reference\n"
+                   "        row and the bottom slider). The alignment panel takes whatever the\n"
+                   "        tracks leave over, so sizing the alignments resizes the tracks and\n"
+                   "        vice versa. Track dividers can also be dragged with the mouse.\n"
+                   "    Examples:\n"
+                   "        track-height                     # list current heights\n"
+                   "        track-height alignments 0.5      # half the area for reads\n"
+                   "        track-height 0 0.2               # tabix track 0\n"
+                   "        track-height introns 0.15        # match a track by name\n\n";
         } else if (s == "theme") {
             out << "    Switch the theme.\n        Currently 'igv', 'dark' or 'slate' themes are supported.\n\n";
         } else if (s == "tlen-y") {
@@ -934,7 +953,7 @@ namespace Term {
         return s;
     }
 
-	void printCoverage(int pos, Segs::ReadCollection &cl, std::ostream& out) {
+	void printCoverage(int pos, Segs::ReadCollection &cl, std::ostream& out, std::string* summary) {
         if (cl.readQueue.empty()) {
             return;
         }
@@ -1081,6 +1100,17 @@ namespace Term {
 			--bnd;
 		}
 		int totCov = A + T + C + G + N + mA + mT + mC + mG + mN;
+
+        // Machine-readable record for the terminal: title + key/value pairs. The ref-match
+        // branch above is disabled, so mA/mC/mG/mT hold the totals for each base at this pos.
+        if (summary != nullptr) {
+            *summary = "Coverage\tPosition\t" + cl.region->chrom + ":" + intToStringCommas(pos)
+                     + "\tDepth\t" + std::to_string(totCov)
+                     + "\tA\t" + std::to_string(A + mA)
+                     + "\tC\t" + std::to_string(C + mC)
+                     + "\tG\t" + std::to_string(G + mG)
+                     + "\tT\t" + std::to_string(T + mT);
+        }
 
         int term_space = Utils::get_terminal_width();
         std::string line = "Coverage    " + std::to_string(totCov) + "      A:" + std::to_string(A) + "  T:" + std::to_string(T) + "  C:" + std::to_string(C) + "  G:" + std::to_string(T) + "     ";
