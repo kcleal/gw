@@ -65,7 +65,7 @@ namespace Term {
         out << termcolor::green << "sam                              " << termcolor::reset << "Print selected read to screen or save to file\n";
         out << termcolor::green << "save             filename        " << termcolor::reset << "Save reads (bam/cram), snapshot (png/pdf/svg), session (ini), or labels (tsv)\n";
         out << termcolor::green << "settings                         " << termcolor::reset << "Open the settings menu'\n";
-		out << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window as image e.g. 's', or 's view.png',\n                                 or vcf columns can be used 's {pos}_{info.SU}.png'\n";
+		    out << termcolor::green << "snapshot, s      path?           " << termcolor::reset << "Save current window as image e.g. 's', or 's view.png',\n                                 or vcf columns can be used 's {pos}_{info.SU}.png'\n";
         out << termcolor::green << "soft-clips, sc                   " << termcolor::reset << "Toggle soft-clips\n";
         out << termcolor::green << "sort             strand/hap/pos  " << termcolor::reset << "Sort reads by strand, haplotype, and/or pos\n";
         out << termcolor::green << "tab-track-height number          " << termcolor::reset << "Fraction of the window used by all tabix tracks\n";
@@ -75,6 +75,7 @@ namespace Term {
         out << termcolor::green << "track-height     target? number? " << termcolor::reset << "Resize one track or the alignment panel. Use\n                                 'track-height' alone to list current heights\n";
         out << termcolor::green << "var, v           vcf_column?     " << termcolor::reset << "Print variant information e.g. 'var', 'var info',\n                                 or a list of columns 'var pos qual format.SU'\n";
         out << termcolor::green << "ylim             number          " << termcolor::reset << "The maximum y-limit for the image e.g. 'ylim 100'\n";
+        out << termcolor::green << "min-junction-reads  number       " << termcolor::reset << "The minimum support for junction/intron drawing e.g. 'min-junction-reads 10'\n";
 
         out << termcolor::underline << "\nHot keys                      \n" << termcolor::reset;
         out << "scroll left          " << termcolor::bright_yellow; Term::printKeyFromValue(opts.scroll_left, out); out << "\n" << termcolor::reset;
@@ -393,6 +394,8 @@ namespace Term {
                          "        command over and over.\n\n";
         } else if (s == "ylim") {
             out << "    Set the y limit.\n        The y limit is the maximum depth shown on the drawing e.g. 'ylim 100'.\n\n";
+        } else if (s == "min-junction-reads") {
+            out << "    Set the minimum required support for intron/junction drawing.\n        This sets the limit for the minimum required read support for intron/junction\n        drawing with the 'introns' command e.g. 'min-junction-reads 10'\n\n";
         } else {
             out << termcolor::red << "Error:" << termcolor::reset << " no manual for command " << s << std::endl;
         }
