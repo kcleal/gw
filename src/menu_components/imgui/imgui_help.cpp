@@ -23,10 +23,11 @@ void drawImGuiHelpDialog(Manager::GwPlot* plot,
         return;
 
     ImGuiIO& io = ImGui::GetIO();
+    float ms = std::max(plot->monitorScale, 1.0f);
 
     ImGui::SetNextWindowSize(
-        ImVec2(std::min(420.f, io.DisplaySize.x * 0.9f),
-               std::min(400.f, io.DisplaySize.y * 0.8f)),
+        ImVec2(std::min(420.f * ms, io.DisplaySize.x * 0.9f),
+               std::min(400.f * ms, io.DisplaySize.y * 0.8f)),
         ImGuiCond_FirstUseEver);
 
     ImGui::SetNextWindowPos(
@@ -95,18 +96,15 @@ void drawImGuiHelpDialog(Manager::GwPlot* plot,
                 plot->loadGenome("hg19", out);
             }
 
-            std::string loadCmd =
-                "load https://github.com/kcleal/gw/releases/download/"
-                "v1.0.0/demo1.bam";
+            execCommand(plot,
+                        "load https://github.com/kcleal/gw/releases/download/"
+                        "v1.0.0/demo1.bam",
+                        redraw);
 
-            Commands::run_command_map(plot, loadCmd, out);
+            execCommand(plot,
+                        "chr8:37047270-37055161",
+                        redraw);
 
-            std::string navCmd =
-                "chr8:37047270-37055161";
-
-            Commands::run_command_map(plot, navCmd, out);
-
-            redraw = true;
             plot->processed = false;
         }
     }

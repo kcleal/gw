@@ -23,10 +23,11 @@ void drawImGuiCloseDialog(Manager::GwPlot* plot, bool* p_open, bool& redraw)
         return;
 
     ImGuiIO& io = ImGui::GetIO();
+    float ms = std::max(plot->monitorScale, 1.0f);
 
     ImGui::SetNextWindowSize(
-        ImVec2(std::min(480.f, io.DisplaySize.x * 0.85f),
-               std::min(320.f, io.DisplaySize.y * 0.70f)),
+        ImVec2(std::min(480.f * ms, io.DisplaySize.x * 0.85f),
+               std::min(320.f * ms, io.DisplaySize.y * 0.70f)),
         ImGuiCond_FirstUseEver);
 
     ImGui::SetNextWindowPos(

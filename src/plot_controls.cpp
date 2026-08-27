@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <iomanip>
 #include <sstream>
+#include <streambuf>
 #include <iterator>
 #include <cstdlib>
 #include <cstdio>
@@ -19,6 +20,7 @@
 #include "hts_funcs.h"
 #include "parser.h"
 #include "plot_manager.h"
+#include "drawing.h"
 #include "plot_commands.h"
 #include "menu.h"
 #include "segments.h"
@@ -93,6 +95,51 @@ namespace Manager {
             int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, srt_option);
             samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
         }
+    }
+
+    static std::string longestCommonPrefix(const std::vector<std::string>& v) {
+        if (v.empty()) return "";
+        if (v.size() == 1) return v[0];
+        std::string prefix = v[0];
+        for (size_t i = 1; i < v.size(); ++i) {
+            size_t j = 0;
+            while (j < prefix.size() && j < v[i].size() && prefix[j] == v[i][j]) ++j;
+            prefix.resize(j);
+            if (prefix.empty()) break;
+        }
+        return prefix;
+    }
+
+    static bool tryGenomeTagCompletion(std::string& inputText, int& charIndex, Themes::IniOptions& opts) {
+        std::vector<std::string> parts = Utils::split(inputText, ' ');
+        size_t tagIdx = 0;
+        bool wantsTag = false;
+        if (parts.size() >= 2 && parts[0] == "online") {
+            wantsTag = true;
+            tagIdx = 1;
+        } else if (parts.size() >= 3 && parts[0] == "load" && parts[1] == "ideogram") {
+            wantsTag = true;
+            tagIdx = 2;
+        }
+        if (!wantsTag) return false;
+
+        std::string prefix = parts[tagIdx];
+        std::vector<std::string> matches;
+        for (const auto& kv : opts.myIni["genomes"]) {
+            if (Utils::startsWith(kv.first, prefix)) {
+                matches.push_back(kv.first);
+            }
+        }
+        if (matches.empty()) return false;
+
+        std::string lcp = longestCommonPrefix(matches);
+        if (lcp.empty()) return false;
+
+        parts[tagIdx] = lcp;
+        inputText = parts[0];
+        for (size_t i = 1; i < parts.size(); ++i) inputText += " " + parts[i];
+        charIndex = (int)inputText.size();
+        return true;
     }
 
     // keeps track of input commands. returning GLFW_KEY_UNKNOWN stops further processing of key codes
@@ -352,6 +399,10 @@ namespace Manager {
                     return key;
                 } else if (key == GLFW_KEY_TAB) {
                     if (mode != SETTINGS) {
+                        if (tryGenomeTagCompletion(inputText, charIndex, opts)) {
+                            commandToolTipIndex = -1;
+                            return GLFW_KEY_UNKNOWN;
+                        }
                         if ((Utils::startsWith(inputText, "load ") && !(inputText == "load ")) ||
                                 (Utils::startsWith(inputText, "save ") && !(inputText == "save ")) ||
                                 (Utils::startsWith(inputText, "snapshot ") && !(inputText == "snapshot "))) {
@@ -739,11 +790,38 @@ namespace Manager {
             }
         }
         processText = false;  // text will be processed by run_command_map
-        std::ostream& out = (terminalOutput) ? std::cout : outStr;
         if (window) {
             glfwSetCursor(window, normalCursor);
         }
-        Commands::run_command_map(this, inputText, out);
+        if (showUIOverlay) {
+            std::ostringstream capture;
+            Commands::run_command_map(this, inputText, capture);
+            std::string captured = capture.str();
+            if (!captured.empty() && captured.front() != '\n' && captured.front() != '\r') {
+                captured.insert(captured.begin(), '\n');
+            }
+            std::ostream& termOut = terminalOutput ? std::cout : outStr;
+            termOut << captured;
+
+            constexpr size_t maxHistory = 64 * 1024;
+            if (lastCommandOutputAnsi.empty()) {
+                lastCommandOutputAnsi = captured;
+            } else {
+                lastCommandOutputAnsi += captured;
+            }
+            if (lastCommandOutputAnsi.size() > maxHistory) {
+                lastCommandOutputAnsi.erase(
+                    0, lastCommandOutputAnsi.size() - maxHistory);
+            }
+            lastCommandOutputFrame = frameId;
+            showCommandStatus = !captured.empty();
+            if (window) {
+                glfwPostEmptyEvent();
+            }
+        } else {
+            std::ostream& out = (terminalOutput) ? std::cout : outStr;
+            Commands::run_command_map(this, inputText, out);
+        }
         return true;
     }
 
@@ -1058,6 +1136,19 @@ namespace Manager {
             }
 
             if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+                // Translation track shortcuts (only when track is visible)
+                if (opts.show_translation && key == GLFW_KEY_F) {
+                    if (shiftPress) {
+                        opts.translation_strand = !opts.translation_strand;
+                    } else {
+                        opts.translation_frame = (opts.translation_frame + 1) % 3;
+                    }
+                    setScaling();
+                    setDrawContext(ctx);
+                    redraw = true;
+                    processed = false;
+                    return;
+                }
                 Utils::Region &region = regions[regionSelection];
                 if (key == opts.scroll_right) {
                     int shift = (int)(((float)region.end - (float)region.start) * opts.scroll_speed);
@@ -1591,6 +1682,78 @@ namespace Manager {
             return;
         }
 
+        // Translation track mouse controls
+        const float translationTrackHeight = ctx.translationTrackHeight;
+        if (opts.show_translation && mode == Manager::SINGLE &&
+            yW >= refSpace - translationTrackHeight && yW < refSpace) {
+            const float transTop = refSpace - translationTrackHeight;
+            const float laneHeight = fonts.overlayHeight * 0.55f;
+            const float laneSpacing = gap * 0.35f;
+            const float laneAreaTop = transTop + gap * 1.5f;
+            const float laneAreaBottom = laneAreaTop + 3 * laneHeight + 2 * laneSpacing;
+            const bool inLaneArea = (yW >= laneAreaTop && yW < laneAreaBottom);
+            const auto [aaTextTop, aaTextBottom] = Drawing::aaTextRowBounds(refSpace, fonts, gap);
+            const bool inAATextRow = (yW >= aaTextTop && yW < aaTextBottom);
+            // Clicks anywhere below the mini-lanes (actual text row or the small
+            // padding beneath it) open the amino-acid popup, not the reference popup.
+            const bool inAASection = (yW >= laneAreaBottom && yW < refSpace);
+            // Lane click toggles row lock/unlock
+            if (inLaneArea && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+                int lane = (int)((yW - laneAreaTop) / (laneHeight + laneSpacing));
+                lane = std::clamp(lane, 0, 2);
+                if (translation_row_locked && opts.translation_frame == lane) {
+                    translation_row_locked = false;
+                    translation_hover_active = true;
+                    translation_hover_frame = lane;
+                } else {
+                    opts.translation_frame = lane;
+                    translation_row_locked = true;
+                    translation_hover_active = false;
+                }
+                setScaling();
+                setDrawContext(ctx);
+                redraw = true;
+                processed = false;
+                return;
+            }
+            // Clicking the AA text row (or the small padding beneath it) opens the
+            // amino-acid sequence popup instead of the reference sequence popup.
+            if ((inAATextRow || inAASection) && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE && !ctrlPress &&
+                std::fabs(xDrag) < 5 && std::fabs(yDrag) < 5) {
+                printAminoAcidSequence(xW, yW);
+                return;
+            }
+            // Update hover frame from lane position (only when no row is locked)
+            if (inLaneArea && !translation_row_locked) {
+                int lane = (int)((yW - laneAreaTop) / (laneHeight + laneSpacing));
+                lane = std::clamp(lane, 0, 2);
+                translation_hover_frame = lane;
+                translation_hover_active = true;
+            }
+            // Consume any left-button release inside the translation track area that
+            // wasn't handled above, so it cannot fall through to the reference popup.
+            if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+                return;
+            }
+        }
+
+        // Strand-direction arrow next to the reference track
+        if (opts.show_translation && mode == Manager::SINGLE &&
+            button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+            const float boxHeight = fonts.overlayHeight;
+            const float arrowSize = std::min(boxHeight, gap * 0.7f);
+            const float arrowX = (gap - arrowSize) * 0.5f;
+            const float arrowY = refSpace - boxHeight - gap * 0.25f - ctx.translationTrackHeight + (boxHeight - arrowSize) * 0.5f;
+            if (xW >= arrowX && xW < arrowX + arrowSize && yW >= arrowY && yW < arrowY + arrowSize) {
+                opts.translation_strand = !opts.translation_strand;
+                setScaling();
+                setDrawContext(ctx);
+                redraw = true;
+                processed = false;
+                return;
+            }
+        }
+
         // Dispatch to mode-specific handlers
         if (mode == Manager::SINGLE) {
             if (button == GLFW_MOUSE_BUTTON_LEFT) {
@@ -1835,19 +1998,20 @@ namespace Manager {
 
     void GwPlot::printReferenceSequence(float xW, float yW) {
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
-        // Helper: capture ANSI output and push a RefPopup
-        auto pushRefPopup = [&](Utils::Region* region, float xOffset, float xScaling) {
+        // Helper: capture ANSI output and push a sequence popup
+        auto pushSeqPopup = [&](Utils::Region* region, float xOffset, float xScaling) {
             std::ostringstream uiOut;
             uiOut << termcolor::colorize;
             Term::printRefSeq(region, xW, xOffset, xScaling, uiOut);
             std::string ansiStr = uiOut.str();
             if (!ansiStr.empty()) {
-                RefPopup rp;
+                SeqPopup rp;
                 rp.ansi = std::move(ansiStr);
                 rp.x    = xW / monitorScale;
                 rp.y    = yW / monitorScale;
                 rp.uid  = nextPopupUid++;
-                refPopups.push_back(std::move(rp));
+                rp.kind = SeqPopup::Reference;
+                seqPopups.push_back(std::move(rp));
             }
             // create a parsable text output of selected feature 
             int pos = (int)((xW - xOffset) / xScaling) + region->start;
@@ -1864,18 +2028,93 @@ namespace Manager {
                               ((double)(regions[regionSelection].end - regions[regionSelection].start)));
             float xOffset = (regionWidth * (float)regionSelection) + gap;
             Term::printRefSeq(&regions[regionSelection], xW, xOffset, xScaling, out);
-            pushRefPopup(&regions[regionSelection], xOffset, xScaling);
+            pushSeqPopup(&regions[regionSelection], xOffset, xScaling);
         } else {
             for (auto &cl: collections) {
                 float min_x = cl.xOffset;
                 float max_x = cl.xScaling * ((float)(cl.region->end - cl.region->start)) + min_x;
                 if (xW > min_x && xW < max_x) {
                     Term::printRefSeq(cl.region, xW, cl.xOffset, cl.xScaling, out);
-                    pushRefPopup(cl.region, cl.xOffset, cl.xScaling);
+                    pushSeqPopup(cl.region, cl.xOffset, cl.xScaling);
                     break;
                 }
             }
         }
+    }
+
+    void GwPlot::printAminoAcidSequence(float xW, float yW) {
+        if (!opts.show_translation) {
+            return;
+        }
+        Utils::Region* region = nullptr;
+        if (collections.empty()) {
+            region = &regions[regionSelection];
+            if (region->end <= region->start) {
+                return;
+            }
+        } else {
+            for (auto &cl : collections) {
+                float min_x = cl.xOffset;
+                float max_x = cl.xScaling * ((float)(cl.region->end - cl.region->start)) + min_x;
+                if (xW > min_x && xW < max_x) {
+                    region = cl.region;
+                    break;
+                }
+            }
+        }
+        if (region == nullptr || region->refSeq == nullptr) {
+            return;
+        }
+        int size = region->end - region->start;
+        if (size <= 0 || size > 20000) {
+            return;
+        }
+
+        std::ostringstream uiOut;
+        uiOut << termcolor::colorize;
+        int displayFrame = opts.translation_strand ? (opts.translation_frame + 1) : -(opts.translation_frame + 1);
+        uiOut << "\n\n>frame " << displayFrame << " (" << (opts.translation_strand ? "forward" : "reverse")
+              << ") code " << opts.translation_code << "\n";
+
+        for (int g = region->start; g + 2 <= region->end; ++g) {
+            int frame = (g - 1) % 3;
+            if (frame < 0) frame += 3;
+            if (frame != opts.translation_frame) continue;
+
+            int idx0 = g - region->start;
+            char triplet[4];
+            if (opts.translation_strand) {
+                Parse::fillTriplet(region->refSeq, idx0, idx0 + 1, idx0 + 2, triplet);
+            } else {
+                triplet[0] = std::toupper(Parse::complementBase(region->refSeq[idx0 + 2]));
+                triplet[1] = std::toupper(Parse::complementBase(region->refSeq[idx0 + 1]));
+                triplet[2] = std::toupper(Parse::complementBase(region->refSeq[idx0]));
+                triplet[3] = '\0';
+            }
+            const char* aa = Parse::translateCodon(triplet, opts.translation_code);
+            if (aa && aa[0]) {
+                bool start = Parse::isStartCodon(triplet);
+                bool stop = Parse::isStopCodon(triplet);
+                if (start) uiOut << termcolor::green;
+                else if (stop) uiOut << termcolor::red;
+                uiOut << aa[0];
+                if (start || stop) uiOut << termcolor::reset;
+            } else {
+                uiOut << "?";
+            }
+        }
+        uiOut << termcolor::reset << std::endl << std::endl;
+
+        SeqPopup ap;
+        ap.ansi = uiOut.str();
+        ap.x = xW / monitorScale;
+        ap.y = yW / monitorScale;
+        ap.uid = nextPopupUid++;
+        ap.kind = SeqPopup::AminoAcid;
+        ap.aaFrame = opts.translation_frame;
+        ap.aaStrand = opts.translation_strand;
+        ap.aaCode = opts.translation_code;
+        seqPopups.push_back(std::move(ap));
     }
 
     void GwPlot::printTrackInformation(int idx, float xW, float yW) {
@@ -2557,6 +2796,31 @@ namespace Manager {
         }
         else {
             commandToolTipIndex = -1;
+        }
+
+        // Translation track hover preview
+        const float translationTrackHeight = ctx.translationTrackHeight;
+        if (opts.show_translation && mode == Manager::SINGLE &&
+            xPos_fb >= 0 && xPos_fb < fb_width &&
+            yPos_fb >= refSpace - translationTrackHeight && yPos_fb < refSpace) {
+            const float transTop = refSpace - translationTrackHeight;
+            const float laneHeight = fonts.overlayHeight * 0.55f;
+            const float laneSpacing = gap * 0.35f;
+            const float laneAreaTop = transTop + gap * 1.5f;
+            const float laneAreaBottom = laneAreaTop + 3 * laneHeight + 2 * laneSpacing;
+            const bool inLaneArea = (yPos_fb >= laneAreaTop && yPos_fb < laneAreaBottom);
+            if (inLaneArea && !translation_row_locked) {
+                int lane = (int)((yPos_fb - laneAreaTop) / (laneHeight + laneSpacing));
+                lane = std::clamp(lane, 0, 2);
+                if (translation_hover_frame != lane || !translation_hover_active) {
+                    translation_hover_frame = lane;
+                    translation_hover_active = true;
+                    redraw = true;
+                }
+            }
+        } else if (translation_hover_active) {
+            translation_hover_active = false;
+            redraw = true;
         }
 
         std::vector<float> trackBoundaries;

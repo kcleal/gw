@@ -68,6 +68,14 @@ namespace Drawing {
         std::string selectedFeatureParent;
         int selectedFeatureStart = -1;
         int selectedFeatureEnd = -1;
+        float translationTrackHeight{0};
+        float translationButtonPanelWidth{0};
+        bool show_translation{false};
+        int translation_frame{0};
+        bool translation_strand{true};
+        bool translation_row_locked{false};
+        bool drawLine{false};
+        float mouseX{0};
     };
 
     void drawCoverage(const Themes::IniOptions &opts, std::vector<Segs::ReadCollection> &collections,
@@ -81,6 +89,12 @@ namespace Drawing {
     void drawRef(const Themes::IniOptions &opts,
                  std::vector<Utils::Region> &regions,
                  SkCanvas *const canvas, const Themes::Fonts &fonts, const drawContext& ctx);
+
+    void drawTranslationTrack(const Themes::IniOptions &opts,
+                              std::vector<Utils::Region> &regions,
+                              SkCanvas *const canvas, const Themes::Fonts &fonts,
+                              const drawContext& ctx,
+                              int hover_frame, bool hover_active);
 
     void drawBorders(const Themes::IniOptions &opts,
                      SkCanvas *const canvas, std::vector<HGW::GwTrack> &tracks, const drawContext& ctx);
@@ -98,5 +112,20 @@ namespace Drawing {
                            std::vector<Utils::Region> &regions,
                            const std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
                            SkCanvas *const canvas, const drawContext& ctx);
+
+    // Helpers for translation-track layout so the GLFW click handler and the
+    // Skia renderer agree on where the AA text row is.
+    inline float translationTrackHeight(const Themes::Fonts &fonts, float gap) {
+        return fonts.overlayHeight * 4.0f + gap * 2.0f;
+    }
+    inline std::pair<float, float> aaTextRowBounds(float refSpace, const Themes::Fonts &fonts, float gap) {
+        const float trackTop = refSpace - translationTrackHeight(fonts, gap);
+        const float laneAreaTop = trackTop + gap * 1.5f;
+        const float laneHeight = fonts.overlayHeight * 0.55f;
+        const float laneSpacing = gap * 0.35f;
+        const float laneAreaBottom = laneAreaTop + 3 * laneHeight + 2 * laneSpacing;
+        const float textTop = laneAreaBottom + laneSpacing;
+        return {textTop, textTop + fonts.overlayHeight};
+    }
 
 }

@@ -142,5 +142,12 @@ namespace Parse {
     std::string tilde_to_home(std::string fpath);
 
     void tryTabCompletion(std::string &inputText, std::ostream& out, int& charIndex);
+
+    // Translation helpers
+    char complementBase(char base);
+    bool isStartCodon(const char* t);
+    bool isStopCodon(const char* t);
+    void fillTriplet(const char* ref, int p0, int p1, int p2, char* triplet);
+    const char* translateCodon(const char* t, int code);
 }
 

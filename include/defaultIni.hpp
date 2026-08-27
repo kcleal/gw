@@ -53,6 +53,7 @@ namespace DefaultIni {
                "sv_arcs=true\n"
                "mods=false\n"
                "mods_qual_threshold=150\n"
+               "translation_code=1\n"
                "session_file=\n"
                "\n"
                "[view_thresholds]\n"

@@ -305,7 +305,7 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
                 case Menu::StartupResult::Quit:
                     std::exit(0);
                 case Menu::StartupResult::Error:
-                    // Fall through to the legacy stdin prompt.
+                    std::cerr << "Warning: could not open interactive genome picker, falling back to text prompt\n";
                     break;
             }
         }

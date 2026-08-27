@@ -163,6 +163,8 @@ void drawImGuiDataLabels(Manager::GwPlot* plot,
                              sizeof(editBuf) - 1);
                 editBuf[sizeof(editBuf) - 1] = '\0';
             }
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                ImGui::SetTooltip("Click to edit label");
 
             ImGui::End();
             ImGui::PopStyleVar();
@@ -271,6 +273,8 @@ void drawImGuiDataLabels(Manager::GwPlot* plot,
                              sizeof(editBuf) - 1);
                 editBuf[sizeof(editBuf) - 1] = '\0';
             }
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                ImGui::SetTooltip("Click to edit label");
 
             ImGui::End();
             ImGui::PopStyleVar();

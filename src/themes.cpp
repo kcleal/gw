@@ -180,6 +180,10 @@ namespace Themes {
         lcBright.setStrokeWidth(2);
         lcBright.setAntiAlias(true);
 
+        lcGap.setStyle(SkPaint::kStroke_Style);
+        lcGap.setStrokeWidth(1);
+        lcGap.setAntiAlias(true);
+
         ecSelected.setAntiAlias(true);
         ecSplit.setAntiAlias(true);
 
@@ -287,12 +291,17 @@ namespace Themes {
             case GwPaint::lcGTFJoins: this->lcGTFJoins.setARGB(a, r, g, b); break;
             case GwPaint::lcLabel: this->lcLabel.setARGB(a, r, g, b); break;
             case GwPaint::lcBright: this->lcBright.setARGB(a, r, g, b); break;
+            case GwPaint::lcGap: this->lcGap.setARGB(a, r, g, b); break;
             case GwPaint::tcDel: this->tcDel.setARGB(a, r, g, b); break;
             case GwPaint::tcIns: this->tcIns.setARGB(a, r, g, b); break;
             case GwPaint::tcLabels: this->tcLabels.setARGB(a, r, g, b); break;
             case GwPaint::tcBackground: this->tcBackground.setARGB(a, r, g, b); break;
             case GwPaint::fcMarkers: this->fcMarkers.setARGB(a, r, g, b); break;
             case GwPaint::fcRoi: this->fcRoi.setARGB(a, r, g, b); break;
+            case GwPaint::fcCodonStart: this->fcCodonStart.setARGB(a, r, g, b); break;
+            case GwPaint::fcCodonStop: this->fcCodonStop.setARGB(a, r, g, b); break;
+            case GwPaint::fcCodonOther: this->fcCodonOther.setARGB(a, r, g, b); break;
+            case GwPaint::bgCodonSelected: this->bgCodonSelected.setARGB(a, r, g, b); break;
             default: break;
         }
     }
@@ -337,12 +346,17 @@ namespace Themes {
             case GwPaint::lcGTFJoins: p = this->lcGTFJoins; break;
             case GwPaint::lcLabel: p = this->lcLabel; break;
             case GwPaint::lcBright: p = this->lcBright; break;
+            case GwPaint::lcGap: p = this->lcGap; break;
             case GwPaint::tcDel: p = this->tcDel; break;
             case GwPaint::tcIns: p = this->tcIns; break;
             case GwPaint::tcLabels: p = this->tcLabels; break;
             case GwPaint::tcBackground: p = this->tcBackground; break;
             case GwPaint::fcMarkers: p = this->fcMarkers; break;
             case GwPaint::fcRoi: p = this->fcRoi; break;
+            case GwPaint::fcCodonStart: p = this->fcCodonStart; break;
+            case GwPaint::fcCodonStop: p = this->fcCodonStop; break;
+            case GwPaint::fcCodonOther: p = this->fcCodonOther; break;
+            case GwPaint::bgCodonSelected: p = this->bgCodonSelected; break;
             default: break;
         }
         SkColor clr = p.getColor();
@@ -380,11 +394,16 @@ namespace Themes {
         lcGTFJoins.setARGB(255, 145, 172, 190);
         lcLabel.setARGB(255, 80, 80, 80);
         lcBright.setColor(SK_ColorBLACK);
+        lcGap.setARGB(255, 202, 202, 202);
         tcDel.setARGB(255, 80, 80, 80);
-        tcLabels.setARGB(255, 80, 80, 80);
+        tcLabels.setARGB(255, 65, 65, 65);
         tcIns.setARGB(255, 255, 255, 255);
         tcBackground.setARGB(255, 255, 255, 255);
         fcMarkers.setARGB(255, 0, 0, 0);
+        fcCodonStart.setARGB(255, 95, 137, 195);
+        fcCodonStop.setARGB(255, 193, 116, 73);
+        fcCodonOther.setARGB(255, 212, 206, 198);
+        bgCodonSelected.setARGB(255, 232, 226, 218);
         ecSelected.setARGB(255, 0, 0, 0);
         ecSelected.setStyle(SkPaint::kStroke_Style);
         ecSelected.setStrokeWidth(2);
@@ -422,11 +441,16 @@ namespace Themes {
         lcGTFJoins.setARGB(255, 140, 140, 170);
         lcLabel.setARGB(255, 182, 182, 182);
         lcBright.setColor(SK_ColorWHITE);
+        lcGap.setARGB(255, 90, 90, 95);
         tcDel.setARGB(255, 227, 227, 227);
-        tcLabels.setARGB(255, 0, 0, 0);
+        tcLabels.setARGB(255, 210, 210, 210);
         tcIns.setARGB(255, 227, 227, 227);
         tcBackground.setARGB(255, 10, 10, 20);
         fcMarkers.setARGB(255, 220, 220, 220);
+        fcCodonStart.setARGB(255, 95, 137, 195);
+        fcCodonStop.setARGB(255, 193, 116, 73);
+        fcCodonOther.setARGB(255, 90, 90, 95);
+        bgCodonSelected.setARGB(255, 70, 70, 75);
         ecSelected.setARGB(255, 255, 255, 255);
         ecSelected.setStyle(SkPaint::kStroke_Style);
         ecSelected.setStrokeWidth(2);
@@ -464,11 +488,16 @@ namespace Themes {
         lcGTFJoins.setARGB(255, 140, 140, 170);
         lcLabel.setARGB(255, 182, 182, 182);
         lcBright.setColor(SK_ColorWHITE);
+        lcGap.setARGB(255, 93, 92, 99);
         tcDel.setARGB(255, 255, 255, 255);
-        tcLabels.setARGB(255, 100, 100, 100);
+        tcLabels.setARGB(255, 150, 150, 150);
         tcIns.setARGB(255, 227, 227, 227);
         tcBackground.setARGB(255, 10, 10, 20);
         fcMarkers.setARGB(255, 220, 220, 220);
+        fcCodonStart.setARGB(255, 95, 137, 195);
+        fcCodonStop.setARGB(255, 193, 116, 73);
+        fcCodonOther.setARGB(255, 93, 92, 99);
+        bgCodonSelected.setARGB(255, 70, 70, 75);
         ecSelected.setARGB(255, 255, 255, 255);
         ecSelected.setStyle(SkPaint::kStroke_Style);
         ecSelected.setStrokeWidth(2);
@@ -643,6 +672,16 @@ namespace Themes {
             read_y_gap = std::stoi(sub["read_y_gap"]);
         } else {
             sub["read_y_gap"] = "1";
+            update_ini = true;
+        }
+        if (sub.has("translation_code")) {
+            try {
+                translation_code = std::max(1, std::stoi(sub["translation_code"]));
+            } catch (...) {
+                translation_code = 1;
+            }
+        } else {
+            sub["translation_code"] = "1";
             update_ini = true;
         }
         if (sub.has("session_file")) {

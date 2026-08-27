@@ -2,6 +2,8 @@
 // ImGui command / tools dialog
 // Extracted from menu.cpp with no functional changes.
 
+#include <sstream>
+#include <streambuf>
 #include <string>
 #include <vector>
 #include <iostream>
@@ -15,6 +17,8 @@
 #include "imgui_impl_opengl3.h"
 #include "imfilebrowser.h"
 
+#include <GLFW/glfw3.h>
+
 
 namespace Menu {
 
@@ -22,15 +26,42 @@ namespace Menu {
 // Helpers: execute commands from UI
 // -----------------------------------------------------------------------------
 
+static void appendCommandOutput(Manager::GwPlot* plot, const std::string& text) {
+    if (text.empty()) return;
+    constexpr size_t maxHistory = 64 * 1024;  // cap total retained text
+    if (plot->lastCommandOutputAnsi.empty()) {
+        plot->lastCommandOutputAnsi = text;
+    } else {
+        plot->lastCommandOutputAnsi += text;
+    }
+    if (plot->lastCommandOutputAnsi.size() > maxHistory) {
+        plot->lastCommandOutputAnsi.erase(
+            0, plot->lastCommandOutputAnsi.size() - maxHistory);
+    }
+    plot->lastCommandOutputFrame = plot->frameId;
+    plot->showCommandStatus = true;
+    if (plot->window) {
+        glfwPostEmptyEvent();
+    }
+}
+
 static void execCommand(Manager::GwPlot* plot,
                         const std::string& cmd_str,
                         bool& redraw)
 {
     std::string cmd = cmd_str;
-    std::ostream& out =
-        (plot->terminalOutput) ? std::cout : plot->outStr;
+    std::ostringstream capture;
+    Commands::run_command_map(plot, cmd, capture);
 
-    Commands::run_command_map(plot, cmd, out);
+    std::string captured = capture.str();
+    if (!captured.empty() && captured.front() != '\n' && captured.front() != '\r') {
+        captured.insert(captured.begin(), '\n');
+    }
+
+    std::ostream& termOut = plot->terminalOutput ? std::cout : plot->outStr;
+    termOut << captured;
+
+    appendCommandOutput(plot, captured);
     redraw = true;
 }
 
@@ -49,6 +80,7 @@ void drawImGuiCommandDialog(Manager::GwPlot* plot,
     // Persistent dialog state
     static char find_text[256] = {};
     static char snapshot_text[256] = {};
+    static char manual_filter[256] = {};
     static int mapq_min = 0;
 
     static bool flag_include[11] = {};
@@ -73,18 +105,19 @@ void drawImGuiCommandDialog(Manager::GwPlot* plot,
     };
 
     ImGuiIO& io = ImGui::GetIO();
+    float ms = std::max(plot->monitorScale, 1.0f);
 
+    // Anchor to the left side of the screen.
     ImGui::SetNextWindowPos(
-        ImVec2(io.DisplaySize.x * 0.5f,
-               io.DisplaySize.y * 0.5f),
+        ImVec2(0.f, 0.f),
         ImGuiCond_Appearing,
-        ImVec2(0.5f, 0.5f));
+        ImVec2(0.f, 0.f));
 
-    ImGui::SetNextWindowSize(ImVec2(550.f, 540.f),
+    ImGui::SetNextWindowSize(ImVec2(350.f, 540.f * ms),
                              ImGuiCond_Appearing);
 
     ImGui::SetNextWindowSizeConstraints(
-        ImVec2(400.f, 300.f),
+        ImVec2(240.f, 300.f * ms),
         ImVec2(io.DisplaySize.x, io.DisplaySize.y));
 
     if (!ImGui::Begin("Tools", p_open,
@@ -233,6 +266,50 @@ void drawImGuiCommandDialog(Manager::GwPlot* plot,
                 }
             }
             ImGui::EndTable();
+        }
+
+        // Active filters read-out (placed after the flag table so it never
+        // shifts the position of the checkboxes when it appears/disappears).
+        {
+            bool hasActive = (mapq_min > 0);
+            for (int i = 0; i < 11 && !hasActive; ++i) {
+                if (flag_include[i] || flag_exclude[i]) hasActive = true;
+            }
+            if (hasActive) {
+                ImGui::Spacing();
+                ImGui::TextDisabled("Active filters:");
+                if (mapq_min > 0)
+                    ImGui::BulletText("MAPQ >= %d", mapq_min);
+                for (int i = 0; i < 11; ++i) {
+                    if (flag_include[i])
+                        ImGui::BulletText("Keep %s", flag_labels[i]);
+                    else if (flag_exclude[i])
+                        ImGui::BulletText("Remove %s", flag_labels[i]);
+                }
+            }
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // Manual filter entry: prepend "filter " and send to the command parser.
+        if (ImGui::InputTextWithHint("##manual_filter",
+                                     "e.g. mapq >= 30 or flag & 1024",
+                                     manual_filter,
+                                     sizeof(manual_filter),
+                                     ImGuiInputTextFlags_EnterReturnsTrue))
+        {
+            if (manual_filter[0]) {
+                execCommand(plot, std::string("filter ") + manual_filter, redraw);
+                manual_filter[0] = '\0';
+            }
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
+            ImGui::SetTooltip("Type a filter expression and press Enter.\n"
+                              "Examples:  mapq >= 30   flag & 1024   ~flag & 512");
         }
     }
 

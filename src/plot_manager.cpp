@@ -614,7 +614,7 @@ namespace Manager {
             glfwGetWindowSize(window, &windX, &windY);
             std::cerr << "Content x-scale=" << xscale << " y-scale=" << yscale << std::endl;
             std::cerr << "Window width=" << windX << " height=" << windY << std::endl;
-            std::cerr << "Framebuffer width=" << width << " height=" << height << std::endl;
+            std::cerr << "Framebuffer width=" << fb_width << " height=" << fb_height << std::endl;
         }
 
         if (rasterSurfacePtr == nullptr) {
@@ -1582,6 +1582,10 @@ namespace Manager {
         }
         topMenuSpace = showUIOverlay ? (gap + fonts.overlayHeight + gap * 0.5f) : 0;
         refSpace += topMenuSpace;
+        if (opts.show_translation) {
+            const float translationTrackHeight = fonts.overlayHeight * 4.0f + gap * 2.0f;
+            refSpace += translationTrackHeight;
+        }
         sliderSpace = gap * 4;
 
         // Calculate available space
@@ -1804,6 +1808,7 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvasR, fonts, bam_paths, ctx);
         }
         Drawing::drawRef(opts, regions, canvasR, fonts, ctx);
+        Drawing::drawTranslationTrack(opts, regions, canvasR, fonts, ctx, translation_hover_frame, translation_hover_active);
         Drawing::drawBorders(opts, canvasR, tracks, ctx);
         Drawing::drawTracks(opts, canvasR, tracks, regions, fonts, ctx, &collections);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, ctx);
@@ -1907,13 +1912,41 @@ namespace Manager {
         ctx.selectedFeatureParent = selectedFeatureParent;
         ctx.selectedFeatureStart = selectedFeatureStart;
         ctx.selectedFeatureEnd = selectedFeatureEnd;
+        ctx.show_translation = opts.show_translation;
+        ctx.translation_frame = opts.translation_frame;
+        ctx.translation_strand = opts.translation_strand;
+        ctx.translation_row_locked = translation_row_locked;
+        ctx.translationTrackHeight = opts.show_translation ? (fonts.overlayHeight * 4.0f + gap * 2.0f) : 0.0f;
+        ctx.translationButtonPanelWidth = 0.0f;
+        ctx.drawLine = drawLine;
+        ctx.mouseX = xPos_fb;
     }
 
     void GwPlot::overlayImGui(bool& pending_settings_close) {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
+
+        // X11 with GLFW_SCALE_TO_MONITOR reports window size in physical pixels while
+        // glfwGetWindowContentScale reflects the monitor DPI scale. ImGui's GLFW backend
+        // derives DisplayFramebufferScale from window/framebuffer size, so on X11 it
+        // stays 1.0 and ImGui renders at half the logical resolution. Normalize to the
+        // same logical coordinates GW uses for Skia (physical / monitorScale).
+        ImGuiIO& io = ImGui::GetIO();
+        if (monitorScale > 1.0f) {
+            int win_w = 0, win_h = 0;
+            glfwGetWindowSize(window, &win_w, &win_h);
+            if (win_w == fb_width && win_h == fb_height && win_w > 0 && win_h > 0) {
+                io.DisplaySize = ImVec2((float)fb_width / monitorScale, (float)fb_height / monitorScale);
+                io.DisplayFramebufferScale = ImVec2(monitorScale, monitorScale);
+                if (ImGui::IsMousePosValid(&io.MousePos)) {
+                    io.MousePos.x /= monitorScale;
+                    io.MousePos.y /= monitorScale;
+                }
+            }
+        }
+
         ImGui::NewFrame();
-        ImGui::GetIO().FontGlobalScale = std::max(0.5f, opts.font_size / 14.0f);
+        io.FontGlobalScale = std::max(0.5f, opts.font_size / 14.0f);
 
         // Scale-bar drag-to-zoom: draw shaded selection box over the data area.
         // scaleBarDragStartX is in framebuffer coords; ImGui works in logical (display) coords.
@@ -1979,8 +2012,9 @@ namespace Manager {
         Menu::drawImGuiInfoPopup(this);
         Menu::drawImGuiCovPopup(this);
         Menu::drawImGuiTrackPopup(this);
-        Menu::drawImGuiRefPopup(this);
+        Menu::drawImGuiSeqPopup(this);
         Menu::drawImGuiLabelTableDialog(this, redraw);
+        Menu::drawImGuiCommandStatus(this);
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -2396,6 +2430,7 @@ namespace Manager {
             Drawing::drawCoverage(opts, collections, canvas, fonts, bam_paths, ctx);
         }
         Drawing::drawRef(opts, regions, canvas, fonts, ctx);
+        Drawing::drawTranslationTrack(opts, regions, canvas, fonts, ctx, translation_hover_frame, translation_hover_active);
         Drawing::drawBorders(opts, canvas, tracks, ctx);
         Drawing::drawTracks(opts, canvas, tracks, regions, fonts, ctx, &collections);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, ctx);
@@ -2493,6 +2528,7 @@ namespace Manager {
         }
 
         Drawing::drawRef(opts, regions, canvas, fonts, ctx);
+        Drawing::drawTranslationTrack(opts, regions, canvas, fonts, ctx, translation_hover_frame, translation_hover_active);
         Drawing::drawBorders(opts, canvas, tracks, ctx);
         Drawing::drawTracks(opts, canvas, tracks, regions, fonts, ctx, &collections);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, ctx);

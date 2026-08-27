@@ -177,7 +177,7 @@ private:
 
     WINDOW* win = nullptr;
     bool hasColors = false;
-    static constexpr int MIN_W = 95;
+    static constexpr int MIN_W = 80;
     static constexpr int MIN_H = 18;
 
     int mouseX = -1;
@@ -278,10 +278,18 @@ private:
     }
 
     bool initTui() {
-        std::setlocale(LC_ALL, "");
+        if (!std::setlocale(LC_ALL, "")) {
+            std::cerr << "Warning: setlocale(LC_ALL, \"\") failed for startup dialog\n";
+        }
         initscr();
-        if (!stdscr) return false;
+        if (!stdscr) {
+            std::cerr << "Error: ncurses initscr() failed (TERM="
+                      << (std::getenv("TERM") ? std::getenv("TERM") : "unset") << ")\n";
+            return false;
+        }
         if (LINES < MIN_H || COLS < MIN_W) {
+            std::cerr << "Error: terminal too small for startup dialog ("
+                      << COLS << "x" << LINES << ", need at least " << MIN_W << "x" << MIN_H << ")\n";
             endwin();
             return false;
         }
@@ -299,7 +307,10 @@ private:
             init_pair(5, COLOR_WHITE, -1);            // divider (with A_DIM for grey)
             init_pair(6, COLOR_CYAN, -1);             // bold hint keywords
         }
-        if (!createOrResizeWindow()) return false;
+        if (!createOrResizeWindow()) {
+            std::cerr << "Error: could not create ncurses window for startup dialog\n";
+            return false;
+        }
         applyMouseState();
         return true;
     }
@@ -1574,6 +1585,8 @@ private:
     void drawHintLine(int y) {
         hintButtons.clear();
         int x = 2;
+        const int winW = getmaxx(win);
+        const bool compact = (winW < 95);
 
         auto drawButton = [&](const std::string& label, HintAction action) {
             int width = static_cast<int>(label.size());
@@ -1596,7 +1609,7 @@ private:
             x += static_cast<int>(text.size());
         };
 
-        drawText("Navigate: ");
+        drawText(compact ? "Nav: " : "Navigate: ");
 
         // Arrow-key indicator.
         if (hasColors) wattron(win, A_BOLD | COLOR_PAIR(6));
@@ -1611,16 +1624,18 @@ private:
 
         // [d - download] (Online section only)
         if (section == Section::Online) {
-            drawButton("[d - download]", HintAction::Download);
+            drawButton(compact ? "[d - dl]" : "[d - download]", HintAction::Download);
             drawText(" | ");
         }
 
         // [r - Resume]
-        drawButton("[r - Resume]", HintAction::Resume);
+        drawButton(compact ? "[r - Res]" : "[r - Resume]", HintAction::Resume);
         drawText(" | ");
 
         // [m - mouse:on/off]
-        std::string mouseLabel = std::string("[m - mouse:") + (mouseEnabled ? "on" : "off") + "]";
+        std::string mouseLabel = compact
+                ? "[m - mouse]"
+                : std::string("[m - mouse:") + (mouseEnabled ? "on" : "off") + "]";
         drawButton(mouseLabel, HintAction::Mouse);
         drawText(" | ");
 

@@ -80,8 +80,9 @@ namespace Themes {
         bgPaint, bgPaintTiled, bgMenu, fcNormal, fcDel, fcDup, fcInvF, fcInvR, fcTra, fcIns, fcSoftClip,
         fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack, fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0,
         fcSoftClip0, fcBigWig, fcRoi, mate_fc, mate_fc0, ecMateUnmapped, ecSplit, ecSelected,
-        lcJoins, lcCoverage, lcLightJoins, lcGTFJoins, lcLabel, lcBright, tcDel, tcIns, tcLabels, tcBackground,
-        fcMarkers, fc5mc, fc5hmc, fcOther
+        lcJoins, lcCoverage, lcLightJoins, lcGTFJoins, lcLabel, lcBright, lcGap, tcDel, tcIns, tcLabels, tcBackground,
+        fcMarkers, fc5mc, fc5hmc, fcOther,
+        fcCodonStart, fcCodonStop, fcCodonOther, bgCodonSelected
     };
 
     class EXPORT BaseTheme {
@@ -95,6 +96,9 @@ namespace Themes {
                 fcA, fcT, fcC, fcG, fcN, fcCoverage, fcTrack, fcRoi;
         SkPaint fcNormal0, fcDel0, fcDup0, fcInvF0, fcInvR0, fcTra0, fcSoftClip0, fcBigWig, fc5mc, fc5hmc, fcOther;
 
+        // translation track colours
+        SkPaint fcCodonStart, fcCodonStop, fcCodonOther, bgCodonSelected;
+
         std::array<SkPaint, 50> mate_fc;
         std::array<SkPaint, 50> mate_fc0;
 
@@ -105,7 +109,7 @@ namespace Themes {
         float lwMateUnmapped, lwSplit, lwCoverage;
 
         // line colours and Insertion paint
-        SkPaint lcJoins, lcCoverage, lcLightJoins, lcLabel, lcBright, lcGTFJoins;
+        SkPaint lcJoins, lcCoverage, lcLightJoins, lcLabel, lcBright, lcGTFJoins, lcGap;
 
         // text colours
         SkPaint tcDel, tcIns, tcLabels, tcBackground;
@@ -181,6 +185,11 @@ namespace Themes {
         int font_size;
         int splice_cluster_eps{2};
         int min_junction_reads{2};
+
+        bool show_translation{false};
+        int translation_frame{0};      // 0,1,2 for +1/+2/+3 or -1/-2/-3
+        bool translation_strand{true}; // true = forward, false = reverse
+        int translation_code{1};       // NCBI genetic code number
 
         bool readIni();
         static std::filesystem::path writeDefaultIni(std::filesystem::path &homedir, std::filesystem::path &home_config, std::filesystem::path &gwIni);

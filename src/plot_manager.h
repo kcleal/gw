@@ -107,6 +107,9 @@ namespace Manager {
         bool terminalOutput;  // recoverable runtime errors and output sent to terminal or outStr
         bool debug_gw{false};    // general debug information
         bool showUIOverlay{false};  // set to true when startUI loop is entered, reserves top menu space
+        int translation_hover_frame{-1};   // -1 = no hover preview
+        bool translation_hover_active{false};
+        bool translation_row_locked{false};
         float totalCovY, covY, totalTabixY, tabixY, trackY, regionWidth, bamHeight, refSpace, sliderSpace, topMenuSpace{0};
         int boundaryIndex{0};
         // Minimum vertical extents (multiply by monitorScale). Shared by setScaling()
@@ -128,6 +131,10 @@ namespace Manager {
         Drawing::drawContext ctx;
 
         std::ostringstream outStr;
+
+        std::string lastCommandOutputAnsi;
+        long lastCommandOutputFrame{0};
+        bool showCommandStatus{false};
 
         std::vector<char> pixelMemory;
 
@@ -226,12 +233,17 @@ namespace Manager {
         };
         std::vector<TrackPopup> trackPopups;
 
-        struct RefPopup {
-            std::string ansi;    // ANSI-coded output from printRefSeq
+        struct SeqPopup {
+            std::string ansi;    // ANSI-coded sequence output (reference or amino-acid)
             float x{0}, y{0};   // screen position near click
             int uid{0};
+            enum Kind { Reference, AminoAcid } kind{Reference};
+            // Amino-acid specific metadata (ignored for reference popups).
+            int aaFrame{0};      // 0,1,2 -> +1,+2,+3 or -1,-2,-3 depending on strand
+            bool aaStrand{true}; // true = forward
+            int aaCode{1};       // NCBI genetic code
         };
-        std::vector<RefPopup> refPopups;
+        std::vector<SeqPopup> seqPopups;
 
         // Cache for Ctrl+click point-zoom toggle: stores the original view's
         // region bounds, read collections, and rendered image so a second
@@ -429,6 +441,7 @@ namespace Manager {
         // Track-specific handlers
         bool handleTrackClick(int idx, int action, float xW, float yW);
         void printReferenceSequence(float xW, float yW);
+        void printAminoAcidSequence(float xW, float yW);
         void printTrackInformation(int idx, float xW, float yW);
 
         // Region handlers

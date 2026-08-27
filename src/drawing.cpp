@@ -2,6 +2,7 @@
 // Created by Kez Cleal on 12/08/2022.
 //
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -27,6 +28,7 @@
 #include "hts_funcs.h"
 #include "introns.h"
 #include "drawing.h"
+#include "parser.h"
 #include "term_out.h"
 
 
@@ -827,18 +829,18 @@ namespace Drawing {
                     textYPosition
                 );
                 if (textBegin > delBegin) {
-                    drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, textBegin + xOffset);
-                    drawHLine(canvas, path, opts.theme.lcJoins, textEnd + xOffset, yh, delEnd + xOffset);
+                    drawHLine(canvas, path, opts.theme.lcGap, delBegin + xOffset, yh, textBegin + xOffset);
+                    drawHLine(canvas, path, opts.theme.lcGap, textEnd + xOffset, yh, delEnd + xOffset);
                 }
             } else { // Draw dot or line without text
                 if (delEnd - delBegin < 2) {
                     canvas->drawPoint(delBegin + xOffset, yh, opts.theme.lcBright);
                 } else {
-                    drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, delEnd + xOffset);
+                    drawHLine(canvas, path, opts.theme.lcGap, delBegin + xOffset, yh, delEnd + xOffset);
                 }
             }
         } else if ((float)size * 2000.0f > (float)regionLen) { // Equivalent to size/regionLen > 0.0005, but avoids division
-            drawHLine(canvas, path, opts.theme.lcJoins, delBegin + xOffset, yh, delEnd + xOffset);
+            drawHLine(canvas, path, opts.theme.lcGap, delBegin + xOffset, yh, delEnd + xOffset);
         }
     }
 
@@ -1273,8 +1275,11 @@ namespace Drawing {
                                 segB->blocks.empty() ||
                                 (segA->delegate->core.tid != segB->delegate->core.tid)) { continue; }
 
-                            const long cstart = std::min(segA->blocks.front().end, segB->blocks.front().end);
-                            const long cend = std::max(segA->blocks.back().start, segB->blocks.back().start);
+                            const Segs::Align *leftSeg = (segA->blocks.front().start <= segB->blocks.front().start) ? segA : segB;
+                            const Segs::Align *rightSeg = (leftSeg == segA) ? segB : segA;
+                            const long cstart = leftSeg->blocks.back().end;
+                            const long cend = rightSeg->blocks.front().start;
+                            if (cstart >= cend) { continue; }
                             double x_a = ((double) cstart - (double) cl.region->start) * cl.xScaling;
                             double x_b = ((double) cend - (double) cl.region->start) * cl.xScaling;
 
@@ -1343,6 +1348,10 @@ namespace Drawing {
         }
     }
 
+    // Forward declaration: used by drawRef before its definition below.
+    static void drawStrandArrowIcon(SkCanvas* canvas, float x, float y, float size, bool forward,
+                                    const SkPaint& paint);
+
     void drawRef(const Themes::IniOptions &opts,
                  std::vector<Utils::Region> &regions,
                  SkCanvas *const canvas, const Themes::Fonts &fonts, const drawContext& ctx) {
@@ -1360,8 +1369,9 @@ namespace Drawing {
         const float textW = fonts.overlayWidth;
         const float minLetterSize = (textW > 0) ? ((float) fb_width / (float) regions.size()) / textW : 0;
         int index = 0;
-        const double mmPosOffset = refSpace - fonts.overlayHeight - (gap*0.25);
-        const float yp = refSpace - (gap*0.25);
+        const float refBaselineShift = ctx.show_translation ? ctx.translationTrackHeight : 0.0f;
+        const double mmPosOffset = refSpace - fonts.overlayHeight - (gap*0.25) - refBaselineShift;
+        const float yp = refSpace - (gap*0.25) - refBaselineShift;
         const float boxHeight = fonts.overlayHeight;
         for (auto &rgn: regions) {
 
@@ -1463,6 +1473,200 @@ namespace Drawing {
                 }
             }
             index += 1;
+        }
+
+        // Small strand-direction arrow next to the reference track when translation is active.
+        if (ctx.show_translation) {
+            const float arrowSize = std::min(boxHeight, gap * 0.7f);
+            const float arrowX = (gap - arrowSize) * 0.5f;
+            const float arrowY = (float)mmPosOffset + (boxHeight - arrowSize) * 0.5f;
+            // Background box masks the reference genome underneath the arrow.
+            SkRect arrowBg;
+            arrowBg.setXYWH(arrowX - 1, arrowY - 1, arrowSize + 2, arrowSize + 2);
+            canvas->drawRect(arrowBg, theme.bgPaint);
+            drawStrandArrowIcon(canvas, arrowX, arrowY, arrowSize, ctx.translation_strand, theme.lcJoins);
+        }
+    }
+
+    static void drawStrandArrowIcon(SkCanvas* canvas, float x, float y, float size, bool forward,
+                                    const SkPaint& paint) {
+        SkPaint fillPaint = paint;
+        fillPaint.setStyle(SkPaint::kFill_Style);
+        SkPath path;
+        const float midY = y + size * 0.5f;
+        const float endX = x + size;
+        const float endY = y + size;
+        if (forward) {
+            path.moveTo(x, y);
+            path.lineTo(endX, midY);
+            path.lineTo(x, endY);
+        } else {
+            path.moveTo(endX, y);
+            path.lineTo(x, midY);
+            path.lineTo(endX, endY);
+        }
+        path.close();
+        canvas->drawPath(path, fillPaint);
+    }
+
+    void drawTranslationTrack(const Themes::IniOptions &opts,
+                              std::vector<Utils::Region> &regions,
+                              SkCanvas *const canvas, const Themes::Fonts &fonts,
+                              const drawContext& ctx,
+                              int hover_frame, bool hover_active) {
+        if (!ctx.show_translation || regions.empty()) {
+            return;
+        }
+
+        const float gap = ctx.gap;
+        const float monitorScale = ctx.monitorScale;
+        const Themes::BaseTheme &theme = opts.theme;
+
+        const float laneHeight = fonts.overlayHeight * 0.55f;
+        const float laneSpacing = gap * 0.35f;
+        const float textRowHeight = fonts.overlayHeight;
+        const float top = ctx.refSpace - ctx.translationTrackHeight;
+        const float laneAreaTop = top + gap * 1.5f;
+        const float laneAreaBottom = laneAreaTop + 3 * laneHeight + 2 * laneSpacing;
+        const float textTop = laneAreaBottom + laneSpacing;
+
+        SkPaint startPaint = theme.fcCodonStart;
+        SkPaint stopPaint  = theme.fcCodonStop;
+        SkPaint mutedPaint = theme.fcCodonOther;
+        SkPaint activeBg   = theme.bgCodonSelected;
+
+        SkPaint tickPaint;
+        tickPaint.setColor(theme.tcLabels.getColor());
+        tickPaint.setAlpha(90);
+        tickPaint.setStyle(SkPaint::kStroke_Style);
+        tickPaint.setStrokeWidth(monitorScale);
+        tickPaint.setAntiAlias(true);
+
+        const double regionW = (double)ctx.fb_width / (double)regions.size();
+        const double xPixels = std::max(0.0, regionW - gap - gap);
+        const float minCodonTextWidth = fonts.overlayWidth * 1.2f;
+
+        int activeFrame = opts.translation_frame;
+        if (!ctx.translation_row_locked && hover_frame >= 0 && hover_active) {
+            activeFrame = hover_frame;
+        }
+
+        int regionIdx = 0;
+        for (auto &rgn : regions) {
+            const int size = rgn.end - rgn.start;
+            if (size <= 0 || rgn.refSeq == nullptr) {
+                regionIdx += 1;
+                continue;
+            }
+            // Only show translation when the reference sequence is also being drawn.
+            if (size >= 20000) {
+                regionIdx += 1;
+                continue;
+            }
+            const double xScaling = xPixels / size;
+            const double codonW = xScaling * 3.0;
+            const double regionX = regionW * regionIdx + gap;
+            const float laneW = (float)xPixels;
+
+            // Lane backgrounds: selected lane is emphasised, deselected lanes faded.
+            for (int frame = 0; frame < 3; ++frame) {
+                float laneY = laneAreaTop + frame * (laneHeight + laneSpacing);
+                bool isSelected = (frame == activeFrame);
+                SkRect laneRect;
+                laneRect.setXYWH((float)regionX, laneY, laneW, laneHeight);
+                mutedPaint.setAlpha(isSelected ? 70 : 28);
+                canvas->drawRect(laneRect, mutedPaint);
+                if (isSelected) {
+                    activeBg.setAlpha(85);
+                    canvas->drawRect(laneRect, activeBg);
+                }
+            }
+
+            // Codon blocks, anchored to genomic coordinates so each codon stays in
+            // the same lane as the user scrolls.  Frame = (genomic_pos - 1) % 3.
+            SkPaint localStart = startPaint;
+            SkPaint localStop  = stopPaint;
+            for (int g = rgn.start; g + 2 <= rgn.end; ++g) {
+                int frame = (g - 1) % 3;
+                if (frame < 0) frame += 3;
+                float laneY = laneAreaTop + frame * (laneHeight + laneSpacing);
+                bool isSelected = (frame == activeFrame);
+
+                int idx0 = g - rgn.start;
+                int idx1 = idx0 + 1;
+                int idx2 = idx0 + 2;
+                char triplet[4];
+                if (opts.translation_strand) {
+                    Parse::fillTriplet(rgn.refSeq, idx0, idx1, idx2, triplet);
+                } else {
+                    triplet[0] = std::toupper(Parse::complementBase(rgn.refSeq[idx2]));
+                    triplet[1] = std::toupper(Parse::complementBase(rgn.refSeq[idx1]));
+                    triplet[2] = std::toupper(Parse::complementBase(rgn.refSeq[idx0]));
+                    triplet[3] = '\0';
+                }
+
+                float bx = (float)(regionX + idx0 * xScaling);
+                SkRect block;
+                block.setXYWH(bx, laneY, (float)codonW, laneHeight);
+
+                if (Parse::isStartCodon(triplet)) {
+                    localStart.setAlpha(isSelected ? 220 : 100);
+                    canvas->drawRect(block, localStart);
+                } else if (Parse::isStopCodon(triplet)) {
+                    localStop.setAlpha(isSelected ? 220 : 100);
+                    canvas->drawRect(block, localStop);
+                }
+            }
+
+            // Active text row (only for the selected frame) plus small codon tick
+            // marks that sit just below the reference genome, above the mini-lanes.
+            if (codonW >= minCodonTextWidth) {
+                float textBaseline = textTop + textRowHeight * 0.8f;
+                float tickY = laneAreaTop - gap * 0.5f;
+                float tickLen = monitorScale * 3.0f;
+                bool firstCodon = true;
+
+                for (int g = rgn.start; g + 2 <= rgn.end; ++g) {
+                    int frame = (g - 1) % 3;
+                    if (frame < 0) frame += 3;
+                    if (frame != activeFrame) continue;
+
+                    int idx0 = g - rgn.start;
+                    char triplet[4];
+                    if (opts.translation_strand) {
+                        Parse::fillTriplet(rgn.refSeq, idx0, idx0 + 1, idx0 + 2, triplet);
+                    } else {
+                        triplet[0] = std::toupper(Parse::complementBase(rgn.refSeq[idx0 + 2]));
+                        triplet[1] = std::toupper(Parse::complementBase(rgn.refSeq[idx0 + 1]));
+                        triplet[2] = std::toupper(Parse::complementBase(rgn.refSeq[idx0]));
+                        triplet[3] = '\0';
+                    }
+                    const char* aa = Parse::translateCodon(triplet, opts.translation_code);
+                    float text_w = fonts.overlay.measureText(aa, 1, SkTextEncoding::kUTF8);
+                    float cx = (float)(regionX + idx0 * xScaling + codonW * 0.5f);
+                    float x = cx - text_w * 0.5f;
+                    sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromText(aa, 1, fonts.overlay, SkTextEncoding::kUTF8);
+                    canvas->drawTextBlob(blob, x, textBaseline, theme.tcLabels);
+
+                    float bx = (float)(regionX + idx0 * xScaling);
+                    // Draw a tick at each interior codon boundary (between nucleotides),
+                    // so the marks read like TTA|CCT|TGT.
+                    if (!firstCodon) {
+                        canvas->drawLine(bx, tickY, bx, tickY + tickLen, tickPaint);
+                    }
+                    firstCodon = false;
+                }
+            }
+
+            regionIdx += 1;
+        }
+
+        // Vertical guide line covers the three mini-lanes but not the text row.
+        if (ctx.drawLine) {
+            SkPath linePath;
+            linePath.moveTo(ctx.mouseX, laneAreaTop - gap * 0.5f);
+            linePath.lineTo(ctx.mouseX, laneAreaBottom + laneSpacing * 0.5f);
+            canvas->drawPath(linePath, theme.lcJoins);
         }
     }
 

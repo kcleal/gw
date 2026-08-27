@@ -1259,4 +1259,88 @@ namespace Parse {
         }
         return;
     }
+
+    // -------------------------------------------------------------------------
+    // Translation helpers
+    // -------------------------------------------------------------------------
+    char complementBase(char base) {
+        switch (std::toupper(base)) {
+            case 'A': return 'T';
+            case 'T': case 'U': return 'A';
+            case 'C': return 'G';
+            case 'G': return 'C';
+            case 'N': return 'N';
+            default: return 'N';
+        }
+    }
+
+    static int baseIndex(char base) {
+        switch (std::toupper(base)) {
+            case 'A': return 0;
+            case 'C': return 1;
+            case 'G': return 2;
+            case 'T': case 'U': return 3;
+            default: return -1;
+        }
+    }
+
+    // Standard genetic code (NCBI table 1).  Indexed by [first][second][third]
+    // where A=0, C=1, G=2, T/U=3.
+    static const char standardCode[4][4][4] = {
+        { // A
+            {'K', 'N', 'K', 'N'}, // AA
+            {'T', 'T', 'T', 'T'}, // AC
+            {'R', 'S', 'R', 'S'}, // AG
+            {'I', 'I', 'M', 'I'}  // AT
+        },
+        { // C
+            {'Q', 'H', 'Q', 'H'}, // CA
+            {'P', 'P', 'P', 'P'}, // CC
+            {'R', 'R', 'R', 'R'}, // CG
+            {'L', 'L', 'L', 'L'}  // CT
+        },
+        { // G
+            {'E', 'D', 'E', 'D'}, // GA
+            {'A', 'A', 'A', 'A'}, // GC
+            {'G', 'G', 'G', 'G'}, // GG
+            {'V', 'V', 'V', 'V'}  // GT
+        },
+        { // T
+            {'*', 'Y', '*', 'Y'}, // TA
+            {'S', 'S', 'S', 'S'}, // TC
+            {'*', 'C', 'W', 'C'}, // TG
+            {'L', 'F', 'L', 'F'}  // TT
+        }
+    };
+
+    const char* translateCodon(const char* t, int code) {
+        if (code == 1) {
+            int i0 = baseIndex(t[0]);
+            int i1 = baseIndex(t[1]);
+            int i2 = baseIndex(t[2]);
+            if (i0 < 0 || i1 < 0 || i2 < 0) {
+                return "?";
+            }
+            const char* table = &standardCode[i0][i1][i2];
+            return table;
+        }
+        // Additional NCBI tables can be added here.
+        return "?";
+    }
+
+    void fillTriplet(const char* ref, int p0, int p1, int p2, char* triplet) {
+        triplet[0] = std::toupper(ref[p0]);
+        triplet[1] = std::toupper(ref[p1]);
+        triplet[2] = std::toupper(ref[p2]);
+        triplet[3] = '\0';
+    }
+
+    bool isStartCodon(const char* t) {
+        return t[0] == 'A' && t[1] == 'T' && t[2] == 'G';
+    }
+
+    bool isStopCodon(const char* t) {
+        return (t[0] == 'T' && t[1] == 'A' && (t[2] == 'A' || t[2] == 'G')) ||
+               (t[0] == 'T' && t[1] == 'G' && t[2] == 'A');
+    }
 }

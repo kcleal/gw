@@ -65,6 +65,7 @@ Option optionFromStr(std::string &name,
         {"edge_highlights", Int}, {"font_size", Int},
         {"variant_distance", Int},
         {"mods_qual_threshold", Int},
+        {"translation_code", Int},
 
         {"scroll_speed", Float},
         {"tabix_track_height", Float},
@@ -126,6 +127,7 @@ void applyIntOption(Option &new_opt, Themes::IniOptions &opts) {
         else if (new_opt.name == "font_size") { opts.font_size = std::max(1, v); }
         else if (new_opt.name == "variant_distance") { opts.variant_distance = std::max(1, v); }
         else if (new_opt.name == "mods_qual_threshold") { opts.mods_qual_threshold = std::min(std::max(0, v), 255); new_opt.value = std::to_string(opts.mods_qual_threshold); }
+        else if (new_opt.name == "translation_code") { opts.translation_code = std::max(1, v); }
         else {
             std::cerr << "Error: not implemented: " << new_opt.name << std::endl;
             return;

@@ -1,6 +1,7 @@
 #include "introns.h"
 
 #include <algorithm>
+#include <climits>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -92,13 +93,45 @@ namespace Intron {
         }
     }
 
-    // Infer splice strand for a read. Prefer the XS tag (Tophat/STAR); fall back to
-    // the alignment flag so we still get two buckets on unstranded data.
-    static int8_t readSpliceStrand(const bam1_t* b) {
+    // Map a STAR jM splice-motif code to a splice strand.
+    //   -1        : no motif reported             -> 0 (unknown)
+    //    0        : non-canonical junction        -> 0 (unknown)
+    //    1,3,5    : GT/AG, GC/AG, AT/AC (donor +) -> 1 (forward)
+    //    2,4,6    : CT/AC, CT/GC, GT/AT (donor -) -> 2 (reverse)
+    // STAR adds +20 to the code when the junction is annotated in the splice
+    // database; strip that offset with % 20 before interpreting parity.
+    static inline int8_t strandFromJMotif(int motif) {
+        if (motif < 0) return 0;
+        int base = motif % 20;
+        if (base == 0) return 0;
+        return (base & 1) ? 1 : 2;
+    }
+
+    // Fetch the k-th value of STAR's per-junction jM motif array, or INT_MIN if the
+    // tag is absent / not an array / index out of range. jM entries are in CIGAR
+    // order, matching the order N-ops are encountered along the read.
+    static int jMotifAt(const bam1_t* b, int k) {
+        uint8_t* aux = bam_aux_get(b, "jM");
+        if (!aux || *aux != 'B') return INT_MIN;
+        uint32_t n = bam_auxB_len(aux);
+        if (k < 0 || (uint32_t)k >= n) return INT_MIN;
+        return (int)bam_auxB2i(aux, (uint32_t)k);
+    }
+
+    // Infer splice strand for one junction (the k-th N-op in the read). Priority:
+    //   1. XS tag (per-read; Tophat/STAR --outSAMstrandField intronMotif)
+    //   2. STAR jM splice-motif tag (per-junction) when it resolves a strand
+    //   3. alignment flag fallback so we still get buckets on unstranded data
+    static int8_t spliceStrandForJunction(const bam1_t* b, int junctionIdx) {
         if (uint8_t* xs = bam_aux_get(b, "XS")) {
             char c = bam_aux2A(xs);
             if (c == '+') return 1;
             if (c == '-') return 2;
+        }
+        int motif = jMotifAt(b, junctionIdx);
+        if (motif != INT_MIN) {
+            int8_t s = strandFromJMotif(motif);
+            if (s != 0) return s;
         }
         return bam_is_rev(b) ? 2 : 1;
     }
@@ -125,8 +158,7 @@ namespace Intron {
             const uint32_t* cig = bam_get_cigar(b);
             const int nCig = b->core.n_cigar;
             int refPos = b->core.pos;
-            int8_t strand = 0;  // computed lazily on first N-op
-            bool strandComputed = false;
+            int junctionIdx = 0;  // N-op counter, kept aligned with the jM array
 
             for (int i = 0; i < nCig; ++i) {
                 const int op  = bam_cigar_op(cig[i]);
@@ -135,12 +167,12 @@ namespace Intron {
                     int32_t donor    = (int32_t)refPos;
                     int32_t acceptor = (int32_t)(refPos + len);
                     if (donor < rgnEnd && acceptor > rgnStart) {
-                        if (!strandComputed) {
-                            strand = readSpliceStrand(b);
-                            strandComputed = true;
-                        }
+                        int8_t strand = spliceStrandForJunction(b, junctionIdx);
                         raw.push_back({donor, acceptor, strand});
                     }
+                    // Advance for every N-op, even off-screen ones, so junctionIdx
+                    // stays aligned with STAR's per-junction jM array ordering.
+                    ++junctionIdx;
                 }
                 if (bam_cigar_type(op) & 2) {
                     refPos += len;

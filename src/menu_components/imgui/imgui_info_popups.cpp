@@ -17,6 +17,7 @@
 #include "utils.h"
 
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include "imfilebrowser.h"
@@ -400,7 +401,8 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
         };
         std::optional<PendingReadPopupAction> pendingAction;
 
-        for (auto& rp : plot->readPopups) {
+        for (size_t popupIdx = 0; popupIdx < plot->readPopups.size(); ++popupIdx) {
+            auto& rp = plot->readPopups[popupIdx];
             // Build row cache once per popup.
             if (rowCache.find(rp.uid) == rowCache.end())
                 rowCache[rp.uid] = parseAnsiRows(rp.ansi);
@@ -423,9 +425,11 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
             float winH = titleH + style.WindowPadding.y * 2 + tableH;
 
             // ── Position: right-flush with screen, top at first alignment track ──
+            // Cascade multiple popups so they do not stack at the same position.
             auto& io   = ImGui::GetIO();
-            float defX = io.DisplaySize.x - winW;
-            float defY = (plot->refSpace + plot->covY) / ms;
+            float cascadeOffset = (float)popupIdx * 20.0f;
+            float defX = std::max(0.0f, io.DisplaySize.x - winW - cascadeOffset);
+            float defY = (plot->refSpace + plot->covY) / ms + cascadeOffset;
             ImGui::SetNextWindowPos(ImVec2(defX, defY), ImGuiCond_Appearing);
             ImGui::SetNextWindowSize(ImVec2(winW, winH), ImGuiCond_Appearing);
             ImGui::SetNextWindowSizeConstraints(ImVec2(300, 100), ImVec2(FLT_MAX, FLT_MAX));
@@ -469,6 +473,10 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
                     iconDrawer(fgDl, iconMin, iconMax, col, titleIconStroke);
                     return hov && ImGui::IsMouseClicked(0);
                 };
+
+                if (drawTitleIconButton("Go to mate", 4, drawArrowRightIcon)) {
+                    pendingAction = PendingReadPopupAction{rp, "mate"};
+                }
 
                 if (drawTitleIconButton("Add mate", 3, drawPlusIcon)) {
                     pendingAction = PendingReadPopupAction{rp, "mate add"};
@@ -950,8 +958,8 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
     // the user can drag-select individual lines.  ImGuiListClipper keeps only
     // visible lines in flight so large sequences are cheap to render.
 
-    void drawImGuiRefPopup(Manager::GwPlot* plot) {
-        if (plot->refPopups.empty()) return;
+    void drawImGuiSeqPopup(Manager::GwPlot* plot) {
+        if (plot->seqPopups.empty()) return;
 
         struct LineCache { std::string ansi; };
         struct RefCache {
@@ -976,9 +984,53 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
 
         std::vector<int> toRemove;
 
-        for (auto& rp : plot->refPopups) {
+        for (auto& rp : plot->seqPopups) {
             auto& rc  = cache[rp.uid];
             auto& sel = selStates[rp.uid];
+
+            const bool isAA = (rp.kind == Manager::GwPlot::SeqPopup::AminoAcid);
+            const char* winSuffix = isAA ? "##aapopup" : "##refpopup";
+            const char* defaultTitle = isAA ? "Amino Acids" : "Sequence";
+
+            // Helpers for the few places where reference vs amino-acid popups differ.
+            auto parseRefRegion = [&](int& regionStart, std::string& chrom) {
+                regionStart = 0;
+                chrom.clear();
+                size_t colonPos = rc.region.find(':');
+                if (colonPos != std::string::npos) {
+                    chrom = rc.region.substr(0, colonPos);
+                    size_t dashPos = rc.region.find('-', colonPos);
+                    if (dashPos != std::string::npos) {
+                        try {
+                            regionStart = std::stoi(rc.region.substr(colonPos + 1, dashPos - colonPos - 1));
+                        } catch (...) {}
+                    }
+                }
+            };
+            auto formatHeader = [&](int selStart, int selEnd) -> std::string {
+                if (!isAA) {
+                    std::string chrom;
+                    int regionStart = 0;
+                    parseRefRegion(regionStart, chrom);
+                    if (!chrom.empty()) {
+                        return ">" + chrom + ":" + std::to_string(regionStart + selStart) + "-" + std::to_string(regionStart + selEnd);
+                    }
+                    return ">" + rc.region + ":" + std::to_string(selStart) + "-" + std::to_string(selEnd);
+                }
+                return ">" + rc.region + ":" + std::to_string(selStart) + "-" + std::to_string(selEnd);
+            };
+            auto formatTooltip = [&](int offset) -> std::string {
+                if (!isAA) {
+                    std::string chrom;
+                    int regionStart = 0;
+                    parseRefRegion(regionStart, chrom);
+                    if (!chrom.empty()) {
+                        return chrom + ":" + std::to_string(regionStart + offset);
+                    }
+                    return "offset " + std::to_string(offset);
+                }
+                return "codon " + std::to_string(offset) + "  (" + std::to_string(offset * 3) + " bp)";
+            };
 
             // ── Open the window first so we can measure the actual content width ──
             {
@@ -996,8 +1048,8 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
             bool windowOpen = true;
             // Keep the window title stable so ImGui doesn't recreate the window
             // every frame (which would reset focus and break text selection).
-            std::string winTitle = (rc.region.empty() ? "Sequence" : rc.region)
-                                 + "##refpopup" + std::to_string(rp.uid);
+            std::string winTitle = (rc.region.empty() ? defaultTitle : rc.region)
+                                 + winSuffix + std::to_string(rp.uid);
             ImGui::Begin(winTitle.c_str(), &windowOpen,
                          ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
 
@@ -1029,42 +1081,20 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                                   iconStrokeThickness(plot->monitorScale));
 
                 if (hov && ImGui::IsMouseClicked(0)) {
-                    std::string fastaHeader = ">" + rc.region;
                     std::string seqText;
+                    int selStart = 0, selEnd = 0;
                     if (sel.active && sel.startLine >= 0) {
                         int nSL = sel.startLine, nSC = sel.startCol;
                         int nEL = sel.endLine,   nEC = sel.endCol;
                         if (nSL > nEL || (nSL == nEL && nSC > nEC)) {
                             std::swap(nSL, nEL); std::swap(nSC, nEC);
                         }
-                        int selStart = 0, selEnd = 0;
                         for (int li = 0; li <= nEL && li < (int)rc.plainLines.size(); ++li) {
                             int lineLen = (int)rc.plainLines[li].size();
                             if (li < nSL) selStart += lineLen;
                             if (li == nSL) selStart += nSC;
                             if (li < nEL) selEnd += lineLen;
                             if (li == nEL) selEnd += nEC;
-                        }
-                        // Convert selection offsets to absolute genomic coordinates
-                        std::string chrom;
-                        int regionStart = 0; //, regionEnd = 0;
-                        size_t colonPos = rc.region.find(':');
-                        if (colonPos != std::string::npos) {
-                            chrom = rc.region.substr(0, colonPos);
-                            size_t dashPos = rc.region.find('-', colonPos);
-                            if (dashPos != std::string::npos) {
-                                try {
-                                    regionStart = std::stoi(rc.region.substr(colonPos + 1, dashPos - colonPos - 1));
-                                    //regionEnd = std::stoi(rc.region.substr(dashPos + 1));
-                                } catch (...) {}
-                            }
-                        }
-                        if (!chrom.empty()) {
-                            int absStart = regionStart + selStart;
-                            int absEnd = regionStart + selEnd;
-                            fastaHeader = ">" + chrom + ":" + std::to_string(absStart) + "-" + std::to_string(absEnd);
-                        } else {
-                            fastaHeader += ":" + std::to_string(selStart) + "-" + std::to_string(selEnd);
                         }
                         for (int li = nSL; li <= nEL && li < (int)rc.plainLines.size(); ++li) {
                             const auto& row = rc.plainLines[li];
@@ -1073,16 +1103,20 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                             if (cs < ce) seqText += row.substr(cs, ce - cs);
                         }
                     } else {
-                        for (const auto& row : rc.plainLines)
+                        selEnd = 0;
+                        for (const auto& row : rc.plainLines) {
+                            selEnd += (int)row.size();
                             seqText += row;
+                        }
                     }
+                    std::string fastaHeader = formatHeader(selStart, selEnd);
                     ImGui::SetClipboardText((fastaHeader + "\n" + seqText + "\n").c_str());
                 }
             }
 
             // ── Dynamic title-bar text (drawn over the stable title) ──────────
             {
-                std::string displayRegion = rc.region.empty() ? "Sequence" : rc.region;
+                std::string displayRegion = rc.region.empty() ? defaultTitle : rc.region;
                 if (sel.active && sel.startLine >= 0) {
                     int nSL = sel.startLine, nSC = sel.startCol;
                     int nEL = sel.endLine,   nEC = sel.endCol;
@@ -1097,27 +1131,9 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                         if (li < nEL) selEnd += lineLen;
                         if (li == nEL) selEnd += nEC;
                     }
-                    // Parse base region to extract chrom:start-end
-                    std::string chrom;
-                    int regionStart = 0; //, regionEnd = 0;
-                    size_t colonPos = rc.region.find(':');
-                    if (colonPos != std::string::npos) {
-                        chrom = rc.region.substr(0, colonPos);
-                        size_t dashPos = rc.region.find('-', colonPos);
-                        if (dashPos != std::string::npos) {
-                            try {
-                                regionStart = std::stoi(rc.region.substr(colonPos + 1, dashPos - colonPos - 1));
-                                //regionEnd = std::stoi(rc.region.substr(dashPos + 1));
-                            } catch (...) {}
-                        }
-                    }
-                    if (!chrom.empty()) {
-                        int absStart = regionStart + selStart;
-                        int absEnd = regionStart + selEnd;
-                        displayRegion = chrom + ":" + std::to_string(absStart) + "-" + std::to_string(absEnd);
-                    } else {
-                        displayRegion += ":" + std::to_string(selStart) + "-" + std::to_string(selEnd);
-                    }
+                    std::string header = formatHeader(selStart, selEnd);
+                    if (!header.empty() && header[0] == '>') header.erase(header.begin());
+                    displayRegion = header;
                 }
                 // Draw over the built-in title text so it updates every frame
                 // without changing the window ID.
@@ -1318,27 +1334,7 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                     offset += (int)rc.plainLines[li].size();
                 offset += col;
 
-                std::string chrom;
-                int regionStart = 0;
-                size_t colonPos = rc.region.find(':');
-                if (colonPos != std::string::npos) {
-                    chrom = rc.region.substr(0, colonPos);
-                    size_t dashPos = rc.region.find('-', colonPos);
-                    if (dashPos != std::string::npos) {
-                        try {
-                            regionStart = std::stoi(rc.region.substr(colonPos + 1, dashPos - colonPos - 1));
-                        } catch (...) {}
-                    }
-                }
-
-                std::string tip;
-                if (!chrom.empty()) {
-                    int absPos = regionStart + offset;
-                    tip = chrom + ":" + std::to_string(absPos);
-                } else {
-                    tip = "offset " + std::to_string(offset);
-                }
-                ImGui::SetTooltip("%s", tip.c_str());
+                ImGui::SetTooltip("%s", formatTooltip(offset).c_str());
             }
 
             // ── Keyboard copy (Ctrl+C / Cmd+C) ────────────────────────────────
@@ -1419,14 +1415,202 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
         }
 
         if (!toRemove.empty()) {
-            plot->refPopups.erase(
-                std::remove_if(plot->refPopups.begin(), plot->refPopups.end(),
-                               [&](const Manager::GwPlot::RefPopup& p) {
+            plot->seqPopups.erase(
+                std::remove_if(plot->seqPopups.begin(), plot->seqPopups.end(),
+                               [&](const Manager::GwPlot::SeqPopup& p) {
                                    return std::find(toRemove.begin(), toRemove.end(),
                                                     p.uid) != toRemove.end();
                                }),
-                plot->refPopups.end());
+                plot->seqPopups.end());
         }
+    }
+
+    void drawImGuiCommandStatus(Manager::GwPlot* plot) {
+        if (!plot->showCommandStatus) return;
+        if (plot->lastCommandOutputAnsi.empty()) {
+            plot->showCommandStatus = false;
+            return;
+        }
+
+        static std::string displayedText;
+        static std::vector<char> textBuf;
+        static long displayedFrame = -1;
+        static bool scrollToBottom = false;
+        static bool contentJustChanged = false;
+        static float prevScrollY = 0.0f;
+        static float prevScrollMaxY = 0.0f;
+
+        if (displayedFrame != plot->lastCommandOutputFrame) {
+            displayedFrame = plot->lastCommandOutputFrame;
+            displayedText = stripAnsiCodes(plot->lastCommandOutputAnsi);
+            textBuf.assign(displayedText.begin(), displayedText.end());
+            textBuf.push_back('\0');
+            // Only auto-scroll if the user was already at the bottom.
+            if (prevScrollMaxY <= 0.0f || prevScrollY >= prevScrollMaxY - 2.0f) {
+                scrollToBottom = true;
+            }
+            contentJustChanged = true;
+        }
+
+        if (textBuf.empty()) {
+            plot->showCommandStatus = false;
+            return;
+        }
+
+        auto clearHistory = [&]() {
+            plot->lastCommandOutputAnsi.clear();
+            displayedText.clear();
+            textBuf.clear();
+            textBuf.push_back('\0');
+            plot->lastCommandOutputFrame = -1;
+            displayedFrame = -1;
+            plot->showCommandStatus = false;
+        };
+
+        auto drawTrashIcon = [](ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, float thickness) {
+            float w = max.x - min.x;
+            float h = max.y - min.y;
+            float padX = w * 0.18f;
+            float padY = h * 0.10f;
+            float left = min.x + padX;
+            float right = max.x - padX;
+            float bodyTop = min.y + h * 0.30f;
+            float bodyBottom = max.y - padY;
+            float rounding = w * 0.06f;
+
+            // Body
+            dl->AddRect(ImVec2(left, bodyTop),
+                        ImVec2(right, bodyBottom),
+                        col, rounding, 0, thickness);
+
+            // Lid
+            float lidY = bodyTop - h * 0.06f;
+            dl->AddLine(ImVec2(left - w * 0.04f, lidY),
+                        ImVec2(right + w * 0.04f, lidY), col, thickness);
+
+            // Handle
+            float handleW = w * 0.30f;
+            float handleH = h * 0.16f;
+            float hx = (min.x + max.x) * 0.5f - handleW * 0.5f;
+            float hy = min.y + padY;
+            dl->AddRect(ImVec2(hx, hy),
+                        ImVec2(hx + handleW, hy + handleH),
+                        col, 0, 0, thickness);
+
+            // Vertical striations
+            dl->AddLine(ImVec2(left + w * 0.25f, bodyTop + h * 0.12f),
+                        ImVec2(left + w * 0.25f, bodyBottom - h * 0.12f), col, thickness);
+            dl->AddLine(ImVec2(right - w * 0.25f, bodyTop + h * 0.12f),
+                        ImVec2(right - w * 0.25f, bodyBottom - h * 0.12f), col, thickness);
+        };
+
+        auto& io = ImGui::GetIO();
+        auto& style = ImGui::GetStyle();
+        // Output appears independently in the bottom-right corner.
+        float pad = 10.0f;
+        float winW = 480.f;
+        float winH = std::min(400.f, io.DisplaySize.y * 0.5f);
+        ImVec2 pos(io.DisplaySize.x - pad, io.DisplaySize.y - pad);
+        ImGui::SetNextWindowPos(pos, ImGuiCond_Appearing, ImVec2(1, 1));
+        ImGui::SetNextWindowBgAlpha(0.85f);
+        ImGui::SetNextWindowSize(ImVec2(winW, winH), ImGuiCond_Appearing);
+        ImGui::SetNextWindowSizeConstraints(
+            ImVec2(320.f, 80.f),
+            ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f));
+        ImGuiWindowFlags flags = ImGuiWindowFlags_NoNav
+                               | ImGuiWindowFlags_NoSavedSettings;
+        if (ImGui::Begin("Output", &plot->showCommandStatus, flags)) {
+            // ── Title-bar icons (copy left of trash, trash left of close) ─────
+            {
+                float titleBarH = ImGui::GetFrameHeight();
+                float iconSide = titleBarH - 6.0f;
+                ImVec2 winPos = ImGui::GetWindowPos();
+                float winWidth = ImGui::GetWindowWidth();
+                float rightInset = 2.0f;
+                float topInset = 3.0f;
+                ImDrawList* fgDl = ImGui::GetForegroundDrawList();
+                ImVec2 mp = io.MousePos;
+                float iconStroke = iconStrokeThickness(plot->monitorScale);
+
+                auto drawTitleIcon = [&](float slotFromRight, const char* tooltip,
+                                         const auto& iconDrawer, auto&& onClick) {
+                    float minX = winPos.x + winWidth - titleBarH * (1.0f + slotFromRight) - rightInset;
+                    ImVec2 iconMin(minX, winPos.y + topInset);
+                    ImVec2 iconMax(iconMin.x + iconSide, iconMin.y + iconSide);
+                    bool hov = mp.x >= iconMin.x && mp.x <= iconMax.x
+                            && mp.y >= iconMin.y && mp.y <= iconMax.y;
+                    if (hov) {
+                        fgDl->AddRectFilled(iconMin, iconMax,
+                                            ImGui::GetColorU32(ImGuiCol_ButtonHovered),
+                                            style.FrameRounding);
+                        ImGui::SetTooltip("%s", tooltip);
+                    }
+                    ImU32 col = hov ? ImGui::GetColorU32(ImGuiCol_Text)
+                                    : ImGui::GetColorU32(ImGuiCol_Text, 0.7f);
+                    iconDrawer(fgDl, iconMin, iconMax, col, iconStroke);
+                    if (hov && ImGui::IsMouseClicked(0)) {
+                        onClick();
+                    }
+                };
+
+                drawTitleIcon(2.0f, "Copy output", drawClipboardIcon, [&]() {
+                    ImGui::SetClipboardText(displayedText.c_str());
+                });
+
+                drawTitleIcon(1.0f, "Clear output history", drawTrashIcon, [&]() {
+                    clearHistory();
+                });
+            }
+
+            ImVec2 avail = ImGui::GetContentRegionAvail();
+            ImVec2 size(avail.x, std::max(40.0f, avail.y));
+
+            ImFont* font = plot->monoFont ? plot->monoFont : ImGui::GetFont();
+            ImGui::PushFont(font);
+
+            // Size the input widget to its full text so selection works; the
+            // surrounding child window provides horizontal/vertical scrolling.
+            ImVec2 textSize = ImGui::CalcTextSize(displayedText.c_str(),
+                                                  displayedText.c_str() + displayedText.size(),
+                                                  false, -1.0f);
+            float padX = style.FramePadding.x * 2.0f;
+            float padY = style.FramePadding.y * 2.0f;
+            ImVec2 inputSize(textSize.x + padX, textSize.y + padY);
+
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+            ImGui::BeginChild("##cmdoutputscroll", size, ImGuiChildFlags_None,
+                              ImGuiWindowFlags_HorizontalScrollbar
+                              | ImGuiWindowFlags_AlwaysVerticalScrollbar);
+            ImGui::PopStyleVar();
+
+            ImGuiWindow* scrollChild = ImGui::GetCurrentWindow();
+
+            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+            ImGui::InputTextMultiline("##cmdoutput",
+                                      textBuf.data(), textBuf.size(),
+                                      inputSize,
+                                      ImGuiInputTextFlags_ReadOnly);
+            ImGui::PopStyleColor();
+
+            if (scrollChild) {
+                if (scrollToBottom) {
+                    ImGui::SetScrollY(scrollChild, scrollChild->ScrollMax.y);
+                    if (!contentJustChanged &&
+                        scrollChild->Scroll.y >= scrollChild->ScrollMax.y - 2.0f) {
+                        scrollToBottom = false;
+                    }
+                }
+                contentJustChanged = false;
+                prevScrollY = scrollChild->Scroll.y;
+                prevScrollMaxY = scrollChild->ScrollMax.y;
+            } else {
+                contentJustChanged = false;
+            }
+
+            ImGui::EndChild();
+            ImGui::PopFont();
+        }
+        ImGui::End();
     }
 
 } // namespace Menu

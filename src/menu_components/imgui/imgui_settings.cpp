@@ -37,16 +37,31 @@ static const char* getOptionTooltip(const std::string& key) {
         {"soft_clip", "Distance (bp) at which soft-clips become visible"},
         {"small_indel", "Distance (bp) at which small indels become visible"},
         {"snp", "Distance (bp) at which SNPs become visible"},
-        {"mod", "Distance (bp) at which mods become visible"},
+        {"mod", "Distance (bp) at which base modifications become visible"},
         {"edge_highlights", "Distance (bp) at which edge highlights become visible"},
         {"mods", "Display modified bases"},
         {"mods_qual_threshold", "Threshold for displaying modified bases [0–255]"},
+        {"translation_code", "NCBI genetic code number for translation (default 1)"},
         {"font", "Font name"},
         {"font_size", "Font size"},
         {"track_label_parser_rules", "Format-specific label rules for GTF/GFF3 tracks"},
         {"variant_distance", "Ignore VCF/BCF track variants spanning more than this distance"},
         {"sv_arcs", "Draw arcs instead of blocks for VCF/BCF tracks"},
-        {"data_labels", "Add labels for data tracks"}
+        {"data_labels", "Add labels for data tracks"},
+        {"session_file", "Path to the session file used to save/restore state"},
+        {"labels", "Comma-separated label choices shown in the label table"},
+        {"parse_label", "Tag or field used to parse labels from alignments"},
+        {"number", "Tiled image grid dimensions (e.g. 3x3)"},
+        {"find_alignments", "Keyboard key to open the find-alignments dialog"},
+        {"repeat_command", "Keyboard key to repeat the last command"},
+        {"cycle_link_mode", "Keyboard key to cycle link mode (none/sv/all)"},
+        {"scroll_right", "Keyboard key to scroll right"},
+        {"scroll_left", "Keyboard key to scroll left"},
+        {"scroll_up", "Keyboard key to scroll up"},
+        {"scroll_down", "Keyboard key to scroll down"},
+        {"zoom_out", "Keyboard key to zoom out"},
+        {"zoom_in", "Keyboard key to zoom in"},
+        {"low_memory", "Read collections above this length use low-memory mode"}
     };
 
     auto it = tips.find(key);
@@ -185,6 +200,7 @@ static void renderNamePathTable(
     static char add_name[128] = {};
     static char add_path[512] = {};
     static std::string genomeLoadError;  // modal error message
+    static std::string pendingDelete;    // item awaiting confirmation
 
     constexpr ImGuiTableFlags flags =
         ImGuiTableFlags_Borders |
@@ -198,8 +214,6 @@ static void renderNamePathTable(
         ImGui::TableSetupColumn("Path", ImGuiTableColumnFlags_WidthStretch);
         ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 58.f);
         ImGui::TableHeadersRow();
-
-        std::string to_delete;
 
         for (auto& pair : opts.myIni[section]) {
             const std::string& name = pair.first;
@@ -262,19 +276,41 @@ static void renderNamePathTable(
 
             ImGui::TableSetColumnIndex(2);
             if (ImGui::SmallButton("Delete"))
-                to_delete = name;
+                pendingDelete = name;
 
             ImGui::PopID();
         }
 
-        if (!to_delete.empty()) {
-            opts.myIni[section].remove(to_delete);
-            if (section == "genomes" && opts.genome_tag == to_delete)
-                opts.genome_tag.clear();
-            redraw = true;
-        }
-
         ImGui::EndTable();
+    }
+
+    // ── Delete confirmation modal ─────────────────────────────────────────────
+    if (!pendingDelete.empty()) {
+        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        if (ImGui::BeginPopupModal("Delete entry?", nullptr,
+                                   ImGuiWindowFlags_AlwaysAutoResize |
+                                   ImGuiWindowFlags_NoNav)) {
+            ImGui::Text("Delete '%s' from %s?", pendingDelete.c_str(), section.c_str());
+            ImGui::Separator();
+            if (ImGui::Button("Delete", ImVec2(120, 0))) {
+                opts.myIni[section].remove(pendingDelete);
+                if (section == "genomes" && opts.genome_tag == pendingDelete)
+                    opts.genome_tag.clear();
+                pendingDelete.clear();
+                redraw = true;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+                pendingDelete.clear();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        } else {
+            // Modal didn't open this frame (e.g. window was closed) – clear pending state
+            pendingDelete.clear();
+        }
     }
 
     // ── Error modal for genome load failures ────────────────────────────────
@@ -337,10 +373,11 @@ void drawImGuiSettings(
 
     Themes::IniOptions& opts = plot->opts;
     ImGuiIO& io = ImGui::GetIO();
+    float ms = std::max(plot->monitorScale, 1.0f);
 
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Appearing);
-    ImGui::SetNextWindowSize(ImVec2(720, 530), ImGuiCond_Appearing);
-    ImGui::SetNextWindowSizeConstraints(ImVec2(500, 350),
+    ImGui::SetNextWindowSize(ImVec2(720 * ms, 530 * ms), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(500 * ms, 350 * ms),
                                         ImVec2(io.DisplaySize.x, io.DisplaySize.y));
 
     if (!ImGui::Begin("Settings", p_open, ImGuiWindowFlags_NoCollapse)) {
@@ -403,6 +440,21 @@ void drawImGuiSettings(
     }
     drawOnlineGenomesDialog(opts, redraw, plot);
 #endif
+
+    ImGui::Separator();
+    static std::string saveStatus;
+    if (ImGui::Button("Save settings to .gw.ini")) {
+        try {
+            opts.saveIniChanges();
+            saveStatus = "Saved to " + opts.ini_path;
+        } catch (const std::exception& e) {
+            saveStatus = std::string("Save failed: ") + e.what();
+        }
+    }
+    if (!saveStatus.empty()) {
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s", saveStatus.c_str());
+    }
 
     ImGui::End();
 }
@@ -512,9 +564,9 @@ static void drawOnlineGenomesDialog(
                 ImGui::SetTooltip("%s", g.fastaURL.c_str());
 
             ImGui::TableSetColumnIndex(2);
-            // If already in ini, show "Update" instead of "Open"
+            // If already in ini, show "Update" instead of "Add & load"
             bool alreadyExists = opts.myIni["genomes"].has(g.id);
-            const char* btnLabel = alreadyExists ? "Update" : "Open";
+            const char* btnLabel = alreadyExists ? "Update" : "Add & load";
             ImGui::PushID(g.id.c_str());
             if (ImGui::SmallButton(btnLabel)) {
                 selectedId = g.id;

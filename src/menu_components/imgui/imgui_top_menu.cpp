@@ -119,6 +119,23 @@ static void drawChainIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, flo
                 ImVec2(x0 + 2*pillW - overlap, cy + pillH * 0.5f), col, rounding, 0, thickness);
 }
 
+static void drawArrowRightIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, float thickness) {
+    float w = max.x - min.x;
+    float h = max.y - min.y;
+    float padX = w * 0.22f;
+    float padY = h * 0.30f;
+    float x0 = min.x + padX;
+    float x1 = max.x - padX;
+    float y0 = min.y + padY;
+    float y1 = max.y - padY;
+    float cy = (y0 + y1) * 0.5f;
+    // Shaft
+    dl->AddLine(ImVec2(x0, cy), ImVec2(x1 - (x1 - x0) * 0.35f, cy), col, thickness);
+    // Arrowhead
+    dl->AddLine(ImVec2(x1 - (x1 - x0) * 0.35f, y0), ImVec2(x1, cy), col, thickness);
+    dl->AddLine(ImVec2(x1 - (x1 - x0) * 0.35f, y1), ImVec2(x1, cy), col, thickness);
+}
+
 // Local exec helper (execCommand in imgui_command_dialog.cpp is file-static)
 //static void execCmd(Manager::GwPlot* plot, const std::string& cmd_str, bool& redraw) {
 //    std::string cmd = cmd_str;
@@ -292,8 +309,8 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
         }
         bool b_cov = opts.max_coverage > 0;
         if (ImGui::Checkbox("Coverage", &b_cov)) {
-            opts.max_coverage = b_cov ? 1410065408 : 0;
-            redraw = true; plot->processed = false;
+            execCommand(plot, b_cov ? "cov 10000000" : "cov 0", redraw);
+            plot->processed = false;
         }
         bool b_insertions = opts.small_indel_threshold > 0;
         if (ImGui::Checkbox("Insertions", &b_insertions)) {
@@ -323,13 +340,19 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
         if (ImGui::Checkbox("Line", &plot->drawLine)) {
             redraw = true;
         }
-        if (ImGui::Checkbox("Tlen-y", &opts.tlen_yscale)) {
-            redraw = true; plot->processed = false;
+        bool b_tlen_y = opts.tlen_yscale;
+        if (ImGui::Checkbox("Tlen-y", &b_tlen_y)) {
+            execCommand(plot, "tlen-y", redraw);
+            plot->processed = false;
         }
         if (ImGui::Checkbox("Expand tracks", &opts.expand_tracks)) {
             redraw = true; plot->processed = false;
         }
         if (ImGui::Checkbox("Log2 coverage", &opts.log2_cov)) {
+            redraw = true; plot->processed = false;
+        }
+        if (ImGui::Checkbox("Translation", &opts.show_translation)) {
+            plot->setScaling();
             redraw = true; plot->processed = false;
         }
 
@@ -475,10 +498,8 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
                         }
                         int prevSel = plot->regionSelection;
                         plot->regionSelection = (int)i;
-                        std::ostream& out = (plot->terminalOutput) ? std::cout : plot->outStr;
-                        Commands::run_command_map(plot, cmd, out);
+                        execCommand(plot, cmd, redraw);
                         plot->regionSelection = prevSel;
-                        redraw = true;
                         plot->processed = false;
                     }
                 }
@@ -500,9 +521,7 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
                 ImVec2 cbCursor = ImGui::GetCursorScreenPos();
                 if (ImGui::Button(closeLabel, ImVec2(cbSide, cbSide))) {
                     std::string cmd = "rm " + std::to_string(i);
-                    std::ostream& out = (plot->terminalOutput) ? std::cout : plot->outStr;
-                    Commands::run_command_map(plot, cmd, out);
-                    redraw = true;
+                    execCommand(plot, cmd, redraw);
                     plot->processed = false;
                 }
                 bool cbHovered = ImGui::IsItemHovered();
@@ -519,9 +538,7 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
                 if (ImGui::Button(dupLabel, ImVec2(cbSide, cbSide))) {
                     Utils::Region &rgn = plot->regions[i];
                     std::string cmd = "add " + rgn.chrom + ":" + std::to_string(rgn.start) + "-" + std::to_string(rgn.end);
-                    std::ostream& out = (plot->terminalOutput) ? std::cout : plot->outStr;
-                    Commands::run_command_map(plot, cmd, out);
-                    redraw = true;
+                    execCommand(plot, cmd, redraw);
                     plot->processed = false;
                 }
                 bool dupHovered = ImGui::IsItemHovered();

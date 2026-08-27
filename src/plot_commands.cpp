@@ -410,6 +410,106 @@ namespace Commands {
         return Err::NONE;
     }
 
+    Err translate_command(Plot* p, std::string& /*command*/, std::vector<std::string>& parts, std::ostream& out) {
+        if (parts.size() >= 2) {
+            const std::string& sub = parts[1];
+            if (sub == "frame") {
+                if (parts.size() < 3) {
+                    out << termcolor::red << "Error:" << termcolor::reset << " expected frame number 1-3\n";
+                    return Err::OPTION_NOT_UNDERSTOOD;
+                }
+                int frame;
+                try {
+                    frame = std::stoi(parts[2]);
+                } catch (...) {
+                    out << termcolor::red << "Error:" << termcolor::reset << " expected frame number 1-3\n";
+                    return Err::OPTION_NOT_UNDERSTOOD;
+                }
+                if (frame < 1 || frame > 3) {
+                    out << termcolor::red << "Error:" << termcolor::reset << " frame must be 1, 2, or 3\n";
+                    return Err::OPTION_NOT_UNDERSTOOD;
+                }
+                p->opts.translation_frame = frame - 1;
+                p->redraw = true;
+                return Err::NONE;
+            } else if (sub == "strand") {
+                if (parts.size() < 3) {
+                    out << termcolor::red << "Error:" << termcolor::reset << " expected '+' or '-'\n";
+                    return Err::OPTION_NOT_UNDERSTOOD;
+                }
+                const std::string& arg = parts[2];
+                bool forward;
+                if (arg == "+" || arg == "forward" || arg == "f" || arg == "plus") {
+                    forward = true;
+                } else if (arg == "-" || arg == "reverse" || arg == "r" || arg == "minus") {
+                    forward = false;
+                } else {
+                    out << termcolor::red << "Error:" << termcolor::reset << " expected '+' or '-', got '" << arg << "'\n";
+                    return Err::OPTION_NOT_UNDERSTOOD;
+                }
+                p->opts.translation_strand = forward;
+                p->redraw = true;
+                return Err::NONE;
+            } else if (sub == "code") {
+                if (parts.size() < 3) {
+                    out << "Current translation code: " << p->opts.translation_code << "\n";
+                    return Err::NONE;
+                }
+                int code;
+                try {
+                    code = std::stoi(parts[2]);
+                } catch (...) {
+                    out << termcolor::red << "Error:" << termcolor::reset << " expected integer genetic code\n";
+                    return Err::OPTION_NOT_UNDERSTOOD;
+                }
+                if (code < 1) {
+                    out << termcolor::red << "Error:" << termcolor::reset << " genetic code must be >= 1\n";
+                    return Err::OPTION_NOT_UNDERSTOOD;
+                }
+                p->opts.translation_code = code;
+                p->opts.myIni["general"]["translation_code"] = std::to_string(code);
+                p->redraw = true;
+                return Err::NONE;
+            } else if (sub == "on" || sub == "true" || sub == "1") {
+                p->opts.show_translation = true;
+            } else if (sub == "off" || sub == "false" || sub == "0") {
+                p->opts.show_translation = false;
+            } else {
+                out << termcolor::red << "Error:" << termcolor::reset << " unknown translate sub-command '" << sub << "'\n";
+                return Err::OPTION_NOT_UNDERSTOOD;
+            }
+        } else {
+            p->opts.show_translation = !p->opts.show_translation;
+        }
+        p->setScaling();
+        p->processed = false;
+        p->redraw = true;
+        p->imageCache.clear();
+        p->imageCacheQueue.clear();
+        return Err::NONE;
+    }
+
+    Err translate_frame_command(Plot* p, std::string& /*command*/, std::vector<std::string>& parts, std::ostream& out) {
+        std::string cmd = "translate frame";
+        for (size_t i = 1; i < parts.size(); ++i) { cmd += " " + parts[i]; }
+        auto subParts = Utils::split(cmd, ' ');
+        return translate_command(p, cmd, subParts, out);
+    }
+
+    Err translate_strand_command(Plot* p, std::string& /*command*/, std::vector<std::string>& parts, std::ostream& out) {
+        std::string cmd = "translate strand";
+        for (size_t i = 1; i < parts.size(); ++i) { cmd += " " + parts[i]; }
+        auto subParts = Utils::split(cmd, ' ');
+        return translate_command(p, cmd, subParts, out);
+    }
+
+    Err translate_code_command(Plot* p, std::string& /*command*/, std::vector<std::string>& parts, std::ostream& out) {
+        std::string cmd = "translate code";
+        for (size_t i = 1; i < parts.size(); ++i) { cmd += " " + parts[i]; }
+        auto subParts = Utils::split(cmd, ' ');
+        return translate_command(p, cmd, subParts, out);
+    }
+
     Err add_marker_command(Plot* p, std::vector<std::string>& parts, std::ostream& out) {
         if (parts.size() < 2) {
             out << "Usage: marker <chrom:start-end>  or  marker <chrom> <pos> [end]\n";
@@ -571,7 +671,6 @@ namespace Commands {
             int rr = ps.set_filter(s, (int)p->bams.size(), (int)p->regions.size());
             if (rr > 0) {
                 p->filters.push_back(ps);
-                out << command << std::endl;
             }
         }
         if (p->frameId >= 0) {
@@ -751,6 +850,27 @@ namespace Commands {
             cl.resetDrawState();
         }
         p->redraw = true;
+        return Err::NONE;
+    }
+
+    // Set the minimum supporting-read count for drawing an intron/splice junction.
+    // Introns are re-extracted every frame (see drawTracks -> extractCanonicalIntrons),
+    // so changing this and refreshing re-filters the track live.
+    Err minJunctionReads(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        p->redraw = true;
+        int n;
+        try {
+            n = std::stoi(parts.back());
+        } catch (...) {
+            out << termcolor::red << "Error:" << termcolor::reset << " min-junction-reads invalid value\n";
+            return Err::NONE;
+        }
+        p->opts.min_junction_reads = std::max(1, n);
+        if (p->frameId >= 0) {
+            p->processed = false;
+            p->imageCache.clear();
+            p->imageCacheQueue.clear();
+        }
         return Err::NONE;
     }
 
@@ -1685,6 +1805,7 @@ namespace Commands {
         else if (c == "lcGTFJoins") { e = Themes::GwPaint::lcGTFJoins; }
         else if (c == "lcLabel") { e = Themes::GwPaint::lcLabel; }
         else if (c == "lcBright") { e = Themes::GwPaint::lcBright; }
+        else if (c == "lcGap") { e = Themes::GwPaint::lcGap; }
         else if (c == "tcDel") { e = Themes::GwPaint::tcDel; }
         else if (c == "tcIns") { e = Themes::GwPaint::tcIns; }
         else if (c == "tcLabels") { e = Themes::GwPaint::tcLabels; }
@@ -2243,11 +2364,17 @@ namespace Commands {
                 {"tags",     PARAMS { return tags(p, command, out); }},
                 {"mate",     PARAMS { return mate(p, command, out); }},
 
+                {"translate",        PARAMS { return translate_command(p, command, parts, out); }},
+                {"translate_frame",  PARAMS { return translate_frame_command(p, command, parts, out); }},
+                {"translate_strand", PARAMS { return translate_strand_command(p, command, parts, out); }},
+                {"translate_code",   PARAMS { return translate_code_command(p, command, parts, out); }},
+
                 {"f",        PARAMS { return findRead(p, parts, out); }},
                 {"find",     PARAMS { return findRead(p, parts, out); }},
                 {"ylim",     PARAMS { return setYlim(p, parts, out); }},
-                {"indel-length",      PARAMS { return indelLength(p, parts, out); }},
                 {"tab-track-height",  PARAMS { return setTabTrackHeight(p, parts, out); }},
+                {"indel-length", PARAMS { return indelLength(p, parts, out); }},
+                {"min-junction-reads", PARAMS { return minJunctionReads(p, parts, out); }},
                 {"rm",       PARAMS { return remove(p, parts, out); }},
                 {"remove",   PARAMS { return remove(p, parts, out); }},
                 {"cov",      PARAMS { return cov(p, parts, out); }},

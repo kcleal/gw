@@ -57,9 +57,9 @@ namespace Menu {
 
     std::vector<std::string> getCommandTip();
 
-    constexpr std::array<const char*, 32> commandToolTip = {"ylim", "var", "track-height", "tlen-y", "tags", "tab-track-height", "sort", "soft-clips", "save", "sam", "remove",
+    constexpr std::array<const char*, 33> commandToolTip = {"ylim", "var", "track-height", "tlen-y", "tags", "tab-track-height", "sort", "soft-clips", "save", "sam", "remove",
                                                             "refresh", "online", "mods", "mismatches", "mate", "mate add", "log2-cov", "load", "link", "line", "insertions", "indel-length",
-                                                            "grid", "find", "filter", "expand-tracks", "edges", "cov",  "count", "alignments", "add"};
+                                                            "grid", "find", "filter", "expand-tracks", "edges", "cov",  "count", "alignments", "add", "min-junction-reads"};
 
     constexpr std::array<const char*, 17> exec = {"alignments", "cov", "count", "edges", "expand-tracks", "insertions", "line", "log2-cov", "mate", "mate add", "mismatches", "mods", "tags", "soft-clips", "sam", "refresh", "tlen-y"};
 
@@ -98,11 +98,15 @@ namespace Menu {
     // Track popup showing feature info when clicking a genomic track.
     void drawImGuiTrackPopup(Manager::GwPlot* plot);
 
-    // Reference sequence popup: colored, wrapped, scrollable sequence display.
-    void drawImGuiRefPopup(Manager::GwPlot* plot);
+    // Sequence popup: colored, wrapped, scrollable reference or amino-acid display.
+    void drawImGuiSeqPopup(Manager::GwPlot* plot);
 
     // Label progress table: one row per tile/variant with current label and date.
     // Only shown in TILED mode; auto-hides when returning to alignment view.
     void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw);
+
+    // Transient status overlay showing the most recent command output/errors
+    // triggered from the ImGui UI. Terminal colors are preserved separately.
+    void drawImGuiCommandStatus(Manager::GwPlot* plot);
 
 }
