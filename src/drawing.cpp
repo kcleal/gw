@@ -1537,9 +1537,9 @@ namespace Drawing {
 
         SkPaint tickPaint;
         tickPaint.setColor(theme.tcLabels.getColor());
-        tickPaint.setAlpha(90);
+        tickPaint.setAlpha(100);
         tickPaint.setStyle(SkPaint::kStroke_Style);
-        tickPaint.setStrokeWidth(monitorScale);
+        tickPaint.setStrokeWidth(monitorScale * 3.0f);
         tickPaint.setAntiAlias(true);
 
         const double regionW = (double)ctx.fb_width / (double)regions.size();
@@ -1623,7 +1623,7 @@ namespace Drawing {
             if (codonW >= minCodonTextWidth) {
                 float textBaseline = textTop + textRowHeight * 0.8f;
                 float tickY = laneAreaTop - gap * 0.5f;
-                float tickLen = monitorScale * 3.0f;
+                float tickLen = monitorScale * 5.0f;
                 bool firstCodon = true;
 
                 for (int g = rgn.start; g + 2 <= rgn.end; ++g) {
