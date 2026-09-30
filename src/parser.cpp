@@ -656,20 +656,7 @@ namespace Parse {
             op = cigar_p[k] & BAM_CIGAR_MASK;
             l = cigar_p[k] >> BAM_CIGAR_SHIFT;
             str_val += std::to_string(l);
-            switch (op) {
-                case 0:
-                    str_val += "M"; break;
-                case 1:
-                    str_val += "I"; break;
-                case 2:
-                    str_val += "D"; break;
-                case 4:
-                    str_val += "S"; break;
-                case 5:
-                    str_val += "H"; break;
-
-                default: break;
-            }
+            str_val += bam_cigar_opchr(op);
         }
     }
 
