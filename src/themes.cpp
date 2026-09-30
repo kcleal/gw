@@ -396,7 +396,7 @@ namespace Themes {
         lcBright.setColor(SK_ColorBLACK);
         lcGap.setARGB(255, 202, 202, 202);
         tcDel.setARGB(255, 80, 80, 80);
-        tcLabels.setARGB(255, 65, 65, 65);
+        tcLabels.setARGB(255, 0, 0, 0);
         tcIns.setARGB(255, 255, 255, 255);
         tcBackground.setARGB(255, 255, 255, 255);
         fcMarkers.setARGB(255, 0, 0, 0);
@@ -443,7 +443,7 @@ namespace Themes {
         lcBright.setColor(SK_ColorWHITE);
         lcGap.setARGB(255, 90, 90, 95);
         tcDel.setARGB(255, 227, 227, 227);
-        tcLabels.setARGB(255, 210, 210, 210);
+        tcLabels.setARGB(255, 255, 255, 255);
         tcIns.setARGB(255, 227, 227, 227);
         tcBackground.setARGB(255, 10, 10, 20);
         fcMarkers.setARGB(255, 220, 220, 220);
@@ -490,7 +490,7 @@ namespace Themes {
         lcBright.setColor(SK_ColorWHITE);
         lcGap.setARGB(255, 93, 92, 99);
         tcDel.setARGB(255, 255, 255, 255);
-        tcLabels.setARGB(255, 150, 150, 150);
+        tcLabels.setARGB(255, 255, 255, 255);
         tcIns.setARGB(255, 227, 227, 227);
         tcBackground.setARGB(255, 10, 10, 20);
         fcMarkers.setARGB(255, 220, 220, 220);
