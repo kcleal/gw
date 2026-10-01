@@ -277,7 +277,7 @@ namespace Drawing {
                 float rp = refSpace + (cl.bamIdx * cl.yPixels);
                 float xp = fonts.overlayHeight * 0.5;
                 float markerP = (cl.xScaling * (float)(mp.first - cl.region->start)) + cl.xOffset;
-                if (markerP > cl.xOffset && markerP < cl.regionPixels - cl.xOffset) {
+                if (markerP > cl.xOffset && markerP < (cl.regionPixels + cl.xOffset)) {
                     path.reset();
                     path.moveTo(markerP, rp);
                     path.lineTo(markerP - xp, rp);
