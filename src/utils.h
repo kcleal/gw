@@ -113,6 +113,12 @@ namespace Utils {
 
     EXPORT Region parseRegion(std::string &r);
 
+    // A marker that persists across navigation, drawn in every region on the same chromosome
+    struct EXPORT Marker {
+        std::string chrom;
+        int start, end;
+    };
+
     bool parseFilenameToRegions(std::filesystem::path &path, std::vector<Region> &regions, faidx_t* fai, int pad, int split_size);
 
     struct FileNameInfo {

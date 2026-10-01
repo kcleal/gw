@@ -1903,6 +1903,7 @@ namespace Manager {
         ctx.topMenuSpace = topMenuSpace;
         ctx.overlayHeight = fonts.overlayHeight;
         ctx.drawLocation = drawLocation;
+        ctx.markers = &markers;
         ctx.selectedIntronChrom = selectedIntronChrom;
         ctx.selectedIntronStart = selectedIntronStart;
         ctx.selectedIntronEnd = selectedIntronEnd;
