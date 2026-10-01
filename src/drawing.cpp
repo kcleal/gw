@@ -273,10 +273,10 @@ namespace Drawing {
                 }
             }
 
-            for (const auto& mp : cl.region->markers) {
+            auto drawMarker = [&](int first, int second) {
                 float rp = refSpace + (cl.bamIdx * cl.yPixels);
                 float xp = fonts.overlayHeight * 0.5;
-                float markerP = (cl.xScaling * (float)(mp.first - cl.region->start)) + cl.xOffset;
+                float markerP = (cl.xScaling * (float)(first - cl.region->start)) + cl.xOffset;
                 if (markerP > cl.xOffset && markerP < (cl.regionPixels + cl.xOffset)) {
                     path.reset();
                     path.moveTo(markerP, rp);
@@ -286,8 +286,8 @@ namespace Drawing {
                     path.lineTo(markerP, rp);
                     canvas->drawPath(path, theme.fcMarkers);
                 }
-                if (mp.second > mp.first + 1) {
-                    float markerP2 = (cl.xScaling * (float)(mp.second - cl.region->start)) + cl.xOffset;
+                if (second > first + 1) {
+                    float markerP2 = (cl.xScaling * (float)(second - cl.region->start)) + cl.xOffset;
                     if (markerP2 > cl.xOffset && markerP2 < (cl.regionPixels + cl.xOffset)) {
                         path.reset();
                         path.moveTo(markerP2, rp);
@@ -296,6 +296,16 @@ namespace Drawing {
                         path.lineTo(markerP2 + xp, rp);
                         path.lineTo(markerP2, rp);
                         canvas->drawPath(path, theme.fcMarkers);
+                    }
+                }
+            };
+            for (const auto& mp : cl.region->markers) {
+                drawMarker(mp.first, mp.second);
+            }
+            if (ctx.markers) {
+                for (const auto& m : *ctx.markers) {
+                    if (m.chrom == cl.region->chrom) {
+                        drawMarker(m.start, m.end);
                     }
                 }
             }

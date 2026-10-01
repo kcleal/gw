@@ -156,6 +156,8 @@ namespace Manager {
 
         std::vector<Utils::Region> regions;
 
+        std::vector<Utils::Marker> markers;  // persistent markers, see the "marker" command
+
         std::vector<std::string> labelChoices;  // enumeration of labels to use
 
         std::vector<Segs::ReadCollection> collections;  // stores alignments

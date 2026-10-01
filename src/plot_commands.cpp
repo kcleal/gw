@@ -510,6 +510,15 @@ namespace Commands {
         return translate_command(p, cmd, subParts, out);
     }
 
+    void markers_changed(Plot* p) {
+        if (p->frameId >= 0) {
+            for (auto& cl : p->collections) {
+                cl.resetDrawState();
+            }
+        }
+        p->redraw = true;
+    }
+
     Err add_marker_command(Plot* p, std::vector<std::string>& parts, std::ostream& out) {
         if (parts.size() < 2) {
             out << "Usage: marker <chrom:start-end>  or  marker <chrom> <pos> [end]\n";
@@ -538,30 +547,48 @@ namespace Commands {
                 return Err::OPTION_NOT_SUPPORTED;
             }
         }
-        for (auto& rgn : p->regions) {
-            if (rgn.chrom == chrom) {
-                rgn.markers.push_back({pos, end});
+        // Markers are kept on the plot, not the regions, so they persist across navigation
+        p->markers.push_back({chrom, pos, end});
+        markers_changed(p);
+        return Err::NONE;
+    }
+
+    Err remove_marker_command(Plot* p, std::vector<std::string>& parts, std::ostream& out) {
+        if (parts.size() < 2) {
+            out << "Usage: remove-marker <chrom:pos>  or  remove-marker <chrom> <pos>\n";
+            return Err::OPTION_NOT_UNDERSTOOD;
+        }
+        std::string chrom;
+        int pos;
+        if (parts.size() == 2) {
+            try {
+                Utils::Region rgn = Utils::parseRegion(parts[1]);
+                chrom = rgn.chrom;
+                pos   = rgn.start;
+            } catch (...) {
+                out << "remove-marker: could not parse '" << parts[1] << "' as a position\n";
+                return Err::OPTION_NOT_SUPPORTED;
+            }
+        } else {
+            chrom = parts[1];
+            try {
+                pos = std::stoi(parts[2]);
+            } catch (...) {
+                out << "remove-marker: invalid position\n";
+                return Err::OPTION_NOT_SUPPORTED;
             }
         }
-        if (p->frameId >= 0) {
-            for (auto& cl : p->collections) {
-                cl.resetDrawState();
-            }
-        }
-        p->redraw = true;
+        p->markers.erase(std::remove_if(p->markers.begin(), p->markers.end(),
+                                        [&](const Utils::Marker& m) { return m.chrom == chrom && m.start == pos; }),
+                         p->markers.end());
+        markers_changed(p);
         return Err::NONE;
     }
 
     Err clear_markers_command(Plot* p) {
-        for (auto& rgn : p->regions) {
-            rgn.markers.clear();
-        }
-        if (p->frameId >= 0) {
-            for (auto& cl : p->collections) {
-                cl.resetDrawState();
-            }
-        }
-        p->redraw = true;
+        // Only the persistent markers are cleared; region markers, e.g. from a variant file, are kept
+        p->markers.clear();
+        markers_changed(p);
         return Err::NONE;
     }
 
@@ -2342,6 +2369,7 @@ namespace Commands {
                 {"alignments",   PARAMS { return alignments(p); }},
                 {"labels",   PARAMS { return labels(p); }},
                 {"marker",        PARAMS { return add_marker_command(p, parts, out); }},
+                {"remove-marker", PARAMS { return remove_marker_command(p, parts, out); }},
                 {"clear-markers", PARAMS { return clear_markers_command(p); }},
                 {"sam",      PARAMS { return sam(p, command, parts, out); }},
                 {"h",        PARAMS { return getHelp(p, command, parts, out); }},

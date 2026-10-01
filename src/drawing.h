@@ -59,6 +59,7 @@ namespace Drawing {
         float topMenuSpace;
         float overlayHeight;
         bool drawLocation;
+        const std::vector<Utils::Marker> *markers{nullptr};  // persistent markers, drawn on matching chromosomes
         std::string selectedIntronChrom;  // identity of the highlighted intron (empty = none)
         int selectedIntronStart = -1;
         int selectedIntronEnd = -1;
