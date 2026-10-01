@@ -20,6 +20,7 @@
 #include "include/core/SkImageInfo.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkPath.h"
+#include "include/core/SkPathEffect.h"
 #include "include/core/SkTypeface.h"
 #include "include/core/SkTextBlob.h"
 
@@ -453,6 +454,23 @@ namespace Drawing {
         path.reset();
         path.addPoly(points, 5, true);
         canvas->drawPath(path, faceColor);
+    }
+
+    inline void drawStrandChevrons(SkCanvas *const canvas, const float x0, const float x1, const float yMid,
+                                   const float halfH, const int strand, const SkPaint &paint, const float spacing) {
+        if ((strand != 1 && strand != 2) || x1 - x0 < spacing || halfH <= 0) {
+            return;
+        }
+        const float dx = (strand == 1) ? -halfH * 0.7f : halfH * 0.7f;
+        const float margin = halfH * 0.7f + paint.getStrokeWidth();
+        SkPath chevrons;
+        for (float cx = std::ceil((x0 + margin) / spacing) * spacing; cx <= x1 - margin; cx += spacing) {
+            const float tipX = cx - dx * 0.5f;
+            chevrons.moveTo(tipX + dx, yMid - halfH);
+            chevrons.lineTo(tipX, yMid);
+            chevrons.lineTo(tipX + dx, yMid + halfH);
+        }
+        canvas->drawPath(chevrons, paint);
     }
 
     inline void drawLeftPointedRectangle(SkCanvas *const canvas, const float polygonH, const float yScaledOffset, const float start,
@@ -1996,13 +2014,21 @@ namespace Drawing {
 
         } else if (add_rect) {
             if (!shaded) {
+                // The pointed polygon covers the whole block, so only draw the rect for unstranded blocks
                 if (strand == 1) {  // +
-                    drawRightPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, opts.theme.lcJoins, path, pointSlop);
+                    drawRightPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, faceColour2, path, pointSlop);
                 } else if (strand == 2) {  // -
-                    drawLeftPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, opts.theme.lcJoins, path, pointSlop);
+                    drawLeftPointedRectangleNoEdge(canvas, h, y + padY, x + padX, w, 0, faceColour2, path, pointSlop);
+                } else if (faceColour2.getStyle() != SkPaint::kStroke_Style) {
+                    canvas->drawRect(rect, faceColour2);
                 }
                 if (faceColour2.getStyle() != SkPaint::kStroke_Style) {
-                    canvas->drawRect(rect, faceColour2);
+                    SkPaint chevronPaint = opts.theme.bgPaint;
+                    chevronPaint.setStyle(SkPaint::kStroke_Style);
+                    chevronPaint.setStrokeWidth(1.2f * monitorScale);
+                    chevronPaint.setAntiAlias(true);
+                    drawStrandChevrons(canvas, rect.left(), rect.right(), rect.centerY(), h * 0.3f, (int) strand,
+                                       chevronPaint, std::fmax(6 * h, 24 * monitorScale));
                 }
 
             } else {
@@ -2062,6 +2088,11 @@ namespace Drawing {
         }
         float x, yy, w;
         int s, e;
+        SkPaint chevronPaint = opts.theme.lcGTFJoins;
+        chevronPaint.setPathEffect(nullptr);
+        chevronPaint.setStrokeWidth(1.5f * ctx.monitorScale);
+        chevronPaint.setAntiAlias(true);
+        const float chevronSpacing = std::fmax(6 * h, 24 * ctx.monitorScale);
         for (int i = 0; i < target; ++i) {  // draw lines first and thickness == 1
             s = trk.s[i];
             e = trk.e[i];
@@ -2081,6 +2112,7 @@ namespace Drawing {
                     path2.moveTo(x, yy);
                     path2.lineTo(w, yy);
                     canvas->drawPath(path2, opts.theme.lcGTFJoins);
+                    drawStrandChevrons(canvas, x, w, yy, h * 0.5f, strand, chevronPaint, chevronSpacing);
                 }
             }
         }
@@ -2347,7 +2379,7 @@ namespace Drawing {
                 float h2 = h * 0.5;
                 float h4 = h2 * 0.5;
 
-                float customPointSlop = (tan(0.6) * (h2));
+                float customPointSlop = h2 * 0.9f;
 
                 float textLevelEnd = 0;  // makes sure text doesnt overlap on same level
 
