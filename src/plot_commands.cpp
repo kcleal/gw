@@ -132,6 +132,8 @@ namespace Commands {
             p->selectedIntronStart = -1;
             p->selectedIntronEnd = -1;
             p->selectedIntronStrand = -2;
+            p->selectedBaseChrom.clear();
+            p->selectedBasePos = -1;
             for (auto &cl: p->collections) {
                 cl.vScroll = 0;
                 cl.resetDrawState();
@@ -1229,6 +1231,9 @@ namespace Commands {
                     auto pdfDocument = SkPDF::MakeDocument(&buffer);
                     SkCanvas *pageCanvas = pdfDocument->beginPage(p->fb_width, p->fb_height);
                     p->runDrawOnCanvas(pageCanvas);
+                    if (p->selectedBasePos >= 0) {
+                        p->drawSelectedBase(pageCanvas);
+                    }
                     pdfDocument->close();
                     buffer.writeToStream(&out_stream);
                 } else {
@@ -1239,6 +1244,9 @@ namespace Commands {
                     SkPictureRecorder recorder;
                     SkCanvas* canvas = recorder.beginRecording(SkRect::MakeWH(p->fb_width, p->fb_height));
                     p->runDrawOnCanvas(canvas);
+                    if (p->selectedBasePos >= 0) {
+                        p->drawSelectedBase(canvas);
+                    }
                     sk_sp<SkPicture> picture = recorder.finishRecordingAsPicture();
                     std::unique_ptr<SkCanvas> svgCanvas = SkSVGCanvas::Make(SkRect::MakeWH(p->fb_width, p->fb_height), &out_stream);
                     if (svgCanvas) {

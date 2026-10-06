@@ -1814,6 +1814,11 @@ namespace Manager {
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, ctx);
 
         imageCacheQueue.emplace_back(frameId, rasterSurfacePtr[0]->makeImageSnapshot());
+        // Drawn on the raster after the cache snapshot, so gwplot  users reading the raster see the
+        // selected base, while the cached background stays clean for the next partial redraw
+        if (selectedBasePos >= 0) {
+            drawSelectedBase(canvasR);
+        }
 
         redraw = false;
 //        std::cerr << " time " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
@@ -1828,6 +1833,11 @@ namespace Manager {
             runDrawNoBuffer();
         }
         imageCacheQueue.emplace_back(frameId, rasterSurfacePtr[0]->makeImageSnapshot());
+        // Drawn on the raster after the cache snapshot, so gwplot users reading the raster see the
+        // selected base, while the cached background stays clean for the next partial redraw
+        if (selectedBasePos >= 0) {
+            drawSelectedBase(rasterCanvas);
+        }
         redraw = false;
 //                std::cerr << " time " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
@@ -1867,6 +1877,52 @@ namespace Manager {
         rect.setXYWH(xbox - (monitorScale*3), font_y_pos - fonts.overlayHeight, text_width + (monitorScale *6), fonts.overlayHeight);
         canvas->drawRoundRect(rect, 5*monitorScale, 5*monitorScale, opts.theme.bgPaint);
         canvas->drawTextBlob(blob, xbox, font_y_pos, opts.theme.tcDel);
+    }
+
+    void GwPlot::drawSelectedBase(SkCanvas *canvas) {
+        // Top of the reference base row, matching mmPosOffset in Drawing::drawRef
+        const float refTop = refSpace - fonts.overlayHeight - (gap * 0.25f) - ctx.translationTrackHeight;
+        // The base box is padded above and below the reference cell; the column starts at the box top
+        const float boxPad = 3 * monitorScale;
+        const float boxTop = refTop - boxPad;
+        const float bottom = fb_height - sliderSpace;
+        SkPaint fill;
+        fill.setColor(opts.theme.ecSelected.getColor());
+        fill.setStyle(SkPaint::kFill_Style);
+        fill.setAntiAlias(true);
+        SkPaint outline = opts.theme.ecSelected;
+        outline.setStyle(SkPaint::kStroke_Style);
+        outline.setStrokeWidth(1.5f * monitorScale);
+        outline.setAntiAlias(true);
+        for (size_t i = 0; i < regions.size(); ++i) {
+            const Utils::Region &rgn = regions[i];
+            if (rgn.chrom != selectedBaseChrom || selectedBasePos < rgn.start || selectedBasePos >= rgn.end) {
+                continue;
+            }
+            const float xScaling = (regionWidth - gap - gap) / (float)(rgn.end - rgn.start);
+            const float x = (regionWidth * (float)i) + gap + ((float)(selectedBasePos - rgn.start) * xScaling);
+            // Clip to this pane, so the padded box can't cross into a neighbouring pane
+            canvas->save();
+            canvas->clipRect(SkRect::MakeXYWH((regionWidth * (float)i) + gap, 0, regionWidth - gap - gap, (float)fb_height));
+            if (xScaling < 2 * monitorScale) {
+                // Zoomed out: a single line at the base centre
+                fill.setAlpha(160);
+                SkRect line = SkRect::MakeXYWH(x + (xScaling * 0.5f) - (0.75f * monitorScale), boxTop,
+                                               1.5f * monitorScale, bottom - boxTop);
+                canvas->drawRect(line, fill);
+                canvas->restore();
+                continue;
+            }
+            // Translucent column one base wide
+            fill.setAlpha(60);
+            SkRect column = SkRect::MakeXYWH(x, boxTop, xScaling, bottom - boxTop);
+            canvas->drawRect(column, fill);
+            // Solid box around the reference base cell
+            SkRect refCell = SkRect::MakeLTRB(x - monitorScale, boxTop, x + xScaling + monitorScale,
+                                              refTop + fonts.overlayHeight + boxPad);
+            canvas->drawRoundRect(refCell, 2 * monitorScale, 2 * monitorScale, outline);
+            canvas->restore();
+        }
     }
 
     void GwPlot::syncImageCacheQueue() {
@@ -1913,6 +1969,8 @@ namespace Manager {
         ctx.selectedFeatureParent = selectedFeatureParent;
         ctx.selectedFeatureStart = selectedFeatureStart;
         ctx.selectedFeatureEnd = selectedFeatureEnd;
+        ctx.selectedBaseChrom = selectedBaseChrom;
+        ctx.selectedBasePos = selectedBasePos;
         ctx.show_translation = opts.show_translation;
         ctx.translation_frame = opts.translation_frame;
         ctx.translation_strand = opts.translation_strand;
@@ -2043,6 +2101,12 @@ namespace Manager {
         // slider overlay
         if (mode == Show::SINGLE && bams.size() > 0) {
             drawCursorPosOnRefSlider(canvas);
+        }
+
+        // Highlight column for a clicked reference base. Drawn on the overlay so it never
+        // leaves stale copies in the cached read/coverage image when the selection moves.
+        if (mode == Show::SINGLE && selectedBasePos >= 0) {
+            drawSelectedBase(canvas);
         }
 
         // draw box when a change in region selection happens via keyboard
@@ -2618,6 +2682,9 @@ namespace Manager {
         } else {
             runDrawOnCanvas(canvas, force_buffered_reads);
         }
+        if (selectedBasePos >= 0) {
+            drawSelectedBase(canvas);
+        }
         pdfDocument->close();
         buffer.writeToStream(&out);
         // Make sure later draw calls are not skipped
@@ -2640,6 +2707,9 @@ namespace Manager {
             runDrawNoBufferOnCanvas(canvas);
         } else {
             runDrawOnCanvas(canvas, force_buffered_reads);
+        }
+        if (selectedBasePos >= 0) {
+            drawSelectedBase(canvas);
         }
         sk_sp<SkPicture> picture = recorder.finishRecordingAsPicture();
         std::unique_ptr<SkCanvas> svgCanvas = SkSVGCanvas::Make(SkRect::MakeWH(opts.dimensions.x, opts.dimensions.y), &out);

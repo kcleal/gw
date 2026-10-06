@@ -2021,6 +2021,15 @@ namespace Manager {
                 char up = (b >= 'a' && b <= 'z') ? (char)(b - 32) : b;
                 selectedFeature = "Reference\tPosition\t" + region->chrom + ":"
                                 + Term::intToStringCommas(pos) + "\tBase\t" + std::string(1, up);
+                // Select the base (persists across redraws); clicking the selected base again deselects it
+                if (selectedBaseChrom == region->chrom && selectedBasePos == pos) {
+                    selectedBaseChrom.clear();
+                    selectedBasePos = -1;
+                } else {
+                    selectedBaseChrom = region->chrom;
+                    selectedBasePos = pos;
+                }
+                redraw = true;
             }
         };
         if (collections.empty()) {

@@ -1570,6 +1570,16 @@ namespace Drawing {
         tickPaint.setStrokeWidth(monitorScale * 3.0f);
         tickPaint.setAntiAlias(true);
 
+        // Highlight for the codon containing the selected reference base
+        SkPaint selFill;
+        selFill.setColor(theme.ecSelected.getColor());
+        selFill.setStyle(SkPaint::kFill_Style);
+        selFill.setAntiAlias(true);
+        SkPaint selOutline = theme.ecSelected;
+        selOutline.setStyle(SkPaint::kStroke_Style);
+        selOutline.setStrokeWidth(1.5f * monitorScale);
+        selOutline.setAntiAlias(true);
+
         const double regionW = (double)ctx.fb_width / (double)regions.size();
         const double xPixels = std::max(0.0, regionW - gap - gap);
         const float minCodonTextWidth = fonts.overlayWidth * 1.2f;
@@ -1595,6 +1605,10 @@ namespace Drawing {
             const double codonW = xScaling * 3.0;
             const double regionX = regionW * regionIdx + gap;
             const float laneW = (float)xPixels;
+
+            // Clip to this pane, so codons straddling the right edge don't bleed into the next pane
+            canvas->save();
+            canvas->clipRect(SkRect::MakeXYWH((float)regionX, top, laneW, ctx.translationTrackHeight));
 
             // Lane backgrounds: selected lane is emphasised, deselected lanes faded.
             for (int frame = 0; frame < 3; ++frame) {
@@ -1646,10 +1660,34 @@ namespace Drawing {
                 }
             }
 
+            // Codon of the active frame that contains the selected reference base (-1 = none)
+            int selectedCodon = -1;
+            if (ctx.selectedBasePos >= rgn.start && ctx.selectedBasePos < rgn.end && ctx.selectedBaseChrom == rgn.chrom) {
+                for (int g = ctx.selectedBasePos - 2; g <= ctx.selectedBasePos; ++g) {
+                    int frame = (g - 1) % 3;
+                    if (frame < 0) frame += 3;
+                    if (frame == activeFrame && g >= rgn.start && g + 2 <= rgn.end) {
+                        selectedCodon = g;
+                        break;
+                    }
+                }
+            }
+            if (selectedCodon >= 0) {
+                float laneY = laneAreaTop + activeFrame * (laneHeight + laneSpacing);
+                SkRect block;
+                block.setXYWH((float)(regionX + (selectedCodon - rgn.start) * xScaling), laneY, (float)codonW, laneHeight);
+                block.outset(monitorScale, monitorScale);
+                selFill.setAlpha(90);
+                canvas->drawRect(block, selFill);
+                canvas->drawRect(block, selOutline);
+            }
+
             // Active text row (only for the selected frame) plus small codon tick
             // marks that sit just below the reference genome, above the mini-lanes.
             if (codonW >= minCodonTextWidth) {
-                float textBaseline = textTop + textRowHeight * 0.8f;
+                float textBaseline = textTop + textRowHeight * 0.8f + 2.5f * monitorScale;
+                SkRect capBounds;
+                fonts.overlay.measureText("P", 1, SkTextEncoding::kUTF8, &capBounds);
                 float tickY = laneAreaTop - gap * 0.5f;
                 float tickLen = monitorScale * 5.0f;
                 bool firstCodon = true;
@@ -1673,6 +1711,16 @@ namespace Drawing {
                     float text_w = fonts.overlay.measureText(aa, 1, SkTextEncoding::kUTF8);
                     float cx = (float)(regionX + idx0 * xScaling + codonW * 0.5f);
                     float x = cx - text_w * 0.5f;
+                    if (g == selectedCodon) {
+                        SkRect aaBox;
+                        // Cap height plus padding, so the box doesn't touch the letter
+                        const float pad = 2.5f * monitorScale;
+                        aaBox.setLTRB((float)(regionX + idx0 * xScaling), textBaseline + capBounds.top() - pad,
+                                      (float)(regionX + idx0 * xScaling + codonW), textBaseline + pad);
+                        selFill.setAlpha(70);
+                        canvas->drawRoundRect(aaBox, 2 * monitorScale, 2 * monitorScale, selFill);
+                        canvas->drawRoundRect(aaBox, 2 * monitorScale, 2 * monitorScale, selOutline);
+                    }
                     sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromText(aa, 1, fonts.overlay, SkTextEncoding::kUTF8);
                     canvas->drawTextBlob(blob, x, textBaseline, theme.tcLabels);
 
@@ -1686,6 +1734,7 @@ namespace Drawing {
                 }
             }
 
+            canvas->restore();
             regionIdx += 1;
         }
 

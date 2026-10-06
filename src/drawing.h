@@ -69,6 +69,8 @@ namespace Drawing {
         std::string selectedFeatureParent;
         int selectedFeatureStart = -1;
         int selectedFeatureEnd = -1;
+        std::string selectedBaseChrom;  // identity of the clicked reference base (empty = none)
+        int selectedBasePos = -1;
         float translationTrackHeight{0};
         float translationButtonPanelWidth{0};
         bool show_translation{false};
