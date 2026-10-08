@@ -2021,6 +2021,15 @@ namespace Manager {
                 char up = (b >= 'a' && b <= 'z') ? (char)(b - 32) : b;
                 selectedFeature = "Reference\tPosition\t" + region->chrom + ":"
                                 + Term::intToStringCommas(pos) + "\tBase\t" + std::string(1, up);
+                // Select the base (persists across redraws); clicking the selected base again deselects it
+                if (selectedBaseChrom == region->chrom && selectedBasePos == pos) {
+                    selectedBaseChrom.clear();
+                    selectedBasePos = -1;
+                } else {
+                    selectedBaseChrom = region->chrom;
+                    selectedBasePos = pos;
+                }
+                redraw = true;
             }
         };
         if (collections.empty()) {
@@ -2086,10 +2095,7 @@ namespace Manager {
             if (opts.translation_strand) {
                 Parse::fillTriplet(region->refSeq, idx0, idx0 + 1, idx0 + 2, triplet);
             } else {
-                triplet[0] = std::toupper(Parse::complementBase(region->refSeq[idx0 + 2]));
-                triplet[1] = std::toupper(Parse::complementBase(region->refSeq[idx0 + 1]));
-                triplet[2] = std::toupper(Parse::complementBase(region->refSeq[idx0]));
-                triplet[3] = '\0';
+                Parse::fillTripletRevComp(region->refSeq, idx0, idx0 + 1, idx0 + 2, triplet);
             }
             const char* aa = Parse::translateCodon(triplet, opts.translation_code);
             if (aa && aa[0]) {

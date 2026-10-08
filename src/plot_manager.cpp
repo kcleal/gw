@@ -1712,6 +1712,8 @@ namespace Manager {
                 opts.theme.ModPaints[2][i].setStrokeWidth(sw);
             }
         }
+        opts.theme.lcSelectedBase.setStrokeWidth(1.5f * monitorScale);
+        opts.theme.lcCodonTick.setStrokeWidth(3.0f * monitorScale);
         setDrawContext(ctx);
     }
 
@@ -1814,6 +1816,11 @@ namespace Manager {
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvasR, ctx);
 
         imageCacheQueue.emplace_back(frameId, rasterSurfacePtr[0]->makeImageSnapshot());
+        // Drawn on the raster after the cache snapshot, so gwplot  users reading the raster see the
+        // selected base, while the cached background stays clean for the next partial redraw
+        if (selectedBasePos >= 0) {
+            drawSelectedBase(canvasR);
+        }
 
         redraw = false;
 //        std::cerr << " time " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
@@ -1869,6 +1876,42 @@ namespace Manager {
         canvas->drawTextBlob(blob, xbox, font_y_pos, opts.theme.tcDel);
     }
 
+    void GwPlot::drawSelectedBase(SkCanvas *canvas) {
+        // Top of the reference base row, matching mmPosOffset in Drawing::drawRef
+        const float refTop = refSpace - fonts.overlayHeight - (gap * 0.25f) - ctx.translationTrackHeight;
+        // The base box is padded above and below the reference cell; the column starts at the box top
+        const float boxPad = 3 * monitorScale;
+        const float boxTop = refTop - boxPad;
+        const float bottom = fb_height - sliderSpace;
+        const Themes::BaseTheme &theme = opts.theme;
+        SkRect rect;
+        for (size_t i = 0; i < regions.size(); ++i) {
+            const Utils::Region &rgn = regions[i];
+            if (rgn.chrom != selectedBaseChrom || selectedBasePos < rgn.start || selectedBasePos >= rgn.end) {
+                continue;
+            }
+            const float xScaling = (regionWidth - gap - gap) / (float)(rgn.end - rgn.start);
+            const float x = (regionWidth * (float)i) + gap + ((float)(selectedBasePos - rgn.start) * xScaling);
+            // Clip to this pane, so the padded box can't cross into a neighbouring pane
+            canvas->save();
+            rect.setXYWH((regionWidth * (float)i) + gap, 0, regionWidth - gap - gap, (float)fb_height);
+            canvas->clipRect(rect);
+            if (xScaling < 2 * monitorScale) {
+                // Zoomed out: a single line at the base centre
+                const float cx = x + (xScaling * 0.5f);
+                canvas->drawLine(cx, boxTop, cx, bottom, theme.lcSelectedBase);
+            } else {
+                // Translucent column one base wide
+                rect.setXYWH(x, boxTop, xScaling, bottom - boxTop);
+                canvas->drawRect(rect, theme.fcSelectedBase);
+                // Solid box around the reference base cell
+                rect.setLTRB(x - monitorScale, boxTop, x + xScaling + monitorScale, refTop + fonts.overlayHeight + boxPad);
+                canvas->drawRoundRect(rect, 2 * monitorScale, 2 * monitorScale, theme.lcSelectedBase);
+            }
+            canvas->restore();
+        }
+    }
+
     void GwPlot::syncImageCacheQueue() {
         while (!imageCacheQueue.empty() && imageCacheQueue.front().first != frameId) {
             imageCacheQueue.pop_front();
@@ -1913,6 +1956,8 @@ namespace Manager {
         ctx.selectedFeatureParent = selectedFeatureParent;
         ctx.selectedFeatureStart = selectedFeatureStart;
         ctx.selectedFeatureEnd = selectedFeatureEnd;
+        ctx.selectedBaseChrom = selectedBaseChrom;
+        ctx.selectedBasePos = selectedBasePos;
         ctx.show_translation = opts.show_translation;
         ctx.translation_frame = opts.translation_frame;
         ctx.translation_strand = opts.translation_strand;
@@ -2043,6 +2088,12 @@ namespace Manager {
         // slider overlay
         if (mode == Show::SINGLE && bams.size() > 0) {
             drawCursorPosOnRefSlider(canvas);
+        }
+
+        // Highlight column for a clicked reference base. Drawn on the overlay so it never
+        // leaves stale copies in the cached read/coverage image when the selection moves.
+        if (mode == Show::SINGLE && selectedBasePos >= 0) {
+            drawSelectedBase(canvas);
         }
 
         // draw box when a change in region selection happens via keyboard
@@ -2435,6 +2486,9 @@ namespace Manager {
         Drawing::drawBorders(opts, canvas, tracks, ctx);
         Drawing::drawTracks(opts, canvas, tracks, regions, fonts, ctx, &collections);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, ctx);
+        if (selectedBasePos >= 0) {
+            drawSelectedBase(canvas);
+        }
     }
 
     void GwPlot::runDraw(bool force_buffered_reads) {
@@ -2533,6 +2587,9 @@ namespace Manager {
         Drawing::drawBorders(opts, canvas, tracks, ctx);
         Drawing::drawTracks(opts, canvas, tracks, regions, fonts, ctx, &collections);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, ctx);
+        if (selectedBasePos >= 0) {
+            drawSelectedBase(canvas);
+        }
 //        std::cerr << " time runDrawNoBufferOnCanvas " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
 
