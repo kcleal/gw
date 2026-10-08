@@ -1835,11 +1835,6 @@ namespace Manager {
             runDrawNoBuffer();
         }
         imageCacheQueue.emplace_back(frameId, rasterSurfacePtr[0]->makeImageSnapshot());
-        // Drawn on the raster after the cache snapshot, so gwplot users reading the raster see the
-        // selected base, while the cached background stays clean for the next partial redraw
-        if (selectedBasePos >= 0) {
-            drawSelectedBase(rasterCanvas);
-        }
         redraw = false;
 //                std::cerr << " time " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
@@ -2491,6 +2486,9 @@ namespace Manager {
         Drawing::drawBorders(opts, canvas, tracks, ctx);
         Drawing::drawTracks(opts, canvas, tracks, regions, fonts, ctx, &collections);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, ctx);
+        if (selectedBasePos >= 0) {
+            drawSelectedBase(canvas);
+        }
     }
 
     void GwPlot::runDraw(bool force_buffered_reads) {
@@ -2589,6 +2587,9 @@ namespace Manager {
         Drawing::drawBorders(opts, canvas, tracks, ctx);
         Drawing::drawTracks(opts, canvas, tracks, regions, fonts, ctx, &collections);
         Drawing::drawChromLocation(opts, fonts, regions, ideogram, canvas, ctx);
+        if (selectedBasePos >= 0) {
+            drawSelectedBase(canvas);
+        }
 //        std::cerr << " time runDrawNoBufferOnCanvas " << (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - initial).count()) << std::endl;
     }
 
@@ -2674,9 +2675,6 @@ namespace Manager {
         } else {
             runDrawOnCanvas(canvas, force_buffered_reads);
         }
-        if (selectedBasePos >= 0) {
-            drawSelectedBase(canvas);
-        }
         pdfDocument->close();
         buffer.writeToStream(&out);
         // Make sure later draw calls are not skipped
@@ -2699,9 +2697,6 @@ namespace Manager {
             runDrawNoBufferOnCanvas(canvas);
         } else {
             runDrawOnCanvas(canvas, force_buffered_reads);
-        }
-        if (selectedBasePos >= 0) {
-            drawSelectedBase(canvas);
         }
         sk_sp<SkPicture> picture = recorder.finishRecordingAsPicture();
         std::unique_ptr<SkCanvas> svgCanvas = SkSVGCanvas::Make(SkRect::MakeWH(opts.dimensions.x, opts.dimensions.y), &out);
