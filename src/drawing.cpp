@@ -1572,6 +1572,19 @@ namespace Drawing {
             activeFrame = hover_frame;
         }
 
+        // Frame of the codon starting at genomic position g is (g - 1) mod 3
+        auto mod3 = [](int v) { int m = v % 3; return (m < 0) ? m + 3 : m; };
+
+        // AA text row geometry: cap height sizes the selected-codon box so it doesn't touch the letter
+        const float textBaseline = textTop + textRowHeight * 0.8f + 2.5f * monitorScale;
+        const float aaPad = 2.5f * monitorScale;
+        const float tickY = laneAreaTop - gap * 0.5f;
+        const float tickLen = monitorScale * 5.0f;
+        SkRect capBounds;
+        fonts.overlay.measureText("P", 1, SkTextEncoding::kUTF8, &capBounds);
+
+        SkRect rect;
+        char triplet[4];
         int regionIdx = 0;
         for (auto &rgn : regions) {
             const int size = rgn.end - rgn.start;

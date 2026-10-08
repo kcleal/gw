@@ -2,6 +2,7 @@
 // Created by Kez Cleal on 11/11/2022.
 //
 #include <algorithm>
+#include <array>
 #include <iostream>
 #include <utility>
 #include <string>
@@ -1250,25 +1251,42 @@ namespace Parse {
     // -------------------------------------------------------------------------
     // Translation helpers
     // -------------------------------------------------------------------------
-    char complementBase(char base) {
-        switch (std::toupper(base)) {
-            case 'A': return 'T';
-            case 'T': case 'U': return 'A';
-            case 'C': return 'G';
-            case 'G': return 'C';
-            case 'N': return 'N';
-            default: return 'N';
-        }
+    // Lookup tables indexed by base character, with lower case entries included
+    static constexpr std::array<char, 256> makeUpperTable() {
+        std::array<char, 256> t{};
+        for (int i = 0; i < 256; ++i) t[i] = (char)i;
+        t['a'] = 'A'; t['c'] = 'C'; t['g'] = 'G'; t['t'] = 'T'; t['u'] = 'U'; t['n'] = 'N';
+        return t;
     }
 
-    static int baseIndex(char base) {
-        switch (std::toupper(base)) {
-            case 'A': return 0;
-            case 'C': return 1;
-            case 'G': return 2;
-            case 'T': case 'U': return 3;
-            default: return -1;
-        }
+    static constexpr std::array<char, 256> makeComplementTable() {
+        std::array<char, 256> t{};
+        for (int i = 0; i < 256; ++i) t[i] = 'N';
+        t['A'] = 'T'; t['a'] = 'T';
+        t['C'] = 'G'; t['c'] = 'G';
+        t['G'] = 'C'; t['g'] = 'C';
+        t['T'] = 'A'; t['t'] = 'A';
+        t['U'] = 'A'; t['u'] = 'A';
+        return t;
+    }
+
+    static constexpr std::array<signed char, 256> makeBaseIndexTable() {
+        std::array<signed char, 256> t{};
+        for (int i = 0; i < 256; ++i) t[i] = -1;
+        t['A'] = 0; t['a'] = 0;
+        t['C'] = 1; t['c'] = 1;
+        t['G'] = 2; t['g'] = 2;
+        t['T'] = 3; t['t'] = 3;
+        t['U'] = 3; t['u'] = 3;
+        return t;
+    }
+
+    static constexpr std::array<char, 256> kUpper = makeUpperTable();
+    static constexpr std::array<char, 256> kComplement = makeComplementTable();
+    static constexpr std::array<signed char, 256> kBaseIndex = makeBaseIndexTable();
+
+    char complementBase(char base) {
+        return kComplement[(unsigned char)base];
     }
 
     // Standard genetic code (NCBI table 1).  Indexed by [first][second][third]
@@ -1302,9 +1320,9 @@ namespace Parse {
 
     const char* translateCodon(const char* t, int code) {
         if (code == 1) {
-            int i0 = baseIndex(t[0]);
-            int i1 = baseIndex(t[1]);
-            int i2 = baseIndex(t[2]);
+            int i0 = kBaseIndex[(unsigned char)t[0]];
+            int i1 = kBaseIndex[(unsigned char)t[1]];
+            int i2 = kBaseIndex[(unsigned char)t[2]];
             if (i0 < 0 || i1 < 0 || i2 < 0) {
                 return "?";
             }
@@ -1316,9 +1334,16 @@ namespace Parse {
     }
 
     void fillTriplet(const char* ref, int p0, int p1, int p2, char* triplet) {
-        triplet[0] = std::toupper(ref[p0]);
-        triplet[1] = std::toupper(ref[p1]);
-        triplet[2] = std::toupper(ref[p2]);
+        triplet[0] = kUpper[(unsigned char)ref[p0]];
+        triplet[1] = kUpper[(unsigned char)ref[p1]];
+        triplet[2] = kUpper[(unsigned char)ref[p2]];
+        triplet[3] = '\0';
+    }
+
+    void fillTripletRevComp(const char* ref, int p0, int p1, int p2, char* triplet) {
+        triplet[0] = kComplement[(unsigned char)ref[p2]];
+        triplet[1] = kComplement[(unsigned char)ref[p1]];
+        triplet[2] = kComplement[(unsigned char)ref[p0]];
         triplet[3] = '\0';
     }
 

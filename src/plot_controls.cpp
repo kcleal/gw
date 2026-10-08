@@ -2095,10 +2095,7 @@ namespace Manager {
             if (opts.translation_strand) {
                 Parse::fillTriplet(region->refSeq, idx0, idx0 + 1, idx0 + 2, triplet);
             } else {
-                triplet[0] = std::toupper(Parse::complementBase(region->refSeq[idx0 + 2]));
-                triplet[1] = std::toupper(Parse::complementBase(region->refSeq[idx0 + 1]));
-                triplet[2] = std::toupper(Parse::complementBase(region->refSeq[idx0]));
-                triplet[3] = '\0';
+                Parse::fillTripletRevComp(region->refSeq, idx0, idx0 + 1, idx0 + 2, triplet);
             }
             const char* aa = Parse::translateCodon(triplet, opts.translation_code);
             if (aa && aa[0]) {
