@@ -1591,127 +1591,91 @@ namespace Drawing {
 
             // Clip to this pane, so codons straddling the right edge don't bleed into the next pane
             canvas->save();
-            canvas->clipRect(SkRect::MakeXYWH((float)regionX, top, laneW, ctx.translationTrackHeight));
+            rect.setXYWH((float)regionX, top, laneW, ctx.translationTrackHeight);
+            canvas->clipRect(rect);
 
             // Lane backgrounds: selected lane is emphasised, deselected lanes faded.
             for (int frame = 0; frame < 3; ++frame) {
                 float laneY = laneAreaTop + frame * (laneHeight + laneSpacing);
                 bool isSelected = (frame == activeFrame);
-                SkRect laneRect;
-                laneRect.setXYWH((float)regionX, laneY, laneW, laneHeight);
+                rect.setXYWH((float)regionX, laneY, laneW, laneHeight);
                 mutedPaint.setAlpha(isSelected ? 70 : 28);
-                canvas->drawRect(laneRect, mutedPaint);
+                canvas->drawRect(rect, mutedPaint);
                 if (isSelected) {
                     activeBg.setAlpha(85);
-                    canvas->drawRect(laneRect, activeBg);
+                    canvas->drawRect(rect, activeBg);
                 }
             }
 
             // Codon blocks, anchored to genomic coordinates so each codon stays in
-            // the same lane as the user scrolls.  Frame = (genomic_pos - 1) % 3.
+            // the same lane as the user scrolls.
             SkPaint localStart = startPaint;
             SkPaint localStop  = stopPaint;
-            for (int g = rgn.start; g + 2 <= rgn.end; ++g) {
-                int frame = (g - 1) % 3;
-                if (frame < 0) frame += 3;
-                float laneY = laneAreaTop + frame * (laneHeight + laneSpacing);
-                bool isSelected = (frame == activeFrame);
-
+            int frame = mod3(rgn.start - 1);
+            for (int g = rgn.start; g + 2 <= rgn.end; ++g, frame = (frame == 2) ? 0 : frame + 1) {
                 int idx0 = g - rgn.start;
-                int idx1 = idx0 + 1;
-                int idx2 = idx0 + 2;
-                char triplet[4];
                 if (opts.translation_strand) {
-                    Parse::fillTriplet(rgn.refSeq, idx0, idx1, idx2, triplet);
+                    Parse::fillTriplet(rgn.refSeq, idx0, idx0 + 1, idx0 + 2, triplet);
                 } else {
-                    triplet[0] = std::toupper(Parse::complementBase(rgn.refSeq[idx2]));
-                    triplet[1] = std::toupper(Parse::complementBase(rgn.refSeq[idx1]));
-                    triplet[2] = std::toupper(Parse::complementBase(rgn.refSeq[idx0]));
-                    triplet[3] = '\0';
+                    Parse::fillTripletRevComp(rgn.refSeq, idx0, idx0 + 1, idx0 + 2, triplet);
                 }
-
-                float bx = (float)(regionX + idx0 * xScaling);
-                SkRect block;
-                block.setXYWH(bx, laneY, (float)codonW, laneHeight);
-
-                if (Parse::isStartCodon(triplet)) {
-                    localStart.setAlpha(isSelected ? 220 : 100);
-                    canvas->drawRect(block, localStart);
-                } else if (Parse::isStopCodon(triplet)) {
-                    localStop.setAlpha(isSelected ? 220 : 100);
-                    canvas->drawRect(block, localStop);
+                bool isStart = Parse::isStartCodon(triplet);
+                if (!isStart && !Parse::isStopCodon(triplet)) {
+                    continue;
                 }
+                bool isSelected = (frame == activeFrame);
+                float laneY = laneAreaTop + frame * (laneHeight + laneSpacing);
+                rect.setXYWH((float)(regionX + idx0 * xScaling), laneY, (float)codonW, laneHeight);
+                SkPaint &paint = isStart ? localStart : localStop;
+                paint.setAlpha(isSelected ? 220 : 100);
+                canvas->drawRect(rect, paint);
             }
 
             // Codon of the active frame that contains the selected reference base (-1 = none)
             int selectedCodon = -1;
             if (ctx.selectedBasePos >= rgn.start && ctx.selectedBasePos < rgn.end && ctx.selectedBaseChrom == rgn.chrom) {
-                for (int g = ctx.selectedBasePos - 2; g <= ctx.selectedBasePos; ++g) {
-                    int frame = (g - 1) % 3;
-                    if (frame < 0) frame += 3;
-                    if (frame == activeFrame && g >= rgn.start && g + 2 <= rgn.end) {
-                        selectedCodon = g;
-                        break;
-                    }
+                int g = ctx.selectedBasePos - mod3(ctx.selectedBasePos - 1 - activeFrame);
+                if (g >= rgn.start && g + 2 <= rgn.end) {
+                    selectedCodon = g;
                 }
             }
             if (selectedCodon >= 0) {
                 float laneY = laneAreaTop + activeFrame * (laneHeight + laneSpacing);
-                SkRect block;
-                block.setXYWH((float)(regionX + (selectedCodon - rgn.start) * xScaling), laneY, (float)codonW, laneHeight);
-                block.outset(monitorScale, monitorScale);
-                selFill.setAlpha(90);
-                canvas->drawRect(block, selFill);
-                canvas->drawRect(block, selOutline);
+                rect.setXYWH((float)(regionX + (selectedCodon - rgn.start) * xScaling), laneY, (float)codonW, laneHeight);
+                rect.outset(monitorScale, monitorScale);
+                canvas->drawRect(rect, theme.fcSelectedCodon);
+                canvas->drawRect(rect, theme.lcSelectedBase);
             }
 
             // Active text row (only for the selected frame) plus small codon tick
             // marks that sit just below the reference genome, above the mini-lanes.
             if (codonW >= minCodonTextWidth) {
-                float textBaseline = textTop + textRowHeight * 0.8f + 2.5f * monitorScale;
-                SkRect capBounds;
-                fonts.overlay.measureText("P", 1, SkTextEncoding::kUTF8, &capBounds);
-                float tickY = laneAreaTop - gap * 0.5f;
-                float tickLen = monitorScale * 5.0f;
                 bool firstCodon = true;
-
-                for (int g = rgn.start; g + 2 <= rgn.end; ++g) {
-                    int frame = (g - 1) % 3;
-                    if (frame < 0) frame += 3;
-                    if (frame != activeFrame) continue;
-
+                // Step through the active frame's codons only
+                for (int g = rgn.start + mod3(activeFrame + 1 - rgn.start); g + 2 <= rgn.end; g += 3) {
                     int idx0 = g - rgn.start;
-                    char triplet[4];
                     if (opts.translation_strand) {
                         Parse::fillTriplet(rgn.refSeq, idx0, idx0 + 1, idx0 + 2, triplet);
                     } else {
-                        triplet[0] = std::toupper(Parse::complementBase(rgn.refSeq[idx0 + 2]));
-                        triplet[1] = std::toupper(Parse::complementBase(rgn.refSeq[idx0 + 1]));
-                        triplet[2] = std::toupper(Parse::complementBase(rgn.refSeq[idx0]));
-                        triplet[3] = '\0';
+                        Parse::fillTripletRevComp(rgn.refSeq, idx0, idx0 + 1, idx0 + 2, triplet);
                     }
                     const char* aa = Parse::translateCodon(triplet, opts.translation_code);
                     float text_w = fonts.overlay.measureText(aa, 1, SkTextEncoding::kUTF8);
+                    float bx = (float)(regionX + idx0 * xScaling);
                     float cx = (float)(regionX + idx0 * xScaling + codonW * 0.5f);
                     float x = cx - text_w * 0.5f;
                     if (g == selectedCodon) {
-                        SkRect aaBox;
-                        // Cap height plus padding, so the box doesn't touch the letter
-                        const float pad = 2.5f * monitorScale;
-                        aaBox.setLTRB((float)(regionX + idx0 * xScaling), textBaseline + capBounds.top() - pad,
-                                      (float)(regionX + idx0 * xScaling + codonW), textBaseline + pad);
-                        selFill.setAlpha(70);
-                        canvas->drawRoundRect(aaBox, 2 * monitorScale, 2 * monitorScale, selFill);
-                        canvas->drawRoundRect(aaBox, 2 * monitorScale, 2 * monitorScale, selOutline);
+                        rect.setLTRB(bx, textBaseline + capBounds.top() - aaPad, bx + (float)codonW, textBaseline + aaPad);
+                        canvas->drawRoundRect(rect, 2 * monitorScale, 2 * monitorScale, theme.fcSelectedCodon);
+                        canvas->drawRoundRect(rect, 2 * monitorScale, 2 * monitorScale, theme.lcSelectedBase);
                     }
                     sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromText(aa, 1, fonts.overlay, SkTextEncoding::kUTF8);
                     canvas->drawTextBlob(blob, x, textBaseline, theme.tcLabels);
 
-                    float bx = (float)(regionX + idx0 * xScaling);
                     // Draw a tick at each interior codon boundary (between nucleotides),
                     // so the marks read like TTA|CCT|TGT.
                     if (!firstCodon) {
-                        canvas->drawLine(bx, tickY, bx, tickY + tickLen, tickPaint);
+                        canvas->drawLine(bx, tickY, bx, tickY + tickLen, theme.lcCodonTick);
                     }
                     firstCodon = false;
                 }

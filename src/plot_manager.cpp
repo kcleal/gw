@@ -1899,24 +1899,20 @@ namespace Manager {
             const float x = (regionWidth * (float)i) + gap + ((float)(selectedBasePos - rgn.start) * xScaling);
             // Clip to this pane, so the padded box can't cross into a neighbouring pane
             canvas->save();
-            canvas->clipRect(SkRect::MakeXYWH((regionWidth * (float)i) + gap, 0, regionWidth - gap - gap, (float)fb_height));
+            rect.setXYWH((regionWidth * (float)i) + gap, 0, regionWidth - gap - gap, (float)fb_height);
+            canvas->clipRect(rect);
             if (xScaling < 2 * monitorScale) {
                 // Zoomed out: a single line at the base centre
-                fill.setAlpha(160);
-                SkRect line = SkRect::MakeXYWH(x + (xScaling * 0.5f) - (0.75f * monitorScale), boxTop,
-                                               1.5f * monitorScale, bottom - boxTop);
-                canvas->drawRect(line, fill);
-                canvas->restore();
-                continue;
+                const float cx = x + (xScaling * 0.5f);
+                canvas->drawLine(cx, boxTop, cx, bottom, theme.lcSelectedBase);
+            } else {
+                // Translucent column one base wide
+                rect.setXYWH(x, boxTop, xScaling, bottom - boxTop);
+                canvas->drawRect(rect, theme.fcSelectedBase);
+                // Solid box around the reference base cell
+                rect.setLTRB(x - monitorScale, boxTop, x + xScaling + monitorScale, refTop + fonts.overlayHeight + boxPad);
+                canvas->drawRoundRect(rect, 2 * monitorScale, 2 * monitorScale, theme.lcSelectedBase);
             }
-            // Translucent column one base wide
-            fill.setAlpha(60);
-            SkRect column = SkRect::MakeXYWH(x, boxTop, xScaling, bottom - boxTop);
-            canvas->drawRect(column, fill);
-            // Solid box around the reference base cell
-            SkRect refCell = SkRect::MakeLTRB(x - monitorScale, boxTop, x + xScaling + monitorScale,
-                                              refTop + fonts.overlayHeight + boxPad);
-            canvas->drawRoundRect(refCell, 2 * monitorScale, 2 * monitorScale, outline);
             canvas->restore();
         }
     }
