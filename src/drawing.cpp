@@ -1563,23 +1563,6 @@ namespace Drawing {
         SkPaint mutedPaint = theme.fcCodonOther;
         SkPaint activeBg   = theme.bgCodonSelected;
 
-        SkPaint tickPaint;
-        tickPaint.setColor(theme.tcLabels.getColor());
-        tickPaint.setAlpha(100);
-        tickPaint.setStyle(SkPaint::kStroke_Style);
-        tickPaint.setStrokeWidth(monitorScale * 3.0f);
-        tickPaint.setAntiAlias(true);
-
-        // Highlight for the codon containing the selected reference base
-        SkPaint selFill;
-        selFill.setColor(theme.ecSelected.getColor());
-        selFill.setStyle(SkPaint::kFill_Style);
-        selFill.setAntiAlias(true);
-        SkPaint selOutline = theme.ecSelected;
-        selOutline.setStyle(SkPaint::kStroke_Style);
-        selOutline.setStrokeWidth(1.5f * monitorScale);
-        selOutline.setAntiAlias(true);
-
         const double regionW = (double)ctx.fb_width / (double)regions.size();
         const double xPixels = std::max(0.0, regionW - gap - gap);
         const float minCodonTextWidth = fonts.overlayWidth * 1.2f;

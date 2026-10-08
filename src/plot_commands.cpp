@@ -1847,6 +1847,10 @@ namespace Commands {
         else if (c == "tcBackground") { e = Themes::GwPaint::tcBackground; }
         else if (c == "fcMarkers") { e = Themes::GwPaint::fcMarkers; }
         else if (c == "fcRoi") { e = Themes::GwPaint::fcRoi; }
+        else if (c == "fcSelectedBase") { e = Themes::GwPaint::fcSelectedBase; }
+        else if (c == "fcSelectedCodon") { e = Themes::GwPaint::fcSelectedCodon; }
+        else if (c == "lcSelectedBase") { e = Themes::GwPaint::lcSelectedBase; }
+        else if (c == "lcCodonTick") { e = Themes::GwPaint::lcCodonTick; }
         else if (c =="fc5mc") {
             e = Themes::GwPaint::fc5mc;
             alpha = 63;

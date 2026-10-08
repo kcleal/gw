@@ -187,6 +187,17 @@ namespace Themes {
         ecSelected.setAntiAlias(true);
         ecSplit.setAntiAlias(true);
 
+        fcSelectedBase.setStyle(SkPaint::kFill_Style);
+        fcSelectedBase.setAntiAlias(true);
+        fcSelectedCodon.setStyle(SkPaint::kFill_Style);
+        fcSelectedCodon.setAntiAlias(true);
+        lcSelectedBase.setStyle(SkPaint::kStroke_Style);
+        lcSelectedBase.setStrokeWidth(1.5);
+        lcSelectedBase.setAntiAlias(true);
+        lcCodonTick.setStyle(SkPaint::kStroke_Style);
+        lcCodonTick.setStrokeWidth(3);
+        lcCodonTick.setAntiAlias(true);
+
         fcMarkers.setStyle(SkPaint::kStrokeAndFill_Style);
         fcMarkers.setAntiAlias(true);
         fcMarkers.setStrokeMiter(0.1);
@@ -302,6 +313,10 @@ namespace Themes {
             case GwPaint::fcCodonStop: this->fcCodonStop.setARGB(a, r, g, b); break;
             case GwPaint::fcCodonOther: this->fcCodonOther.setARGB(a, r, g, b); break;
             case GwPaint::bgCodonSelected: this->bgCodonSelected.setARGB(a, r, g, b); break;
+            case GwPaint::fcSelectedBase: this->fcSelectedBase.setARGB(a, r, g, b); break;
+            case GwPaint::fcSelectedCodon: this->fcSelectedCodon.setARGB(a, r, g, b); break;
+            case GwPaint::lcSelectedBase: this->lcSelectedBase.setARGB(a, r, g, b); break;
+            case GwPaint::lcCodonTick: this->lcCodonTick.setARGB(a, r, g, b); break;
             default: break;
         }
     }
@@ -357,6 +372,10 @@ namespace Themes {
             case GwPaint::fcCodonStop: p = this->fcCodonStop; break;
             case GwPaint::fcCodonOther: p = this->fcCodonOther; break;
             case GwPaint::bgCodonSelected: p = this->bgCodonSelected; break;
+            case GwPaint::fcSelectedBase: p = this->fcSelectedBase; break;
+            case GwPaint::fcSelectedCodon: p = this->fcSelectedCodon; break;
+            case GwPaint::lcSelectedBase: p = this->lcSelectedBase; break;
+            case GwPaint::lcCodonTick: p = this->lcCodonTick; break;
             default: break;
         }
         SkColor clr = p.getColor();
@@ -404,6 +423,10 @@ namespace Themes {
         fcCodonStop.setARGB(255, 193, 116, 73);
         fcCodonOther.setARGB(255, 212, 206, 198);
         bgCodonSelected.setARGB(255, 232, 226, 218);
+        fcSelectedBase.setARGB(60, 0, 0, 0);
+        fcSelectedCodon.setARGB(80, 0, 0, 0);
+        lcSelectedBase.setARGB(255, 0, 0, 0);
+        lcCodonTick.setARGB(100, 0, 0, 0);
         ecSelected.setARGB(255, 0, 0, 0);
         ecSelected.setStyle(SkPaint::kStroke_Style);
         ecSelected.setStrokeWidth(2);
@@ -451,6 +474,10 @@ namespace Themes {
         fcCodonStop.setARGB(255, 193, 116, 73);
         fcCodonOther.setARGB(255, 90, 90, 95);
         bgCodonSelected.setARGB(255, 70, 70, 75);
+        fcSelectedBase.setARGB(60, 255, 255, 255);
+        fcSelectedCodon.setARGB(80, 255, 255, 255);
+        lcSelectedBase.setARGB(255, 255, 255, 255);
+        lcCodonTick.setARGB(100, 255, 255, 255);
         ecSelected.setARGB(255, 255, 255, 255);
         ecSelected.setStyle(SkPaint::kStroke_Style);
         ecSelected.setStrokeWidth(2);
@@ -498,6 +525,10 @@ namespace Themes {
         fcCodonStop.setARGB(255, 193, 116, 73);
         fcCodonOther.setARGB(255, 93, 92, 99);
         bgCodonSelected.setARGB(255, 70, 70, 75);
+        fcSelectedBase.setARGB(60, 255, 255, 255);
+        fcSelectedCodon.setARGB(80, 255, 255, 255);
+        lcSelectedBase.setARGB(255, 255, 255, 255);
+        lcCodonTick.setARGB(100, 255, 255, 255);
         ecSelected.setARGB(255, 255, 255, 255);
         ecSelected.setStyle(SkPaint::kStroke_Style);
         ecSelected.setStrokeWidth(2);

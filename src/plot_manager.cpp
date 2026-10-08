@@ -1712,6 +1712,8 @@ namespace Manager {
                 opts.theme.ModPaints[2][i].setStrokeWidth(sw);
             }
         }
+        opts.theme.lcSelectedBase.setStrokeWidth(1.5f * monitorScale);
+        opts.theme.lcCodonTick.setStrokeWidth(3.0f * monitorScale);
         setDrawContext(ctx);
     }
 
@@ -1886,14 +1888,8 @@ namespace Manager {
         const float boxPad = 3 * monitorScale;
         const float boxTop = refTop - boxPad;
         const float bottom = fb_height - sliderSpace;
-        SkPaint fill;
-        fill.setColor(opts.theme.ecSelected.getColor());
-        fill.setStyle(SkPaint::kFill_Style);
-        fill.setAntiAlias(true);
-        SkPaint outline = opts.theme.ecSelected;
-        outline.setStyle(SkPaint::kStroke_Style);
-        outline.setStrokeWidth(1.5f * monitorScale);
-        outline.setAntiAlias(true);
+        const Themes::BaseTheme &theme = opts.theme;
+        SkRect rect;
         for (size_t i = 0; i < regions.size(); ++i) {
             const Utils::Region &rgn = regions[i];
             if (rgn.chrom != selectedBaseChrom || selectedBasePos < rgn.start || selectedBasePos >= rgn.end) {
