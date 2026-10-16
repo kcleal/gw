@@ -22,7 +22,7 @@
 #include "include/core/SkPaint.h"
 #include "include/core/SkPath.h"
 #include "include/core/SkPathEffect.h"
-#include "include/effects/SkDashPathEffect.h"
+#include "skia_compat.h"
 #include "include/core/SkTypeface.h"
 #include "include/core/SkTextBlob.h"
 
@@ -1373,7 +1373,7 @@ namespace Drawing {
             separator.setStyle(SkPaint::kStroke_Style);
             separator.setStrokeWidth(monitorScale);
             const SkScalar dashes[] = {4 * monitorScale, 4 * monitorScale};
-            separator.setPathEffect(SkDashPathEffect::Make(dashes, 2, 0));
+            separator.setPathEffect(SkiaCompat::makeDashPathEffect(dashes, 2, 0));
             SkPaint label = theme.tcLabels;
             label.setAlphaf(0.7f);
             for (int group = 0; group < groups; ++group) {

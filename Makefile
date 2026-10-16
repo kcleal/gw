@@ -77,7 +77,7 @@ else
 		cd lib/skia && curl -L -o skia.zip "https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip" && unzip -o skia.zip && rm skia.zip && cd ../../; \
 	fi
 endif
-SKIA_PATH := $(shell find ./lib/skia/out -type d -name '*Release*' | sort | head -n 1)
+SKIA_PATH := $(shell if [ -d ./lib/skia/out ]; then find ./lib/skia/out -type d -name '*Release*' | sort | head -n 1; fi)
 # Flags and libs -----------------------------------------
 ifeq ($(OLD_SKIA),1)
 	CXXFLAGS += -D OLD_SKIA -D USE_GL
@@ -133,7 +133,7 @@ OBJECTS += $(patsubst %.cpp, %.o, $(wildcard $(IMGUI)/*.cpp) $(IMGUI)/backends/i
 -include $(OBJECTS:.o=.d)
 ./lib/libBigWig/%.o: ./lib/libBigWig/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Wno-attribute-warning -c $< -o $@
-$(TARGET): $(OBJECTS)  # line 131
+$(TARGET): $(OBJECTS)
 	$(CXX) $(CXXFLAGS) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $@
 
 

@@ -21,7 +21,7 @@
 
 #include "include/core/SkFontMgr.h"
 #include "include/core/SkPathEffect.h"
-#include "include/effects/SkDashPathEffect.h"
+#include "skia_compat.h"
 #if !defined(OLD_SKIA) || OLD_SKIA == 0
     #if defined(__APPLE__)
         #include <CoreText/CoreText.h>
@@ -180,7 +180,7 @@ namespace Themes {
 
         lcGTFJoins.setStyle(SkPaint::kStroke_Style);
         lcGTFJoins.setStrokeWidth(2);
-        lcGTFJoins.setPathEffect(SkDashPathEffect::Make(intervals, 2, 0.0f));
+        lcGTFJoins.setPathEffect(SkiaCompat::makeDashPathEffect(intervals, 2, 0.0f));
 
         lcLabel.setStyle(SkPaint::kStroke_Style);
         lcLabel.setStrokeWidth(1);
