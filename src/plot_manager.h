@@ -104,6 +104,15 @@ namespace Manager {
         bool helpDialogOpen{false};
         bool closeDialogOpen{false};
         bool labelTableDialogOpen{false};
+        bool labelTableDocked{true};
+        float labelTableWidth{260.0f}; // logical pixels; resized from the left edge
+        int lastDrawingWidth{0};
+        std::string cachedTileLayout;
+        int drawingWidth() const {
+            if (!showUIOverlay || drawToBackWindow || !labelTableDialogOpen || !labelTableDocked)
+                return fb_width;
+            return std::max(1, fb_width - (int)(std::min(labelTableWidth * monitorScale, fb_width * 0.5f)));
+        }
         bool terminalOutput;  // recoverable runtime errors and output sent to terminal or outStr
         bool debug_gw{false};    // general debug information
         bool showUIOverlay{false};  // set to true when startUI loop is entered, reserves top menu space
@@ -226,6 +235,8 @@ namespace Manager {
         std::vector<CovPopup> covPopups;
 
         struct TrackPopup {
+            bool detailsOpen{false};
+            std::string details;  // captured source feature data
             std::string ansi;     // ANSI-coded track info text
             float x{0}, y{0};    // screen position near click
             int uid{0};
@@ -272,7 +283,7 @@ namespace Manager {
 
         // Data loading functions
         void loadGenome(std::string genome_tag_or_path, std::ostream& outerr);
-        void addBam(std::string &bam_path);
+        bool addBam(std::string &bam_path);
         void removeBam(int index);
         bool addTrack(std::string &path, bool print_message, bool vcf_as_track, bool bed_as_track);
         void removeTrack(int index);
@@ -298,6 +309,10 @@ namespace Manager {
         void processBam();
         void resetCollectionRegionPtrs();
         void setScaling();
+        bool tileDataLabelsEnabled() const;
+        void prepareTileCache();
+        std::vector<Utils::BoundingBox> tileBoundingBoxes() const;
+        sk_sp<SkImage> renderVariantTile(int index, const Utils::BoundingBox& box);
         void setVariantSite(std::string &chrom, long start, std::string &chrom2, long stop);
         int startUI(GrDirectContext* sContext, SkSurface *sSurface, int delay, std::vector<std::string> &extra_commands);
 #ifdef __EMSCRIPTEN__
@@ -315,6 +330,7 @@ namespace Manager {
         bool commandProcessed();
         void prepareSelectedRegion();
         void addAlignmentToSelectedRegion();
+        void setCollectionVScroll(size_t index, int value);
         void setVScroll(int value);  // set absolute vertical read-scroll offset and re-layout
 
         // Draw functions
@@ -376,6 +392,7 @@ namespace Manager {
         double pointSlop, textDrop, pH;
 
         double xDrag, xOri, lastX, yDrag, yOri, lastY;
+        bool leftMouseDown{false};  // Button state for windowless cursor-event replay.
         bool mouseDragged;  // true if any significant drag (x or y) occurred since last press
         int windowW, windowH;  // Window width dn height
 

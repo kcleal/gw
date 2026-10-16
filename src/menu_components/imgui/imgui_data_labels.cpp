@@ -20,7 +20,7 @@ void drawImGuiDataLabels(Manager::GwPlot* plot,
                          bool& redraw)
 {
     if (!plot->opts.data_labels ||
-        plot->mode == Manager::Show::SETTINGS)
+        plot->mode != Manager::Show::SINGLE)
     {
         return;
     }

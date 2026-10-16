@@ -440,6 +440,7 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
 
             std::string winTitle = "Read info##readpopup" + std::to_string(rp.uid);
             ImGui::Begin(winTitle.c_str(), &windowOpen, flags);
+            closeOnEscape(&windowOpen);
 
             // ── Read action buttons in title bar ──────────────────────────────
             {
@@ -715,6 +716,7 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
             bool windowOpen = true;
             std::string winTitle = cp.chromPos + "##covpopup" + std::to_string(cp.uid);
             ImGui::Begin(winTitle.c_str(), &windowOpen, flags);
+            closeOnEscape(&windowOpen);
             ImGui::PopStyleVar();  // WindowPadding
 
             // ── Clipboard icon in the title bar ───────────────────────────────
@@ -825,7 +827,8 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                        + style.ScrollbarSize
                        + style.WindowPadding.x * 2
                        + style.CellPadding.x * 2 + 2;
-            float winH = titleH + style.WindowPadding.y * 2 + tableH;
+            float winH = titleH + style.WindowPadding.y * 2 + tableH
+                       + (tp.details.empty() ? 0 : ImGui::GetFrameHeightWithSpacing());
 
             // Position near the click, clamped to screen
             auto& io = ImGui::GetIO();
@@ -835,7 +838,7 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
             if (defY < 0) defY = 0;
             ImGui::SetNextWindowPos(ImVec2(defX, defY), ImGuiCond_Appearing);
             ImGui::SetNextWindowSize(ImVec2(winW, winH), ImGuiCond_Appearing);
-            ImGui::SetNextWindowSizeConstraints(ImVec2(300, 100), ImVec2(FLT_MAX, FLT_MAX));
+            ImGui::SetNextWindowSizeConstraints(ImVec2(300, 0), ImVec2(FLT_MAX, FLT_MAX));
 
             bool windowOpen = true;
             ImGuiWindowFlags flags = ImGuiWindowFlags_NoFocusOnAppearing
@@ -843,6 +846,7 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
 
             std::string winTitle = "Track info##trackpopup" + std::to_string(tp.uid);
             ImGui::Begin(winTitle.c_str(), &windowOpen, flags);
+            closeOnEscape(&windowOpen);
 
             // Clipboard icon in title bar
             {
@@ -928,6 +932,25 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                 ImGui::EndTable();
             }
 
+            if (!tp.details.empty()) {
+                ImGui::SetNextItemOpen(tp.detailsOpen, ImGuiCond_Always);
+                tp.detailsOpen = ImGui::TreeNodeEx("Feature data", ImGuiTreeNodeFlags_NoTreePushOnOpen);
+                if (tp.detailsOpen) {
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("Copy"))
+                        ImGui::SetClipboardText(tp.details.c_str());
+                    float dataHeight = ImGui::GetTextLineHeight() + style.WindowPadding.y * 2 + style.ScrollbarSize;
+                    ImGui::BeginChild("##feature_data", ImVec2(0, dataHeight), true,
+                                      ImGuiWindowFlags_HorizontalScrollbar);
+                    ImGui::TextUnformatted(tp.details.c_str());
+                    ImGui::EndChild();
+                }
+            }
+            // Keep the top anchored and fit the actual contents, growing downward
+            // only while feature data is open.
+            if (!ImGui::IsWindowCollapsed())
+                ImGui::SetWindowSize(ImVec2(ImGui::GetWindowWidth(),
+                    ImGui::GetCursorPosY() + style.WindowPadding.y - style.ItemSpacing.y));
             ImGui::End();
 
             if (!windowOpen) {
@@ -1052,6 +1075,7 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                                  + winSuffix + std::to_string(rp.uid);
             ImGui::Begin(winTitle.c_str(), &windowOpen,
                          ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
+            closeOnEscape(&windowOpen);
 
             // ── Clipboard icon in title bar ───────────────────────────────────
             {
@@ -1519,7 +1543,9 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
             ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f));
         ImGuiWindowFlags flags = ImGuiWindowFlags_NoNav
                                | ImGuiWindowFlags_NoSavedSettings;
-        if (ImGui::Begin("Output", &plot->showCommandStatus, flags)) {
+        bool visible = ImGui::Begin("Output", &plot->showCommandStatus, flags);
+        if (closeOnEscape(&plot->showCommandStatus)) plot->redraw = true;
+        if (visible) {
             // ── Title-bar icons (copy left of trash, trash left of close) ─────
             {
                 float titleBarH = ImGui::GetFrameHeight();

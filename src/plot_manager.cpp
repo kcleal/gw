@@ -156,19 +156,9 @@ namespace Manager {
             }
 #endif
         }
+        this->bam_paths.clear();
         for (auto &fn: bampaths) {
-            htsFile *f = sam_open(fn.c_str(), "r");
-            if (f == nullptr) {
-                std::cerr << "Error: could not open " << fn << std::endl;
-                std::exit(-1);
-            }
-            hts_set_fai_filename(f, reference.c_str());
-            hts_set_threads(f, opt.threads);
-            bams.push_back(f);
-            sam_hdr_t *hdr_ptr = sam_hdr_read(f);
-            headers.push_back(hdr_ptr);
-            hts_idx_t *idx = sam_index_load(f, fn.c_str());
-            indexes.push_back(idx);
+            if (!addBam(fn)) std::exit(EXIT_FAILURE);
         }
 
         if (!opts.genome_tag.empty() && !opts.ini_path.empty() && opts.myIni["tracks"].size() > 0 && (opts.myIni["tracks"].has(opts.genome_tag) || opts.myIni["tracks"].has(opts.genome_tag + "_ideogram"))) {
@@ -320,8 +310,7 @@ namespace Manager {
         glfwSetErrorCallback(ErrorCallback);
 
         if (!glfwInit()) {
-            std::cerr << "Error: could not initialize GLFW3" << std::endl;
-            std::terminate();
+            throw std::runtime_error("Error: could not initialize GLFW3");
         }
         bool opengl_es_loader;
 
@@ -494,8 +483,10 @@ namespace Manager {
         // top of these, chaining back here. By the time these lambdas run, ImGui has already
         // processed the event and WantCapture* flags are up-to-date.
         auto func_key = [](GLFWwindow *w, int k, int s, int a, int m) {
+            auto* plot = static_cast<GwPlot *>(glfwGetWindowUserPointer(w));
+            if (k == GLFW_KEY_ESCAPE && plot->showUIOverlay && Menu::hasImGuiEscapeTarget()) return;
             if (ImGui::GetIO().WantCaptureKeyboard) return;
-            static_cast<GwPlot *>(glfwGetWindowUserPointer(w))->keyPress(k, s, a, m);
+            plot->keyPress(k, s, a, m);
         };
         glfwSetKeyCallback(window, func_key);
 
@@ -632,9 +623,8 @@ namespace Manager {
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
         window = glfwCreateWindow(width, height, "GW", NULL, NULL);
         if (!window) {
-            std::cerr << "Error: could not create back window with GLFW3" << std::endl;
             glfwTerminate();
-            std::terminate();
+            throw std::runtime_error("Error: could not create back window with GLFW3");
         }
         glfwMakeContextCurrent(window);
         drawToBackWindow = true;
@@ -643,24 +633,56 @@ namespace Manager {
     }
 
     void GwPlot::fetchRefSeq(Utils::Region & rgn) {
-        // This will be called for every new region visited
-        assert (rgn.start >= 0);
-        if (rgn.end <= rgn.start) {
-            rgn.end = rgn.start + 1;
-        }
+        rgn.start = std::max(0, rgn.start);
+        if (rgn.end <= rgn.start) rgn.end = rgn.start + 1;
         rgn.regionLen = rgn.end - rgn.start;
-        if (rgn.chromLen == 0) {
-            rgn.chromLen = faidx_seq_len(fai, rgn.chrom.c_str());
-        }
-        if (rgn.regionLen < opts.snp_threshold || rgn.regionLen < 20000) {
-            rgn.refSeq = faidx_fetch_seq(fai, rgn.chrom.c_str(), rgn.start, rgn.end - 1, &rgn.regionLen);
-            if (rgn.end <= rgn.chromLen) {
-                rgn.refSeqLen = rgn.end - rgn.start;
-            } else {
-                rgn.refSeqLen = rgn.chromLen - rgn.start;
+        rgn.refSeq = nullptr;
+        rgn.refSeqLen = 0;
+        rgn.refBaseAtPos = '\0';
+        if (!fai) {
+            rgn.chromLen = 0;
+            if (!headers.empty()) {
+                int tid = HGW::bamContigId(headers[0], rgn.chrom);
+                if (tid >= 0) rgn.chromLen = (int)sam_hdr_tid2len(headers[0], tid);
             }
-        } else {
-            rgn.refSeqLen = 0;
+            return;
+        }
+        // Resolve against reference and BAM independently: naming may differ.
+        std::string refChrom = rgn.chrom;
+        if (!faidx_has_seq(fai, refChrom.c_str())) {
+            refChrom = Utils::startsWith(refChrom, "chr") ? refChrom.substr(3) : "chr" + refChrom;
+        }
+        rgn.chromLen = faidx_seq_len(fai, refChrom.c_str());
+        if (rgn.chromLen <= 0 || rgn.start >= rgn.chromLen) {
+            std::cerr << "Warning: reference has no bases for " << rgn.chrom
+                      << ":" << rgn.start << "-" << rgn.end << "\n";
+            rgn.chromLen = std::max(0, rgn.chromLen);
+            return;
+        }
+        const int limit = std::max(20000, opts.snp_threshold);
+        if (rgn.regionLen >= limit) return;
+        int end = std::min(rgn.end, rgn.chromLen);
+        bool cached = rgn.refSeqBuffer && rgn.refBufferIndex == fai &&
+            rgn.refBufferReference == reference && rgn.refBufferChrom == refChrom &&
+            rgn.refBufferStart <= rgn.start && end <= rgn.refBufferStart + rgn.refBufferLen;
+        if (!cached) {
+            rgn.packedReference.reset();
+            // Fetch a bounded window with room to pan in either direction.
+            int begin = std::max(0, rgn.start - (limit - (end - rgn.start)) / 2);
+            int windowEnd = begin + std::min(limit, rgn.chromLen - begin);
+            int fetched = 0;
+            char* bases = faidx_fetch_seq(fai, refChrom.c_str(), begin, windowEnd - 1, &fetched);
+            rgn.refSeqBuffer = std::shared_ptr<char>(bases, [](char* p) { std::free(p); });
+            rgn.refBufferStart = begin;
+            rgn.refBufferLen = bases && fetched > 0 ? fetched : 0;
+            rgn.refBufferChrom = refChrom;
+            rgn.refBufferReference = reference;
+            rgn.refBufferIndex = fai;
+        }
+        int offset = rgn.start - rgn.refBufferStart;
+        if (rgn.refSeqBuffer && offset >= 0 && offset < rgn.refBufferLen) {
+            rgn.refSeq = rgn.refSeqBuffer.get() + offset;
+            rgn.refSeqLen = std::min(end - rgn.start, rgn.refBufferLen - offset);
         }
     }
 
@@ -670,21 +692,30 @@ namespace Manager {
         }
     }
 
-    void GwPlot::addBam(std::string &bam_path) {
+    bool GwPlot::addBam(std::string &bam_path) {
+        std::ostream& outerr = terminalOutput ? std::cerr : outStr;
         htsFile *f = sam_open(bam_path.c_str(), "r");
-        if (f == nullptr) {
-            std::ostream& outerr = (terminalOutput) ? std::cerr : outStr;
-            outerr << termcolor::red << "Error:" << termcolor::reset << " could not open " << bam_path << "\n";
-            return;
+        if (!f) {
+            outerr << "Error: could not open " << bam_path << "\n";
+            return false;
         }
         hts_set_fai_filename(f, reference.c_str());
         hts_set_threads(f, opts.threads);
+        sam_hdr_t *hdr = sam_hdr_read(f);
+        hts_idx_t *idx = hdr ? sam_index_load(f, bam_path.c_str()) : nullptr;
+        if (!hdr || !idx) {
+            outerr << "Error: " << bam_path << (!hdr ? " has no readable SAM header" :
+                " has no readable index; create a BAM/CRAM index before opening it") << "\n";
+            if (idx) hts_idx_destroy(idx);
+            if (hdr) sam_hdr_destroy(hdr);
+            sam_close(f);
+            return false;
+        }
         bams.push_back(f);
-        bam_paths.push_back(bam_path);
-        sam_hdr_t *hdr_ptr = sam_hdr_read(f);
-        headers.push_back(hdr_ptr);
-        hts_idx_t *idx = sam_index_load(f, bam_path.c_str());
+        headers.push_back(hdr);
         indexes.push_back(idx);
+        bam_paths.push_back(bam_path);
+        return true;
     }
 
     void GwPlot::addVariantTrack(std::string &path, int startIndex, bool cacheStdin, bool useFullPath) {
@@ -980,20 +1011,9 @@ namespace Manager {
 
         fonts.setTypeface(opts.font_str, opts.font_size);
 
-        for (auto &fn: bam_paths) {
-            htsFile *f = sam_open(fn.c_str(), "r");
-            if (f == nullptr) {
-                std::cerr << "Error: could not open " << fn << std::endl;
-                continue;
-            }
-            hts_set_fai_filename(f, reference.c_str());
-            hts_set_threads(f, opts.threads);
-            bams.push_back(f);
-            sam_hdr_t *hdr_ptr = sam_hdr_read(f);
-            headers.push_back(hdr_ptr);
-            hts_idx_t *idx = sam_index_load(f, fn.c_str());
-            indexes.push_back(idx);
-        }
+        auto sessionBams = bam_paths;
+        bam_paths.clear();
+        for (auto &fn: sessionBams) addBam(fn);
         if (opts.seshIni.has("commands")) {
             for (auto &item: opts.seshIni["commands"]) {
                 inputText = item.second;
@@ -1065,7 +1085,7 @@ namespace Manager {
             printRegionInfo();
         } else {
             mouseOverTileIndex = 0;
-            bboxes = Utils::imageBoundingBoxes(opts.number, (float) fb_width, (float) fb_height);
+            bboxes = tileBoundingBoxes();
             if (terminalOutput) {
                 std::cout << termcolor::magenta << "File    " << termcolor::reset
                           << variantTracks[variantFileSelection].path << "\n";
@@ -1110,7 +1130,7 @@ namespace Manager {
                 wasResized = true;
                 setGlfwFrameBufferSize();
                 setScaling();
-                bboxes = Utils::imageBoundingBoxes(opts.number, (float) fb_width, (float) fb_height);
+                bboxes = tileBoundingBoxes();
 
                 resizeTriggered = false;
 
@@ -1371,9 +1391,7 @@ namespace Manager {
                 p->rasterSurfacePtr = &p->rasterSurface;
 
                 p->setScaling();
-                p->bboxes = Utils::imageBoundingBoxes(p->opts.number,
-                                                      (float)p->fb_width,
-                                                      (float)p->fb_height);
+                p->bboxes = p->tileBoundingBoxes();
                 p->resizeTriggered = false;
                 p->resizeTimer     = std::chrono::high_resolution_clock::now();
                 p->tracksLayoutDirty = true;  // re-derive track heights after the resize
@@ -1438,11 +1456,13 @@ namespace Manager {
                 bam_destroy1(aln.delegate);
             }
             cl.readQueue.clear();
+            cl.bufferedStart = cl.bufferedEnd = cl.bufferedTid = -1;
             cl.covArr.clear();
             cl.mmVector.clear();
             cl.levelsStart.clear();
             cl.levelsEnd.clear();
             cl.linked.clear();
+            cl.sortLevels.clear();
             cl.resetDrawState();
         }
         if (collections.size() != bams.size() * regions.size()) {
@@ -1590,7 +1610,7 @@ namespace Manager {
 
         // Calculate available space
         float availableHeight = fb_height - refSpace - sliderSpace;
-        float availableWidth = (float)fb_width;
+        float availableWidth = (float)drawingWidth();
 
         // Calculate track heights when flagged or when values change from cache
         float nbams = (float)bams.size();
@@ -1695,7 +1715,7 @@ namespace Manager {
         pointSlop = (tan(0.45) * (yScaling * 0.5));  // radians
         textDrop = std::fmax(0, (yScaling - fonts.overlayHeight) * 0.5);
 
-        minGapSize = (uint32_t)(fb_width * 0.005);
+        minGapSize = (uint32_t)(drawingWidth() * 0.005);
         if (opts.parse_mods) {
             float sw = std::fmin(pH * 0.333, 6 * monitorScale);
             for (size_t i=0; i < 4; ++i) {
@@ -1729,6 +1749,10 @@ namespace Manager {
     }
 
     void GwPlot::drawScreen(bool force_buffered_reads) {
+        // Every alignment redraw can reflect visual edits (including track drags).
+        // Preserve the alignment frame queue used for partial redraws, but retire
+        // all generated variant images so the next tiled view uses current settings.
+        if (!variantTracks.empty()) imageCache.clear();
 //        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
         SkCanvas *canvasR = rasterCanvas;
         canvasR->drawPaint(opts.theme.bgPaint);
@@ -1747,15 +1771,15 @@ namespace Manager {
             SkRect clip;
             // Draw background image
             if (!imageCacheQueue.empty() && !collections.empty()) {
-                canvasR->drawImage(imageCacheQueue.back().second, 0, 0);
+                Drawing::drawFrameImage(canvasR, imageCacheQueue.back().second);
                 // When coverage is off, cl.yOffset is shifted down by overlayHeight; extend
                 // the top clear to cover that gap so ghost coverage bars don't linger.
                 float topH = refSpace + (totalCovY == 0 && !bams.empty() ? fonts.overlayHeight : 0);
-                clip.setXYWH(0, 0, fb_width, topH);
+                clip.setXYWH(0, 0, drawingWidth(), topH);
                 canvasR->drawRect(clip, opts.theme.bgPaint);
                 // Bottom clear: start exactly where BAM content ends (same formula as topH + bam tracks).
                 float bamBottomY = topH + totalCovY + (trackY * (float)bams.size());
-                clip.setXYWH(0, bamBottomY, fb_width, fb_height);
+                clip.setXYWH(0, bamBottomY, drawingWidth(), fb_height);
                 canvasR->drawRect(clip, opts.theme.bgPaint);
             }
 
@@ -1784,7 +1808,7 @@ namespace Manager {
 
                 if (!cl.skipDrawingReads && !bams.empty()) {
                     if (cl.regionLen >= opts.low_memory && !force_buffered_reads) {
-                        assert (opts.link_op == 0 && regions[cl.regionIdx].getSortOption() == SortType::NONE);
+                        assert (opts.link_op == 0);
                         // low memory mode will be used
                         cl.clear();
                         if (opts.threads == 1) {
@@ -1820,6 +1844,7 @@ namespace Manager {
     }
 
     void GwPlot::drawScreenNoBuffer() {
+        if (!variantTracks.empty()) imageCache.clear();
         //        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
         frameId += 1;
         if (regions.empty()) {
@@ -1837,7 +1862,7 @@ namespace Manager {
         if (regions.empty() || xPos_fb <= 0 || yPos_fb <= 0 || yPos_fb < fb_height - sliderSpace + (gap*0.5) || regionSelection < 0) {
             return;
         }
-        float colWidth = (float) fb_width / (float) regions.size();
+        float colWidth = (float) drawingWidth() / (float) regions.size();
         regionSelection = (int)(xPos_fb / colWidth);
         regionSelection = std::clamp(regionSelection, 0, (int)regions.size() - 1);
         Utils::Region &rgn = regions[regionSelection];
@@ -1880,7 +1905,7 @@ namespace Manager {
     }
 
     void GwPlot::setDrawContext(Drawing::drawContext& ctx) {
-        ctx.fb_width = fb_width;
+        ctx.fb_width = drawingWidth();
         ctx.fb_height = fb_height;
         ctx.covYh = covY;
         ctx.refSpace = refSpace;
@@ -1967,6 +1992,7 @@ namespace Manager {
         bool settings_open = (mode == Show::SETTINGS);
         bool redraw_before = redraw;
         std::string themeBefore = opts.theme_str;
+        unsigned themeRevisionBefore = opts.theme_revision;
         Menu::drawImGuiSettings(this, &settings_open, redraw, &drawLine);
 
         if (!settings_open && mode == Show::SETTINGS) {
@@ -1975,10 +2001,12 @@ namespace Manager {
         } else if (redraw && !redraw_before) {
             processed = false;
         }
-        if (opts.theme_str != themeBefore) {
+        if (opts.theme_str != themeBefore || opts.theme_revision != themeRevisionBefore) {
+            clearZoomCache();
+            processed = false;
             imageCache.clear();
             imageCacheQueue.clear();
-            for (auto &t : tracks) { t.setPaint(opts.theme.fcTrack); }
+            for (auto &t : tracks) { t.setPaint(t.kind == HGW::FType::BIGWIG ? opts.theme.fcBigWig : opts.theme.fcTrack); }
         }
 
         redraw_before = redraw;
@@ -2009,11 +2037,22 @@ namespace Manager {
             processed = false;
         }
 
+        Menu::drawImGuiAlignmentScrollbars(this);
         Menu::drawImGuiInfoPopup(this);
         Menu::drawImGuiCovPopup(this);
         Menu::drawImGuiTrackPopup(this);
         Menu::drawImGuiSeqPopup(this);
         Menu::drawImGuiLabelTableDialog(this, redraw);
+        if (drawingWidth() != lastDrawingWidth) {
+            lastDrawingWidth = drawingWidth();
+            imageCache.clear();
+            imageCacheQueue.clear();
+            bboxes = tileBoundingBoxes();
+            setScaling();
+            setDrawContext(ctx);
+            processed = false;
+            redraw = true;
+        }
         Menu::drawImGuiCommandStatus(this);
 
         ImGui::Render();
@@ -2027,7 +2066,7 @@ namespace Manager {
             if (imageCacheQueue.empty()) {
                 return;
             }
-            canvas->drawImage(imageCacheQueue.back().second, 0, 0);
+            Drawing::drawFrameImage(canvas, imageCacheQueue.back().second);
         } else {
             canvas->drawPaint(opts.theme.bgPaint);
         }
@@ -2047,7 +2086,7 @@ namespace Manager {
         // draw box when a change in region selection happens via keyboard
         if (regionSelectionTriggered && regions.size() > 1) {
             SkRect rect{};
-            float step = (float)fb_width / (float)regions.size();
+            float step = (float)drawingWidth() / (float)regions.size();
             if (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - regionTimer) > 500ms) {
                 regionSelectionTriggered = false;
             }
@@ -2091,7 +2130,7 @@ namespace Manager {
 
             // Command Box text width
             float txt_w = fonts.overlay.measureText(inputText.c_str(), inputText.size(), SkTextEncoding::kUTF8);
-            float max_w = fb_width - 14 - (fonts.overlayWidth*5);
+            float max_w = drawingWidth() - 14 - (fonts.overlayWidth*5);
             std::string inputText2 = inputText;
             int charIndex2 = charIndex;
             if (txt_w > max_w) {
@@ -2107,7 +2146,7 @@ namespace Manager {
                 charIndex2 = charIndex - i;
             }
             float to_cursor_width = fonts.overlay.measureText(inputText2.substr(0, charIndex2).c_str(), charIndex2, SkTextEncoding::kUTF8);
-            rect.setXYWH(0, yy, fb_width, fb_height);
+            rect.setXYWH(0, yy, drawingWidth(), fb_height);
             canvas->drawRect(rect, bg);
 
             // Cursor and text
@@ -2214,7 +2253,7 @@ namespace Manager {
             float trackBoundary = fb_height - totalTabixY - refSpace;
             std::string dd_msg = "Drag-and-drop bam or cram files here";
             float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
-            float txt_start = ((float)fb_width / 2) - (msg_width / 2);
+            float txt_start = ((float)drawingWidth() / 2) - (msg_width / 2);
             sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(dd_msg.c_str(), fonts.overlay);
             SkPaint tcMenu;
             tcMenu.setARGB(255, 100, 100, 100);
@@ -2226,7 +2265,7 @@ namespace Manager {
         } else if (regions.empty() && !current_view_is_images && mode != SETTINGS && frameId < 10) {
             std::string dd_msg = "Open the command box '/' and enter a chromosome name or location";
             float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
-            float txt_start = ((float)fb_width / 2) - (msg_width / 2);
+            float txt_start = ((float)drawingWidth() / 2) - (msg_width / 2);
             sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(dd_msg.c_str(), fonts.overlay);
             SkPaint tcMenu;
             tcMenu.setARGB(255, 100, 100, 100);
@@ -2236,13 +2275,91 @@ namespace Manager {
 
             dd_msg = "Or type 'help' to see the help menu in the terminal";
             msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
-            txt_start = ((float)fb_width / 2) - (msg_width / 2);
+            txt_start = ((float)drawingWidth() / 2) - (msg_width / 2);
             sk_sp<SkTextBlob> blob2 = SkTextBlob::MakeFromString(dd_msg.c_str(), fonts.overlay);
             canvas->drawTextBlob(blob2.get(), txt_start, (float)fb_height / 2 + (fonts.overlayHeight * 2), tcMenu);
         }
     }
 
-//    void GwPlot::tileDrawingThread(SkCanvas *canvas, GrDirectContext *sContext, SkSurface *sSurface) {
+    bool GwPlot::tileDataLabelsEnabled() const {
+        if (!opts.data_labels) return false;
+        int count = opts.number.x * opts.number.y;
+        if (variantFileSelection >= 0 && variantFileSelection < (int)variantTracks.size()) {
+            const auto& track = variantTracks[variantFileSelection];
+            int total = track.type == HGW::TrackType::IMAGES ? (int)track.image_glob.size()
+                                                          : (int)track.multiRegions.size();
+            count = std::min(count, std::max(0, total - track.blockStart));
+        }
+        return count == 1;
+    }
+
+    void GwPlot::prepareTileCache() {
+        std::string key = std::to_string(opts.number.x) + ":" + std::to_string(opts.number.y)
+            + ":" + std::to_string(drawingWidth()) + ":" + std::to_string(fb_height)
+            + ":" + std::to_string(topMenuSpace) + ":" + std::to_string(monitorScale)
+            + ":" + std::to_string(tileDataLabelsEnabled()) + ":" + std::to_string(variantFileSelection);
+        if (key != cachedTileLayout) {
+            cachedTileLayout = key;
+            imageCache.clear();
+            imageCacheQueue.clear();
+        }
+    }
+
+    std::vector<Utils::BoundingBox> GwPlot::tileBoundingBoxes() const {
+        std::vector<Utils::BoundingBox> boxes;
+        int nx = std::max(1, opts.number.x), ny = std::max(1, opts.number.y);
+        float pad = 6 * monitorScale;
+        float top = showUIOverlay ? topMenuSpace : 0;
+        float cellW = std::max(1.0f, (drawingWidth() - pad) / nx);
+        float cellH = std::max(1.0f, (fb_height - top - pad) / ny);
+        for (int x = 0; x < nx; ++x) {
+            for (int y = 0; y < ny; ++y) {
+                Utils::BoundingBox box{};
+                box.xStart = pad + x * cellW;
+                box.yStart = top + pad + y * cellH;
+                box.width = std::max(1.0f, cellW - pad);
+                box.height = std::max(1.0f, cellH - pad);
+                box.xEnd = box.xStart + box.width;
+                box.yEnd = box.yStart + box.height;
+                boxes.push_back(box);
+            }
+        }
+        return boxes;
+    }
+
+    sk_sp<SkImage> GwPlot::renderVariantTile(int index, const Utils::BoundingBox& box) {
+        // Render small cells at a useful logical resolution, preserving aspect
+        // ratio; the composite then downsamples the result into the actual cell.
+        float renderScale = std::max({1.0f, 200.0f * monitorScale / std::max(1.0f, box.width),
+                                           100.0f * monitorScale / std::max(1.0f, box.height)});
+        int width = std::max(1, (int)std::ceil(box.width * renderScale));
+        int height = std::max(1, (int)std::ceil(box.height * renderScale));
+#if !defined(OLD_SKIA) || OLD_SKIA == 0
+        auto surface = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(width, height));
+#else
+        auto surface = SkSurface::MakeRasterN32Premul(width, height);
+#endif
+        if (!surface) return nullptr;
+        int savedWidth = fb_width, savedHeight = fb_height;
+        bool savedOverlay = showUIOverlay;
+        bool savedDataLabels = opts.data_labels;
+        opts.data_labels = tileDataLabelsEnabled();
+        // The dock and main menu are outside the tile's own drawing area.
+        fb_width = width;
+        fb_height = height;
+        showUIOverlay = false;
+        regions = currentVarTrack->multiRegions[index];
+        processed = false;
+        runDrawOnCanvas(surface->getCanvas());
+        auto image = surface->makeImageSnapshot();
+        fb_width = savedWidth;
+        fb_height = savedHeight;
+        showUIOverlay = savedOverlay;
+        opts.data_labels = savedDataLabels;
+        setScaling();
+        return image;
+    }
+
     void GwPlot::tileDrawingThread() {
         currentVarTrack = &variantTracks[variantFileSelection];
         int bStart = currentVarTrack->blockStart;
@@ -2252,13 +2369,11 @@ namespace Manager {
         for (int i=bStart; i<endIdx; ++i) {
             bool c = imageCache.find(i) != imageCache.end();
             if (!c && i < (int)currentVarTrack->multiRegions.size() && !bams.empty()) {
-                this->regions = currentVarTrack->multiRegions[i];
-//                runDrawOnCanvas(canvas);
-                runDrawOnCanvas(rasterCanvas);
-//                sContext->flush();
-//                sk_sp<SkImage> img(sSurface->makeImageSnapshot());
-//                imageCache[i] = img;
-                imageCache[i] = rasterSurfacePtr[0]->makeImageSnapshot();
+                int boxIndex = i - bStart;
+                if (boxIndex < (int)bboxes.size()) {
+                    auto image = renderVariantTile(i, bboxes[boxIndex]);
+                    if (image) imageCache[i] = image;
+                }
             }
         }
     }
@@ -2318,8 +2433,9 @@ namespace Manager {
 
         setGlfwFrameBufferSize();
         setScaling();
-        float y_gap = 0;
-        bboxes = Utils::imageBoundingBoxes(opts.number, fb_width, fb_height - 6 * monitorScale, 6 * monitorScale, 6 * monitorScale, y_gap);
+        currentVarTrack->iterateToIndex(bStart + opts.number.x * opts.number.y);
+        prepareTileCache();
+        bboxes = tileBoundingBoxes();
         if (currentVarTrack->image_glob.empty()) {
             tileDrawingThread();  // draws images from variant file
         } else {
@@ -2351,7 +2467,9 @@ namespace Manager {
                 int h = imageCache[i]->height();
                 float ratio = (float)w / (float)h;
                 float box_ratio = (float)b.width / (float)b.height;
-                if (box_ratio > ratio) {
+                if (currentVarTrack->type != HGW::TrackType::IMAGES) {
+                    rect.setXYWH(b.xStart, b.yStart, b.width, b.height);
+                } else if (box_ratio > ratio) {
                     // Box is wider than the image (relative to their heights)
                     float newHeight = b.height;
                     float newWidth = newHeight * ratio;
@@ -2373,9 +2491,10 @@ namespace Manager {
             }
             ++i;
         }
+        ++frameId;
+        imageCacheQueue.clear();
         imageCacheQueue.emplace_back(frameId, rasterSurfacePtr[0]->makeImageSnapshot());
-
-        glfwSwapBuffers(window);
+        // The main loop presents once, after Skia and ImGui have finished.
         redraw = false;
     }
 
@@ -2407,7 +2526,7 @@ namespace Manager {
             if (!cl.skipDrawingReads && !bams.empty()) {
 
                 if (cl.regionLen >= opts.low_memory && !force_buffered_reads) {
-                    assert (opts.link_op == 0 && regions[cl.regionIdx].getSortOption() == SortType::NONE);
+                    assert (opts.link_op == 0);
                     // low memory mode will be used
                     cl.clear();
                     if (opts.threads == 1) {
@@ -2479,12 +2598,12 @@ namespace Manager {
 
         SkRect clip;
         if (!imageCacheQueue.empty() && collections.size() > 1) {
-            canvas->drawImage(imageCacheQueue.back().second, 0, 0);
+            Drawing::drawFrameImage(canvas, imageCacheQueue.back().second);
             float topH = refSpace + (totalCovY == 0 && !bams.empty() ? fonts.overlayHeight : 0);
-            clip.setXYWH(0, 0, fb_width, topH);
+            clip.setXYWH(0, 0, drawingWidth(), topH);
             canvas->drawRect(clip, opts.theme.bgPaint);
             float bamBottomY = topH + totalCovY + (trackY * (float)bams.size());
-            clip.setXYWH(0, bamBottomY, fb_width, fb_height);
+            clip.setXYWH(0, bamBottomY, drawingWidth(), fb_height);
             canvas->drawRect(clip, opts.theme.bgPaint);
 
         }

@@ -58,3 +58,8 @@ libgw.so
 /lib/dear_imgui/imgui_tables.o
 /lib/dear_imgui/imgui_widgets.o
 /src/wasm_stubs.o
+*.d
+/src/custom_theme.o
+/src/find_mismatches.o
+/src/introns.o
+/src/theme_preview.o

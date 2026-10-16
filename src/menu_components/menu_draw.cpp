@@ -320,7 +320,7 @@ void drawMenu(SkCanvas *canvas, Themes::IniOptions &opts, Themes::Fonts &fonts, 
         }
         else if (opts.menu_table == Themes::MenuTable::GENOMES) { tip = "Use ENTER key to select genome, or RIGHT_ARROW key to edit path"; }
         else if (opts.menu_table == Themes::MenuTable::SHIFT_KEYMAP) { tip = "Change characters selected when using shift+key"; }
-        else if (opts.menu_level == "theme") { tip = "Change the theme to one of [dark, igv, slate]"; }
+        else if (opts.menu_level == "theme") { tip = "Choose dark, igv, slate, or a saved custom theme"; }
         else if (opts.menu_level == "dimensions") { tip = "The starting dimensions in pixels of the gw window"; }
         else if (opts.menu_level == "indel_length") { tip = "Indels with this length (or greater) will be labelled with text"; }
         else if (opts.menu_level == "ylim") { tip = "The y-limit, or number of rows of reads in the image"; }

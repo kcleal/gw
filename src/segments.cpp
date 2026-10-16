@@ -1,3 +1,4 @@
+#include "find_mismatches.hpp"
 #include <cassert>
 #include <chrono>
 #include <algorithm>
@@ -973,8 +974,10 @@ namespace Segs {
     }
 
     void ReadCollection::clear() {
-        std::fill(levelsStart.begin(), levelsStart.end(), 1215752191);
-        std::fill(levelsEnd.begin(), levelsEnd.end(), 0);
+        bufferedStart = bufferedEnd = bufferedTid = -1;
+        sortLevels.clear();
+        std::fill(levelsStart.begin(), levelsStart.end(), EMPTY_LEVEL_START);
+        std::fill(levelsEnd.begin(), levelsEnd.end(), EMPTY_LEVEL_END);
         std::fill(covArr.begin(), covArr.end(), 0);
         linked.clear();
         collection_processed = false;
@@ -1037,6 +1040,13 @@ namespace Segs {
         }
     }
 
+    static void orderSortLevels(ReadCollection& rc, bool haplotypes) {
+        std::sort(rc.sortLevels.begin(), rc.sortLevels.end(), [haplotypes](int a, int b) {
+            if (haplotypes && (a == 0 || b == 0)) return a != 0 && b == 0;
+            return a < b;
+        });
+    }
+
     void findYWithSort(ReadCollection &rc, std::vector<Align> &rQ, std::vector<int> &ls, std::vector<int> &le, bool joinLeft,
                        int vScroll, Segs::map_t &lm, ankerl::unordered_dense::map< std::string, int >& linkedSeen,
                        int linkType, int ylim) {
@@ -1061,11 +1071,11 @@ namespace Segs {
             return;
         }
         if (re_sort) {
-            std::sort(rc.sortLevels.begin(), rc.sortLevels.end());
+            orderSortLevels(rc, (rc.region->sortOption & Utils::SortType::HP) != 0);
         }
         if ((int)ls.size() != ylim + (vScroll * n_cats)) {
-            ls.resize(ylim + (vScroll * n_cats), 1215752191);
-            le.resize(ylim + (vScroll * n_cats), 0);
+            ls.resize(ylim + (vScroll * n_cats), EMPTY_LEVEL_START);
+            le.resize(ylim + (vScroll * n_cats), EMPTY_LEVEL_END);
         }
 
         size_t step = ls.size() / n_cats;
@@ -1076,8 +1086,7 @@ namespace Segs {
         ankerl::unordered_dense::map< int, int > to_level;
         int v = 0;
         for (const auto & c: rc.sortLevels) {
-            to_level[c] = v * step;
-            ++v;
+            to_level[c] = v++;
         }
 
         // The ls and le arrays will be partitioned into each sort level.
@@ -1115,9 +1124,13 @@ namespace Segs {
 
             int cat = q_ptr->sort_tag & POS_MASK;
 
-            int start_i = to_level[cat];  // start of the range
-            int vScroll_level = start_i + vScroll;  // if y >= this level then they will be displayed
-            int end_i = start_i + step - 1;  // end of the range for this cat
+            const int group = to_level[cat];
+            int start_i = group * ylim / n_cats + group * vScroll;
+            int vScroll_level = start_i + vScroll;
+            int end_i = (group + 1) * ylim / n_cats + (group + 1) * vScroll;
+            // Leave a row between haplotypes when the viewport has room.
+            const bool haplotypes = (rc.region->sortOption & Utils::SortType::HP) != 0;
+            if ((!haplotypes || group + 1 < n_cats) && end_i - vScroll_level >= 3) --end_i;
 
             if (!joinLeft) {
 
@@ -1128,7 +1141,7 @@ namespace Segs {
                             ls[i] = q_ptr->cov_start;
                         }
                         if (i >= vScroll_level) {
-                            q_ptr->y = i - (vScroll*(cat+1));
+                            q_ptr->y = i - (vScroll*(group+1));
                         }
                         if (linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
                             linkedSeen[qname] = q_ptr->y;
@@ -1149,7 +1162,7 @@ namespace Segs {
                             le[i] = q_ptr->cov_end;
                         }
                         if (i >= vScroll_level) {
-                            q_ptr->y = i - (vScroll*(cat+1));
+                            q_ptr->y = i - (vScroll*(group+1));
                         }
                         if (linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
                             linkedSeen[qname] = q_ptr->y;
@@ -1350,8 +1363,8 @@ namespace Segs {
         if (sortReadsBy == Utils::SortType::NONE) {
             if (ls.empty()) {
                 size_t sz = (size_t)std::max(1, opts.ylim + vScroll);
-                ls.resize(sz, 1215752191);
-                le.resize(sz, 0);
+                ls.resize(sz, EMPTY_LEVEL_START);
+                le.resize(sz, EMPTY_LEVEL_END);
             }
             findYNoSort(rQ, ls, le, joinLeft, vScroll, lm, linkedSeen, linkType);
         } else if (sortReadsBy >= Utils::SortType::POS) {
@@ -1371,8 +1384,8 @@ namespace Segs {
             if (sortReadsBy == Utils::SortType::POS) {
                 if (ls.empty()) {
                     size_t sz = (size_t)std::max(1, opts.ylim + vScroll);
-                    ls.resize(sz, 1215752191);
-                    le.resize(sz, 0);
+                    ls.resize(sz, EMPTY_LEVEL_START);
+                    le.resize(sz, EMPTY_LEVEL_END);
                 }
                 findYNoSort(rQ, ls, le, joinLeft, vScroll, lm, linkedSeen, linkType);
             } else {
@@ -1392,19 +1405,85 @@ namespace Segs {
         return samMaxY;
     }
 
-    constexpr std::array<char, 256> make_lookup_ref_base() {
-        std::array<char, 256> a{};
-        for (auto& elem : a) {
-            elem = 15;  // Initialize all elements to 15
+    int placeUnassignedReads(ReadCollection& rc, Themes::IniOptions& opts, int sortReadsBy) {
+        // Visible rows are anchors. Only unplaced reads may fill the holes between
+        // them; a single start/end envelope cannot describe those holes.
+        const int visibleRows = std::max(1, opts.ylim);
+        const int scroll = std::max(0, rc.vScroll);
+        const bool categorical = sortReadsBy != Utils::SortType::NONE && sortReadsBy != Utils::SortType::POS;
+        if (categorical) {
+            for (const auto& a : rc.readQueue) {
+                int cat = a.sort_tag & POS_MASK;
+                if (std::find(rc.sortLevels.begin(), rc.sortLevels.end(), cat) == rc.sortLevels.end())
+                    rc.sortLevels.push_back(cat);
+            }
+            orderSortLevels(rc, (sortReadsBy & Utils::SortType::HP) != 0);
         }
-        a['A'] = 1; a['a'] = 1;
-        a['C'] = 2; a['c'] = 2;
-        a['G'] = 4; a['g'] = 4;
-        a['T'] = 8; a['t'] = 8;
-        a['N'] = 15; a['n'] = 15;
-        return a;
+        int categories = categorical ? std::max(1, (int)rc.sortLevels.size()) : 1;
+        int hiddenRows = scroll * categories;
+        using Span = std::pair<int, int>;
+        auto& occupied = rc.rowSpansScratch;
+        occupied.resize(hiddenRows + visibleRows);
+        for (auto& spans : occupied) spans.clear();
+        auto& rowCategory = rc.rowCategoryScratch;
+        rowCategory.assign(visibleRows, -1);
+        auto category = [&](const Align& a) { return categorical ? a.sort_tag & POS_MASK : 0; };
+        rc.levelsStart.assign(occupied.size(), EMPTY_LEVEL_START);
+        rc.levelsEnd.assign(occupied.size(), EMPTY_LEVEL_END);
+        for (const auto& a : rc.readQueue) {
+            if (a.y < 0 || a.y >= visibleRows) continue;
+            occupied[hiddenRows + a.y].emplace_back(a.cov_start, a.cov_end);
+            rowCategory[a.y] = category(a);
+        }
+        for (size_t i = 0; i < occupied.size(); ++i) {
+            auto& spans = occupied[i];
+            if (!std::is_sorted(spans.begin(), spans.end())) std::sort(spans.begin(), spans.end());
+            if (!spans.empty()) {
+                rc.levelsStart[i] = spans.front().first;
+                rc.levelsEnd[i] = spans.back().second;
+            }
+        }
+        auto insert = [&](int row, const Align& a) {
+            auto& spans = occupied[row];
+            // The common rightward append needs just one boundary comparison.
+            if (spans.empty() || spans.back().second < a.cov_start) {
+                spans.emplace_back(a.cov_start, a.cov_end);
+            } else {
+                auto next = std::lower_bound(spans.begin(), spans.end(), Span{a.cov_start, EMPTY_LEVEL_END});
+                if (next != spans.end() && next->first <= a.cov_end) return false;
+                if (next != spans.begin() && std::prev(next)->second >= a.cov_start) return false;
+                spans.insert(next, {a.cov_start, a.cov_end});
+            }
+            rc.levelsStart[row] = std::min(rc.levelsStart[row], a.cov_start);
+            rc.levelsEnd[row] = std::max(rc.levelsEnd[row], a.cov_end);
+            return true;
+        };
+        for (auto& a : rc.readQueue) {
+            if (a.y != -1) continue;
+            int cat = category(a);
+            int group = categorical ? (int)(std::find(rc.sortLevels.begin(), rc.sortLevels.end(), cat) - rc.sortLevels.begin()) : 0;
+            bool placed = false;
+            // Preserve vertical scrolling: consume the skipped rows first.
+            for (int row = group * scroll; row < (group + 1) * scroll; ++row) {
+                if (insert(row, a)) { placed = true; break; }
+            }
+            if (placed) continue;
+            int begin = group * visibleRows / categories;
+            int end = (group + 1) * visibleRows / categories;
+            if ((sortReadsBy & Utils::SortType::HP) && group + 1 < categories && end - begin >= 3) --end;
+            for (int row = 0; row < visibleRows; ++row) {
+                // Keep categorical rows together without moving existing anchors
+                // when a category appears or disappears at the edge of the view.
+                if (rowCategory[row] != cat && !(rowCategory[row] == -1 && row >= begin && row < end)) continue;
+                if (insert(hiddenRows + row, a)) {
+                    a.y = row;
+                    rowCategory[row] = cat;
+                    break;
+                }
+            }
+        }
+        return visibleRows;
     }
-    constexpr std::array<char, 256> lookup_ref_base = make_lookup_ref_base();
 
     void update_A(Mismatches& elem) { elem.A += 1; }
     void update_C(Mismatches& elem) { elem.C += 1; }
@@ -1450,6 +1529,9 @@ namespace Segs {
         if (refSeq == nullptr) {
             return;
         }
+        const auto backend = FindMismatches::selectedBackend();
+        const auto& reference = FindMismatches::prepareReference(*region);
+        const size_t cacheOffset = region->refSeqBuffer ? region->start - region->refBufferStart : 0;
         for (const auto &align: collection.readQueue) {
             if (align.y >= 0 || align.delegate == nullptr) {
                 continue;
@@ -1461,10 +1543,9 @@ namespace Segs {
             if (cigar_l == 0 || ptr_seq == nullptr || cigar_p == nullptr) {
                 continue;
             }
-            int r_idx;
             uint32_t idx = 0;
             uint32_t qseq_len = align.delegate->core.l_qseq;
-            uint32_t rlen = region->end - region->start;
+            uint32_t rlen = std::max(0, region->refSeqLen);
             auto rbegin = (uint32_t) region->start;
             auto rend = (uint32_t) region->end;
             uint32_t op, l;
@@ -1473,6 +1554,11 @@ namespace Segs {
                 l = cigar_p[k] >> BAM_CIGAR_SHIFT;
                 if (idx >= qseq_len) {  // shouldn't happen
                     break;
+                }
+                if (r_pos >= rend) break;
+                if ((op == BAM_CMATCH || op == BAM_CDIFF || op == BAM_CEQUAL) && r_pos < rbegin) {
+                    uint32_t skip = std::min(l, rbegin - r_pos);
+                    idx += skip; r_pos += skip; l -= skip;
                 }
                 switch (op) {
                     case BAM_CSOFT_CLIP:
@@ -1486,8 +1572,9 @@ namespace Segs {
                         break;
 
                     case BAM_CHARD_CLIP:
+                        break;
                     case BAM_CEQUAL:
-                        // Nothing to do here
+                        idx += l; r_pos += l;
                         break;
                     case BAM_CDIFF:
                         for (uint32_t i = 0; i < l; ++i) {
@@ -1516,47 +1603,17 @@ namespace Segs {
                         }
                         break;
 
-                    default:
-                        for (uint32_t i = 0; i < l; ++i) {
-                            r_idx = (int) r_pos - region->start;
-                            if (r_idx < 0) {
-                                idx += 1;
-                                r_pos += 1;
-                                continue;
-                            }
-                            if (r_idx >= (int)rlen) {
-                                break;
-                            }
-                            if (r_pos - rbegin >= mm_array_len) {
-                                break;
-                            }
-
-                            char ref_base = lookup_ref_base[(unsigned char)refSeq[r_idx]];
-
-                            char bam_base = bam_seqi(ptr_seq, idx);
-                            if (bam_base != ref_base) {
-                                lookup_table_mm[(size_t)bam_base](mm_array[r_pos - rbegin]);
-//                                switch (bam_base) {
-//                                    case 1:
-//                                        mm_array[r_pos - rbegin].A += 1;
-//                                        break;
-//                                    case 2:
-//                                        mm_array[r_pos - rbegin].C += 1;
-//                                        break;
-//                                    case 4:
-//                                        mm_array[r_pos - rbegin].G += 1;
-//                                        break;
-//                                    case 8:
-//                                        mm_array[r_pos - rbegin].T += 1;
-//                                        break;
-//                                    default:
-//                                        break;
-//                                }
-                            }
-                            idx += 1;
-                            r_pos += 1;
+                    default: {
+                        size_t offset = r_pos - rbegin;
+                        size_t limit = std::min({(size_t)rlen, mm_array_len, (size_t)regionLen});
+                        if (offset < limit) {
+                            size_t count = std::min({(size_t)l, limit - offset, (size_t)(qseq_len - idx)});
+                            FindMismatches::scan(ptr_seq, reference, idx, cacheOffset + offset, count,
+                                [&](size_t, size_t r, uint8_t base) { lookup_table_mm[base](mm_array[r - cacheOffset]); }, backend);
                         }
+                        idx += l; r_pos += l;
                         break;
+                    }
                 }
             }
         }

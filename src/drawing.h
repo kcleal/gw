@@ -35,6 +35,8 @@
 
 namespace Drawing {
 
+    void drawFrameImage(SkCanvas* canvas, const sk_sp<SkImage>& image);
+
     struct drawContext {
         float fb_width;
         float fb_height;

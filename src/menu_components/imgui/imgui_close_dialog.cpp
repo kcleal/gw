@@ -36,8 +36,9 @@ void drawImGuiCloseDialog(Manager::GwPlot* plot, bool* p_open, bool& redraw)
         ImGuiCond_FirstUseEver,
         ImVec2(0.5f, 0.5f));
 
-    if (!ImGui::Begin("Close File", p_open,
-                      ImGuiWindowFlags_NoCollapse))
+    bool visible = ImGui::Begin("Close File", p_open, ImGuiWindowFlags_NoCollapse);
+    if (closeOnEscape(p_open)) redraw = true;
+    if (!visible)
     {
         ImGui::End();
         return;

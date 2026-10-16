@@ -36,8 +36,9 @@ void drawImGuiHelpDialog(Manager::GwPlot* plot,
         ImGuiCond_FirstUseEver,
         ImVec2(0.5f, 0.5f));
 
-    if (!ImGui::Begin("Help", p_open,
-                      ImGuiWindowFlags_NoCollapse))
+    bool visible = ImGui::Begin("Help", p_open, ImGuiWindowFlags_NoCollapse);
+    if (closeOnEscape(p_open)) redraw = true;
+    if (!visible)
     {
         ImGui::End();
         return;

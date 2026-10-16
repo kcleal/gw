@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <string>
+#include <sstream>
 #include <unordered_map>
 #include <functional>
 #include <vector>
@@ -588,19 +589,22 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err var_info(Plot* p, std::string& command, std::vector<std::string>& parts, std::ostream& out) {
-        p->redraw = false;
-        if (p->variantTracks.empty()) {
+    Err var_info(Plot* p, std::string& command, std::vector<std::string>& parts, std::ostream& out, int selectedRow = -1, bool plainOutput = false) {
+        if (!plainOutput) p->redraw = false;
+        if (p->variantFileSelection < 0 || p->variantFileSelection >= (int)p->variantTracks.size()) {
             return Err::EMPTY_VARIANTS;
         }
         p->currentVarTrack = &p->variantTracks[p->variantFileSelection];
         if (p->currentVarTrack->multiLabels.empty()) {
             return Err::EMPTY_VARIANTS;
-        } else if (p->currentVarTrack->blockStart + p->mouseOverTileIndex >= (int)p->currentVarTrack->multiLabels.size() || p->mouseOverTileIndex == -1) {
-            return Err::SILENT;
         }
-        Utils::Label &lbl = p->currentVarTrack->multiLabels[p->currentVarTrack->blockStart + p->mouseOverTileIndex];
-        Term::clearLine(out);
+        int row = selectedRow >= 0 ? selectedRow
+                                  : p->currentVarTrack->blockStart + p->mouseOverTileIndex;
+        if ((selectedRow < 0 && p->mouseOverTileIndex == -1) || row < 0 ||
+                row >= (int)p->currentVarTrack->multiLabels.size())
+            return Err::SILENT;
+        Utils::Label &lbl = p->currentVarTrack->multiLabels[row];
+        if (!plainOutput) Term::clearLine(out);
         if (p->currentVarTrack->type == HGW::TrackType::VCF) {
             p->currentVarTrack->vcf.printTargetRecord(lbl.variantId, lbl.chrom, lbl.pos);
             std::string variantStringCopy = p->currentVarTrack->vcf.variantString;
@@ -612,8 +616,11 @@ namespace Commands {
             } else {
                 size_t requests = parts.size();
                 if (requests == 1) {
-                    Term::clearLine(out);
-                    out << "\r" << variantStringCopy << std::endl;
+                    if (plainOutput) out << variantStringCopy;
+                    else {
+                        Term::clearLine(out);
+                        out << "\r" << variantStringCopy << std::endl;
+                    }
                 } else {
                     std::string requestedVars;
                     std::vector<std::string> vcfCols = Utils::split(variantStringCopy, '\t');
@@ -643,11 +650,26 @@ namespace Commands {
                 out << termcolor::red << "Error:" << termcolor::reset << " could not parse variant line";
                 return Err::PARSE_VCF;
             } else {
-                Term::clearLine(out);
-                out << "\r" << p->currentVarTrack->variantTrack.variantString << std::endl;
+                if (plainOutput) out << p->currentVarTrack->variantTrack.variantString;
+                else {
+                    Term::clearLine(out);
+                    out << "\r" << p->currentVarTrack->variantTrack.variantString << std::endl;
+                }
             }
         }
         return Err::NONE;
+    }
+
+    bool var_record(Plot* p, int selectedRow, std::string& record) {
+        if (selectedRow < 0) return false;
+        std::string command = "var";
+        std::vector<std::string> parts{command};
+        std::ostringstream output;
+        if (var_info(p, command, parts, output, selectedRow, true) != Err::NONE) return false;
+        record = output.str();
+        while (!record.empty() && (record.back() == '\n' || record.back() == '\r'))
+            record.pop_back();
+        return !record.empty();
     }
 
     Err count(Plot* p, std::string& command, std::ostream& out) {
@@ -967,26 +989,29 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err theme(Plot* p, std::vector<std::string> parts, std::ostream& out) {
-        p->redraw = true;
-        if (parts.size() != 2) {
-            out << termcolor::red << "Error:" << termcolor::reset << " theme must be either 'igv', 'dark' or 'slate'\n";
-            return Err::NONE;
-        }
-        if (parts.back() == "dark") {
-            p->opts.theme = Themes::DarkTheme();  p->opts.theme.setAlphas(); p->imageCache.clear(); p->imageCacheQueue.clear(); p->opts.theme_str = "dark";
-        } else if (parts.back() == "igv") {
-            p->opts.theme = Themes::IgvTheme(); p->opts.theme.setAlphas(); p->imageCache.clear(); p->imageCacheQueue.clear(); p->opts.theme_str = "igv";
-        } else if (parts.back() == "slate") {
-            p->opts.theme = Themes::SlateTheme(); p->opts.theme.setAlphas(); p->imageCache.clear(); p->imageCacheQueue.clear(); p->opts.theme_str = "slate";
-        } else {
-            return Err::OPTION_NOT_UNDERSTOOD;
+    Err theme(Plot* p, const std::string& command, std::ostream& out) {
+        p->opts.ensureCustomThemesLoaded();
+        const auto separator = command.find_first_of(" \t");
+        std::string name = separator == std::string::npos ? "" : command.substr(separator + 1);
+        const auto first = name.find_first_not_of(" \t");
+        name = first == std::string::npos ? "" : name.substr(first, name.find_last_not_of(" \t") - first + 1);
+        bool selected = !name.empty() && p->opts.selectThemeByName(name);
+        if (!selected && name.size() >= 2 && (name.front() == '"' || name.front() == '\'') && name.back() == name.front())
+            selected = p->opts.selectThemeByName(name.substr(1, name.size() - 2));
+        if (!selected) {
+            out << "Available themes: dark, igv, slate";
+            for (const auto& saved : p->opts.custom_themes) out << ", " << saved.name;
+            out << "\nUsage: theme <name>\n";
+            if (!p->opts.custom_theme_error.empty()) out << p->opts.custom_theme_error << "\n";
+            return name.empty() ? Err::NONE : Err::OPTION_NOT_UNDERSTOOD;
         }
         Themes::applyImGuiTheme(p->opts.theme_str);
-        for (auto &t: p->tracks) {
-            t.setPaint(p->opts.theme.fcTrack);
-        }
+        p->clearZoomCache();
+        p->imageCache.clear(); p->imageCacheQueue.clear();
+        for (auto &t: p->tracks)
+            t.setPaint(t.kind == HGW::FType::BIGWIG ? p->opts.theme.fcBigWig : p->opts.theme.fcTrack);
         p->processed = false;
+        p->redraw = true;
         return Err::NONE;
     }
 
@@ -1727,7 +1752,9 @@ namespace Commands {
             if (p->regions.empty()) {
                 p->regions.push_back(rgn);
                 p->fetchRefSeq(p->regions.back());
-                p->regions.back().chromLen = faidx_seq_len(p->fai, p->regions.back().chrom.c_str());
+                if (p->fai != nullptr) {
+                    p->regions.back().chromLen = faidx_seq_len(p->fai, p->regions.back().chrom.c_str());
+                }
             } else {
                 Utils::Region &old = p->regions[p->regionSelection];
                 if (old.chrom == rgn.chrom) {
@@ -1738,7 +1765,9 @@ namespace Commands {
                 }
                 p->regions[p->regionSelection] = rgn;
                 p->fetchRefSeq(p->regions[p->regionSelection]);
-                p->regions[p->regionSelection].chromLen = faidx_seq_len(p->fai, p->regions[p->regionSelection].chrom.c_str());
+                if (p->fai != nullptr) {
+                    p->regions[p->regionSelection].chromLen = faidx_seq_len(p->fai, p->regions[p->regionSelection].chrom.c_str());
+                }
             }
         } else {  // search all tracks for matching name, slow but ok for small tracks
             reason = search_for_feature(p, command, rgn);
@@ -2378,7 +2407,7 @@ namespace Commands {
                 {"rm",       PARAMS { return remove(p, parts, out); }},
                 {"remove",   PARAMS { return remove(p, parts, out); }},
                 {"cov",      PARAMS { return cov(p, parts, out); }},
-                {"theme",    PARAMS { return theme(p, parts, out); }},
+                {"theme",    PARAMS { return theme(p, command, out); }},
                 {"goto",     PARAMS { return goto_command(p, parts); }},
                 {"add",      PARAMS { return add_region(p, parts, out); }},
                 {"s",        PARAMS { return snapshot(p, parts, out); }},

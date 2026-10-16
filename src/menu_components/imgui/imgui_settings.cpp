@@ -7,6 +7,7 @@
 #include "imfilebrowser.h"
 
 #include <sstream>
+#include <iomanip>
 
 namespace Menu {
 
@@ -17,7 +18,7 @@ static bool openOnlineGenomesPopup = false;
 
 static const char* getOptionTooltip(const std::string& key) {
     static const std::unordered_map<std::string, const char*> tips = {
-        {"theme", "Change the theme [dark, igv, slate]"},
+        {"theme", "Choose a built-in or saved custom theme"},
         {"dimensions", "Starting window dimensions in pixels (WxH). Requires restart."},
         {"indel_length", "Indels >= this length will be labelled with text"},
         {"ylim", "Number of rows of reads shown"},
@@ -94,16 +95,25 @@ static bool renderIniWidget(
         }
 
     } else if (opt.kind == ThemeOption) {
-        static const char* themes[] = {"dark", "igv", "slate"};
-        int cur = 0;
-        for (int i = 0; i < 3; ++i)
-            if (val == themes[i]) cur = i;
-
-        ImGui::SetNextItemWidth(130.f);
-        if (ImGui::Combo(key.c_str(), &cur, themes, 3)) {
-            opt.value = themes[cur];
-            applyThemeOption(opt, opts);
-            changed = true;
+        opts.ensureCustomThemesLoaded();
+        const std::string selected = opts.custom_theme_enabled ? opts.custom_theme_name : opts.theme_str;
+        ImGui::SetNextItemWidth(200.f);
+        if (ImGui::BeginCombo(key.c_str(), selected.c_str())) {
+            for (const char* base : {"dark", "igv", "slate"}) {
+                if (ImGui::Selectable(base, !opts.custom_theme_enabled && opts.theme_str == base)) {
+                    opt.value = base; applyThemeOption(opt, opts); changed = true;
+                }
+            }
+            if (!opts.custom_themes.empty()) ImGui::Separator();
+            for (size_t i = 0; i < opts.custom_themes.size(); ++i) {
+                const auto name = opts.custom_themes[i].name;
+                ImGui::PushID((int)i);
+                if (ImGui::Selectable(name.c_str(), opts.custom_theme_enabled && opts.custom_theme_name == name)) {
+                    opt.value = "custom:" + name; applyThemeOption(opt, opts); changed = true;
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndCombo();
         }
 
     } else if (opt.kind == LinkOption) {
@@ -302,7 +312,7 @@ static void renderNamePathTable(
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();
-            if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            if (ImGui::Button("Cancel", ImVec2(120, 0)) || closeOnEscape()) {
                 pendingDelete.clear();
                 ImGui::CloseCurrentPopup();
             }
@@ -322,7 +332,7 @@ static void renderNamePathTable(
                                    ImGuiWindowFlags_NoNav)) {
             ImGui::TextUnformatted(genomeLoadError.c_str());
             ImGui::Separator();
-            if (ImGui::Button("OK", ImVec2(120, 0))) {
+            if (ImGui::Button("OK", ImVec2(120, 0)) || closeOnEscape()) {
                 genomeLoadError.clear();
                 ImGui::CloseCurrentPopup();
             }
@@ -369,18 +379,34 @@ void drawImGuiSettings(
     bool& redraw,
     bool* /*drawLine*/
 ) {
-    if (!p_open || !*p_open) return;
-
     Themes::IniOptions& opts = plot->opts;
+    if (!p_open || !*p_open) {
+        clearThemePreview();
+        if (opts.settings_save_pending) opts.saveSettings();
+        return;
+    }
+    // Include edits from every tab and its modal dialogs, including deletions.
+    auto snapshot = [&]() {
+        std::ostringstream out;
+        for (const auto& section : opts.myIni) {
+            out << std::quoted(section.first);
+            for (const auto& kv : section.second)
+                out << std::quoted(kv.first) << std::quoted(kv.second);
+        }
+        return out.str();
+    };
+    const auto before = snapshot();
+    const unsigned revisionBefore = opts.theme_revision;
     ImGuiIO& io = ImGui::GetIO();
-    float ms = std::max(plot->monitorScale, 1.0f);
+    ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(io.DisplaySize, ImGuiCond_Always);
 
-    ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Appearing);
-    ImGui::SetNextWindowSize(ImVec2(720 * ms, 530 * ms), ImGuiCond_Appearing);
-    ImGui::SetNextWindowSizeConstraints(ImVec2(500 * ms, 350 * ms),
-                                        ImVec2(io.DisplaySize.x, io.DisplaySize.y));
-
-    if (!ImGui::Begin("Settings", p_open, ImGuiWindowFlags_NoCollapse)) {
+    bool visible = ImGui::Begin("Settings", p_open, ImGuiWindowFlags_NoCollapse |
+            ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar |
+            ImGuiWindowFlags_NoScrollWithMouse);
+    if (closeOnEscape(p_open)) redraw = true;
+    if (!visible) {
         ImGui::End();
         return;
     }
@@ -392,6 +418,13 @@ void drawImGuiSettings(
 
     ImGui::Separator();
 
+    // Reserve the footer before sizing the scrolling content. A fill-height
+    // child followed by footer widgets makes the parent overflow and can cause
+    // scrollbar/layout feedback when the viewport is narrow.
+    const float footerHeight = ImGui::GetFrameHeightWithSpacing() +
+                               ImGui::GetStyle().ItemSpacing.y + 1.0f;
+    ImGui::BeginChild("##settings_content",
+        ImVec2(0, std::max(1.0f, ImGui::GetContentRegionAvail().y - footerHeight)));
     if (ImGui::BeginTabBar("##settings_tabs")) {
         struct Tab {
             const char* label;
@@ -417,19 +450,22 @@ void drawImGuiSettings(
             if (tab.namePath) {
                 renderNamePathTable(tab.section, tab.mt, opts, redraw, plot);
             } else {
-                ImGui::BeginChild(tab.section);
                 for (auto& kv : opts.myIni[tab.section]) {
                     if (kv.first == "fmt" || kv.first == "miny") continue;
                     renderIniWidget(kv.first, tab.mt, opts, redraw, plot);
                 }
-                ImGui::EndChild();
             }
 
             ImGui::EndTabItem();
         }
 
+        if (ImGui::BeginTabItem("Custom theme")) {
+            drawCustomTheme(opts, redraw);
+            ImGui::EndTabItem();
+        }
         ImGui::EndTabBar();
     }
+    ImGui::EndChild();
 
 #if !defined(__EMSCRIPTEN__)
     // Online genomes modal is triggered from renderNamePathTable but rendered here
@@ -442,18 +478,17 @@ void drawImGuiSettings(
 #endif
 
     ImGui::Separator();
-    static std::string saveStatus;
-    if (ImGui::Button("Save settings to .gw.ini")) {
-        try {
-            opts.saveIniChanges();
-            saveStatus = "Saved to " + opts.ini_path;
-        } catch (const std::exception& e) {
-            saveStatus = std::string("Save failed: ") + e.what();
-        }
-    }
-    if (!saveStatus.empty()) {
+    if (before != snapshot() || revisionBefore != opts.theme_revision)
+        opts.settings_save_pending = true;
+    // Avoid disk writes on every frame while dragging a picker or typing.
+    if (opts.settings_save_pending && !ImGui::IsAnyItemActive()) opts.saveSettings();
+    if (!opts.settings_save_error.empty()) {
+        if (ImGui::SmallButton("Retry saving")) opts.settings_save_pending = true;
         ImGui::SameLine();
-        ImGui::TextDisabled("%s", saveStatus.c_str());
+        ImGui::TextUnformatted("Save failed");
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", opts.settings_save_error.c_str());
+    } else {
+        ImGui::TextDisabled(opts.settings_save_pending ? "Saving after editing..." : "Changes save automatically");
     }
 
     ImGui::End();
@@ -481,6 +516,12 @@ static void drawOnlineGenomesDialog(
     if (!ImGui::BeginPopupModal("Online Genomes", &popupOpen,
                                 ImGuiWindowFlags_NoCollapse))
         return;
+
+    if (closeOnEscape()) {
+        ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        return;
+    }
 
     // ── Fetch on first open ─────────────────────────────────────────────────
     if (onlineGenomes.empty() && !fetchInProgress && fetchError.empty()) {

@@ -120,8 +120,9 @@ void drawImGuiCommandDialog(Manager::GwPlot* plot,
         ImVec2(240.f, 300.f * ms),
         ImVec2(io.DisplaySize.x, io.DisplaySize.y));
 
-    if (!ImGui::Begin("Tools", p_open,
-                      ImGuiWindowFlags_NoCollapse))
+    bool visible = ImGui::Begin("Tools", p_open, ImGuiWindowFlags_NoCollapse);
+    if (closeOnEscape(p_open)) redraw = true;
+    if (!visible)
     {
         ImGui::End();
         return;

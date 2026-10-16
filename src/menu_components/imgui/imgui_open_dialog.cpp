@@ -27,6 +27,7 @@ static ImGui::FileBrowser& getFileBrowser()
 {
     static ImGui::FileBrowser browser(
         ImGuiFileBrowserFlags_MultipleSelection |
+        ImGuiFileBrowserFlags_EnterNewFilename |
         ImGuiFileBrowserFlags_CloseOnEsc |
         ImGuiFileBrowserFlags_ConfirmOnEnter |
         ImGuiFileBrowserFlags_EditPathString |
@@ -254,7 +255,7 @@ void drawImGuiOpenDialog(Manager::GwPlot* plot,
             ImGui::CloseCurrentPopup();
         }
 
-        if (!tagPopupOpen) {
+        if (!tagPopupOpen || closeOnEscape()) {
             pendingGenomePath.clear();
             genomeTagBuf[0] = '\0';
             showGenomeTagDialog = false;
@@ -315,7 +316,7 @@ void drawImGuiOpenDialog(Manager::GwPlot* plot,
 
         ImGui::SameLine();
 
-        if (!varPopupOpen) {
+        if (!varPopupOpen || closeOnEscape()) {
             pendingVariantFiles.clear();
             showVariantDialog = false;
             ImGui::CloseCurrentPopup();
@@ -328,6 +329,7 @@ void drawImGuiOpenDialog(Manager::GwPlot* plot,
     // Error toast
     // -------------------------------------------------------------------------
 
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) openFileErrorTimer = 0.f;
     if (openFileErrorTimer > 0.f) {
 
         openFileErrorTimer -= ImGui::GetIO().DeltaTime;

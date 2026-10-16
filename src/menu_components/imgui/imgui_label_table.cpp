@@ -13,6 +13,7 @@
 #include "utils.h"
 
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include "imfilebrowser.h"
@@ -282,7 +283,26 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
         if (!plot->currentVarTrack) return;
 
         auto& vt = *plot->currentVarTrack;
-        if (vt.multiLabels.empty()) return;
+        std::string trackKey = vt.fileName.empty() ? vt.path : vt.fileName;
+        static std::unordered_map<std::string, bool> loadMoreByTrack;
+        bool& loadMore = loadMoreByTrack[trackKey];
+        auto hasMoreVariants = [&]() {
+            return vt.type == HGW::TrackType::VCF ? !vt.vcf.done
+                 : vt.type == HGW::TrackType::GW_TRACK && !vt.variantTrack.done;
+        };
+        if (hasMoreVariants()) {
+            const int batch = 128;
+            int target = std::max(batch, vt.blockStart + plot->opts.number.x * plot->opts.number.y + batch);
+            if (loadMore) target = std::max(target, (int)vt.multiLabels.size() + batch);
+            size_t previousCount = vt.multiLabels.size();
+            vt.iterateToIndex(target);
+            if (vt.multiLabels.size() != previousCount) {
+                plot->redraw = true;
+                redraw = true;
+            }
+        }
+        loadMore = false;
+        if (vt.multiLabels.empty()) { plot->labelTableDialogOpen = false; return; }
 
         static std::unordered_map<std::string, int> selectedByTrack;
         static std::unordered_map<std::string, int> sampleByTrack;
@@ -300,7 +320,6 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
         static std::unordered_map<std::string, int> lastSyncedTileByTrack;  // detect external tile changes
         static std::unordered_map<std::string, int> lastSyncedBlockByTrack; // detect blockStart changes from arrow keys
 
-        std::string trackKey = vt.fileName.empty() ? vt.path : vt.fileName;
         int& selectedRow = selectedByTrack[trackKey];
         int labelCount = (int)vt.multiLabels.size();
 
@@ -348,14 +367,81 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
         // Leave room for top menu and bottom ideogram/slider
         float topOff    = plot->topMenuSpace / plot->monitorScale;
         float botOff    = plot->sliderSpace  / plot->monitorScale;
-        float initH     = io.DisplaySize.y - topOff - botOff - 8.0f;
+        float initH     = std::max(100.0f, io.DisplaySize.y - topOff - botOff - 32.0f);
         float initX     = io.DisplaySize.x - initW - 4.0f;
 
-        ImGui::SetNextWindowSize(ImVec2(initW, initH), ImGuiCond_Appearing);
-        ImGui::SetNextWindowPos(ImVec2(initX, topOff + 4.0f), ImGuiCond_Appearing);
+        static std::unordered_map<std::string, bool> wasDockedByTrack;
+        bool& wasDocked = wasDockedByTrack[trackKey];
+        ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoFocusOnAppearing;
+        if (plot->labelTableDocked) {
+            initW = (plot->fb_width - plot->drawingWidth()) / plot->monitorScale;
+            ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - initW, 0), ImGuiCond_Always);
+            ImGui::SetNextWindowSize(ImVec2(initW, io.DisplaySize.y), ImGuiCond_Always);
+            windowFlags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse;
+        } else {
+            if (wasDocked) {
+                ImGui::SetNextWindowSize(ImVec2(plot->labelTableWidth, initH), ImGuiCond_Always);
+                ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - plot->labelTableWidth - 4, topOff + 4), ImGuiCond_Always);
+            } else {
+                ImGui::SetNextWindowSize(ImVec2(initW, initH), ImGuiCond_Appearing);
+                ImGui::SetNextWindowPos(ImVec2(initX, topOff + 4.0f), ImGuiCond_Appearing);
+            }
+        }
+        wasDocked = plot->labelTableDocked;
 
         bool windowOpen = true;
-        if (ImGui::Begin("Variants", &windowOpen, ImGuiWindowFlags_NoFocusOnAppearing)) {
+        bool dockedStyle = plot->labelTableDocked;
+        if (dockedStyle) {
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+        }
+        bool windowVisible = ImGui::Begin("Variants", &windowOpen, windowFlags);
+        if (closeOnEscape(&windowOpen)) redraw = true;
+        if (dockedStyle) ImGui::PopStyleVar(2);
+        if (windowVisible) {
+            if (plot->labelTableDocked) {
+                ImVec2 content = ImGui::GetCursorScreenPos();
+                ImGuiWindow* dockWindow = ImGui::GetCurrentWindow();
+                ImVec2 contentMax = dockWindow->DC.CursorMaxPos;
+                ImVec2 pos = ImGui::GetWindowPos();
+                ImGui::SetCursorScreenPos(ImVec2(pos.x, pos.y + ImGui::GetFrameHeight()));
+                ImGui::PushClipRect(pos, ImVec2(pos.x + ImGui::GetWindowWidth(), pos.y + ImGui::GetWindowHeight()), false);
+                ImGui::InvisibleButton("##dock_resize", ImVec2(6.0f, std::max(1.0f, ImGui::GetWindowHeight() - ImGui::GetFrameHeight())));
+                ImGui::PopClipRect();
+                if (ImGui::IsItemHovered() || ImGui::IsItemActive())
+                    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+                if (ImGui::IsItemActive())
+                    plot->labelTableWidth = std::max(180.0f, std::min(io.DisplaySize.x * 0.5f,
+                        initW - io.MouseDelta.x));
+                ImGui::SetCursorScreenPos(content);
+                // The resize hit area must not enlarge the scrollable contents.
+                dockWindow->DC.CursorMaxPos = contentMax;
+            }
+            // Place the docking control in the title bar, immediately before X.
+            {
+                ImGuiWindow* window = ImGui::GetCurrentWindow();
+                ImVec2 content = ImGui::GetCursorScreenPos();
+                ImVec2 contentMax = window->DC.CursorMaxPos;
+                float titleH = ImGui::GetFrameHeight();
+                float controlW = titleH - 4.0f;
+                ImVec2 pos(window->Pos.x + window->Size.x - titleH - controlW - 4,
+                           window->Pos.y + 2.0f);
+                ImGui::PushClipRect(window->Pos,
+                    ImVec2(window->Pos.x + window->Size.x, window->Pos.y + titleH), false);
+                ImGui::SetCursorScreenPos(pos);
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+                // Match the other title-bar actions: clear at rest, themed on hover/press.
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+                if (ImGui::Button("D##dock_toggle", ImVec2(controlW, controlW)))
+                    plot->labelTableDocked = !plot->labelTableDocked;
+                ImGui::PopStyleColor();
+                ImGui::PopStyleVar();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                    ImGui::SetTooltip(plot->labelTableDocked ? "Undock" : "Dock");
+                ImGui::PopClipRect();
+                ImGui::SetCursorScreenPos(content);
+                window->DC.CursorMaxPos = contentMax;
+            }
 
             // --- Filter row: text box + Apply button ---
             {
@@ -436,9 +522,14 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
             }
             float& splitFrac = splitFracByTrack[trackKey];
 
-            float availH = ImGui::GetContentRegionAvail().y;
+            static std::unordered_map<std::string, bool> detailsCollapsedByTrack;
+            bool& detailsCollapsed = detailsCollapsedByTrack[trackKey];
+            bool listOpen = ImGui::CollapsingHeader("Variant List", ImGuiTreeNodeFlags_DefaultOpen);
+            float availH = std::max(1.0f, ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeightWithSpacing() * 2.0f);
             float minPane = ImGui::GetFrameHeight() * 2.0f;
             float topH = std::max(minPane, std::min(availH - minPane, availH * splitFrac));
+            if (detailsCollapsed) topH = std::max(1.0f, availH);
+            if (listOpen) {
             if (ImGui::BeginChild("##labels_master", ImVec2(0, topH), false)) {
                 // Dot column width: fits two small dots side-by-side
                 float dotColW = ImGui::GetFrameHeight() * 1.4f;
@@ -535,8 +626,7 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                         ImGui::TableSetColumnIndex(1);
                         std::string location = lbl.chrom + ":" + Utils::formatNum(lbl.pos);
                         if (ImGui::Selectable(location.c_str(), isSelected,
-                                              ImGuiSelectableFlags_SpanAllColumns |
-                                              ImGuiSelectableFlags_AllowOverlap)) {
+                                              ImGuiSelectableFlags_None)) {
                             selectedRow = i;
                             plot->mode = Manager::Show::TILED;
                             int tilesPerPage = plot->opts.number.x * plot->opts.number.y;
@@ -549,15 +639,33 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
 
                         // ---- Column 2: label text ----
                         ImGui::TableSetColumnIndex(2);
-                        ImGui::TextUnformatted(lbl.labels.empty() ? "-" : lbl.current().c_str());
+                        if (ImGui::Selectable(lbl.labels.empty() ? "-" : lbl.current().c_str(), false)
+                                && !lbl.labels.empty()) {
+                            lbl.next();
+                            lbl.clicked = true;
+                            lbl.savedDate = Utils::dateTime();
+                            plot->redraw = true;
+                            redraw = true;
+                        }
+                        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                            ImGui::SetTooltip("Click to cycle label");
 
                         ImGui::PopID();
+                    }
+                    if (hasMoreVariants() &&
+                        ((ImGui::IsWindowHovered() && ImGui::GetScrollMaxY() > 0 &&
+                          ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - ImGui::GetWindowHeight() * 2) ||
+                         ((!trimmedFilter.empty() || !exprFilter.empty()) && visibleRows.size() < 32))) {
+                        loadMore = true;
+                        plot->redraw = true;
+                        redraw = true;
                     }
                     ImGui::EndTable();
                 }
                 ImGui::PopStyleVar(2);
             }
             ImGui::EndChild();
+            }
 
             // --- Tile marker: black filled circle at bottom-centre of the selected tile ---
             // Only shown when >1 tile visible, drawn behind UI via BackgroundDrawList,
@@ -566,25 +674,17 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                 int nx = plot->opts.number.x;
                 int ny = plot->opts.number.y;
                 int totalTiles = nx * ny;
+                const auto boxes = plot->tileBoundingBoxes();
                 if (plot->mode == Manager::Show::TILED &&
                     totalTiles > 1 &&
                     tileMarkerIndex >= 0 &&
-                    tileMarkerIndex < totalTiles)
+                    tileMarkerIndex < totalTiles &&
+                    tileMarkerIndex < (int)boxes.size())
                 {
-                    float ms   = plot->monitorScale;
-                    float fbW  = (float)plot->fb_width;
-                    float fbH  = (float)plot->fb_height;
-                    float padX = 6.0f * ms;
-                    float padY = 6.0f * ms;
-                    float cellW = fbW / (float)nx;
-                    float cellH = (fbH - 6.0f * ms) / (float)ny;
-                    int tx = tileMarkerIndex / ny; // column
-                    int ty = tileMarkerIndex % ny; // row
-                    float xStart = cellW * (float)tx + padX + padX * 0.5f;
-                    float yEnd   = cellH * (float)ty + padY + cellH - padY;
-                    float xEnd   = xStart + cellW - padX;
-                    float cx = (xStart + xEnd) * 0.5f / ms;
-                    float cy = yEnd / ms;
+                    float ms = plot->monitorScale;
+                    const auto& box = boxes[tileMarkerIndex];
+                    float cx = (box.xStart + box.xEnd) * 0.5f / ms;
+                    float cy = box.yEnd / ms;
                     float r  = 6.0f;
                     // Use background draw list so the marker sits behind the ImGui windows
                     ImDrawList* bgDl = ImGui::GetBackgroundDrawList();
@@ -599,8 +699,10 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                 Utils::Label& dLbl = labels[labelDetailsRow];
                 ImGui::SetNextWindowSize(ImVec2(300, 160), ImGuiCond_Appearing);
                 bool detOpen = true;
-                if (ImGui::Begin("Label details##popup", &detOpen,
-                        ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_AlwaysAutoResize)) {
+                bool detailsVisible = ImGui::Begin("Label details##popup", &detOpen,
+                        ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_AlwaysAutoResize);
+                closeOnEscape(&detOpen);
+                if (detailsVisible) {
                     ImGui::TextDisabled("Date:  "); ImGui::SameLine();
                     ImGui::TextUnformatted(dLbl.savedDate.empty() ? "-" : dLbl.savedDate.c_str());
                     ImGui::TextDisabled("Label: "); ImGui::SameLine();
@@ -634,7 +736,7 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
             }
 
             // --- Draggable splitter between master list and details ---
-            {
+            if (listOpen && !detailsCollapsed) {
                 const float splitterH = 6.0f;
                 ImVec2 sp = ImGui::GetCursorScreenPos();
                 float splitterW = ImGui::GetContentRegionAvail().x;
@@ -660,7 +762,38 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                 dl->AddLine(ImVec2(sp.x, lineY),
                             ImVec2(sp.x + splitterW, lineY), col, 1.0f);
             }
-            ImGui::TextDisabled("Variant Details");
+            // One continuous header background, including its clipboard action.
+            ImGuiWindow* detailWindow = ImGui::GetCurrentWindow();
+            float headerRight = detailWindow->WorkRect.Max.x;
+            float iconSide = ImGui::GetFrameHeight();
+            ImVec2 headerPos = ImGui::GetCursorScreenPos();
+            float headerExtend = std::trunc(ImGui::GetStyle().WindowPadding.x * 0.5f);
+            ImGui::GetWindowDrawList()->AddRectFilled(
+                ImVec2(headerPos.x - headerExtend, headerPos.y),
+                ImVec2(headerRight + headerExtend, headerPos.y + iconSide),
+                ImGui::GetColorU32(ImGuiCol_Header), ImGui::GetStyle().FrameRounding);
+            detailWindow->WorkRect.Max.x -= iconSide + ImGui::GetStyle().ItemSpacing.x;
+            detailsCollapsed = !ImGui::CollapsingHeader("Variant Details", ImGuiTreeNodeFlags_DefaultOpen);
+            detailWindow->WorkRect.Max.x = headerRight;
+            ImGui::SameLine(headerRight - detailWindow->Pos.x - iconSide + 2);
+            ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 2);
+            bool copyVar = ImGui::InvisibleButton("##copy_variant_command", ImVec2(iconSide - 4, iconSide - 4));
+            ImVec2 iconMin = ImGui::GetItemRectMin(), iconMax = ImGui::GetItemRectMax();
+            bool copyHovered = ImGui::IsItemHovered();
+            if (copyHovered) {
+                ImGui::GetWindowDrawList()->AddRectFilled(iconMin, iconMax,
+                    ImGui::GetColorU32(ImGuiCol_ButtonHovered), ImGui::GetStyle().FrameRounding);
+                ImGui::SetTooltip("Copy var output");
+            }
+            drawClipboardIcon(ImGui::GetWindowDrawList(), iconMin, iconMax,
+                ImGui::GetColorU32(ImGuiCol_Text, copyHovered ? 1.0f : 0.7f),
+                iconStrokeThickness(plot->monitorScale));
+            if (copyVar && selectedRow >= 0 && selectedRow < (int)labels.size()) {
+                std::string record;
+                if (Commands::var_record(plot, selectedRow, record))
+                    ImGui::SetClipboardText(record.c_str());
+            }
+            if (!detailsCollapsed) {
 
             // Field filter (comma-separated keys, e.g. "ID, INFO.SU, FORMAT.PROB")
             {
@@ -752,7 +885,7 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                                             if (ImGui::Selectable(vt.vcf.sample_names[s].c_str(),
                                                                   selectedSampleIdx == s)) {
                                                 selectedSampleIdx = s;
-                                                detailCache.erase(cacheKey);
+                                                // The sample index is part of the cache key.
                                             }
                                         }
                                         ImGui::EndCombo();
@@ -767,7 +900,12 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
 
                             ImGui::TableNextRow();
                             ImGui::TableSetColumnIndex(0);
-                            ImGui::TextUnformatted(row.label.c_str());
+                            ImGui::PushID((int)i);
+                            if (ImGui::Selectable(row.label.c_str(), false))
+                                ImGui::SetClipboardText(row.plainValue.c_str());
+                            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                                ImGui::SetTooltip("Copy %s", row.label.c_str());
+                            ImGui::PopID();
 
                             ImGui::TableSetColumnIndex(1);
                             if (row.navigable) {
@@ -781,16 +919,7 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                                     plot->fetchRefSeqs();
                                 }
                             } else {
-                                // Selectable text — copies to clipboard on click
-                                ImGui::PushID((int)i + 10000);
-                                ImGui::Selectable(row.plainValue.c_str(), false,
-                                                  ImGuiSelectableFlags_None);
-                                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                                    ImGui::SetTooltip("Click to copy");
-                                if (ImGui::IsItemClicked()) {
-                                    ImGui::SetClipboardText(row.plainValue.c_str());
-                                }
-                                ImGui::PopID();
+                                ImGui::TextUnformatted(row.plainValue.c_str());
                             }
                         }
                         ImGui::EndTable();
@@ -798,6 +927,7 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                 }
             }
             ImGui::EndChild();
+            }
         }
         ImGui::End();
 

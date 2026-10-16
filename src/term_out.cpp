@@ -7,6 +7,7 @@
 #include <htslib/sam.h>
 #include <string>
 #include <iterator>
+#include <limits>
 #include <regex>
 #include <vector>
 #include <unordered_set>
@@ -931,7 +932,8 @@ namespace Term {
                 return;
             }
             out << "\n\n>" << region->chrom << ":" << region->start << "-" << region->end << "\n";
-            while (*s) {
+            const char* end = s + region->refSeqLen;
+            while (s < end) {
                 switch ((unsigned int)*s) {
                     case 65: out << termcolor::green << "a"; break;
                     case 67: out << termcolor::blue << "c"; break;
@@ -964,189 +966,70 @@ namespace Term {
     }
 
 	void printCoverage(int pos, Segs::ReadCollection &cl, std::ostream& out, std::string* summary) {
-        if (cl.readQueue.empty()) {
-            return;
-        }
-		auto bnd = std::lower_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
-		                       [&](const Segs::Align &lhs, const int pos) {
-			return (int)lhs.pos <= pos;
-		});
-		if (bnd == cl.readQueue.end()) {
-		    return;
-		}
-		int mA = 0, mT = 0, mC = 0, mG = 0, mN = 0;  // mismatch
-		int A = 0, T = 0, C = 0, G = 0, N = 0;  // ref
-		std::vector <int> dels;
-		int cnt = 0;
-		while (true) {
-			cnt += 1;
-			if (cnt > 50000) {
-				break;
-			}
-			if ((int)bnd->pos <= pos && pos <= (int)bnd->reference_end) {
-				Segs::Align &align = *bnd;
-				uint32_t r_pos = align.pos;
-                if (align.delegate == nullptr) {
-                    if (bnd == cl.readQueue.begin()) {
-                        break;
-                    }
-                    --bnd;
-                    continue;
-                }
-				uint32_t cigar_l = align.delegate->core.n_cigar;
-				uint8_t *ptr_seq = bam_get_seq(align.delegate);
-				uint32_t *cigar_p = bam_get_cigar(align.delegate);
-                if (cigar_p == nullptr || cigar_l == 0 || ptr_seq == nullptr) {
-                    if (bnd == cl.readQueue.begin()) {
-                        break;
-                    }
-                    --bnd;
-                    continue;
-                }
-				int r_idx;
-				uint32_t idx = 0;
-				const char *refSeq = cl.region->refSeq;
-				if (refSeq == nullptr) {
-					return;
-				}
-				int rlen = cl.region->end - cl.region->start;
-				int op, l;
-
-				for (int k = 0; k < (int)cigar_l; k++) {
-					op = cigar_p[k] & BAM_CIGAR_MASK;
-					l = cigar_p[k] >> BAM_CIGAR_SHIFT;
-					if (op == BAM_CSOFT_CLIP || op == BAM_CINS) {
-						idx += l;
-						continue;
-					}
-					else if (op == BAM_CDEL) {
-						if (r_pos <= (uint32_t)pos && (uint32_t)pos < r_pos + l) {
-							dels.push_back(l);
-						}
-						r_pos += l;
-						continue;
-					}
-					else if (op == BAM_CREF_SKIP) {
-						r_pos += l;
-						continue;
-					}
-					else if (op == BAM_CHARD_CLIP || op == BAM_CEQUAL) {
-						continue;
-					}
-					else if (op == BAM_CDIFF) {
-						for (int i=0; i < l; ++i) {
-							if (r_pos == (uint32_t)pos) {
-								char bam_base = bam_seqi(ptr_seq, idx);
-								switch (bam_base) {
-									case 1: mA+=1; break;
-									case 2: mC+=1; break;
-									case 4: mG+=1; break;
-									case 8: mT+=1; break;
-									default: mN+=1; break;
-								}
-							}
-							idx += 1;
-							r_pos += 1;
-						}
-					}
-					else {  // BAM_CMATCH
-						// A==1, C==2, G==4, T==8, N==>8
-						for (int i=0; i < l; ++i) {
-							if (r_pos != (uint32_t)pos) {
-								idx += 1;
-								r_pos += 1;
-								continue;
-							}
-							r_idx = (int)r_pos - cl.region->start;
-							if (r_idx < 0) {
-								idx += 1;
-								r_pos += 1;
-								continue;
-							}
-							if (r_idx >= rlen) {
-								break;
-							}
-//							char ref_base;
-//							switch (refSeq[r_idx]) {
-//								case 'A': ref_base = 1; break;
-//								case 'C': ref_base = 2; break;
-//								case 'G': ref_base = 4; break;
-//								case 'T': ref_base = 8; break;
-//								case 'N': ref_base = 15; break;
-//								case 'a': ref_base = 1; break;
-//								case 'c': ref_base = 2; break;
-//								case 'g': ref_base = 4; break;
-//								case 't': ref_base = 8; break;
-//								default: ref_base = 15; break;
-//							}
-							char bam_base = bam_seqi(ptr_seq, idx);
-//							if (bam_base != ref_base) {
-                            switch (bam_base) {
-                                case 1: mA+=1; break;
-                                case 2: mC+=1; break;
-                                case 4: mG+=1; break;
-                                case 8: mT+=1; break;
-                                default: mN+=1; break;
+        int mA = 0, mT = 0, mC = 0, mG = 0, mN = 0;
+        // The queue is start-sorted. Include every read starting at or before the
+        // clicked position, even when the click is beyond the last read's start.
+        auto end = std::upper_bound(cl.readQueue.begin(), cl.readQueue.end(), pos,
+            [](int position, const Segs::Align& a) { return position < (int)a.pos; });
+        for (auto it = cl.readQueue.begin(); it != end; ++it) {
+            const auto& align = *it;
+            if (!align.delegate || align.y == -2 || pos < (int)align.pos ||
+                pos >= (int)align.reference_end) continue;
+            const bam1_t* record = align.delegate;
+            const auto* cigar = bam_get_cigar(record);
+            const auto* sequence = bam_get_seq(record);
+            int referencePos = align.pos;
+            int queryPos = 0;
+            // Only the CIGAR operation containing this position needs a base
+            // lookup; neither a reference fetch nor a whole-read scan is needed.
+            for (uint32_t k = 0; k < record->core.n_cigar; ++k) {
+                const int op = bam_cigar_op(cigar[k]);
+                const int length = bam_cigar_oplen(cigar[k]);
+                const int consumes = bam_cigar_type(op);
+                if ((consumes & 2) && pos < referencePos + length) {
+                    if (consumes & 1) {
+                        const int index = queryPos + pos - referencePos;
+                        if (index >= 0 && index < record->core.l_qseq) {
+                            switch (bam_seqi(sequence, index)) {
+                                case 1: ++mA; break;
+                                case 2: ++mC; break;
+                                case 4: ++mG; break;
+                                case 8: ++mT; break;
+                                default: ++mN; break;
                             }
-//							} else {
-//								switch (bam_base) {
-//									case 1: A+=1; break;
-//									case 2: C+=1; break;
-//									case 4: G+=1; break;
-//									case 8: T+=1; break;
-//									default: N+=1; break;
-//								}
-//							}
-							idx += 1;
-							r_pos += 1;
-						}
-					}
-				}
+                        }
+                    }
+                    break;
+                }
+                if (consumes & 1) queryPos += length;
+                if (consumes & 2) referencePos += length;
+            }
+        }
+		int totCov = mA + mT + mC + mG + mN;
 
-			}
-			if (bnd == cl.readQueue.begin()) {
-				break;
-			}
-			--bnd;
-		}
-		int totCov = A + T + C + G + N + mA + mT + mC + mG + mN;
-
-        // Machine-readable record for the terminal: title + key/value pairs. The ref-match
-        // branch above is disabled, so mA/mC/mG/mT hold the totals for each base at this pos.
+        // These are total base counts, independent of the drawing mismatch cache.
         if (summary != nullptr) {
             *summary = "Coverage\tPosition\t" + cl.region->chrom + ":" + intToStringCommas(pos)
                      + "\tDepth\t" + std::to_string(totCov)
-                     + "\tA\t" + std::to_string(A + mA)
-                     + "\tC\t" + std::to_string(C + mC)
-                     + "\tG\t" + std::to_string(G + mG)
-                     + "\tT\t" + std::to_string(T + mT);
+                     + "\tA\t" + std::to_string(mA)
+                     + "\tC\t" + std::to_string(mC)
+                     + "\tG\t" + std::to_string(mG)
+                     + "\tT\t" + std::to_string(mT);
         }
 
-        int term_space = Utils::get_terminal_width();
-        std::string line = "Coverage    " + std::to_string(totCov) + "      A:" + std::to_string(A) + "  T:" + std::to_string(T) + "  C:" + std::to_string(C) + "  G:" + std::to_string(T) + "     ";
-        if (term_space < (int)line.size()) {
-            return;
-        }
-
-		out << termcolor::bold << "\rCoverage    " << termcolor::reset << totCov << "    ";
-		if (A) {
-			out << "  A:" << A;
-		} else if (T) {
-			out << "  T:" << T;
-		} else if (C) {
-			out << "  C:" << C;
-		} else if (G) {
-			out << "  G:" << G;
-		} else {
-			out << "     ";
-		}
+        // Popup capture must be complete regardless of terminal width.
+        int term_space = summary ? std::numeric_limits<int>::max() : Utils::get_terminal_width();
+        std::string line = "Coverage    " + std::to_string(totCov);
+        if (term_space < (int)line.size()) return;
+        out << termcolor::bold << "\rCoverage    " << termcolor::reset << totCov << "    ";
         term_space -= (int)line.size();
-        line.clear();
-        line = "  A:" + std::to_string(mA) + "  T:" + std::to_string(mT) + "  C:" + std::to_string(mC) + "  G:" + std::to_string(mT);
+        line = "  A:" + std::to_string(mA) + "  T:" + std::to_string(mT) +
+               "  C:" + std::to_string(mC) + "  G:" + std::to_string(mG);
         if (term_space < (int)line.size()) {
             out << std::flush;
             return;
         }
+        term_space -= (int)line.size();
 
 		if (mA > 0 || mT > 0 || mC > 0 || mG > 0) {
 			if (mA) {
@@ -1498,14 +1381,15 @@ namespace Term {
             if (startIdx > region->end - region->start) {
                 return;  // something went wrong
             }
-            if (region->refSeq == nullptr || startIdx >= (int)strlen(region->refSeq)) {
+            if (region->refSeq == nullptr || startIdx >= region->refSeqLen) {
                 return;
             }
             const char * s = &region->refSeq[startIdx];
             Term::clearLine(out);
             out << termcolor::bold << "\rRef       " << termcolor::reset ;
             int l = 0;
-            while (*s && l < chars) {
+            const char* end = region->refSeq + region->refSeqLen;
+            while (s < end && l < chars) {
                 switch ((unsigned int)*s) { // this is a bit of mess, but gets the job done
                     case 65: ((l == i) ? (out << termcolor::underline << termcolor::green << "a" << termcolor::reset) : (out << termcolor::green << "a") ); break;
                     case 67: ((l == i) ? (out << termcolor::underline << termcolor::blue << "c" << termcolor::reset) : (out << termcolor::blue << "c") ); break;

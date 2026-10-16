@@ -4,6 +4,7 @@
 #include <array>
 #include <cctype>
 #include <cstring>
+#include <cstdlib>
 #include <filesystem>
 #include <set>
 #include <string>
@@ -118,7 +119,7 @@ namespace ImGui
             std::vector<std::filesystem::path> result;
             result.reserve(selectedFilenames_.size());
             for(const auto& name : selectedFilenames_)
-                result.push_back(currentDirectory_ / name);
+                result.push_back(ResolveSelection(name));
             return result;
         }
 
@@ -131,6 +132,17 @@ namespace ImGui
         void SetInputName(std::string_view input);
 
     private:
+
+        std::filesystem::path ResolveSelection(const std::filesystem::path& name) const
+        {
+            const std::string text = name.string();
+            // URLs must reach the loader unchanged, without a directory prefix.
+            if(text.find("://") != std::string::npos) return name;
+            if(text.size() >= 2 && text[0] == '~' && (text[1] == '/' || text[1] == '\\'))
+                if(const char* home = std::getenv("HOME"))
+                    return std::filesystem::path(home) / text.substr(2);
+            return currentDirectory_ / name;
+        }
 
         template <class Functor>
         struct ScopeGuard
@@ -790,8 +802,8 @@ inline void ImGui::FileBrowser::Display()
         }
 
         PushItemWidth(-1);
-        if(InputText(
-            "", inputNameBuffer_.data(), inputNameBuffer_.size(),
+        if(InputTextWithHint(
+            "##file_path", "File path or URL", inputNameBuffer_.data(), inputNameBuffer_.size(),
             ImGuiInputTextFlags_CallbackResize, ExpandInputBuffer, &inputNameBuffer_))
         {
             if(inputNameBuffer_[0] != '\0')
@@ -924,7 +936,7 @@ inline std::filesystem::path ImGui::FileBrowser::GetSelected() const
     {
         return currentDirectory_;
     }
-    return currentDirectory_ / *selectedFilenames_.begin();
+    return ResolveSelection(*selectedFilenames_.begin());
 }
 
 inline std::vector<std::filesystem::path> ImGui::FileBrowser::GetMultiSelected() const
@@ -938,7 +950,7 @@ inline std::vector<std::filesystem::path> ImGui::FileBrowser::GetMultiSelected()
     ret.reserve(selectedFilenames_.size());
     for(auto &s : selectedFilenames_)
     {
-        ret.push_back(currentDirectory_ / s);
+        ret.push_back(ResolveSelection(s));
     }
 
     return ret;

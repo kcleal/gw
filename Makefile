@@ -83,6 +83,9 @@ ifeq ($(OLD_SKIA),1)
 	CXXFLAGS += -D OLD_SKIA -D USE_GL
 endif
 CXXFLAGS += -Wall -std=c++17 -fno-common -fwrapv -fno-omit-frame-pointer -O3 -DNDEBUG -g
+# Emit .d files so header changes rebuild dependent objects (see -include below)
+CXXFLAGS += -MMD -MP
+CFLAGS += -MMD -MP
 LIBGW_INCLUDE=
 IMGUI = ./lib/dear_imgui
 CPPFLAGS += -I./lib/skia -I./lib/libBigWig -I$(IMGUI) -I$(IMGUI)/backends -I./include -I. $(LIBGW_INCLUDE) -I./src
@@ -127,6 +130,7 @@ debug: CFLAGS += -O0 -DDEBUG
 OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp) ./src/menu_components/online_genome_utils.cpp ./src/menu_components/startup_genome_dialog.cpp) $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
 OBJECTS += $(patsubst %.c, %.o, $(if $(EMSCRIPTEN),$(filter-out ./include/glad.c, $(wildcard ./include/*.c)),$(wildcard ./include/*.c)))
 OBJECTS += $(patsubst %.cpp, %.o, $(wildcard $(IMGUI)/*.cpp) $(IMGUI)/backends/imgui_impl_glfw.cpp $(IMGUI)/backends/imgui_impl_opengl3.cpp)
+-include $(OBJECTS:.o=.d)
 ./lib/libBigWig/%.o: ./lib/libBigWig/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Wno-attribute-warning -c $< -o $@
 $(TARGET): $(OBJECTS)  # line 131
@@ -136,6 +140,8 @@ $(TARGET): $(OBJECTS)  # line 131
 clean:
 	-rm -f *.o ./src/*.o ./src/*.o.tmp ./lib/libBigWig/*.o ./include/*.o
 	-rm -f ./lib/dear_imgui/*.o ./lib/dear_imgui/backends/*.o
+	-rm -f *.d ./src/*.d ./src/menu_components/*.d ./lib/libBigWig/*.d ./include/*.d
+	-rm -f ./lib/dear_imgui/*.d ./lib/dear_imgui/backends/*.d
 	-rm -f $(TARGET) *.wasm
 	-rm -rf libgw
 
@@ -171,9 +177,18 @@ else
 endif
 	-mkdir -p libgw libgw/GW
 	-cp $(SKIA_PATH)/libskia.a libgw
-	-cp src/*.h libgw/GW
+	-cp src/*.h src/*.hpp libgw/GW
 	-cp include/*.h* libgw/GW
 	-cp lib/libBigWig/*.h libgw/GW
 	-cp -rf lib/skia/include libgw/GW
 	-cp -rf lib/skia/modules libgw/GW
 	-mv $(SHARED_TARGET) libgw
+
+# Regression checks use temporary fixtures and do not open native windows.
+.PHONY: test-startup test-ui
+test-startup: $(TARGET)
+	python3 test/test_startup_validation.py
+
+test-ui: $(filter-out ./src/main.o,$(OBJECTS))
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -UNDEBUG test/test_ui_interactions.cpp $(filter-out ./src/main.o,$(OBJECTS)) $(LDFLAGS) $(LDLIBS) -o /tmp/gw-ui-interactions
+	/tmp/gw-ui-interactions

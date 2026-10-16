@@ -122,10 +122,20 @@ namespace Themes {
         std::array<std::array<SkPaint, 11>, 16> BasePaints;
         std::array<std::array<SkPaint, 4>, 3> ModPaints;  // Only 3 at the moment, 5mc, 5hm, Other
 
+        // Explicit colors are reapplied when derived quality paints are rebuilt.
+        std::unordered_map<int, SkColor> colorOverrides;
         void setAlphas();
         void setPaintARGB(int paint_enum, int alpha, int red, int green, int blue);
         void getPaintARGB(int paint_enum, int& alpha, int& red, int& green, int& blue);
     };
+
+    struct ThemeColor {
+        const char* name;  // gwplot JSON palette name
+        const char* label;
+        const char* group;
+        int paint;
+    };
+    const std::vector<ThemeColor>& themeColors();
 
     class EXPORT IgvTheme: public BaseTheme {
         public:
@@ -145,6 +155,12 @@ namespace Themes {
         ~SlateTheme() = default;
     };
 
+    struct CustomTheme {
+        std::string name;
+        std::string base;
+        std::unordered_map<int, SkColor> colors;
+    };
+
     class EXPORT IniOptions {
     public:
         IniOptions();
@@ -153,6 +169,25 @@ namespace Themes {
         mINI::INIStructure myIni, seshIni;
         std::unordered_map<std::string, std::string> shift_keymap;
         BaseTheme theme;
+        bool custom_theme_enabled{false};
+        std::unordered_map<int, SkColor> custom_theme_colors;
+        std::string custom_theme_name{"Custom"};
+        std::vector<CustomTheme> custom_themes;
+        bool custom_theme_file_checked{false};
+        void ensureCustomThemesLoaded();
+        bool selectThemeByName(const std::string& name);
+        void storeCustomTheme();
+        bool selectCustomTheme(const std::string& name);
+        bool createCustomTheme(const std::string& name, bool duplicate);
+        bool renameCustomTheme(const std::string& name);
+        unsigned theme_revision{0};
+        bool settings_save_pending{false}, custom_theme_save_pending{false};
+        std::string settings_save_error, custom_theme_error;
+        std::filesystem::path customThemePath() const;
+        bool loadCustomTheme(const std::filesystem::path& path);
+        bool saveCustomTheme();
+        void rebuildTheme();
+        bool saveSettings();
         Utils::Dims dimensions, number;
         std::string session_file;
         std::string genome_tag;

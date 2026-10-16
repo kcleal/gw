@@ -211,7 +211,7 @@ namespace Utils {
     }
 
     void Region::setRefBaseAtPos() {
-        if (refBaseAtPos != '\0' || sortPos < start || sortPos > end || !refSeq || sortPos - start < 1) {
+        if (refBaseAtPos != '\0' || sortPos < start || sortPos > end || !refSeq || sortPos - start < 1 || sortPos - start > refSeqLen) {
             return;
         }
         refBaseAtPos = (char)toupper(refSeq[sortPos - start - 1]);

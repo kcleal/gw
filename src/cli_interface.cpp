@@ -6,6 +6,7 @@
 #include "gw_version.h"
 #include <algorithm>
 #include <filesystem>
+#include <stdexcept>
 #include <htslib/faidx.h>
 #include <iostream>
 #include <mutex>
@@ -117,7 +118,7 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
             .action([](const std::string& value) {
                 if (std::find(img_themes.begin(), img_themes.end(), value) != img_themes.end()) { return value;}
                 std::cerr << "Error: --theme not in {igv, dark, slate}" << std::endl;
-                abort();
+                std::exit(1);
             }).help("Image theme igv|dark|slate");
     program.add_argument("--fmt")
             .default_value("png")
@@ -161,6 +162,9 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
     program.add_argument("--cov")
             .default_value(iopts.ylim).append().scan<'i', int>()
             .help("Maximum y limit of coverage track");
+    program.add_argument("--font-size")
+            .default_value(iopts.font_size).append().scan<'i', int>()
+            .help("Font size for labels and text");
     program.add_argument("--min-chrom-size")
             .default_value(10000000).append().scan<'i', int>()
             .help("Minimum chromosome size for chromosome-scale images");
@@ -245,6 +249,21 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
         std::exit(0);
     }
 
+    // Reject missing local variant inputs before prompting for a genome or
+    // creating a graphics window. URLs, stdin and image globs are opened later.
+    if (program.is_used("--variants")) {
+        for (const auto& path : program.get<std::vector<std::string>>("--variants")) {
+            if (path == "-" || path.find("://") != std::string::npos ||
+                (path.find_first_of("*?[") != std::string::npos &&
+                 (Utils::endsWith(path, ".png") || Utils::endsWith(path, ".png'") || Utils::endsWith(path, ".png\"")))) {
+                continue;
+            }
+            if (!std::filesystem::exists(path) || std::filesystem::is_directory(path)) {
+                throw std::runtime_error("Error: variant file not found: " + path);
+            }
+        }
+    }
+
     std::vector<std::string>& bamPaths = options.bamPaths;
     std::vector<std::string>& tracks = options.tracks;
     std::vector<Utils::Region>& regions = options.regions;
@@ -270,7 +289,7 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
         HGW::guessRefGenomeFromBam(genome, iopts, bamPaths, regions);
         if (genome.empty()) {
             std::cerr << "Error: please provide a reference genome\n";
-            std::exit(0);
+            std::exit(1);
         }
     }
 
@@ -288,7 +307,7 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
 
         if (iopts.myIni["genomes"].size() == 0 && !have_session_file && !std::filesystem::exists(iopts.session_file)) {
             std::cerr << "No genomes listed, finishing\n";
-            std::exit(0);
+            std::exit(1);
         }
 
         // Interactive terminal dialog when stdin/stdout are connected to a TTY.
@@ -408,10 +427,13 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
                 }
             }
         }
-        if (!have_session_file && !program.is_used("genome") && options.genome.empty() && !bamPaths.empty()) {
+        // Infer the reference from the bam header against genomes registered in the
+        // ini. Skip only when a session is actually being loaded - a session file
+        // merely existing on disk must not veto inference.
+        if (!options.useSession && !program.is_used("genome") && options.genome.empty() && !bamPaths.empty()) {
             HGW::guessRefGenomeFromBam(options.genome, iopts, bamPaths, regions);
             if (options.genome.empty()) {
-                std::exit(0);
+                std::exit(1);
             }
             if (iopts.myIni["genomes"].has(options.genome)) {
                 iopts.genome_tag = options.genome;
@@ -436,6 +458,7 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
     }
 
     if (program.is_used("--theme")) {
+        iopts.custom_theme_enabled = false;
         iopts.theme_str = program.get<std::string>("--theme");
         if (iopts.theme_str == "dark") {
             iopts.theme = Themes::DarkTheme();
@@ -506,6 +529,9 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
     }
     if (program.is_used("--cov")) {
         iopts.max_coverage = program.get<int>("--cov");
+    }
+    if (program.is_used("--font-size")) {
+        iopts.font_size = std::max(1, program.get<int>("--font-size"));
     }
     if (program.is_used("--no-insertions")) {
         iopts.small_indel_threshold = 0;

@@ -159,6 +159,8 @@ static std::string formatRegion(const Utils::Region& r) {
 // -----------------------------------------------------------------------------
 
 void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, bool& redraw) {
+    // Settings fills the viewport and provides its own close button.
+    if (plot->mode == Manager::Show::SETTINGS) return;
     float ms = plot->monitorScale;
     float scrGap = gap / ms;
     float menuY = scrGap * 0.25f;

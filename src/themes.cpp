@@ -127,6 +127,7 @@ namespace Themes {
         fcMarkers.setStyle(SkPaint::kStrokeAndFill_Style);
         fcMarkers.setStrokeWidth(3);
 
+        fcOther.setARGB(127, 255, 0, 0);
         fcRoi.setARGB(180, 230, 10, 45);
         fcRoi.setStyle(SkPaint::kStrokeAndFill_Style);
 
@@ -136,6 +137,10 @@ namespace Themes {
     }
 
     void BaseTheme::setAlphas() {
+        for (const auto& color : colorOverrides) {
+            const auto c = color.second;
+            setPaintARGB(color.first, SkColorGetA(c), SkColorGetR(c), SkColorGetG(c), SkColorGetB(c));
+        }
         fcNormal0 = fcNormal;
         fcDel0 = fcDel;
         fcDup0 = fcDup;
@@ -146,6 +151,11 @@ namespace Themes {
 
         bgPaint.setStyle(SkPaint::kStrokeAndFill_Style);
         bgPaint.setStrokeWidth(0);
+        // Backgrounds replace the previous frame, including its alpha. SrcOver
+        // would accumulate old colors when a custom background is translucent.
+        bgPaint.setBlendMode(SkBlendMode::kSrc);
+        bgPaintTiled.setBlendMode(SkBlendMode::kSrc);
+        bgMenu.setBlendMode(SkBlendMode::kSrc);
 
         fcNormal.setAlpha(alpha);
 
@@ -198,8 +208,6 @@ namespace Themes {
         fc5hmc.setStrokeCap(SkPaint::kRound_Cap);
         fcOther.setAntiAlias(true);
         fcOther.setStrokeCap(SkPaint::kRound_Cap);
-        fcOther.setARGB(127, 255, 0, 0);
-
         mate_fc0 = mate_fc;
         for (size_t i=0; i < mate_fc.size(); ++i) {
 //            SkPaint p = mate_fc[i];
@@ -208,27 +216,32 @@ namespace Themes {
 //            p.setAlpha(mapq0_alpha);
 //            mate_fc0.emplace_back(p);
         }
+        auto qualityAlpha = [&](int paint, int quality) {
+            auto color = colorOverrides.find(paint);
+            return color == colorOverrides.end() ? quality :
+                   (quality * SkColorGetA(color->second) + 127) / 255;
+        };
         SkPaint p;
         // A==1, C==2, G==4, T==8, N==>8
         for (size_t i=0; i<11; ++i) {
             p = fcA;
-            p.setAlpha(base_qual_alpha[i]);
+            p.setAlpha(qualityAlpha(GwPaint::fcA, base_qual_alpha[i]));
             BasePaints[1][i] = p;
 
             p = fcT;
-            p.setAlpha(base_qual_alpha[i]);
+            p.setAlpha(qualityAlpha(GwPaint::fcT, base_qual_alpha[i]));
             BasePaints[8][i] = p;
 
             p = fcC;
-            p.setAlpha(base_qual_alpha[i]);
+            p.setAlpha(qualityAlpha(GwPaint::fcC, base_qual_alpha[i]));
             BasePaints[2][i] = p;
 
             p = fcG;
-            p.setAlpha(base_qual_alpha[i]);
+            p.setAlpha(qualityAlpha(GwPaint::fcG, base_qual_alpha[i]));
             BasePaints[4][i] = p;
 
             p = fcN;
-            p.setAlpha(base_qual_alpha[i]);
+            p.setAlpha(qualityAlpha(GwPaint::fcN, base_qual_alpha[i]));
             BasePaints[9][i] = p;
             BasePaints[10][i] = p;
             BasePaints[11][i] = p;
@@ -240,15 +253,20 @@ namespace Themes {
         int alph = 63;
         for (size_t i=0; i < 4; ++i) {
             ModPaints[0][i] = fc5mc;
-            ModPaints[0][i].setAlpha(alph);
+            ModPaints[0][i].setAlpha(qualityAlpha(GwPaint::fc5mc, alph));
 
             ModPaints[1][i] = fc5hmc;
-            ModPaints[1][i].setAlpha(alph);
+            ModPaints[1][i].setAlpha(qualityAlpha(GwPaint::fc5hmc, alph));
 
             ModPaints[2][i] = fcOther;
-            ModPaints[2][i].setAlpha(alph);
+            ModPaints[2][i].setAlpha(qualityAlpha(GwPaint::fcOther, alph));
 
             alph += 64;
+        }
+        // Preserve explicit MQ0 colors and opacity after computing defaults.
+        for (const auto& color : colorOverrides) {
+            const auto c = color.second;
+            setPaintARGB(color.first, SkColorGetA(c), SkColorGetR(c), SkColorGetG(c), SkColorGetB(c));
         }
     }
 
@@ -256,6 +274,9 @@ namespace Themes {
         switch (paint_enum) {
             case GwPaint::bgPaint: this->bgPaint.setARGB(a, r, g, b); break;
             case GwPaint::bgPaintTiled: this->bgPaintTiled.setARGB(a, r, g, b); break;
+            case GwPaint::bgMenu: this->bgMenu.setARGB(a, r, g, b); break;
+            case GwPaint::mate_fc: for (auto& p : mate_fc) p.setARGB(a, r, g, b); break;
+            case GwPaint::mate_fc0: for (auto& p : mate_fc0) p.setARGB(a, r, g, b); break;
             case GwPaint::fcNormal: this->fcNormal.setARGB(a, r, g, b); break;
             case GwPaint::fcDel: this->fcDel.setARGB(a, r, g, b); break;
             case GwPaint::fcDup: this->fcDup.setARGB(a, r, g, b); break;
@@ -311,6 +332,9 @@ namespace Themes {
         switch (paint_enum) {
             case GwPaint::bgPaint: p = this->bgPaint; break;
             case GwPaint::bgPaintTiled: p = this->bgPaintTiled; break;
+            case GwPaint::bgMenu: p = this->bgMenu; break;
+            case GwPaint::mate_fc: p = mate_fc[0]; break;
+            case GwPaint::mate_fc0: p = mate_fc0[0]; break;
             case GwPaint::fcNormal: p = this->fcNormal; break;
             case GwPaint::fcDel: p = this->fcDel; break;
             case GwPaint::fcDup: p = this->fcDup; break;
@@ -570,16 +594,14 @@ namespace Themes {
         repeat_command=GLFW_KEY_R;
     }
 
-    void IniOptions::setTheme(std::string &theme_str) {
-        if (theme_str == "slate") {
-            this->theme_str = theme_str; theme = SlateTheme();
-        } else if (theme_str == "igv") {
-            this->theme_str = theme_str; theme = IgvTheme();
-        } else if (theme_str == "dark") {
-            this->theme_str = theme_str; theme = DarkTheme();
-        } else {
-            std::cerr << "theme_str must be slate, igv, or dark\n";
+    void IniOptions::setTheme(std::string &name) {
+        if (name != "dark" && name != "igv" && name != "slate") {
+            std::cerr << "theme must be slate, igv, or dark\n";
+            return;
         }
+        theme_str = name;
+        custom_theme_enabled = false;
+        rebuildTheme();
     }
 
     void IniOptions::getOptionsFromIni() {
@@ -591,7 +613,11 @@ namespace Themes {
         mINI::INIMap<std::string>& sub = myIni["general"];
 
         theme_str = sub["theme"];
-        if (theme_str == "dark") { theme = Themes::DarkTheme(); } else if (theme_str == "slate") { theme = Themes::SlateTheme(); } else { theme = Themes::IgvTheme(); }
+        custom_theme_enabled = myIni.has("custom_theme") && myIni["custom_theme"]["enabled"] == "true";
+        if (myIni.has("custom_theme") && myIni["custom_theme"].has("name"))
+            custom_theme_name = myIni["custom_theme"]["name"];
+        if (custom_theme_enabled && !loadCustomTheme(customThemePath())) custom_theme_enabled = false;
+        rebuildTheme();
         dimensions_str = sub["dimensions"];
         dimensions = Utils::parseDimensions(dimensions_str);
 
@@ -856,14 +882,10 @@ namespace Themes {
             mINI::INIMap<std::string>& sub = sesh["general"];
             if (sub.has("theme")) {
                 theme_str = sub["theme"];
-                if (theme_str == "dark") {
-                    theme = Themes::DarkTheme();
-                } else if (theme_str == "slate") {
-                    theme = Themes::SlateTheme();
-                } else {
-                    theme = Themes::IgvTheme();
-                }
-                theme.name = theme_str;
+                if (sub.has("custom_theme")) custom_theme_enabled = sub["custom_theme"] == "true";
+                if (sub.has("custom_theme_name")) custom_theme_name = sub["custom_theme_name"];
+                if (custom_theme_enabled && !loadCustomTheme(customThemePath())) custom_theme_enabled = false;
+                rebuildTheme();
             }
             if (sub.has("dimensions")) {
                 dimensions_str = sub["dimensions"];
@@ -1167,6 +1189,8 @@ namespace Themes {
         }
         mINI::INIMap<std::string>& sub = seshIni["general"];
         sub["theme"] = theme_str;
+        sub["custom_theme"] = custom_theme_enabled ? "true" : "false";
+        sub["custom_theme_name"] = custom_theme_name;
         sub["dimensions"] = std::to_string(screen_width) + "x" + std::to_string(screen_height);
         sub["window_position"] = std::to_string(window_x_pos) + "x" + std::to_string(window_y_pos);
         sub["ylim"] = std::to_string(ylim);
@@ -1467,6 +1491,9 @@ namespace Themes {
     #define next_t std::getline(iss, token, '\t')
 
     void applyImGuiTheme(const std::string &theme_str) {
+        if (ImGui::GetCurrentContext() == nullptr) {
+            return;  // headless mode has no ImGui context
+        }
         ImGuiStyle& style = ImGui::GetStyle();
         if (theme_str == "igv") {
             ImGui::StyleColorsLight();

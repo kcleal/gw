@@ -5,6 +5,7 @@
 #pragma once
 
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -34,6 +35,8 @@
 std::string resolve_genome_path(const std::string& path);
 #endif
 
+
+namespace FindMismatches { class PackedReference; }
 
 namespace Utils {
 
@@ -94,6 +97,12 @@ namespace Utils {
         int refSeqLen{0};
         int regionLen{0};
         const char *refSeq{nullptr};
+        // Copies retain the immutable fetched window; panning normally only moves refSeq.
+        std::shared_ptr<char> refSeqBuffer;
+        mutable std::shared_ptr<const FindMismatches::PackedReference> packedReference;
+        int refBufferStart{0}, refBufferLen{0};
+        std::string refBufferChrom, refBufferReference;
+        const faidx_t* refBufferIndex{nullptr};
         SortType sortOption{NONE};
         int sortPos{-1};
         char refBaseAtPos{'\0'};

@@ -65,9 +65,12 @@ namespace Menu {
 
     int getCommandSwitchValue(Themes::IniOptions &opts, std::string &cmd_s, bool &drawLine);
 
-    // p_open is set to false when the window is closed.  The caller handles any
-    // mode transitions (e.g. restoring GwPlot::mode to the previous view mode).
-    // plot is used to actually load a genome when clicked in the Genomes tab.
+    // Cached settings preview uses a file-independent example and production drawing.
+    sk_sp<SkImage> renderThemePreview(const Themes::IniOptions& opts, int width, int height);
+    void clearThemePreview();
+
+    // p_open is set to false when the window is closed. The caller restores the view.
+    // plot also supplies the context for loading genomes in the Genomes tab.
     void drawImGuiSettings(Manager::GwPlot* plot, bool *p_open, bool &redraw, bool *drawLine = nullptr);
 
     // Command dialog opened by the bubble button. Provides an intuitive UI for
@@ -81,6 +84,7 @@ namespace Menu {
     void drawImGuiOpenDialog(Manager::GwPlot* plot, bool* p_open, bool& redraw);
 
     // Invisible click areas over Skia data labels; click to edit label text.
+    void drawImGuiAlignmentScrollbars(Manager::GwPlot* plot);
     void drawImGuiDataLabels(Manager::GwPlot* plot, float gap, float overlayHeight, bool& redraw);
 
     // Help dialog with command reference and demo data loader.
@@ -108,5 +112,8 @@ namespace Menu {
     // Transient status overlay showing the most recent command output/errors
     // triggered from the ImGui UI. Terminal colors are preserved separately.
     void drawImGuiCommandStatus(Manager::GwPlot* plot);
+
+    // Keep Escape in the UI instead of also triggering legacy plot shortcuts.
+    bool hasImGuiEscapeTarget();
 
 }

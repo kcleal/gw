@@ -33,6 +33,35 @@
 
 namespace {
 
+    bool vcfIsInsertion(bcf_hdr_t* header, bcf1_t* record) {
+        bcf_unpack(record, BCF_UN_STR | BCF_UN_INFO);
+        char* type = nullptr;
+        int capacity = 0;
+        int count = bcf_get_info_string(header, record, "SVTYPE", &type, &capacity);
+        bool insertion = count > 0 && (std::strcmp(type, "INS") == 0 || std::strncmp(type, "INS:", 4) == 0);
+        free(type);
+        for (int i = 1; !insertion && i < record->n_allele; ++i) {
+            const char* alt = record->d.allele[i];
+            insertion = std::strcmp(alt, "<INS>") == 0 || std::strncmp(alt, "<INS:", 5) == 0;
+            if (!insertion && alt[0] != '<' && !std::strchr(alt, '[') && !std::strchr(alt, ']'))
+                insertion = std::strlen(alt) > std::strlen(record->d.allele[0]);
+        }
+        return insertion;
+    }
+
+    int vcfReferenceEnd(bcf_hdr_t* header, bcf1_t* record) {
+        if (!vcfIsInsertion(header, record)) return record->pos + record->rlen;
+        // Insertion length describes inserted sequence, not a reference span.
+        // END is already the exclusive endpoint in our zero-based coordinates.
+        int32_t* ends = nullptr;
+        int capacity = 0;
+        int count = bcf_get_info_int32(header, record, "END", &ends, &capacity);
+        int end = count > 0 && ends[0] != bcf_int32_missing && ends[0] != bcf_int32_vector_end && ends[0] > record->pos
+                ? ends[0] : record->pos + std::max(1, (int)std::strlen(record->d.allele[0]));
+        free(ends);
+        return end;
+    }
+
     enum class AnnotationLabelFormat {
         GFF3,
         GTF,
@@ -398,6 +427,15 @@ namespace {
 
 namespace HGW {
 
+    int bamContigId(sam_hdr_t* header, const std::string& chrom) {
+        if (!header || chrom.empty()) return -1;
+        int tid = sam_hdr_name2tid(header, chrom.c_str());
+        if (tid >= 0) return tid;
+        std::string alias = Utils::startsWith(chrom, "chr") ? chrom.substr(3) : "chr" + chrom;
+        return sam_hdr_name2tid(header, alias.c_str());
+    }
+
+
     class GenomeJob {
     public:
         bool success;
@@ -585,48 +623,39 @@ namespace HGW {
 
         bam1_t *src;
         hts_itr_t *iter_q;
-        if (region == nullptr || region->end <= region->start) {
+        if (!b || !hdr_ptr || !index || region == nullptr || region->end <= region->start) {
             return;
         }
 
-        int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
+        int tid = bamContigId(hdr_ptr, region->chrom);
         if (tid < 0) {
             std::cerr << "\nError: unknown sequence " << region->chrom << " in collectReadsAndCoverage" << std::endl;
             return;
         }
         std::vector<Segs::Align>& readQueue = col.readQueue;
-        if (region->end - region->start < 1000000) {
-            try {
-                readQueue.reserve((region->end - region->start) * 60);
-            } catch (const std::bad_alloc&) {
-            }
-        }
-        readQueue.emplace_back(bam_init1());
+        if (readQueue.capacity() < 4096) readQueue.reserve(4096);
         iter_q = sam_itr_queryi(index, tid, region->start, region->end);
         if (iter_q == nullptr) {
             std::cerr << "\nError: Null iterator when trying to fetch from HTS file in collectReadsAndCoverage " << region->chrom << " " << region->start << " " << region->end << std::endl;
             return;
 //            throw std::runtime_error("");
         }
+        col.bufferedStart = region->start;
+        col.bufferedEnd = region->end;
+        col.bufferedTid = tid;
+        readQueue.emplace_back(bam_init1());
 //        std::string target = "A00721:542:HWWLLDSX5:4:2150:18936:11584";
 //        const char * qname;
 
         while (sam_itr_next(b, iter_q, readQueue.back().delegate) >= 0) {
             src = readQueue.back().delegate;
-
-//            qname = bam_get_qname(src);
-//            if (std::string(qname) != target) { continue; } else { readQueue.emplace_back(bam_init1()); break; }
-
-            if (src->core.flag & 4 || src->core.n_cigar == 0) {
-                continue;
-            }
+            if (src->core.flag & 4 || src->core.n_cigar == 0) continue;
             readQueue.emplace_back(bam_init1());
         }
-        src = readQueue.back().delegate;
-        if (src->core.flag & 4 || src->core.n_cigar == 0) {
-            bam_destroy1(src);
-            readQueue.pop_back();
-        }
+        // The iterator can fill the scratch record with the first non-overlapping
+        // alignment before reporting EOF. It was never accepted by the loop.
+        bam_destroy1(readQueue.back().delegate);
+        readQueue.pop_back();
         hts_itr_destroy(iter_q);
 
         Segs::init_parallel(readQueue, threads, pool, parse_mods_threshold, add_soft_clip_space);
@@ -785,7 +814,8 @@ namespace HGW {
         const int BATCH = 1500;
         bam1_t *src;
         hts_itr_t *iter_q;
-        int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
+        if (!b || !hdr_ptr || !index || !region) return;
+        int tid = bamContigId(hdr_ptr, region->chrom);
         if (tid < 0) {
             std::cerr << "\nError: unknown sequence " << region->chrom << " in iterDrawParallel" << std::endl;
             return;
@@ -793,8 +823,8 @@ namespace HGW {
         std::vector<Segs::Align>& readQueue = col.readQueue;
 
         if (col.levelsStart.empty()) {
-            col.levelsStart.resize(opts.ylim + col.vScroll, 1215752191);
-            col.levelsEnd.resize(opts.ylim + col.vScroll, 0);
+            col.levelsStart.resize(opts.ylim + col.vScroll, Segs::EMPTY_LEVEL_START);
+            col.levelsEnd.resize(opts.ylim + col.vScroll, Segs::EMPTY_LEVEL_END);
         }
 
         if (!readQueue.empty()) {
@@ -888,14 +918,15 @@ namespace HGW {
 
         bam1_t *src;
         hts_itr_t *iter_q;
-        int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
+        if (!b || !hdr_ptr || !index || !region) return;
+        int tid = bamContigId(hdr_ptr, region->chrom);
         if (tid < 0) {
             std::cerr << "\nError: unknown sequence " << region->chrom << " in iterDraw" << std::endl;
             return;
         }
         if (col.levelsStart.empty()) {
-            col.levelsStart.resize(opts.ylim + col.vScroll, 1215752191);
-            col.levelsEnd.resize(opts.ylim + col.vScroll, 0);
+            col.levelsStart.resize(opts.ylim + col.vScroll, Segs::EMPTY_LEVEL_START);
+            col.levelsEnd.resize(opts.ylim + col.vScroll, Segs::EMPTY_LEVEL_END);
         }
         std::vector<Segs::Align>& readQueue = col.readQueue;
         if (!readQueue.empty()) {
@@ -937,36 +968,33 @@ namespace HGW {
     }
 
 
+    // Start-sorted queues are not end-sorted: inspect every read, since a long
+    // read at the front must not keep expired short reads behind it alive.
+    static bool pruneBufferedReads(Segs::ReadCollection& col, int start, int end) {
+        auto& reads = col.readQueue;
+        size_t kept = 0;
+        for (size_t i = 0; i < reads.size(); ++i) {
+            auto& a = reads[i];
+            // Coverage bounds include the soft clips when they are displayed.
+            if (a.cov_end <= start || a.cov_start >= end) {
+                bam_destroy1(a.delegate);
+                a.delegate = nullptr;
+            } else {
+                if (kept != i) reads[kept] = std::move(a);
+                ++kept;
+            }
+        }
+        bool changed = kept != reads.size();
+        reads.erase(reads.begin() + kept, reads.end());
+        return changed;
+    }
+
     void trimToRegion(Segs::ReadCollection &col, bool coverage, int snp_threshold) {
-        std::vector<Segs::Align>& readQueue = col.readQueue;
         Utils::Region *region = col.region;
-        while (!readQueue.empty()) {
-            Segs::Align &item = readQueue.back();
-            if (item.cov_start > region->end + 1000) {
-                if (item.y >= 0 && !col.levelsEnd.empty()) {
-                    col.levelsEnd[item.y] = item.cov_start - 1;
-                }
-                bam_destroy1(item.delegate);
-                readQueue.pop_back();
-            } else {
-                break;
-            }
-        }
-        int idx = 0;
-        for (auto &item : readQueue) {  // drop out of scope reads
-            if (item.cov_end < region->start - 1000) {
-                if (item.y >= 0 && !col.levelsStart.empty()) {
-                    col.levelsStart[item.y] = item.cov_end + 1;
-                }
-                bam_destroy1(item.delegate);
-                idx += 1;
-            } else {
-                break;
-            }
-        }
-        if (idx > 0) {
-            readQueue.erase(readQueue.begin(), readQueue.begin() + idx);
-            readQueue.shrink_to_fit();
+        pruneBufferedReads(col, region->start, region->end);
+        if (col.bufferedStart >= 0) {
+            col.bufferedStart = std::max(col.bufferedStart, region->start);
+            col.bufferedEnd = std::min(col.bufferedEnd, region->end);
         }
         if (coverage) {  // re process coverage for all reads
             col.covArr.resize(region->end - region->start + 1);
@@ -983,12 +1011,17 @@ namespace HGW {
     }
 
     void refreshLinkedCollection(Segs::ReadCollection &cl, Themes::IniOptions &opts, int *samMaxY, int sortReadsBy) {
-        Segs::resetCovStartEnd(cl);
+        // Match initial alignment parsing, including the current soft-clip setting.
+        for (auto& a : cl.readQueue) {
+            a.cov_start = (int)a.pos - (opts.soft_clip_threshold > 0 ? a.left_soft_clip : 0);
+            a.cov_end = (int)a.reference_end + (opts.soft_clip_threshold > 0 ? a.right_soft_clip : 0);
+        }
         cl.levelsStart.clear();
         cl.levelsEnd.clear();
         cl.linked.clear();
+        cl.sortLevels.clear();
         cl.resetDrawState();
-        for (auto &itm: cl.readQueue) { itm.y = -1; }
+        for (auto &itm: cl.readQueue) { if (itm.y != -2) itm.y = -1; }
         int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sortReadsBy);
         *samMaxY = (maxY > *samMaxY || opts.tlen_yscale) ? maxY : *samMaxY;
     }
@@ -1003,198 +1036,111 @@ namespace HGW {
     void appendReadsAndCoverage(Segs::ReadCollection &col, htsFile *b, sam_hdr_t *hdr_ptr,
                                  hts_idx_t *index, Themes::IniOptions &opts, bool coverage, bool left, int *samMaxY,
                                 std::vector<Parse::Parser> &filters, BS::thread_pool &pool, Utils::Region &reg) {
-        bam1_t *src;
         hts_itr_t *iter_q = nullptr;
         std::vector<Segs::Align>& readQueue = col.readQueue;
         Utils::Region *region = col.region;
-        bool tlen_y = opts.tlen_yscale;
-        int tid = sam_hdr_name2tid(hdr_ptr, region->chrom.c_str());
+        if (!b || !hdr_ptr || !index || !region) return;
+        int tid = bamContigId(hdr_ptr, region->chrom);
         if (tid < 0) {
             return;
         }
-        int lastPos;
-        const int parse_mods_threshold = (opts.parse_mods) ? 50 : 0;
-        const bool add_soft_clip_space = opts.soft_clip_threshold > 0;
-
-        if (!readQueue.empty()) {
-            if (left) {
-                lastPos = readQueue.front().pos; // + 1;
-            } else {
-                lastPos = readQueue.back().pos; // + 1;
-            }
+        // Fetch only newly exposed reference intervals. Queue endpoints cannot
+        // serve as fetch cursors: pruning can leave holes between long reads.
+        bool known = col.bufferedTid == tid && col.bufferedStart >= 0;
+        int oldStart = col.bufferedStart, oldEnd = col.bufferedEnd;
+        bool pruned = false;
+        if (!known) {
+            col.clear();
         } else {
-            if (left) {
-                lastPos = 1215752190;
-            } else {
-                lastPos = 0;
-            }
+            pruned = pruneBufferedReads(col, region->start, region->end);
         }
-
+        // Clip-only survivors can lie outside the last HTS reference query.
+        // Match just that small fringe when it re-enters the reference interval.
+        // A multimap preserves distinct records and repeated identical records.
+        std::unordered_multimap<hts_pos_t, const bam1_t*> clippedSurvivors;
+        if (known) {
+            for (const auto& a : readQueue)
+                if (!(a.pos < (uint32_t)oldEnd && a.reference_end > (uint32_t)oldStart))
+                    clippedSurvivors.emplace(a.delegate->core.pos, a.delegate);
+        }
+        auto retainedClip = [&](const bam1_t* record) {
+            auto range = clippedSurvivors.equal_range(record->core.pos);
+            for (auto it = range.first; it != range.second; ++it) {
+                const auto* saved = it->second;
+                const auto& a = saved->core;
+                const auto& b = record->core;
+                if (a.tid == b.tid && a.flag == b.flag && a.qual == b.qual &&
+                    a.n_cigar == b.n_cigar && a.l_qseq == b.l_qseq && a.mtid == b.mtid &&
+                    a.mpos == b.mpos && a.isize == b.isize && saved->l_data == record->l_data &&
+                    std::memcmp(saved->data, record->data, record->l_data) == 0) {
+                    clippedSurvivors.erase(it);
+                    return true;
+                }
+            }
+            return false;
+        };
         std::vector<Segs::Align> newReads;
-        if (left && (readQueue.empty() || readQueue.front().cov_end > region->start)) {
-            while (!readQueue.empty()) {  // remove items from RHS of queue, reduce levelsEnd
-                Segs::Align &item = readQueue.back();
-                if (item.cov_start > region->end) {
-                    if (item.y != -1 && !tlen_y) {
-                        col.levelsEnd[item.y] = item.cov_start - 1;
-                        if (col.levelsStart[item.y] == col.levelsEnd[item.y]) {
-                            col.levelsStart[item.y] = 1215752191;
-                            col.levelsEnd[item.y] = 0;
-                        }
-                    }
-                    bam_destroy1(readQueue.back().delegate);
-                    readQueue.pop_back();
-                } else {
-                    break;
-                }
+        auto fetch = [&](int begin, int end) {
+            if (begin >= end) return true;
+            iter_q = sam_itr_queryi(index, tid, begin, end);
+            if (!iter_q) return false;
+            bam1_t* record = bam_init1();
+            int status;
+            while ((status = sam_itr_next(b, iter_q, record)) >= 0) {
+                if (record->core.flag & 4 || record->core.n_cigar == 0) continue;
+                // Overlapping records were fetched in the previous interval and
+                // retained by pruning. This also preserves distinct equal-start reads.
+                if (known && record->core.pos < oldEnd && bam_endpos(record) > oldStart) continue;
+                if (!clippedSurvivors.empty() && retainedClip(record)) continue;
+                newReads.emplace_back(record);
+                record = bam_init1();
             }
-            int end_r;
-            if (readQueue.empty()) {
-                std::fill(col.levelsStart.begin(), col.levelsStart.end(), 1215752191);
-                std::fill(col.levelsEnd.begin(), col.levelsEnd.end(), 0);
-                end_r = region->end;
-            } else {
-                end_r = readQueue.front().reference_end;
-                if (end_r < region->start) {
-                    // reads are already in the queue, no need to collect
-                    // recalculate coverage - even though no reads collected, region may still have changed
-                    if (coverage) {
-                        col.covArr.resize(region->end - region->start + 1);
-                        std::fill(col.covArr.begin(), col.covArr.end(), 0);
-                        for (auto &i : readQueue) {
-                            Segs::addToCovArray(col.covArr, i, region->start, region->end);
-                        }
-                    }
-                    if (opts.snp_threshold > region->end - region->start) {
-                        col.mmVector.resize(region->end - region->start + 1);
-                        Segs::Mismatches empty_mm{};
-                        std::fill(col.mmVector.begin(), col.mmVector.end(), empty_mm);
-                    } else {
-                        col.mmVector.clear();
-                    }
-                    col.collection_processed = false;
-                    return;
-                }
-            }
-
-            // not sure why this is needed. Without the left pad, some alignments are not collected for small regions??
-            long begin = (region->start - 1000) > 0 ? region->start - 1000 : 0;
-            iter_q = sam_itr_queryi(index, tid, begin, end_r);
-            if (iter_q == nullptr) {
-                std::cerr << "\nError: Null iterator when trying to fetch from HTS file in appendReadsAndCoverage (left) " << region->chrom << " " << region->start<< " " << end_r << " " << region->end << std::endl;
-//                throw std::runtime_error("");
-                return;
-            }
-            newReads.emplace_back(Segs::Align(bam_init1()));
-
-            while (sam_itr_next(b, iter_q, newReads.back().delegate) >= 0) {
-                src = newReads.back().delegate;
-                if (src->core.flag & 4 || src->core.n_cigar == 0) {
-                    continue;
-                }
-                if (src->core.pos >= lastPos) {
-                    break;
-                }
-                newReads.emplace_back(Segs::Align(bam_init1()));
-            }
-            src = newReads.back().delegate;
-            if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos >= lastPos) {
-                bam_destroy1(src);
-                newReads.pop_back();
-            }
-
-        } else if (!left && lastPos < region->end) {
-            int idx = 0;
-            for (auto &item : readQueue) {  // drop out of scope reads
-                if (item.cov_end < region->start - 1000) {
-                    if (item.y != -1 && !tlen_y) {
-                        col.levelsStart[item.y] = item.cov_end + 1;
-                        if (col.levelsStart[item.y] == col.levelsEnd[item.y]) {
-                            col.levelsStart[item.y] = 1215752191;
-                            col.levelsEnd[item.y] = 0;
-                        }
-                    }
-                    bam_destroy1(item.delegate);
-                    idx += 1;
-                } else {
-                    break;
-                }
-            }
-            if (idx > 0) {
-                readQueue.erase(readQueue.begin(), readQueue.begin() + idx);
-            }
-            if (readQueue.empty()) {
-                std::fill(col.levelsStart.begin(), col.levelsStart.end(), 1215752191);
-                std::fill(col.levelsEnd.begin(), col.levelsEnd.end(), 0);
-                iter_q = sam_itr_queryi(index, tid, region->start, region->end);
-            } else {
-                iter_q = sam_itr_queryi(index, tid, lastPos, region->end);
-            }
-            if (iter_q == nullptr) {
-                std::cerr << "\nError: Null iterator when trying to fetch from HTS file in appendReadsAndCoverage (!left) " << region->chrom << " " << lastPos << " " << region->end << std::endl;
-//                throw std::runtime_error("");
-                return;
-            }
-            newReads.emplace_back(Segs::Align(bam_init1()));
-
-            while (sam_itr_next(b, iter_q, newReads.back().delegate) >= 0) {
-                src = newReads.back().delegate;
-                if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos <= lastPos) {
-                    continue;
-                }
-                if (src->core.pos > region->end) {
-                    break;
-                }
-                newReads.emplace_back(Segs::Align(bam_init1()));
-            }
-            src = newReads.back().delegate;
-            if (src->core.flag & 4 || src->core.n_cigar == 0 || src->core.pos <= lastPos || src->core.pos > region->end) {
-                bam_destroy1(src);
-                newReads.pop_back();
-            }
+            bam_destroy1(record);
+            hts_itr_destroy(iter_q);
+            iter_q = nullptr;
+            return status == -1;
+        };
+        bool fetched;
+        if (!known) {
+            fetched = fetch(region->start, region->end);
+        } else {
+            fetched = fetch(region->start, std::min(region->end, oldStart));
+            fetched = fetch(std::max(region->start, oldEnd), region->end) && fetched;
         }
-
-        if (!newReads.empty()) {
-            Segs::init_parallel(newReads, opts.threads, pool, parse_mods_threshold, add_soft_clip_space);
-            if (!filters.empty()) {
-                applyFilters(filters, newReads, hdr_ptr, col.bamIdx, col.regionIdx);
-            }
-
-            bool findYall = false;
-            int sort_state = Segs::getSortCodes(newReads, opts.threads, pool, region);
-            if (col.vScroll == 0 && opts.link_op == 0) {  // only new reads need findY, otherwise, reset all below
-                int maxY = Segs::findY(col, newReads, opts.link_op, opts, left, sort_state);
-                if (maxY > *samMaxY) {
-                    *samMaxY = maxY;
-                }
-            } else {
-                findYall = true;
-            }
-
-            if (!left) {
-                std::move(newReads.begin(), newReads.end(), std::back_inserter(readQueue));
-            } else {
-                std::move(readQueue.begin(), readQueue.end(), std::back_inserter(newReads));
-                col.readQueue = newReads;
-            }
-            if (findYall) {
-                refreshLinkedCollection(col, opts, samMaxY, sort_state);
-            }
-            if (opts.link_op > 0) {
-                // move of data will invalidate some pointers, so reset
-                col.linked.clear();
-                int linkType = opts.link_op;
-                for (auto &v : col.readQueue) {
-                    if (linkType == 1) {
-                        if (v.has_SA || ~v.delegate->core.flag & 2) {
-                            col.linked[bam_get_qname(v.delegate)].push_back(&v);
-                        }
-                    } else {
-                        col.linked[bam_get_qname(v.delegate)].push_back(&v);
-                    }
-                }
-            }
-
+        if (fetched) {
+            col.bufferedStart = region->start;
+            col.bufferedEnd = region->end;
+            col.bufferedTid = tid;
+        } else {
+            // A failed query must not make the next pan treat a missing interval as cached.
+            col.bufferedStart = col.bufferedEnd = col.bufferedTid = -1;
+        }
+        bool added = !newReads.empty();
+        bool prepend = known && added && (region->start < oldStart ||
+            (!readQueue.empty() && newReads.front().delegate->core.pos <= readQueue.back().delegate->core.pos));
+        if (added) {
+            Segs::init_parallel(newReads, opts.threads, pool, opts.parse_mods ? 50 : 0,
+                                opts.soft_clip_threshold > 0);
+            if (!filters.empty()) applyFilters(filters, newReads, hdr_ptr, col.bamIdx, col.regionIdx);
+        }
+        if (prepend) {
+            // Left and right extensions can occur together on zoom-out. Merge by
+            // start position without deep-copying BAM records or existing reads.
+            auto middle = newReads.size();
+            newReads.reserve(newReads.size() + readQueue.size());
+            std::move(readQueue.begin(), readQueue.end(), std::back_inserter(newReads));
+            std::inplace_merge(newReads.begin(), newReads.begin() + middle, newReads.end(),
+                [](const Segs::Align& a, const Segs::Align& b) { return a.pos < b.pos; });
+            readQueue.swap(newReads);
+        } else {
+            std::move(newReads.begin(), newReads.end(), std::back_inserter(readQueue));
+        }
+        if (!known || opts.link_op != 0 || opts.tlen_yscale) {
+            int sortState = Segs::getSortCodes(readQueue, opts.threads, pool, region);
+            refreshLinkedCollection(col, opts, samMaxY, sortState);
+        } else if (pruned || added) {
+            int sortState = Segs::getSortCodes(readQueue, opts.threads, pool, region);
+            *samMaxY = std::max(*samMaxY, Segs::placeUnassignedReads(col, opts, sortState));
         }
         if (coverage) {  // re process coverage for all reads
             col.covArr.resize(region->end - region->start + 1);
@@ -1364,7 +1310,7 @@ namespace HGW {
         bcf_unpack(v, BCF_UN_INFO);
 
         start = v->pos;
-        stop = start + v->rlen;
+        stop = vcfReferenceEnd(hdr, v);
         chrom = bcf_hdr_id2name(hdr, v->rid);
         rid = v->d.id;
 
@@ -1404,7 +1350,7 @@ namespace HGW {
                     chrom2 = chrom;  // todo deal should this raise an error?
                 }
                 info_field = bcf_get_info(hdr, v, "CHR2_POS");  // try and find chrom2 in info
-                if (info_field != nullptr) {
+                if (info_field != nullptr && !vcfIsInsertion(hdr, v)) {
                     int resc = bcf_get_info_int32(hdr, v, "CHR2_POS", &intmem, &imem);
                     if (resc < 0) {
                         std::cerr << "Error: could not parse CHR2 field, error was " << resc << std::endl;
@@ -1487,7 +1433,16 @@ namespace HGW {
 
 	void VCFfile::printTargetRecord(std::string &id_str, std::string &chrom, int pos) {
         if (kind == BCF_IDX) {
-            return print_BCF_IDX(idx_v, hdr, chrom, pos, fp, id_str, variantString);
+            // A details lookup must not seek the sequential reader used by list prefetch.
+            htsFile* detailFile = bcf_open(path.c_str(), "r");
+            if (!detailFile) return;
+            bcf_hdr_t* detailHeader = bcf_hdr_read(detailFile);
+            if (detailHeader) {
+                print_BCF_IDX(idx_v, detailHeader, chrom, pos, detailFile, id_str, variantString);
+                bcf_hdr_destroy(detailHeader);
+            }
+            bcf_close(detailFile);
+            return;
         }
         else if (kind == VCF_NOI) {
             return print_VCF_NOI(path, id_str, variantString);
@@ -1707,7 +1662,7 @@ namespace HGW {
         b.line = kstr.s;
         b.chrom = bcf_hdr_id2name(hdr, v->rid);
         b.start = (int)v->pos;
-        b.end = b.start + v->rlen;
+        b.end = vcfReferenceEnd(hdr, v);
         b.name = v->d.id;
         switch (bcf_get_variant_types(v)) {
             case VCF_SNP: b.vartype = "SNP"; break;
@@ -1741,7 +1696,7 @@ namespace HGW {
 
         chrom = bcf_hdr_id2name(hdr, v->rid);
         start = (int)v->pos;
-        stop = (int)start + v->rlen;
+        stop = vcfReferenceEnd(hdr, v);
         rid = v->d.id;
         switch (bcf_get_variant_types(v)) {
             case VCF_SNP: vartype = "SNP"; break;
@@ -2540,7 +2495,7 @@ namespace HGW {
                 if (id_temp == feature) {
                     region.chrom = bcf_hdr_id2name(hdr2, v2->rid);
                     region.start = (int)v2->pos;
-                    region.end = region.start + v2->rlen;
+                    region.end = vcfReferenceEnd(hdr2, v2);
                     region.markers = {{region.start, region.end}};
                     return true;
                 }

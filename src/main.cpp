@@ -1,5 +1,9 @@
 
 #include <algorithm>
+#include <cstdlib>
+#include <cstring>
+#include <stdexcept>
+#include <exception>
 #include <filesystem>
 #include <htslib/faidx.h>
 #include <iostream>
@@ -63,7 +67,19 @@ extern "C" EMSCRIPTEN_KEEPALIVE void gw_notify_resize(int w, int h) {
 #endif
 
 
-int main(int argc, char *argv[]) {
+static int reportFailure(const std::exception& error) {
+    const char* message = error.what();
+    if (!message || !*message) {
+        std::cerr << "Error: operation failed; see diagnostics above\n";
+    } else {
+        if (std::strncmp(message, "Error:", 6) != 0) std::cerr << "Error: ";
+        std::cerr << message << '\n';
+    }
+    return EXIT_FAILURE;
+}
+
+
+int main(int argc, char *argv[]) try {
     // Options needed by GW at runtime
     Themes::IniOptions iopts;
 
@@ -421,6 +437,7 @@ int main(int argc, char *argv[]) {
             }
         }
 
+        Menu::clearThemePreview();
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
@@ -615,7 +632,6 @@ int main(int argc, char *argv[]) {
 
                                               for (auto &rgn: all_regions) {
                                                   plt->collections.clear();
-                                                  free(const_cast<char*>(plt->regions[0].refSeq));
                                                   plt->regions[0].refSeq = nullptr;
                                                   plt->regions[0].chrom = rgn.chrom;
                                                   plt->regions[0].start = rgn.start;
@@ -801,5 +817,16 @@ int main(int argc, char *argv[]) {
     if (!iopts.no_show) {
         std::cout << "\nGw finished\n";
     }
-    return 0;
-};
+    return EXIT_SUCCESS;
+} catch (const std::runtime_error& error) {
+    // Some bundled Skia builds contain private std::exception RTTI. Catch the
+    // input-error families explicitly so their diagnostics survive that boundary.
+    return reportFailure(error);
+} catch (const std::logic_error& error) {
+    return reportFailure(error);
+} catch (const std::exception& error) {
+    return reportFailure(error);
+} catch (...) {
+    std::cerr << "Error: unexpected failure\n";
+    return EXIT_FAILURE;
+}

@@ -71,6 +71,25 @@ namespace Manager {
         }
     }
 
+    void GwPlot::setCollectionVScroll(size_t index, int value) {
+        if (index >= collections.size()) return;
+        auto& cl = collections[index];
+        if (cl.regionIdx < 0 || cl.regionIdx >= (int)regions.size()) return;
+        const int nextScroll = std::max(0, value);
+        if (nextScroll == cl.vScroll) return;
+        cl.vScroll = nextScroll;
+        cl.resetDrawState();
+        cl.levelsStart.clear();
+        cl.levelsEnd.clear();
+        cl.linked.clear();
+        for (auto& read : cl.readQueue) read.y = -1;
+        int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false,
+                              regions[cl.regionIdx].getSortOption());
+        samMaxY = std::max(samMaxY, maxY);
+        redraw = true;
+        processed = true;
+    }
+
     // Set an absolute vertical read-scroll offset across all collections and
     // re-run the layout. Mirrors the Ctrl+[ / Ctrl+] handling in registerKey
     // (see the reset block below), but takes an absolute value rather than a step.
@@ -1303,6 +1322,7 @@ namespace Manager {
                                     const int parse_mods_threshold = (opts.parse_mods) ? opts.mods_qual_threshold: 0;
                                     HGW::collectReadsAndCoverage(cl, bams[cl.bamIdx], headers[cl.bamIdx], indexes[cl.bamIdx],
                                         opts.threads, &region, (bool)opts.max_coverage, filters, pool, parse_mods_threshold, opts.soft_clip_threshold > 0);
+                                    sort_option = static_cast<Utils::SortType>(Segs::getSortCodes(cl.readQueue, opts.threads, pool, &region));
                                     int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, sort_option);
                                     if (maxY > samMaxY) {
                                         samMaxY = maxY;
@@ -1310,6 +1330,8 @@ namespace Manager {
                                 } else {
                                     if (!bams.empty()) {
                                         HGW::trimToRegion(cl, opts.max_coverage, opts.snp_threshold);
+                                        if (opts.link_op == 0 && !opts.tlen_yscale)
+                                            samMaxY = std::max(samMaxY, Segs::placeUnassignedReads(cl, opts, sort_option));
                                     }
                                 }
                                 cl.resetDrawState();
@@ -1413,13 +1435,13 @@ namespace Manager {
             int bLen = opts.number.x * opts.number.y;
             if (action == GLFW_PRESS || action == GLFW_REPEAT) {
                 if (key == opts.scroll_right) {
-                    size_t currentSize = (currentVarTrack->image_glob.empty()) ? currentVarTrack->multiRegions.size() : currentVarTrack->image_glob.size();
-                    if (currentVarTrack->type == HGW::TrackType::IMAGES && currentVarTrack->blockStart + bLen < (int)currentSize) {
-                        currentVarTrack->blockStart += bLen;
-                        mouseOverTileIndex = 0;
-                        redraw = true;
-                    }
-                    else if (!*currentVarTrack->trackDone) {
+                    // List prefetch may already have reached EOF. Page through
+                    // loaded records as well as records still waiting to be read.
+                    if (currentVarTrack->type != HGW::TrackType::IMAGES)
+                        currentVarTrack->iterateToIndex(currentVarTrack->blockStart + bLen + 1);
+                    size_t currentSize = currentVarTrack->type == HGW::TrackType::IMAGES
+                        ? currentVarTrack->image_glob.size() : currentVarTrack->multiRegions.size();
+                    if (currentVarTrack->blockStart + bLen < (int)currentSize) {
                         currentVarTrack->blockStart += bLen;
                         mouseOverTileIndex = 0;
                         redraw = true;
@@ -1431,7 +1453,6 @@ namespace Manager {
                     currentVarTrack->blockStart = (currentVarTrack->blockStart - bLen > 0) ? currentVarTrack->blockStart - bLen : 0;
                     mouseOverTileIndex = 0;
                     redraw = true;
-                    (*currentVarTrack->trackDone) = false;
                 } else if (key == opts.zoom_out) {
                     opts.number.x += 1;
                     opts.number.y += 1;
@@ -1476,27 +1497,9 @@ namespace Manager {
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
         bool good = false;
         if (Utils::endsWith(path, ".bam") || Utils::endsWith(path, ".cram")) {
-            htsFile* f = sam_open(path.c_str(), "r");
-            if (f == nullptr) {
-                out << termcolor::red << "Error:" << termcolor::reset << " could not open " << path << "\n";
-                return false;
-            }
-            hts_set_threads(f, opts.threads);
-            sam_hdr_t *hdr_ptr = sam_hdr_read(f);
-            hts_idx_t* idx = sam_index_load(f, path.c_str());
-            if (idx != nullptr) {
-                good = true;
-                if (print_message) {
-                    out << termcolor::magenta << "\nAlignments  " << termcolor::reset << path << "\n";
-                }
-                bam_paths.push_back(path);
-                bams.push_back(f);
-                headers.push_back(hdr_ptr);
-                indexes.push_back(idx);
-            } else {
-                hts_close(f);
-                bam_hdr_destroy(hdr_ptr);
-            }
+            good = addBam(path);
+            if (good && print_message)
+                out << termcolor::magenta << "\nAlignments  " << termcolor::reset << path << "\n";
         } else if (
                 (!vcf_as_track && (Utils::endsWith(path, ".vcf.gz") || Utils::endsWith(path, ".vcf") || Utils::endsWith(path, ".bcf")))
              || (!bed_as_track && (Utils::endsWith(path, ".bed") || Utils::endsWith(path, ".bed.gz")))) {
@@ -1505,7 +1508,7 @@ namespace Manager {
             std::vector<std::string> labels = Utils::split(opts.labels, ',');
             setLabelChoices(labels);
             mouseOverTileIndex = 0;
-            bboxes = Utils::imageBoundingBoxes(opts.number, (float) fb_width, (float) fb_height);
+            bboxes = tileBoundingBoxes();
             imageCache.clear();
 
             addVariantTrack(path, opts.start_index, false, false);
@@ -1578,7 +1581,7 @@ namespace Manager {
     }
 
     int GwPlot::getCollectionIdx(float x, float y) {
-        regionSelection = (int)(x / (fb_width / (float)regions.size()));
+        regionSelection = (int)(x / (drawingWidth() / (float)regions.size()));
         if (!regions.empty()) {
             regionSelection = std::clamp(regionSelection, 0, (int)regions.size() - 1);
         }
@@ -1609,7 +1612,7 @@ namespace Manager {
         }
         int i = 0;
         if (bams.empty()) {
-            i = (int)(x / ((float)fb_width / (float)regions.size()));
+            i = (int)(x / ((float)drawingWidth() / (float)regions.size()));
             i = (i >= (int)regions.size()) ? (int)regions.size() - 1 : i;
             return i;
         } else if (bams.size() <= 1) {
@@ -1638,35 +1641,52 @@ namespace Manager {
     }
 
     void GwPlot::updateSlider(float xW) {
-        for (auto &rgn : regions) {
-            if (xW > rgn.ideogramStart - gap && xW < rgn.ideogramEnd + gap) {
-                float drawWidth = rgn.ideogramEnd - rgn.ideogramStart;
-                float relP = (xW - rgn.ideogramStart) / drawWidth;
-                auto length = (float)faidx_seq_len(fai, rgn.chrom.c_str());
-                auto new_s = std::max(0, (int)(length * relP));
-                int regionL = rgn.end - rgn.start;
-                rgn.start = new_s;
-                rgn.end = new_s + regionL;
-                if (rgn.end > length) {
-                    rgn.end = length;
-                    rgn.start = (rgn.end - regionL > 0) ? rgn.end - regionL : 0;
-                } else if (rgn.start < 0) {
-                    rgn.start = 0;
-                    rgn.end = regionL;
-                }
+        for (size_t i = 0; i < regions.size(); ++i) {
+            auto& rgn = regions[i];
+            if (xW <= rgn.ideogramStart - gap || xW >= rgn.ideogramEnd + gap) continue;
+            float drawWidth = rgn.ideogramEnd - rgn.ideogramStart;
+            if (drawWidth <= 0 || rgn.chromLen <= 0) return;
+            float relP = (xW - rgn.ideogramStart) / drawWidth;
+            int regionL = rgn.end - rgn.start;
+            int start = std::clamp((int)(rgn.chromLen * relP), 0, std::max(0, rgn.chromLen - regionL));
+            int end = std::min(rgn.chromLen, start + regionL);
+            // Slow mouse movement often maps to the same base. Do no work then.
+            if (start == rgn.start && end == rgn.end) return;
+            bool reuse = processed && !bams.empty() && opts.link_op == 0 &&
+                         regionL < opts.low_memory && start < rgn.end && end > rgn.start;
+            size_t buffered = 0;
+            for (const auto& cl : collections) {
+                if (cl.regionIdx != (int)i) continue;
+                ++buffered;
+                if (cl.bufferedStart < 0 || cl.bufferedTid < 0 ||
+                    cl.bufferedStart > rgn.start || cl.bufferedEnd < rgn.end) reuse = false;
+            }
+            reuse = reuse && buffered == bams.size();
+            bool left = start < rgn.start;
+            rgn.start = start;
+            rgn.end = end;
+            regionSelection = (int)i;
+            if (reuse) {
+                fetchRefSeq(rgn);
+                updateRegionReads(left);
+            } else {
                 processed = false;
                 redraw = true;
-                if (regionL <= opts.snp_threshold) {
-                    fetchRefSeq(rgn);
-                }
+                if (regionL <= opts.snp_threshold) fetchRefSeq(rgn);
             }
+            return;
         }
     }
 
     // Main entry point for mouse button events
     void GwPlot::mouseButton(int button, int action, int mods) {
+        if (button == GLFW_MOUSE_BUTTON_LEFT) leftMouseDown = action != GLFW_RELEASE;
         float xW, yW;
         calculateCursorCoordinates(button, action, xW, yW);
+        if (xW >= drawingWidth()) {
+            if (action == GLFW_RELEASE) resetDragState();
+            return;
+        }
         if (handleToolButtons(button, action, xW, yW)) {
             return;
         }
@@ -1674,6 +1694,8 @@ namespace Manager {
             return;
         }
         updateDragState();
+        const bool dragRelease = action == GLFW_RELEASE &&
+            (mouseDragged || std::fabs(xDrag) >= 5 || std::fabs(yDrag) >= 5);
 
         // Right-click cancels an in-progress scale-bar drag without zooming
         if (scaleBarDragging && button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
@@ -1698,7 +1720,7 @@ namespace Manager {
             // padding beneath it) open the amino-acid popup, not the reference popup.
             const bool inAASection = (yW >= laneAreaBottom && yW < refSpace);
             // Lane click toggles row lock/unlock
-            if (inLaneArea && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+            if (inLaneArea && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE && !dragRelease) {
                 int lane = (int)((yW - laneAreaTop) / (laneHeight + laneSpacing));
                 lane = std::clamp(lane, 0, 2);
                 if (translation_row_locked && opts.translation_frame == lane) {
@@ -1713,12 +1735,13 @@ namespace Manager {
                 setScaling();
                 setDrawContext(ctx);
                 redraw = true;
-                processed = false;
+                for (auto& cl : collections) cl.resetDrawState();
+                resetDragState();
                 return;
             }
             // Clicking the AA text row (or the small padding beneath it) opens the
             // amino-acid sequence popup instead of the reference sequence popup.
-            if ((inAATextRow || inAASection) && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE && !ctrlPress &&
+            if ((inAATextRow || inAASection) && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE && !ctrlPress && !dragRelease &&
                 std::fabs(xDrag) < 5 && std::fabs(yDrag) < 5) {
                 printAminoAcidSequence(xW, yW);
                 return;
@@ -1732,14 +1755,15 @@ namespace Manager {
             }
             // Consume any left-button release inside the translation track area that
             // wasn't handled above, so it cannot fall through to the reference popup.
-            if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+            if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE && !dragRelease) {
+                resetDragState();
                 return;
             }
         }
 
         // Strand-direction arrow next to the reference track
         if (opts.show_translation && mode == Manager::SINGLE &&
-            button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+            button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE && !dragRelease) {
             const float boxHeight = fonts.overlayHeight;
             const float arrowSize = std::min(boxHeight, gap * 0.7f);
             const float arrowX = (gap - arrowSize) * 0.5f;
@@ -1904,7 +1928,7 @@ namespace Manager {
                 scaleBarDragging = false;
                 // xW is in framebuffer coords (same as scaleBarDragStartX)
                 if (std::abs(xW - (float)scaleBarDragStartX) >= 5) {
-                    float colWidth = (float)fb_width / (float)regions.size();
+                    float colWidth = (float)drawingWidth() / (float)regions.size();
                     float xOffset = gap + colWidth * (float)scaleBarDragRegionIdx;
                     float scaleWidth = colWidth - gap - gap;
                     Utils::Region& region = regions[scaleBarDragRegionIdx];
@@ -1930,7 +1954,7 @@ namespace Manager {
             if (action == GLFW_PRESS && yW >= topMenuSpace && yW <= scaleBarBottom) {
                 scaleBarDragging = true;
                 scaleBarDragStartX = xW;  // stored in framebuffer coords
-                float colWidth = (float)fb_width / (float)regions.size();
+                float colWidth = (float)drawingWidth() / (float)regions.size();
                 scaleBarDragRegionIdx = std::clamp((int)(xW / colWidth), 0, (int)regions.size() - 1);
                 xDrag = DRAG_UNSET;
                 yDrag = DRAG_UNSET;
@@ -1989,7 +2013,7 @@ namespace Manager {
 
         if (ctrlPress && action == GLFW_PRESS && idx >= 0) {
             Segs::ReadCollection &cl = collections[idx];
-            int pos = (int)(((xW - (float)cl.xOffset) / cl.xScaling) + (float)cl.region->start);
+            int pos = cl.region->start + (int)(((double)xW - cl.xOffset) / cl.xScaling);
             zoomToPosition(pos);
             return true;
         }
@@ -2119,7 +2143,7 @@ namespace Manager {
 
     void GwPlot::printTrackInformation(int idx, float xW, float yW) {
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
-        float rS = ((float)fb_width / (float)regions.size());
+        float rS = ((float)drawingWidth() / (float)regions.size());
         int tIdx = (int)((xW) / rS);
         if (tIdx < (int)regions.size()) {
             float relX = xW - gap;
@@ -2151,6 +2175,7 @@ namespace Manager {
             target_qname = saved_qname;
             target_pos = saved_pos;
             Term::printTrack(relX, targetTrack, &regions[tIdx], false, featureLevel, trackIdx, target_qname, &target_pos, out);
+            std::string featureDetails;
             // Capture the clicked feature for  terminal output
             // introns use the dedicated selectedIntron TSV; other GFF/BED features use the
             // generic selectedFeature record
@@ -2167,6 +2192,14 @@ namespace Manager {
                 int jitter = (rgn->end - rgn->start) * 0.025;
                 for (auto &b : rgn->featuresInView.at(trackIdx)) {
                     if (b.start - jitter <= target && b.end + jitter >= target && b.level == featureLevel) {
+                        featureDetails = b.line;
+                        if (featureDetails.empty()) {
+                            for (const auto& part : b.parts) {
+                                if (!featureDetails.empty() && featureDetails.back() != '\n' && part != "\n")
+                                    featureDetails += '\t';
+                                featureDetails += part;
+                            }
+                        }
                         if (targetTrack.kind == HGW::FType::INTRON) {
                             selectedIntron = b.chrom + "\t" + std::to_string(b.start) + "\t"
                                            + std::to_string(b.end) + "\t" + std::to_string(b.strand) + "\t"
@@ -2231,6 +2264,7 @@ namespace Manager {
             std::string ansiStr = uiOut.str();
             if (!ansiStr.empty()) {
                 TrackPopup tp;
+                tp.details = std::move(featureDetails);
                 tp.ansi  = std::move(ansiStr);
                 tp.x     = xW / monitorScale;
                 tp.y     = yW / monitorScale;
@@ -2256,7 +2290,8 @@ namespace Manager {
 
     void GwPlot::handleReadSelection(int idx, float xW, float yW) {
         Segs::ReadCollection &cl = collections[idx];
-        int pos = (int)(((xW - (float)cl.xOffset) / cl.xScaling) + (float)cl.region->start);
+        // Keep the genomic origin integral: floats lose base precision past 2^24.
+        int pos = cl.region->start + (int)(((double)xW - cl.xOffset) / cl.xScaling);
         // Coverage-area click (above the reads): open coverage popup
         if (yW < cl.yOffset && cl.region->end - cl.region->start < 75000) {
             std::ostringstream uiOut;
@@ -2473,36 +2508,25 @@ namespace Manager {
     }
 
     void GwPlot::handleRegionDragging() {
-        if (xDrag == DRAG_UNSET) {
-            return;
-        }
+        if (xDrag == DRAG_UNSET || regions.empty() || windowW <= 0) return;
+        if ((!mouseDragged && std::fabs(xDrag) < 5) || std::fabs(yDrag) > std::fabs(xDrag)) return;
         Utils::Region &region = regions[regionSelection];
-        auto w = (float)(region.end - region.start) * (float)regions.size();
-        if (w >= 75000 || window == nullptr) {  // windowlessMode
-            int travel = (int)(w * (xDrag / windowW));
-            int old_start = region.start;
-            if (region.start - travel < 0) {
-                travel = region.start;
-                region.start = 0;
-                region.end = clicked.end - travel;
-            } else {
-                region.start = clicked.start - travel;
-                region.end = clicked.end - travel;
-            }
-            if (region.start < 0 || region.end < 0) {
-                xDrag = DRAG_UNSET;
-                yDrag = DRAG_UNSET;
-                return;
-            }
+        auto w = (float)(clicked.end - clicked.start) * (float)regions.size();
+        int travel = (int)(w * (xDrag / (windowW * (double)drawingWidth() / fb_width)));
+        int start = std::max(0, clicked.start - travel);
+        int end = start + (clicked.end - clicked.start);
+        int oldStart = region.start;
+        // Live alignment dragging may already have applied this exact position.
+        if (start != region.start || end != region.end) {
+            region.start = start;
+            region.end = end;
             fetchRefSeq(region);
-
-            // Handle region update
-            bool lt_last = region.start < old_start;
-            if (opts.link_op != 0) {
+            if (opts.link_op != 0 || region.end - region.start >= opts.low_memory) {
                 processed = false;
                 redraw = true;
             } else {
-                updateRegionReads(lt_last);
+                // Reference-track and alignment drags share the buffered pan path.
+                updateRegionReads(region.start < oldStart);
             }
         }
         clickedIdx = -1;
@@ -2606,7 +2630,7 @@ namespace Manager {
         );
         if (parsed) {
             if (rt.size() == 1 && rt[0].end - rt[0].start > 500000) {
-                int posX = (int)(((xW - gap) / (float)(fb_width - gap - gap)) *
+                int posX = (int)(((xW - gap) / (float)(drawingWidth() - gap - gap)) *
                             (float)(rt[0].end - rt[0].start)) + rt[0].start;
                 rt[0].start = (posX - 10000 > 0) ? posX - 100000 : 1;
                 rt[0].end = posX + 100000;
@@ -2643,7 +2667,7 @@ namespace Manager {
             resetTextCapture();
             return;
         }
-        if (std::fabs(xDrag) > fb_width / 16.) {
+        if (std::fabs(xDrag) > drawingWidth() / 16.) {
             handleTiledModeScroll();
         }
         else if (std::fabs(xDrag) < 5) {
@@ -2742,8 +2766,8 @@ namespace Manager {
     void GwPlot::mousePos(double xPos, double yPos) {
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
         GLFWwindow* wind = window;
-        int windX, windY;
-        glfwGetWindowSize(wind, &windX, &windY);
+        int windX = fb_width, windY = fb_height;
+        if (wind) glfwGetWindowSize(wind, &windX, &windY);
         if (yPos < 0 || xPos < 0 || xPos > windX || yPos > windY) {
             return;
         }
@@ -2751,7 +2775,8 @@ namespace Manager {
             lastX = xPos;
             lastY = yPos;
         }
-        int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+        int state = wind ? glfwGetMouseButton(wind, GLFW_MOUSE_BUTTON_LEFT) :
+                           (leftMouseDown ? GLFW_PRESS : GLFW_RELEASE);
 
         bool lt_last = xPos < lastX;
         lastX = xPos;
@@ -2761,8 +2786,10 @@ namespace Manager {
         yPos_fb = yPos;
         double xPosOri_fb = xOri;
         double yPosOri_fb = yOri;
-        convertScreenCoordsToFrameBufferCoords(wind, &xPos_fb, &yPos_fb, fb_width, fb_height);
-        convertScreenCoordsToFrameBufferCoords(wind, &xPosOri_fb, &yPosOri_fb, fb_width, fb_height);
+        if (wind) {
+            convertScreenCoordsToFrameBufferCoords(wind, &xPos_fb, &yPos_fb, fb_width, fb_height);
+            convertScreenCoordsToFrameBufferCoords(wind, &xPosOri_fb, &yPosOri_fb, fb_width, fb_height);
+        }
         // register popup toolbar
         if (captureText && mode != SETTINGS && xPos_fb < (50 + fonts.overlayWidth * 20)) {
             int tip_lb = 0;
@@ -2801,7 +2828,7 @@ namespace Manager {
         // Translation track hover preview
         const float translationTrackHeight = ctx.translationTrackHeight;
         if (opts.show_translation && mode == Manager::SINGLE &&
-            xPos_fb >= 0 && xPos_fb < fb_width &&
+            xPos_fb >= 0 && xPos_fb < drawingWidth() &&
             yPos_fb >= refSpace - translationTrackHeight && yPos_fb < refSpace) {
             const float transTop = refSpace - translationTrackHeight;
             const float laneHeight = fonts.overlayHeight * 0.55f;
@@ -2837,14 +2864,14 @@ namespace Manager {
         if (!tracks.empty() && !trackBoundaries.empty() && !tabBorderPress) {
             for (size_t i = 0; i < trackBoundaries.size(); ++i) {
                 if (std::fabs(yPos_fb - trackBoundaries[i]) < 5 * monitorScale) {
-                    glfwSetCursor(window, vCursor);
+                    if (wind) glfwSetCursor(wind, vCursor);
                     nearBoundary = true;
                     boundaryIndex = i;
                     break;
                 }
             }
             if (!nearBoundary) {
-                glfwSetCursor(window, normalCursor);
+                if (wind) glfwSetCursor(wind, normalCursor);
             }
         }
 
@@ -2958,6 +2985,7 @@ namespace Manager {
                             }
                         }
                         redraw = true;
+                        imageCache.clear();
                         imageCacheQueue.clear();
                         return;
                     }
@@ -2968,14 +2996,13 @@ namespace Manager {
                 // originated, even if the cursor has crossed into an adjacent column.
                 int dragRegionSelection = regionSelection;
                 int idx = getCollectionIdx((float) xPos_fb, (float) yPos_fb);
-                int windowW, windowH;
-                glfwGetWindowSize(wind, &windowW, &windowH);
+                int windowW = windX, windowH = windY;
                 Utils::Region &region = regions[dragRegionSelection];
                 if (std::fabs(xDrag) > std::fabs(yDrag) && region.end - region.start < 75000) {
                     regionSelection = dragRegionSelection;  // restore before updating reads
                     printRegionInfo();
                     auto w = (float) (region.end - region.start) * (float) regions.size();
-                    int travel = (int) (w * (xDrag / windowW));
+                    int travel = (int) (w * (xDrag / (windowW * (double)drawingWidth() / fb_width)));
                     if (region.start - travel < 1) {
                         return;
                     } else if (clicked.start - travel > 0) {
@@ -3001,7 +3028,7 @@ namespace Manager {
                     }
                     processed = true;
                     redraw = true;
-                    glfwPostEmptyEvent();
+                    if (wind) glfwPostEmptyEvent();
                     return;
                 } else {
                     if (collections.empty()) {
@@ -3027,8 +3054,15 @@ namespace Manager {
                                 opts.max_tlen -= (int)travel_y;
                                 opts.ylim -= (int)travel_y;
                             } else {
-                                cl.vScroll -= (int) travel_y;
-                                cl.vScroll = (cl.vScroll <= 0) ? 0 : cl.vScroll;
+                                const int nextScroll = std::max(0, cl.vScroll - (int)travel_y);
+                                if (nextScroll == cl.vScroll) {
+                                    // At the top limit, preserve the buffered row
+                                    // layout and consume motion for immediate reversal.
+                                    yOri = yPos;
+                                    mouseDragged = true;
+                                    return;
+                                }
+                                cl.vScroll = nextScroll;
                             }
 
                             cl.levelsStart.clear();
@@ -3044,7 +3078,7 @@ namespace Manager {
                     }
                     processed = true;
                     redraw = false;
-                    glfwPostEmptyEvent();
+                    if (wind) glfwPostEmptyEvent();
                     return;
                 }
             }
@@ -3060,7 +3094,7 @@ namespace Manager {
                     if (tracks.empty()) {
                         return;
                     }
-		            float rgS = ((float)fb_width / (float)regions.size());
+		            float rgS = ((float)drawingWidth() / (float)regions.size());
 		            int tIdx = (int)((xPos_fb) / rgS);
 		            if (tIdx < (int)regions.size()) {
 			            float relX = xPos_fb - gap;
@@ -3194,7 +3228,7 @@ namespace Manager {
         // size and rebuilds the Skia surface each time resizeTriggered is set.
         // GL calls here would access GLctx outside the main loop and crash.
         glfwGetFramebufferSize(window, &fb_width, &fb_height);
-        bboxes = Utils::imageBoundingBoxes(opts.number, (float)fb_width, (float)fb_height);
+        bboxes = tileBoundingBoxes();
         if (opts.theme_str == "igv") {
             glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         } else {

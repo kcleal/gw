@@ -548,9 +548,21 @@ Alternatively supply a list of tags to print out:
 
 Switch the theme.
 
-Currently, 'igv', 'dark' or 'slate' themes are supported.
-    
-    theme slate
+Choose `igv`, `dark`, `slate`, or a named theme from `.gw.theme.json` beside
+`.gw.ini`. Names with spaces can be entered directly or quoted. Run `theme`
+without a name to list available themes.
+
+```text
+theme slate
+theme Ocean blue
+theme "Ocean blue"
+```
+
+Use `theme custom:<name>` if a custom name matches a built-in name:
+
+```text
+theme custom:dark
+```
 
 <br>
 

@@ -5,6 +5,7 @@
 #include <deque>
 #include <future>
 #include <iostream>
+#include <limits>
 #include <vector>
 
 #include <deque>
@@ -20,6 +21,9 @@
 
 
 namespace Segs {
+
+    constexpr int EMPTY_LEVEL_START = std::numeric_limits<int>::max();
+    constexpr int EMPTY_LEVEL_END = std::numeric_limits<int>::min();
 
     enum EXPORT Pattern {
         u = 0,
@@ -170,10 +174,15 @@ namespace Segs {
         ~ReadCollection() = default;
         std::string name;
         int bamIdx{0}, regionIdx{0}, vScroll{0};
-        int maxCoverage, regionLen;
+        int maxCoverage{0}, regionLen{0};
+        // Half-open reference interval represented by the buffered queue, even if empty.
+        int bufferedStart{-1}, bufferedEnd{-1}, bufferedTid{-1};
         Utils::Region *region;
         std::vector<int> covArr;
         std::vector<int> levelsStart, levelsEnd;
+        std::vector<float> coverageScratch;
+        std::vector<std::vector<std::pair<int, int>>> rowSpansScratch;
+        std::vector<int> rowCategoryScratch;
         std::vector<Mismatches> mmVector;
         std::vector<Align> readQueue;
         map_t linked;
@@ -216,6 +225,8 @@ namespace Segs {
     void findYNoSortForward(std::vector<Align> &rQ, std::vector<int> &ls, std::vector<int> &le, int vScroll);
 
     // Works with buffered reads or stream of reads, needed if reads are to be re-sorted
+    int placeUnassignedReads(ReadCollection& rc, Themes::IniOptions& opts, int sortReadsBy);
+
     int EXPORT findY(ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, bool joinLeft, int sortReadsBy);
 
     void findMismatches(const Themes::IniOptions &opts, ReadCollection &collection);

@@ -29,6 +29,9 @@ namespace Drawing { struct drawContext; }
 
 namespace HGW {
 
+    // Prefer exact contig names; tolerate the common UCSC chr prefix.
+    int bamContigId(sam_hdr_t* header, const std::string& chrom);
+
      enum FType {
          BIGWIG,
          BIGBED,
@@ -108,6 +111,9 @@ namespace HGW {
                   bool coverage, std::vector<Parse::Parser> &filters, Themes::IniOptions &opts, SkCanvas *canvas,
                   Themes::Fonts &fonts,
                   std::vector<std::string> &bam_paths, const Drawing::drawContext& ctx);
+
+    void refreshLinkedCollection(Segs::ReadCollection &cl, Themes::IniOptions &opts,
+                                 int *samMaxY, int sortReadsBy);
 
     void trimToRegion(Segs::ReadCollection &col, bool coverage, int snp_threshold);
 
