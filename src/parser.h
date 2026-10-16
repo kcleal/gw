@@ -148,6 +148,8 @@ namespace Parse {
     bool isStartCodon(const char* t);
     bool isStopCodon(const char* t);
     void fillTriplet(const char* ref, int p0, int p1, int p2, char* triplet);
+    // Reverse complement of the forward triplet at p0, p1, p2 (upper case)
+    void fillTripletRevComp(const char* ref, int p0, int p1, int p2, char* triplet);
     const char* translateCodon(const char* t, int code);
 }
 

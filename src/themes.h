@@ -82,7 +82,8 @@ namespace Themes {
         fcSoftClip0, fcBigWig, fcRoi, mate_fc, mate_fc0, ecMateUnmapped, ecSplit, ecSelected,
         lcJoins, lcCoverage, lcLightJoins, lcGTFJoins, lcLabel, lcBright, lcGap, tcDel, tcIns, tcLabels, tcBackground,
         fcMarkers, fc5mc, fc5hmc, fcOther,
-        fcCodonStart, fcCodonStop, fcCodonOther, bgCodonSelected
+        fcCodonStart, fcCodonStop, fcCodonOther, bgCodonSelected,
+        fcSelectedBase, fcSelectedCodon, lcSelectedBase, lcCodonTick
     };
 
     class EXPORT BaseTheme {
@@ -98,6 +99,9 @@ namespace Themes {
 
         // translation track colours
         SkPaint fcCodonStart, fcCodonStop, fcCodonOther, bgCodonSelected;
+
+        // selected reference base and its codon; stroke widths are scaled by monitorScale in setScaling
+        SkPaint fcSelectedBase, fcSelectedCodon, lcSelectedBase, lcCodonTick;
 
         std::array<SkPaint, 50> mate_fc;
         std::array<SkPaint, 50> mate_fc0;

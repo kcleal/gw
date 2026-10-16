@@ -165,6 +165,8 @@ namespace Manager {
 
         std::vector<Utils::Region> regions;
 
+        std::vector<Utils::Marker> markers;  // persistent markers, see the "marker" command
+
         std::vector<std::string> labelChoices;  // enumeration of labels to use
 
         std::vector<Segs::ReadCollection> collections;  // stores alignments
@@ -215,6 +217,9 @@ namespace Manager {
         std::string selectedFeatureParent; // unique GFF transcript id (Parent), to isolate one isoform
         int selectedFeatureStart{-1};
         int selectedFeatureEnd{-1};
+        // Identity of a clicked reference base (persists across redraws). 0-based position, -1 = none.
+        std::string selectedBaseChrom;
+        int selectedBasePos{-1};
 
         struct ReadPopup {
             std::string ansi;  // ANSI-coded read info text
@@ -337,6 +342,7 @@ namespace Manager {
         void drawBackground();
         void drawScreen(bool force_buffered_reads=false);
         void drawScreenNoBuffer();
+        void drawSelectedBase(SkCanvas *canvas);
         void runDraw(bool force_buffered_reads=false);
         void runDrawOnCanvas(SkCanvas *canvas, bool force_buffered_reads=false);
         void runDrawNoBuffer();  // draws to canvas managed by GwPlot (slower)

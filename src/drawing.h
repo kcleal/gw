@@ -61,6 +61,7 @@ namespace Drawing {
         float topMenuSpace;
         float overlayHeight;
         bool drawLocation;
+        const std::vector<Utils::Marker> *markers{nullptr};  // persistent markers, drawn on matching chromosomes
         std::string selectedIntronChrom;  // identity of the highlighted intron (empty = none)
         int selectedIntronStart = -1;
         int selectedIntronEnd = -1;
@@ -70,6 +71,8 @@ namespace Drawing {
         std::string selectedFeatureParent;
         int selectedFeatureStart = -1;
         int selectedFeatureEnd = -1;
+        std::string selectedBaseChrom;  // identity of the clicked reference base (empty = none)
+        int selectedBasePos = -1;
         float translationTrackHeight{0};
         float translationButtonPanelWidth{0};
         bool show_translation{false};
