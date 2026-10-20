@@ -1,0 +1,102 @@
+R"GWCATALOGUE({
+  "version": 1,
+  "entries": [
+    {
+      "id": "igv:hs1",
+      "name": "Human (T2T CHM13-v2.0/hs1)",
+      "category": "reference",
+      "assembly": "hs1",
+      "format": "fasta",
+      "url": "https://s3.amazonaws.com/igv.org.genomes/chm13v2.0/chm13v2.0.fa",
+      "indexURL": "https://s3.amazonaws.com/igv.org.genomes/chm13v2.0/chm13v2.0.fa.fai",
+      "source": "IGV / Broad",
+      "release": "hs1",
+      "attribution": "IGV reference genome catalogue"
+    },
+    {
+      "id": "igv:hg38",
+      "name": "Human (GRCh38/hg38)",
+      "category": "reference",
+      "assembly": "hg38",
+      "format": "fasta",
+      "url": "https://igv.org/genomes/data/hg38/hg38.fa",
+      "indexURL": "https://igv.org/genomes/data/hg38/hg38.fa.fai",
+      "source": "IGV / Broad",
+      "release": "hg38",
+      "attribution": "IGV reference genome catalogue",
+      "locus": "chr20:10000000-10005000"
+    },
+    {
+      "id": "igv:hg19",
+      "name": "Human (GRCh37/hg19)",
+      "category": "reference",
+      "assembly": "hg19",
+      "format": "fasta",
+      "url": "https://igv.org/genomes/data/hg19/hg19.fasta",
+      "indexURL": "https://igv.org/genomes/data/hg19/hg19.fasta.fai",
+      "source": "IGV / Broad",
+      "release": "hg19",
+      "attribution": "IGV reference genome catalogue"
+    },
+    {
+      "id": "giab:hg002-hifi-grch38",
+      "name": "HG002 PacBio CCS 15 kb (64 GB, streamed)",
+      "category": "alignment",
+      "assembly": "GRCh38",
+      "sample": "HG002",
+      "technology": "PacBio CCS",
+      "format": "bam",
+      "url": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/HG002_NA24385_son/PacBio_CCS_15kb/GRCh38_no_alt_analysis/HG002.15kb.Sequel.pbmm2.GRCh38.whatshap.haplotag.RTG.10x.trio.bam",
+      "indexURL": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data/AshkenazimTrio/HG002_NA24385_son/PacBio_CCS_15kb/GRCh38_no_alt_analysis/HG002.15kb.Sequel.pbmm2.GRCh38.whatshap.haplotag.RTG.10x.trio.bam.bai",
+      "source": "GIAB / NCBI",
+      "release": "2019-07-14",
+      "attribution": "Genome in a Bottle; see provider README",
+      "bundle": [
+        "igv:hg38",
+        "giab:hg002-hifi-grch38",
+        "giab:hg002-v4.2.1-grch38",
+        "giab:hg002-regions-v4.2.1"
+      ],
+      "locus": "chr20:10000000-10005000"
+    },
+    {
+      "id": "ucsc:hg38-refseq",
+      "name": "UCSC NCBI RefSeq other transcripts",
+      "category": "track",
+      "assembly": "GRCh38",
+      "format": "bigbed",
+      "url": "https://hgdownload.soe.ucsc.edu/gbdb/hg38/ncbiRefSeq/ncbiRefSeqOther.bb",
+      "source": "UCSC / NCBI",
+      "release": "UCSC current",
+      "attribution": "UCSC Genome Browser / NCBI RefSeq"
+    },
+    {
+      "id": "giab:hg002-v4.2.1-grch38",
+      "name": "HG002 small variant benchmark",
+      "category": "variant",
+      "assembly": "GRCh38",
+      "sample": "HG002",
+      "format": "vcf.gz",
+      "url": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark.vcf.gz",
+      "indexURL": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark.vcf.gz.tbi",
+      "regionsURL": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark_noinconsistent.bed",
+      "source": "GIAB / NIST",
+      "release": "4.2.1",
+      "attribution": "NIST Genome in a Bottle"
+    },
+    {
+      "id": "giab:hg002-regions-v4.2.1",
+      "name": "HG002 confident benchmark regions",
+      "category": "track",
+      "assembly": "GRCh38",
+      "sample": "HG002",
+      "format": "bed",
+      "url": "https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark_noinconsistent.bed",
+      "source": "GIAB / NIST",
+      "release": "4.2.1",
+      "attribution": "NIST Genome in a Bottle",
+      "sizeBytes": 11494021
+    }
+  ]
+}
+)GWCATALOGUE"

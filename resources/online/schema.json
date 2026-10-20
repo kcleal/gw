@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kcleal/gw/resources/online/schema.json",
+  "title": "GW online file catalogue v1",
+  "type": "object",
+  "required": [
+    "version",
+    "entries"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "category",
+          "url"
+        ],
+        "properties": {
+          "assembly": {
+            "type": "string"
+          },
+          "sample": {
+            "type": "string"
+          },
+          "technology": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "release": {
+            "type": "string"
+          },
+          "attribution": {
+            "type": "string"
+          },
+          "locus": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "enum": [
+              "reference",
+              "alignment",
+              "track",
+              "variant"
+            ]
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^https?://"
+          },
+          "indexURL": {
+            "type": "string",
+            "pattern": "^(https?://|$)"
+          },
+          "compressedIndexURL": {
+            "type": "string",
+            "pattern": "^(https?://|$)"
+          },
+          "regionsURL": {
+            "type": "string",
+            "pattern": "^(https?://|$)"
+          },
+          "bundle": {
+            "type": "array",
+            "maxItems": 16,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": -1
+          },
+          "provider": {
+            "type": "string"
+          },
+          "providerId": {
+            "type": "string"
+          },
+          "tableColumns": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
