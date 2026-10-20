@@ -51,21 +51,20 @@ NCURSES_LIBS := $(shell pkg-config --libs ncurses 2>/dev/null || echo "-lncurses
 # Skia info ---------------------------------------------
 OLD_SKIA ?= 0
 SKIA_VERSION ?= m143
-SKIA_RELEASE ?= v0.2.0
 prep:
 ifeq ($(OLD_SKIA),0)
 	@if [ "$(PLATFORM)" = "MacOS-x64" ]; then \
 		echo "Downloading pre-built skia-$(SKIA_VERSION) for MacOS-Intel"; mkdir -p lib/skia; \
-		cd lib/skia && curl -fL -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/$(SKIA_RELEASE)/skia-$(SKIA_VERSION)-macos-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
+		cd lib/skia && curl -fL -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/$(SKIA_VERSION)/skia-$(SKIA_VERSION)-macos-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	elif [ "$(PLATFORM)" = "MacOS-arm64" ]; then \
 		echo "Downloading pre-built skia-$(SKIA_VERSION) for MacOS-Arm64"; mkdir -p lib/skia; \
-		cd lib/skia && curl -fL -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/$(SKIA_RELEASE)/skia-$(SKIA_VERSION)-macos-Release-arm64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
+		cd lib/skia && curl -fL -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/$(SKIA_VERSION)/skia-$(SKIA_VERSION)-macos-Release-arm64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	elif [ "$(PLATFORM)" = "Linux-x64" ]; then \
 		echo "Downloading pre-built skia-$(SKIA_VERSION) for Linux-x64"; mkdir -p lib/skia; \
-		cd lib/skia && curl -fL -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/$(SKIA_RELEASE)/skia-$(SKIA_VERSION)-linux-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
+		cd lib/skia && curl -fL -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/$(SKIA_VERSION)/skia-$(SKIA_VERSION)-linux-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	elif [ "$(PLATFORM)" = "Linux-aarch64" ]; then \
 		echo "Downloading pre-built skia-$(SKIA_VERSION) for Linux-aarch64"; mkdir -p lib/skia; \
-		cd lib/skia && curl -fL -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/$(SKIA_RELEASE)/skia-$(SKIA_VERSION)-linux-Release-arm64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
+		cd lib/skia && curl -fL -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/$(SKIA_VERSION)/skia-$(SKIA_VERSION)-linux-Release-arm64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	fi
 else
 	@if [ "$(PLATFORM)" = "MacOS-x64" ]; then \
