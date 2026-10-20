@@ -184,9 +184,9 @@ ifeq ($(PLATFORM),"Windows")
 	$(error Shared library build is not supported on Windows)
 endif
 
-# Create shared library-specific LDLIBS with force-loaded Skia (Linux/macOS only)
+# Create shared library-specific LDLIBS with force-loaded Skia (Linux/macOS only).
 ifdef FORCELOAD_SKIA
-	$(eval SHARED_LDLIBS := $(filter-out -lskia -ljpeg -lpng -lzlib,$(LDLIBS)) $(FORCELOAD_SKIA))
+	$(eval SHARED_LDLIBS := $(FORCELOAD_SKIA) $(filter-out -lskia -ljpeg -lpng -lzlib,$(LDLIBS)))
 else
 	$(eval SHARED_LDLIBS := $(LDLIBS))
 endif
