@@ -1,0 +1,10 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GW — local browser viewer</title>
+<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#09090d}#viewer{width:100%;height:100dvh}#status{position:fixed;bottom:10px;left:10px;color:#fff;background:#20232bee;font:14px system-ui;padding:8px}#status:empty{display:none}</style>
+<div id="viewer"></div><div id="status">Loading GW locally…</div>
+<script type="module">
+import {createViewer} from './embed.mjs';
+const status=document.querySelector('#status');
+const viewer=createViewer(document.querySelector('#viewer'),{url:'./gw.html',onState:view=>{document.body.style.background=({igv:'#fff',slate:'#202b38',dark:'#09090d'})[view.shared.theme]||'#09090d';},onError:error=>status.textContent=error.message});
+viewer.ready.then(()=>status.textContent='').catch(error=>status.textContent=error.message);
+window.addEventListener('pagehide',()=>{void viewer.destroy();});
+</script></html>

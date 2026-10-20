@@ -1,0 +1,13 @@
+# Downloaded sources, dependency libraries and per-target compiler objects.
+/out/
+/skia/
+/htslib_src/
+/xz-*/
+/.htslib_*
+/.lzma_*
+/*.tar.gz
+/*.tar.bz2
+/__pycache__/
+
+# Generated browser binary; distribute through releases rather than Git.
+/gw.wasm

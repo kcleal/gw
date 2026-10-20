@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GW</title>
+<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#09090d;font:14px system-ui;color:#eee}#viewer{width:100%;height:100vh;height:100dvh}#status{position:fixed;bottom:12px;left:12px;right:12px;width:fit-content;max-width:calc(100% - 48px);padding:8px 12px;background:#20232bee;color:#fff;border-radius:4px;z-index:2}#status:empty{display:none}</style>
+<div id="viewer"></div><div id="status" role="status">Loading GW…</div>
+<script type="module">
+import {createViewer,uploadDataset,createFileLoader} from './embed.mjs';
+const status=document.querySelector('#status');
+let viewer, dataset, uploading=false;
+const picker=document.createElement('input');picker.type='file';picker.multiple=true;picker.accept='.bam,.bai,.csi';picker.hidden=true;document.body.append(picker);
+const loader=createFileLoader({onReady:loadFiles,onStatus:text=>{status.textContent=text;}});
+picker.onchange=()=>loader.accept(picker.files);
+status.onclick=()=>{if(loader.waiting){picker.value='';picker.click();}};
+status.title='Click while waiting to select an index';
+function mount(transportBase) {
+ viewer=createViewer(document.querySelector('#viewer'),{url:'./',transportBase,onFiles:files=>loader.accept(files),
+  onState:view=>{document.body.style.background=({igv:'#ffffff',dark:'#09090d',slate:'#202b38'})[view.shared.theme] || '#09090d';if(!uploading && !loader.waiting)status.textContent='';},
+  onError:error=>{status.textContent=error.message;}});
+ viewer.ready.catch(error=>status.textContent=error.message);
+}
+async function loadFiles(files) {
+ if(uploading)return;
+ uploading=true;let next;
+ try {
+  status.textContent='Uploading to the local GW server…';
+  next=await uploadDataset(files,{url:'./',onProgress:p=>status.textContent=p===1?'Opening BAM…':'Uploading BAM: '+Math.round(p*100)+'%'});
+  await viewer.destroy();await dataset?.dispose();dataset=next;
+  status.textContent='Opening BAM…';mount(dataset.transportBase);
+ } catch(error){if(next && next!==dataset)await next.dispose().catch(()=>{});throw error;}
+ finally{uploading=false;}
+}
+document.addEventListener('dragover',event=>event.preventDefault());
+document.addEventListener('drop',event=>{event.preventDefault();loader.accept(event.dataTransfer.files);});
+window.addEventListener('pagehide',()=>{void viewer.destroy();});
+mount();
+</script></html>

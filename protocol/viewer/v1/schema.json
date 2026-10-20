@@ -1,0 +1,1024 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:gw:viewer:1",
+  "title": "GW viewer protocol v1",
+  "description": "Transport-neutral JSON messages. See README for stateful rules, numeric limits and binary frame delivery.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/reply"
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[!-~]+$"
+    },
+    "counter": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,19}$",
+      "description": "Canonical positive uint64 decimal string; additionally enforce <=18446744073709551615."
+    },
+    "viewport": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "pixel_ratio": {
+          "type": "number",
+          "minimum": 0.25,
+          "maximum": 8
+        },
+        "extensions": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "width",
+        "height",
+        "pixel_ratio"
+      ],
+      "additionalProperties": false
+    },
+    "action": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "navigate"
+            },
+            "region": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "^[^\\r\\n\\u0000]+$"
+            },
+            "region_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "extensions": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "type",
+            "region"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "command"
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "^[^\\r\\n\\u0000]+$"
+            },
+            "region_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "extensions": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "type",
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "settings"
+            },
+            "values": {
+              "type": "object",
+              "minProperties": 1,
+              "maxProperties": 128,
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean"
+                ]
+              }
+            },
+            "extensions": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "type",
+            "values"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "pointer"
+            },
+            "phase": {
+              "enum": [
+                "press",
+                "move",
+                "release",
+                "wheel",
+                "cancel"
+              ]
+            },
+            "x": {
+              "type": "number",
+              "minimum": -10000000,
+              "maximum": 10000000
+            },
+            "y": {
+              "type": "number",
+              "minimum": -10000000,
+              "maximum": 10000000
+            },
+            "button": {
+              "enum": [
+                "left",
+                "middle",
+                "right",
+                "none"
+              ]
+            },
+            "modifiers": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "shift",
+                  "control",
+                  "alt",
+                  "meta"
+                ]
+              },
+              "uniqueItems": true
+            },
+            "dx": {
+              "type": "number",
+              "minimum": -1000,
+              "maximum": 1000
+            },
+            "dy": {
+              "type": "number",
+              "minimum": -1000,
+              "maximum": 1000
+            },
+            "extensions": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "type",
+            "phase",
+            "x",
+            "y",
+            "button",
+            "modifiers"
+          ],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "phase": {
+                    "const": "wheel"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "dx",
+                  "dy"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "key"
+            },
+            "key": {
+              "enum": [
+                "ArrowLeft",
+                "ArrowRight",
+                "ArrowUp",
+                "ArrowDown",
+                "PageUp",
+                "PageDown",
+                "BracketLeft",
+                "BracketRight",
+                "KeyL",
+                "KeyF",
+                "KeyR",
+                "Minus",
+                "Equal"
+              ]
+            },
+            "modifiers": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "shift",
+                  "control",
+                  "alt",
+                  "meta"
+                ]
+              },
+              "uniqueItems": true
+            },
+            "region_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "extensions": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "type",
+            "key",
+            "modifiers"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "vscroll"
+            },
+            "collection_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[!-~]+$"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "extensions": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "type",
+            "collection_id",
+            "offset"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "track_resize"
+            },
+            "track_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[!-~]+$"
+            },
+            "y": {
+              "type": "number",
+              "minimum": -10000000,
+              "maximum": 10000000
+            },
+            "extensions": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "type",
+            "track_id",
+            "y"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "frame": {
+      "type": "object",
+      "properties": {
+        "frame_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "revision": {
+          "$ref": "#/$defs/counter"
+        },
+        "viewport": {
+          "$ref": "#/$defs/viewport"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 200,
+          "maximum": 8192
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 8192
+        },
+        "mime_type": {
+          "const": "image/png"
+        },
+        "layout": {
+          "type": "object"
+        },
+        "extensions": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "frame_id",
+        "revision",
+        "viewport",
+        "width",
+        "height",
+        "mime_type",
+        "layout"
+      ],
+      "additionalProperties": false
+    },
+    "view": {
+      "type": "object",
+      "properties": {
+        "revision": {
+          "$ref": "#/$defs/counter"
+        },
+        "shared": {
+          "type": "object"
+        },
+        "client": {
+          "type": "object"
+        },
+        "frame": {
+          "$ref": "#/$defs/frame"
+        },
+        "extensions": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "revision",
+        "shared",
+        "client",
+        "frame"
+      ],
+      "additionalProperties": false
+    },
+    "join": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "gw-viewer"
+        },
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "join"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "viewport": {
+          "$ref": "#/$defs/viewport"
+        },
+        "client_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "resume_token": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "extensions": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "type",
+        "request_id",
+        "session_id",
+        "viewport"
+      ],
+      "additionalProperties": false,
+      "dependentRequired": {
+        "client_id": [
+          "resume_token"
+        ],
+        "resume_token": [
+          "client_id"
+        ]
+      }
+    },
+    "requestAction": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "gw-viewer"
+        },
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "action"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "client_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "connection_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "sequence": {
+          "$ref": "#/$defs/counter"
+        },
+        "expected_revision": {
+          "$ref": "#/$defs/counter"
+        },
+        "action": {
+          "$ref": "#/$defs/action"
+        },
+        "frame_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "extensions": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "type",
+        "request_id",
+        "session_id",
+        "client_id",
+        "connection_id",
+        "sequence",
+        "expected_revision",
+        "action"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "pointer",
+                      "key",
+                      "vscroll",
+                      "track_resize"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "frame_id"
+            ]
+          }
+        }
+      ]
+    },
+    "requestViewport": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "gw-viewer"
+        },
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "viewport"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "client_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "connection_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "sequence": {
+          "$ref": "#/$defs/counter"
+        },
+        "viewport": {
+          "$ref": "#/$defs/viewport"
+        },
+        "extensions": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "type",
+        "request_id",
+        "session_id",
+        "client_id",
+        "connection_id",
+        "sequence",
+        "viewport"
+      ],
+      "additionalProperties": false
+    },
+    "snapshot": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "gw-viewer"
+        },
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "snapshot"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "client_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "connection_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "sequence": {
+          "$ref": "#/$defs/counter"
+        },
+        "extensions": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "type",
+        "request_id",
+        "session_id",
+        "client_id",
+        "connection_id",
+        "sequence"
+      ],
+      "additionalProperties": false
+    },
+    "heartbeat": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "gw-viewer"
+        },
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "heartbeat"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "client_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "connection_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "sequence": {
+          "$ref": "#/$defs/counter"
+        },
+        "extensions": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "type",
+        "request_id",
+        "session_id",
+        "client_id",
+        "connection_id",
+        "sequence"
+      ],
+      "additionalProperties": false
+    },
+    "leave": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "gw-viewer"
+        },
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "leave"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "client_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "connection_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "sequence": {
+          "$ref": "#/$defs/counter"
+        },
+        "extensions": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "type",
+        "request_id",
+        "session_id",
+        "client_id",
+        "connection_id",
+        "sequence"
+      ],
+      "additionalProperties": false
+    },
+    "welcome": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "gw-viewer"
+        },
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "welcome"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "client_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "connection_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "resume_token": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "last_sequence": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,19})$"
+        },
+        "heartbeat_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "view": {
+          "$ref": "#/$defs/view"
+        },
+        "extensions": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "type",
+        "request_id",
+        "session_id",
+        "client_id",
+        "connection_id",
+        "resume_token",
+        "last_sequence",
+        "heartbeat_seconds",
+        "capabilities",
+        "view"
+      ],
+      "additionalProperties": false
+    },
+    "state": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "gw-viewer"
+        },
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "state"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "view": {
+          "$ref": "#/$defs/view"
+        },
+        "extensions": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "type",
+        "request_id",
+        "view"
+      ],
+      "additionalProperties": false
+    },
+    "ack": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "gw-viewer"
+        },
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "ack"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "revision": {
+          "$ref": "#/$defs/counter"
+        },
+        "extensions": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "type",
+        "request_id",
+        "revision"
+      ],
+      "additionalProperties": false
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "gw-viewer"
+        },
+        "version": {
+          "const": 1
+        },
+        "type": {
+          "const": "error"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[!-~]+$"
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "minLength": 1
+            },
+            "message": {
+              "type": "string"
+            },
+            "extensions": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "additionalProperties": false
+        },
+        "extensions": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "type",
+        "request_id",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "request": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/join"
+        },
+        {
+          "$ref": "#/$defs/requestAction"
+        },
+        {
+          "$ref": "#/$defs/requestViewport"
+        },
+        {
+          "$ref": "#/$defs/snapshot"
+        },
+        {
+          "$ref": "#/$defs/heartbeat"
+        },
+        {
+          "$ref": "#/$defs/leave"
+        }
+      ]
+    },
+    "reply": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/welcome"
+        },
+        {
+          "$ref": "#/$defs/state"
+        },
+        {
+          "$ref": "#/$defs/ack"
+        },
+        {
+          "$ref": "#/$defs/error"
+        }
+      ]
+    }
+  }
+}

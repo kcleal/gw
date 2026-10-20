@@ -68,6 +68,8 @@ void drawImGuiCloseDialog(Manager::GwPlot* plot, bool* p_open, bool& redraw)
         });
     }
 
+    if(plot->remoteCommand) for(int i=0;i<int(plot->remoteTracks.size());++i)
+        entries.push_back({FileEntryType::Track,i,"[Track] "+plot->remoteTracks[i].name});
     for (int i = 0; i < (int)plot->tracks.size(); ++i) {
         std::filesystem::path p(plot->tracks[i].path);
         entries.push_back({
@@ -151,7 +153,8 @@ void drawImGuiCloseDialog(Manager::GwPlot* plot, bool* p_open, bool& redraw)
             for (int idx : idxs) {
                 std::string cmd =
                     std::string("rm ") + prefix + std::to_string(idx);
-                Commands::run_command_map(plot, cmd, out);
+                if(plot->remoteCommand) plot->remoteCommand(cmd);
+                else Commands::run_command_map(plot, cmd, out);
             }
         };
 

@@ -85,6 +85,8 @@ namespace Menu {
 
     // Invisible click areas over Skia data labels; click to edit label text.
     void drawImGuiAlignmentScrollbars(Manager::GwPlot* plot);
+    void drawImGuiCursorLine(Manager::GwPlot* plot);
+    void drawImGuiTrackSeparators(Manager::GwPlot* plot);
     void drawImGuiDataLabels(Manager::GwPlot* plot, float gap, float overlayHeight, bool& redraw);
 
     // Help dialog with command reference and demo data loader.

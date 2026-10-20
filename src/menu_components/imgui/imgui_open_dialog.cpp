@@ -88,6 +88,7 @@ void drawImGuiOpenDialog(Manager::GwPlot* plot,
                          bool* p_open,
                          bool& redraw)
 {
+    drawImGuiOnlineFileDialog(plot, redraw);
     ImGui::FileBrowser& browser = getFileBrowser();
 
     static std::vector<std::string> pendingVariantFiles;
@@ -101,10 +102,27 @@ void drawImGuiOpenDialog(Manager::GwPlot* plot,
     static std::string pendingGenomePath;
     static char genomeTagBuf[128] = {};
 
-    // Open browser when requested
-    if (p_open && *p_open && !browser.IsOpened()) {
-        browser.Open();
+#ifdef __EMSCRIPTEN__
+    static bool localReference=false, localTrack=true, localTiles=false;
+    if (p_open && *p_open) { ImGui::OpenPopup("Open local files##gw_local_kind"); *p_open=false; }
+    if (ImGui::BeginPopupModal("Open local files##gw_local_kind", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        if(ImGui::Checkbox("Reference genome", &localReference) && localReference){localTrack=false;localTiles=false;}
+        if(ImGui::Checkbox("Track / alignment", &localTrack) && localTrack)localReference=false;
+        if(ImGui::Checkbox("Variant file as tiled images", &localTiles) && localTiles)localReference=false;
+        ImGui::TextDisabled("Select the file and its index together, or add the index later.");
+        if(ImGui::Button("GW downloaded files")) { browser.SetDirectory(Online::downloadDirectory(plot->opts.ini_path));browser.Open();ImGui::CloseCurrentPopup(); }
+        ImGui::BeginDisabled(!localReference && !localTrack && !localTiles);
+        if(ImGui::Button("Choose files…")) {
+            EM_ASM({ if(window.gwOpenFiles)window.gwOpenFiles(!!$0,!!$1,!!$2); },localReference,localTrack,localTiles);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndDisabled();ImGui::SameLine();
+        if(ImGui::Button("Cancel") || closeOnEscape())ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
     }
+#else
+    if (p_open && *p_open && !browser.IsOpened()) browser.Open();
+#endif
 
     // Set contextual OK label
     {
@@ -146,6 +164,10 @@ void drawImGuiOpenDialog(Manager::GwPlot* plot,
         }
     }
 
+    const auto downloaded=Online::downloadDirectory(plot->opts.ini_path);
+    static std::string downloadFolder;
+    if(downloadFolder!=downloaded){std::error_code error;std::filesystem::create_directories(downloaded,error);if(!error)downloadFolder=downloaded;}
+    browser.SetShortcut("GW downloaded files",downloaded);
     browser.Display();
 
     // Handle selection
@@ -290,31 +312,20 @@ void drawImGuiOpenDialog(Manager::GwPlot* plot,
         ImGui::TextUnformatted("How should they be loaded?");
         ImGui::Spacing();
 
-        if (ImGui::Button("Load as tiles")) {
-            for (auto& f : pendingVariantFiles)
-                plot->addTrack(f, true, false, false);
-
-            pendingVariantFiles.clear();
-            showVariantDialog = false;
-            redraw = true;
-            plot->processed = false;
-            ImGui::CloseCurrentPopup();
+        static bool asTiles=true, asTrack=false;
+        ImGui::Checkbox("Variant file as tiled images", &asTiles);
+        ImGui::Checkbox("Annotation track", &asTrack);
+        ImGui::BeginDisabled(!asTiles && !asTrack);
+        if (ImGui::Button("Open")) {
+            for (auto& f : pendingVariantFiles) {
+                if(asTiles) plot->addTrack(f, true, false, false);
+                if(asTrack) plot->addTrack(f, true, true, true);
+            }
+            pendingVariantFiles.clear(); showVariantDialog=false;
+            redraw=true;plot->processed=false;ImGui::CloseCurrentPopup();
         }
-
-        ImGui::SameLine();
-
-        if (ImGui::Button("Load as track")) {
-            for (auto& f : pendingVariantFiles)
-                plot->addTrack(f, true, true, true);
-
-            pendingVariantFiles.clear();
-            showVariantDialog = false;
-            redraw = true;
-            plot->processed = false;
-            ImGui::CloseCurrentPopup();
-        }
-
-        ImGui::SameLine();
+        ImGui::EndDisabled();ImGui::SameLine();
+        if(ImGui::Button("Cancel")){pendingVariantFiles.clear();showVariantDialog=false;ImGui::CloseCurrentPopup();}
 
         if (!varPopupOpen || closeOnEscape()) {
             pendingVariantFiles.clear();

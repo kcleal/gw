@@ -15,38 +15,13 @@
       display: flex; flex-direction: column;
     }
 
-    /* Thin toolbar strip at the top of the page */
-    #gw-toolbar {
-      flex: 0 0 34px;
-      height: 34px;
-      background: rgba(15,15,30,0.95);
-      border-bottom: 1px solid rgba(255,255,255,0.10);
-      display: flex; align-items: center;
-      padding: 0 8px;
-      gap: 8px;
-      z-index: 5;
-    }
-
-    /* Canvas container fills the remaining space below the toolbar */
+    /* Canvas container fills the remaining space over the canvas */
     #gw-canvas-container {
       flex: 1 1 0;
       min-height: 0;      /* prevents flex children from overflowing */
       position: relative;
       overflow: hidden;
     }
-
-    /* File-load button — lives in the toolbar, hidden until GW starts */
-    #gw-upload-btn {
-      padding: 3px 10px;
-      background: rgba(255,255,255,0.10);
-      color: #bbb;
-      border: 1px solid rgba(255,255,255,0.18);
-      border-radius: 4px;
-      font-family: monospace; font-size: 12px;
-      cursor: pointer;
-      display: none;
-    }
-    #gw-upload-btn:hover { background: rgba(255,255,255,0.20); }
 
     /* Loading overlay — hidden once GW starts */
     #gw-loading {
@@ -67,7 +42,7 @@
       width: 100%; height: 100%;
     }
 
-    /* Toast notification — appears below the toolbar on the left */
+    /* Toast notification — appears over the canvas on the left */
     #gw-toast {
       position: absolute; top: 8px; left: 8px;
       padding: 8px 12px;
@@ -83,11 +58,6 @@
   </style>
 </head>
 <body>
-  <!-- Toolbar (always visible above the canvas) -->
-  <div id="gw-toolbar">
-    <button id="gw-upload-btn" title="Load genomic files into the GW sandbox">&#128194; Load files</button>
-  </div>
-
   <div id="gw-loading">
     <span id="gw-status">Loading GW…</span>
     <progress id="gw-progress" value="0" max="100"></progress>
@@ -100,13 +70,12 @@
 
   <!-- Hidden file picker (accepts common genomic formats) -->
   <input id="gw-file-input" type="file" multiple style="display:none"
-         accept=".fa,.fasta,.fai,.bam,.bai,.cram,.crai,.vcf,.bcf,.bed,.gff,.gff3,.gtf,.bw,.bb,.bigwig,.bigbed">
+         accept=".fa,.fasta,.fai,.gzi,.bam,.bai,.csi,.sam,.cram,.crai,.vcf,.bcf,.tbi,.bed,.gff,.gff3,.gtf,.bw,.bb,.bigwig,.bigbed,.gz,.bgz,.tsv,.txt,.png">
 
   <script>
     var statusEl   = document.getElementById('gw-status');
     var progressEl = document.getElementById('gw-progress');
     var loadingEl  = document.getElementById('gw-loading');
-    var uploadBtn  = document.getElementById('gw-upload-btn');
     var fileInput  = document.getElementById('gw-file-input');
     var toast      = document.getElementById('gw-toast');
 
@@ -150,107 +119,31 @@
       toast._t = setTimeout(function() { toast.style.display = 'none'; }, ms || 5000);
     }
 
-    // ── File upload ───────────────────────────────────────────────────────────
-    // With Asyncify enabled (-sASYNCIFY=1), mountAsyncFile() creates a virtual
-    // FS node backed by the browser File object.  HTSlib reads are satisfied by
-    // file.slice(pos, end).arrayBuffer() — only the requested byte ranges are
-    // ever loaded into memory, so large BAMs (10+ GB) work fine.
-    //
-    // If Asyncify is not available (old build), falls back to FS.writeFile
-    // which copies the whole file into WASM memory.
-
-    function mountAsyncFile(dir, name, file) {
-      try { FS.mkdir(dir); } catch(e) {}
-
-      // Create a zero-byte placeholder so FS has a valid node to look up.
-      FS.createDataFile(dir, name, new Uint8Array(0),
-                        /*canRead=*/true, /*canWrite=*/false, /*canOwn=*/false);
-      var path = dir + '/' + name;
-      var node = FS.lookupPath(path, {follow: true}).node;
-
-      // Report the real file size so stat() / lseek(SEEK_END) work.
-      var baseGetattr = node.node_ops.getattr;
-      node.node_ops = Object.assign({}, node.node_ops, {
-        getattr: function(n) {
-          var attr = baseGetattr.call(node.node_ops, n);
-          attr.size = file.size;
-          return attr;
-        }
-      });
-
-      // Replace stream_ops with Asyncify-suspending range reads.
-      // Each fread() from C++ slices only the bytes HTSlib actually needs.
-      node.stream_ops = Object.assign({}, node.stream_ops, {
-        read: function(stream, buffer, offset, length, position) {
-          if (length === 0 || position >= file.size) return 0;
-          return Module['Asyncify'].handleAsync(async function() {
-            var end = Math.min(position + length, file.size);
-            var ab  = await file.slice(position, end).arrayBuffer();
-            var src = new Uint8Array(ab);
-            buffer.set(src, offset);
-            return src.byteLength;
-          });
-        },
-        llseek: function(stream, offset, whence) {
-          var pos = offset;
-          if (whence === 1) pos += stream.position;  // SEEK_CUR
-          if (whence === 2) pos += file.size;          // SEEK_END
-          if (pos < 0) throw new FS.ErrnoError(28);
-          return pos;
-        }
-      });
-
-      return path;
-    }
-
-    uploadBtn.addEventListener('click', function() { fileInput.click(); });
-
-    fileInput.addEventListener('change', function() {
-      var files = Array.from(fileInput.files);
-      if (!files.length) return;
-      fileInput.value = '';
-
-      files.forEach(function(file) {
-        var sizeMB = file.size / 1048576;
-        var dest   = '/uploads/' + file.name;
-
-        if (Module['Asyncify']) {
-          // Asyncify build: lazy range-reads, no full copy into WASM memory.
-          try {
-            mountAsyncFile('/uploads', file.name, file);
-            console.log('[GW] Async lazy file: ' + dest +
-                        ' (' + sizeMB.toFixed(1) + ' MB)');
-            showToast(
-              'File ready: ' + dest +
-              '\n\nIn GW press / then type:\n  load ' + dest,
-              8000
-            );
-          } catch(err) {
-            console.error('[GW] mountAsyncFile failed:', err);
-            showToast('Failed to mount ' + file.name + ': ' + err.message, 8000);
-          }
-        } else {
-          // Fallback: copy entire file into WASM memory (works up to ~500 MB).
-          showToast('Loading ' + file.name + ' (' + sizeMB.toFixed(1) + ' MB)…', 30000);
-          var reader = new FileReader();
-          reader.onload = function(ev) {
-            try {
-              try { FS.mkdir('/uploads'); } catch(ignore) {}
-              FS.writeFile(dest, new Uint8Array(ev.target.result));
-              showToast(
-                'File ready: ' + dest +
-                '\n\nIn GW press / then type:\n  load ' + dest,
-                8000
-              );
-            } catch(err) {
-              showToast('Failed to load ' + file.name + ': ' + err.message, 8000);
-            }
-          };
-          reader.onerror = function() { showToast('Failed to read ' + file.name, 5000); };
-          reader.readAsArrayBuffer(file);
-        }
-      });
+    // Files stay in the browser. Only requested ranges enter WASM memory.
+    var localLoader;
+    var localLoaderReady=import('./local-files.mjs').then(function(api){
+      return api;
     });
+    function ensureLocalLoader(api){
+      if(localLoader)return localLoader;
+      localLoader=api.createLocalLoader({FS:FS,Module:Module,command:runLocalCommand,status:function(text){
+        clearTimeout(toast._t);toast.textContent=text;toast.style.display=text?'block':'none';
+      }});
+      return localLoader;
+    }
+    var localFileOptions={track:true,tiles:false};
+    function importFiles(files){
+      if(!gwRunning){showToast('Wait for GW to finish loading');return;}
+      localLoaderReady.then(function(api){return ensureLocalLoader(api).accept(files,localFileOptions);}).catch(function(error){showToast(error.message);});
+    }
+    window.gwOpenFiles=function(reference,track,tiles){
+      localFileOptions={track:!!track,tiles:!!tiles};
+      fileInput.accept=reference?'.fa,.fasta,.fai':tiles&&!track?'.vcf,.bed':'.fa,.fasta,.fai,.bam,.bai,.csi,.vcf,.bed,.gff,.gff3,.gtf,.bw,.bb,.bigwig,.bigbed';
+      fileInput.value='';fileInput.click();
+    };
+    document.addEventListener('dragover',function(event){event.preventDefault();});
+    document.addEventListener('drop',function(event){event.preventDefault();importFiles(Array.from(event.dataTransfer.files));});
+    fileInput.addEventListener('change',function(){importFiles(Array.from(fileInput.files));fileInput.value='';});
 
     // ── Emscripten Module ─────────────────────────────────────────────────────
     var Module = {
@@ -299,8 +192,103 @@
         };
       }(),
 
-      printErr: function(text) { console.error(text); }
+      printErr: function(text) { console.error(text); },
+      onAbort: function(reason) {
+        var wasRunning=gwRunning;
+        gwRunning = false;
+        loadingEl.style.display = 'flex';
+        progressEl.style.display = 'none';
+        statusEl.textContent = (wasRunning?'GW runtime error: ':'GW could not start: ') + reason;
+        notifyHost('error',{error:String(reason)});
+      }
     };
+
+    Module.gwCommandQueue=[];
+    function runLocalCommand(text){
+      if(typeof text!=='string' || !text.trim() || text.length>4096 || /[\r\n]/.test(text) || /^(q|quit|exit)( |$)/.test(text))
+        return Promise.reject(new Error('Invalid browser command'));
+      return new Promise(function(resolve,reject){Module.gwCommandQueue.push({text:text,resolve:resolve,reject:reject});});
+    }
+    var onlineModule=import('./online-files.mjs');
+    var onlineController;
+    Module.gwOnlineCancel=function(){if(!onlineController || Module.gwOnlineCommitting)return;Module.gwOnlineCancelled=true;onlineController.abort();};
+    Module.gwFetchCatalogue=async function(url){
+      try{var api=await onlineModule;Module.gwCatalogueResult=await api.fetchCatalogue(url);}
+      catch(error){Module.gwCatalogueResult='error:'+error.message;}
+    };
+    Module.gwDiscoverOnline=async function(url){
+      try{var api=await onlineModule;Module.gwDiscoveryResult=await api.fetchCatalogue(url)||'error:Empty metadata response';}
+      catch(error){Module.gwDiscoveryResult='error:'+error.message;}
+    };
+    Module.gwOnlineFileSize=async function(url){
+      try{var api=await onlineModule;Module.gwDiscoveryResult=String(await api.fileSize(url));}
+      catch(ignore){Module.gwDiscoveryResult='-1';}
+    };
+    Module.gwDownloadOnline=async function(encoded,asTrack,checkAssembly,asTable,directory){
+      onlineController=new AbortController();Module.gwOnlineCancelled=false;Module.gwOnlineCommitting=false;
+      Module.gwDownloadReceived=0;Module.gwDownloadTotal=0;
+      try{
+        var api=await onlineModule,entries=[];
+        for(var entry of JSON.parse(encoded).entries)entries.push(await api.downloadOnline(entry,{
+          FS:FS,directory:directory,signal:onlineController.signal,
+          progress:function(received,total){Module.gwDownloadReceived=received;Module.gwDownloadTotal=total;}
+        }));
+        if(onlineController.signal.aborted)throw new Error('Download cancelled');
+        // Persist the files before registering a reference path in .gw.ini.
+        if(directory.indexOf('/persistent/')===0)await new Promise(function(resolve,reject){FS.syncfs(false,function(error){if(error)reject(new Error('Could not persist downloaded files: '+error));else resolve();});});
+        Module.gwOnlineAsTrack=asTrack;Module.gwOnlineAsTable=asTable;Module.gwOnlineCheckAssembly=checkAssembly;
+        var text=JSON.stringify({version:1,entries:entries});
+        if(entries.every(function(e){return e.format==='ucsc-raw';})){Module.gwOnlineResult='saved:'+text;return;}
+        await new Promise(function(resolve,reject){Module.gwCommandQueue.push({text:'__gw_online '+text,resolve:resolve,reject:reject});});
+        Module.gwOnlineResult='downloaded:'+text;showToast('Downloaded and opened');
+      }catch(error){Module.gwOnlineResult='error:'+error.message;showToast(error.message);}
+      finally{onlineController=null;Module.gwOnlineCommitting=false;}
+    };
+    Module.gwOpenOnline=async function(encoded,asTrack,checkAssembly,asTable){
+      onlineController=new AbortController();Module.gwOnlineCancelled=false;
+      var prepared=[];Module.gwOnlineCommitting=false;
+      try{
+        var api=await onlineModule;
+        for(var entry of JSON.parse(encoded).entries)
+          prepared.push(await api.prepareOnline(entry,{FS:FS,Module:Module,signal:onlineController.signal,status:showToast}));
+        if(onlineController.signal.aborted)throw new Error('Cancelled');
+        Module.gwOnlineAsTrack=asTrack;Module.gwOnlineAsTable=asTable;Module.gwOnlineCheckAssembly=checkAssembly;
+        var text='__gw_online '+JSON.stringify({version:1,entries:prepared.map(function(p){return p.entry;})});
+        await new Promise(function(resolve,reject){Module.gwCommandQueue.push({text:text,resolve:resolve,reject:reject});});
+        showToast('Opened online file');Module.gwOnlineResult='opened';
+      }catch(error){if(!Module.gwOnlineCommitting)for(var resource of prepared)resource.cleanup();showToast(error.message);Module.gwOnlineResult='error:'+error.message;}
+      finally{onlineController=null;Module.gwOnlineCommitting=false;}
+    };
+    document.addEventListener('keydown',function(event){if(event.key==='Escape')Module.gwOnlineCancel();});
+    Module.gwCompleteCommand=function(output){
+      var action=Module.gwActiveCommand;Module.gwActiveCommand=null;
+      if(!action)return;
+      if(/error|not understood|invalid path/i.test(output))action.reject(new Error(output));
+      else action.resolve(output);
+    };
+    var lastState='';
+    Module.gwPublishState=function(state){
+      Module.gwLastState=state;
+      var encoded=JSON.stringify(state);
+      if(encoded!==lastState){lastState=encoded;notifyHost('state',{value:state});}
+    };
+    var embedChannel=location.hash.slice(1), hostOrigin;
+    try{hostOrigin=new URL(document.referrer).origin;}catch(ignore){}
+    function notifyHost(type,extra){if(parent!==window && embedChannel && hostOrigin)parent.postMessage(Object.assign({channel:embedChannel,type:type},extra),hostOrigin);}
+    window.addEventListener('message',async function(event){
+      var message=event.data;
+      if(event.source!==parent || event.origin!==hostOrigin || message?.channel!==embedChannel)return;
+      if(message.type==='dispose'){notifyHost('disposed');return;}
+      if(message.type!=='call')return;
+      try{
+        var value;
+        if(message.method==='snapshot')value=Module.gwLastState;
+        else if(message.method==='action' && message.value.type==='navigate')value=await runLocalCommand(message.value.region);
+        else if(message.method==='action' && message.value.type==='command')value=await runLocalCommand(message.value.text);
+        else throw new Error('Unsupported local viewer action');
+        notifyHost('reply',{id:message.id,value:value});
+      }catch(error){notifyHost('reply',{id:message.id,error:error.message});}
+    });
 
     function startGW() {
       syncCanvasSize();  // sets canvas.width/height before GLFW window is created
@@ -309,16 +297,18 @@
       } catch(e) {
         // emscripten_set_main_loop(simulate_infinite_loop=1) throws ExitStatus(0)
         // to unwind the stack — that is expected, not an error.
-        if (!e || e.name !== 'ExitStatus') {
-          console.error('[GW] callMain error:', e);
+        if (e !== 'unwind' && (!e || e.name !== 'ExitStatus' || e.status !== 0)) {
+          Module.onAbort(e && e.message ? e.message : String(e));
+          return;
         }
       }
       gwRunning = true;   // ResizeObserver now routes through gw_notify_resize
       loadingEl.style.display = 'none';
-      uploadBtn.style.display = 'block';
+      gwCanvas.focus();
+      notifyHost('ready');
     }
 
-    window.onerror = function(msg) { Module.setStatus('Error: ' + msg); };
+    window.onerror = function(msg, source, line, column, error) { console.error(error && error.stack || msg); Module.onAbort(msg); };
   </script>
 
   {{{ SCRIPT }}}

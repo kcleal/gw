@@ -49,6 +49,7 @@ static void execCommand(Manager::GwPlot* plot,
                         const std::string& cmd_str,
                         bool& redraw)
 {
+    if (plot->remoteCommand) { plot->remoteCommand(cmd_str); return; }
     std::string cmd = cmd_str;
     std::ostringstream capture;
     Commands::run_command_map(plot, cmd, capture);
@@ -105,7 +106,8 @@ void drawImGuiCommandDialog(Manager::GwPlot* plot,
     };
 
     ImGuiIO& io = ImGui::GetIO();
-    float ms = std::max(plot->monitorScale, 1.0f);
+    // ImGui display coordinates are logical pixels in the remote canvas.
+    float ms = plot->remoteCommand ? 1.0f : std::max(plot->monitorScale, 1.0f);
 
     // Anchor to the left side of the screen.
     ImGui::SetNextWindowPos(
@@ -113,11 +115,11 @@ void drawImGuiCommandDialog(Manager::GwPlot* plot,
         ImGuiCond_Appearing,
         ImVec2(0.f, 0.f));
 
-    ImGui::SetNextWindowSize(ImVec2(350.f, 540.f * ms),
+    ImGui::SetNextWindowSize(ImVec2(std::min(350.f, io.DisplaySize.x), std::min(540.f * ms, io.DisplaySize.y)),
                              ImGuiCond_Appearing);
 
     ImGui::SetNextWindowSizeConstraints(
-        ImVec2(240.f, 300.f * ms),
+        ImVec2(std::min(240.f, io.DisplaySize.x), std::min(300.f * ms, io.DisplaySize.y)),
         ImVec2(io.DisplaySize.x, io.DisplaySize.y));
 
     bool visible = ImGui::Begin("Tools", p_open, ImGuiWindowFlags_NoCollapse);

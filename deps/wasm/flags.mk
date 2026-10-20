@@ -13,11 +13,16 @@ WASM_HTS_PATH  ?= ./deps/wasm/out/htslib
 WASM_LZMA_PATH ?= ./deps/wasm/xz-5.2.5/src/liblzma/.libs
 
 SKIA_PATH := $(WASM_SKIA_PATH)
+WASM_SKIA_SRC ?= ./deps/wasm/skia
+# Match headers to the WASM library, independently of the native Skia version.
+CPPFLAGS := $(filter-out -I./lib/skia,$(CPPFLAGS))
+CPPFLAGS += -I$(WASM_SKIA_SRC)
 
 # Flags that must appear at BOTH compile and link time.
 # Pthreads are NOT enabled: the Skia CanvasKit build is single-threaded by
 # default, so GW must also be single-threaded to avoid --shared-memory conflicts.
-EM_SHARED_FLAGS := --use-port=contrib.glfw3 \
+# File/catalogue errors must reach the existing C++ handlers instead of trapping.
+EM_SHARED_FLAGS := -fexceptions --use-port=contrib.glfw3 \
                    -sUSE_ZLIB=1 -sUSE_BZIP2=1 -sUSE_FREETYPE=1
 
 CPPFLAGS += $(EM_SHARED_FLAGS) -I$(WASM_HTS_PATH)
@@ -34,7 +39,8 @@ LDFLAGS  += -L$(WASM_SKIA_PATH) -L$(WASM_HTS_PATH) -L$(WASM_LZMA_PATH) \
             -sMIN_WEBGL_VERSION=2 \
             -sNO_EXIT_RUNTIME=1 \
             -sFORCE_FILESYSTEM=1 \
-            -sEXPORTED_RUNTIME_METHODS=callMain,Asyncify \
+            -sEXPORTED_RUNTIME_METHODS=callMain,Asyncify,FS \
+            -lidbfs.js \
             -sASYNCIFY=1 \
             -sASYNCIFY_STACK_SIZE=4194304 \
             $(WASM_LDFLAGS_EXTRA) \

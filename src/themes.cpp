@@ -1504,7 +1504,7 @@ namespace Themes {
         SkPaint paint1;
         const SkPaint* pnt = &paint1;
         overlay.setSize(fontTypefaceSize * yScale);
-        overlay.getBounds(glyphs, 1, bounds, pnt);
+        bounds[0] = SkiaCompat::glyphBounds(overlay, glyphs[0], pnt);
         overlayCharWidth = bounds[0].width();
         overlayHeight = bounds[0].height();
         overlayWidth = overlay.measureText("Gy", 1, SkTextEncoding::kUTF8);

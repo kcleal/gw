@@ -1,3 +1,4 @@
+#include "online/online_files.h"
 
 #include <algorithm>
 #include <array>
@@ -10,6 +11,9 @@
 #include <cstdio>
 #include <unistd.h>
 #include <vector>
+#ifdef __EMSCRIPTEN__
+#include <deque>
+#endif
 #ifndef __EMSCRIPTEN__
 #include <glad.h>
 #endif
@@ -50,6 +54,9 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include "plot_manager.h"
+#ifdef __EMSCRIPTEN__
+#include "plot_commands.h"
+#endif
 #include "menu.h"
 #include "segments.h"
 #include "termcolor.h"
@@ -62,6 +69,22 @@
 using namespace std::literals;
 
 namespace Manager {
+
+#ifdef __EMSCRIPTEN__
+    // DOM callbacks must never start genomic I/O: another input event can arrive
+    // while a previous File read is suspended. Drain these on the RAF stack.
+    struct WasmInputEvent {
+        GwPlot* plot;
+        int type, a=0,b=0,c=0,d=0;
+        double x=0,y=0;
+    };
+    static std::deque<WasmInputEvent> wasmInputEvents;
+    static void queueWasmInput(WasmInputEvent event) {
+        if(event.type==3 && !wasmInputEvents.empty() && wasmInputEvents.back().type==3 && wasmInputEvents.back().plot==event.plot)
+            wasmInputEvents.back()=event;
+        else wasmInputEvents.push_back(event);
+    }
+#endif
 
     std::mutex g_mutex;
 
@@ -486,7 +509,11 @@ namespace Manager {
             auto* plot = static_cast<GwPlot *>(glfwGetWindowUserPointer(w));
             if (k == GLFW_KEY_ESCAPE && plot->showUIOverlay && Menu::hasImGuiEscapeTarget()) return;
             if (ImGui::GetIO().WantCaptureKeyboard) return;
+#ifdef __EMSCRIPTEN__
+            queueWasmInput({plot,0,k,s,a,m});
+#else
             plot->keyPress(k, s, a, m);
+#endif
         };
         glfwSetKeyCallback(window, func_key);
 
@@ -496,27 +523,11 @@ namespace Manager {
         auto func_char = [](GLFWwindow *w, unsigned int codepoint) {
             if (ImGui::GetIO().WantCaptureKeyboard) return;
             auto *p = static_cast<GwPlot *>(glfwGetWindowUserPointer(w));
-            if (!p->captureText) return;
-            if (p->skipNextChar) { p->skipNextChar = false; return; }
-            // Encode the Unicode codepoint as UTF-8.
-            char utf8[5] = {};
-            if (codepoint < 0x80u) {
-                utf8[0] = (char)codepoint;
-            } else if (codepoint < 0x800u) {
-                utf8[0] = (char)(0xC0u | (codepoint >> 6));
-                utf8[1] = (char)(0x80u | (codepoint & 0x3Fu));
-            } else if (codepoint < 0x10000u) {
-                utf8[0] = (char)(0xE0u | (codepoint >> 12));
-                utf8[1] = (char)(0x80u | ((codepoint >> 6) & 0x3Fu));
-                utf8[2] = (char)(0x80u | (codepoint & 0x3Fu));
-            } else {
-                utf8[0] = (char)(0xF0u | (codepoint >> 18));
-                utf8[1] = (char)(0x80u | ((codepoint >> 12) & 0x3Fu));
-                utf8[2] = (char)(0x80u | ((codepoint >> 6) & 0x3Fu));
-                utf8[3] = (char)(0x80u | (codepoint & 0x3Fu));
-            }
-            Term::editInputText(p->inputText, utf8, p->charIndex);
-            p->redraw = true;
+#ifdef __EMSCRIPTEN__
+            queueWasmInput({p,1,int(codepoint)});
+#else
+            p->commandChar(codepoint);
+#endif
         };
         glfwSetCharCallback(window, func_char);
 
@@ -527,19 +538,34 @@ namespace Manager {
 
         auto func_mouse = [](GLFWwindow *w, int b, int a, int m) {
             if (ImGui::GetIO().WantCaptureMouse) return;
-            static_cast<GwPlot *>(glfwGetWindowUserPointer(w))->mouseButton(b, a, m);
+            auto* plot=static_cast<GwPlot *>(glfwGetWindowUserPointer(w));
+#ifdef __EMSCRIPTEN__
+            queueWasmInput({plot,2,b,a,m});
+#else
+            plot->mouseButton(b,a,m);
+#endif
         };
         glfwSetMouseButtonCallback(window, func_mouse);
 
         auto func_pos = [](GLFWwindow *w, double x, double y) {
             if (ImGui::GetIO().WantCaptureMouse) return;
-            static_cast<GwPlot *>(glfwGetWindowUserPointer(w))->mousePos(x, y);
+            auto* plot=static_cast<GwPlot *>(glfwGetWindowUserPointer(w));
+#ifdef __EMSCRIPTEN__
+            queueWasmInput({plot,3,0,0,0,0,x,y});
+#else
+            plot->mousePos(x,y);
+#endif
         };
         glfwSetCursorPosCallback(window, func_pos);
 
         auto func_scroll = [](GLFWwindow *w, double x, double y) {
             if (ImGui::GetIO().WantCaptureMouse) return;
-            static_cast<GwPlot *>(glfwGetWindowUserPointer(w))->scrollGesture(x, y);
+            auto* plot=static_cast<GwPlot *>(glfwGetWindowUserPointer(w));
+#ifdef __EMSCRIPTEN__
+            queueWasmInput({plot,4,0,0,0,0,x,y});
+#else
+            plot->scrollGesture(x,y);
+#endif
         };
         glfwSetScrollCallback(window, func_scroll);
 
@@ -639,29 +665,27 @@ namespace Manager {
         rgn.refSeq = nullptr;
         rgn.refSeqLen = 0;
         rgn.refBaseAtPos = '\0';
-        if (!fai) {
-            rgn.chromLen = 0;
-            if (!headers.empty()) {
-                int tid = HGW::bamContigId(headers[0], rgn.chrom);
-                if (tid >= 0) rgn.chromLen = (int)sam_hdr_tid2len(headers[0], tid);
-            }
-            return;
+        rgn.chromLen = 0;
+        for(auto* header:headers) {
+            const int tid=HGW::bamContigId(header,rgn.chrom);
+            if(tid>=0) rgn.chromLen=std::max(rgn.chromLen,int(sam_hdr_tid2len(header,tid)));
         }
+        if (!fai) return;
         // Resolve against reference and BAM independently: naming may differ.
         std::string refChrom = rgn.chrom;
         if (!faidx_has_seq(fai, refChrom.c_str())) {
             refChrom = Utils::startsWith(refChrom, "chr") ? refChrom.substr(3) : "chr" + refChrom;
         }
-        rgn.chromLen = faidx_seq_len(fai, refChrom.c_str());
-        if (rgn.chromLen <= 0 || rgn.start >= rgn.chromLen) {
+        const int referenceLength = faidx_seq_len(fai, refChrom.c_str());
+        rgn.chromLen = std::max(rgn.chromLen,std::max(0,referenceLength));
+        if (referenceLength <= 0 || rgn.start >= referenceLength) {
             std::cerr << "Warning: reference has no bases for " << rgn.chrom
                       << ":" << rgn.start << "-" << rgn.end << "\n";
-            rgn.chromLen = std::max(0, rgn.chromLen);
             return;
         }
         const int limit = std::max(20000, opts.snp_threshold);
         if (rgn.regionLen >= limit) return;
-        int end = std::min(rgn.end, rgn.chromLen);
+        int end = std::min(rgn.end, referenceLength);
         bool cached = rgn.refSeqBuffer && rgn.refBufferIndex == fai &&
             rgn.refBufferReference == reference && rgn.refBufferChrom == refChrom &&
             rgn.refBufferStart <= rgn.start && end <= rgn.refBufferStart + rgn.refBufferLen;
@@ -669,7 +693,7 @@ namespace Manager {
             rgn.packedReference.reset();
             // Fetch a bounded window with room to pan in either direction.
             int begin = std::max(0, rgn.start - (limit - (end - rgn.start)) / 2);
-            int windowEnd = begin + std::min(limit, rgn.chromLen - begin);
+            int windowEnd = begin + std::min(limit, referenceLength - begin);
             int fetched = 0;
             char* bases = faidx_fetch_seq(fai, refChrom.c_str(), begin, windowEnd - 1, &fetched);
             rgn.refSeqBuffer = std::shared_ptr<char>(bases, [](char* p) { std::free(p); });
@@ -702,7 +726,7 @@ namespace Manager {
         hts_set_fai_filename(f, reference.c_str());
         hts_set_threads(f, opts.threads);
         sam_hdr_t *hdr = sam_hdr_read(f);
-        hts_idx_t *idx = hdr ? sam_index_load(f, bam_path.c_str()) : nullptr;
+        hts_idx_t *idx = hdr ? sam_index_load2(f, bam_path.c_str(), Online::indexPath(bam_path)) : nullptr;
         if (!hdr || !idx) {
             outerr << "Error: " << bam_path << (!hdr ? " has no readable SAM header" :
                 " has no readable index; create a BAM/CRAM index before opening it") << "\n";
@@ -1338,6 +1362,47 @@ namespace Manager {
             GrDirectContext*& sCtx  = s.sCtx;
             SkSurface*&       sSurf = s.sSurf;
 
+            // Process a bounded batch. New DOM events only append while reads
+            // are suspended; they cannot re-enter HTSlib or change its iterator.
+            for(size_t remaining=std::min<size_t>(128,wasmInputEvents.size());remaining;--remaining) {
+                auto event=wasmInputEvents.front();wasmInputEvents.pop_front();
+                if(event.plot!=p)continue;
+                switch(event.type) {
+                    case 0:p->keyPress(event.a,event.b,event.c,event.d);break;
+                    case 1:p->commandChar(event.a);break;
+                    case 2:p->mouseButton(event.a,event.b,event.c);break;
+                    case 3:p->mousePos(event.x,event.y);break;
+                    case 4:p->scrollGesture(event.x,event.y);break;
+                }
+            }
+
+            // Browser-host commands execute inside GW's normal frame callback,
+            // so lazy File reads can suspend through the same Asyncify stack.
+            char* browserCommand = reinterpret_cast<char*>(EM_ASM_PTR({
+                if(!Module.gwCommandQueue || !Module.gwCommandQueue.length) return 0;
+                Module.gwActiveCommand=Module.gwCommandQueue.shift();
+                var text=Module.gwActiveCommand.text;
+                var bytes=lengthBytesUTF8(text)+1;var ptr=_malloc(bytes);
+                stringToUTF8(text,ptr,bytes);return ptr;
+            }));
+            if(browserCommand) {
+                std::string command(browserCommand); std::free(browserCommand);
+                std::ostringstream output;
+                try {
+                    if(command.rfind("__gw_online ",0)==0){
+                        if(EM_ASM_INT({return Module.gwOnlineCancelled?1:0;}))throw std::runtime_error("Cancelled");
+                        auto entries=Online::parseCatalogue(command.substr(12),true);
+                        if(entries.empty()||entries.size()>16)throw std::runtime_error("Expected 1..16 online resources");
+                        Online::openGroup(p,entries,EM_ASM_INT({return Module.gwOnlineAsTrack?1:0;}),EM_ASM_INT({return Module.gwOnlineCheckAssembly?1:0;}),false,EM_ASM_INT({return Module.gwOnlineAsTable?1:0;}));
+                    }else Commands::run_command_map(p,command,output);
+                }
+                catch(const std::runtime_error& error) {output << "Error: " << error.what();}
+                catch(...) {output << "Error: could not complete browser command";}
+                p->processed=false;p->redraw=true;
+                const auto result=output.str();
+                EM_ASM({if(Module.gwCompleteCommand)Module.gwCompleteCommand(UTF8ToString($0));},result.c_str());
+            }
+
             // Non-blocking — glfwWaitEvents() would stall the browser event loop.
             glfwPollEvents();
 
@@ -1421,6 +1486,13 @@ namespace Manager {
             p->redraw = false;
             p->overlayImGui(s.pending_settings_close);
             glfwSwapBuffers(s.wind);
+            std::string browserRegions, browserFiles;
+            for(const auto& region:p->regions) browserRegions+=region.chrom+":"+std::to_string(region.start+1)+"-"+std::to_string(region.end)+"\n";
+            for(const auto& path:p->bam_paths) browserFiles+=path+"\n";
+            EM_ASM({
+                if(Module.gwPublishState)Module.gwPublishState({shared:{theme:UTF8ToString($0),regions:UTF8ToString($1).split(String.fromCharCode(10)).filter(Boolean),alignments:UTF8ToString($2).split(String.fromCharCode(10)).filter(Boolean)}});
+            },p->opts.theme_str.c_str(),browserRegions.c_str(),browserFiles.c_str());
+
 
             while (p->imageCacheQueue.size() > 100) { p->imageCacheQueue.pop_front(); }
             if (p->imageCache.size() > 1000)         { p->imageCache.clear(); }
@@ -1989,11 +2061,11 @@ namespace Manager {
         ctx.translation_row_locked = translation_row_locked;
         ctx.translationTrackHeight = opts.show_translation ? (fonts.overlayHeight * 4.0f + gap * 2.0f) : 0.0f;
         ctx.translationButtonPanelWidth = 0.0f;
-        ctx.drawLine = drawLine;
+        ctx.drawLine = drawLine && !showUIOverlay;
         ctx.mouseX = xPos_fb;
     }
 
-    void GwPlot::overlayImGui(bool& pending_settings_close) {
+    void GwPlot::overlayImGui(bool& pending_settings_close, void (*background)(), void (*input)()) {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
 
@@ -2017,6 +2089,7 @@ namespace Manager {
         }
 
         ImGui::NewFrame();
+        if (background) background();
         io.FontGlobalScale = std::max(0.5f, opts.font_size / 14.0f);
 
         // Scale-bar drag-to-zoom: draw shaded selection box over the data area.
@@ -2083,6 +2156,8 @@ namespace Manager {
             processed = false;
         }
 
+        Menu::drawImGuiCursorLine(this);
+        Menu::drawImGuiTrackSeparators(this);
         Menu::drawImGuiAlignmentScrollbars(this);
         Menu::drawImGuiInfoPopup(this);
         Menu::drawImGuiCovPopup(this);
@@ -2101,74 +2176,12 @@ namespace Manager {
         }
         Menu::drawImGuiCommandStatus(this);
 
+        if (input) input(); // Consume wheel deltas before EndFrame clears them.
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     }
 
-    void GwPlot::drawOverlay(SkCanvas *canvas) {
-
-        if (!imageCacheQueue.empty()) {
-            syncImageCacheQueue();
-            if (imageCacheQueue.empty()) {
-                return;
-            }
-            Drawing::drawFrameImage(canvas, imageCacheQueue.back().second);
-        } else {
-            canvas->drawPaint(opts.theme.bgPaint);
-        }
-
-        // Top menu background bar (matches command box color; drawn before ImGui renders on top)
-        if (showUIOverlay && topMenuSpace > 0) {
-            SkRect menuBar;
-            menuBar.setXYWH(0, 0, fb_width, topMenuSpace);
-            canvas->drawRect(menuBar, opts.theme.bgMenu);
-        }
-
-        // slider overlay
-        if (mode == Show::SINGLE && bams.size() > 0) {
-            drawCursorPosOnRefSlider(canvas);
-        }
-
-        // Highlight column for a clicked reference base. Drawn on the overlay so it never
-        // leaves stale copies in the cached read/coverage image when the selection moves.
-        if (mode == Show::SINGLE && selectedBasePos >= 0) {
-            drawSelectedBase(canvas);
-        }
-
-        // draw box when a change in region selection happens via keyboard
-        if (regionSelectionTriggered && regions.size() > 1) {
-            SkRect rect{};
-            float step = (float)drawingWidth() / (float)regions.size();
-            if (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - regionTimer) > 500ms) {
-                regionSelectionTriggered = false;
-            }
-            float height = (float)fb_height - gap - gap;
-            float y = gap;
-            SkPaint box{};
-            box.setColor(SK_ColorGRAY);
-            box.setStrokeWidth(monitorScale);
-            box.setAntiAlias(true);
-            box.setStyle(SkPaint::kStroke_Style);
-            if (opts.scale_bar) {
-                rect.setXYWH((float)regionSelection * step + gap, gap, step - gap - gap, height + gap);
-            } else {
-                rect.setXYWH((float)regionSelection * step + gap, y + gap, step - gap - gap, height);
-            }
-            canvas->drawRoundRect(rect, 2 * monitorScale, 2 * monitorScale, box);
-        }
-
-        // icon information for vcf-file
-
-        double xposm, yposm;
-        glfwGetCursorPos(window, &xposm, &yposm);
-        int windowW, windowH;  // convert screen coords to frame buffer coords
-        glfwGetWindowSize(window, &windowW, &windowH);
-        if (fb_width > windowW) {
-            xposm *= (float) fb_width / (float) windowW;
-            yposm *= (float) fb_height / (float) windowH;
-        }
-
-
+    void GwPlot::drawCommandBox(SkCanvas* canvas) {
         // command popup box
         if (captureText && !opts.editing_underway) {
             SkRect rect{};
@@ -2270,6 +2283,74 @@ namespace Manager {
         }
 
         // bubble — command box shortcut (">_" prompt icon)
+    }
+
+    void GwPlot::drawOverlay(SkCanvas *canvas) {
+
+        if (!imageCacheQueue.empty()) {
+            syncImageCacheQueue();
+            if (imageCacheQueue.empty()) {
+                return;
+            }
+            Drawing::drawFrameImage(canvas, imageCacheQueue.back().second);
+        } else {
+            canvas->drawPaint(opts.theme.bgPaint);
+        }
+
+        // Top menu background bar (matches command box color; drawn before ImGui renders on top)
+        if (showUIOverlay && topMenuSpace > 0) {
+            SkRect menuBar;
+            menuBar.setXYWH(0, 0, fb_width, topMenuSpace);
+            canvas->drawRect(menuBar, opts.theme.bgMenu);
+        }
+
+        // slider overlay
+        if (mode == Show::SINGLE && bams.size() > 0) {
+            drawCursorPosOnRefSlider(canvas);
+        }
+
+        // Highlight column for a clicked reference base. Drawn on the overlay so it never
+        // leaves stale copies in the cached read/coverage image when the selection moves.
+        if (mode == Show::SINGLE && selectedBasePos >= 0) {
+            drawSelectedBase(canvas);
+        }
+
+        // draw box when a change in region selection happens via keyboard
+        if (regionSelectionTriggered && regions.size() > 1) {
+            SkRect rect{};
+            float step = (float)drawingWidth() / (float)regions.size();
+            if (std::chrono::duration_cast<std::chrono::milliseconds >(std::chrono::high_resolution_clock::now() - regionTimer) > 500ms) {
+                regionSelectionTriggered = false;
+            }
+            float height = (float)fb_height - gap - gap;
+            float y = gap;
+            SkPaint box{};
+            box.setColor(SK_ColorGRAY);
+            box.setStrokeWidth(monitorScale);
+            box.setAntiAlias(true);
+            box.setStyle(SkPaint::kStroke_Style);
+            if (opts.scale_bar) {
+                rect.setXYWH((float)regionSelection * step + gap, gap, step - gap - gap, height + gap);
+            } else {
+                rect.setXYWH((float)regionSelection * step + gap, y + gap, step - gap - gap, height);
+            }
+            canvas->drawRoundRect(rect, 2 * monitorScale, 2 * monitorScale, box);
+        }
+
+        // icon information for vcf-file
+
+        double xposm, yposm;
+        glfwGetCursorPos(window, &xposm, &yposm);
+        int windowW, windowH;  // convert screen coords to frame buffer coords
+        glfwGetWindowSize(window, &windowW, &windowH);
+        if (fb_width > windowW) {
+            xposm *= (float) fb_width / (float) windowW;
+            yposm *= (float) fb_height / (float) windowH;
+        }
+
+
+        drawCommandBox(canvas);
+
         float half_h = (float)fb_height / 2;
         bool tool_popup = (xposm > 0 && xposm <= 30 * monitorScale && yposm >= half_h - 30 * monitorScale && yposm <= half_h + 30 * monitorScale && (xDrag == -1000000 || xDrag == 0) && (yDrag == -1000000 || yDrag == 0));
         if (tool_popup) {
@@ -2292,7 +2373,7 @@ namespace Manager {
             canvas->drawTextBlob(blob, 15 * monitorScale - tw * 0.5f, half_h + fonts.overlayHeight * 0.35f, prompt_paint);
 
         // Line at mouse position
-        } else if (drawLine && mode != SETTINGS) {
+        } else if (drawLine && !showUIOverlay && mode != SETTINGS) {
             SkPath path;
             path.moveTo(xposm, refSpace);
             path.lineTo(xposm, fb_height - sliderSpace);

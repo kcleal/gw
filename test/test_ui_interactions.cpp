@@ -14,6 +14,8 @@
 #include "plot_commands.h"
 #include "term_out.h"
 #include "find_mismatches.hpp"
+#include "online/online_catalogue.h"
+#include "online/online_files.h"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "imfilebrowser.h"
@@ -386,6 +388,27 @@ static void testReferenceWindowOwnership() {
     std::filesystem::remove(path); std::filesystem::remove(path + ".fai");
 }
 
+// A BAM may cover a whole chromosome while the loaded FASTA is only a slice.
+static void testPanBeyondShortReference() {
+    Themes::IniOptions options;options.threads=1;options.show_translation=true;options.scroll_speed=0.25f;
+    std::vector<std::string> paths{"test/test.bam"},tracks;
+    std::vector<Utils::Region> regions{Utils::Region("chr1",10980,11060)};
+    Manager::GwPlot plot("test/test.fa",paths,options,regions,tracks);
+    plot.terminalOutput=false;plot.setImageSize(800,400);plot.makeRasterSurface();
+    auto verify=[&]() {
+        auto& region=plot.regions[0];plot.fetchRefSeq(region);
+        assert(region.chromLen==sam_hdr_tid2len(plot.headers[0],sam_hdr_name2tid(plot.headers[0],"chr1")));
+        assert(region.refSeqLen==std::max(0,std::min(region.end,11000)-region.start));
+        if(region.start>=11000)assert(!region.refSeq);
+        plot.processed=false;plot.drawScreen();
+    };
+    verify();
+    for(int i=0;i<8;++i){plot.keyPress(GLFW_KEY_RIGHT,0,GLFW_PRESS,0);verify();}
+    assert(plot.regions[0].start>=11000);
+    for(int i=0;i<8;++i){plot.keyPress(GLFW_KEY_LEFT,0,GLFW_PRESS,0);verify();}
+    assert(plot.regions[0].start<11000 && plot.regions[0].refSeqLen>0);
+}
+
 static void testHiddenMismatchPrefix() {
     std::string headerText = "@SQ\tSN:chr1\tLN:2000\n";
     auto* header = sam_hdr_parse(headerText.size(), headerText.c_str());
@@ -632,12 +655,79 @@ static void testThemeCommandSelection() {
     std::filesystem::remove_all(directory);
 }
 
+static void testOnlineCatalogueAndValidation() {
+    const auto entries=Online::bundledCatalogue();assert(entries.size()>=7);
+    for(const auto& e:entries){auto copy=Online::parseCatalogue(Online::encodeEntry(e));assert(copy.size()==1&&copy[0].url==e.url&&copy[0].indexURL==e.indexURL);}
+    auto roundtrip=Online::parseCatalogue(Online::encodeCatalogue(entries));assert(roundtrip.size()==entries.size());
+    for(const auto& e:entries)if(!e.bundle.empty()){auto bundle=Online::resolveBundle(e,entries);assert(bundle.size()==4&&bundle.front().category=="reference");}
+    auto igv=Online::parseCatalogue(R"([{"id":"test","name":"Escaped \"genome\"","fastaURL":"https:\/\/data.test\/ref.fa","indexURL":"https://data.test/custom.fai","tracks":[{"name":"nested"}]}])");
+    assert(igv.size()==1&&igv[0].url=="https://data.test/ref.fa"&&igv[0].indexURL=="https://data.test/custom.fai");
+    auto invalid=[](const std::string& json){try{Online::parseCatalogue(json);assert(false);}catch(const std::runtime_error&){};};
+    invalid("{broken");invalid(R"({"version":2,"entries":[]})");
+    invalid(R"({"version":1,"entries":[{"id":"x","name":"x","category":"reference","url":"file:///etc/passwd"}]})");
+    Online::Entry bam; bam.id="fixture";bam.category="alignment";bam.url="test/test.bam";bam.indexURL="test/test.bam.bai";
+    auto validated=Online::validate(bam,{{"1",249250621}},true);assert(validated.indexURL==bam.indexURL);
+    try{Online::validate(bam,{{"1",248956422}},true);assert(false);}catch(const std::runtime_error&){}
+    Online::Entry ref;ref.category="reference";ref.url="test/test.fa";ref.indexURL="test/test.fa.fai";
+    auto reference=Online::validate(ref,{},true);assert(reference.indexURL==ref.indexURL);
+    ref.indexURL="/tmp/gw-no-such-reference.fai";try{Online::validate(ref,{},false);assert(false);}catch(const std::runtime_error&){}
+    Themes::IniOptions options;std::vector<std::string> empty;std::vector<Utils::Region> regions{Utils::Region("chr1",9900,10000)};
+    Manager::GwPlot plot("test/test.fa",empty,options,regions,empty);plot.terminalOutput=false;
+    auto originalReference=plot.reference;auto* originalIndex=plot.fai;
+    try{Online::openGroup(&plot,{reference,ref},true,false);assert(false);}catch(const std::runtime_error&){}
+    assert(plot.reference==originalReference&&plot.fai==originalIndex&&plot.bams.empty());
+    plot.setImageSize(800,400);plot.makeRasterSurface();
+    Online::Entry variants;variants.id="fixture-variants";variants.category="variant";variants.url="test/test.vcf";
+    Online::openGroup(&plot,{variants},true,false,false,true);
+    assert(plot.tracks.size()==1&&plot.variantTracks.size()==1&&plot.labelTableDialogOpen);
+    std::cout<<"Online catalogue, explicit indexes, chr aliases and assembly validation passed\n";
+}
+
+static void testOnlineReferenceSwitch() {
+    auto directory=std::filesystem::temp_directory_path()/
+        ("gw-online-reference-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    std::filesystem::create_directories(directory);
+    auto reference=[&](const std::string& name,const std::string& chrom){
+        Online::Entry entry;entry.category="reference";entry.url=(directory/name).string();entry.indexURL=entry.url+".fai";
+        std::ofstream(entry.url)<<">"<<chrom<<"\n"<<std::string(1000,'A')<<"\n";
+        assert(fai_build(entry.url.c_str())==0);return entry;
+    };
+    auto chr=reference("chr.fa","chr1"),bare=reference("bare.fa","1"),other=reference("other.fa","different");
+    {
+        Themes::IniOptions options;options.threads=1;
+        std::vector<std::string> paths{"test/test.bam"},tracks;
+        std::vector<Utils::Region> regions{Utils::Region("chr1",9900,10000)};
+        Manager::GwPlot plot("test/test.fa",paths,options,regions,tracks);plot.terminalOutput=false;
+        plot.tracks.emplace_back();plot.tracks.back().kind=HGW::FType::INTRON;plot.tracks.back().bamIndex=0;
+        // Same spelling, different contig length: reference opens and the BAM stays.
+        Online::openGroup(&plot,{chr},true,true);
+        assert(plot.reference==chr.url&&plot.bams.size()==1);
+        assert(plot.regions[0].chrom=="chr1"&&plot.regions[0].end<=1000);
+        // The new reference uses "1", but this local BAM only has "chr1".
+        Online::openGroup(&plot,{bare},true,true);
+        assert(plot.reference==bare.url&&plot.bams.empty()&&plot.headers.empty()&&plot.indexes.empty());
+        assert(plot.regions[0].chrom=="1"&&plot.tracks.empty());
+        assert(plot.outStr.str().find("Closed local alignment")!=std::string::npos);
+        // No alias at all: choose a valid chromosome in the new reference.
+        Online::openGroup(&plot,{other},true,true);
+        assert(plot.regions[0].chrom=="different"&&plot.regions[0].start>=0&&plot.regions[0].end<=1000);
+        // Failed reference loads still retain the existing reference and viewport.
+        auto before=plot.regions[0].toString();other.indexURL+=".missing";
+        try{Online::openGroup(&plot,{other},true,true);assert(false);}catch(const std::runtime_error&){}
+        assert(plot.reference==other.url&&plot.regions[0].toString()==before);
+    }
+    std::filesystem::remove_all(directory);
+}
+
 int main() {
+    testOnlineCatalogueAndValidation();
+    testOnlineReferenceSwitch();
     testThemeCommandSelection();
     testThemePreviewRendering();
     testThemeBackgroundReplacement();
     testCustomThemePersistence();
     testReferenceWindowOwnership();
+    testPanBeyondShortReference();
     testHiddenMismatchPrefix();
     testLeftClipDrawingPastRightEdge();
     testStableRowGaps();
@@ -678,6 +768,54 @@ int main() {
     io.DeltaTime = 1.0f/60;
     unsigned char* pixels; int w, h;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
+    // The real GW menu must route actions through the optional remote transport,
+    // while preserving the local view (there are no local genomic data to fetch).
+    {
+        std::string sent;
+        plot.remoteCommand = [&](const std::string& command) { sent = command; };
+        plot.inputText = "chr1:20-50";
+        plot.commandProcessed();
+        assert(sent == "chr1:20-50" && plot.regions[0].start == 10);
+        // The browser uses the native command editor, including caret edits,
+        // history and Escape. No local data are touched on submission.
+        assert(plot.commandKey(GLFW_KEY_SLASH, 0, GLFW_PRESS, 0));
+        plot.commandChar('/'); // activation character is suppressed
+        for (char c : std::string("helpX")) plot.commandChar(c);
+        plot.commandKey(GLFW_KEY_BACKSPACE, 0, GLFW_PRESS, 0);
+        assert(plot.inputText == "help");
+        plot.commandKey(GLFW_KEY_ENTER, 0, GLFW_PRESS, 0);
+        assert(sent == "help" && !plot.commandBoxOpen());
+        plot.commandKey(GLFW_KEY_SLASH, 0, GLFW_PRESS, 0); plot.commandChar('/');
+        plot.commandKey(GLFW_KEY_UP, 0, GLFW_PRESS, 0);
+        assert(plot.inputText == "help");
+        plot.commandKey(GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
+        assert(!plot.commandBoxOpen());
+        auto menuFrame = [&]() {
+            ImGui::NewFrame(); bool redraw = false;
+            Menu::drawImGuiTopMenu(&plot, plot.gap, plot.fonts.overlayHeight, redraw);
+            ImGui::Render();
+        };
+        auto menuClick = [&](float x, float y) {
+            io.AddMousePosEvent(x,y); menuFrame();
+            io.AddMouseButtonEvent(0,true); menuFrame();
+            io.AddMouseButtonEvent(0,false); menuFrame();
+        };
+        menuFrame(); menuFrame();
+        const float side = plot.fonts.overlayHeight;
+        menuClick(plot.gap * .5f + side + plot.gap * .25f + side * .5f,
+                  plot.gap * .25f + side * .5f);
+        menuFrame();
+        auto& popups = ImGui::GetCurrentContext()->OpenPopupStack;
+        assert(!popups.empty() && popups.back().Window);
+        auto* popup = popups.back().Window;
+        menuClick(popup->WorkRect.Min.x + ImGui::GetFrameHeight()*.5f,
+                  popup->WorkRect.Min.y + ImGui::GetFrameHeight()*.5f);
+        assert(sent == "refresh");
+        io.AddKeyEvent(ImGuiKey_Escape,true); menuFrame();
+        io.AddKeyEvent(ImGuiKey_Escape,false); menuFrame();
+        plot.remoteCommand = {};
+    }
+
     ImGui::GetPlatformIO().Platform_SetClipboardTextFn = [](ImGuiContext*, const char* text) { clipboard = text; };
     {
         ImGui::FileBrowser browser(ImGuiFileBrowserFlags_EnterNewFilename |
@@ -735,6 +873,104 @@ int main() {
         }
         plot.opts.myIni["general"] = originalGeneral;
         io.DisplaySize = ImVec2(1000, 700);
+    }
+    // The browser uses the same scale-bar preview state as native GW.
+    {
+        const bool savedScaleBar=plot.opts.scale_bar;
+        plot.opts.scale_bar=true;
+        assert(plot.beginScaleBarSelection(100,plot.topMenuSpace+1));
+        assert(plot.scaleBarSelectionActive());
+        plot.endScaleBarSelection(); assert(!plot.scaleBarSelectionActive());
+        assert(!plot.beginScaleBarSelection(100,plot.fb_height));
+        plot.opts.scale_bar=savedScaleBar;
+    }
+    // Cursor guides are immediate ImGui geometry, independent of read rendering.
+    {
+        const auto savedMode=plot.mode; const bool savedLine=plot.drawLine;
+        const float savedScale=plot.monitorScale, savedRef=plot.refSpace, savedSlider=plot.sliderSpace;
+        plot.mode=Manager::SINGLE; plot.drawLine=true; plot.monitorScale=1;
+        plot.refSpace=100; plot.sliderSpace=30;
+        auto guide=[&](float x,float y) {
+            io.AddMousePosEvent(x,y); ImGui::NewFrame();
+            io.WantCaptureMouse=false;
+            Menu::drawImGuiCursorLine(&plot);
+            auto* list=ImGui::GetBackgroundDrawList();
+            std::pair<int,float> result{list->VtxBuffer.Size,list->VtxBuffer.empty()?0:list->VtxBuffer[0].pos.x};
+            ImGui::Render(); return result;
+        };
+        const auto first=guide(100,200), second=guide(200,200);
+        assert(first.first>0 && first.first==second.first);
+        assert(std::abs(second.second-first.second-100.f)<.01f);
+        plot.monitorScale=2;
+        assert(guide(100,100).first>0);
+        plot.drawLine=false; assert(guide(100,100).first==0);
+        plot.drawLine=true; assert(guide(-100,-100).first==0);
+        plot.mode=savedMode; plot.drawLine=savedLine; plot.monitorScale=savedScale;
+        plot.refSpace=savedRef; plot.sliderSpace=savedSlider;
+    }
+    // Track separators preview locally and emit one command on release.
+    {
+        auto savedMode=plot.mode; const float savedScale=plot.monitorScale, savedRef=plot.refSpace, savedSlider=plot.sliderSpace;
+        plot.mode=Manager::SINGLE; plot.monitorScale=1; plot.refSpace=50; plot.sliderSpace=30;
+        plot.remoteTracks={{300,100,"first"},{400,100,"second"}};
+        std::vector<std::string> sent;
+        plot.remoteCommand=[&](const std::string& command){sent.push_back(command);};
+        auto frame=[&](){ImGui::NewFrame(); Menu::drawImGuiTrackSeparators(&plot); ImGui::Render();};
+        io.AddMousePosEvent(200,300); frame(); frame();
+        io.AddMouseButtonEvent(0,true); frame();
+        io.AddMousePosEvent(200,270); frame(); frame(); assert(sent.empty());
+        io.AddMouseButtonEvent(0,false); frame();
+        assert(sent.size()==1 && sent[0].rfind("track-resize 0 ",0)==0);
+        sent.clear(); io.AddMousePosEvent(200,400); frame(); frame();
+        io.AddMouseButtonEvent(0,true); frame(); io.AddMousePosEvent(200,380); frame();
+        io.AddKeyEvent(ImGuiKey_Escape,true); frame();
+        io.AddMouseButtonEvent(0,false); frame(); assert(sent.empty());
+        io.AddKeyEvent(ImGuiKey_Escape,false); frame();
+        plot.remoteCommand={}; plot.remoteTracks.clear(); plot.mode=savedMode;
+        plot.monitorScale=savedScale; plot.refSpace=savedRef; plot.sliderSpace=savedSlider;
+        io.AddMousePosEvent(-100,-100); frame();
+    }
+    // Remote scrollbar movement stays local until release, even for small views.
+    {
+        const auto savedOptions=plot.opts;
+        const float savedTrackY=plot.trackY, savedScale=plot.monitorScale;
+        const auto savedMode=plot.mode;
+        plot.mode=Manager::SINGLE; plot.monitorScale=1; plot.trackY=250;
+        plot.opts.alignments=true; plot.opts.tlen_yscale=false;
+        plot.remoteScrollbars={{0,100,500,100,0,true}};
+        std::vector<std::string> sent;
+        plot.remoteCommand=[&](const std::string& command) { sent.push_back(command); };
+        auto frame=[&]() { ImGui::NewFrame(); Menu::drawImGuiAlignmentScrollbars(&plot); ImGui::Render(); };
+        io.AddMousePosEvent(490,115); frame(); frame();
+        io.AddMouseButtonEvent(0,true); frame();
+        io.AddMousePosEvent(490,280); frame(); frame();
+        assert(sent.empty());
+        io.AddMouseButtonEvent(0,false); frame();
+        assert(sent.size()==1 && sent[0].rfind("vscroll 0 ",0)==0);
+        plot.remoteCommand={}; plot.remoteScrollbars.clear();
+        plot.opts=savedOptions; plot.trackY=savedTrackY; plot.monitorScale=savedScale; plot.mode=savedMode;
+        io.AddMousePosEvent(-100,-100); frame();
+    }
+    // Output constraints must stay consistent on narrow remote viewports.
+    {
+        plot.remoteCommand = [](const std::string&) {};
+        for (auto size : {ImVec2(539,582), ImVec2(300,180), ImVec2(1000,700)}) {
+            io.DisplaySize=size;
+            plot.showCommandStatus=true;
+            plot.lastCommandOutputAnsi="Error: unknown command\n" + std::string(300,'x') + "\n";
+            ++plot.lastCommandOutputFrame;
+            ImVec2 stable;
+            for (int f=0;f<24;++f) {
+                ImGui::NewFrame(); Menu::drawImGuiCommandStatus(&plot); ImGui::Render();
+                auto* win=ImGui::FindWindowByName("Output"); assert(win);
+                assert(win->Size.x <= size.x && win->Size.y <= size.y);
+                if (f==5) stable=win->Size;
+                if (f>5) assert(win->Size.x==stable.x && win->Size.y==stable.y);
+            }
+            plot.showCommandStatus=false;
+            ImGui::NewFrame(); ImGui::Render();
+        }
+        plot.remoteCommand={}; io.DisplaySize=ImVec2(1000,700);
     }
     // Escape dismisses only the foremost dialog, including when a file
     // browser modal is layered over ordinary windows.

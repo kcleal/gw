@@ -70,6 +70,7 @@ namespace ImGui
 
         // display the browsing window if opened
         void Display();
+        void SetShortcut(std::string label, std::filesystem::path path) { shortcutLabel_=std::move(label); shortcutPath_=std::move(path); }
 
         // returns true when there is a selected filename
         bool HasSelected() const noexcept;
@@ -132,6 +133,8 @@ namespace ImGui
         void SetInputName(std::string_view input);
 
     private:
+        std::string shortcutLabel_;
+        std::filesystem::path shortcutPath_;
 
         std::filesystem::path ResolveSelection(const std::filesystem::path& name) const
         {
@@ -429,6 +432,7 @@ inline void ImGui::FileBrowser::Display()
     isOpened_ = true;
     ScopeGuard endPopup([] { EndPopup(); });
 
+    if(!shortcutLabel_.empty() && Button(shortcutLabel_.c_str())) SetDirectory(shortcutPath_);
     std::filesystem::path newDir; bool shouldSetNewDir = false;
 
     if(editDir_)

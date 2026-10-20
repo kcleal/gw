@@ -16,13 +16,14 @@ size_t GLOBAL_DEFAULTBUFFERSIZE;
 
 #ifndef NOCURL
 uint64_t getContentLength(const URL_t *URL) {
-    double size;
 
 #if LIBCURL_VERSION_NUM >= 0x073700 /* 7.55.0 */
+    curl_off_t size;
     if(curl_easy_getinfo(URL->x.curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &size) != CURLE_OK) {
         return 0;
     }
 #else
+    double size;
     if(curl_easy_getinfo(URL->x.curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &size) != CURLE_OK) {
         return 0;
     }
@@ -58,6 +59,14 @@ size_t url_fread(void *obuf, size_t obufSize, URL_t *URL) {
     size_t remaining = obufSize, fetchSize;
     void *p = obuf;
     CURLcode rv;
+
+    // Large compressed bigBed blocks otherwise require dozens of HTTP round trips.
+    // Grow only on demand, preserving buffered bytes, and bound per-file memory.
+    size_t wanted = obufSize < (4u << 20) ? obufSize : (4u << 20);
+    if(wanted > URL->bufSize) {
+        void *larger = realloc(URL->memBuf, wanted);
+        if(larger) { URL->memBuf = larger; URL->bufSize = wanted; }
+    }
 
     while(remaining) {
         if(!URL->bufLen) {

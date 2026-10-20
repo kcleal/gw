@@ -11,6 +11,10 @@
 #include <iostream>
 #include <string>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 namespace Menu {
 
 // -----------------------------------------------------------------------------
@@ -210,10 +214,19 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(gap * 0.75f, gap * 0.5f));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(gap * 0.5f, gap * 0.4f));
     if (ImGui::BeginPopup("##TopMenuPopup")) {
-        if (ImGui::MenuItem("Open file")) {
-            plot->openDialogOpen = true;
+        if (ImGui::BeginMenu("Open")) {
+        if (ImGui::MenuItem("Local file")) {
+            if(plot->remoteCommand) plot->remoteCommand("open");
+#ifdef __EMSCRIPTEN__
+            else plot->openDialogOpen = true;
+#else
+            else plot->openDialogOpen = true;
+#endif
         }
-        bool hasFiles = !plot->bam_paths.empty() || !plot->tracks.empty() || !plot->variantTracks.empty();
+        if(ImGui::MenuItem("Online file",nullptr,false,!plot->remoteCommand)) onlineFileDialogOpen=true;
+        ImGui::EndMenu();
+        }
+        bool hasFiles = !plot->bam_paths.empty() || !plot->tracks.empty() || !plot->variantTracks.empty() || (plot->remoteCommand && !plot->remoteTracks.empty());
         if (ImGui::MenuItem("Close file", nullptr, false, hasFiles)) {
             plot->closeDialogOpen = true;
         }
@@ -243,10 +256,13 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
                                             ? plot->variantTracks[i].path
                                             : plot->variantTracks[i].fileName;
                 bool selected = (plot->variantFileSelection == i);
+                // Separate entries can have the same filename (or be the same file).
+                ImGui::PushID(i);
                 if (ImGui::MenuItem(name.c_str(), nullptr, selected)) {
                     plot->selectVariantFile(i);
                     redraw = true;
                 }
+                ImGui::PopID();
             }
             ImGui::EndMenu();
         }
@@ -523,7 +539,8 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
                 ImVec2 cbCursor = ImGui::GetCursorScreenPos();
                 if (ImGui::Button(closeLabel, ImVec2(cbSide, cbSide))) {
                     std::string cmd = "rm " + std::to_string(i);
-                    execCommand(plot, cmd, redraw);
+                    if (plot->remoteCommand) plot->remoteCommand(cmd);
+                    else execCommand(plot, cmd, redraw);
                     plot->processed = false;
                 }
                 bool cbHovered = ImGui::IsItemHovered();

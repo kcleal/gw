@@ -18,6 +18,7 @@
 
 #include <chrono>
 #include <future>
+#include <functional>
 #include <filesystem>
 #include <GLFW/glfw3.h>
 #include <memory>
@@ -327,15 +328,27 @@ namespace Manager {
 
         // Interactions
         void keyPress(int key, int scancode, int action, int mods);
+        void viewKey(int key, int mods);
         void mouseButton(int button, int action, int mods);
+        void pointerEvent(const std::string& kind, double x, double y, int button, int mods, double dx, double dy);
         void mousePos(double x, double y);
         void scrollGesture(double xoffset, double yoffset);
         void windowResize(int x, int y);
         void pathDrop(int count, const char** paths);
         bool commandProcessed();
+        bool commandBoxOpen() const { return captureText; }
+        bool commandBoxReady() const { return processText && !captureText; }
+        std::string commandBoxState() const { return inputText + "|" + std::to_string(charIndex) + "|" + std::to_string(commandToolTipIndex); }
+        bool commandKey(int key, int scancode, int action, int mods);
+        void commandChar(unsigned int codepoint);
+        void drawCommandBox(SkCanvas* canvas);
+        bool beginScaleBarSelection(double x, double y);
+        void endScaleBarSelection() { scaleBarDragging = false; }
+        bool scaleBarSelectionActive() const { return scaleBarDragging; }
         void prepareSelectedRegion();
         void addAlignmentToSelectedRegion();
         void setCollectionVScroll(size_t index, int value);
+        void resizeTrackBoundary(size_t index, float y);
         void setVScroll(int value);  // set absolute vertical read-scroll offset and re-layout
 
         // Draw functions
@@ -357,6 +370,14 @@ namespace Manager {
         int printRegionInfo();
         void highlightQname();
         std::string flushLog();
+        // Existing overlay, reusable above a locally or remotely rendered frame.
+        void overlayImGui(bool& pending_settings_close, void (*background)() = nullptr, void (*input)() = nullptr);
+        // Optional UI-only transport. Never consulted by drawing/read-packing loops.
+        std::function<void(const std::string&)> remoteCommand;
+        struct RemoteScrollbar { float xOffset, yOffset, regionPixels; int maximum, value; bool live; };
+        std::vector<RemoteScrollbar> remoteScrollbars;
+        struct RemoteTrack { float top, height; std::string name; };
+        std::vector<RemoteTrack> remoteTracks;
 
         // Output functions
         sk_sp<SkImage> makeImage();
@@ -425,7 +446,6 @@ namespace Manager {
         BS::thread_pool pool;
 
         void drawOverlay(SkCanvas* canvas);
-        void overlayImGui(bool& pending_settings_close);
 
         void tileDrawingThread();
 

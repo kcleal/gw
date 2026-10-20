@@ -4,4 +4,4 @@
 // launched from the browser (equivalent to: gw /test.fa -b /test.bam).
 // These files must be preloaded via --preload-file in the Makefile.
 
-Module['arguments'] = ['/test.fa', '-b', '/test.bam'];
+Module['arguments'] = ['/test.fa', '-b', '/test.bam', '-r', 'chr1:9900-10300'];

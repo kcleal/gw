@@ -39,7 +39,7 @@ endif
 $(info   PLATFORM=$(PLATFORM))
 ifneq ($(PLATFORM),"Emscripten")
     ifdef CONDA_PREFIX
-    	$(info   Linking conda from $(CONDA_PREFIX))
+        $(info   Linking conda from $(CONDA_PREFIX))
         CPPFLAGS += -I$(CONDA_PREFIX)/include
         LDFLAGS += -L$(CONDA_PREFIX)/lib
         LDFLAGS += -Wl,-rpath,$(CONDA_PREFIX)/lib
@@ -50,31 +50,33 @@ NCURSES_CFLAGS := $(shell pkg-config --cflags ncurses 2>/dev/null || echo "")
 NCURSES_LIBS := $(shell pkg-config --libs ncurses 2>/dev/null || echo "-lncurses")
 # Skia info ---------------------------------------------
 OLD_SKIA ?= 0
+SKIA_VERSION ?= m143
+SKIA_RELEASE ?= v0.2.0
 prep:
 ifeq ($(OLD_SKIA),0)
 	@if [ "$(PLATFORM)" = "MacOS-x64" ]; then \
-		echo "Downloading pre-built skia-m133 for MacOS-Intel"; mkdir -p lib/skia; \
-		cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.1.0/skia-m133-macos-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
+		echo "Downloading pre-built skia-$(SKIA_VERSION) for MacOS-Intel"; mkdir -p lib/skia; \
+		cd lib/skia && curl -fL -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/$(SKIA_RELEASE)/skia-$(SKIA_VERSION)-macos-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	elif [ "$(PLATFORM)" = "MacOS-arm64" ]; then \
-      	echo "Downloading pre-built skia-m133 for MacOS-Arm64"; mkdir -p lib/skia; \
-      	cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.1.0/skia-m133-macos-Release-arm64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
+		echo "Downloading pre-built skia-$(SKIA_VERSION) for MacOS-Arm64"; mkdir -p lib/skia; \
+		cd lib/skia && curl -fL -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/$(SKIA_RELEASE)/skia-$(SKIA_VERSION)-macos-Release-arm64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	elif [ "$(PLATFORM)" = "Linux-x64" ]; then \
-		echo "Downloading pre-built skia-m133 for Linux-x64"; mkdir -p lib/skia; \
-		cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.1.0/skia-m133-linux-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
+		echo "Downloading pre-built skia-$(SKIA_VERSION) for Linux-x64"; mkdir -p lib/skia; \
+		cd lib/skia && curl -fL -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/$(SKIA_RELEASE)/skia-$(SKIA_VERSION)-linux-Release-x64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	elif [ "$(PLATFORM)" = "Linux-aarch64" ]; then \
-    	echo "Downloading pre-built skia-m133 for Linux-aarch64"; mkdir -p lib/skia; \
-    	cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.1.0/skia-m133-linux-Release-arm64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
+		echo "Downloading pre-built skia-$(SKIA_VERSION) for Linux-aarch64"; mkdir -p lib/skia; \
+		cd lib/skia && curl -fL -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/$(SKIA_RELEASE)/skia-$(SKIA_VERSION)-linux-Release-arm64.tar.gz" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	fi
 else
 	@if [ "$(PLATFORM)" = "MacOS-x64" ]; then \
 		echo "Downloading pre-built skia-m93 for MacOS-Intel"; mkdir -p lib/skia; \
-		cd lib/skia && curl -L -o skia.zip "https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-x64.zip" && unzip -o skia.zip && rm skia.zip && cd ../../; \
+		cd lib/skia && curl -fL -o skia.zip "https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-macos-Release-x64.zip" && unzip -o skia.zip && rm skia.zip && cd ../../; \
 	elif [ "$(PLATFORM)" = "MacOS-arm64" ]; then \
-      	echo "Downloading pre-built skia-m93 for MacOS-Arm64"; mkdir -p lib/skia; \
-      	cd lib/skia && curl -L -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia.zip" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
+		echo "Downloading pre-built skia-m93 for MacOS-Arm64"; mkdir -p lib/skia; \
+		cd lib/skia && curl -fL -o skia.tar.gz "https://github.com/kcleal/skia_build_arm64/releases/download/v0.0.1/skia.zip" && tar -xvf skia.tar.gz && rm skia.tar.gz && cd ../../; \
 	elif [ "$(PLATFORM)" = "Linux-x64" ]; then \
 		echo "Downloading pre-built skia-m93 for Linux-x64"; mkdir -p lib/skia; \
-		cd lib/skia && curl -L -o skia.zip "https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip" && unzip -o skia.zip && rm skia.zip && cd ../../; \
+		cd lib/skia && curl -fL -o skia.zip "https://github.com/JetBrains/skia-build/releases/download/m93-87e8842e8c/Skia-m93-87e8842e8c-linux-Release-x64.zip" && unzip -o skia.zip && rm skia.zip && cd ../../; \
 	fi
 endif
 SKIA_PATH := $(shell if [ -d ./lib/skia/out ]; then find ./lib/skia/out -type d -name '*Release*' | sort | head -n 1; fi)
@@ -95,7 +97,7 @@ ifeq ($(TARGET_OS),"Linux")  # set platform flags and libs
     CXXFLAGS += -D LINUX -D __STDC_FORMAT_MACROS
     LDLIBS += $(SKIA_LIBS) -lX11
     ifeq ($(USE_WAYLAND),1)
-    	LDLIBS += -lwayland-client -lwayland-egl
+        LDLIBS += -lwayland-client -lwayland-egl
     endif
     LGLFW := $(shell pkg-config --libs glfw3 2>/dev/null || echo "-lglfw")
     CPPFLAGS += $(NCURSES_CFLAGS)
@@ -127,23 +129,43 @@ endif
 debug: CXXFLAGS += -O0 -DDEBUG
 debug: CFLAGS += -O0 -DDEBUG
 # Compile --------------------------------------------------
-OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp) ./src/menu_components/online_genome_utils.cpp ./src/menu_components/startup_genome_dialog.cpp) $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
+OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp ./src/online/*.cpp) ./src/menu_components/online_genome_utils.cpp ./src/menu_components/startup_genome_dialog.cpp) $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
 OBJECTS += $(patsubst %.c, %.o, $(if $(EMSCRIPTEN),$(filter-out ./include/glad.c, $(wildcard ./include/*.c)),$(wildcard ./include/*.c)))
 OBJECTS += $(patsubst %.cpp, %.o, $(wildcard $(IMGUI)/*.cpp) $(IMGUI)/backends/imgui_impl_glfw.cpp $(IMGUI)/backends/imgui_impl_opengl3.cpp)
--include $(OBJECTS:.o=.d)
+ifdef REMOTE_UI
+OBJECTS := $(filter-out ./src/main.o,$(OBJECTS)) ./deps/wasm_remote/main.o
+endif
+ifdef EMSCRIPTEN
+# Keep browser objects separate so native and WASM builds can coexist.
+WASM_BUILD_DIR ?= ./deps/wasm/out/gw_objects
+OBJECTS := $(patsubst ./%,$(WASM_BUILD_DIR)/%,$(OBJECTS))
+$(OBJECTS): deps/wasm/flags.mk
+$(TARGET): $(WASM_DEMO_INPUTS)
+$(WASM_BUILD_DIR)/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+$(WASM_BUILD_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+endif
+SERVER_OBJECTS := ./protocol/viewer/native/viewer_interface.o
+-include $(OBJECTS:.o=.d) $(SERVER_OBJECTS:.o=.d)
 ./lib/libBigWig/%.o: ./lib/libBigWig/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Wno-attribute-warning -c $< -o $@
 $(TARGET): $(OBJECTS)
+	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $@
 
 
 clean:
-	-rm -f *.o ./src/*.o ./src/*.o.tmp ./lib/libBigWig/*.o ./include/*.o
+	-rm -f $(SERVER_OBJECTS) $(SERVER_OBJECTS:.o=.d)
+	-rm -f *.o ./src/*.o ./src/*.o.tmp ./src/online/*.o ./lib/libBigWig/*.o ./include/*.o
 	-rm -f ./lib/dear_imgui/*.o ./lib/dear_imgui/backends/*.o
-	-rm -f *.d ./src/*.d ./src/menu_components/*.d ./lib/libBigWig/*.d ./include/*.d
+	-rm -f *.d ./src/*.d ./src/online/*.d ./src/menu_components/*.d ./lib/libBigWig/*.d ./include/*.d
 	-rm -f ./lib/dear_imgui/*.d ./lib/dear_imgui/backends/*.d
 	-rm -f $(TARGET) *.wasm
 	-rm -rf libgw
+	-rm -f libgw_server_core.a
 
 
 ifeq ($(UNAME_S),Linux)
@@ -178,6 +200,8 @@ endif
 	-mkdir -p libgw libgw/GW
 	-cp $(SKIA_PATH)/libskia.a libgw
 	-cp src/*.h src/*.hpp libgw/GW
+	-mkdir -p libgw/GW/online
+	-cp src/online/*.h libgw/GW/online
 	-cp include/*.h* libgw/GW
 	-cp lib/libBigWig/*.h libgw/GW
 	-cp -rf lib/skia/include libgw/GW
@@ -192,3 +216,17 @@ test-startup: $(TARGET)
 test-ui: $(filter-out ./src/main.o,$(OBJECTS))
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -UNDEBUG test/test_ui_interactions.cpp $(filter-out ./src/main.o,$(OBJECTS)) $(LDFLAGS) $(LDLIBS) -o /tmp/gw-ui-interactions
 	/tmp/gw-ui-interactions
+
+# Optional native server. Neither oat++ nor server code is part of the default target.
+GW_SERVER_DIR ?= ../gw-server
+GW_SERVER_BUILD_DIR ?= $(GW_SERVER_DIR)/build
+OATPP_ROOT ?=
+OATPP_SOURCE_DIR ?=
+.PHONY: server-core server
+server-core: libgw_server_core.a
+libgw_server_core.a: $(filter-out ./src/main.o,$(OBJECTS)) $(SERVER_OBJECTS)
+	rm -f $@
+	$(AR) rcs $@ $^
+server: server-core
+	env -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS -u LDLIBS cmake -S "$(GW_SERVER_DIR)" -B "$(GW_SERVER_BUILD_DIR)" -DGW_ROOT="$(CURDIR)" -DGW_CORE_LIBRARY="$(CURDIR)/libgw_server_core.a" "-DGW_NATIVE_LINK_FLAGS=$(subst -L./,-L$(CURDIR)/,$(LDFLAGS)) $(LDLIBS)" "-DCMAKE_PREFIX_PATH=$(OATPP_ROOT)" "-DOATPP_SOURCE_DIR=$(OATPP_SOURCE_DIR)"
+	cmake --build "$(GW_SERVER_BUILD_DIR)" -j2

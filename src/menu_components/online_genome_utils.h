@@ -5,18 +5,16 @@
 
 namespace Menu {
 
-#if !defined(__EMSCRIPTEN__)
 // Simple JSON entry for IGV online genomes.
 struct OnlineGenome {
     std::string id;
     std::string name;
     std::string fastaURL;
+    std::string indexURL;
+    std::string compressedIndexURL;
 };
 
-// Parse the IGV genomes JSON.  We only need id, name and fastaURL from each
-// top-level object in the array.  Objects may contain nested arrays/objects
-// (e.g. "tracks"), so we split by tracking brace depth rather than regex.
+// Shared JSON decoder handles companion URLs, escaped strings and nested tracks.
 std::vector<OnlineGenome> parseIgvGenomes(const std::string& jsonText);
-#endif
 
 }

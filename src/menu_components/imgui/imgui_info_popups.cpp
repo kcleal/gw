@@ -24,6 +24,16 @@
 
 namespace Menu {
 
+struct PopupTitleIconClip {
+    ImDrawList* drawList=ImGui::GetWindowDrawList();
+    PopupTitleIconClip(){
+        const auto pos=ImGui::GetWindowPos(),size=ImGui::GetWindowSize();
+        drawList->PushClipRect(pos,ImVec2(pos.x+size.x,pos.y+size.y),false);
+    }
+    ~PopupTitleIconClip(){drawList->PopClipRect();}
+};
+
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -67,6 +77,11 @@ static void execReadPopupCommand(Manager::GwPlot* plot,
                                      const Manager::GwPlot::ReadPopup& rp,
                                      const std::string& cmd_str,
                                      bool& redraw) {
+        if (plot->remoteCommand) {
+            const auto action = cmd_str.rfind("find", 0) == 0 ? "find" : cmd_str;
+            plot->remoteCommand("read-popup " + std::to_string(rp.uid) + " " + action);
+            return;
+        }
         int previousRegionSelection = plot->regionSelection;
         if (!rp.sam.empty()) {
             plot->selectedAlign = rp.sam;
@@ -451,7 +466,8 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
                 float rightInset = 2.0f;
                 float topInset = 3.0f;
                 float slotWidth = titleBarH * 0.95f;
-                ImDrawList* fgDl = ImGui::GetForegroundDrawList();
+                PopupTitleIconClip titleIconClip;
+                ImDrawList* fgDl = titleIconClip.drawList;
                 ImVec2 mp  = ImGui::GetIO().MousePos;
 
                 float titleIconStroke = iconStrokeThickness(ms);
@@ -461,7 +477,7 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
                     float minX = winPos.x + winWidth - titleBarH - rightInset - slotWidth * slotFromRight;
                     ImVec2 iconMin(minX, winPos.y + topInset);
                     ImVec2 iconMax(iconMin.x + iconSide, iconMin.y + iconSide);
-                    bool hov = mp.x >= iconMin.x && mp.x <= iconMax.x
+                    bool hov = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) && mp.x >= iconMin.x && mp.x <= iconMax.x
                             && mp.y >= iconMin.y && mp.y <= iconMax.y;
                     if (hov) {
                         fgDl->AddRectFilled(iconMin, iconMax,
@@ -479,7 +495,7 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
                     pendingAction = PendingReadPopupAction{rp, "mate"};
                 }
 
-                if (drawTitleIconButton("Add mate", 3, drawPlusIcon)) {
+                if (!plot->remoteCommand && drawTitleIconButton("Add mate", 3, drawPlusIcon)) {
                     pendingAction = PendingReadPopupAction{rp, "mate add"};
                 }
 
@@ -729,10 +745,11 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
                 ImVec2 iconMax(iconMin.x + iconSide, iconMin.y + iconSide);
 
                 ImVec2 mp  = ImGui::GetIO().MousePos;
-                bool   hov = mp.x >= iconMin.x && mp.x <= iconMax.x
+                bool   hov = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) && mp.x >= iconMin.x && mp.x <= iconMax.x
                           && mp.y >= iconMin.y && mp.y <= iconMax.y;
 
-                ImDrawList* fgDl = ImGui::GetForegroundDrawList();
+                PopupTitleIconClip titleIconClip;
+                ImDrawList* fgDl = titleIconClip.drawList;
                 if (hov) {
                     fgDl->AddRectFilled(iconMin, iconMax,
                                         ImGui::GetColorU32(ImGuiCol_ButtonHovered),
@@ -858,10 +875,11 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                 ImVec2 iconMax(iconMin.x + iconSide, iconMin.y + iconSide);
 
                 ImVec2 mp  = ImGui::GetIO().MousePos;
-                bool   hov = mp.x >= iconMin.x && mp.x <= iconMax.x
+                bool   hov = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) && mp.x >= iconMin.x && mp.x <= iconMax.x
                           && mp.y >= iconMin.y && mp.y <= iconMax.y;
 
-                ImDrawList* fgDl = ImGui::GetForegroundDrawList();
+                PopupTitleIconClip titleIconClip;
+                ImDrawList* fgDl = titleIconClip.drawList;
                 if (hov) {
                     fgDl->AddRectFilled(iconMin, iconMax,
                                         ImGui::GetColorU32(ImGuiCol_ButtonHovered),
@@ -1087,10 +1105,11 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                 ImVec2 iconMax(iconMin.x + iconSide, iconMin.y + iconSide);
 
                 ImVec2 mp  = ImGui::GetIO().MousePos;
-                bool   hov = mp.x >= iconMin.x && mp.x <= iconMax.x
+                bool   hov = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) && mp.x >= iconMin.x && mp.x <= iconMax.x
                           && mp.y >= iconMin.y && mp.y <= iconMax.y;
 
-                ImDrawList* fgDl = ImGui::GetForegroundDrawList();
+                PopupTitleIconClip titleIconClip;
+                ImDrawList* fgDl = titleIconClip.drawList;
                 if (hov) {
                     fgDl->AddRectFilled(iconMin, iconMax,
                                         ImGui::GetColorU32(ImGuiCol_ButtonHovered),
@@ -1532,15 +1551,23 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
         auto& style = ImGui::GetStyle();
         // Output appears independently in the bottom-right corner.
         float pad = 10.0f;
-        float winW = 480.f;
-        float winH = std::min(400.f, io.DisplaySize.y * 0.5f);
+        const float maxW = std::max(1.f, io.DisplaySize.x - pad * 2);
+        const float maxH = std::max(1.f, io.DisplaySize.y - pad * 2);
+        const float minW = std::min(320.f, maxW);
+        const float minH = std::min(80.f, maxH);
+        // Never give ImGui a minimum greater than the maximum. On narrow
+        // canvases that made the Output window alternate widths every frame.
+        const float limitW = std::min(maxW, std::max(minW, io.DisplaySize.x * 0.5f));
+        const float limitH = std::min(maxH, std::max(minH, io.DisplaySize.y * 0.5f));
+        float winW = std::min(480.f, limitW);
+        float winH = std::min(400.f, limitH);
         ImVec2 pos(io.DisplaySize.x - pad, io.DisplaySize.y - pad);
         ImGui::SetNextWindowPos(pos, ImGuiCond_Appearing, ImVec2(1, 1));
-        ImGui::SetNextWindowBgAlpha(0.85f);
+        ImGui::SetNextWindowBgAlpha(plot->remoteCommand ? 1.0f : 0.85f);
         ImGui::SetNextWindowSize(ImVec2(winW, winH), ImGuiCond_Appearing);
         ImGui::SetNextWindowSizeConstraints(
-            ImVec2(320.f, 80.f),
-            ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f));
+            ImVec2(minW, minH),
+            ImVec2(limitW, limitH));
         ImGuiWindowFlags flags = ImGuiWindowFlags_NoNav
                                | ImGuiWindowFlags_NoSavedSettings;
         bool visible = ImGui::Begin("Output", &plot->showCommandStatus, flags);
@@ -1554,7 +1581,8 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                 float winWidth = ImGui::GetWindowWidth();
                 float rightInset = 2.0f;
                 float topInset = 3.0f;
-                ImDrawList* fgDl = ImGui::GetForegroundDrawList();
+                PopupTitleIconClip titleIconClip;
+                ImDrawList* fgDl = titleIconClip.drawList;
                 ImVec2 mp = io.MousePos;
                 float iconStroke = iconStrokeThickness(plot->monitorScale);
 
@@ -1563,7 +1591,7 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                     float minX = winPos.x + winWidth - titleBarH * (1.0f + slotFromRight) - rightInset;
                     ImVec2 iconMin(minX, winPos.y + topInset);
                     ImVec2 iconMax(iconMin.x + iconSide, iconMin.y + iconSide);
-                    bool hov = mp.x >= iconMin.x && mp.x <= iconMax.x
+                    bool hov = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) && mp.x >= iconMin.x && mp.x <= iconMax.x
                             && mp.y >= iconMin.y && mp.y <= iconMax.y;
                     if (hov) {
                         fgDl->AddRectFilled(iconMin, iconMax,

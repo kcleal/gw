@@ -13,6 +13,9 @@
 
 
 set -e   # exit immediately on any error
+NCPUS="${JOBS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}"
+# Ignore native compiler/linker flags inherited from environments such as conda.
+unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS LDLIBS
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GW_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -55,6 +58,11 @@ fi
 
 # Emscripten version used for ALL build steps (Skia, LZMA, HTSlib, GW).
 EMSCRIPTEN_TARGET="3.1.65"
+# Install/activate even when cached Skia libraries are reused; sourcing emsdk_env
+# alone does not switch an SDK which was activated at a different version.
+python3 "$USER_EMSDK/emsdk.py" install "$EMSCRIPTEN_TARGET"
+python3 "$USER_EMSDK/emsdk.py" activate "$EMSCRIPTEN_TARGET"
+source "$USER_EMSDK/emsdk_env.sh"
 SKIA_STAMP="$SKIA_OUT/.built_with_emcc_${EMSCRIPTEN_TARGET}"
 
 # ---------------------------------------------------------------------------
@@ -78,20 +86,7 @@ else
     cd "$SKIA_SRC"
 
     echo "=== Syncing Skia third-party dependencies ==="
-    python3 tools/git-sync-deps
-
-    # Install the target Emscripten version into the USER's emsdk (not Skia's
-    # bundled one — its emsdk.py is too old to know about 4.x/5.x releases).
-    echo "=== Installing Emscripten $EMSCRIPTEN_TARGET into user emsdk ($USER_EMSDK) ==="
-    python3 "$USER_EMSDK/emsdk.py" install "$EMSCRIPTEN_TARGET"
-    python3 "$USER_EMSDK/emsdk.py" activate "$EMSCRIPTEN_TARGET"
-
-    SKIA_BUNDLED_EMSDK="$SKIA_SRC/third_party/externals/emsdk"
-    if [ -d "$SKIA_BUNDLED_EMSDK" ]; then
-        echo "=== Symlinking Skia bundled emsdk upstream/ → user emsdk upstream/ ==="
-        rm -rf "$SKIA_BUNDLED_EMSDK/upstream"
-        ln -s "$USER_EMSDK/upstream" "$SKIA_BUNDLED_EMSDK/upstream"
-    fi
+    GIT_SYNC_DEPS_SKIP_EMSDK=1 python3 tools/git-sync-deps
 
     # Remove old Skia build artifacts so ninja doesn't reuse objects compiled
     # with a different Emscripten version (toolchain change isn't always detected).
@@ -105,6 +100,18 @@ else
     # Remove old flags that no longer exist in newer lld / Emscripten
     sed -i.bak 's/-s LLD_REPORT_UNDEFINED//g' compile.sh
     sed -i.bak2 's/-s ERROR_ON_UNDEFINED_SYMBOLS=1//g' compile.sh
+    # Pass the selected SDK explicitly to GN instead of relying on Skia's
+    # separately pinned bundled SDK (which can produce incompatible objects).
+    python3 - <<'PATCH_SKIA'
+from pathlib import Path
+p = Path('compile.sh')
+s = p.read_text()
+if '${GW_SKIA_GN_ARGS:-}' not in s:
+    s = s.replace('--args="', '--args="${GW_SKIA_GN_ARGS:-} ', 1)
+p.write_text(s)
+PATCH_SKIA
+    printf -v GW_SKIA_GN_ARGS 'skia_emsdk_dir="%s"' "$USER_EMSDK"
+    export GW_SKIA_GN_ARGS
     # Build — produces libskia.a, libskcms.a, libjpeg.a, libpng.a in out/canvaskit_wasm/
     bash compile.sh
 
@@ -236,13 +243,10 @@ fi
 # 3. Build GW for WASM
 # ---------------------------------------------------------------------------
 echo "=== Building GW for WASM ==="
-# Clean stale native .o files first — emmake will not recompile them
-# on its own, and wasm-ld rejects x86_64 objects as "unknown file type".
-make clean
-emmake make -j"$NCPUS" EMSCRIPTEN=1 \
-    WASM_SKIA_PATH="$SKIA_OUT" \
-    WASM_HTS_PATH="$HTS_OUT" \
-    WASM_LZMA_PATH="$LZMA_LIBDIR"
+# Use the same demo entry point as incremental builds. Its objects are isolated
+# from native GW, and it supplies the HTML shell, test files and startup arguments.
+make -C "$WASM_DIR" JOBS="$NCPUS"
 
 echo ""
-echo "=== Done! Output: gw.html + gw.js + gw.wasm ==="
+echo "=== Done! Run: make -C deps/wasm serve ==="
+echo "=== Open http://127.0.0.1:8765/gw.html ==="

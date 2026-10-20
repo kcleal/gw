@@ -1,3 +1,4 @@
+#include "online/online_files.h"
 //
 // Created by Kez Cleal on 04/08/2022.
 //
@@ -1199,19 +1200,19 @@ namespace HGW {
         tbx_t *idx_t_ = nullptr;
         bcf1_t *v_ = nullptr;
 
-        if (Utils::endsWith(path, ".vcf")) {
+        if (Utils::endsWith(Online::resourceName(path), ".vcf")) {
             kind = VCF_NOI;
         } else if (cacheStdin) {
             kind = STDIN;
-        } else if (Utils::endsWith(path, ".bcf")) {
+        } else if (Utils::endsWith(Online::resourceName(path), ".bcf")) {
             kind = BCF_IDX;
-            idx_v_ = bcf_index_load(path.c_str());
+            idx_v_ = bcf_index_load2(path.c_str(), Online::indexPath(path));
             if (!idx_v_) {
                 throw std::runtime_error("Error: could not open index of " + path);
             }
         } else {
             kind = VCF_IDX;
-            idx_t_ = tbx_index_load(path.c_str());
+            idx_t_ = tbx_index_load2(path.c_str(), Online::indexPath(path));
             if (!idx_t_) {
                 throw std::runtime_error("Error: could not open index of " + path);
             }
@@ -1531,7 +1532,7 @@ namespace HGW {
         std::string tmp_id;
         htsFile *_fp = bcf_open(path.c_str(), "r");
         bcf_hdr_t *_hdr = bcf_hdr_read(_fp);
-        tbx_t *_idx_t = tbx_index_load(path.c_str());
+        tbx_t *_idx_t = tbx_index_load2(path.c_str(), Online::indexPath(path));
         hts_itr_t *_iter_q = tbx_itr_queryi(_idx_t, tbx_name2id(_idx_t, chrom.c_str()), pos-10, pos+10);
         while (true) {
             int res = tbx_itr_next(_fp, _idx_t, _iter_q, &kstr);
@@ -1564,7 +1565,7 @@ namespace HGW {
 	void print_BED_IDX(std::string &path, std::string &chrom, int pos, std::string &variantString) {
 		kstring_t kstr = {0,0,0};
 		htsFile *fp = hts_open(path.c_str(), "r");
-		tbx_t * idx_t = tbx_index_load(path.c_str());
+		tbx_t * idx_t = tbx_index_load2(path.c_str(), Online::indexPath(path));
 		int tid = tbx_name2id(idx_t, chrom.c_str());
 		hts_itr_t *iter_q = tbx_itr_queryi(idx_t, tid, pos, pos + 1);
 		if (iter_q == nullptr) {
@@ -1734,10 +1735,13 @@ namespace HGW {
         path = p;
         done = false;
         this->add_to_dict = add_to_dict;
-        std::string path_lower = p;
+        std::string path_lower = Online::resourceName(p);
         std::transform(path_lower.begin(), path_lower.end(), path_lower.begin(),
                        [](unsigned char c) { return (char)std::tolower(c); });
-        if (Utils::endsWith(path_lower, ".bed")) {
+        const auto explicitFormat=Online::formatFor(p);
+        if(explicitFormat=="bigbed")kind=BIGBED;
+        else if(explicitFormat=="bigwig")kind=BIGWIG;
+        else if (Utils::endsWith(path_lower, ".bed")) {
             kind = BED_NOI;
         } else if (Utils::endsWith(path_lower, ".bed.gz")) {
             kind = BED_IDX;
@@ -1929,7 +1933,7 @@ namespace HGW {
                 std::cerr << "Error: could not open " << path << std::endl;
                 throw std::exception();
             }
-            idx_t = tbx_index_load(p.c_str());
+            idx_t = tbx_index_load2(p.c_str(), Online::indexPath(p));
             if (!idx_t) {
                 std::cerr << "Error: could not open index of " << path << std::endl;
                 throw std::exception();
@@ -2061,7 +2065,7 @@ namespace HGW {
                 std::cerr << "Error: could not open " << path << std::endl;
                 throw std::exception();
             }
-            idx_t = tbx_index_load(p.c_str());
+            idx_t = tbx_index_load2(p.c_str(), Online::indexPath(p));
             if (!idx_t) {
                 std::cerr << "Error: could not open index of " << path << std::endl;
                 throw std::exception();
@@ -2077,7 +2081,7 @@ namespace HGW {
                 std::cerr << "Error: could not open header of " << path << std::endl;
                 throw std::exception();
             }
-            idx_v = bcf_index_load(p.c_str());
+            idx_v = bcf_index_load2(p.c_str(), Online::indexPath(p));
             v = bcf_init1();
             v->max_unpack = BCF_UN_INFO;
         } else if (kind == VCF_IDX) {
@@ -2091,25 +2095,25 @@ namespace HGW {
                 std::cerr << "Error: could not open header of " << path << std::endl;
                 throw std::exception();
             }
-            idx_t = tbx_index_load(path.c_str());
+            idx_t = tbx_index_load2(path.c_str(), Online::indexPath(path));
             v = bcf_init1();
             v->max_unpack = BCF_UN_INFO;
         } else if (kind == BIGWIG) {
-            bigWig_fp = bwOpen(path.c_str(), NULL, "r");
             if(bwInit(1<<17) != 0) {
                 std::cerr << "Error: bw init error from file: " << path << std::endl;
                 throw std::exception();
             }
+            bigWig_fp = bwOpen(path.c_str(), NULL, "r");
             if (!bigWig_fp) {
                 std::cerr << "Error: could not open " << path << std::endl;
                 throw std::exception();
             }
         } else if (kind == BIGBED) {
-            bigWig_fp = bbOpen(path.c_str(), NULL);
             if(bwInit(1<<17) != 0) {
                 std::cerr << "Error: bw init error from file: " << path << std::endl;
                 throw std::exception();
             }
+            bigWig_fp = bbOpen(path.c_str(), NULL);
             if (!bigWig_fp) {
                 std::cerr << "Error: could not open " << path << std::endl;
                 throw std::exception();
@@ -2184,7 +2188,7 @@ namespace HGW {
                 chrom = rgn->chrom;
                 current_iter_index = 0;
                 done = false;
-                num_intervals = (int)bigBed_entries->l;
+                num_intervals = bigBed_entries ? (int)bigBed_entries->l : 0;
                 if (current_iter_index == num_intervals) {
                     done = true;
                 }
@@ -2711,9 +2715,9 @@ namespace HGW {
 #endif
 
 
-        if (cacheStdin || Utils::endsWith(path, ".vcf") ||
-            Utils::endsWith(path, ".vcf.gz") ||
-            Utils::endsWith(path, ".bcf")) {
+        if (cacheStdin || Utils::endsWith(Online::resourceName(path), ".vcf") ||
+            Utils::endsWith(Online::resourceName(path), ".vcf.gz") ||
+            Utils::endsWith(Online::resourceName(path), ".bcf")) {
             variantTrack.done = true;
             vcf.done = false;
             type = VCF;
@@ -2726,7 +2730,7 @@ namespace HGW {
                 nextN(endIndex);
             }
             blockStart = endIndex;
-        } else if (Utils::endsWith(path, ".png") || Utils::endsWith(path, ".png'") || Utils::endsWith(path, ".png\"")) {
+        } else if (Utils::endsWith(Online::resourceName(path), ".png") || Utils::endsWith(Online::resourceName(path), ".png'") || Utils::endsWith(Online::resourceName(path), ".png\"")) {
             type = IMAGES;
             image_glob = glob_cpp::glob(path);
             if (image_glob.empty()) {

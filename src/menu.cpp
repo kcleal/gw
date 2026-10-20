@@ -52,6 +52,7 @@ static bool closeOnEscape(bool* open = nullptr) {
 #include "menu_components/imgui/imgui_custom_theme.cpp"
 #include "menu_components/imgui/imgui_settings.cpp"
 #include "menu_components/imgui/imgui_command_dialog.cpp"
+#include "menu_components/imgui/imgui_online_files.cpp"
 #include "menu_components/imgui/imgui_top_menu.cpp"
 #include "menu_components/imgui/imgui_open_dialog.cpp"
 #include "menu_components/imgui/imgui_help.cpp"

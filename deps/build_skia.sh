@@ -1,6 +1,9 @@
 #!/bin/bash
 # This builds skia for MacOS (x64/arm64) amd Linux (x64/arm64)
 # Requires clang compiler
+set -euo pipefail
+# Resolve the installed Ninja before changing directories.
+NINJA=$(command -v ninja) || { echo "Install ninja before building Skia" >&2; exit 1; }
 # Linux deps:
 #   sudo apt-get install -y ninja-build libharfbuzz-dev libwebp-dev fontconfig
 # Apple deps:
@@ -18,6 +21,7 @@ mkdir -p build_skia && cd build_skia
 
 # Detect architecture and OS
 ARCH=$(uname -m)
+case "$ARCH" in x86_64) ARCH=x64 ;; aarch64) ARCH=arm64 ;; esac
 OS=$(uname -s)
 
 # Set default flags
@@ -25,12 +29,12 @@ EXTRA_CFLAGS=""
 EXTRA_LDFLAGS=""
 
 # Architecture-specific flags
-if [ "$ARCH" = "x86_64" ]; then
-    EXTRA_CFLAGS='extra_cflags=["-mavx2", "-mfma", "-mavx512f", "-mavx512dq", "-msse4.2", "-mpopcnt", "-fno-rtti"]'
-    EXTRA_LDFLAGS='extra_ldflags=["-mavx2", "-mfma", "-mavx512f", "-mavx512dq"]'
+if [ "$ARCH" = "x64" ]; then
+    EXTRA_CFLAGS='extra_cflags=["-fno-rtti"]'
+    EXTRA_LDFLAGS='extra_ldflags=[]'
 elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
-    EXTRA_CFLAGS='extra_cflags=["-march=armv8-a+crc+crypto", "-fno-rtti"]'
-    EXTRA_LDFLAGS='extra_ldflags=["-march=armv8-a+crc+crypto"]'
+    EXTRA_CFLAGS='extra_cflags=["-fno-rtti"]'
+    EXTRA_LDFLAGS='extra_ldflags=[]'
 else
     echo "Unsupported architecture: $ARCH"
     exit 1
@@ -40,12 +44,12 @@ fi
 # OS-specific flags
 if [ "$OS" = "Darwin" ]; then
     # macOS-specific flags
-    SDK_PATH="/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"
+    SDK_PATH=$(xcrun --show-sdk-path)
     echo "SDK_PATH ${SDK_PATH}"
     EXTRA_CFLAGS=$(echo "$EXTRA_CFLAGS" | sed 's/\]$//')
-    EXTRA_CFLAGS+=", \"-mmacosx-version-min=10.9\", \"-isysroot\", \"${SDK_PATH}\"]"
+    EXTRA_CFLAGS+=", \"-mmacosx-version-min=11\", \"-isysroot\", \"${SDK_PATH}\"]"
     EXTRA_LDFLAGS=$(echo "$EXTRA_LDFLAGS" | sed 's/\]$//')
-    EXTRA_LDFLAGS+=", \"-mmacosx-version-min=10.9\", \"-isysroot\", \"${SDK_PATH}\"]"
+    EXTRA_LDFLAGS+=", \"-mmacosx-version-min=11\", \"-isysroot\", \"${SDK_PATH}\"]"
 
     EXTRA_ARGS="skia_use_gl=true skia_use_metal=true"
 elif [ "$OS" = "Linux" ]; then
@@ -62,15 +66,12 @@ echo "Extra C flags: $EXTRA_CFLAGS"
 echo "Extra LD flags: $EXTRA_LDFLAGS"
 echo "Extra arguments: $EXTRA_ARGS"
 
-git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
-export PATH="${PWD}/depot_tools:${PATH}"
-depot_tools/fetch skia
+VERSION=m143
+git clone --depth 1 --branch "chrome/${VERSION}" https://skia.googlesource.com/skia.git
 
 cd skia
-VERSION=m133
-git checkout origin/chrome/${VERSION}
 echo "Checked out Skia version: ${VERSION}"
-python3 tools/git-sync-deps
+GIT_SYNC_DEPS_SKIP_EMSDK=1 python3 tools/git-sync-deps
 
 REL=Release
 
@@ -95,7 +96,7 @@ bin/gn gen out/${REL} --args="is_official_build=true \
     cxx=\"clang++\" \
     ${EXTRA_ARGS}"
 bin/gn args out/${REL} --list
-ninja -C out/${REL}
+"$NINJA" -C out/${REL}
 
 mkdir -p ${NAME}/out/${REL}
 #mkdir -p ${NAME}/third_party/externals

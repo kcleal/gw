@@ -76,6 +76,12 @@ git clone https://github.com/kcleal/gw.git && cd gw
 make prep && make -j8
 ```
 
+`make prep` downloads Skia m143 binaries from the `v0.2.0` release of
+[skia_build_arm64](https://github.com/kcleal/skia_build_arm64/releases/tag/v0.2.0).
+After upgrading an existing checkout, run `make clean` before rebuilding.
+To use an older release, pass both overrides, for example
+`make prep SKIA_VERSION=m133 SKIA_RELEASE=v0.1.0`.
+
 Also, it is recommended to add GW to your bin directory:
 
 ```shell

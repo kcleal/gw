@@ -444,7 +444,7 @@ namespace Drawing {
         points[3] = SkPoint::Make(endX, endY);
         points[4] = SkPoint::Make(endX, yScaledOffset);
         path.reset();
-        path.addPoly(points, 5, true);
+        SkiaCompat::addPoly(path, points, 5, true);
         canvas->drawPath(path, faceColor);
     }
 
@@ -462,19 +462,24 @@ namespace Drawing {
         points[3] = SkPoint::Make(slopedEndX, midY);
         points[4] = SkPoint::Make(endX, yScaledOffset);
         path.reset();
-        path.addPoly(points, 5, true);
+        SkiaCompat::addPoly(path, points, 5, true);
         canvas->drawPath(path, faceColor);
     }
 
     inline void drawStrandChevrons(SkCanvas *const canvas, const float x0, const float x1, const float yMid,
-                                   const float halfH, const int strand, const SkPaint &paint, const float spacing) {
-        if ((strand != 1 && strand != 2) || x1 - x0 < spacing || halfH <= 0) {
+                                   const float halfH, const int strand, const SkPaint &paint, const float spacing,
+                                   const double referenceX, const float pixelsPerBase) {
+        if ((strand != 1 && strand != 2) || x1 - x0 < spacing || halfH <= 0 || pixelsPerBase <= 0) {
             return;
         }
         const float dx = (strand == 1) ? -halfH * 0.7f : halfH * 0.7f;
         const float margin = halfH * 0.7f + paint.getStrokeWidth();
+        // Snap the spacing to whole reference bases and keep its phase at genomic zero.
+        // Reduce the origin before converting to screen coordinates to retain precision.
+        const double step=std::ceil(double(spacing)/pixelsPerBase)*pixelsPerBase;
+        const double phase=std::fmod(referenceX,step);
         SkPath chevrons;
-        for (float cx = std::ceil((x0 + margin) / spacing) * spacing; cx <= x1 - margin; cx += spacing) {
+        for (double cx = phase+std::ceil((x0+margin-phase)/step)*step; cx <= x1-margin; cx += step) {
             const float tipX = cx - dx * 0.5f;
             chevrons.moveTo(tipX + dx, yMid - halfH);
             chevrons.lineTo(tipX, yMid);
@@ -497,13 +502,13 @@ namespace Drawing {
         points[3] = SkPoint::Make(endX, endY);
         points[4] = SkPoint::Make(endX, yScaledOffset);
         path.reset();
-        path.addPoly(points, 5, true);
+        SkiaCompat::addPoly(path, points, 5, true);
         canvas->drawPath(path, faceColor);
         if (edged) {
             points[0].fY += 0.5;
             points[4].fY += 0.5;
             path.reset();
-            path.addPoly(points, 5, true);
+            SkiaCompat::addPoly(path, points, 5, true);
             canvas->drawPath(path, edgeColor);
         }
     }
@@ -523,13 +528,13 @@ namespace Drawing {
         points[3] = SkPoint::Make(slopedEndX, midY);
         points[4] = SkPoint::Make(endX, yScaledOffset);
         path.reset();
-        path.addPoly(points, 5, true);
+        SkiaCompat::addPoly(path, points, 5, true);
         canvas->drawPath(path, faceColor);
         if (edged) {
             points[0].fY += 0.5;
             points[4].fY += 0.5;
             path.reset();
-            path.addPoly(points, 5, true);
+            SkiaCompat::addPoly(path, points, 5, true);
             canvas->drawPath(path, edgeColor);
         }
     }
@@ -1680,7 +1685,7 @@ namespace Drawing {
             SkPaint localStart = startPaint;
             SkPaint localStop  = stopPaint;
             int frame = mod3(rgn.start - 1);
-            for (int g = rgn.start; g + 2 <= rgn.end; ++g, frame = (frame == 2) ? 0 : frame + 1) {
+            for (int g = rgn.start; g + 2 < rgn.end && g - rgn.start + 2 < rgn.refSeqLen; ++g, frame = (frame == 2) ? 0 : frame + 1) {
                 int idx0 = g - rgn.start;
                 if (opts.translation_strand) {
                     Parse::fillTriplet(rgn.refSeq, idx0, idx0 + 1, idx0 + 2, triplet);
@@ -1703,7 +1708,7 @@ namespace Drawing {
             int selectedCodon = -1;
             if (ctx.selectedBasePos >= rgn.start && ctx.selectedBasePos < rgn.end && ctx.selectedBaseChrom == rgn.chrom) {
                 int g = ctx.selectedBasePos - mod3(ctx.selectedBasePos - 1 - activeFrame);
-                if (g >= rgn.start && g + 2 <= rgn.end) {
+                if (g >= rgn.start && g + 2 < rgn.end && g - rgn.start + 2 < rgn.refSeqLen) {
                     selectedCodon = g;
                 }
             }
@@ -1720,7 +1725,7 @@ namespace Drawing {
             if (codonW >= minCodonTextWidth) {
                 bool firstCodon = true;
                 // Step through the active frame's codons only
-                for (int g = rgn.start + mod3(activeFrame + 1 - rgn.start); g + 2 <= rgn.end; g += 3) {
+                for (int g = rgn.start + mod3(activeFrame + 1 - rgn.start); g + 2 < rgn.end && g - rgn.start + 2 < rgn.refSeqLen; g += 3) {
                     int idx0 = g - rgn.start;
                     if (opts.translation_strand) {
                         Parse::fillTriplet(rgn.refSeq, idx0, idx0 + 1, idx0 + 2, triplet);
@@ -2061,7 +2066,8 @@ namespace Drawing {
                     chevronPaint.setStrokeWidth(1.2f * monitorScale);
                     chevronPaint.setAntiAlias(true);
                     drawStrandChevrons(canvas, rect.left(), rect.right(), rect.centerY(), h * 0.3f, (int) strand,
-                                       chevronPaint, std::fmax(6 * h, 24 * monitorScale));
+                                       chevronPaint, std::fmax(6 * h, 24 * monitorScale),
+                                       double(padX)-double(rgn.start)*xScaling,xScaling);
                 }
 
             } else {
@@ -2145,7 +2151,8 @@ namespace Drawing {
                     path2.moveTo(x, yy);
                     path2.lineTo(w, yy);
                     canvas->drawPath(path2, opts.theme.lcGTFJoins);
-                    drawStrandChevrons(canvas, x, w, yy, h * 0.5f, strand, chevronPaint, chevronSpacing);
+                    drawStrandChevrons(canvas, x, w, yy, h * 0.5f, strand, chevronPaint, chevronSpacing,
+                                       double(padX)-double(rgn.start)*xScaling,xScaling);
                 }
             }
         }

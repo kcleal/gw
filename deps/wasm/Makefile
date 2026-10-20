@@ -4,18 +4,18 @@
 #
 # Usage (from this directory):
 #   make          — build gw.html / gw.js / gw.wasm / gw.data here
-#   make -j8      — build using 8 parallel jobs  (or: make JOBS=8)
-#   make clean    — remove build artefacts from repo root and this directory
+#   make JOBS=8   — build using 8 parallel jobs
+#   make clean    — remove demo outputs and isolated WASM GW objects
+#   make serve    — serve the demo on http://127.0.0.1:8765/gw.html
 #
 # Paths to the WASM-compiled libraries (produced by build.sh / compile_wasm_libs.sh).
 # Override on the command line if they live elsewhere.
 
-# Number of parallel compile jobs.  Defaults to the value Make itself was
-# invoked with (-j N), falling back to 1 if not specified.
-JOBS ?= $(filter-out --jobserver%,$(MAKEFLAGS))
+# Number of parallel jobs when -j was not passed to make.
+JOBS ?= 2
 
-THIS_DIR       := $(abspath .)
-REPO_ROOT      := $(abspath ../..)
+THIS_DIR       := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+REPO_ROOT      := $(abspath $(THIS_DIR)/../..)
 
 WASM_SKIA_PATH ?= $(THIS_DIR)/out/skia_wasm
 WASM_HTS_PATH  ?= $(THIS_DIR)/out/htslib
@@ -29,19 +29,25 @@ WASM_LDFLAGS_EXTRA := \
     --preload-file $(REPO_ROOT)/test/test.bam@/test.bam \
     --preload-file $(REPO_ROOT)/test/test.bam.bai@/test.bam.bai \
     --pre-js $(THIS_DIR)/pre.js \
+    --js-library $(THIS_DIR)/local-file-library.js \
     --shell-file $(THIS_DIR)/shell.html
 
-.PHONY: all clean
+.PHONY: all clean serve
 
 all:
-	cd $(REPO_ROOT) && emmake $(MAKE) -j$(or $(JOBS),1) EMSCRIPTEN=1 \
+	cd $(REPO_ROOT) && env -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS -u LDLIBS emmake $(MAKE) $(if $(filter -j%,$(MAKEFLAGS)),,-j$(JOBS)) EMSCRIPTEN=1 \
 	    TARGET=$(THIS_DIR)/gw.html \
+	    WASM_BUILD_DIR=$(THIS_DIR)/out/gw_objects \
 	    WASM_SKIA_PATH=$(WASM_SKIA_PATH) \
 	    WASM_HTS_PATH=$(WASM_HTS_PATH) \
 	    WASM_LZMA_PATH=$(WASM_LZMA_PATH) \
-	    "WASM_LDFLAGS_EXTRA=$(WASM_LDFLAGS_EXTRA)"
+	    "WASM_LDFLAGS_EXTRA=$(WASM_LDFLAGS_EXTRA)" \
+	    "WASM_DEMO_INPUTS=$(THIS_DIR)/shell.html $(THIS_DIR)/pre.js $(THIS_DIR)/local-file-library.js $(REPO_ROOT)/test/test.fa $(REPO_ROOT)/test/test.fa.fai $(REPO_ROOT)/test/test.bam $(REPO_ROOT)/test/test.bam.bai"
+
+serve:
+	python3 $(THIS_DIR)/serve.py
 
 clean:
-	cd $(REPO_ROOT) && $(MAKE) EMSCRIPTEN=1 TARGET=$(THIS_DIR)/gw.html clean
+	rm -rf $(THIS_DIR)/out/gw_objects
 	rm -f $(THIS_DIR)/gw.html $(THIS_DIR)/gw.js \
 	      $(THIS_DIR)/gw.wasm $(THIS_DIR)/gw.data

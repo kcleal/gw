@@ -1,3 +1,4 @@
+#include "online/online_files.h"
 //
 // Created by Kez Cleal on 23/08/2022.
 //
@@ -71,7 +72,27 @@ namespace Manager {
         }
     }
 
+    void GwPlot::resizeTrackBoundary(size_t index, float y) {
+        if (index>=tracks.size()) return;
+        const int previousRegion=regionSelection;
+        const float x=drawingWidth()*.5f;
+        float top=fb_height-sliderSpace-totalTabixY;
+        for (size_t i=0;i<index;++i) top+=tracks[i].px_height;
+        // Enter the existing native drag path with a known boundary, then apply
+        // its final pointer position. No read/track resize mathematics is copied.
+        pointerEvent("press",x,top,GLFW_MOUSE_BUTTON_LEFT,0,0,0);
+        boundaryIndex=int(index); tabBorderPress=true;
+        mousePos(x,y);
+        pointerEvent("cancel",x,y,GLFW_MOUSE_BUTTON_LEFT,0,0,0);
+        regionSelection=previousRegion;
+    }
+
     void GwPlot::setCollectionVScroll(size_t index, int value) {
+        if (remoteCommand) {
+            if (index < remoteScrollbars.size()) remoteScrollbars[index].value = value;
+            remoteCommand("vscroll " + std::to_string(index) + " " + std::to_string(value));
+            return;
+        }
         if (index >= collections.size()) return;
         auto& cl = collections[index];
         if (cl.regionIdx < 0 || cl.regionIdx >= (int)regions.size()) return;
@@ -783,7 +804,38 @@ namespace Manager {
         }
     }
 
+    bool GwPlot::commandKey(int key, int scancode, int action, int mods) {
+        if (!captureText && !(action == GLFW_PRESS && (key == GLFW_KEY_SLASH ||
+            (key == GLFW_KEY_SEMICOLON && (mods & GLFW_MOD_SHIFT))))) return false;
+        ctrlPress = mods & GLFW_MOD_CONTROL;
+        shiftPress = mods & GLFW_MOD_SHIFT;
+        registerKey(window, key, scancode, action, mods);
+        if (processText && !captureText) commandProcessed();
+        return true;
+    }
+
+    void GwPlot::commandChar(unsigned int codepoint) {
+        if (!captureText) return;
+        if (skipNextChar) { skipNextChar = false; return; }
+        char text[5] = {};
+        if (codepoint < 0x80) text[0] = char(codepoint);
+        else if (codepoint < 0x800) { text[0] = char(0xc0 | (codepoint >> 6)); text[1] = char(0x80 | (codepoint & 63)); }
+        else if (codepoint < 0x10000) { text[0] = char(0xe0 | (codepoint >> 12)); text[1] = char(0x80 | ((codepoint >> 6) & 63)); text[2] = char(0x80 | (codepoint & 63)); }
+        else if (codepoint <= 0x10ffff) { text[0] = char(0xf0 | (codepoint >> 18)); text[1] = char(0x80 | ((codepoint >> 12) & 63)); text[2] = char(0x80 | ((codepoint >> 6) & 63)); text[3] = char(0x80 | (codepoint & 63)); }
+        Term::editInputText(inputText, text, charIndex);
+        redraw = true;
+    }
+
     bool GwPlot::commandProcessed() {
+        if (remoteCommand) {
+            if (inputText.empty()) return false;
+            commandHistory.push_back(inputText);
+            commandIndex = int(commandHistory.size());
+            processText = false;
+            remoteCommand(inputText);
+            inputText.clear();
+            return true;
+        }
         // text commands are forwarded to run_command_map, menu inputs are handled elsewhere
         Utils::rtrim(inputText);
         if (charIndex >= (int)inputText.size()) {
@@ -954,12 +1006,12 @@ namespace Manager {
             }
             ini_path = resolved;
 #endif
-            faidx_t *fai_test = fai_load(ini_path.c_str());
+            faidx_t *fai_test = Online::loadFai(ini_path);
             if (fai_test != nullptr) {
                 reference = ini_path;
                 opts.genome_tag = genome_tag_or_path;
                 if (fai != nullptr) { fai_destroy(fai); }
-                fai = fai_load(reference.c_str());
+                fai = Online::loadFai(reference);
                 for (auto &bm: bams) {
                     hts_set_fai_filename(bm, reference.c_str());
                 }
@@ -985,11 +1037,11 @@ namespace Manager {
                     genome_tag_or_path = resolved;
             }
 #endif
-            faidx_t *fai_test = fai_load(genome_tag_or_path.c_str());
+            faidx_t *fai_test = Online::loadFai(genome_tag_or_path);
             if (fai_test != nullptr) {
                 reference = genome_tag_or_path;
                 if (fai != nullptr) { fai_destroy(fai); }
-                fai = fai_load(reference.c_str());
+                fai = Online::loadFai(reference);
                 for (auto &bm: bams) {
                     hts_set_fai_filename(bm, reference.c_str());
                 }
@@ -1051,11 +1103,11 @@ namespace Manager {
                 if (!resolved.empty()) ini_genome = resolved;
             }
 #endif
-            faidx_t *fai_test = fai_load(ini_genome.c_str());
+            faidx_t *fai_test = Online::loadFai(ini_genome);
             if (fai_test != nullptr) {
                 reference = ini_genome;
                 if (fai != nullptr) { fai_destroy(fai); }
-                fai = fai_load(reference.c_str());
+                fai = Online::loadFai(reference);
                 for (auto &bm: bams) {
                     hts_set_fai_filename(bm, reference.c_str());
                 }
@@ -1100,6 +1152,12 @@ namespace Manager {
             *xPos *= (double) fb_width / (double) windowW;
             *yPos *= (double) fb_height / (double) windowH;
         }
+    }
+
+    void GwPlot::viewKey(int key, int mods) {
+        ctrlPress = mods & GLFW_MOD_CONTROL; shiftPress = mods & GLFW_MOD_SHIFT;
+        keyPress(key,0,GLFW_PRESS,mods);
+        ctrlPress = false; shiftPress = false;
     }
 
     void GwPlot::keyPress(int key, int scancode, int action, int mods) {
@@ -1496,13 +1554,13 @@ namespace Manager {
     bool GwPlot::addTrack(std::string &path, bool print_message=true, bool vcf_as_track=false, bool bed_as_track=true) {
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
         bool good = false;
-        if (Utils::endsWith(path, ".bam") || Utils::endsWith(path, ".cram")) {
+        if (Utils::endsWith(Online::resourceName(path), ".bam") || Utils::endsWith(Online::resourceName(path), ".cram")) {
             good = addBam(path);
             if (good && print_message)
                 out << termcolor::magenta << "\nAlignments  " << termcolor::reset << path << "\n";
         } else if (
-                (!vcf_as_track && (Utils::endsWith(path, ".vcf.gz") || Utils::endsWith(path, ".vcf") || Utils::endsWith(path, ".bcf")))
-             || (!bed_as_track && (Utils::endsWith(path, ".bed") || Utils::endsWith(path, ".bed.gz")))) {
+                (!vcf_as_track && (Utils::endsWith(Online::resourceName(path), ".vcf.gz") || Utils::endsWith(Online::resourceName(path), ".vcf") || Utils::endsWith(Online::resourceName(path), ".bcf")))
+             || (!bed_as_track && (Utils::endsWith(Online::resourceName(path), ".bed") || Utils::endsWith(Online::resourceName(path), ".bed.gz")))) {
             good = true;
 
             std::vector<std::string> labels = Utils::split(opts.labels, ',');
@@ -1521,7 +1579,7 @@ namespace Manager {
                 out << termcolor::magenta << "\nFile        " << termcolor::reset
                     << variantTracks[variantFileSelection].path << "\n";
             }
-        } else if (Utils::endsWith(path, ".ini")) {  // Assume session file
+        } else if (Utils::endsWith(Online::resourceName(path), ".ini")) {  // Assume session file
             opts.session_file = path;
             mINI::INIFile file(opts.session_file);
             file.read(opts.seshIni);
@@ -1679,6 +1737,21 @@ namespace Manager {
     }
 
     // Main entry point for mouse button events
+    void GwPlot::pointerEvent(const std::string& kind, double x, double y, int button, int mods, double dx, double dy) {
+        ctrlPress = mods & GLFW_MOD_CONTROL;
+        shiftPress = mods & GLFW_MOD_SHIFT;
+        if (kind == "cancel") {
+            leftMouseDown = false;
+            scaleBarDragging = false; tabBorderPress=false; boundaryIndex=0;
+            resetDragState();
+            return;
+        }
+        mousePos(x, y);
+        if (kind == "press" || kind == "release")
+            mouseButton(button, kind == "press" ? GLFW_PRESS : GLFW_RELEASE, mods);
+        if (kind == "wheel") scrollGesture(dx, dy);
+    }
+
     void GwPlot::mouseButton(int button, int action, int mods) {
         if (button == GLFW_MOUSE_BUTTON_LEFT) leftMouseDown = action != GLFW_RELEASE;
         float xW, yW;
@@ -1909,6 +1982,19 @@ namespace Manager {
         scaleBarDragging = false;
     }
 
+    bool GwPlot::beginScaleBarSelection(double x, double y) {
+        if (mode != SINGLE || !opts.scale_bar || regions.empty()) return false;
+        const float ticks = std::fmax(fb_height * 0.0175f, 10.0f * monitorScale);
+        const float bottom = topMenuSpace + fonts.overlayHeight + gap + ticks * 0.70f;
+        if (y < topMenuSpace || y > bottom || x < 0 || x >= drawingWidth()) return false;
+        scaleBarDragging = true;
+        scaleBarDragStartX = x;
+        const float column = float(drawingWidth()) / regions.size();
+        scaleBarDragRegionIdx = std::clamp(int(x / column), 0, int(regions.size()) - 1);
+        xDrag = DRAG_UNSET; yDrag = DRAG_UNSET;
+        return true;
+    }
+
     void GwPlot::handleSingleModeLeftClick(int button, int action, float xW, float yW) {
         if (regions.empty()) {
             xDrag = DRAG_UNSET;
@@ -1920,10 +2006,6 @@ namespace Manager {
         // Note: release check is placed before the slider check so that dragging from
         // the scale bar down to the slider area still triggers the zoom on release.
         if (opts.scale_bar) {
-            float yh = std::fmax(fb_height * 0.0175f, 10.0f * monitorScale);
-            // Match the visual bottom of the scale bar (ticks end at top2 + yh*0.70).
-            // top2 = overlayHeight + gap + topMenuSpace
-            float scaleBarBottom = topMenuSpace + fonts.overlayHeight + gap + yh * 0.70f;
             if (action == GLFW_RELEASE && scaleBarDragging) {
                 scaleBarDragging = false;
                 // xW is in framebuffer coords (same as scaleBarDragStartX)
@@ -1951,15 +2033,7 @@ namespace Manager {
                 resetDragState();
                 return;
             }
-            if (action == GLFW_PRESS && yW >= topMenuSpace && yW <= scaleBarBottom) {
-                scaleBarDragging = true;
-                scaleBarDragStartX = xW;  // stored in framebuffer coords
-                float colWidth = (float)drawingWidth() / (float)regions.size();
-                scaleBarDragRegionIdx = std::clamp((int)(xW / colWidth), 0, (int)regions.size() - 1);
-                xDrag = DRAG_UNSET;
-                yDrag = DRAG_UNSET;
-                return;
-            }
+            if (action == GLFW_PRESS && beginScaleBarSelection(xW, yW)) return;
         }
 
         if (yW >= (fb_height - sliderSpace + (gap*0.5))) {
@@ -2109,7 +2183,7 @@ namespace Manager {
         uiOut << "\n\n>frame " << displayFrame << " (" << (opts.translation_strand ? "forward" : "reverse")
               << ") code " << opts.translation_code << "\n";
 
-        for (int g = region->start; g + 2 <= region->end; ++g) {
+        for (int g = region->start; g + 2 < region->end && g - region->start + 2 < region->refSeqLen; ++g) {
             int frame = (g - 1) % 3;
             if (frame < 0) frame += 3;
             if (frame != opts.translation_frame) continue;
@@ -2488,13 +2562,13 @@ namespace Manager {
             bnd->edge_type = 4;
             target_qname = bam_get_qname(bnd->delegate);
             Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq,
-                           cl.region->start, cl.region->end, opts.low_memory, out,
+                           cl.region->start, cl.region->start + cl.region->refSeqLen, opts.low_memory, out,
                            pos, opts.indel_length, opts.parse_mods);
             // Capture for on-screen popup (enable ANSI codes on the stringstream)
             std::ostringstream uiOut;
             uiOut << termcolor::colorize;
             Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq,
-                           cl.region->start, cl.region->end, opts.low_memory, uiOut,
+                           cl.region->start, cl.region->start + cl.region->refSeqLen, opts.low_memory, uiOut,
                            pos, opts.indel_length, opts.parse_mods);
             ReadPopup rp;
             rp.ansi = uiOut.str();

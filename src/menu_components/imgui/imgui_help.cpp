@@ -88,7 +88,7 @@ void drawImGuiHelpDialog(Manager::GwPlot* plot,
 
         ImGui::Spacing();
 
-        if (ImGui::Button("Load Demo")) {
+        if (ImGui::Button("Load Demo") && !plot->remoteCommand) {
 
             std::ostream& out =
                 (plot->terminalOutput) ? std::cout : plot->outStr;

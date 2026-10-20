@@ -447,20 +447,36 @@ void drawImGuiSettings(
         for (const auto& tab : tabs) {
             if (!ImGui::BeginTabItem(tab.label)) continue;
 
+            const bool remoteUnavailable = plot->remoteCommand &&
+                tab.mt != Themes::MenuTable::GENERAL && tab.mt != Themes::MenuTable::VIEW_THRESHOLDS;
+            ImGui::BeginDisabled(remoteUnavailable);
             if (tab.namePath) {
                 renderNamePathTable(tab.section, tab.mt, opts, redraw, plot);
             } else {
                 for (auto& kv : opts.myIni[tab.section]) {
                     if (kv.first == "fmt" || kv.first == "miny") continue;
+                    const bool unavailable = plot->remoteCommand &&
+                        kv.first != "theme" && kv.first != "font_size" && kv.first != "ylim" &&
+                        kv.first != "indel_length" && kv.first != "log2_cov" && kv.first != "expand_tracks" &&
+                        kv.first != "scale_bar" && kv.first != "coverage" && kv.first != "link" &&
+                        kv.first != "read_y_gap" && kv.first != "tabix_track_height" &&
+                        kv.first != "mods" && kv.first != "mods_qual_threshold" &&
+                        kv.first != "soft_clip" && kv.first != "small_indel" &&
+                        kv.first != "snp" && kv.first != "mod" && kv.first != "edge_highlights";
+                    ImGui::BeginDisabled(unavailable);
                     renderIniWidget(kv.first, tab.mt, opts, redraw, plot);
+                    ImGui::EndDisabled();
                 }
             }
 
+            ImGui::EndDisabled();
             ImGui::EndTabItem();
         }
 
         if (ImGui::BeginTabItem("Custom theme")) {
+            ImGui::BeginDisabled(static_cast<bool>(plot->remoteCommand));
             drawCustomTheme(opts, redraw);
+            ImGui::EndDisabled();
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();

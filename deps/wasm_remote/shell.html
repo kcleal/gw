@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GW remote</title>
+<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#09090d}canvas{display:block;width:100%;height:100%;outline:none}#error{position:fixed;top:45px;left:12px;color:#ffaaaa;font:14px sans-serif}</style></head>
+<body><canvas id="canvas" tabindex="0" aria-label="GW remote viewer" oncontextmenu="event.preventDefault()"></canvas><div id="error" role="alert"></div>
+<script>var Module={canvas:document.getElementById('canvas'),print:console.log,printErr:console.error,onAbort:function(reason){document.getElementById('error').textContent='Client failed: '+reason;}};
+const filePicker=document.createElement('input');
+filePicker.type='file';filePicker.multiple=true;filePicker.accept='.bam,.bai,.csi';filePicker.hidden=true;
+document.body.append(filePicker);
+let localLoader;
+const loaderReady=import('./embed.mjs').then(api=>{
+ localLoader=api.createFileLoader({onStatus:text=>{document.getElementById('error').textContent=text;},
+  onReady:async files=>{
+   const result=await api.uploadDataset(files,{url:'./',onProgress:p=>{document.getElementById('error').textContent='Uploading: '+Math.round(p*100)+'%';}});
+   await Module.remote?.client?.leave().catch(()=>{});
+   const url=new URL(location.href);url.searchParams.set('transport',result.transportBase);location.assign(url.href);
+  }});
+});
+function receiveFiles(files) {
+ if(parent!==window) notify('files',{files:Array.from(files)});
+ else loaderReady.then(()=>localLoader.accept(files));
+}
+Module.viewerOpenFiles=()=>{filePicker.value='';filePicker.click();};
+filePicker.addEventListener('change',()=>receiveFiles(filePicker.files));
+document.addEventListener('dragover',event=>event.preventDefault());
+document.addEventListener('drop',event=>{event.preventDefault();receiveFiles(event.dataTransfer.files);});
+Module.viewerSession=new URLSearchParams(location.search).get('session') || 'default';
+Module.viewerProtocolReady=import('./client.mjs').then(api=>{
+ const base=new URLSearchParams(location.search).get('transport');
+ if(base) {
+  if(!/^\/uploads\/[0-9a-f-]{36}$/.test(base)) throw new Error('Invalid upload transport');
+  Module.viewerTransport=api.httpTransport({messageUrl:base+'/message',frameUrl:base+'/frame'});
+ }
+ return api;
+});
+// A per-instance channel and exact parent origin isolate the embedding API.
+const channel=location.hash.slice(1);
+let parentOrigin;
+try { parentOrigin=new URL(document.referrer).origin; } catch (_) {}
+const notify=(type,extra={})=>{if(channel && parentOrigin && parent!==window) parent.postMessage({channel,type,...extra},parentOrigin);};
+Module.viewerOnState=view=>notify('state',{value:view});
+Module.viewerOnReady=()=>notify('ready');
+Module.viewerOnError=error=>notify('error',{error:String(error)});
+window.addEventListener('message',async event=>{
+ if(event.source!==parent || event.origin!==parentOrigin || event.data?.channel!==channel) return;
+ const message=event.data, remote=Module.remote;
+ if(message.type==='dispose') {
+  clearInterval(remote?.heartbeat);
+  try { await remote?.client?.leave(); } catch (_) {}
+  notify('disposed');
+  return;
+ }
+ if(message.type!=='call') return;
+ try {
+  if(!remote?.client || remote.busy) throw new Error('Viewer is busy; retry after the next state event');
+  remote.busy=true;
+  let value;
+  try {
+   if(message.method==='action') value=await remote.client.action(message.value);
+   else if(message.method==='snapshot') value=await remote.client.snapshot();
+   else throw new Error('Unknown viewer method');
+  } finally {
+   remote.busy=false;
+   if(remote.inputs.length || remote.pendingSize || remote.needsSnapshot) remote.load();
+  }
+  notify('reply',{id:message.id,value});
+ } catch(error) {notify('reply',{id:message.id,error:error.message});}
+});</script>
+{{{ SCRIPT }}}
+</body></html>

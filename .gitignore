@@ -63,3 +63,15 @@ libgw.so
 /src/find_mismatches.o
 /src/introns.o
 /src/theme_preview.o
+
+/libgw_server_core.a
+/protocol/viewer/native/viewer_interface.o
+/src/viewer_controls.o
+
+/src/online_catalogue.o
+/src/online_files.o
+/src/online/online_catalogue.o
+/src/online/online_files.o
+
+/src/online/*.o
+/src/online/*.d
