@@ -171,7 +171,13 @@ std::int64_t fetchFileSize(const std::string& url){
     auto* c=curl_easy_init();if(!c)return -1;
     curl_easy_setopt(c,CURLOPT_URL,url.c_str());curl_easy_setopt(c,CURLOPT_NOBODY,1L);
     curl_easy_setopt(c,CURLOPT_FOLLOWLOCATION,1L);curl_easy_setopt(c,CURLOPT_FAILONERROR,1L);
-    curl_easy_setopt(c,CURLOPT_PROTOCOLS_STR,"http,https");curl_easy_setopt(c,CURLOPT_REDIR_PROTOCOLS_STR,"http,https");
+#if LIBCURL_VERSION_NUM >= 0x075500 // libcurl 7.85.0
+    curl_easy_setopt(c,CURLOPT_PROTOCOLS_STR,"http,https");
+    curl_easy_setopt(c,CURLOPT_REDIR_PROTOCOLS_STR,"http,https");
+#else
+    curl_easy_setopt(c,CURLOPT_PROTOCOLS,long(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+    curl_easy_setopt(c,CURLOPT_REDIR_PROTOCOLS,long(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+#endif
     curl_easy_setopt(c,CURLOPT_CONNECTTIMEOUT,5L);curl_easy_setopt(c,CURLOPT_TIMEOUT,10L);curl_easy_setopt(c,CURLOPT_NOSIGNAL,1L);
     curl_off_t size=-1;auto result=curl_easy_perform(c);
     if(result==CURLE_OK)curl_easy_getinfo(c,CURLINFO_CONTENT_LENGTH_DOWNLOAD_T,&size);
@@ -182,7 +188,13 @@ std::string fetchCatalogue(const std::string& url,const std::shared_ptr<std::ato
     auto* c=curl_easy_init();if(!c)throw std::runtime_error("Cannot initialize HTTP client");
     struct Buffer{std::string text;std::shared_ptr<std::atomic<bool>> stop;} buffer{{},cancelled};
     curl_easy_setopt(c,CURLOPT_URL,url.c_str());curl_easy_setopt(c,CURLOPT_FOLLOWLOCATION,1L);
-    curl_easy_setopt(c,CURLOPT_PROTOCOLS_STR,"http,https");curl_easy_setopt(c,CURLOPT_REDIR_PROTOCOLS_STR,"http,https");
+#if LIBCURL_VERSION_NUM >= 0x075500 // libcurl 7.85.0
+    curl_easy_setopt(c,CURLOPT_PROTOCOLS_STR,"http,https");
+    curl_easy_setopt(c,CURLOPT_REDIR_PROTOCOLS_STR,"http,https");
+#else
+    curl_easy_setopt(c,CURLOPT_PROTOCOLS,long(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+    curl_easy_setopt(c,CURLOPT_REDIR_PROTOCOLS,long(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+#endif
     curl_easy_setopt(c,CURLOPT_FAILONERROR,1L);curl_easy_setopt(c,CURLOPT_CONNECTTIMEOUT,10L);curl_easy_setopt(c,CURLOPT_TIMEOUT,30L);curl_easy_setopt(c,CURLOPT_NOSIGNAL,1L);
     curl_easy_setopt(c,CURLOPT_WRITEFUNCTION,+[](char* data,size_t size,size_t count,void* ptr)->size_t{auto& b=*static_cast<Buffer*>(ptr);size_t n=size*count;if(b.stop->load()||n>2*1024*1024-b.text.size())return 0;b.text.append(data,n);return n;});curl_easy_setopt(c,CURLOPT_WRITEDATA,&buffer);
     auto result=curl_easy_perform(c);long status=0;curl_easy_getinfo(c,CURLINFO_RESPONSE_CODE,&status);curl_easy_cleanup(c);if(cancelled->load())throw std::runtime_error("Cancelled");if(result!=CURLE_OK)throw std::runtime_error(std::string("Online metadata request failed (HTTP ")+std::to_string(status)+"): "+curl_easy_strerror(result));return buffer.text;

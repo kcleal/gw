@@ -26,8 +26,13 @@ void transfer(const std::string& url, const std::filesystem::path& path, const s
     progress->received=0;progress->total=0;
     curl_easy_setopt(curl,CURLOPT_URL,url.c_str());
     curl_easy_setopt(curl,CURLOPT_FOLLOWLOCATION,1L);
+#if LIBCURL_VERSION_NUM >= 0x075500 // libcurl 7.85.0
     curl_easy_setopt(curl,CURLOPT_PROTOCOLS_STR,"http,https");
     curl_easy_setopt(curl,CURLOPT_REDIR_PROTOCOLS_STR,"http,https");
+#else
+    curl_easy_setopt(curl,CURLOPT_PROTOCOLS,long(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+    curl_easy_setopt(curl,CURLOPT_REDIR_PROTOCOLS,long(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+#endif
     curl_easy_setopt(curl,CURLOPT_FAILONERROR,1L);
     curl_easy_setopt(curl,CURLOPT_CONNECTTIMEOUT,15L);
     curl_easy_setopt(curl,CURLOPT_LOW_SPEED_LIMIT,1L);

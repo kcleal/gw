@@ -81,7 +81,9 @@ std::string encodeCatalogue(const std::vector<Entry>& entries){
     return out+"]}";
 }
 std::vector<Entry> resolveBundle(const Entry& entry,const std::vector<Entry>& catalogue){
-    if(entry.bundle.empty())return {entry};std::vector<Entry> result;std::map<std::string,bool> seen;
+    if(entry.bundle.empty())return {entry};
+    std::vector<Entry> result;
+    std::map<std::string,bool> seen;
     for(const auto& id:entry.bundle){if(!seen.emplace(id,true).second)throw std::runtime_error("Duplicate bundle member");auto it=std::find_if(catalogue.begin(),catalogue.end(),[&](const auto& e){return e.id==id;});if(it==catalogue.end())throw std::runtime_error("Bundle resource missing: "+id);auto e=*it;e.bundle.clear();result.push_back(e);}
     std::stable_sort(result.begin(),result.end(),[](const auto& a,const auto& b){return a.category=="reference"&&b.category!="reference";});return result;
 }
@@ -90,7 +92,8 @@ std::vector<std::string> indexCandidates(const Entry& e){if(!e.indexURL.empty())
     if(end(".bam"))return {path+".bai"+query,path.substr(0,path.size()-4)+".bai"+query,path+".csi"+query};
     if(end(".cram"))return {path+".crai"+query,path.substr(0,path.size()-5)+".crai"+query};
     if(end(".bcf"))return {path+".csi"+query};
-    if(end(".gz")||end(".bgz"))return {path+".tbi"+query,path+".csi"+query};return {};
+    if(end(".gz")||end(".bgz"))return {path+".tbi"+query,path+".csi"+query};
+    return {};
 }
 namespace {
 std::string encodeURL(const std::string& text){
