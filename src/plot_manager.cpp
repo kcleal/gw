@@ -1,3 +1,4 @@
+#include "include/core/SkPathBuilder.h"
 #include "online/online_files.h"
 
 #include <algorithm>
@@ -1956,10 +1957,10 @@ namespace Manager {
         std::string s = regions[regionSelection].chrom + ":" + Term::intToStringCommas(pos);
         float text_width = fonts.measureTextWidth(s);
         sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(s.c_str(), fonts.overlay);
-        SkPath path;
+        SkPathBuilder path;
         path.moveTo(xPos_fb, fb_height - (gap * 2.5));
         path.lineTo(xPos_fb, fb_height - (gap * 2.5) - fonts.overlayHeight);
-        canvas->drawPath(path, opts.theme.lcBright);
+        canvas->drawPath(path.snapshot(), opts.theme.lcBright);
         float xbox = xPos_fb;
         if (xbox + text_width > rgn.ideogramEnd) {
             xbox -= text_width + monitorScale + monitorScale + monitorScale;
@@ -2215,10 +2216,10 @@ namespace Manager {
             canvas->drawRect(rect, bg);
 
             // Cursor and text
-            SkPath path;
+            SkPathBuilder path;
             path.moveTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 0.3) + padT + padT);
             path.lineTo(x + 14 + to_cursor_width, yy + (fonts.overlayHeight * 1.5) + padT + padT);
-            canvas->drawPath(path, opts.theme.lcBright);
+            canvas->drawPath(path.snapshot(), opts.theme.lcBright);
             if (!inputText2.empty()) {
 
                 sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(inputText2.c_str(), fonts.overlay);
@@ -2275,7 +2276,7 @@ namespace Manager {
                         path.moveTo(x + (2.*fonts.overlayWidth), yy - (fonts.overlayHeight*0.25));
                         path.lineTo(x + (2.25*fonts.overlayWidth), yy);
                         path.lineTo(x + (2.75*fonts.overlayWidth), yy - (fonts.overlayHeight*0.75));
-                        canvas->drawPath(path, tip_paint);
+                        canvas->drawPath(path.snapshot(), tip_paint);
                     }
                     yy -= fonts.overlayHeight + padT;
                 }
@@ -2374,10 +2375,10 @@ namespace Manager {
 
         // Line at mouse position
         } else if (drawLine && !showUIOverlay && mode != SETTINGS) {
-            SkPath path;
+            SkPathBuilder path;
             path.moveTo(xposm, refSpace);
             path.lineTo(xposm, fb_height - sliderSpace);
-            canvas->drawPath(path, opts.theme.lcJoins);
+            canvas->drawPath(path.snapshot(), opts.theme.lcJoins);
         }
 
         // Help messages

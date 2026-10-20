@@ -1,3 +1,4 @@
+#include "include/core/SkPathBuilder.h"
 // menu_draw.cpp
 // Skia-based menu drawing and mouse handling
 // Extracted from menu.cpp with no functional changes.
@@ -96,7 +97,7 @@ void drawMenu(SkCanvas *canvas, Themes::IniOptions &opts, Themes::Fonts &fonts, 
                 std::string inputText, int charIndex) {
 
     SkRect rect;
-    SkPath path;
+    SkPathBuilder path;
 
     float baseControlBoxSize = 18.0f;  // Base control box size
     float baseVGap = 3.0f;             // Base vertical gap
@@ -168,14 +169,14 @@ void drawMenu(SkCanvas *canvas, Themes::IniOptions &opts, Themes::Fonts &fonts, 
             path.lineTo(iconRight, iconBottom);
             path.moveTo(iconLeft, iconBottom);
             path.lineTo(iconRight, iconTop);
-            canvas->drawPath(path, tcMenu);
+            canvas->drawPath(path.snapshot(), tcMenu);
             tcMenu.setStrokeWidth(0);
         } else if (b == "back") {
             path.reset();
             path.moveTo(iconRight, iconTop);
             path.lineTo(iconLeft, iconMiddleY);
             path.lineTo(iconRight, iconBottom);
-            canvas->drawPath(path, tcMenu);
+            canvas->drawPath(path.snapshot(), tcMenu);
         } else if (b == "save") {
             float cornerCut = 4.0f * monitorScale; // Size of corner cutout
             path.reset();
@@ -185,7 +186,7 @@ void drawMenu(SkCanvas *canvas, Themes::IniOptions &opts, Themes::Fonts &fonts, 
             path.lineTo(iconRight, iconTop + cornerCut);
             path.lineTo(iconRight - cornerCut, iconTop);
             path.close();
-            canvas->drawPath(path, tcMenu);
+            canvas->drawPath(path.snapshot(), tcMenu);
             float lineHeight = stroke_width * 1.2f;
             float lineGap = (iconBottom - iconTop - (3 * lineHeight)) / 3;
             rect.setXYWH(
@@ -202,14 +203,14 @@ void drawMenu(SkCanvas *canvas, Themes::IniOptions &opts, Themes::Fonts &fonts, 
             path.lineTo(iconMiddleX, iconBottom);
             path.moveTo(iconLeft, iconMiddleY);
             path.lineTo(iconRight, iconMiddleY);
-            canvas->drawPath(path, tcMenu);
+            canvas->drawPath(path.snapshot(), tcMenu);
             tcMenu.setStrokeWidth(0);
         } else if (b == "delete") {
             tcMenu.setStrokeWidth(stroke_width);
             path.reset();
             path.moveTo(iconLeft, iconMiddleY);
             path.lineTo(iconRight, iconMiddleY);
-            canvas->drawPath(path, tcMenu);
+            canvas->drawPath(path.snapshot(), tcMenu);
             tcMenu.setStrokeWidth(0);
         }
         x2 += control_box_h + v_gap;
@@ -290,7 +291,7 @@ void drawMenu(SkCanvas *canvas, Themes::IniOptions &opts, Themes::Fonts &fonts, 
                 path.reset();
                 path.moveTo(txt_start + to_cursor_width, y + (fonts.overlayHeight * 0.2));
                 path.lineTo(txt_start + to_cursor_width, y + fonts.overlayHeight * 1.1);
-                canvas->drawPath(path, opts.theme.lcBright);
+                canvas->drawPath(path.snapshot(), opts.theme.lcBright);
                 sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(inputText.c_str(), fonts.overlay);
                 canvas->drawTextBlob(blob.get(), txt_start, y + pad, opts.theme.tcDel);
             }
@@ -305,7 +306,7 @@ void drawMenu(SkCanvas *canvas, Themes::IniOptions &opts, Themes::Fonts &fonts, 
             path.reset();
             path.moveTo(txt_start2 + to_cursor_width + x, y + (fonts.overlayHeight * 0.2));
             path.lineTo(txt_start2 + to_cursor_width + x, y + fonts.overlayHeight * 1.1);
-            canvas->drawPath(path, opts.theme.lcBright);
+            canvas->drawPath(path.snapshot(), opts.theme.lcBright);
             sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(h.c_str(), fonts.overlay);
             canvas->drawTextBlob(blob.get(), x + txt_start2, y + pad, opts.theme.tcDel);
         }

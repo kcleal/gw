@@ -4,7 +4,7 @@
 #   bash deps/wasm/build.sh
 #
 # The script:
-#   1. Downloads Skia m133 source and builds it for WASM via its CanvasKit
+#   1. Downloads Skia m143 source and builds it for WASM via its CanvasKit
 #      compile.sh, then copies the intermediate static libs to deps/wasm/out/skia_wasm/
 #   2. Downloads HTSlib compiled binary for WASM.
 #   3. Invokes the GW Makefile via emmake with the correct flags.
@@ -31,7 +31,7 @@ LZMA_LIBDIR="$LZMA_SRC/src/liblzma/.libs"
 HTS_SRC="$WASM_DIR/htslib_src"
 HTS_OUT="$OUT_DIR/htslib"
 
-SKIA_BRANCH="chrome/m133"
+SKIA_BRANCH="chrome/m143"
 SKIA_REPO="https://github.com/google/skia.git"
 
 cd "$GW_ROOT"
@@ -63,10 +63,10 @@ EMSCRIPTEN_TARGET="3.1.65"
 python3 "$USER_EMSDK/emsdk.py" install "$EMSCRIPTEN_TARGET"
 python3 "$USER_EMSDK/emsdk.py" activate "$EMSCRIPTEN_TARGET"
 source "$USER_EMSDK/emsdk_env.sh"
-SKIA_STAMP="$SKIA_OUT/.built_with_emcc_${EMSCRIPTEN_TARGET}"
+SKIA_STAMP="$SKIA_OUT/.built_m143_with_emcc_${EMSCRIPTEN_TARGET}"
 
 # ---------------------------------------------------------------------------
-# 1. Build Skia m133 for WASM
+# 1. Build Skia m143 for WASM
 # ---------------------------------------------------------------------------
 # Skia's DEPS hooks install a pinned emsdk (3.1.44) into
 # third_party/externals/emsdk/ and Skia's GN toolchain uses that path via
@@ -84,6 +84,11 @@ else
     fi
 
     cd "$SKIA_SRC"
+    # Existing browser dependency directories may still contain m133.
+    if [ "$(git branch --show-current)" != "$SKIA_BRANCH" ]; then
+        git fetch --depth 1 origin "$SKIA_BRANCH"
+        git checkout -B "$SKIA_BRANCH" FETCH_HEAD
+    fi
 
     echo "=== Syncing Skia third-party dependencies ==="
     GIT_SYNC_DEPS_SKIP_EMSDK=1 python3 tools/git-sync-deps

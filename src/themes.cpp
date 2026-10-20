@@ -21,7 +21,7 @@
 
 #include "include/core/SkFontMgr.h"
 #include "include/core/SkPathEffect.h"
-#include "skia_compat.h"
+#include "include/effects/SkDashPathEffect.h"
 #if !defined(OLD_SKIA) || OLD_SKIA == 0
     #if defined(__APPLE__)
         #include <CoreText/CoreText.h>
@@ -35,6 +35,7 @@
     #else
         #include <fontconfig/fontconfig.h>
         #include "include/ports/SkFontMgr_fontconfig.h"
+        #include "include/ports/SkFontScanner_FreeType.h"
         #include "include/ports/SkFontConfigInterface.h"
         #include "include/ports/SkFontMgr_FontConfigInterface.h"
     #endif
@@ -180,7 +181,7 @@ namespace Themes {
 
         lcGTFJoins.setStyle(SkPaint::kStroke_Style);
         lcGTFJoins.setStrokeWidth(2);
-        lcGTFJoins.setPathEffect(SkiaCompat::makeDashPathEffect(intervals, 2, 0.0f));
+        lcGTFJoins.setPathEffect(SkDashPathEffect::Make({intervals, 2}, 0.0f));
 
         lcLabel.setStyle(SkPaint::kStroke_Style);
         lcLabel.setStrokeWidth(1);
@@ -1374,13 +1375,13 @@ namespace Themes {
             FcPattern* font = FcFontMatch(config, pattern, &result);
 
             if (font) {
-                fontMgr = SkFontMgr_New_FontConfig(config);
+                fontMgr = SkFontMgr_New_FontConfig(config, SkFontScanner_Make_FreeType());
                 FcPatternDestroy(font);
             }
             FcPatternDestroy(pattern);
         } else {
             // Load all fonts
-            fontMgr = SkFontMgr_New_FontConfig(nullptr);
+            fontMgr = SkFontMgr_New_FontConfig(nullptr, SkFontScanner_Make_FreeType());
         }
 #endif
         return fontMgr;
@@ -1504,7 +1505,7 @@ namespace Themes {
         SkPaint paint1;
         const SkPaint* pnt = &paint1;
         overlay.setSize(fontTypefaceSize * yScale);
-        bounds[0] = SkiaCompat::glyphBounds(overlay, glyphs[0], pnt);
+        bounds[0] = overlay.getBounds(glyphs[0], pnt);
         overlayCharWidth = bounds[0].width();
         overlayHeight = bounds[0].height();
         overlayWidth = overlay.measureText("Gy", 1, SkTextEncoding::kUTF8);

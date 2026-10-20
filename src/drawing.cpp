@@ -20,9 +20,9 @@
 #include "include/core/SkData.h"
 #include "include/core/SkImageInfo.h"
 #include "include/core/SkPaint.h"
-#include "include/core/SkPath.h"
+#include "include/core/SkPathBuilder.h"
 #include "include/core/SkPathEffect.h"
-#include "skia_compat.h"
+#include "include/effects/SkDashPathEffect.h"
 #include "include/core/SkTypeface.h"
 #include "include/core/SkTextBlob.h"
 
@@ -74,7 +74,7 @@ namespace Drawing {
 
         const Themes::BaseTheme &theme = opts.theme;
         SkPaint paint = theme.fcCoverage;
-        SkPath path;
+        SkPathBuilder path;
         SkRect rect{};
         std::vector<sk_sp<SkTextBlob> > text;
         std::vector<sk_sp<SkTextBlob> > text_ins;
@@ -178,7 +178,7 @@ namespace Drawing {
             path.lineTo(x - xScaling, yOffsetAll + covY);
             path.lineTo(xOffset, yOffsetAll + covY);
             path.close();
-            canvas->drawPath(path, paint);
+            canvas->drawPath(path.snapshot(), paint);
 
             if (draw_mismatch_info) {
                 const char *refSeq = cl.region->refSeq;
@@ -295,7 +295,7 @@ namespace Drawing {
                     path.lineTo(markerP, rp + (fonts.overlayHeight));
                     path.lineTo(markerP + xp, rp);
                     path.lineTo(markerP, rp);
-                    canvas->drawPath(path, theme.fcMarkers);
+                    canvas->drawPath(path.snapshot(), theme.fcMarkers);
                 }
                 if (second > first + 1) {
                     float markerP2 = (cl.xScaling * (float)(second - cl.region->start)) + cl.xOffset;
@@ -306,7 +306,7 @@ namespace Drawing {
                         path.lineTo(markerP2, rp + (fonts.overlayHeight));
                         path.lineTo(markerP2 + xp, rp);
                         path.lineTo(markerP2, rp);
-                        canvas->drawPath(path, theme.fcMarkers);
+                        canvas->drawPath(path.snapshot(), theme.fcMarkers);
                     }
                 }
             };
@@ -330,7 +330,7 @@ namespace Drawing {
             path.lineTo(xOffset + 6 * monitorScale, covY_f + yOffsetAll);
             path.moveTo(xOffset, covY + yOffsetAll);
             path.lineTo(xOffset + 6 * monitorScale, covY + yOffsetAll);
-            canvas->drawPath(path, theme.lcJoins);
+            canvas->drawPath(path.snapshot(), theme.lcJoins);
 
             // Draw data labels when alignments are not shown
             if (opts.data_labels && !opts.alignments && cl.regionIdx == 0) {
@@ -432,7 +432,7 @@ namespace Drawing {
 
     inline void drawLeftPointedRectangleNoEdge(SkCanvas *const canvas, const float polygonH, const float yScaledOffset, const float start,
                                          const float width, const float xOffset, const SkPaint &faceColor,
-                                         SkPath &path, const float slop) {
+                                         SkPathBuilder &path, const float slop) {
         const float startX = start + xOffset;
         const float midY = yScaledOffset + (polygonH * 0.5);
         const float endY = yScaledOffset + polygonH;
@@ -444,13 +444,13 @@ namespace Drawing {
         points[3] = SkPoint::Make(endX, endY);
         points[4] = SkPoint::Make(endX, yScaledOffset);
         path.reset();
-        SkiaCompat::addPoly(path, points, 5, true);
-        canvas->drawPath(path, faceColor);
+        path.addPolygon({points, 5}, true);
+        canvas->drawPath(path.snapshot(), faceColor);
     }
 
     inline void drawRightPointedRectangleNoEdge(SkCanvas *const canvas, const float polygonH, const float yScaledOffset, const float start,
                                           const float width, const float xOffset, const SkPaint &faceColor,
-                                          SkPath &path, const float slop) {
+                                          SkPathBuilder &path, const float slop) {
         const float startX = start + xOffset;
         const float endY = yScaledOffset + polygonH;
         const float midY = yScaledOffset + (polygonH * 0.5);
@@ -462,8 +462,8 @@ namespace Drawing {
         points[3] = SkPoint::Make(slopedEndX, midY);
         points[4] = SkPoint::Make(endX, yScaledOffset);
         path.reset();
-        SkiaCompat::addPoly(path, points, 5, true);
-        canvas->drawPath(path, faceColor);
+        path.addPolygon({points, 5}, true);
+        canvas->drawPath(path.snapshot(), faceColor);
     }
 
     inline void drawStrandChevrons(SkCanvas *const canvas, const float x0, const float x1, const float yMid,
@@ -478,19 +478,19 @@ namespace Drawing {
         // Reduce the origin before converting to screen coordinates to retain precision.
         const double step=std::ceil(double(spacing)/pixelsPerBase)*pixelsPerBase;
         const double phase=std::fmod(referenceX,step);
-        SkPath chevrons;
+        SkPathBuilder chevrons;
         for (double cx = phase+std::ceil((x0+margin-phase)/step)*step; cx <= x1-margin; cx += step) {
             const float tipX = cx - dx * 0.5f;
             chevrons.moveTo(tipX + dx, yMid - halfH);
             chevrons.lineTo(tipX, yMid);
             chevrons.lineTo(tipX + dx, yMid + halfH);
         }
-        canvas->drawPath(chevrons, paint);
+        canvas->drawPath(chevrons.snapshot(), paint);
     }
 
     inline void drawLeftPointedRectangle(SkCanvas *const canvas, const float polygonH, const float yScaledOffset, const float start,
                                          const float width, const float xOffset, const SkPaint &faceColor,
-                                         SkPath &path, const float slop, bool edged, const SkPaint &edgeColor) {
+                                         SkPathBuilder &path, const float slop, bool edged, const SkPaint &edgeColor) {
         const float startX = start + xOffset;
         const float midY = yScaledOffset + (polygonH * 0.5);
         const float endY = yScaledOffset + polygonH;
@@ -502,20 +502,20 @@ namespace Drawing {
         points[3] = SkPoint::Make(endX, endY);
         points[4] = SkPoint::Make(endX, yScaledOffset);
         path.reset();
-        SkiaCompat::addPoly(path, points, 5, true);
-        canvas->drawPath(path, faceColor);
+        path.addPolygon({points, 5}, true);
+        canvas->drawPath(path.snapshot(), faceColor);
         if (edged) {
             points[0].fY += 0.5;
             points[4].fY += 0.5;
             path.reset();
-            SkiaCompat::addPoly(path, points, 5, true);
-            canvas->drawPath(path, edgeColor);
+            path.addPolygon({points, 5}, true);
+            canvas->drawPath(path.snapshot(), edgeColor);
         }
     }
 
     inline void drawRightPointedRectangle(SkCanvas *const canvas, const float polygonH, const float yScaledOffset, float start,
                                           float width, const float xOffset, const SkPaint &faceColor,
-                                          SkPath &path, const float slop, bool edged, const SkPaint &edgeColor) {
+                                          SkPathBuilder &path, const float slop, bool edged, const SkPaint &edgeColor) {
 
         const float startX = start + xOffset;
         const float endY = yScaledOffset + polygonH;
@@ -528,23 +528,23 @@ namespace Drawing {
         points[3] = SkPoint::Make(slopedEndX, midY);
         points[4] = SkPoint::Make(endX, yScaledOffset);
         path.reset();
-        SkiaCompat::addPoly(path, points, 5, true);
-        canvas->drawPath(path, faceColor);
+        path.addPolygon({points, 5}, true);
+        canvas->drawPath(path.snapshot(), faceColor);
         if (edged) {
             points[0].fY += 0.5;
             points[4].fY += 0.5;
             path.reset();
-            SkiaCompat::addPoly(path, points, 5, true);
-            canvas->drawPath(path, edgeColor);
+            path.addPolygon({points, 5}, true);
+            canvas->drawPath(path.snapshot(), edgeColor);
         }
     }
 
     inline void
-    drawHLine(SkCanvas * const canvas, SkPath &path, const SkPaint &lc, const float startX, const float y, const float endX) {
+    drawHLine(SkCanvas * const canvas, SkPathBuilder &path, const SkPaint &lc, const float startX, const float y, const float endX) {
         path.reset();
         path.moveTo(startX, y);
         path.lineTo(endX, y);
-        canvas->drawPath(path, lc);
+        canvas->drawPath(path.snapshot(), lc);
     }
 
     inline void
@@ -826,7 +826,7 @@ namespace Drawing {
 
     void drawBlock(const bool plotPointedPolygons, const bool pointLeft, const bool edged, const float s, const float width,
                    const float pointSlop, const float pH, const float yScaledOffset, const float xOffset,
-                   SkCanvas *const canvas, SkPath &path, SkRect &rect, SkPaint &faceColor, SkPaint &edgeColor) {
+                   SkCanvas *const canvas, SkPathBuilder &path, SkRect &rect, SkPaint &faceColor, SkPaint &edgeColor) {
 
         if (plotPointedPolygons) {
             if (pointLeft) {
@@ -843,7 +843,7 @@ namespace Drawing {
         }
     }
 
-    void drawDeletionLine(SkCanvas *const canvas, SkPath &path, const Themes::IniOptions &opts,
+    void drawDeletionLine(SkCanvas *const canvas, SkPathBuilder &path, const Themes::IniOptions &opts,
                   const Themes::Fonts &fonts,
                   const int regionBegin, const int Y, const int regionLen, const int starti, int const lastEndi,
                   const float regionPixels, const float xScaling, const float yScaling, const float xOffset, const float yOffset,
@@ -1008,7 +1008,7 @@ namespace Drawing {
         SkPaint edgeColor;
 
         SkRect rect;
-        SkPath path;
+        SkPathBuilder path;
         const Themes::BaseTheme &theme = opts.theme;
 
         static std::vector<TextItemIns> text_ins;
@@ -1361,7 +1361,7 @@ namespace Drawing {
                             path.reset();
                             path.moveTo(x_a, y);
                             path.lineTo(x_b, y);
-                            canvas->drawPath(path, paint);
+                            canvas->drawPath(path.snapshot(), paint);
                         }
                     }
                 }
@@ -1378,7 +1378,7 @@ namespace Drawing {
             separator.setStyle(SkPaint::kStroke_Style);
             separator.setStrokeWidth(monitorScale);
             const SkScalar dashes[] = {4 * monitorScale, 4 * monitorScale};
-            separator.setPathEffect(SkiaCompat::makeDashPathEffect(dashes, 2, 0));
+            separator.setPathEffect(SkDashPathEffect::Make({dashes, 2}, 0));
             SkPaint label = theme.tcLabels;
             label.setAlphaf(0.7f);
             for (int group = 0; group < groups; ++group) {
@@ -1580,7 +1580,7 @@ namespace Drawing {
                                     const SkPaint& paint) {
         SkPaint fillPaint = paint;
         fillPaint.setStyle(SkPaint::kFill_Style);
-        SkPath path;
+        SkPathBuilder path;
         const float midY = y + size * 0.5f;
         const float endX = x + size;
         const float endY = y + size;
@@ -1594,7 +1594,7 @@ namespace Drawing {
             path.lineTo(endX, endY);
         }
         path.close();
-        canvas->drawPath(path, fillPaint);
+        canvas->drawPath(path.snapshot(), fillPaint);
     }
 
     void drawTranslationTrack(const Themes::IniOptions &opts,
@@ -1760,10 +1760,10 @@ namespace Drawing {
 
         // Vertical guide line covers the three mini-lanes but not the text row.
         if (ctx.drawLine) {
-            SkPath linePath;
+            SkPathBuilder linePath;
             linePath.moveTo(ctx.mouseX, laneAreaTop - gap * 0.5f);
             linePath.lineTo(ctx.mouseX, laneAreaBottom + laneSpacing * 0.5f);
-            canvas->drawPath(linePath, theme.lcJoins);
+            canvas->drawPath(linePath.snapshot(), theme.lcJoins);
         }
     }
 
@@ -1779,13 +1779,13 @@ namespace Drawing {
         const float refSpace = ctx.refSpace;
         const float gap = ctx.gap;
         const float totalCovY = ctx.totalCovY;
-        SkPath path;
+        SkPathBuilder path;
         // Separator line below top menu buttons
         // if (ctx.topMenuSpace > 0) {
         //     float sepY = ctx.topMenuSpace;
         //     path.moveTo(0, sepY);
         //     path.lineTo(fb_width, sepY);
-        //     canvas->drawPath(path, opts.theme.lcLightJoins);
+        //     canvas->drawPath(path.snapshot(), opts.theme.lcLightJoins);
         //     path.reset();
         // }
         if (nRegions > 1) {
@@ -1797,7 +1797,7 @@ namespace Drawing {
                 path.lineTo(x, fb_height);
                 x += step;
             }
-            canvas->drawPath(path, opts.theme.lcLightJoins);
+            canvas->drawPath(path.snapshot(), opts.theme.lcLightJoins);
         }
         if (nbams > 1) {
             float y = trackY + covY;
@@ -1812,7 +1812,7 @@ namespace Drawing {
                 path.lineTo(fb_width - gap, y);
                 y += step;
             }
-            canvas->drawPath(path, opts.theme.lcLightJoins);
+            canvas->drawPath(path.snapshot(), opts.theme.lcLightJoins);
         }
         if (nTracks > 0) {
             float y = totalCovY + refSpace + (trackY*(float)nbams);
@@ -1825,7 +1825,7 @@ namespace Drawing {
                 path.reset();
                 path.moveTo(gap, y);
                 path.lineTo(fb_width - gap, y);
-                canvas->drawPath(path, opts.theme.lcLightJoins);
+                canvas->drawPath(path.snapshot(), opts.theme.lcLightJoins);
                 y += trk.px_height;
             }
         }
@@ -1916,10 +1916,10 @@ namespace Drawing {
         float startY = y + availableSPace + (gap * 0.5);
         float x = padX;
     //        if (y_negativeValueOffset != 0) {
-        SkPath path;
+        SkPathBuilder path;
         path.moveTo(padX, startY - y_negativeValueOffset);
         path.lineTo(padX + stepX - gap2, startY - y_negativeValueOffset);
-        canvas->drawPath(path, faceColour);
+        canvas->drawPath(path.snapshot(), faceColour);
     //        }
         int step = length / 100000;
         step = (step) ? step : 1;
@@ -1940,7 +1940,7 @@ namespace Drawing {
             path.lineTo(padX + 20, startY - availableSPace);
             path.moveTo(padX, startY);
             path.lineTo(padX + 20, startY);
-            canvas->drawPath(path, opts.theme.lcJoins);
+            canvas->drawPath(path.snapshot(), opts.theme.lcJoins);
 
             std::string str = std::to_string(cMax);
             str.erase(str.find_last_not_of('0') + 1, std::string::npos);
@@ -1956,7 +1956,7 @@ namespace Drawing {
         }
     }
 
-    void drawTrackBlock(int start, int stop, std::string &rid, const Utils::Region &rgn, SkRect &rect, SkPath &path,
+    void drawTrackBlock(int start, int stop, std::string &rid, const Utils::Region &rgn, SkRect &rect, SkPathBuilder &path,
                         const float padX, const float padY,
                         const float y, const float h, const float stepX, const float stepY, const float xScaling,
                         Themes::IniOptions &opts, SkCanvas *const canvas, const Themes::Fonts &fonts,
@@ -2035,7 +2035,7 @@ namespace Drawing {
             float virtual_left = ((float) (start - rgn.start) * xScaling) + padX;
             float virtual_right = ((float) (stop - rgn.start) * xScaling) + padX;
             float arcTop;
-            SkPath arc;
+            SkPathBuilder arc;
             arc.moveTo(x + padX, y + padY);
             arc.lineTo(x + padX, y + h + padY);
             arc.moveTo(virtual_left, leftY);
@@ -2048,7 +2048,7 @@ namespace Drawing {
             }
             arc.moveTo(virtual_right, y + padY);
             arc.lineTo(virtual_right, y + h + padY);
-            canvas->drawPath(arc, arcColour);
+            canvas->drawPath(arc.snapshot(), arcColour);
 
         } else if (add_rect) {
             if (!shaded) {
@@ -2110,7 +2110,7 @@ namespace Drawing {
     void drawGappedTrackBlock(Themes::IniOptions &opts, SkCanvas *const canvas, 
                             std::vector<HGW::GwTrack> &tracks, const std::vector<Utils::Region> &regions, 
                             const Themes::Fonts &fonts, Utils::TrackBlock &trk, const bool any_text, 
-                            const Utils::Region &rgn, SkRect &rect, SkPath &path, SkPath &path2, 
+                            const Utils::Region &rgn, SkRect &rect, SkPathBuilder &path, SkPathBuilder &path2,
                             const float padX, const float padY, const float stepX, const float stepY,
                             const float y, const float h, const float h2, const float h4, const float xScaling, 
                             const int nLevels, float *const labelsEnd, std::vector<TextItem> &text, 
@@ -2150,7 +2150,7 @@ namespace Drawing {
                     path2.reset();
                     path2.moveTo(x, yy);
                     path2.lineTo(w, yy);
-                    canvas->drawPath(path2, opts.theme.lcGTFJoins);
+                    canvas->drawPath(path2.snapshot(), opts.theme.lcGTFJoins);
                     drawStrandChevrons(canvas, x, w, yy, h * 0.5f, strand, chevronPaint, chevronSpacing,
                                        double(padX)-double(rgn.start)*xScaling,xScaling);
                 }
@@ -2254,7 +2254,7 @@ namespace Drawing {
                         float xScaling, float padX, float y, float padY_track, float h,
                         float monitorScale, float customPointSlop,
                         const Themes::Fonts& fonts, int trk_px_height, int nLevels,
-                        std::vector<TextItem>& text, SkPath& path, bool selected) {
+                        std::vector<TextItem>& text, SkPathBuilder& path, bool selected) {
 
         if (!f.anyToDraw) return;
         
@@ -2344,8 +2344,8 @@ namespace Drawing {
         float t = (float) 0.005 * fb_width;
 
         SkRect rect{};
-        SkPath path{};
-        SkPath path2{};
+        SkPathBuilder path{};
+        SkPathBuilder path2{};
 
         bool expanded = opts.expand_tracks;
 
@@ -2639,7 +2639,7 @@ namespace Drawing {
         line.setStyle(SkPaint::kStroke_Style);
         SkRect rect{};
         SkRect clip{};
-        SkPath path{};
+        SkPathBuilder path{};
 
         // Note sliderSpace = plot_gap * 4;
         // Region box
@@ -2695,7 +2695,7 @@ namespace Drawing {
                 path.reset();
                 path.moveTo(region.ideogramStart, horizontal_line );
                 path.lineTo(region.ideogramEnd, horizontal_line);
-                canvas->drawPath(path, line);
+                canvas->drawPath(path.snapshot(), line);
 
                 auto it = ideogram.find(region.chrom);
                 if (it != ideogram.end()) {
@@ -2745,7 +2745,7 @@ namespace Drawing {
 
                 std::string text;
                 std::string last;
-                SkPath path;
+                SkPathBuilder path;
                 double xScaling = (scaleWidth / (double)region.regionLen);
 
                 float xOffset = plot_gap + (colWidth * regionIdx);
@@ -2764,12 +2764,12 @@ namespace Drawing {
                     if (last_x > 0) {
                         path.moveTo(last_x, top2 + yh*0.2);
                         path.lineTo(last_x, top2 + yh*0.70);
-                        canvas->drawPath(path, opts.theme.lcJoins);
+                        canvas->drawPath(path.snapshot(), opts.theme.lcJoins);
                     }
 
                     path.moveTo(x_pos, top2 + yh*0.2);
                     path.lineTo(x_pos, top2 + yh*0.70);
-                    canvas->drawPath(path, opts.theme.lcJoins);
+                    canvas->drawPath(path.snapshot(), opts.theme.lcJoins);
 
                     last_x = x_pos;
 

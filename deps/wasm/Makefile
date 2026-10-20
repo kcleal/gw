@@ -35,6 +35,7 @@ WASM_LDFLAGS_EXTRA := \
 .PHONY: all clean serve
 
 all:
+	@grep -Eq '^\#define SK_MILESTONE 143$$' $(THIS_DIR)/skia/include/core/SkMilestone.h || { echo "WASM requires Skia m143; rebuild dependencies with bash deps/wasm/build.sh"; exit 1; }
 	cd $(REPO_ROOT) && env -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS -u LDLIBS emmake $(MAKE) $(if $(filter -j%,$(MAKEFLAGS)),,-j$(JOBS)) EMSCRIPTEN=1 \
 	    TARGET=$(THIS_DIR)/gw.html \
 	    WASM_BUILD_DIR=$(THIS_DIR)/out/gw_objects \

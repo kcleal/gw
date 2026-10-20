@@ -50,9 +50,9 @@ JOBS=2 bash deps/wasm/build.sh
 make -C deps/wasm serve
 ```
 
-The script installs/activates Emscripten 3.1.65 and builds Skia m133, XZ 5.2.5
-and HTSlib 1.21 before building the demo. It intentionally remains on m133:
-the native m143 migration does not change the browser library or its ABI.
+The script installs/activates Emscripten 3.1.65 and builds Skia m143, XZ 5.2.5
+and HTSlib 1.21 before building the demo. Both native and browser builds now target m143. Rebuild browser dependencies
+with `bash deps/wasm/build.sh` if the local cache still contains m133.
 A fresh dependency build downloads substantial source trees and takes time.
 The compiler version must match across Skia, XZ, HTSlib and GW.
 
