@@ -158,7 +158,7 @@ $(TARGET): $(OBJECTS)
 
 clean:
 	-rm -f $(SERVER_OBJECTS) $(SERVER_OBJECTS:.o=.d)
-	-rm -f *.o ./src/*.o ./src/*.o.tmp ./src/online/*.o ./lib/libBigWig/*.o ./include/*.o
+	-rm -f *.o ./src/*.o ./src/*.o.tmp ./src/online/*.o ./src/menu_components/*.o ./lib/libBigWig/*.o ./include/*.o
 	-rm -f ./lib/dear_imgui/*.o ./lib/dear_imgui/backends/*.o
 	-rm -f *.d ./src/*.d ./src/online/*.d ./src/menu_components/*.d ./lib/libBigWig/*.d ./include/*.d
 	-rm -f ./lib/dear_imgui/*.d ./lib/dear_imgui/backends/*.d
