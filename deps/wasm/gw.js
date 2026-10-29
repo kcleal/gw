@@ -35,7 +35,7 @@ if (ENVIRONMENT_IS_NODE) {
 
 // --pre-jses are emitted after the Module integration code, so that they can
 // refer to Module (if they choose; they can also define Module)
-// include: /var/folders/hh/1799gjld5837q1wjwpctv9l40000gp/T/tmpsch3tnzb.js
+// include: /var/folders/hh/1799gjld5837q1wjwpctv9l40000gp/T/tmp9_tgrqa6.js
 
   if (!Module['expectedDataFileDownloads']) {
     Module['expectedDataFileDownloads'] = 0;
@@ -215,7 +215,7 @@ var REMOTE_PACKAGE_SIZE = metadata['remote_package_size'];
 
   })();
 
-// end include: /var/folders/hh/1799gjld5837q1wjwpctv9l40000gp/T/tmpsch3tnzb.js
+// end include: /var/folders/hh/1799gjld5837q1wjwpctv9l40000gp/T/tmp9_tgrqa6.js
 // include: /Users/sbi8kc2/CLionProjects/gw/deps/wasm/pre.js
 // deps/wasm/pre.js — Injected before the Emscripten runtime starts.
 //
@@ -824,25 +824,25 @@ var tempI64;
 // === Body ===
 
 var ASM_CONSTS = {
-  961524: ($0, $1, $2) => { if(window.gwOpenFiles)window.gwOpenFiles(!!$0,!!$1,!!$2); },  
- 961586: () => { return Module.gwDownloadReceived||0; },  
- 961625: () => { return Module.gwDownloadTotal||0; },  
- 961661: ($0) => { var key=$0===2?'gwDiscoveryResult':($0?'gwCatalogueResult':'gwOnlineResult'); if(!Module[key]) return 0; var text=Module[key];Module[key]=null; var ptr=_malloc(lengthBytesUTF8(text)+1); stringToUTF8(text,ptr,lengthBytesUTF8(text)+1);return ptr; },  
- 961910: ($0) => { if(Module.gwFetchCatalogue) Module.gwFetchCatalogue(UTF8ToString($0)); },  
- 961985: () => { if(Module.gwOnlineCancel) Module.gwOnlineCancel(); },  
- 962040: ($0, $1) => { if($1){if(Module.gwOnlineFileSize)Module.gwOnlineFileSize(UTF8ToString($0));} else if(Module.gwDiscoverOnline)Module.gwDiscoverOnline(UTF8ToString($0)); },  
- 962197: ($0, $1, $2, $3, $4, $5) => { if($4 && Module.gwDownloadOnline) {Module.gwDownloadOnline(UTF8ToString($0),!!$1,!!$2,!!$3,UTF8ToString($5));return;} if(Module.gwOpenOnline) Module.gwOpenOnline(UTF8ToString($0),!!$1,!!$2,!!$3); },  
- 962397: () => { return document.getElementById('canvas').width || window.innerWidth; },  
- 962470: () => { return document.getElementById('canvas').height || window.innerHeight; },  
- 962545: () => { if(!Module.gwCommandQueue || !Module.gwCommandQueue.length) return 0; Module.gwActiveCommand=Module.gwCommandQueue.shift(); var text=Module.gwActiveCommand.text; var bytes=lengthBytesUTF8(text)+1;var ptr=_malloc(bytes); stringToUTF8(text,ptr,bytes);return ptr; },  
- 962810: () => { return Module.gwOnlineCancelled?1:0; },  
- 962849: () => { return Module.gwOnlineAsTrack?1:0; },  
- 962886: () => { return Module.gwOnlineCheckAssembly?1:0; },  
- 962929: () => { return Module.gwOnlineAsTable?1:0; },  
- 962966: ($0) => { if(Module.gwCompleteCommand)Module.gwCompleteCommand(UTF8ToString($0)); },  
- 963040: ($0, $1, $2) => { if(Module.gwPublishState)Module.gwPublishState({shared:{theme:UTF8ToString($0),regions:UTF8ToString($1).split(String.fromCharCode(10)).filter(Boolean),alignments:UTF8ToString($2).split(String.fromCharCode(10)).filter(Boolean)}}); },  
- 963274: () => { if (typeof IDBFS !== 'undefined') { FS.syncfs(false, function(err) { if (err) console.warn('[GW] IDBFS save error:', err); }); } },  
- 963403: () => { Module.gwOnlineCommitting=true; }
+  970980: ($0, $1, $2) => { if(window.gwOpenFiles)window.gwOpenFiles(!!$0,!!$1,!!$2); },  
+ 971042: () => { return Module.gwDownloadReceived||0; },  
+ 971081: () => { return Module.gwDownloadTotal||0; },  
+ 971117: ($0) => { var key=$0===2?'gwDiscoveryResult':($0?'gwCatalogueResult':'gwOnlineResult'); if(!Module[key]) return 0; var text=Module[key];Module[key]=null; var ptr=_malloc(lengthBytesUTF8(text)+1); stringToUTF8(text,ptr,lengthBytesUTF8(text)+1);return ptr; },  
+ 971366: ($0) => { if(Module.gwFetchCatalogue) Module.gwFetchCatalogue(UTF8ToString($0)); },  
+ 971441: () => { if(Module.gwOnlineCancel) Module.gwOnlineCancel(); },  
+ 971496: ($0, $1) => { if($1){if(Module.gwOnlineFileSize)Module.gwOnlineFileSize(UTF8ToString($0));} else if(Module.gwDiscoverOnline)Module.gwDiscoverOnline(UTF8ToString($0)); },  
+ 971653: ($0, $1, $2, $3, $4, $5) => { if($4 && Module.gwDownloadOnline) {Module.gwDownloadOnline(UTF8ToString($0),!!$1,!!$2,!!$3,UTF8ToString($5));return;} if(Module.gwOpenOnline) Module.gwOpenOnline(UTF8ToString($0),!!$1,!!$2,!!$3); },  
+ 971853: () => { return document.getElementById('canvas').width || window.innerWidth; },  
+ 971926: () => { return document.getElementById('canvas').height || window.innerHeight; },  
+ 972001: () => { if(!Module.gwCommandQueue || !Module.gwCommandQueue.length) return 0; Module.gwActiveCommand=Module.gwCommandQueue.shift(); var text=Module.gwActiveCommand.text; var bytes=lengthBytesUTF8(text)+1;var ptr=_malloc(bytes); stringToUTF8(text,ptr,bytes);return ptr; },  
+ 972266: () => { return Module.gwOnlineCancelled?1:0; },  
+ 972305: () => { return Module.gwOnlineAsTrack?1:0; },  
+ 972342: () => { return Module.gwOnlineCheckAssembly?1:0; },  
+ 972385: () => { return Module.gwOnlineAsTable?1:0; },  
+ 972422: ($0) => { if(Module.gwCompleteCommand)Module.gwCompleteCommand(UTF8ToString($0)); },  
+ 972496: ($0, $1, $2) => { if(Module.gwPublishState)Module.gwPublishState({shared:{theme:UTF8ToString($0),regions:UTF8ToString($1).split(String.fromCharCode(10)).filter(Boolean),alignments:UTF8ToString($2).split(String.fromCharCode(10)).filter(Boolean)}}); },  
+ 972730: () => { if (typeof IDBFS !== 'undefined') { FS.syncfs(false, function(err) { if (err) console.warn('[GW] IDBFS save error:', err); }); } },  
+ 972859: () => { Module.gwOnlineCommitting=true; }
 };
 function __asyncjs__gw_mount_remote_js(url) { return Asyncify.handleAsync(async () => { try { var api=await import('./online-files.mjs'); var resource={id:'reference', name:'Reference', category:'reference', url:UTF8ToString(url)}; var prepared=await api.prepareOnline(resource, {FS:FS, Module:Module, status:function(text){console.log(text);}}); var text=prepared.entry.url; var bytes=lengthBytesUTF8(text)+1; var ptr=_malloc(bytes);stringToUTF8(text,ptr,bytes);return ptr; } catch(error) {console.error('[GW] Cannot stream reference:',error);return 0;} }); }
 
@@ -11370,13 +11370,7 @@ var wasmImports = {
   /** @export */
   invoke_iif,
   /** @export */
-  invoke_iiff,
-  /** @export */
-  invoke_iiffff,
-  /** @export */
   invoke_iii,
-  /** @export */
-  invoke_iiif,
   /** @export */
   invoke_iiiffii,
   /** @export */
@@ -11444,6 +11438,8 @@ var wasmImports = {
   /** @export */
   invoke_vifffffiif,
   /** @export */
+  invoke_vifffffiifii,
+  /** @export */
   invoke_viffffi,
   /** @export */
   invoke_viffffiifdf,
@@ -11477,8 +11473,6 @@ var wasmImports = {
   invoke_viii,
   /** @export */
   invoke_viiifffffffiiiii,
-  /** @export */
-  invoke_viiiffffffiiiii,
   /** @export */
   invoke_viiii,
   /** @export */
@@ -11558,17 +11552,15 @@ var dynCall_viiiii = Module['dynCall_viiiii'] = (a0, a1, a2, a3, a4, a5) => (dyn
 var dynCall_viiiiii = Module['dynCall_viiiiii'] = (a0, a1, a2, a3, a4, a5, a6) => (dynCall_viiiiii = Module['dynCall_viiiiii'] = wasmExports['dynCall_viiiiii'])(a0, a1, a2, a3, a4, a5, a6);
 var dynCall_iiji = Module['dynCall_iiji'] = (a0, a1, a2, a3, a4) => (dynCall_iiji = Module['dynCall_iiji'] = wasmExports['dynCall_iiji'])(a0, a1, a2, a3, a4);
 var dynCall_viiffii = Module['dynCall_viiffii'] = (a0, a1, a2, a3, a4, a5, a6) => (dynCall_viiffii = Module['dynCall_viiffii'] = wasmExports['dynCall_viiffii'])(a0, a1, a2, a3, a4, a5, a6);
-var dynCall_iiff = Module['dynCall_iiff'] = (a0, a1, a2, a3) => (dynCall_iiff = Module['dynCall_iiff'] = wasmExports['dynCall_iiff'])(a0, a1, a2, a3);
 var dynCall_viiffi = Module['dynCall_viiffi'] = (a0, a1, a2, a3, a4, a5) => (dynCall_viiffi = Module['dynCall_viiffi'] = wasmExports['dynCall_viiffi'])(a0, a1, a2, a3, a4, a5);
 var dynCall_fiiiiii = Module['dynCall_fiiiiii'] = (a0, a1, a2, a3, a4, a5, a6) => (dynCall_fiiiiii = Module['dynCall_fiiiiii'] = wasmExports['dynCall_fiiiiii'])(a0, a1, a2, a3, a4, a5, a6);
-var dynCall_viiiffffffiiiii = Module['dynCall_viiiffffffiiiii'] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) => (dynCall_viiiffffffiiiii = Module['dynCall_viiiffffffiiiii'] = wasmExports['dynCall_viiiffffffiiiii'])(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14);
+var dynCall_vifffffiifii = Module['dynCall_vifffffiifii'] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) => (dynCall_vifffffiifii = Module['dynCall_vifffffiifii'] = wasmExports['dynCall_vifffffiifii'])(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
 var dynCall_viiiiiiiiifffffiif = Module['dynCall_viiiiiiiiifffffiif'] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17) => (dynCall_viiiiiiiiifffffiif = Module['dynCall_viiiiiiiiifffffiif'] = wasmExports['dynCall_viiiiiiiiifffffiif'])(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17);
 var dynCall_viiiiiiffffffiiiiff = Module['dynCall_viiiiiiffffffiiiiff'] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18) => (dynCall_viiiiiiffffffiiiiff = Module['dynCall_viiiiiiffffffiiiiff'] = wasmExports['dynCall_viiiiiiffffffiiiiff'])(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18);
 var dynCall_viiiiiffffffifi = Module['dynCall_viiiiiffffffifi'] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) => (dynCall_viiiiiffffffifi = Module['dynCall_viiiiiffffffifi'] = wasmExports['dynCall_viiiiiffffffifi'])(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14);
 var dynCall_vif = Module['dynCall_vif'] = (a0, a1, a2) => (dynCall_vif = Module['dynCall_vif'] = wasmExports['dynCall_vif'])(a0, a1, a2);
-var dynCall_iiif = Module['dynCall_iiif'] = (a0, a1, a2, a3) => (dynCall_iiif = Module['dynCall_iiif'] = wasmExports['dynCall_iiif'])(a0, a1, a2, a3);
+var dynCall_iif = Module['dynCall_iif'] = (a0, a1, a2) => (dynCall_iif = Module['dynCall_iif'] = wasmExports['dynCall_iif'])(a0, a1, a2);
 var dynCall_viffffi = Module['dynCall_viffffi'] = (a0, a1, a2, a3, a4, a5, a6) => (dynCall_viffffi = Module['dynCall_viffffi'] = wasmExports['dynCall_viffffi'])(a0, a1, a2, a3, a4, a5, a6);
-var dynCall_iiffff = Module['dynCall_iiffff'] = (a0, a1, a2, a3, a4, a5) => (dynCall_iiffff = Module['dynCall_iiffff'] = wasmExports['dynCall_iiffff'])(a0, a1, a2, a3, a4, a5);
 var dynCall_vifffffiif = Module['dynCall_vifffffiif'] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) => (dynCall_vifffffiif = Module['dynCall_vifffffiif'] = wasmExports['dynCall_vifffffiif'])(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9);
 var dynCall_viffffiifdf = Module['dynCall_viffffiifdf'] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) => (dynCall_viffffiifdf = Module['dynCall_viffffiifdf'] = wasmExports['dynCall_viffffiifdf'])(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
 var dynCall_viiiiiifffffffiiiiiiiiiiiiffi = Module['dynCall_viiiiiifffffffiiiiiiiiiiiiffi'] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28) => (dynCall_viiiiiifffffffiiiiiiiiiiiiffi = Module['dynCall_viiiiiifffffffiiiiiiiiiiiiffi'] = wasmExports['dynCall_viiiiiifffffffiiiiiiiiiiiiffi'])(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28);
@@ -11598,7 +11590,6 @@ var dynCall_d = Module['dynCall_d'] = (a0) => (dynCall_d = Module['dynCall_d'] =
 var dynCall_vfii = Module['dynCall_vfii'] = (a0, a1, a2, a3) => (dynCall_vfii = Module['dynCall_vfii'] = wasmExports['dynCall_vfii'])(a0, a1, a2, a3);
 var dynCall_viifffiii = Module['dynCall_viifffiii'] = (a0, a1, a2, a3, a4, a5, a6, a7, a8) => (dynCall_viifffiii = Module['dynCall_viifffiii'] = wasmExports['dynCall_viifffiii'])(a0, a1, a2, a3, a4, a5, a6, a7, a8);
 var dynCall_fiii = Module['dynCall_fiii'] = (a0, a1, a2, a3) => (dynCall_fiii = Module['dynCall_fiii'] = wasmExports['dynCall_fiii'])(a0, a1, a2, a3);
-var dynCall_iif = Module['dynCall_iif'] = (a0, a1, a2) => (dynCall_iif = Module['dynCall_iif'] = wasmExports['dynCall_iif'])(a0, a1, a2);
 var dynCall_viiiifi = Module['dynCall_viiiifi'] = (a0, a1, a2, a3, a4, a5, a6) => (dynCall_viiiifi = Module['dynCall_viiiifi'] = wasmExports['dynCall_viiiifi'])(a0, a1, a2, a3, a4, a5, a6);
 var dynCall_viiiifif = Module['dynCall_viiiifif'] = (a0, a1, a2, a3, a4, a5, a6, a7) => (dynCall_viiiifif = Module['dynCall_viiiifif'] = wasmExports['dynCall_viiiifif'])(a0, a1, a2, a3, a4, a5, a6, a7);
 var dynCall_viif = Module['dynCall_viif'] = (a0, a1, a2, a3) => (dynCall_viif = Module['dynCall_viif'] = wasmExports['dynCall_viif'])(a0, a1, a2, a3);
@@ -11618,20 +11609,20 @@ var dynCall_viiiiiiiiii = Module['dynCall_viiiiiiiiii'] = (a0, a1, a2, a3, a4, a
 var dynCall_viff = Module['dynCall_viff'] = (a0, a1, a2, a3) => (dynCall_viff = Module['dynCall_viff'] = wasmExports['dynCall_viff'])(a0, a1, a2, a3);
 var dynCall_vid = Module['dynCall_vid'] = (a0, a1, a2) => (dynCall_vid = Module['dynCall_vid'] = wasmExports['dynCall_vid'])(a0, a1, a2);
 var dynCall_iiiif = Module['dynCall_iiiif'] = (a0, a1, a2, a3, a4) => (dynCall_iiiif = Module['dynCall_iiiif'] = wasmExports['dynCall_iiiif'])(a0, a1, a2, a3, a4);
+var dynCall_fif = Module['dynCall_fif'] = (a0, a1, a2) => (dynCall_fif = Module['dynCall_fif'] = wasmExports['dynCall_fif'])(a0, a1, a2);
+var dynCall_fiifi = Module['dynCall_fiifi'] = (a0, a1, a2, a3, a4) => (dynCall_fiifi = Module['dynCall_fiifi'] = wasmExports['dynCall_fiifi'])(a0, a1, a2, a3, a4);
 var dynCall_fi = Module['dynCall_fi'] = (a0, a1) => (dynCall_fi = Module['dynCall_fi'] = wasmExports['dynCall_fi'])(a0, a1);
 var dynCall_viiiiiiiiiiiiiii = Module['dynCall_viiiiiiiiiiiiiii'] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) => (dynCall_viiiiiiiiiiiiiii = Module['dynCall_viiiiiiiiiiiiiii'] = wasmExports['dynCall_viiiiiiiiiiiiiii'])(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15);
 var dynCall_viji = Module['dynCall_viji'] = (a0, a1, a2, a3, a4) => (dynCall_viji = Module['dynCall_viji'] = wasmExports['dynCall_viji'])(a0, a1, a2, a3, a4);
 var dynCall_vijiii = Module['dynCall_vijiii'] = (a0, a1, a2, a3, a4, a5, a6) => (dynCall_vijiii = Module['dynCall_vijiii'] = wasmExports['dynCall_vijiii'])(a0, a1, a2, a3, a4, a5, a6);
 var dynCall_viiffff = Module['dynCall_viiffff'] = (a0, a1, a2, a3, a4, a5, a6) => (dynCall_viiffff = Module['dynCall_viiffff'] = wasmExports['dynCall_viiffff'])(a0, a1, a2, a3, a4, a5, a6);
 var dynCall_viiiiij = Module['dynCall_viiiiij'] = (a0, a1, a2, a3, a4, a5, a6, a7) => (dynCall_viiiiij = Module['dynCall_viiiiij'] = wasmExports['dynCall_viiiiij'])(a0, a1, a2, a3, a4, a5, a6, a7);
-var dynCall_fiff = Module['dynCall_fiff'] = (a0, a1, a2, a3) => (dynCall_fiff = Module['dynCall_fiff'] = wasmExports['dynCall_fiff'])(a0, a1, a2, a3);
-var dynCall_viiiiiffii = Module['dynCall_viiiiiffii'] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) => (dynCall_viiiiiffii = Module['dynCall_viiiiiffii'] = wasmExports['dynCall_viiiiiffii'])(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9);
 var dynCall_ddd = Module['dynCall_ddd'] = (a0, a1, a2) => (dynCall_ddd = Module['dynCall_ddd'] = wasmExports['dynCall_ddd'])(a0, a1, a2);
+var dynCall_di = Module['dynCall_di'] = (a0, a1) => (dynCall_di = Module['dynCall_di'] = wasmExports['dynCall_di'])(a0, a1);
 var dynCall_dddd = Module['dynCall_dddd'] = (a0, a1, a2, a3) => (dynCall_dddd = Module['dynCall_dddd'] = wasmExports['dynCall_dddd'])(a0, a1, a2, a3);
 var dynCall_idd = Module['dynCall_idd'] = (a0, a1, a2) => (dynCall_idd = Module['dynCall_idd'] = wasmExports['dynCall_idd'])(a0, a1, a2);
-var dynCall_di = Module['dynCall_di'] = (a0, a1) => (dynCall_di = Module['dynCall_di'] = wasmExports['dynCall_di'])(a0, a1);
-var dynCall_fif = Module['dynCall_fif'] = (a0, a1, a2) => (dynCall_fif = Module['dynCall_fif'] = wasmExports['dynCall_fif'])(a0, a1, a2);
-var dynCall_fiifi = Module['dynCall_fiifi'] = (a0, a1, a2, a3, a4) => (dynCall_fiifi = Module['dynCall_fiifi'] = wasmExports['dynCall_fiifi'])(a0, a1, a2, a3, a4);
+var dynCall_fiff = Module['dynCall_fiff'] = (a0, a1, a2, a3) => (dynCall_fiff = Module['dynCall_fiff'] = wasmExports['dynCall_fiff'])(a0, a1, a2, a3);
+var dynCall_viiiiiffii = Module['dynCall_viiiiiffii'] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) => (dynCall_viiiiiffii = Module['dynCall_viiiiiffii'] = wasmExports['dynCall_viiiiiffii'])(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9);
 var dynCall_viiiiiiiii = Module['dynCall_viiiiiiiii'] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) => (dynCall_viiiiiiiii = Module['dynCall_viiiiiiiii'] = wasmExports['dynCall_viiiiiiiii'])(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9);
 var dynCall_viiif = Module['dynCall_viiif'] = (a0, a1, a2, a3, a4) => (dynCall_viiif = Module['dynCall_viiif'] = wasmExports['dynCall_viiif'])(a0, a1, a2, a3, a4);
 var dynCall_vffff = Module['dynCall_vffff'] = (a0, a1, a2, a3, a4) => (dynCall_vffff = Module['dynCall_vffff'] = wasmExports['dynCall_vffff'])(a0, a1, a2, a3, a4);
@@ -11641,11 +11632,6 @@ var dynCall_viifff = Module['dynCall_viifff'] = (a0, a1, a2, a3, a4, a5) => (dyn
 var dynCall_vifff = Module['dynCall_vifff'] = (a0, a1, a2, a3, a4) => (dynCall_vifff = Module['dynCall_vifff'] = wasmExports['dynCall_vifff'])(a0, a1, a2, a3, a4);
 var dynCall_iiiiiiiiiii = Module['dynCall_iiiiiiiiiii'] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) => (dynCall_iiiiiiiiiii = Module['dynCall_iiiiiiiiiii'] = wasmExports['dynCall_iiiiiiiiiii'])(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
 var dynCall_iiiiiiiiii = Module['dynCall_iiiiiiiiii'] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) => (dynCall_iiiiiiiiii = Module['dynCall_iiiiiiiiii'] = wasmExports['dynCall_iiiiiiiiii'])(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9);
-var dynCall_viid = Module['dynCall_viid'] = (a0, a1, a2, a3) => (dynCall_viid = Module['dynCall_viid'] = wasmExports['dynCall_viid'])(a0, a1, a2, a3);
-var dynCall_viddi = Module['dynCall_viddi'] = (a0, a1, a2, a3, a4) => (dynCall_viddi = Module['dynCall_viddi'] = wasmExports['dynCall_viddi'])(a0, a1, a2, a3, a4);
-var dynCall_vifii = Module['dynCall_vifii'] = (a0, a1, a2, a3, a4) => (dynCall_vifii = Module['dynCall_vifii'] = wasmExports['dynCall_vifii'])(a0, a1, a2, a3, a4);
-var dynCall_viifd = Module['dynCall_viifd'] = (a0, a1, a2, a3, a4) => (dynCall_viifd = Module['dynCall_viifd'] = wasmExports['dynCall_viifd'])(a0, a1, a2, a3, a4);
-var dynCall_iiffi = Module['dynCall_iiffi'] = (a0, a1, a2, a3, a4) => (dynCall_iiffi = Module['dynCall_iiffi'] = wasmExports['dynCall_iiffi'])(a0, a1, a2, a3, a4);
 var dynCall_jiiiiii = Module['dynCall_jiiiiii'] = (a0, a1, a2, a3, a4, a5, a6) => (dynCall_jiiiiii = Module['dynCall_jiiiiii'] = wasmExports['dynCall_jiiiiii'])(a0, a1, a2, a3, a4, a5, a6);
 var dynCall_jiiiiji = Module['dynCall_jiiiiji'] = (a0, a1, a2, a3, a4, a5, a6, a7) => (dynCall_jiiiiji = Module['dynCall_jiiiiji'] = wasmExports['dynCall_jiiiiji'])(a0, a1, a2, a3, a4, a5, a6, a7);
 var dynCall_iijj = Module['dynCall_iijj'] = (a0, a1, a2, a3, a4, a5) => (dynCall_iijj = Module['dynCall_iijj'] = wasmExports['dynCall_iijj'])(a0, a1, a2, a3, a4, a5);
@@ -11666,6 +11652,7 @@ var dynCall_diii = Module['dynCall_diii'] = (a0, a1, a2, a3) => (dynCall_diii = 
 var dynCall_iiiiiiiiiiii = Module['dynCall_iiiiiiiiiiii'] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) => (dynCall_iiiiiiiiiiii = Module['dynCall_iiiiiiiiiiii'] = wasmExports['dynCall_iiiiiiiiiiii'])(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
 var dynCall_iiiiijj = Module['dynCall_iiiiijj'] = (a0, a1, a2, a3, a4, a5, a6, a7, a8) => (dynCall_iiiiijj = Module['dynCall_iiiiijj'] = wasmExports['dynCall_iiiiijj'])(a0, a1, a2, a3, a4, a5, a6, a7, a8);
 var dynCall_iiiiiijj = Module['dynCall_iiiiiijj'] = (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) => (dynCall_iiiiiijj = Module['dynCall_iiiiiijj'] = wasmExports['dynCall_iiiiiijj'])(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9);
+var dynCall_viid = Module['dynCall_viid'] = (a0, a1, a2, a3) => (dynCall_viid = Module['dynCall_viid'] = wasmExports['dynCall_viid'])(a0, a1, a2, a3);
 var _asyncify_start_unwind = (a0) => (_asyncify_start_unwind = wasmExports['asyncify_start_unwind'])(a0);
 var _asyncify_stop_unwind = () => (_asyncify_stop_unwind = wasmExports['asyncify_stop_unwind'])();
 var _asyncify_start_rewind = (a0) => (_asyncify_start_rewind = wasmExports['asyncify_start_rewind'])(a0);
@@ -11825,17 +11812,6 @@ function invoke_viiffii(index,a1,a2,a3,a4,a5,a6) {
   }
 }
 
-function invoke_iiff(index,a1,a2,a3) {
-  var sp = stackSave();
-  try {
-    return dynCall_iiff(index,a1,a2,a3);
-  } catch(e) {
-    stackRestore(sp);
-    if (e !== e+0) throw e;
-    _setThrew(1, 0);
-  }
-}
-
 function invoke_viiffi(index,a1,a2,a3,a4,a5) {
   var sp = stackSave();
   try {
@@ -11858,10 +11834,10 @@ function invoke_fiiiiii(index,a1,a2,a3,a4,a5,a6) {
   }
 }
 
-function invoke_viiiffffffiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14) {
+function invoke_vifffffiifii(index,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11) {
   var sp = stackSave();
   try {
-    dynCall_viiiffffffiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14);
+    dynCall_vifffffiifii(index,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11);
   } catch(e) {
     stackRestore(sp);
     if (e !== e+0) throw e;
@@ -11913,10 +11889,10 @@ function invoke_vif(index,a1,a2) {
   }
 }
 
-function invoke_iiif(index,a1,a2,a3) {
+function invoke_iif(index,a1,a2) {
   var sp = stackSave();
   try {
-    return dynCall_iiif(index,a1,a2,a3);
+    return dynCall_iif(index,a1,a2);
   } catch(e) {
     stackRestore(sp);
     if (e !== e+0) throw e;
@@ -11928,17 +11904,6 @@ function invoke_viffffi(index,a1,a2,a3,a4,a5,a6) {
   var sp = stackSave();
   try {
     dynCall_viffffi(index,a1,a2,a3,a4,a5,a6);
-  } catch(e) {
-    stackRestore(sp);
-    if (e !== e+0) throw e;
-    _setThrew(1, 0);
-  }
-}
-
-function invoke_iiffff(index,a1,a2,a3,a4,a5) {
-  var sp = stackSave();
-  try {
-    return dynCall_iiffff(index,a1,a2,a3,a4,a5);
   } catch(e) {
     stackRestore(sp);
     if (e !== e+0) throw e;
@@ -12232,17 +12197,6 @@ function invoke_fiii(index,a1,a2,a3) {
   }
 }
 
-function invoke_iif(index,a1,a2) {
-  var sp = stackSave();
-  try {
-    return dynCall_iif(index,a1,a2);
-  } catch(e) {
-    stackRestore(sp);
-    if (e !== e+0) throw e;
-    _setThrew(1, 0);
-  }
-}
-
 function invoke_viiiifi(index,a1,a2,a3,a4,a5,a6) {
   var sp = stackSave();
   try {
@@ -12419,10 +12373,10 @@ function invoke_vid(index,a1,a2) {
   }
 }
 
-function invoke_viiiiiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8,a9) {
+function invoke_iiiiiiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8,a9) {
   var sp = stackSave();
   try {
-    dynCall_viiiiiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8,a9);
+    return dynCall_iiiiiiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8,a9);
   } catch(e) {
     stackRestore(sp);
     if (e !== e+0) throw e;
@@ -12430,10 +12384,10 @@ function invoke_viiiiiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8,a9) {
   }
 }
 
-function invoke_iiiiiiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8,a9) {
+function invoke_viiiiiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8,a9) {
   var sp = stackSave();
   try {
-    return dynCall_iiiiiiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8,a9);
+    dynCall_viiiiiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8,a9);
   } catch(e) {
     stackRestore(sp);
     if (e !== e+0) throw e;

@@ -17,7 +17,10 @@ JOBS ?= 2
 THIS_DIR       := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 REPO_ROOT      := $(abspath $(THIS_DIR)/../..)
 
-WASM_SKIA_PATH ?= $(THIS_DIR)/out/skia_wasm
+# Prefer the published m143 package when unpacked locally; source builds remain supported.
+WASM_SKIA_PACKAGE := $(THIS_DIR)/out/skia_m143
+WASM_SKIA_SRC ?= $(if $(wildcard $(WASM_SKIA_PACKAGE)/out/Release/libskia.a),$(WASM_SKIA_PACKAGE),$(THIS_DIR)/skia)
+WASM_SKIA_PATH ?= $(if $(wildcard $(WASM_SKIA_PACKAGE)/out/Release/libskia.a),$(WASM_SKIA_PACKAGE)/out/Release,$(THIS_DIR)/out/skia_wasm)
 WASM_HTS_PATH  ?= $(THIS_DIR)/out/htslib
 WASM_LZMA_PATH ?= $(THIS_DIR)/xz-5.2.5/src/liblzma/.libs
 
@@ -35,11 +38,12 @@ WASM_LDFLAGS_EXTRA := \
 .PHONY: all clean serve
 
 all:
-	@grep -Eq '^\#define SK_MILESTONE 143$$' $(THIS_DIR)/skia/include/core/SkMilestone.h || { echo "WASM requires Skia m143; rebuild dependencies with bash deps/wasm/build.sh"; exit 1; }
+	@grep -Eq '^\#define SK_MILESTONE 143$$' $(WASM_SKIA_SRC)/include/core/SkMilestone.h || { echo "WASM requires Skia m143; rebuild dependencies with bash deps/wasm/build.sh"; exit 1; }
 	cd $(REPO_ROOT) && env -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS -u LDLIBS emmake $(MAKE) $(if $(filter -j%,$(MAKEFLAGS)),,-j$(JOBS)) EMSCRIPTEN=1 \
 	    TARGET=$(THIS_DIR)/gw.html \
-	    WASM_BUILD_DIR=$(THIS_DIR)/out/gw_objects \
+	    WASM_BUILD_DIR=$(THIS_DIR)/out/gw_objects_m143 \
 	    WASM_SKIA_PATH=$(WASM_SKIA_PATH) \
+	    WASM_SKIA_SRC=$(WASM_SKIA_SRC) \
 	    WASM_HTS_PATH=$(WASM_HTS_PATH) \
 	    WASM_LZMA_PATH=$(WASM_LZMA_PATH) \
 	    "WASM_LDFLAGS_EXTRA=$(WASM_LDFLAGS_EXTRA)" \
@@ -49,6 +53,6 @@ serve:
 	python3 $(THIS_DIR)/serve.py
 
 clean:
-	rm -rf $(THIS_DIR)/out/gw_objects
+	rm -rf $(THIS_DIR)/out/gw_objects $(THIS_DIR)/out/gw_objects_m143
 	rm -f $(THIS_DIR)/gw.html $(THIS_DIR)/gw.js \
 	      $(THIS_DIR)/gw.wasm $(THIS_DIR)/gw.data

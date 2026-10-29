@@ -1282,7 +1282,12 @@ namespace Manager {
                 autoSaveTimer = std::chrono::high_resolution_clock::now();
             }
 
-            if (redraw) {
+            bool sceneRedraw = redraw;
+            redraw = false;
+            prepareImGui(pending_settings_close);
+            sceneRedraw = sceneRedraw || redraw;
+            const bool uiRedraw = redraw;
+            if (sceneRedraw) {
                 if (mode == Show::SINGLE) {
                     drawScreen();
                 } else if (mode == Show::TILED) {
@@ -1295,8 +1300,8 @@ namespace Manager {
                 drawOverlay(sSurface->getCanvas());
             }
             sContext->flush();
-            redraw = false;
-            overlayImGui(pending_settings_close);
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+            redraw = uiRedraw;
             glfwSwapBuffers(window);
             if (redraw) {
                 glfwPostEmptyEvent();
@@ -1472,7 +1477,14 @@ namespace Manager {
                 s.autoSaveTimer = std::chrono::high_resolution_clock::now();
             }
 
-            if (p->redraw) {
+            // Complete variant-list/detail reads before touching the WebGL backbuffer.
+            // Asyncify can return control to the browser while those reads are pending.
+            bool sceneRedraw = p->redraw;
+            p->redraw = false;
+            p->prepareImGui(s.pending_settings_close);
+            sceneRedraw = sceneRedraw || p->redraw;
+            const bool uiRedraw = p->redraw;
+            if (sceneRedraw) {
                 if (p->mode == Show::SINGLE) {
                     p->drawScreen();
                 } else if (p->mode == Show::TILED) {
@@ -1484,8 +1496,8 @@ namespace Manager {
                 p->drawOverlay(sSurf->getCanvas());
             }
             sCtx->flush();
-            p->redraw = false;
-            p->overlayImGui(s.pending_settings_close);
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+            p->redraw = uiRedraw;
             glfwSwapBuffers(s.wind);
             std::string browserRegions, browserFiles;
             for(const auto& region:p->regions) browserRegions+=region.chrom+":"+std::to_string(region.start+1)+"-"+std::to_string(region.end)+"\n";
@@ -2066,7 +2078,7 @@ namespace Manager {
         ctx.mouseX = xPos_fb;
     }
 
-    void GwPlot::overlayImGui(bool& pending_settings_close, void (*background)(), void (*input)()) {
+    void GwPlot::prepareImGui(bool& pending_settings_close, void (*background)(), void (*input)()) {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
 
@@ -2179,6 +2191,10 @@ namespace Manager {
 
         if (input) input(); // Consume wheel deltas before EndFrame clears them.
         ImGui::Render();
+    }
+
+    void GwPlot::overlayImGui(bool& pending_settings_close, void (*background)(), void (*input)()) {
+        prepareImGui(pending_settings_close, background, input);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     }
 

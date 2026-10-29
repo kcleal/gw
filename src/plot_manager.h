@@ -370,6 +370,8 @@ namespace Manager {
         int printRegionInfo();
         void highlightQname();
         std::string flushLog();
+        // Build UI and finish any lazy file reads before drawing to the GPU framebuffer.
+        void prepareImGui(bool& pending_settings_close, void (*background)() = nullptr, void (*input)() = nullptr);
         // Existing overlay, reusable above a locally or remotely rendered frame.
         void overlayImGui(bool& pending_settings_close, void (*background)() = nullptr, void (*input)() = nullptr);
         // Optional UI-only transport. Never consulted by drawing/read-packing loops.

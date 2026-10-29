@@ -32,13 +32,30 @@ make -C deps/wasm serve
 
 Use your own emsdk installation path if different. The wrapper removes inherited
 native compiler/linker flags (for example conda's macOS linker flags). Browser
-objects live in `deps/wasm/out/gw_objects`, separate from native GW objects.
+objects live in `deps/wasm/out/gw_objects_m143`, separate from native GW objects.
 The WASM build uses headers from `deps/wasm/skia`, never native `lib/skia`.
 
 Output is `deps/wasm/gw.html`, `gw.js`, `gw.wasm` and `gw.data`. Keep these four
 files together when hosting. Reload the browser after rebuilding.
 `make -C deps/wasm clean` removes only the demo outputs and WASM GW objects;
 it retains dependency libraries and native GW objects.
+
+## Use the published Skia m143 package
+
+The wrapper automatically selects matching headers and libraries from
+`deps/wasm/out/skia_m143` when the published package is unpacked there:
+
+```sh
+mkdir -p deps/wasm/out/skia_m143
+curl -fL https://github.com/kcleal/skia_build_arm64/releases/download/m143/skia-m143-wasm.tar.gz \
+  -o /tmp/skia-m143-wasm.tar.gz
+tar -xzf /tmp/skia-m143-wasm.tar.gz -C deps/wasm/out/skia_m143
+make -C deps/wasm
+```
+
+This package uses Emscripten 3.1.65, matching the existing HTSlib/XZ dependencies.
+`WASM_SKIA_SRC` and `WASM_SKIA_PATH` can override the header and library paths.
+Objects are isolated from the older m133 cache.
 
 ## Build dependencies from scratch
 
