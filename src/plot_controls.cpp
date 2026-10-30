@@ -12,6 +12,7 @@
 #include <iterator>
 #include <cstdlib>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <vector>
 #include <htslib/sam.h>
@@ -2314,16 +2315,73 @@ namespace Manager {
                             }
                             const char *label = "Gene";  // fallback when the click resolves to no specific exon/intron
                             int segStart = b.start, segEnd = b.end;  // fallback: whole transcript/gene span
+                            size_t segIdx = 0;  // the clicked box, or the box left of the clicked intron
                             for (size_t k = 0; k < merged.size(); ++k) {
                                 if (merged[k].first <= target && target <= merged[k].second) {
-                                    label = "Exon"; segStart = merged[k].first; segEnd = merged[k].second; break;
+                                    label = "Exon"; segStart = merged[k].first; segEnd = merged[k].second; segIdx = k; break;
                                 }
                                 if (k + 1 < merged.size() && target > merged[k].second && target < merged[k + 1].first) {
-                                    label = "Intron"; segStart = merged[k].second; segEnd = merged[k + 1].first; break;
+                                    label = "Intron"; segStart = merged[k].second; segEnd = merged[k + 1].first; segIdx = k; break;
                                 }
                             }
+                            // b.name is the label of the transcript's first child, so name the
+                            // clicked exon or intron from the exon lines themselves.
+                            // b.parts holds each child's GFF columns then a "\n".
+                            auto exonAttrsAt = [&](int pos) -> const std::string* {
+                                size_t i = 0;
+                                while (i < b.parts.size()) {
+                                    size_t j = i;
+                                    while (j < b.parts.size() && b.parts[j] != "\n") ++j;
+                                    if (j - i >= 9 && b.parts[i + 2] == "exon") {
+                                        int exStart = std::atoi(b.parts[i + 3].c_str()) - 1;
+                                        int exEnd = std::atoi(b.parts[i + 4].c_str());
+                                        if (exStart <= pos && pos <= exEnd) return &b.parts[i + 8];
+                                    }
+                                    i = j + 1;
+                                }
+                                return nullptr;
+                            };
+                            // Value of a GFF3 (key=value) or GTF (key "value") attribute, or "".
+                            auto attrValue = [](const std::string *attrs, const std::string &key) -> std::string {
+                                if (attrs == nullptr) return "";
+                                for (const std::string sep : {"=", " \""}) {
+                                    const std::string pat = key + sep;
+                                    size_t p = attrs->find(pat);
+                                    while (p != std::string::npos && p != 0 && (*attrs)[p - 1] != ';' && (*attrs)[p - 1] != ' ') {
+                                        p = attrs->find(pat, p + 1);
+                                    }
+                                    if (p == std::string::npos) continue;
+                                    p += pat.size();
+                                    size_t q = attrs->find_first_of(";\"", p);
+                                    return attrs->substr(p, q == std::string::npos ? std::string::npos : q - p);
+                                }
+                                return "";
+                            };
+                            auto exonId = [&](const std::string *attrs) -> std::string {
+                                std::string id = attrValue(attrs, "ID");
+                                return id.empty() ? attrValue(attrs, "exon_id") : id;
+                            };
+                            std::string displayName = b.name;
+                            std::string extraRows;
+                            if (std::strcmp(label, "Exon") == 0) {
+                                std::string id = exonId(exonAttrsAt(target));
+                                if (!id.empty()) displayName = id;
+                            } else if (std::strcmp(label, "Intron") == 0) {
+                                // Name the intron by its transcript and report the exons either
+                                // side in transcript order; numbering is left to the caller.
+                                const std::string *left = exonAttrsAt(merged[segIdx].second);
+                                const std::string *right = exonAttrsAt(merged[segIdx + 1].first);
+                                std::string transcript = attrValue(left, "transcript_id");
+                                if (transcript.empty()) transcript = attrValue(right, "transcript_id");
+                                displayName = transcript.empty() ? b.parent : transcript;
+                                if (b.strand == 2) std::swap(left, right);
+                                std::string id5 = exonId(left), id3 = exonId(right);
+                                if (!id5.empty()) extraRows += "\t5' exon\t" + id5;
+                                if (!id3.empty()) extraRows += "\t3' exon\t" + id3;
+                            }
                             const char *strand = (b.strand == 1) ? "+" : (b.strand == 2) ? "-" : ".";
-                            selectedFeature = std::string(label) + "\tName\t" + (b.name.empty() ? "(unnamed)" : b.name)
+                            selectedFeature = std::string(label) + "\tName\t" + (displayName.empty() ? "(unnamed)" : displayName)
+                                            + extraRows
                                             + "\tLocation\t" + b.chrom + ":" + Term::intToStringCommas(segStart)
                                             + "-" + Term::intToStringCommas(segEnd)
                                             + "\tStrand\t" + strand
