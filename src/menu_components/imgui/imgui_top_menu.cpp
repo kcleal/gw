@@ -25,6 +25,13 @@ namespace Menu {
 // Per-button icon stroke thickness scales with monitorScale / DisplayFramebufferScale
 // so that on Linux HiDPI (where ImGui's framebuffer scale is 1 but content scale is >1)
 // strokes don't render as 1-pixel hairlines inside oversized buttons.
+// Menu button sizes are framebuffer pixels used as ImGui (CSS) pixels, so they grow
+// with the device pixel ratio. Stop at the 2x Retina size so 3x phone screens keep
+// the buttons inside the menu bar.
+static float menuButtonFit(float monitorScale) {
+    return monitorScale > 2.f ? 2.f / monitorScale : 1.f;
+}
+
 static float iconStrokeThickness(float monitorScale) {
     float fbScale = ImGui::GetIO().DisplayFramebufferScale.x;
     if (fbScale <= 0.f) fbScale = 1.f;
@@ -128,7 +135,10 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
     if (plot->mode == Manager::Show::SETTINGS) return;
     float ms = plot->monitorScale;
     float scrGap = gap / ms;
+    float scrOverlay = overlayHeight / ms;
     float menuY = scrGap * 0.25f;
+    gap *= menuButtonFit(ms);
+    overlayHeight *= menuButtonFit(ms);
     ImGui::SetNextWindowPos(ImVec2(scrGap * 0.5f, menuY), ImGuiCond_Always);
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration
                             | ImGuiWindowFlags_NoBackground
@@ -380,13 +390,8 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
     // Always show at least one box even if no regions are loaded
     if (plot->mode != Manager::Show::SETTINGS) {
         ImGuiIO& io = ImGui::GetIO();
-        float ms = plot->monitorScale;
-        // Convert framebuffer coords to screen coords for ImGui
-        float scrGap = gap / ms;
-        float scrOverlay = overlayHeight / ms;
+        // scrGap and scrOverlay convert the unscaled framebuffer sizes to screen coords
         float rw = plot->regionWidth / ms;
-
-        float menuY = scrGap * 0.25f;
 
         // Background color from Skia theme (use bgMenu to match the Skia menu bar)
         SkColor bgClr = plot->opts.theme.bgMenu.getColor();

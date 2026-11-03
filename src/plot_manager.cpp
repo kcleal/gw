@@ -52,6 +52,7 @@
 #include "drawing.h"
 #include "utils.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include "plot_manager.h"
@@ -84,6 +85,14 @@ namespace Manager {
         if(event.type==3 && !wasmInputEvents.empty() && wasmInputEvents.back().type==3 && wasmInputEvents.back().plot==event.plot)
             wasmInputEvents.back()=event;
         else wasmInputEvents.push_back(event);
+    }
+    // Whether ImGui would take a click at (x, y), judged from last frame's windows.
+    static bool imguiOwnsPoint(double x, double y) {
+        ImGuiContext& g = *ImGui::GetCurrentContext();
+        if (!g.OpenPopupStack.empty()) return true;
+        ImGuiWindow *hovered = nullptr, *underMoving = nullptr;
+        ImGui::FindHoveredWindowEx(ImVec2((float)x, (float)y), false, &hovered, &underMoving);
+        return hovered != nullptr;
     }
 #endif
 
@@ -544,12 +553,20 @@ namespace Manager {
         glfwSetDropCallback(window, func_drop);
 
         auto func_mouse = [](GLFWwindow *w, int b, int a, int m) {
-            if (ImGui::GetIO().WantCaptureMouse) return;
             auto* plot=static_cast<GwPlot *>(glfwGetWindowUserPointer(w));
 #ifdef __EMSCRIPTEN__
+            // A touch moves the cursor and presses in the same instant, before ImGui's next
+            // frame refreshes WantCaptureMouse, so presses are tested at the press point.
+            // A release is always sent for a press GW received, so drags cannot stick.
+            static bool pressSent[GLFW_MOUSE_BUTTON_LAST + 1] = {};
+            bool known = b >= 0 && b <= GLFW_MOUSE_BUTTON_LAST;
             double x,y;glfwGetCursorPos(w,&x,&y);
+            if (a == GLFW_PRESS ? imguiOwnsPoint(x, y)
+                                : !(known && pressSent[b]) && ImGui::GetIO().WantCaptureMouse) return;
+            if (known) pressSent[b] = a == GLFW_PRESS;
             queueWasmInput({plot,2,b,a,m,0,x,y});
 #else
+            if (ImGui::GetIO().WantCaptureMouse) return;
             plot->mouseButton(b,a,m);
 #endif
         };

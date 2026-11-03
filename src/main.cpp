@@ -64,6 +64,21 @@ extern "C" EMSCRIPTEN_KEEPALIVE void gw_notify_resize(int w, int h) {
     if (!g_wasm_plot || !g_wasm_plot->window) return;
     glfwSetWindowSize(g_wasm_plot->window, w, h);
 }
+
+// Mobile browsers only open the on-screen keyboard for a focused text field, so the
+// page types into a hidden <input> while GW wants text and forwards it here. Input
+// goes through ImGui's GLFW callbacks, which chain on to GW's own key/char handlers.
+extern "C" EMSCRIPTEN_KEEPALIVE int gw_wants_text_input() {
+    return g_wasm_plot && (ImGui::GetIO().WantTextInput || g_wasm_plot->commandBoxOpen());
+}
+extern "C" EMSCRIPTEN_KEEPALIVE void gw_text_char(unsigned int codepoint) {
+    if (g_wasm_plot && g_wasm_plot->window) ImGui_ImplGlfw_CharCallback(g_wasm_plot->window, codepoint);
+}
+extern "C" EMSCRIPTEN_KEEPALIVE void gw_text_key(int key) {
+    if (!g_wasm_plot || !g_wasm_plot->window) return;
+    ImGui_ImplGlfw_KeyCallback(g_wasm_plot->window, key, 0, GLFW_PRESS, 0);
+    ImGui_ImplGlfw_KeyCallback(g_wasm_plot->window, key, 0, GLFW_RELEASE, 0);
+}
 #endif
 
 

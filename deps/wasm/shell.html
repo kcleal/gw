@@ -40,6 +40,15 @@
       position: absolute;
       top: 0; left: 0;
       width: 100%; height: 100%;
+      touch-action: none;  /* touches drive GW, not page scrolling or zooming */
+    }
+
+    /* Receives on-screen keyboard text for GW; 16px stops iOS zooming in on focus */
+    #gw-text-proxy {
+      position: fixed; top: 0; left: 0;
+      width: 1px; height: 1px; border: 0; padding: 0;
+      opacity: 0; font-size: 16px;
+      pointer-events: none;
     }
 
     /* Toast notification — bottom left, above the chromosome bar, so it never covers
@@ -69,6 +78,8 @@
     <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
     <div id="gw-toast"></div>
   </div>
+  <input id="gw-text-proxy" type="text" tabindex="-1" aria-hidden="true"
+         autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
 
   <!-- Hidden file picker (accepts common genomic formats) -->
   <input id="gw-file-input" type="file" multiple style="display:none"
@@ -120,6 +131,131 @@
       clearTimeout(toast._t);
       toast._t = setTimeout(function() { toast.style.display = 'none'; }, ms || 5000);
     }
+
+    // ── Touch input ──────────────────────────────────────────────────────────
+    // The GLFW port only listens for mouse events, so a one-finger touch is replayed
+    // as a mouse drag. Moving before pressing lets ImGui hit-test the touched point.
+    // preventDefault also stops Safari sending its own delayed mouse events and
+    // zooming the whole page on a pinch.
+    var activeTouch = null;
+    // Two fingers zoom instead: each 25% change in their spread sends one wheel
+    // step, the same zoom step as a mouse wheel notch. pinch = {a, b, spread}.
+    var pinch = null;
+    var PINCH_STEP = 1.25;
+    function sendMouse(type, touch) {
+      gwCanvas.dispatchEvent(new MouseEvent(type, {
+        bubbles: true, cancelable: true, view: window,
+        button: 0, buttons: type === 'mouseup' ? 0 : 1,
+        clientX: touch.clientX, clientY: touch.clientY,
+        screenX: touch.screenX, screenY: touch.screenY
+      }));
+    }
+    function findTouch(list, id) {
+      for (var i = 0; i < list.length; ++i) if (list[i].identifier === id) return list[i];
+      return null;
+    }
+    function spread(a, b) { return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1; }
+    function startDrag(touch) {
+      activeTouch = touch.identifier;
+      sendMouse('mousemove', touch);
+      sendMouse('mousedown', touch);
+    }
+    gwCanvas.addEventListener('touchstart', function(event) {
+      event.preventDefault();
+      if (!gwRunning || pinch) return;
+      if (activeTouch === null && event.touches.length >= 2) {
+        var t0 = event.touches[0], t1 = event.touches[1];
+        pinch = {a: t0.identifier, b: t1.identifier, spread: spread(t0, t1)};
+        return;
+      }
+      if (activeTouch === null) { startDrag(event.changedTouches[0]); return; }
+      // A second finger ends the drag where the first finger is and starts a pinch.
+      var first = findTouch(event.touches, activeTouch);
+      var second = event.changedTouches[0];
+      if (!first || second.identifier === activeTouch) return;
+      sendMouse('mouseup', first);
+      activeTouch = null;
+      pinch = {a: first.identifier, b: second.identifier, spread: spread(first, second)};
+    }, {passive: false});
+    gwCanvas.addEventListener('touchmove', function(event) {
+      event.preventDefault();
+      if (pinch) {
+        var a = findTouch(event.touches, pinch.a), b = findTouch(event.touches, pinch.b);
+        if (!a || !b) return;
+        var now = spread(a, b);
+        var wheel = {bubbles: true, cancelable: true, view: window, deltaMode: 0,
+                     clientX: (a.clientX + b.clientX) / 2, clientY: (a.clientY + b.clientY) / 2};
+        // Spreading zooms in (wheel up); pinching together zooms out (wheel down).
+        while (now >= pinch.spread * PINCH_STEP) {
+          pinch.spread *= PINCH_STEP;
+          gwCanvas.dispatchEvent(new WheelEvent('wheel', Object.assign({deltaY: -100}, wheel)));
+        }
+        while (now <= pinch.spread / PINCH_STEP) {
+          pinch.spread /= PINCH_STEP;
+          gwCanvas.dispatchEvent(new WheelEvent('wheel', Object.assign({deltaY: 100}, wheel)));
+        }
+        return;
+      }
+      var touch = findTouch(event.changedTouches, activeTouch);
+      if (touch) sendMouse('mousemove', touch);
+    }, {passive: false});
+    function endTouch(event) {
+      event.preventDefault();
+      if (pinch) {
+        if (!findTouch(event.changedTouches, pinch.a) && !findTouch(event.changedTouches, pinch.b)) return;
+        // The finger still down carries on as a drag.
+        var rest = findTouch(event.touches, pinch.a) || findTouch(event.touches, pinch.b);
+        pinch = null;
+        if (rest) startDrag(rest);
+        return;
+      }
+      var touch = findTouch(event.changedTouches, activeTouch);
+      if (!touch) return;
+      activeTouch = null;
+      sendMouse('mouseup', touch);
+      // Browsers open the keyboard only for a focus made inside the gesture. Tapping
+      // a text box has made GW want text by the time the finger lifts.
+      if (event.type === 'touchend' && Module._gw_wants_text_input()) textProxy.focus();
+    }
+    gwCanvas.addEventListener('touchend', endTouch, {passive: false});
+    gwCanvas.addEventListener('touchcancel', endTouch, {passive: false});
+    // Safari's own pinch event; cancelling it is a backstop against page zoom.
+    gwCanvas.addEventListener('gesturestart', function(event) { event.preventDefault(); });
+
+    // ── On-screen keyboard ───────────────────────────────────────────────────
+    // GW reads keys only while its canvas has focus, so text typed into the hidden
+    // field is forwarded. A one-space value lets Backspace register as a deletion.
+    var textProxy = document.getElementById('gw-text-proxy');
+    var textProxyKeys = {Escape: 256, Enter: 257, Tab: 258, Delete: 261,
+                         ArrowRight: 262, ArrowLeft: 263, ArrowDown: 264, ArrowUp: 265};
+    function resetTextProxy() { textProxy.value = ' '; textProxy.setSelectionRange(1, 1); }
+    textProxy.addEventListener('focus', resetTextProxy);
+    // GW must not see the canvas lose focus (ImGui would end the edit) or receive
+    // the field's key events a second time through GLFW's document listener.
+    gwCanvas.addEventListener('blur', function(event) {
+      if (event.relatedTarget === textProxy) event.stopImmediatePropagation();
+    });
+    textProxy.addEventListener('keyup', function(event) { event.stopPropagation(); });
+    textProxy.addEventListener('keydown', function(event) {
+      event.stopPropagation();
+      var key = textProxyKeys[event.key];
+      if (key === undefined) return;
+      event.preventDefault();
+      Module._gw_text_key(key);
+    });
+    textProxy.addEventListener('input', function(event) {
+      if (event.inputType && event.inputType.indexOf('delete') === 0) Module._gw_text_key(259);  // Backspace
+      else if (event.data) for (var ch of event.data) Module._gw_text_char(ch.codePointAt(0));
+      resetTextProxy();
+    });
+    // Close the keyboard once GW stops wanting text (Enter, Escape or a tap elsewhere).
+    (function watchTextProxy() {
+      if (gwRunning && document.activeElement === textProxy && !Module._gw_wants_text_input()) {
+        textProxy.blur();
+        gwCanvas.focus();
+      }
+      requestAnimationFrame(watchTextProxy);
+    })();
 
     // Files stay in the browser. Only requested ranges enter WASM memory.
     var localLoader;
