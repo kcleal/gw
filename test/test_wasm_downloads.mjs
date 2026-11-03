@@ -1,0 +1,40 @@
+import assert from 'node:assert/strict';
+import {gzipSync} from 'node:zlib';
+import {downloadOnline,tableRowToBed} from '../deps/wasm/online-files.mjs';
+const files=new Map(),progress=[];
+const FS={lookupPath(path){if(!files.has(path))throw Error("missing");return {};},readFile(path){return Uint8Array.from(files.get(path));},mkdirTree(){},open(path){files.set(path,[]);return {path};},write(stream,data,offset,length){files.get(stream.path).push(...data.subarray(offset,offset+length));return length;},close(){},rename(from,to){files.set(to,files.get(from));files.delete(from);},unlink(path){files.delete(path);}};
+const originalFetch=globalThis.fetch;
+try {
+    const fixture=new Map([['/ref.fa','>chr1\nACGT\n'],['/ref.fa.fai','chr1\t4\t6\t4\t5\n'],['/calls.vcf.gz','vcf fixture'],['/calls.vcf.gz.csi','csi fixture']]);
+    globalThis.fetch=async url=>{
+        const data=fixture.get(new URL(url).pathname);
+        return new Response(data??'missing',{status:data?200:404,headers:{'Content-Length':String((data??'missing').length)}});
+    };
+    fixture.set('/table.txt.gz',gzipSync('1\tchr1\t10\t20\tCpG\n'));
+    const entry={id:'ref',name:'test',category:'reference',url:'https://test.invalid/ref.fa'};
+    const result=await downloadOnline(entry,{FS,directory:'/persistent/gw_downloads',progress:(...args)=>progress.push(args)});
+    assert.match(result.url,/^\/persistent\/gw_downloads\/ref.fa$/);
+    assert.equal(new TextDecoder().decode(Uint8Array.from(files.get(result.url))),fixture.get('/ref.fa'));
+    assert.ok(files.has(result.indexURL));assert.ok(progress.some(([n,total])=>n>0&&total===n));
+    const again=await downloadOnline(entry,{FS,directory:'/persistent/gw_downloads'});
+    assert.equal(again.url,'/persistent/gw_downloads/ref_2.fa');
+    assert.equal(tableRowToBed('1\tchr1\t10\t20\tCpG','bin,chrom,chromStart,chromEnd,name'),'chr1\t10\t20\tCpG\t0\t.\n');
+    assert.equal(tableRowToBed('tx\tchr1\t-\t10\t50\t15\t45\t2\t10,40,\t20,50,','name,chrom,strand,txStart,txEnd,cdsStart,cdsEnd,exonCount,exonStarts,exonEnds'),'chr1\t10\t50\ttx\t0\t-\t15\t45\t0\t2\t10,10,\t0,30,\n');
+    assert.throws(()=>tableRowToBed('chr1\t20\t10','chrom,chromStart,chromEnd'));
+    const table=await downloadOnline({category:'track',format:'ucsc-table',assembly:'hg19',providerId:'cpgIslandExt',url:'https://test.invalid/table.txt.gz',tableColumns:'bin,chrom,chromStart,chromEnd,name'},{FS,directory:'/persistent/gw_downloads'});
+    assert.equal(table.url,'/persistent/gw_downloads/hg19.cpgIslandExt.bed');assert.equal(table.format,'bed');
+    assert.equal(new TextDecoder().decode(Uint8Array.from(files.get(table.url))),'chr1\t10\t20\tCpG\t0\t.\n');
+    const raw=await downloadOnline({category:'track',format:'ucsc-raw',assembly:'hg19',providerId:'summary',url:'https://test.invalid/table.txt.gz'},{FS,directory:'/persistent/gw_downloads'});
+    assert.equal(raw.url,'/persistent/gw_downloads/hg19.summary.tsv.gz');assert.equal(raw.format,'ucsc-raw');assert.equal(raw.indexURL,'');
+    const variant=await downloadOnline({...entry,category:'variant',url:'https://test.invalid/calls.vcf.gz'},{FS,directory:'/persistent/gw_downloads'});
+    assert.match(variant.indexURL,/\.csi$/);
+    await assert.rejects(downloadOnline({...entry,url:'https://test.invalid/missing.fa'},{FS,directory:'/persistent/gw_downloads'}),/HTTP 404/);
+    const controller=new AbortController();controller.abort();
+    await assert.rejects(downloadOnline(entry,{FS,directory:'/persistent/gw_downloads',signal:controller.signal}),/cancelled/);
+    assert.ok([...files.keys()].every(path=>!path.endsWith('.part')));
+    await assert.rejects(downloadOnline({...entry,category:'track',url:'https://test.invalid/ref.fa'},{FS,directory:'/persistent/gw_downloads',maxBytes:2}),/download limit/);
+    globalThis.fetch=async()=>new Response(new ReadableStream({start(c){c.enqueue(new Uint8Array([1,2]));c.error(Error('connection lost'));}}));
+    await assert.rejects(downloadOnline({...entry,category:'track',url:'https://test.invalid/broken.bed'},{FS,directory:'/persistent/gw_downloads'}),/connection lost/);
+    assert.ok([...files.keys()].every(path=>!path.endsWith('.part')));
+    console.log('PASS: browser full downloads, index fallback, progress, cancellation and partial-file cleanup');
+}finally{globalThis.fetch=originalFetch;}
