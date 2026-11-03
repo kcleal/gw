@@ -31,9 +31,10 @@ No install needed — GW v2 can run as WebAssembly. Your data stays in the brows
 [Open GW with demo data]({{ site.baseurl }}/app/demo.html){: .btn .fs-5 .mb-4 .mb-md-0 }
 
 {: .note }
-Requires a WebGL2-capable browser. The demo entry loads a small bundled
-example BAM; the empty entry opens your own files via the GW menu or
-drag-and-drop.
+Requires a WebGL2-capable browser. Both entries stream the human GRCh38
+reference (from IGV/AWS) at startup — no reference download needed. The demo
+entry also loads a small bundled example BAM; open your own data via the GW
+menu or drag-and-drop.
 
 ## What is GW?
 

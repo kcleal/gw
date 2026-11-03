@@ -547,7 +547,8 @@ namespace Manager {
             if (ImGui::GetIO().WantCaptureMouse) return;
             auto* plot=static_cast<GwPlot *>(glfwGetWindowUserPointer(w));
 #ifdef __EMSCRIPTEN__
-            queueWasmInput({plot,2,b,a,m});
+            double x,y;glfwGetCursorPos(w,&x,&y);
+            queueWasmInput({plot,2,b,a,m,0,x,y});
 #else
             plot->mouseButton(b,a,m);
 #endif
@@ -558,7 +559,7 @@ namespace Manager {
             if (ImGui::GetIO().WantCaptureMouse) return;
             auto* plot=static_cast<GwPlot *>(glfwGetWindowUserPointer(w));
 #ifdef __EMSCRIPTEN__
-            queueWasmInput({plot,3,0,0,0,0,x,y});
+            queueWasmInput({plot,3,glfwGetMouseButton(w,GLFW_MOUSE_BUTTON_LEFT),0,0,0,x,y});
 #else
             plot->mousePos(x,y);
 #endif
@@ -1416,8 +1417,11 @@ namespace Manager {
                 switch(event.type) {
                     case 0:p->keyPress(event.a,event.b,event.c,event.d);break;
                     case 1:p->commandChar(event.a);break;
-                    case 2:p->mouseButton(event.a,event.b,event.c);break;
-                    case 3:p->mousePos(event.x,event.y);break;
+                    case 2:case 3:
+                        p->replayingInput=true;p->replayX=event.x;p->replayY=event.y;
+                        if(event.type==2)p->mouseButton(event.a,event.b,event.c);
+                        else{p->replayLeftState=event.a;p->mousePos(event.x,event.y);}
+                        p->replayingInput=false;break;
                     case 4:p->scrollGesture(event.x,event.y);break;
                 }
             }

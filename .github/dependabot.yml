@@ -1,8 +1,8 @@
 version: 2
 updates:
   - package-ecosystem: bundler
-    directory: /
+    directory: /docs
     schedule:
-      interval: daily
+      interval: monthly
     allow:
       - dependency-type: direct

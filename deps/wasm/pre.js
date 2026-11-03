@@ -2,8 +2,8 @@
 //
 // A page can set window.GW_ARGS before gw.js loads to choose the startup
 // arguments. The published demo uses this to offer two entries:
-//   index.html          → window.GW_ARGS = []                          (no files)
-//   demo.html           → window.GW_ARGS = ['/test.fa', '-b', ...]     (bundled demo)
+//   index.html → GRCh38 reference streamed from IGV/AWS (no BAM loaded)
+//   demo.html  → window.GW_ARGS = ['/test.fa', '-b', ...] (bundled demo BAM)
 // The bundled demo files are preloaded via --preload-file in the Makefile.
 
 Module['arguments'] = (typeof window !== 'undefined' && Array.isArray(window.GW_ARGS))

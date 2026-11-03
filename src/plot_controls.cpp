@@ -1894,7 +1894,8 @@ namespace Manager {
         double x, y;
         bool windowlessMode = window == nullptr;
         if (!windowlessMode) {
-            glfwGetCursorPos(window, &x, &y);
+            if (replayingInput) { x = replayX; y = replayY; }
+            else glfwGetCursorPos(window, &x, &y);
             glfwGetWindowSize(window, &windowW, &windowH);
             if (fb_width > windowW) {
                 float ratio = (float) fb_width / (float) windowW;
@@ -2966,7 +2967,8 @@ namespace Manager {
             lastX = xPos;
             lastY = yPos;
         }
-        int state = wind ? glfwGetMouseButton(wind, GLFW_MOUSE_BUTTON_LEFT) :
+        int state = replayingInput ? replayLeftState :
+                    wind ? glfwGetMouseButton(wind, GLFW_MOUSE_BUTTON_LEFT) :
                            (leftMouseDown ? GLFW_PRESS : GLFW_RELEASE);
 
         bool lt_last = xPos < lastX;

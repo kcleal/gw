@@ -436,6 +436,11 @@ namespace Manager {
 
         double xDrag, xOri, lastX, yDrag, yOri, lastY;
         bool leftMouseDown{false};  // Button state for windowless cursor-event replay.
+        // The WASM build replays queued input a frame or more later, possibly after a
+        // suspended file read, so it supplies the cursor and button state at queue time.
+        bool replayingInput{false};
+        double replayX{0}, replayY{0};
+        int replayLeftState{0};
         bool mouseDragged;  // true if any significant drag (x or y) occurred since last press
         int windowW, windowH;  // Window width dn height
 

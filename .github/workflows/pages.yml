@@ -102,8 +102,10 @@ jobs:
           sed 's|\./local-files\.mjs|./local-files.js|g' local-files.mjs > "$GITHUB_WORKSPACE/app/local-files.js"
           sed 's|\./local-files\.mjs|./local-files.js|g; s|\./online-files\.mjs|./online-files.js|g' online-files.mjs > "$GITHUB_WORKSPACE/app/online-files.js"
           COMMON="-e s|src=gw\.js|src=gw.$JS_HASH.js| -e s|local-files\.mjs|local-files.js|g -e s|online-files\.mjs|online-files.js|g"
-          # index.html starts GW with no files; demo.html loads the bundled BAM
-          sed $COMMON -e 's|<script async src=|<script>window.GW_ARGS=[];</script><script async src=|' gw.html > "$GITHUB_WORKSPACE/app/index.html"
+          # index.html starts GW with the GRCh38 reference (no BAM); demo.html
+          # additionally loads the bundled example BAM. The WASM build mounts
+          # http(s) genome URLs over HTTP range reads at startup.
+          sed $COMMON -e "s|<script async src=|<script>window.GW_ARGS=['https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg38/hg38.fa'];</script><script async src=|" gw.html > "$GITHUB_WORKSPACE/app/index.html"
           sed $COMMON -e "s|<script async src=|<script>window.GW_ARGS=['/test.fa','-b','/test.bam','-r','chr1:9900-10300'];</script><script async src=|" gw.html > "$GITHUB_WORKSPACE/app/demo.html"
 
       - name: Upload WASM app
