@@ -157,24 +157,24 @@ void drawImGuiYlimBox(Manager::GwPlot* plot) {
         height = std::max(1.0f, (plot->trackY - plot->gap) / ms);
         return ImVec2(right - 20.0f - boxW, top + 2.0f);
     };
-    int near = -1;
+    int nearIdx = -1;
     const bool blocked = pointerOverOtherWindow();
     if (blocked) editing = false;
-    for (size_t i = 0; i < count && near < 0 && !blocked; ++i) {
+    for (size_t i = 0; i < count && nearIdx < 0 && !blocked; ++i) {
         float right, top, height;
         ImVec2 p0 = boxPos(i, right, top, height);
         bool nearBar = io.MousePos.x >= right - 28.0f && io.MousePos.x <= right + 6.0f &&
                        io.MousePos.y >= top && io.MousePos.y <= top + height;
         bool nearBox = io.MousePos.x >= p0.x - 6.0f && io.MousePos.x <= right + 6.0f &&
                        io.MousePos.y >= p0.y - 6.0f && io.MousePos.y <= p0.y + boxH + 6.0f;
-        if (nearBar || nearBox) near = (int)i;
+        if (nearBar || nearBox) nearIdx = (int)i;
     }
     const double now = ImGui::GetTime();
-    if (near >= 0) {
-        shownFor = near;
+    if (nearIdx >= 0) {
+        shownFor = nearIdx;
         lastNear = now;
     }
-    if (shownFor >= (int)count || blocked || (near < 0 && !editing && now - lastNear > 0.6)) shownFor = -1;
+    if (shownFor >= (int)count || blocked || (nearIdx < 0 && !editing && now - lastNear > 0.6)) shownFor = -1;
     if (shownFor < 0) { editing = false; return; }
     float right, top, height;
     ImVec2 pos = boxPos(shownFor, right, top, height);
