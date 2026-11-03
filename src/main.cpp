@@ -79,6 +79,11 @@ extern "C" EMSCRIPTEN_KEEPALIVE void gw_text_key(int key) {
     ImGui_ImplGlfw_KeyCallback(g_wasm_plot->window, key, 0, GLFW_PRESS, 0);
     ImGui_ImplGlfw_KeyCallback(g_wasm_plot->window, key, 0, GLFW_RELEASE, 0);
 }
+// A second finger turns a touch into a pinch, so the first finger's press must not
+// end in a click when the page releases it.
+extern "C" EMSCRIPTEN_KEEPALIVE void gw_cancel_press() {
+    if (g_wasm_plot) g_wasm_plot->cancelPointerPress();
+}
 #endif
 
 

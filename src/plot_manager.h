@@ -343,6 +343,9 @@ namespace Manager {
         void viewKey(int key, int mods);
         void mouseButton(int button, int action, int mods);
         void pointerEvent(const std::string& kind, double x, double y, int button, int mods, double dx, double dy);
+#ifdef __EMSCRIPTEN__
+        void cancelPointerPress();
+#endif
         void mousePos(double x, double y);
         void scrollGesture(double xoffset, double yoffset);
         void windowResize(int x, int y);

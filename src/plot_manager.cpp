@@ -94,6 +94,13 @@ namespace Manager {
         ImGui::FindHoveredWindowEx(ImVec2((float)x, (float)y), false, &hovered, &underMoving);
         return hovered != nullptr;
     }
+    // Set when the page turns a touch into a pinch: the next left release ends the
+    // press without acting as a click.
+    static bool pressCancelled = false;
+    void GwPlot::cancelPointerPress() {
+        pressCancelled = true;
+        queueWasmInput({this,5});
+    }
 #endif
 
     std::mutex g_mutex;
@@ -561,6 +568,10 @@ namespace Manager {
             static bool pressSent[GLFW_MOUSE_BUTTON_LAST + 1] = {};
             bool known = b >= 0 && b <= GLFW_MOUSE_BUTTON_LAST;
             double x,y;glfwGetCursorPos(w,&x,&y);
+            if (b == GLFW_MOUSE_BUTTON_LEFT && pressCancelled) {
+                pressCancelled = false;
+                if (a == GLFW_RELEASE) { pressSent[b] = false; return; }
+            }
             if (a == GLFW_PRESS ? imguiOwnsPoint(x, y)
                                 : !(known && pressSent[b]) && ImGui::GetIO().WantCaptureMouse) return;
             if (known) pressSent[b] = a == GLFW_PRESS;
@@ -1440,6 +1451,7 @@ namespace Manager {
                         else{p->replayLeftState=event.a;p->mousePos(event.x,event.y);}
                         p->replayingInput=false;break;
                     case 4:p->scrollGesture(event.x,event.y);break;
+                    case 5:p->pointerEvent("cancel",0,0,0,0,0,0);break;
                 }
             }
 

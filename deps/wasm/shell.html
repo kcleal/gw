@@ -78,8 +78,11 @@
     <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
     <div id="gw-toast"></div>
   </div>
-  <input id="gw-text-proxy" type="text" tabindex="-1" aria-hidden="true"
-         autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  <!-- In a form, the keyboard's return key submits even when it sends no Enter keydown -->
+  <form id="gw-text-proxy-form" action="javascript:void(0)">
+    <input id="gw-text-proxy" type="text" tabindex="-1" aria-hidden="true" enterkeyhint="go"
+           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  </form>
 
   <!-- Hidden file picker (accepts common genomic formats) -->
   <input id="gw-file-input" type="file" multiple style="display:none"
@@ -155,8 +158,17 @@
       return null;
     }
     function spread(a, b) { return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1; }
-    function startDrag(touch) {
+    // Where the drag finger landed. A finger that has barely moved when a pinch
+    // starts, or that is left over from a pinch, was part of the pinch, so lifting
+    // it is not a click.
+    var dragStart = null;
+    var PINCH_SLOP = 10;
+    function barelyMoved(touch) {
+      return Math.hypot(touch.clientX - dragStart.x, touch.clientY - dragStart.y) < PINCH_SLOP;
+    }
+    function startDrag(touch, afterPinch) {
       activeTouch = touch.identifier;
+      dragStart = {x: touch.clientX, y: touch.clientY, afterPinch: !!afterPinch};
       sendMouse('mousemove', touch);
       sendMouse('mousedown', touch);
     }
@@ -173,6 +185,7 @@
       var first = findTouch(event.touches, activeTouch);
       var second = event.changedTouches[0];
       if (!first || second.identifier === activeTouch) return;
+      if (barelyMoved(first)) Module._gw_cancel_press();
       sendMouse('mouseup', first);
       activeTouch = null;
       pinch = {a: first.identifier, b: second.identifier, spread: spread(first, second)};
@@ -206,12 +219,13 @@
         // The finger still down carries on as a drag.
         var rest = findTouch(event.touches, pinch.a) || findTouch(event.touches, pinch.b);
         pinch = null;
-        if (rest) startDrag(rest);
+        if (rest) startDrag(rest, true);
         return;
       }
       var touch = findTouch(event.changedTouches, activeTouch);
       if (!touch) return;
       activeTouch = null;
+      if (dragStart.afterPinch && barelyMoved(touch)) Module._gw_cancel_press();
       sendMouse('mouseup', touch);
       // Browsers open the keyboard only for a focus made inside the gesture. Tapping
       // a text box has made GW want text by the time the finger lifts.
@@ -226,7 +240,7 @@
     // GW reads keys only while its canvas has focus, so text typed into the hidden
     // field is forwarded. A one-space value lets Backspace register as a deletion.
     var textProxy = document.getElementById('gw-text-proxy');
-    var textProxyKeys = {Escape: 256, Enter: 257, Tab: 258, Delete: 261,
+    var textProxyKeys = {Escape: 256, Tab: 258, Delete: 261,
                          ArrowRight: 262, ArrowLeft: 263, ArrowDown: 264, ArrowUp: 265};
     function resetTextProxy() { textProxy.value = ' '; textProxy.setSelectionRange(1, 1); }
     textProxy.addEventListener('focus', resetTextProxy);
@@ -236,15 +250,29 @@
       if (event.relatedTarget === textProxy) event.stopImmediatePropagation();
     });
     textProxy.addEventListener('keyup', function(event) { event.stopPropagation(); });
+    // iOS may report the return key as keyCode 13, a line break, or only a form
+    // submit, and some keyboards send more than one; a press is forwarded once.
+    var lastEnter = 0;
+    function sendEnter() {
+      var now = performance.now();
+      if (now - lastEnter > 100) Module._gw_text_key(257);
+      lastEnter = now;
+    }
     textProxy.addEventListener('keydown', function(event) {
       event.stopPropagation();
+      if (event.key === 'Enter' || event.keyCode === 13) { event.preventDefault(); sendEnter(); return; }
       var key = textProxyKeys[event.key];
       if (key === undefined) return;
       event.preventDefault();
       Module._gw_text_key(key);
     });
+    document.getElementById('gw-text-proxy-form').addEventListener('submit', function(event) {
+      event.preventDefault();
+      sendEnter();
+    });
     textProxy.addEventListener('input', function(event) {
-      if (event.inputType && event.inputType.indexOf('delete') === 0) Module._gw_text_key(259);  // Backspace
+      if (event.inputType === 'insertLineBreak' || event.inputType === 'insertParagraph') sendEnter();
+      else if (event.inputType && event.inputType.indexOf('delete') === 0) Module._gw_text_key(259);  // Backspace
       else if (event.data) for (var ch of event.data) Module._gw_text_char(ch.codePointAt(0));
       resetTextProxy();
     });
