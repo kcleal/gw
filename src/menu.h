@@ -85,6 +85,7 @@ namespace Menu {
 
     // Invisible click areas over Skia data labels; click to edit label text.
     void drawImGuiAlignmentScrollbars(Manager::GwPlot* plot);
+    void drawImGuiYlimBox(Manager::GwPlot* plot);
     void drawImGuiCursorLine(Manager::GwPlot* plot);
     void drawImGuiTrackSeparators(Manager::GwPlot* plot);
     void drawImGuiDataLabels(Manager::GwPlot* plot, float gap, float overlayHeight, bool& redraw);
@@ -94,6 +95,10 @@ namespace Menu {
 
     // Close-file dialog: lists open BAM/CRAM, track, and variant files for removal.
     void drawImGuiCloseDialog(Manager::GwPlot* plot, bool* p_open, bool& redraw);
+
+    void drawImGuiTrackManager(Manager::GwPlot* plot, bool* p_open, bool& redraw);
+
+    void drawImGuiChromosomeList(Manager::GwPlot* plot, bool& redraw);
 
     // Info popup showing ANSI-colored text from click output near the click location.
     void drawImGuiInfoPopup(Manager::GwPlot* plot);

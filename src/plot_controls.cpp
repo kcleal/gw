@@ -240,21 +240,7 @@ namespace Manager {
                 reset = true;
             }
             if (reset) {
-                redraw = true;
-                processed = true;
-                imageCacheQueue.clear();
-                if (!collections.empty()) {
-                    for (auto & cl : collections) {
-                        cl.resetDrawState();
-                        cl.levelsStart.clear();
-                        cl.levelsEnd.clear();
-                        cl.linked.clear();
-                        Utils::SortType srt_option = regions[regionSelection].getSortOption();
-                        for (auto &itm: cl.readQueue) { itm.y = -1; }
-                        int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, srt_option);
-                        samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
-                    }
-                }
+                restackAlignments();
                 return GLFW_KEY_UNKNOWN;
             }
             // Fall though to other functions
@@ -722,6 +708,40 @@ namespace Manager {
         return true;
     }
 
+    bool GwPlot::openVariantInAlignmentView(int index) {
+        if (variantTracks.empty() || index < 0) {
+            return false;
+        }
+        if (variantFileSelection < 0 || variantFileSelection >= (int)variantTracks.size()) {
+            variantFileSelection = 0;
+        }
+        currentVarTrack = &variantTracks[variantFileSelection];
+        auto& vt = *currentVarTrack;
+        if (vt.type == HGW::TrackType::IMAGES) {
+            if (index >= (int)vt.image_glob.size()) {
+                return false;
+            }
+            std::vector<Utils::Region> rt;
+            if (!Utils::parseFilenameToRegions(vt.image_glob[index], rt, fai, opts.pad, opts.split_view_size)) {
+                return false;
+            }
+            regions = rt;
+        } else {
+            if (index >= (int)vt.multiRegions.size() || vt.multiRegions[index].empty() ||
+                    vt.multiRegions[index][0].chrom.empty()) {
+                return false;
+            }
+            regions = vt.multiRegions[index];
+        }
+        // Keep the tile page in step, so going back to tiles shows this variant
+        int perPage = std::max(1, opts.number.x * opts.number.y);
+        vt.blockStart = (index / perPage) * perPage;
+        mouseOverTileIndex = index - vt.blockStart;
+        regionSelection = 0;
+        switchToSingleMode();
+        return true;
+    }
+
     bool GwPlot::toggleCurrentVariantTiledView() {
         if (variantTracks.empty()) {
             return false;
@@ -1020,8 +1040,7 @@ namespace Manager {
                     ideogram_path = opts.genome_tag + "_ideogram";
                     addIdeogram(opts.myIni["tracks"][ideogram_path]);
                 } else {
-                    ideogram.clear();
-                    loadIdeogramTag();
+                    loadIdeogramForAssembly(opts.genome_tag);
                 }
 
                 outerr << termcolor::bold << "\n" << opts.genome_tag << termcolor::reset << " loaded from " << reference << std::endl;
@@ -2097,12 +2116,14 @@ namespace Manager {
     void GwPlot::printReferenceSequence(float xW, float yW) {
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
         // Helper: capture ANSI output and push a sequence popup
+        // With the translation table shown, a click selects the base (column + codon) and opens
+        // no popup; otherwise it opens the sequence popup and selects nothing.
         auto pushSeqPopup = [&](Utils::Region* region, float xOffset, float xScaling) {
             std::ostringstream uiOut;
             uiOut << termcolor::colorize;
             Term::printRefSeq(region, xW, xOffset, xScaling, uiOut);
             std::string ansiStr = uiOut.str();
-            if (!ansiStr.empty()) {
+            if (!ansiStr.empty() && !opts.show_translation) {
                 SeqPopup rp;
                 rp.ansi = std::move(ansiStr);
                 rp.x    = xW / monitorScale;
@@ -2120,14 +2141,16 @@ namespace Manager {
                 selectedFeature = "Reference\tPosition\t" + region->chrom + ":"
                                 + Term::intToStringCommas(pos) + "\tBase\t" + std::string(1, up);
                 // Select the base (persists across redraws); clicking the selected base again deselects it
-                if (selectedBaseChrom == region->chrom && selectedBasePos == pos) {
-                    selectedBaseChrom.clear();
-                    selectedBasePos = -1;
-                } else {
-                    selectedBaseChrom = region->chrom;
-                    selectedBasePos = pos;
+                if (opts.show_translation) {
+                    if (selectedBaseChrom == region->chrom && selectedBasePos == pos) {
+                        selectedBaseChrom.clear();
+                        selectedBasePos = -1;
+                    } else {
+                        selectedBaseChrom = region->chrom;
+                        selectedBasePos = pos;
+                    }
+                    redraw = true;
                 }
-                redraw = true;
             }
         };
         if (collections.empty()) {
@@ -2628,6 +2651,36 @@ namespace Manager {
                                            indexes[col.bamIdx], opts, (bool)opts.max_coverage,
                                            lt_last, &samMaxY, filters, pool, regions[regionSelection]);
             }
+        }
+    }
+
+    // Re-assign read rows after ylim / vertical scroll changes, keeping filters and the loaded reads
+    void GwPlot::restackAlignments() {
+        redraw = true;
+        processed = true;
+        imageCacheQueue.clear();
+        for (auto & cl : collections) {
+            cl.resetDrawState();
+            cl.levelsStart.clear();
+            cl.levelsEnd.clear();
+            cl.linked.clear();
+            Utils::SortType srt_option = regions[regionSelection].getSortOption();
+            for (auto &itm: cl.readQueue) { itm.y = -1; }
+            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, srt_option);
+            samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
+        }
+    }
+
+    void GwPlot::setYlimValue(int value) {
+        value = std::max(1, value);
+        if (!opts.tlen_yscale) {
+            opts.ylim = value;
+        } else {
+            opts.max_tlen = value;
+        }
+        samMaxY = value;
+        if (!regions.empty()) {
+            restackAlignments();
         }
     }
 

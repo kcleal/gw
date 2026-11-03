@@ -89,6 +89,7 @@ namespace Manager {
 
     std::mutex g_mutex;
 
+#ifndef __EMSCRIPTEN__  // the browser build mounts remote references instead
     // Load a FASTA index, suppressing htslib's stderr chatter for remote URLs.
     static faidx_t* fai_load_quiet(const char* path) {
         bool isRemote = (strncmp(path, "http://", 7) == 0 ||
@@ -114,8 +115,11 @@ namespace Manager {
         }
         return fai;
     }
+#endif
 
     void HiddenWindow::init(int width, int height) {
+        // Stop GLFW on macOS changing cwd to the executable dir, which breaks relative input paths
+        glfwInitHint(GLFW_COCOA_CHDIR_RESOURCES, GLFW_FALSE);
         if (!glfwInit()) {
             std::cerr << "Error: could not initialize GLFW3" << std::endl;
             std::exit(-1);
@@ -333,6 +337,8 @@ namespace Manager {
 
         glfwSetErrorCallback(ErrorCallback);
 
+        // Stop GLFW on macOS changing cwd to the executable dir, which breaks relative input paths
+        glfwInitHint(GLFW_COCOA_CHDIR_RESOURCES, GLFW_FALSE);
         if (!glfwInit()) {
             throw std::runtime_error("Error: could not initialize GLFW3");
         }
@@ -642,6 +648,8 @@ namespace Manager {
     }
 
     void GwPlot::initBack(int width, int height) {
+        // Stop GLFW on macOS changing cwd to the executable dir, which breaks relative input paths
+        glfwInitHint(GLFW_COCOA_CHDIR_RESOURCES, GLFW_FALSE);
         if (!glfwInit()) {
             std::cerr << "Error: could not initialize GLFW3" << std::endl;
             std::exit(-1);
@@ -831,6 +839,38 @@ namespace Manager {
         }
         ideogram_path = path;
         Themes::readIdeogramFile(path, ideogram, opts.theme);
+    }
+
+    void GwPlot::loadIdeogramForAssembly(const std::string& assembly) {
+        // Replace the old genome's ideogram; an unknown assembly is left without one
+        ideogram.clear();
+        ideogram_path.clear();
+        std::string source = Ideo::ideogramForAssembly(assembly);
+        if (source.empty()) return;
+#ifdef __EMSCRIPTEN__
+        // htslib can't fetch URLs from the browser render loop; only embedded ideograms load here
+        if (Utils::startsWith(source, "http")) return;
+#endif
+        try {
+            addIdeogram(source);
+        } catch (...) {
+            ideogram.clear();
+            ideogram_path.clear();
+            return;
+        }
+        // Follow the open reference's chromosome spelling (chr1 vs 1)
+        if (!fai || ideogram.empty()) return;
+        for (const auto& kv : ideogram) {
+            if (faidx_has_seq(fai, kv.first.c_str())) return;
+        }
+        std::unordered_map<std::string, std::vector<Ideo::Band>> renamed;
+        for (auto& kv : ideogram) {
+            std::string name = Utils::startsWith(kv.first, "chr") ? kv.first.substr(3) : "chr" + kv.first;
+            if (name == "M" && !faidx_has_seq(fai, "M")) name = "MT";
+            else if (name == "chrMT") name = "chrM";
+            renamed[name] = std::move(kv.second);
+        }
+        ideogram = std::move(renamed);
     }
 
     bool GwPlot::loadIdeogramTag() {
@@ -1987,13 +2027,27 @@ namespace Manager {
     }
 
     void GwPlot::drawSelectedBase(SkCanvas *canvas) {
+        // The base column belongs to the translation view; it is not drawn without it
+        if (!opts.show_translation) {
+            return;
+        }
         // Top of the reference base row, matching mmPosOffset in Drawing::drawRef
         const float refTop = refSpace - fonts.overlayHeight - (gap * 0.25f) - ctx.translationTrackHeight;
         // The base box is padded above and below the reference cell; the column starts at the box top
         const float boxPad = 3 * monitorScale;
         const float boxTop = refTop - boxPad;
+        const float boxBottom = refTop + fonts.overlayHeight + boxPad;
+        // The guide lines skip the translation track so its bars and letters stay clear
+        const float trackTop = refSpace - ctx.translationTrackHeight;
         const float bottom = fb_height - sliderSpace;
         const Themes::BaseTheme &theme = opts.theme;
+        SkPaint linePaint = theme.lcSelectedBase;
+        linePaint.setStrokeWidth(monitorScale);
+        linePaint.setAlpha(140);
+        auto guide = [&](float lx) {
+            if (trackTop > boxBottom) canvas->drawLine(lx, boxBottom, lx, trackTop, linePaint);
+            canvas->drawLine(lx, refSpace, lx, bottom, linePaint);
+        };
         SkRect rect;
         for (size_t i = 0; i < regions.size(); ++i) {
             const Utils::Region &rgn = regions[i];
@@ -2006,16 +2060,17 @@ namespace Manager {
             canvas->save();
             rect.setXYWH((regionWidth * (float)i) + gap, 0, regionWidth - gap - gap, (float)fb_height);
             canvas->clipRect(rect);
-            if (xScaling < 2 * monitorScale) {
+            if (xScaling < 4 * monitorScale) {
                 // Zoomed out: a single line at the base centre
                 const float cx = x + (xScaling * 0.5f);
-                canvas->drawLine(cx, boxTop, cx, bottom, theme.lcSelectedBase);
+                canvas->drawLine(cx, boxTop, cx, boxBottom, linePaint);
+                guide(cx);
             } else {
-                // Translucent column one base wide
-                rect.setXYWH(x, boxTop, xScaling, bottom - boxTop);
-                canvas->drawRect(rect, theme.fcSelectedBase);
+                // Two thin, translucent lines along the base's edges leave mismatch colours visible
+                guide(x);
+                guide(x + xScaling);
                 // Solid box around the reference base cell
-                rect.setLTRB(x - monitorScale, boxTop, x + xScaling + monitorScale, refTop + fonts.overlayHeight + boxPad);
+                rect.setLTRB(x - monitorScale, boxTop, x + xScaling + monitorScale, boxBottom);
                 canvas->drawRoundRect(rect, 2 * monitorScale, 2 * monitorScale, theme.lcSelectedBase);
             }
             canvas->restore();
@@ -2168,10 +2223,21 @@ namespace Manager {
         if (redraw && !redraw_before) {
             processed = false;
         }
+        redraw_before = redraw;
+        Menu::drawImGuiTrackManager(this, &trackManagerOpen, redraw);
+        if (redraw && !redraw_before) {
+            processed = false;
+        }
 
         Menu::drawImGuiCursorLine(this);
         Menu::drawImGuiTrackSeparators(this);
         Menu::drawImGuiAlignmentScrollbars(this);
+        Menu::drawImGuiYlimBox(this);
+        redraw_before = redraw;
+        Menu::drawImGuiChromosomeList(this, redraw);
+        if (redraw && !redraw_before) {
+            processed = false;
+        }
         Menu::drawImGuiInfoPopup(this);
         Menu::drawImGuiCovPopup(this);
         Menu::drawImGuiTrackPopup(this);

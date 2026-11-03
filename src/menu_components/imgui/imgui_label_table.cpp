@@ -320,6 +320,11 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
         static std::unordered_map<std::string, int> lastSyncedTileByTrack;  // detect external tile changes
         static std::unordered_map<std::string, int> lastSyncedBlockByTrack; // detect blockStart changes from arrow keys
 
+        // Row currently opened in alignment view from its play button (-1 = none)
+        static std::string alignmentViewTrack;
+        static int alignmentViewRow = -1;
+        if (plot->mode == Manager::Show::TILED) alignmentViewRow = -1;
+
         int& selectedRow = selectedByTrack[trackKey];
         int labelCount = (int)vt.multiLabels.size();
 
@@ -375,9 +380,13 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
         ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoFocusOnAppearing;
         if (plot->labelTableDocked) {
             initW = (plot->fb_width - plot->drawingWidth()) / plot->monitorScale;
-            ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - initW, 0), ImGuiCond_Always);
-            ImGui::SetNextWindowSize(ImVec2(initW, io.DisplaySize.y), ImGuiCond_Always);
-            windowFlags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse;
+            // A docked Tools window sits above; see dockSplitY for the collapsed cases
+            float dockTop = 0.0f;
+            if (plot->commandDialogOpen && plot->toolsDocked)
+                dockTop = dockSplitY(plot, io.DisplaySize.y);
+            ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - initW, dockTop), ImGuiCond_Always);
+            ImGui::SetNextWindowSize(ImVec2(initW, io.DisplaySize.y - dockTop), ImGuiCond_Always);
+            windowFlags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
         } else {
             if (wasDocked) {
                 ImGui::SetNextWindowSize(ImVec2(plot->labelTableWidth, initH), ImGuiCond_Always);
@@ -395,52 +404,61 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
             ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
         }
+        pushDockTitleColors();
         bool windowVisible = ImGui::Begin("Variants", &windowOpen, windowFlags);
+        ImGui::PopStyleColor(3);
+        plot->labelTableCollapsed = ImGui::IsWindowCollapsed();
         if (closeOnEscape(&windowOpen)) redraw = true;
         if (dockedStyle) ImGui::PopStyleVar(2);
         if (windowVisible) {
-            if (plot->labelTableDocked) {
-                ImVec2 content = ImGui::GetCursorScreenPos();
-                ImGuiWindow* dockWindow = ImGui::GetCurrentWindow();
-                ImVec2 contentMax = dockWindow->DC.CursorMaxPos;
-                ImVec2 pos = ImGui::GetWindowPos();
-                ImGui::SetCursorScreenPos(ImVec2(pos.x, pos.y + ImGui::GetFrameHeight()));
-                ImGui::PushClipRect(pos, ImVec2(pos.x + ImGui::GetWindowWidth(), pos.y + ImGui::GetWindowHeight()), false);
-                ImGui::InvisibleButton("##dock_resize", ImVec2(6.0f, std::max(1.0f, ImGui::GetWindowHeight() - ImGui::GetFrameHeight())));
-                ImGui::PopClipRect();
-                if (ImGui::IsItemHovered() || ImGui::IsItemActive())
-                    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-                if (ImGui::IsItemActive())
-                    plot->labelTableWidth = std::max(180.0f, std::min(io.DisplaySize.x * 0.5f,
-                        initW - io.MouseDelta.x));
-                ImGui::SetCursorScreenPos(content);
-                // The resize hit area must not enlarge the scrollable contents.
-                dockWindow->DC.CursorMaxPos = contentMax;
-            }
-            // Place the docking control in the title bar, immediately before X.
-            {
-                ImGuiWindow* window = ImGui::GetCurrentWindow();
-                ImVec2 content = ImGui::GetCursorScreenPos();
-                ImVec2 contentMax = window->DC.CursorMaxPos;
-                float titleH = ImGui::GetFrameHeight();
-                float controlW = titleH - 4.0f;
-                ImVec2 pos(window->Pos.x + window->Size.x - titleH - controlW - 4,
-                           window->Pos.y + 2.0f);
-                ImGui::PushClipRect(window->Pos,
-                    ImVec2(window->Pos.x + window->Size.x, window->Pos.y + titleH), false);
-                ImGui::SetCursorScreenPos(pos);
-                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
-                // Match the other title-bar actions: clear at rest, themed on hover/press.
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-                if (ImGui::Button("D##dock_toggle", ImVec2(controlW, controlW)))
-                    plot->labelTableDocked = !plot->labelTableDocked;
-                ImGui::PopStyleColor();
-                ImGui::PopStyleVar();
-                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                    ImGui::SetTooltip(plot->labelTableDocked ? "Undock" : "Dock");
-                ImGui::PopClipRect();
-                ImGui::SetCursorScreenPos(content);
-                window->DC.CursorMaxPos = contentMax;
+            if (plot->labelTableDocked) drawDockResizeHandle(plot, initW);
+            // Title-bar controls, right to left before X: dock toggle, tile grid
+            drawDockTitleButton(plot->labelTableDocked, 0);
+            static ImRect gridButton;
+            inTitleBar(1, [&](const ImRect& r) {
+                gridButton = r;
+                if (ImGui::Button("##tile_grid_btn", r.GetSize())) ImGui::OpenPopup("##tile_grid");
+                bool hov = ImGui::IsItemHovered();
+                ImU32 col = ImGui::GetColorU32(hov ? ImGuiCol_Text : ImGuiCol_TextDisabled);
+                ImDrawList* dl = ImGui::GetWindowDrawList();
+                float cell = r.GetWidth() * 0.22f, gapPx = r.GetWidth() * 0.12f;
+                float x0 = r.GetCenter().x - cell - gapPx * 0.5f, y0 = r.GetCenter().y - cell - gapPx * 0.5f;
+                for (int gy = 0; gy < 2; ++gy)
+                    for (int gx = 0; gx < 2; ++gx) {
+                        ImVec2 q(x0 + gx * (cell + gapPx), y0 + gy * (cell + gapPx));
+                        dl->AddRectFilled(q, ImVec2(q.x + cell, q.y + cell), col, 1.0f);
+                    }
+                if (hov) ImGui::SetTooltip("Tiles shown (%d x %d)", plot->opts.number.x, plot->opts.number.y);
+            });
+            ImGui::SetNextWindowPos(ImVec2(gridButton.Min.x, gridButton.Max.y + 2), ImGuiCond_Appearing, ImVec2(0.5f, 0));
+            if (ImGui::BeginPopup("##tile_grid")) {
+                // Hover to preview columns x rows, click to apply (works with touch: tap a cell)
+                constexpr int maxTiles = 8;
+                static int hoverX = 0, hoverY = 0;
+                float cell = ImGui::GetFrameHeight() * 0.75f, pad = 3.0f;
+                ImVec2 origin = ImGui::GetCursorScreenPos();
+                ImGui::InvisibleButton("##grid_cells", ImVec2(maxTiles * (cell + pad), maxTiles * (cell + pad)));
+                bool over = ImGui::IsItemHovered();
+                if (over) {
+                    ImVec2 m = ImGui::GetIO().MousePos;
+                    hoverX = std::clamp((int)((m.x - origin.x) / (cell + pad)) + 1, 1, maxTiles);
+                    hoverY = std::clamp((int)((m.y - origin.y) / (cell + pad)) + 1, 1, maxTiles);
+                }
+                int showX = over ? hoverX : plot->opts.number.x, showY = over ? hoverY : plot->opts.number.y;
+                if (ImGui::IsItemClicked()) {
+                    execCommand(plot, "grid " + std::to_string(hoverX) + "x" + std::to_string(hoverY), redraw);
+                    ImGui::CloseCurrentPopup();
+                }
+                ImDrawList* dl = ImGui::GetWindowDrawList();
+                for (int gy = 0; gy < maxTiles; ++gy)
+                    for (int gx = 0; gx < maxTiles; ++gx) {
+                        ImVec2 q(origin.x + gx * (cell + pad), origin.y + gy * (cell + pad));
+                        bool on = gx < showX && gy < showY;
+                        dl->AddRectFilled(q, ImVec2(q.x + cell, q.y + cell),
+                                          ImGui::GetColorU32(on ? ImGuiCol_ButtonActive : ImGuiCol_FrameBg), 2.0f);
+                    }
+                ImGui::Text("%d x %d tiles", showX, showY);
+                ImGui::EndPopup();
             }
 
             // --- Filter row: text box + Apply button ---
@@ -622,8 +640,37 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                             }
                         }
 
-                        // ---- Column 1: position (Selectable spans cols 1+2) ----
+                        // ---- Column 1: alignment-view toggle, then position ----
                         ImGui::TableSetColumnIndex(1);
+                        {
+                            // Right triangle: open this variant in alignment view; filled while it
+                            // is shown there, and clicking it again returns to the tiles
+                            const bool showing = plot->mode == Manager::Show::SINGLE &&
+                                                 alignmentViewTrack == trackKey && alignmentViewRow == i;
+                            const float side = ImGui::GetTextLineHeight();
+                            ImVec2 p0 = ImGui::GetCursorScreenPos();
+                            if (ImGui::InvisibleButton("##play", ImVec2(side, side))) {
+                                if (showing) {
+                                    alignmentViewRow = -1;
+                                    plot->toggleCurrentVariantTiledView();
+                                } else if (plot->openVariantInAlignmentView(i)) {
+                                    selectedRow = i;
+                                    tileMarkerIndex = plot->mouseOverTileIndex;
+                                    alignmentViewTrack = trackKey;
+                                    alignmentViewRow = i;
+                                }
+                                plot->redraw = true;
+                                redraw = true;
+                            }
+                            const bool hov = ImGui::IsItemHovered();
+                            const ImU32 col = ImGui::GetColorU32(hov || showing ? ImGuiCol_Text : ImGuiCol_TextDisabled);
+                            const ImVec2 a(p0.x + side * 0.25f, p0.y + side * 0.18f), b(p0.x + side * 0.82f, p0.y + side * 0.5f),
+                                         c(p0.x + side * 0.25f, p0.y + side * 0.82f);
+                            if (showing) ImGui::GetWindowDrawList()->AddTriangleFilled(a, b, c, col);
+                            else ImGui::GetWindowDrawList()->AddTriangle(a, b, c, col, 1.2f);
+                            if (hov) ImGui::SetTooltip(showing ? "Back to tiles" : "Show in alignment view");
+                            ImGui::SameLine(0, 2.0f);
+                        }
                         std::string location = lbl.chrom + ":" + Utils::formatNum(lbl.pos);
                         if (ImGui::Selectable(location.c_str(), isSelected,
                                               ImGuiSelectableFlags_None)) {

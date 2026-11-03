@@ -7,6 +7,7 @@
 #include "plot_commands.h"
 #include "utils.h"
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <string>
@@ -81,46 +82,6 @@ static void drawSquareIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, fl
     dl->AddRect(ImVec2(min.x + pad, min.y + pad),
                 ImVec2(max.x - pad, max.y - pad),
                 col, 0.0f, 0, thickness);
-}
-
-static void drawRefreshIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, float thickness) {
-    float w = max.x - min.x;
-    float h = max.y - min.y;
-    float cx = min.x + w * 0.5f;
-    float cy = min.y + h * 0.5f;
-    float r  = std::min(w, h) * 0.30f;
-    constexpr float PI = 3.14159265f;
-    dl->PathArcTo(ImVec2(cx, cy), r, -PI * 0.4f, PI * 1.6f, 18);
-    dl->PathStroke(col, false, thickness);
-    // arrowhead
-    float endA   = PI * 1.6f;
-    float ax     = cx + r * cosf(endA);
-    float ay     = cy + r * sinf(endA);
-    float backAng = atan2f(-cosf(endA), sinf(endA));
-    float spread  = 0.44f;
-    float al      = std::min(w, h) * 0.18f;
-    dl->AddLine(ImVec2(ax, ay),
-                ImVec2(ax + cosf(backAng + spread) * al, ay + sinf(backAng + spread) * al),
-                col, thickness);
-    dl->AddLine(ImVec2(ax, ay),
-                ImVec2(ax + cosf(backAng - spread) * al, ay + sinf(backAng - spread) * al),
-                col, thickness);
-}
-
-static void drawChainIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, float thickness) {
-    float w        = max.x - min.x;
-    float h        = max.y - min.y;
-    float cy       = min.y + h * 0.5f;
-    float pillH    = h * 0.30f;
-    float rounding = pillH * 0.5f;
-    float pillW    = w * 0.42f;
-    float overlap  = w * 0.09f;
-    float totalW   = pillW * 2.0f - overlap;
-    float x0       = min.x + (w - totalW) * 0.5f;
-    dl->AddRect(ImVec2(x0,                   cy - pillH * 0.5f),
-                ImVec2(x0 + pillW,           cy + pillH * 0.5f), col, rounding, 0, thickness);
-    dl->AddRect(ImVec2(x0 + pillW - overlap, cy - pillH * 0.5f),
-                ImVec2(x0 + 2*pillW - overlap, cy + pillH * 0.5f), col, rounding, 0, thickness);
 }
 
 static void drawArrowRightIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, float thickness) {
@@ -209,6 +170,7 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
                     viewHovered ? iconHoverCol : iconCol, iconStroke);
 
 
+
     // Hamburger popup — increased padding for tablet-friendly touch targets
     ImGui::SetNextWindowPos(ImVec2(cursor.x, cursor.y + btnSide), ImGuiCond_Always);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(gap * 0.75f, gap * 0.5f));
@@ -230,8 +192,8 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
         if (ImGui::MenuItem("Close file", nullptr, false, hasFiles)) {
             plot->closeDialogOpen = true;
         }
-        if (ImGui::MenuItem("Tools")) {
-            plot->commandDialogOpen = !plot->commandDialogOpen;
+        if (ImGui::MenuItem("Tracks", nullptr, plot->trackManagerOpen)) {
+            plot->trackManagerOpen = !plot->trackManagerOpen;
         }
         if (ImGui::MenuItem("Settings")) {
             if (plot->mode != Manager::Show::SETTINGS) {
@@ -266,6 +228,9 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
             }
             ImGui::EndMenu();
         }
+        if (ImGui::MenuItem("Tools", nullptr, plot->commandDialogOpen)) {
+            plot->commandDialogOpen = !plot->commandDialogOpen;
+        }
         ImGui::EndPopup();
     }
     ImGui::PopStyleVar(2);  // item spacing, popup padding
@@ -276,48 +241,7 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
     if (ImGui::BeginPopup("##ViewPopup")) {
         Themes::IniOptions &opts = plot->opts;
 
-        // Icon toolbar: action buttons on one row at the top
-        {
-            float icSz = ImGui::GetFrameHeight();
-            ImVec2 icBtnSz(icSz, icSz);
-            float icSpacing = gap * 0.20f;
-            ImDrawList* dl = ImGui::GetWindowDrawList();
 
-            ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0,0,0,0));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0,0,0,0));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0,0,0,0));
-
-            // Circular arrow (Refresh)
-            {
-                ImVec2 cur = ImGui::GetCursorScreenPos();
-                bool clicked = ImGui::Button("##ic_refresh", icBtnSz);
-                bool hov = ImGui::IsItemHovered();
-                drawRefreshIcon(dl, cur, ImVec2(cur.x + icSz, cur.y + icSz), hov ? iconHoverCol : iconCol, iconStroke);
-                if (hov) ImGui::SetTooltip("Refresh");
-                if (clicked) { execCommand(plot, "refresh", redraw); plot->processed = false; }
-            }
-            ImGui::SameLine(0, icSpacing);
-
-            // Chain link (Link mode — cycles none → sv → all)
-            {
-                const char* linkModes[] = {"none", "sv", "all"};
-                int lc = opts.link_op;
-                if (lc < 0 || lc > 2) lc = 0;
-                ImVec2 cur = ImGui::GetCursorScreenPos();
-                bool clicked = ImGui::Button("##ic_link", icBtnSz);
-                bool hov = ImGui::IsItemHovered();
-                drawChainIcon(dl, cur, ImVec2(cur.x + icSz, cur.y + icSz), hov ? iconHoverCol : iconCol, iconStroke);
-                if (hov) ImGui::SetTooltip("Link: %s  (click for %s)", linkModes[lc], linkModes[(lc + 1) % 3]);
-                if (clicked) {
-                    execCommand(plot, std::string("link ") + linkModes[(lc + 1) % 3], redraw);
-                    plot->processed = false;
-                }
-            }
-
-            ImGui::PopStyleColor(3);
-        }
-        // ImGui::Separator();
-        // ImGui::Spacing();
 
         // Display toggles
         bool b_alignments = opts.alignments;
@@ -373,6 +297,77 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
             plot->setScaling();
             redraw = true; plot->processed = false;
         }
+
+        // Read sorting and quick filters, backed by the sort / filter / remove-filter commands
+        bool haveReads = !plot->bam_paths.empty() || (plot->remoteCommand && !plot->remoteScrollbars.empty());
+        // Give menu rows the same pitch as the checkboxes above (frame height + spacing);
+        // pushed before the separator so it is spaced like the one above Refresh
+        const ImGuiStyle& style = ImGui::GetStyle();
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,
+                            ImVec2(style.ItemSpacing.x, style.ItemSpacing.y + style.FramePadding.y * 2));
+        ImGui::Separator();
+        ImGui::BeginDisabled(!haveReads || plot->regions.empty());
+        if (ImGui::BeginMenu("Sort")) {
+            ImGui::PushItemFlag(ImGuiItemFlags_AutoClosePopups, false);
+            Utils::SortType srt = plot->regions.empty() ? Utils::SortType::NONE : plot->regions[plot->regionSelection].sortOption;
+            bool byStrand = srt == Utils::SortType::STRAND || srt == Utils::SortType::STRAND_AND_POS;
+            bool byHap = srt == Utils::SortType::HP || srt == Utils::SortType::HP_AND_POS;
+            bool byNone = !byStrand && !byHap;
+            if (ImGui::MenuItem("None", nullptr, byNone) && !byNone) execCommand(plot, "sort none", redraw);
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Resets the view, including filters");
+            if (ImGui::MenuItem("Strand", nullptr, byStrand) && !byStrand) execCommand(plot, "sort strand", redraw);
+            if (ImGui::MenuItem("Haplotype", nullptr, byHap) && !byHap) execCommand(plot, "sort hap", redraw);
+            ImGui::PopItemFlag();
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Hide")) {
+            ImGui::PushItemFlag(ImGuiItemFlags_AutoClosePopups, false);
+            struct QuickFilter { const char* label; const char* expr; };
+            static const QuickFilter quickFilters[] = {
+                {"Duplicates", "~flag & 1024"},
+                {"Secondary", "~flag & 256"},
+                {"Supplementary", "~flag & 2048"},
+                {"MAPQ 0", "mapq > 0"},
+            };
+            for (const auto& qf : quickFilters) {
+                bool on = std::any_of(plot->filters.begin(), plot->filters.end(),
+                                      [&](const Parse::Parser& f) { return f.filter_str == qf.expr; });
+                if (ImGui::MenuItem(qf.label, nullptr, on)) {
+                    execCommand(plot, std::string(on ? "remove-filter " : "filter ") + qf.expr, redraw);
+                }
+            }
+            if (!plot->filters.empty()) {
+                ImGui::Separator();
+                if (ImGui::MenuItem("Clear filters")) execCommand(plot, "refresh", redraw);
+                if (ImGui::IsItemHovered()) {
+                    std::string active;
+                    for (auto& f : plot->filters) active += f.filter_str + "\n";
+                    ImGui::SetTooltip("Active filters:\n%s", active.c_str());
+                }
+            }
+            ImGui::PopItemFlag();
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Link")) {
+            ImGui::PushItemFlag(ImGuiItemFlags_AutoClosePopups, false);
+            const char* linkModes[] = {"none", "sv", "all"};
+            const char* linkLabels[] = {"None", "Structural variants", "All reads"};
+            for (int i = 0; i < 3; ++i) {
+                if (ImGui::MenuItem(linkLabels[i], nullptr, opts.link_op == i) && opts.link_op != i) {
+                    execCommand(plot, std::string("link ") + linkModes[i], redraw);
+                    plot->processed = false;
+                }
+            }
+            ImGui::PopItemFlag();
+            ImGui::EndMenu();
+        }
+        ImGui::EndDisabled();
+        ImGui::Separator();
+        if (ImGui::MenuItem("Refresh")) {
+            execCommand(plot, "refresh", redraw);
+            plot->processed = false;
+        }
+        ImGui::PopStyleVar();
 
         ImGui::EndPopup();
     }

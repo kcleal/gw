@@ -312,7 +312,7 @@ void drawImGuiOpenDialog(Manager::GwPlot* plot,
         ImGui::TextUnformatted("How should they be loaded?");
         ImGui::Spacing();
 
-        static bool asTiles=true, asTrack=false;
+        static bool asTiles=false, asTrack=true;
         ImGui::Checkbox("Variant file as tiled images", &asTiles);
         ImGui::Checkbox("Annotation track", &asTrack);
         ImGui::BeginDisabled(!asTiles && !asTrack);

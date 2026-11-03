@@ -30,6 +30,7 @@
     #include "include/gpu/GrDirectContext.h"
     #include "include/gpu/gl/GrGLInterface.h"
 #endif
+#include "include/core/SkMilestone.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkSurface.h"

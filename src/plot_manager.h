@@ -104,13 +104,21 @@ namespace Manager {
         bool openDialogOpen{false};
         bool helpDialogOpen{false};
         bool closeDialogOpen{false};
+        bool trackManagerOpen{false};
         bool labelTableDialogOpen{false};
         bool labelTableDocked{true};
-        float labelTableWidth{260.0f}; // logical pixels; resized from the left edge
+        bool toolsDocked{true};     // Tools shares the right-hand dock with the Variants table
+        bool toolsCollapsed{false};
+        bool labelTableCollapsed{false};
+        float labelTableWidth{260.0f}; // logical pixels; dock width, resized from the left edge
         int lastDrawingWidth{0};
         std::string cachedTileLayout;
+        bool rightDockOpen() const {
+            return showUIOverlay && !drawToBackWindow &&
+                   ((labelTableDialogOpen && labelTableDocked) || (commandDialogOpen && toolsDocked));
+        }
         int drawingWidth() const {
-            if (!showUIOverlay || drawToBackWindow || !labelTableDialogOpen || !labelTableDocked)
+            if (!rightDockOpen())
                 return fb_width;
             return std::max(1, fb_width - (int)(std::min(labelTableWidth * monitorScale, fb_width * 0.5f)));
         }
@@ -300,8 +308,12 @@ namespace Manager {
         void reloadPathBackedTracks();
         bool selectVariantFile(int index);
         bool toggleCurrentVariantTiledView();
+        bool openVariantInAlignmentView(int index);  // as right-clicking that variant's tile
         void addIdeogram(std::string path);
         bool loadIdeogramTag();
+
+        // Embedded or online (IGV/UCSC) ideogram for an assembly id such as hg38, hs1 or mm10
+        void loadIdeogramForAssembly(const std::string& assembly);
         // removeIdeogram missing todo
         void loadSession();
 
@@ -348,6 +360,8 @@ namespace Manager {
         void prepareSelectedRegion();
         void addAlignmentToSelectedRegion();
         void setCollectionVScroll(size_t index, int value);
+        void setYlimValue(int value);  // set ylim (or max tlen in tlen-y mode) without reloading reads
+        void restackAlignments();
         void resizeTrackBoundary(size_t index, float y);
         void setVScroll(int value);  // set absolute vertical read-scroll offset and re-layout
 

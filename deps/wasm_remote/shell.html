@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GW remote</title>
-<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#09090d}canvas{display:block;width:100%;height:100%;outline:none}#error{position:fixed;top:45px;left:12px;color:#ffaaaa;font:14px sans-serif}</style></head>
+<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#09090d}canvas{display:block;width:100%;height:100%;outline:none}#error{position:fixed;top:45px;left:12px;color:#ffaaaa;font:14px sans-serif;pointer-events:none}</style></head>
 <body><canvas id="canvas" tabindex="0" aria-label="GW remote viewer" oncontextmenu="event.preventDefault()"></canvas><div id="error" role="alert"></div>
 <script>var Module={canvas:document.getElementById('canvas'),print:console.log,printErr:console.error,onAbort:function(reason){document.getElementById('error').textContent='Client failed: '+reason;}};
 const filePicker=document.createElement('input');

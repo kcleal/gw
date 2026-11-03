@@ -245,6 +245,40 @@ static std::vector<RowData> parseAnsiRows(const std::string& ansiText)
     // The track output format is a single line:
     //   \r[bold]filename[reset]    [cyan]chrom:start-end[reset][bold]    Key  [reset]value ...
     // followed optionally by a second line with tab-separated feature fields.
+    // Explain a SAM flag: each set bit, plus the strand of the read and its mate
+    static void drawSamFlagTooltip(const std::string& value) {
+        int flag = 0;
+        try { flag = std::stoi(value); } catch (...) { return; }
+        static const std::pair<int, const char*> bits[] = {
+            {0x1, "Paired"}, {0x2, "Proper pair"}, {0x4, "Read unmapped"}, {0x8, "Mate unmapped"},
+            {0x10, "Read reverse strand"}, {0x20, "Mate reverse strand"}, {0x40, "First in pair"},
+            {0x80, "Second in pair"}, {0x100, "Secondary"}, {0x200, "Fails QC"},
+            {0x400, "Duplicate"}, {0x800, "Supplementary"},
+        };
+        ImGui::BeginTooltip();
+        if (ImGui::BeginTable("##samflag", 2, ImGuiTableFlags_SizingFixedFit)) {
+            auto row = [](const char* bit, const char* meaning, bool dim) {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextDisabled("%s", bit);
+                ImGui::TableSetColumnIndex(1);
+                if (dim) ImGui::TextDisabled("%s", meaning); else ImGui::TextUnformatted(meaning);
+            };
+            for (const auto& b : bits) {
+                if (!(flag & b.first)) continue;
+                char hex[16];
+                std::snprintf(hex, sizeof(hex), "%d", b.first);
+                row(hex, b.second, false);
+            }
+            // Strands are implied by unset bits, so name them too
+            if (!(flag & 0x4) && !(flag & 0x10)) row("", "Read forward strand", true);
+            if ((flag & 0x1) && !(flag & 0x8) && !(flag & 0x20)) row("", "Mate forward strand", true);
+            if (flag == 0) row("0", "Unpaired, forward strand", false);
+            ImGui::EndTable();
+        }
+        ImGui::EndTooltip();
+    }
+
     static std::vector<RowData> parseTrackRows(const std::string& ansiText) {
         std::vector<RowData> rows;
 
@@ -598,6 +632,9 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
                                          row.inputBuf.data(), row.inputBuf.size(),
                                          ImGuiInputTextFlags_ReadOnly);
                         ImGui::PopStyleColor();
+                        if (row.label == "flag" && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
+                            drawSamFlagTooltip(row.plainValue);
+                        }
                     }
                 }
                 ImGui::EndTable();
@@ -1476,7 +1513,7 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
         }
 
         static std::string displayedText;
-        static std::vector<char> textBuf;
+        static std::vector<char> textBuf;  // InputText needs a writable buffer
         static long displayedFrame = -1;
         static bool scrollToBottom = false;
         static bool contentJustChanged = false;
@@ -1495,7 +1532,7 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
             contentJustChanged = true;
         }
 
-        if (textBuf.empty()) {
+        if (displayedText.empty()) {
             plot->showCommandStatus = false;
             return;
         }
@@ -1503,8 +1540,7 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
         auto clearHistory = [&]() {
             plot->lastCommandOutputAnsi.clear();
             displayedText.clear();
-            textBuf.clear();
-            textBuf.push_back('\0');
+            textBuf.assign(1, '\0');
             plot->lastCommandOutputFrame = -1;
             displayedFrame = -1;
             plot->showCommandStatus = false;
@@ -1622,29 +1658,16 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
             ImFont* font = plot->monoFont ? plot->monoFont : ImGui::GetFont();
             ImGui::PushFont(font);
 
-            // Size the input widget to its full text so selection works; the
-            // surrounding child window provides horizontal/vertical scrolling.
-            ImVec2 textSize = ImGui::CalcTextSize(displayedText.c_str(),
-                                                  displayedText.c_str() + displayedText.size(),
-                                                  false, -1.0f);
-            float padX = style.FramePadding.x * 2.0f;
-            float padY = style.FramePadding.y * 2.0f;
-            ImVec2 inputSize(textSize.x + padX, textSize.y + padY);
-
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-            ImGui::BeginChild("##cmdoutputscroll", size, ImGuiChildFlags_None,
-                              ImGuiWindowFlags_HorizontalScrollbar
-                              | ImGuiWindowFlags_AlwaysVerticalScrollbar);
-            ImGui::PopStyleVar();
-
-            ImGuiWindow* scrollChild = ImGui::GetCurrentWindow();
-
+            // One read-only, word-wrapped text box filling the window: selectable with the
+            // mouse, and its own scrollbar is the only one
             ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
-            ImGui::InputTextMultiline("##cmdoutput",
-                                      textBuf.data(), textBuf.size(),
-                                      inputSize,
-                                      ImGuiInputTextFlags_ReadOnly);
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+            ImGui::InputTextMultiline("##cmdoutput", textBuf.data(), textBuf.size(), size,
+                                      ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_WordWrap);
+            ImGui::PopStyleVar();
             ImGui::PopStyleColor();
+            auto& children = ImGui::GetCurrentWindow()->DC.ChildWindows;
+            ImGuiWindow* scrollChild = children.empty() ? nullptr : children.back();
 
             if (scrollChild) {
                 if (scrollToBottom) {
@@ -1661,7 +1684,6 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                 contentJustChanged = false;
             }
 
-            ImGui::EndChild();
             ImGui::PopFont();
         }
         ImGui::End();

@@ -18,6 +18,9 @@
 #include "defaultIni.hpp"
 #include "ankerl_unordered_dense.h"
 #include "gw_fonts.h"
+#include "htslib/bgzf.h"
+#include "htslib/hfile.h"
+#include "htslib/kstring.h"
 
 #include "include/core/SkFontMgr.h"
 #include "include/core/SkPathEffect.h"
@@ -181,7 +184,11 @@ namespace Themes {
 
         lcGTFJoins.setStyle(SkPaint::kStroke_Style);
         lcGTFJoins.setStrokeWidth(2);
+#if SK_MILESTONE >= 143
         lcGTFJoins.setPathEffect(SkDashPathEffect::Make({intervals, 2}, 0.0f));
+#else
+        lcGTFJoins.setPathEffect(SkDashPathEffect::Make(intervals, 2, 0.0f));
+#endif
 
         lcLabel.setStyle(SkPaint::kStroke_Style);
         lcLabel.setStrokeWidth(1);
@@ -206,7 +213,7 @@ namespace Themes {
         lcSelectedBase.setStrokeWidth(1.5);
         lcSelectedBase.setAntiAlias(true);
         lcCodonTick.setStyle(SkPaint::kStroke_Style);
-        lcCodonTick.setStrokeWidth(3);
+        lcCodonTick.setStrokeWidth(1.5);
         lcCodonTick.setAntiAlias(true);
 
         fcMarkers.setStyle(SkPaint::kStrokeAndFill_Style);
@@ -1505,7 +1512,11 @@ namespace Themes {
         SkPaint paint1;
         const SkPaint* pnt = &paint1;
         overlay.setSize(fontTypefaceSize * yScale);
+#if SK_MILESTONE >= 143
         bounds[0] = overlay.getBounds(glyphs[0], pnt);
+#else
+        overlay.getBounds(glyphs, 1, bounds, pnt);
+#endif
         overlayCharWidth = bounds[0].width();
         overlayHeight = bounds[0].height();
         overlayWidth = overlay.measureText("Gy", 1, SkTextEncoding::kUTF8);
@@ -1556,30 +1567,22 @@ namespace Themes {
 
     void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
                           Themes::BaseTheme &theme) {
-        std::shared_ptr<std::istream> fpu;
-#if !defined(__EMSCRIPTEN__)
-
-        if (Utils::startsWith(file_path, "http") || Utils::startsWith(file_path, "ftp")) {
-            std::string content = Utils::fetchOnlineFileContent(file_path);
-            fpu = std::make_shared<std::istringstream>(content);
-        } else {
-            auto file_stream = std::make_shared<std::ifstream>(file_path);
-            if (!file_stream->is_open()) {
-                std::cerr << "Error: opening ideogram file " << file_path << std::endl;
-                throw std::runtime_error("Error opening file");
-            }
-            fpu = file_stream;
+        // htslib opens local paths and URLs alike, and reads plain or gzip-compressed text
+        // (UCSC/IGV serve cytoBandIdeo.txt.gz)
+        BGZF* bg = bgzf_open(file_path.c_str(), "r");
+        if (!bg) {
+            std::cerr << "Error: opening ideogram file " << file_path << std::endl;
+            throw std::runtime_error("Error opening file");
         }
-#else
-        {
-            auto fs = std::make_shared<std::ifstream>(file_path);
-            if (!fs->is_open()) {
-                std::cerr << "Error: opening track file " << file_path << std::endl;
-                throw std::exception();
-            }
-            fpu = fs;
+        std::string content;
+        kstring_t ks = KS_INITIALIZE;
+        while (bgzf_getline(bg, '\n', &ks) >= 0) {
+            content.append(ks.s, ks.l);
+            content.push_back('\n');
         }
-#endif
+        ks_free(&ks);
+        bgzf_close(bg);
+        auto fpu = std::make_shared<std::istringstream>(content);
 
         std::unordered_map<std::string, Ideo::Band> custom;
         std::string line, token, chrom, name, property;
@@ -1605,15 +1608,28 @@ namespace Themes {
 
             next_t;
             chrom = token;
-            next_t;
-            int start = std::stoi(token);
-            next_t;
-            int end = std::stoi(token);
-            next_t;
-            name = token;
-            next_t;
-            property = token;
-            if (property == "gneg") {
+            int start, end;
+            try {
+                next_t;
+                start = std::stoi(token);
+                next_t;
+                end = std::stoi(token);
+            } catch (...) {
+                continue;  // not a band line
+            }
+            // Unplaced contigs in cytoBandIdeo files can leave the name/stain columns empty
+            name = next_t ? token : std::string();
+            property = next_t ? token : std::string();
+            // Stains used by other UCSC assemblies (mouse, rat, fly...)
+            if (property == "n/a") property = "gneg";
+            else if (property == "stalk") property = "gvar";
+            if (property == "gpos33") {
+                ideogram[chrom].emplace_back() = {start, end, 255, 215, 215, 215, {}, name};
+            } else if (property == "gpos66") {
+                ideogram[chrom].emplace_back() = {start, end, 255, 135, 135, 135, {}, name};
+            } else if (property == "gpos") {
+                ideogram[chrom].emplace_back() = {start, end, 255, 110, 110, 110, {}, name};
+            } else if (property == "gneg") {
                 ideogram[chrom].emplace_back() = {start, end, 255, 255, 255, 255, {}, name};
             } else if (property == "gpos25") {
                 ideogram[chrom].emplace_back() = {start, end, 255, 235, 235, 235, {}, name};

@@ -958,6 +958,7 @@ namespace Commands {
             p->removeVariantTrack(ind);
         } else if (Utils::startsWith(parts.back(), "ideogram")) {
             p->ideogram.clear();
+            p->ideogram_path.clear();
         } else {
             try {
                 ind = std::stoi(parts.back());
@@ -1194,7 +1195,7 @@ namespace Commands {
         } else {
             std::string nameFormat = parts[1];
             // try and parse information from vcf record e.g. {pos}.png
-            if (p->currentVarTrack != nullptr && p->currentVarTrack->type == HGW::TrackType::VCF && p->mode == Manager::Show::SINGLE) {
+            if (nameFormat.find('{') != std::string::npos && p->currentVarTrack != nullptr && p->currentVarTrack->type == HGW::TrackType::VCF && p->mode == Manager::Show::SINGLE) {
                 if (p->mouseOverTileIndex == -1 || p->currentVarTrack->blockStart + p->mouseOverTileIndex >= (int) p->currentVarTrack->multiLabels.size()) {
                     return Err::SILENT;
                 }
@@ -1601,14 +1602,22 @@ namespace Commands {
                         return Err::INVALID_PATH;
                     }
                 }
-                if (ext != ".bed") {
-                    out << termcolor::red << "Error:" << termcolor::reset << " Only .bed extension supported for ideograms\n";
+                // UCSC/IGV cytoband files: .bed, .txt, optionally gzipped
+                std::string stem = (ext == ".gz") ? std::filesystem::path(filename).stem().extension().string() : ext;
+                if (stem != ".bed" && stem != ".txt") {
+                    out << termcolor::red << "Error:" << termcolor::reset << " Ideograms must be .bed or .txt (optionally .gz)\n";
                     return Err::SILENT;
-                } else {
-                    p->addIdeogram(filename);
-                    refreshGw(p);
-                    return Err::NONE;
                 }
+                try {
+                    p->addIdeogram(filename);
+                } catch (...) {
+                    p->ideogram.clear();
+                    p->ideogram_path.clear();
+                    out << termcolor::red << "Error:" << termcolor::reset << " could not read ideogram " << filename << "\n";
+                    return Err::SILENT;
+                }
+                refreshGw(p);
+                return Err::NONE;
             } else if (parts[1] == "track") {
                 if (!maybe_online && !std::filesystem::exists(filename)) {
                     return Err::INVALID_PATH;
@@ -1974,12 +1983,126 @@ namespace Commands {
         if (!added) {
             p->tracks.emplace_back() = HGW::GwTrack();
             p->tracks.back().kind = HGW::FType::ROI;
+            p->tracks.back().name = "ROI";  // no file name to fall back on; keeps the data label clickable
             p->tracks.back().add_to_dict = true;
             p->tracks.back().allBlocks[b.chrom].add(b.start, b.end, b);
             p->tracks.back().allBlocks[b.chrom].index();
             p->tracks.back().faceColour = p->opts.theme.fcRoi;
         }
         refreshGw(p);
+        return Err::NONE;
+    }
+
+    // remove-roi <chrom:start-end>  → remove a region of interest added with the roi command
+    Err remove_roi(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        if (parts.size() != 2) {
+            out << "Usage: remove-roi <chrom:start-end>\n";
+            return Err::OPTION_NOT_UNDERSTOOD;
+        }
+        Utils::Region r;
+        try {
+            r = Utils::parseRegion(parts[1]);
+        } catch (...) {
+            out << "remove-roi: could not parse '" << parts[1] << "' as a region\n";
+            return Err::OPTION_NOT_SUPPORTED;
+        }
+        bool removed = false;
+        for (auto& t : p->tracks) {
+            if (t.kind != HGW::FType::ROI || t.allBlocks.find(r.chrom) == t.allBlocks.end()) {
+                continue;
+            }
+            auto& si = t.allBlocks[r.chrom];
+            std::vector<Utils::TrackBlock> keep;
+            for (size_t i = 0; i < si.data.size(); ++i) {
+                if (si.starts[i] == r.start && si.ends[i] == r.end) {
+                    removed = true;
+                } else {
+                    keep.push_back(si.data[i]);
+                }
+            }
+            si.clear();
+            for (auto& b : keep) {
+                si.add(b.start, b.end, b);
+            }
+            si.index();
+        }
+        if (!removed) {
+            out << "remove-roi: no region of interest at " << parts[1] << "\n";
+            return Err::SILENT;
+        }
+        p->redraw = true;
+        p->processed = false;
+        p->imageCache.clear();
+        p->imageCacheQueue.clear();
+        for (auto& cl : p->collections) {
+            cl.resetDrawState();
+        }
+        return Err::NONE;
+    }
+
+    Err clear_roi(Plot* p) {
+        p->tracks.erase(std::remove_if(p->tracks.begin(), p->tracks.end(),
+                                       [](const HGW::GwTrack& t) { return t.kind == HGW::FType::ROI; }),
+                        p->tracks.end());
+        p->tracksLayoutDirty = true;
+        refreshGw(p);
+        return Err::NONE;
+    }
+
+    // remove-filter <expression>  → drop one active filter, leaving the others and the view in place
+    Err remove_filter(Plot* p, std::string& command, std::ostream& out) {
+        std::string str = command;
+        str.erase(0, 14);
+        Utils::trim(str);
+        size_t before = p->filters.size();
+        p->filters.erase(std::remove_if(p->filters.begin(), p->filters.end(),
+                                        [&](const Parse::Parser& f) { return f.filter_str == str; }),
+                         p->filters.end());
+        if (p->filters.size() == before) {
+            out << "remove-filter: no active filter '" << str << "'\n";
+            return Err::SILENT;
+        }
+        p->redraw = true;
+        if (p->frameId >= 0) {
+            p->imageCache.clear();
+            p->imageCacheQueue.clear();
+            p->processed = false;
+            for (auto& cl : p->collections) {
+                cl.resetDrawState();
+            }
+        }
+        return Err::NONE;
+    }
+
+    // move-track <from> <to>  → reorder the tabix tracks
+    Err move_track(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        int from, to;
+        try {
+            from = std::stoi(parts.at(1));
+            to = std::stoi(parts.at(2));
+        } catch (...) {
+            out << "Usage: move-track <from-index> <to-index>\n";
+            return Err::OPTION_NOT_UNDERSTOOD;
+        }
+        int n = (int)p->tracks.size();
+        if (from < 0 || from >= n || to < 0 || to >= n) {
+            out << termcolor::red << "Error:" << termcolor::reset << " track index out of range (0.." << n - 1 << ")\n";
+            return Err::SILENT;
+        }
+        if (from == to) {
+            return Err::NONE;
+        }
+        HGW::GwTrack moving = p->tracks[from];
+        p->tracks.erase(p->tracks.begin() + from);
+        p->tracks.insert(p->tracks.begin() + to, moving);
+        p->tracksLayoutDirty = true;
+        p->redraw = true;
+        p->processed = false;
+        p->imageCache.clear();
+        p->imageCacheQueue.clear();
+        for (auto& cl : p->collections) {
+            cl.resetDrawState();
+        }
         return Err::NONE;
     }
 
@@ -2417,6 +2540,10 @@ namespace Commands {
                 {"colour",   PARAMS { return update_colour(p, command, parts, out); }},
                 {"color",    PARAMS { return update_colour(p, command, parts, out); }},
                 {"roi",      PARAMS { return add_roi(p, command, parts, out); }},
+                {"remove-roi", PARAMS { return remove_roi(p, parts, out); }},
+                {"clear-roi", PARAMS { return clear_roi(p); }},
+                {"remove-filter", PARAMS { return remove_filter(p, command, out); }},
+                {"move-track", PARAMS { return move_track(p, parts, out); }},
                 {"introns",  PARAMS { return add_introns(p, command, parts, out); }},
                 {"track-height", PARAMS { return set_track_height(p, command, parts, out); }},
                 {"sort",     PARAMS { return sort_command(p, command, parts, out); }},

@@ -162,8 +162,32 @@ void open(Manager::GwPlot* p,const Entry& entry,bool asTrack,bool check,bool val
         std::ostringstream output;p->loadGenome(e.url,output);
         if(p->reference!=e.url)throw std::runtime_error(output.str().empty()?"Could not load reference":output.str());
         reconcileReferenceView(p);
+        if(!e.assembly.empty())p->opts.genome_tag=e.assembly;
+        p->loadIdeogramForAssembly(e.assembly);
     }else{auto path=e.url;if(!p->addTrack(path,true,asTrack,asTrack))throw std::runtime_error("GW could not open this file");}
     std::string refresh="refresh"; std::ostringstream output; Commands::run_command_map(p,refresh,output);
+}
+bool referenceMatches(const Manager::GwPlot* p,const Entry& e){
+    if(!p->fai)return false;
+    rememberIndexes(e);
+    auto* f=loadFai(e.url);if(!f)return false;
+    const auto candidate=faiContigs(f);fai_destroy(f);
+    const auto open=faiContigs(p->fai);
+    size_t shared=0;
+    for(const auto& c:candidate){auto it=open.find(c.first);if(it==open.end())continue;if(it->second!=c.second)return false;++shared;}
+    // Small genomes may only have a contig or two; otherwise a few must agree
+    return shared>=std::min<size_t>(3,candidate.size()) && shared>0;
+}
+std::string openReference(Manager::GwPlot* p,const Entry& e,bool iniTag){
+    rememberIndexes(e);
+    std::ostringstream output;
+    const auto before=p->reference;
+    p->loadGenome(iniTag?e.assembly:e.url,output);
+    if(p->reference==before||!p->fai)return output.str().empty()?"Could not load reference":output.str();
+    reconcileReferenceView(p);
+    if(!iniTag){p->opts.genome_tag=e.assembly;p->loadIdeogramForAssembly(e.assembly);}
+    std::string refresh="refresh";std::ostringstream out;Commands::run_command_map(p,refresh,out);
+    return {};
 }
 #ifndef __EMSCRIPTEN__
 std::int64_t fetchFileSize(const std::string& url){

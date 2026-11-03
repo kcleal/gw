@@ -147,7 +147,7 @@ $(WASM_BUILD_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 endif
-SERVER_OBJECTS := ./protocol/viewer/native/viewer_interface.o
+SERVER_OBJECTS := ./deps/protocol/viewer/native/viewer_interface.o
 -include $(OBJECTS:.o=.d) $(SERVER_OBJECTS:.o=.d)
 ./lib/libBigWig/%.o: ./lib/libBigWig/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Wno-attribute-warning -c $< -o $@

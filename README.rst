@@ -22,33 +22,41 @@ GW
 GW is a fast browser for genomic sequencing data (.bam/.cram format) used directly from the terminal. GW also
 allows you to view and annotate variants from vcf/bcf files.
 
-📖 Documentation: `<https://kcleal.github.io/gw/>`_
+📖 Documentation: `<https://kcleal.github.io/gw/>`_ (v2 docs — v1 docs are archived `here <https://kcleal.github.io/gw/v1/>`_)
 
 🐍 Python interface: `<https://github.com/kcleal/gwplot>`_
 
 📄 Paper: `<https://www.nature.com/articles/s41592-025-02749-5>`_
+
+.. note::
+   **GW v2 is in beta** — build it from source as described below. The last v1
+   release (1.2.6) remains available through conda, Homebrew and the Releases page. New in v2:
+   ImGui user interface, an expanded command set, and a stable API with a remote viewer protocol.
 
 
 
 ⚙️ Install
 ----------
 
-For best performance, download one of the app packages from the Releases page. See the `install section of the documentation <https://kcleal.github.io/gw/docs/install/Install.html>`_ for more details.
+GW v2 must currently be built from source:
 
-Using a package manager:
-
-``conda install -c bioconda -c conda-forge gw``
-
-``brew install kcleal/homebrew-gw/gw``
-
-
-To build from source, using conda to fetch htslib + glfw3 dependencies::
+.. code-block:: shell
 
     conda create -y -n gw_env -c conda-forge glfw htslib ncurses
     conda activate gw_env
     git clone https://github.com/kcleal/gw.git
     cd gw && make prep
     CONDA_PREFIX=$(conda info --base) LDLIBS+="-lcrypto -lssl" make -j4
+
+See the `install section of the documentation <https://kcleal.github.io/gw/install.html>`_ for
+platform-specific details.
+
+For the stable GW v1 packages, see the `v1 install docs
+<https://kcleal.github.io/gw/v1/install/Install.html>`_:
+
+``conda install -c bioconda -c conda-forge gw``
+
+``brew install kcleal/homebrew-gw/gw``
 
 
 

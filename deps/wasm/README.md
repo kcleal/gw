@@ -73,6 +73,23 @@ with `bash deps/wasm/build.sh` if the local cache still contains m133.
 A fresh dependency build downloads substantial source trees and takes time.
 The compiler version must match across Skia, XZ, HTSlib and GW.
 
+## Build size
+
+Debug info is stripped by default: the shared native flags carry `-g`, which
+would add ~43 MB of DWARF sections to `gw.wasm` (13 MB of code becomes a 57 MB
+binary). `deps/wasm/flags.mk` filters `-g` out and links with
+`-Wl,--strip-debug`, producing a ~13 MB wasm. Build with `WASM_DEBUG=1` to keep
+debug info:
+
+```sh
+make -C deps/wasm            # stripped (default)
+make -C deps/wasm WASM_DEBUG=1
+```
+
+Note the stripped build has no wasm name section (Emscripten only emits one
+with `-g`), so browser stack traces show addresses only — use `WASM_DEBUG=1`
+when debugging crashes.
+
 ## Local files and limitations
 
 Use **GW menu → Open file**, or drop files onto the canvas. Select a BAM and
@@ -136,4 +153,4 @@ is restricted to fetched bases.
 
 The shared Open → Online file dialog supports references, alignments, tracks and
 variants through lazy browser HTTP range reads. See
-[the catalogue and transport documentation](../../resources/online/README.md).
+[the catalogue and transport documentation](../../include/resources/online/README.md).

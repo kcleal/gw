@@ -42,6 +42,12 @@ std::vector<Entry> parseCatalogue(const std::string& text, bool allowMountedPath
             if((e.assembly=="hg19"||e.assembly=="hg38")&&e.url.find("igv-genepattern-org.s3.amazonaws.com")!=std::string::npos){
                 e.url=e.assembly=="hg19"?"https://igv.org/genomes/data/hg19/hg19.fasta":"https://igv.org/genomes/data/hg38/hg38.fa";e.indexURL=e.url+".fai";
             }
+            // The legacy list still points some genomes at retired buckets (HTTP 403): mm10/rn6 moved to
+            // igv.org/genomes/data; the remaining igv-genepattern-org genomes have no mirror, so skip them
+            if(e.url.find("s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/")!=std::string::npos){
+                e.url="https://igv.org/genomes/data/"+e.assembly+"/"+resourceName(e.url);e.indexURL=e.url+".fai";
+            }
+            if(e.url.find("igv-genepattern-org.s3.amazonaws.com")!=std::string::npos)continue;
             if(httpURL(e.url))out.push_back(e);}
     }else{
         if(root.get("version")!="1"||!root.object.count("entries")||root.object.at("entries").type!='[')throw std::runtime_error("Expected catalogue version 1 and entries");
@@ -180,6 +186,6 @@ Entry resolveUcscTrack(const std::string& text,Entry e){
     return e;
 }
 std::vector<Entry> bundledCatalogue(){return parseCatalogue(
-#include "../../resources/online/catalogue.inc"
+#include "../../include/resources/online/catalogue.inc"
 );}
 }

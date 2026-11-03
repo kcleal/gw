@@ -85,7 +85,7 @@ void drawImGuiAlignmentScrollbars(Manager::GwPlot* plot) {
         float height = std::max(1.0f, (plot->trackY - plot->gap) / ms);
         bool nearby = io.MousePos.x >= right - 28.0f && io.MousePos.x <= right + 6.0f &&
                       io.MousePos.y >= top && io.MousePos.y <= top + height;
-        if (!nearby && !drag.active) continue;
+        if ((!nearby || pointerOverOtherWindow()) && !drag.active) continue;
         if (!drag.active) {
             // covArr stores depth deltas. Use the peak already calculated by
             // the coverage renderer instead of scanning large regions on hover.
@@ -132,6 +132,115 @@ void drawImGuiAlignmentScrollbars(Manager::GwPlot* plot) {
         ImGui::End();
         ImGui::PopStyleVar(2);
     }
+}
+
+// Small ylim box at the top of the read scrollbar. It only appears when the
+// pointer is near the scrollbar (or the box itself), so it works for touch too.
+void drawImGuiYlimBox(Manager::GwPlot* plot) {
+    if (plot->mode != Manager::Show::SINGLE || !plot->opts.alignments || plot->trackY <= 0) return;
+    static int shownFor = -1;       // collection whose box is visible
+    static double lastNear = -1.0;  // keep the box briefly after the pointer leaves
+    static bool editing = false;
+    auto& io = ImGui::GetIO();
+    const float ms = plot->monitorScale;
+    const bool remote = static_cast<bool>(plot->remoteCommand);
+    const size_t count = remote ? plot->remoteScrollbars.size() : plot->collections.size();
+    // Same pill as the Skia track labels: label height, rounded, theme label colours
+    const float boxH = plot->fonts.overlayHeight * 2 / ms;
+    const float valueW = ImGui::CalcTextSize("00000").x + 8.0f;
+    const float boxW = boxH * 2 + valueW;
+    auto boxPos = [&](size_t i, float& right, float& top, float& height) {
+        const auto* cl = remote ? nullptr : &plot->collections[i];
+        const auto* meta = remote ? &plot->remoteScrollbars[i] : nullptr;
+        right = (remote ? meta->xOffset + meta->regionPixels : cl->xOffset + cl->regionPixels) / ms;
+        top = (remote ? meta->yOffset : cl->yOffset) / ms;
+        height = std::max(1.0f, (plot->trackY - plot->gap) / ms);
+        return ImVec2(right - 20.0f - boxW, top + 2.0f);
+    };
+    int near = -1;
+    const bool blocked = pointerOverOtherWindow();
+    if (blocked) editing = false;
+    for (size_t i = 0; i < count && near < 0 && !blocked; ++i) {
+        float right, top, height;
+        ImVec2 p0 = boxPos(i, right, top, height);
+        bool nearBar = io.MousePos.x >= right - 28.0f && io.MousePos.x <= right + 6.0f &&
+                       io.MousePos.y >= top && io.MousePos.y <= top + height;
+        bool nearBox = io.MousePos.x >= p0.x - 6.0f && io.MousePos.x <= right + 6.0f &&
+                       io.MousePos.y >= p0.y - 6.0f && io.MousePos.y <= p0.y + boxH + 6.0f;
+        if (nearBar || nearBox) near = (int)i;
+    }
+    const double now = ImGui::GetTime();
+    if (near >= 0) {
+        shownFor = near;
+        lastNear = now;
+    }
+    if (shownFor >= (int)count || blocked || (near < 0 && !editing && now - lastNear > 0.6)) shownFor = -1;
+    if (shownFor < 0) { editing = false; return; }
+    float right, top, height;
+    ImVec2 pos = boxPos(shownFor, right, top, height);
+
+    auto toImCol = [](SkColor c, float alpha = 1.f) {
+        return IM_COL32(SkColorGetR(c), SkColorGetG(c), SkColorGetB(c), (int)(255 * alpha));
+    };
+    const ImU32 bgCol = toImCol(plot->opts.theme.bgPaint.getColor());
+    const ImU32 textCol = toImCol(plot->opts.theme.tcDel.getColor());
+    const ImU32 hoverCol = toImCol(plot->opts.theme.tcDel.getColor(), 0.12f);
+    const float rr = 2.5f;
+
+    pos = ImVec2(IM_ROUND(pos.x), IM_ROUND(pos.y));
+    ImGui::SetNextWindowPos(pos, ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(boxW, boxH), ImGuiCond_Always);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(1, 1));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, std::max(0.f, (boxH - ImGui::GetFontSize()) * 0.5f)));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
+    ImGui::Begin("##ylim_box", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+                 ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+                 ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBackground);
+    ImGui::BringWindowToDisplayBack(ImGui::GetCurrentWindow());  // stays below dialogs and popups
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const ImVec2 p0 = ImGui::GetWindowPos(), p1(p0.x + boxW, p0.y + boxH);
+    dl->AddRectFilled(p0, p1, bgCol, rr);
+
+    const bool tlen = plot->opts.tlen_yscale;
+    int value = tlen ? plot->opts.max_tlen : plot->opts.ylim;
+    const int step = std::max(2, (int)(value * 0.1));
+    int newValue = value;
+    auto stepButton = [&](const char* id, bool plus) {
+        ImVec2 c = ImGui::GetCursorScreenPos();
+        bool clicked = ImGui::InvisibleButton(id, ImVec2(boxH, boxH));
+        if (ImGui::IsItemHovered()) dl->AddRectFilled(c, ImVec2(c.x + boxH, c.y + boxH), hoverCol, rr);
+        const float m = boxH * 0.5f, arm = boxH * 0.2f;
+        strokeGlyphLine(dl, ImVec2(c.x + m - arm, c.y + m), ImVec2(c.x + m + arm, c.y + m), textCol, 1.5f);
+        if (plus) strokeGlyphLine(dl, ImVec2(c.x + m, c.y + m - arm), ImVec2(c.x + m, c.y + m + arm), textCol, 1.5f);
+        return clicked;
+    };
+    if (stepButton("##ylim_minus", false)) newValue = value - step;
+    ImGui::SameLine();
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, hoverCol);
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, hoverCol);
+    ImGui::PushStyleColor(ImGuiCol_Text, textCol);
+    ImGui::SetNextItemWidth(valueW);
+    int typed = value;
+    if (ImGui::InputInt("##ylim", &typed, 0, 0, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll))
+        newValue = typed;
+    editing = ImGui::IsItemActive();
+    ImGui::PopStyleColor(4);
+    ImGui::SameLine();
+    if (stepButton("##ylim_plus", true)) newValue = value + step;
+    editing = editing || ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
+    if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) && !ImGui::IsAnyItemActive())
+        ImGui::SetTooltip(tlen ? "Max template length (y axis)" : "Max read rows (ylim)");
+    if (newValue != value && newValue > 0) {
+        if (remote) plot->remoteCommand("ylim " + std::to_string(newValue));
+        else plot->setYlimValue(newValue);
+        lastNear = now;
+    }
+    ImGui::End();
+    ImGui::PopStyleVar(6);
 }
 
 } // namespace Menu

@@ -4,7 +4,7 @@ This client uses GW's **existing** `GwPlot::overlayImGui` implementation and men
 components. There is no separate remote toolbar or replacement Settings window.
 The original full browser renderer remains in `../wasm`.
 
-The demo now uses the versioned [viewer protocol](../../protocol/viewer/v1/README.md).
+The demo now uses the versioned [viewer protocol](../protocol/viewer/v1/README.md).
 Browser/server exchanges go through the shared
 `client.mjs` adapter and `/viewer/v1/message` plus `/viewer/v1/frame`. Override
 `Module.viewerTransport` to use another server or transport. The native API and

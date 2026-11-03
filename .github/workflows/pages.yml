@@ -8,7 +8,7 @@ name: Deploy Jekyll site to Pages
 
 on:
   push:
-    branches: ["main"]
+    branches: ["master"]
   workflow_dispatch:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
@@ -23,9 +23,103 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Build the GW WASM demo and package it for static hosting. The runtime
+  # files are renamed to content-addressed names (gw.<hash>.wasm) so a cached
+  # HTML page can never reference a stale binary after a redeploy — GitHub
+  # Pages serves fixed cache headers and cannot vary them per file.
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup emsdk
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.65
+          actions-cache-folder: emsdk-cache
+
+      - name: Cache Skia WASM package
+        id: skia
+        uses: actions/cache@v4
+        with:
+          path: deps/wasm/out/skia_m143
+          key: gw-wasm-skia-m143
+
+      - name: Download Skia WASM package
+        if: steps.skia.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p deps/wasm/out/skia_m143
+          curl -fL -o /tmp/skia-m143-wasm.tar.gz \
+            https://github.com/kcleal/skia_build_arm64/releases/download/m143/skia-m143-wasm.tar.gz
+          tar -xzf /tmp/skia-m143-wasm.tar.gz -C deps/wasm/out/skia_m143
+
+      - name: Cache htslib/lzma WASM builds
+        id: libs
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps/wasm/out/htslib
+            deps/wasm/xz-5.2.5
+            deps/wasm/.htslib_*
+            deps/wasm/.lzma_*
+          key: gw-wasm-libs-emcc-3.1.65-${{ hashFiles('deps/wasm/build.sh') }}
+
+      - name: Cache GW WASM objects
+        id: objects
+        uses: actions/cache@v4
+        with:
+          path: deps/wasm/out/gw_objects_m143
+          key: gw-wasm-objs-${{ hashFiles('Makefile', 'deps/wasm/Makefile', 'deps/wasm/flags.mk', 'src/**', 'include/**', 'lib/dear_imgui/**', 'lib/libBigWig/**') }}
+
+      - name: Refresh restored object timestamps
+        # Fresh checkouts make sources newer than restored objects, which
+        # would force a full rebuild. Relinking from warm objects is fast.
+        run: find deps/wasm/out/gw_objects_m143 -name '*.o' -exec touch {} + 2>/dev/null || true
+
+      - name: Index the test reference
+        run: |
+          sudo apt-get update && sudo apt-get install -y samtools
+          samtools faidx test/test.fa
+
+      - name: Build GW WASM demo
+        run: WASM_SKIP_SKIA=1 bash deps/wasm/build.sh
+
+      - name: Package WASM app
+        run: |
+          set -euo pipefail
+          cd deps/wasm
+          WASM_HASH=$(sha256sum gw.wasm | cut -c1-16)
+          DATA_HASH=$(sha256sum gw.data | cut -c1-16)
+          sed -i "s/gw\.wasm/gw.$WASM_HASH.wasm/g; s/gw\.data/gw.$DATA_HASH.data/g" gw.js
+          JS_HASH=$(sha256sum gw.js | cut -c1-16)
+          mv gw.js "gw.$JS_HASH.js"
+          mv gw.wasm "gw.$WASM_HASH.wasm"
+          mv gw.data "gw.$DATA_HASH.data"
+          mkdir -p "$GITHUB_WORKSPACE/app"
+          cp "gw.$JS_HASH.js" "gw.$WASM_HASH.wasm" "gw.$DATA_HASH.data" "$GITHUB_WORKSPACE/app/"
+          # Pages does not serve .mjs with a JavaScript MIME type — use .js
+          sed 's|\./local-files\.mjs|./local-files.js|g' local-files.mjs > "$GITHUB_WORKSPACE/app/local-files.js"
+          sed 's|\./local-files\.mjs|./local-files.js|g; s|\./online-files\.mjs|./online-files.js|g' online-files.mjs > "$GITHUB_WORKSPACE/app/online-files.js"
+          COMMON="-e s|src=gw\.js|src=gw.$JS_HASH.js| -e s|local-files\.mjs|local-files.js|g -e s|online-files\.mjs|online-files.js|g"
+          # index.html starts GW with no files; demo.html loads the bundled BAM
+          sed $COMMON -e 's|<script async src=|<script>window.GW_ARGS=[];</script><script async src=|' gw.html > "$GITHUB_WORKSPACE/app/index.html"
+          sed $COMMON -e "s|<script async src=|<script>window.GW_ARGS=['/test.fa','-b','/test.bam','-r','chr1:9900-10300'];</script><script async src=|" gw.html > "$GITHUB_WORKSPACE/app/demo.html"
+
+      - name: Upload WASM app
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-app
+          path: app/
+          retention-days: 1
+
   # Build job
   build:
+    needs: wasm
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,19 +136,22 @@ jobs:
       - name: Install Bundler
         run: gem install bundler:2.3.26
       - name: Install dependencies
-        run: |
-          cd docs
-          bundle install
+        run: bundle install
       - name: Build with Jekyll
         # Outputs to the './_site' directory by default
         run: |
           ls -a
           pwd
-          cd docs && bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
+          bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
           ls
           pwd
         env:
           JEKYLL_ENV: production
+      - name: Add WASM app to site
+        uses: actions/download-artifact@v4
+        with:
+          name: wasm-app
+          path: docs/_site/app
       - name: Upload artifact
         # Automatically uploads an artifact from the './_site' directory by default
         uses: actions/upload-pages-artifact@v3

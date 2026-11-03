@@ -60,4 +60,7 @@ static bool closeOnEscape(bool* open = nullptr) {
 #include "menu_components/imgui/imgui_data_labels.cpp"
 #include "menu_components/imgui/imgui_alignment_scrollbars.cpp"
 #include "menu_components/imgui/imgui_close_dialog.cpp"
+#include "menu_components/imgui/imgui_track_manager.cpp"
+#include "menu_components/imgui/imgui_genome_menu.cpp"
+#include "menu_components/imgui/imgui_chromosome_list.cpp"
 #include "menu_components/imgui/imgui_label_table.cpp"

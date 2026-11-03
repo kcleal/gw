@@ -15492,4 +15492,55 @@ namespace Ideo {
 //        ptr = bed.data();
 //        size = bed.size();
 //        }
+
+    const std::vector<Source>& embeddedIdeograms() {
+        static const std::vector<Source> list = {
+            {"hg38", "Human hg38", "hg38"}, {"grch38", "Human GRCh38 (no chr)", "grch38"},
+            {"hg19", "Human hg19", "hg19"}, {"grch37", "Human GRCh37 (no chr)", "grch37"},
+            {"hs1", "Human T2T CHM13", "t2t"}, {"mm39", "Mouse mm39", "mm39"},
+            {"danRer11", "Zebrafish danRer11", "danrer11"}, {"ce11", "C. elegans ce11", "ce11"},
+        };
+        return list;
+    }
+
+    // From s3.amazonaws.com/igv.org.genomes/genomes.json; mm10 is UCSC's copy as the IGV link is gone
+    const std::vector<Source>& onlineIdeograms() {
+        static const std::vector<Source> list = {
+            {"chm13v1.1", "Human T2T CHM13 v1.1", "https://s3.amazonaws.com/igv.org.genomes/t2t-chm13-v1.1/cytoBandIdeo.bed"},
+            {"hg18", "Human hg18", "https://s3.amazonaws.com/igv.org.genomes/hg18/cytoBandIdeo.txt.gz"},
+            {"mm10", "Mouse mm10", "https://hgdownload.soe.ucsc.edu/goldenPath/mm10/database/cytoBandIdeo.txt.gz"},
+            {"mm9", "Mouse mm9", "https://s3.amazonaws.com/igv.org.genomes/mm9/cytoBandIdeo.txt.gz"},
+            {"rn7", "Rat rn7", "https://hgdownload.soe.ucsc.edu/goldenPath/rn7/database/cytoBandIdeo.txt.gz"},
+            {"rn6", "Rat rn6", "https://s3.amazonaws.com/igv.org.genomes/rn6/cytoBand.txt.gz"},
+            {"gorGor6", "Gorilla gorGor6", "https://hgdownload.soe.ucsc.edu/goldenPath/gorGor6/database/cytoBandIdeo.txt.gz"},
+            {"gorGor4", "Gorilla gorGor4", "https://s3.amazonaws.com/igv.org.genomes/gorGor4/cytoBandIdeo.txt.gz"},
+            {"panTro6", "Chimp panTro6", "https://hgdownload.soe.ucsc.edu/goldenPath/panTro6/database/cytoBandIdeo.txt.gz"},
+            {"panTro5", "Chimp panTro5", "https://hgdownload.soe.ucsc.edu/goldenPath/panTro5/database/cytoBandIdeo.txt.gz"},
+            {"panTro4", "Chimp panTro4", "https://s3.amazonaws.com/igv.org.genomes/panTro4/cytoBandIdeo.txt.gz"},
+            {"panPan2", "Bonobo panPan2", "https://s3.amazonaws.com/igv.org.genomes/panPan2/cytoBandIdeo.txt.gz"},
+            {"macFas5", "Macaque macFas5", "https://hgdownload.soe.ucsc.edu/goldenPath/macFas5/database/cytoBandIdeo.txt.gz"},
+            {"canFam5", "Dog canFam5", "https://hgdownload.soe.ucsc.edu/goldenPath/canFam5/database/cytoBandIdeo.txt.gz"},
+            {"canFam4", "Dog canFam4", "https://hgdownload.soe.ucsc.edu/goldenPath/canFam4/database/cytoBandIdeo.txt.gz"},
+            {"canFam3", "Dog canFam3", "https://s3.amazonaws.com/igv.org.genomes/canFam3/cytoBandIdeo.txt.gz"},
+            {"bosTau9", "Cow bosTau9", "https://s3.amazonaws.com/igv.org.genomes/bosTau9/cytoBandIdeo.txt.gz"},
+            {"bosTau8", "Cow bosTau8", "https://s3.amazonaws.com/igv.org.genomes/bosTau8/cytoBandIdeo.txt.gz"},
+            {"susScr11", "Pig susScr11", "https://s3.amazonaws.com/igv.org.genomes/susScr11/cytoBandIdeo.txt.gz"},
+            {"galGal6", "Chicken galGal6", "https://s3.amazonaws.com/igv.org.genomes/galGal6/cytoBandIdeo.txt"},
+            {"danRer10", "Zebrafish danRer10", "https://s3.amazonaws.com/igv.org.genomes/danRer10/cytoBandIdeo.txt.gz"},
+            {"dm6", "Fly dm6", "https://s3.amazonaws.com/igv.org.genomes/dm6/cytoBandIdeo.txt.gz"},
+            {"dm3", "Fly dm3", "https://s3.amazonaws.com/igv.org.genomes/dm3/cytoBand.txt.gz"},
+        };
+        return list;
+    }
+
+    std::string ideogramForAssembly(const std::string& assembly) {
+        std::string a = (assembly == "hg38_1kg") ? "hg38" : assembly;
+        for (const auto* list : {&embeddedIdeograms(), &onlineIdeograms()}) {
+            for (const auto& s : *list) {
+                if (a == s.assembly || a == s.source) return s.source;
+            }
+        }
+        return "";
+    }
+
 }  // Namespace Ideo

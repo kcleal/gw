@@ -20,6 +20,7 @@
 #include "include/core/SkData.h"
 #include "include/core/SkImageInfo.h"
 #include "include/core/SkPaint.h"
+#include "include/core/SkMilestone.h"
 #include "include/core/SkPathBuilder.h"
 #include "include/core/SkPathEffect.h"
 #include "include/effects/SkDashPathEffect.h"
@@ -430,6 +431,16 @@ namespace Drawing {
 
     SkPoint points[5];
 
+    // The WASM build links an older Skia (m133) whose span overloads are missing,
+    // while m143 hides the pointer/count overloads behind SK_SUPPORT_UNSPANNED_APIS.
+    inline void addClosedPolygon(SkPathBuilder &path, const SkPoint *pts, int count) {
+#if SK_MILESTONE >= 143
+        path.addPolygon({pts, static_cast<size_t>(count)}, true);
+#else
+        path.addPolygon(pts, count, true);
+#endif
+    }
+
     inline void drawLeftPointedRectangleNoEdge(SkCanvas *const canvas, const float polygonH, const float yScaledOffset, const float start,
                                          const float width, const float xOffset, const SkPaint &faceColor,
                                          SkPathBuilder &path, const float slop) {
@@ -444,7 +455,7 @@ namespace Drawing {
         points[3] = SkPoint::Make(endX, endY);
         points[4] = SkPoint::Make(endX, yScaledOffset);
         path.reset();
-        path.addPolygon({points, 5}, true);
+        addClosedPolygon(path, points, 5);
         canvas->drawPath(path.snapshot(), faceColor);
     }
 
@@ -462,7 +473,7 @@ namespace Drawing {
         points[3] = SkPoint::Make(slopedEndX, midY);
         points[4] = SkPoint::Make(endX, yScaledOffset);
         path.reset();
-        path.addPolygon({points, 5}, true);
+        addClosedPolygon(path, points, 5);
         canvas->drawPath(path.snapshot(), faceColor);
     }
 
@@ -502,13 +513,13 @@ namespace Drawing {
         points[3] = SkPoint::Make(endX, endY);
         points[4] = SkPoint::Make(endX, yScaledOffset);
         path.reset();
-        path.addPolygon({points, 5}, true);
+        addClosedPolygon(path, points, 5);
         canvas->drawPath(path.snapshot(), faceColor);
         if (edged) {
             points[0].fY += 0.5;
             points[4].fY += 0.5;
             path.reset();
-            path.addPolygon({points, 5}, true);
+            addClosedPolygon(path, points, 5);
             canvas->drawPath(path.snapshot(), edgeColor);
         }
     }
@@ -528,13 +539,13 @@ namespace Drawing {
         points[3] = SkPoint::Make(slopedEndX, midY);
         points[4] = SkPoint::Make(endX, yScaledOffset);
         path.reset();
-        path.addPolygon({points, 5}, true);
+        addClosedPolygon(path, points, 5);
         canvas->drawPath(path.snapshot(), faceColor);
         if (edged) {
             points[0].fY += 0.5;
             points[4].fY += 0.5;
             path.reset();
-            path.addPolygon({points, 5}, true);
+            addClosedPolygon(path, points, 5);
             canvas->drawPath(path.snapshot(), edgeColor);
         }
     }
@@ -1378,7 +1389,11 @@ namespace Drawing {
             separator.setStyle(SkPaint::kStroke_Style);
             separator.setStrokeWidth(monitorScale);
             const SkScalar dashes[] = {4 * monitorScale, 4 * monitorScale};
+            #if SK_MILESTONE >= 143
             separator.setPathEffect(SkDashPathEffect::Make({dashes, 2}, 0));
+#else
+            separator.setPathEffect(SkDashPathEffect::Make(dashes, 2, 0));
+#endif
             SkPaint label = theme.tcLabels;
             label.setAlphaf(0.7f);
             for (int group = 0; group < groups; ++group) {
@@ -1635,13 +1650,10 @@ namespace Drawing {
         // Frame of the codon starting at genomic position g is (g - 1) mod 3
         auto mod3 = [](int v) { int m = v % 3; return (m < 0) ? m + 3 : m; };
 
-        // AA text row geometry: cap height sizes the selected-codon box so it doesn't touch the letter
+        // AA text row geometry
         const float textBaseline = textTop + textRowHeight * 0.8f + 2.5f * monitorScale;
-        const float aaPad = 2.5f * monitorScale;
         const float tickY = laneAreaTop - gap * 0.5f;
         const float tickLen = monitorScale * 5.0f;
-        SkRect capBounds;
-        fonts.overlay.measureText("P", 1, SkTextEncoding::kUTF8, &capBounds);
 
         SkRect rect;
         char triplet[4];
@@ -1737,11 +1749,6 @@ namespace Drawing {
                     float bx = (float)(regionX + idx0 * xScaling);
                     float cx = (float)(regionX + idx0 * xScaling + codonW * 0.5f);
                     float x = cx - text_w * 0.5f;
-                    if (g == selectedCodon) {
-                        rect.setLTRB(bx, textBaseline + capBounds.top() - aaPad, bx + (float)codonW, textBaseline + aaPad);
-                        canvas->drawRoundRect(rect, 2 * monitorScale, 2 * monitorScale, theme.fcSelectedCodon);
-                        canvas->drawRoundRect(rect, 2 * monitorScale, 2 * monitorScale, theme.lcSelectedBase);
-                    }
                     sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromText(aa, 1, fonts.overlay, SkTextEncoding::kUTF8);
                     canvas->drawTextBlob(blob, x, textBaseline, theme.tcLabels);
 

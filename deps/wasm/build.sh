@@ -75,7 +75,10 @@ SKIA_STAMP="$SKIA_OUT/.built_m143_with_emcc_${EMSCRIPTEN_TARGET}"
 # modern emsdk.py able to install 4.x/5.x) by patching compile.sh's gn gen
 # call.  This ensures Skia and GW share the same emcc ABI, fixing:
 #   "undefined symbol: saveSetjmp / testSetjmp"
-if [ -f "$SKIA_OUT/libskia.a" ] && [ -f "$SKIA_STAMP" ]; then
+if [ -n "${WASM_SKIP_SKIA:-}" ]; then
+    # CI path: use the prebuilt m143 package in deps/wasm/out/skia_m143 instead
+    echo "=== Skia WASM build skipped (WASM_SKIP_SKIA=1) ==="
+elif [ -f "$SKIA_OUT/libskia.a" ] && [ -f "$SKIA_STAMP" ]; then
     echo "=== Skia WASM libs already built with this Emscripten — skipping ==="
 else
     echo "=== Cloning Skia ($SKIA_BRANCH) ==="

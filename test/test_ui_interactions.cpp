@@ -199,6 +199,29 @@ static void testBufferedScrolling(bool equalStarts, Utils::SortType sort = Utils
     std::cout << "Buffered scrolling preserves visible rows and matches fresh fetches\n";
 }
 
+// Pair-pattern filters built by the Tools Filter section: kept patterns are or'd,
+// removed patterns are and'd.
+static void testPatternFilters() {
+    std::string headerText = "@SQ\tSN:chr1\tLN:1000\n";
+    auto* header = sam_hdr_parse(headerText.size(), headerText.c_str());
+    std::string text = "pair\t1\tchr1\t101\t60\t20M\tchr1\t500\t420\t" + std::string(20, 'A') + "\t" + std::string(20, 'I');
+    kstring_t line{0, 0, nullptr}; kputs(text.c_str(), &line);
+    auto* record = bam_init1(); assert(sam_parse1(&line, header, record) >= 0); free(line.s);
+    Segs::Align aln(record);
+    Segs::align_init(&aln, 0, true);
+    auto keeps = [&](std::string expr, Segs::Pattern pattern) {
+        aln.orient_pattern = pattern;
+        Parse::Parser parser(std::cerr);
+        assert(parser.set_filter(expr, 1, 1) > 0);
+        return parser.eval(aln, header, 0, 0);
+    };
+    const std::string keep = "pattern == del or pattern == dup", drop = "pattern != del and pattern != dup";
+    assert(keeps(keep, Segs::DEL) && keeps(keep, Segs::DUP) && !keeps(keep, Segs::TRA) && !keeps(keep, Segs::NORMAL));
+    assert(!keeps(drop, Segs::DEL) && !keeps(drop, Segs::DUP) && keeps(drop, Segs::TRA) && keeps(drop, Segs::NORMAL));
+    assert(keeps("pattern == inv_f", Segs::INV_F) && !keeps("pattern == inv_f", Segs::INV_R));
+    sam_hdr_destroy(header);
+}
+
 static void testCoverageBaseCounts() {
     std::string headerText = "@SQ\tSN:chr1\tLN:1000\n";
     auto* header = sam_hdr_parse(headerText.size(), headerText.c_str());
@@ -733,6 +756,7 @@ int main() {
     testStableRowGaps();
     testHaplotypeRows();
     testCoverageBaseCounts();
+    testPatternFilters();
     testBufferedScrolling(false);
     testBufferedScrolling(true);
     testBufferedScrolling(false, Utils::SortType::STRAND);
@@ -808,8 +832,15 @@ int main() {
         auto& popups = ImGui::GetCurrentContext()->OpenPopupStack;
         assert(!popups.empty() && popups.back().Window);
         auto* popup = popups.back().Window;
-        menuClick(popup->WorkRect.Min.x + ImGui::GetFrameHeight()*.5f,
-                  popup->WorkRect.Min.y + ImGui::GetFrameHeight()*.5f);
+        // Refresh is the last item of the View popup
+        const ImGuiID refreshId = ImHashStr("Refresh", 0, popup->ID);
+        ImVec2 refreshAt(-1, -1);
+        for (float y = popup->WorkRect.Max.y; y > popup->WorkRect.Min.y && refreshAt.x < 0; y -= 2) {
+            io.AddMousePosEvent(popup->WorkRect.Min.x + 8, y); menuFrame();
+            if (GImGui->HoveredId == refreshId) refreshAt = ImVec2(popup->WorkRect.Min.x + 8, y);
+        }
+        assert(refreshAt.x >= 0);
+        menuClick(refreshAt.x, refreshAt.y);
         assert(sent == "refresh");
         io.AddKeyEvent(ImGuiKey_Escape,true); menuFrame();
         io.AddKeyEvent(ImGuiKey_Escape,false); menuFrame();
@@ -951,6 +982,237 @@ int main() {
         plot.opts=savedOptions; plot.trackY=savedTrackY; plot.monitorScale=savedScale; plot.mode=savedMode;
         io.AddMousePosEvent(-100,-100); frame();
     }
+    // The View popup's Sort and Hide submenus route every item through an existing
+    // command and stay open after a selection, so several can be toggled.
+    {
+        const auto savedOptions=plot.opts;
+        plot.remoteScrollbars={{0,100,500,100,0,true}};
+        std::vector<std::string> sent;
+        plot.remoteCommand=[&](const std::string& command){sent.push_back(command);};
+        auto menuFrame=[&]() {
+            ImGui::NewFrame(); bool redraw=false;
+            Menu::drawImGuiTopMenu(&plot, plot.gap, plot.fonts.overlayHeight, redraw);
+            ImGui::Render();
+            assert(GImGui->DebugDrawIdConflictsId==0);
+        };
+        auto click=[&](float x,float y) {
+            io.AddMousePosEvent(x,y); menuFrame();
+            io.AddMouseButtonEvent(0,true); menuFrame();
+            io.AddMouseButtonEvent(0,false); menuFrame();
+        };
+        auto& stack=ImGui::GetCurrentContext()->OpenPopupStack;
+        const float side=plot.fonts.overlayHeight;
+        const float bx=plot.gap*.5f + side + plot.gap*.25f + side*.5f, by=plot.gap*.25f + side*.5f;
+        // Hover the named submenu entry of the View popup, then click down its rows
+        auto runSubmenu=[&](const char* name) {
+            sent.clear();
+            menuFrame(); menuFrame();
+            click(bx,by); menuFrame();
+            assert(stack.Size==1);
+            ImGuiWindow* view=stack.back().Window;
+            const ImGuiID id=ImHashStr(name,0,view->ID);
+            bool opened=false;
+            for (float y=view->WorkRect.Min.y; y<view->WorkRect.Max.y && !opened; y+=2) {
+                io.AddMousePosEvent(view->WorkRect.Min.x+8,y); menuFrame(); menuFrame();
+                opened = GImGui->HoveredId==id && stack.Size==2;
+            }
+            assert(opened);
+            const ImRect work=stack.back().Window->WorkRect;
+            io.AddMousePosEvent(work.Min.x+8,work.Min.y+2); menuFrame(); menuFrame();
+            for (float y=work.Min.y+2; y<work.Max.y; y+=ImGui::GetFrameHeight()*.25f) {
+                size_t before=sent.size();
+                click(work.Min.x+8,y);
+                assert(stack.Size==2);  // selections never close the menu
+                if (sent.size()>before) y+=ImGui::GetFrameHeight()*.5f;
+            }
+            click(600,650);  // clicking outside dismisses it
+            assert(stack.empty());
+        };
+        auto has=[&](const std::string& c){ return std::find(sent.begin(),sent.end(),c)!=sent.end(); };
+        // Menu rows (Sort, Hide, Link) use the same pitch as the checkboxes above them
+        {
+            menuFrame(); click(bx,by); menuFrame();
+            ImGuiWindow* view=stack.back().Window;
+            auto firstY=[&](const char* name) {
+                const ImGuiID id=ImHashStr(name,0,view->ID);
+                for (float y=view->WorkRect.Min.y; y<view->WorkRect.Max.y; y+=0.5f) {
+                    io.AddMousePosEvent(view->WorkRect.Min.x+4,y); menuFrame();
+                    if (GImGui->HoveredId==id) return y;
+                }
+                return -1.f;
+            };
+            const float a=firstY("Alignments"), c=firstY("Coverage");
+            const float sortY=firstY("Sort"), hideY=firstY("Hide"), linkY=firstY("Link");
+            assert(a>=0 && c>a && sortY>c && hideY>sortY && linkY>hideY);
+            // Sort's hit area starts below the separator, so compare the Hide -> Link pitch
+            assert(std::abs((linkY-hideY)-(c-a))<1.0f);
+            click(600,650);
+        }
+        runSubmenu("Sort");
+        assert(has("sort strand") && has("sort hap") && !has("sort none"));  // None is current
+        plot.regions[0].sortOption=Utils::SortType::STRAND;
+        runSubmenu("Sort");
+        assert(has("sort none") && has("sort hap") && !has("sort strand"));
+        plot.regions[0].sortOption=Utils::SortType::NONE;
+        runSubmenu("Link");
+        assert(has("link sv") && has("link all") && !has("link none"));  // None is current
+        runSubmenu("Hide");
+        assert(has("filter ~flag & 1024") && has("filter ~flag & 256") && has("filter ~flag & 2048") &&
+               has("filter mapq > 0") && !has("filter ~flag & 512") && !has("refresh"));
+        // An active quick filter is unticked with remove-filter, and Clear filters appears
+        Parse::Parser dup(std::cerr); std::string expr="~flag & 1024";
+        dup.set_filter(expr,1,1); plot.filters.push_back(dup);
+        runSubmenu("Hide");
+        assert(has("remove-filter ~flag & 1024") && !has("filter ~flag & 1024") && has("refresh"));
+        plot.filters.clear();
+        plot.remoteCommand={}; plot.remoteScrollbars.clear(); plot.opts=savedOptions;
+        io.AddMousePosEvent(-100,-100); menuFrame();
+    }
+    // The ylim box appears only near the read scrollbar and sends ylim on +.
+    {
+        const auto savedOptions=plot.opts;
+        const float savedTrackY=plot.trackY, savedScale=plot.monitorScale;
+        const auto savedMode=plot.mode;
+        plot.mode=Manager::SINGLE; plot.monitorScale=1; plot.trackY=250;
+        plot.opts.alignments=true; plot.opts.tlen_yscale=false; plot.opts.ylim=50;
+        plot.remoteScrollbars={{0,100,500,100,0,true}};
+        std::vector<std::string> sent;
+        plot.remoteCommand=[&](const std::string& command){sent.push_back(command);};
+        auto frame=[&]() { ImGui::NewFrame(); Menu::drawImGuiAlignmentScrollbars(&plot); Menu::drawImGuiYlimBox(&plot); ImGui::Render(); };
+        auto boxVisible=[&]() { auto* w=ImGui::FindWindowByName("##ylim_box"); return w && w->Active; };
+        io.AddMousePosEvent(250,200); frame(); frame();
+        assert(!boxVisible());
+        io.AddMousePosEvent(490,200); frame(); frame();
+        assert(boxVisible());
+        auto* box=ImGui::FindWindowByName("##ylim_box");
+        // Move onto the box itself, then press its + step button (the rightmost widget)
+        ImVec2 plus(box->Pos.x+box->Size.x-box->Size.y*.5f, box->Pos.y+box->Size.y*.5f);
+        io.AddMousePosEvent(plus.x,plus.y); frame(); frame();
+        assert(boxVisible());
+        io.AddMouseButtonEvent(0,true); frame();
+        io.AddMouseButtonEvent(0,false); frame();
+        assert(sent.size()==1 && sent[0]=="ylim 55");
+        // Leaving the area hides the box after a short delay
+        io.AddMousePosEvent(100,400);
+        for (int f=0; f<60; ++f) frame();
+        assert(!boxVisible());
+        plot.remoteCommand={}; plot.remoteScrollbars.clear();
+        plot.opts=savedOptions; plot.trackY=savedTrackY; plot.monitorScale=savedScale; plot.mode=savedMode;
+        io.AddMousePosEvent(-100,-100); frame();
+    }
+    // Tools sections and the track manager have no conflicting IDs, and Count
+    // tabulates every region (two regions here, with one alignment file).
+    {
+        std::string hdrText="@SQ\tSN:chr1\tLN:1000\n";
+        auto* hdr=sam_hdr_parse(hdrText.size(), hdrText.c_str());
+        std::string r2="chr1:200-300";
+        plot.regions.push_back(Utils::parseRegion(r2));
+        plot.bam_paths={"reads.bam"}; plot.bams={nullptr}; plot.headers={hdr};
+        plot.collections.clear();
+        plot.collections.resize(2);
+        for (int i=0;i<2;++i) {
+            plot.collections[i].bamIdx=0; plot.collections[i].regionIdx=i;
+            plot.collections[i].region=&plot.regions[i];
+        }
+        plot.markers.push_back({"chr1", 50, 51});
+        plot.tracks.emplace_back();
+        plot.tracks.back().kind=HGW::FType::ROI;
+        Utils::TrackBlock roi; roi.chrom="chr1"; roi.start=20; roi.end=40; roi.name="roi";
+        plot.tracks.back().allBlocks["chr1"].add(20,40,roi);
+        plot.tracks.back().allBlocks["chr1"].index();
+        plot.tracks.emplace_back(); plot.tracks.back().kind=HGW::FType::BED_NOI; plot.tracks.back().path="a.bed";
+        plot.commandDialogOpen=true; plot.trackManagerOpen=true;
+        const bool savedVariantsOpen=plot.labelTableDialogOpen;
+        plot.labelTableDialogOpen=false;  // Tools takes the full dock height
+        auto frame=[&]() {
+            ImGui::NewFrame(); bool redraw=false;
+            Menu::drawImGuiCommandDialog(&plot, &plot.commandDialogOpen, redraw);
+            Menu::drawImGuiTrackManager(&plot, &plot.trackManagerOpen, redraw);
+            ImGui::Render();
+        };
+        frame();
+        auto* tools=ImGui::FindWindowByName("Tools"); assert(tools);
+        auto* tracks=ImGui::FindWindowByName("Tracks"); assert(tracks);
+        tracks->Pos=ImVec2(0,0); tracks->Size=ImVec2(480,690);  // Tools is docked on the right
+        for (const char* h : {"Count", "Filter", "Find read", "Introns", "Markers & ROI", "Save", "Sort"})
+            tools->StateStorage.SetInt(tools->GetID(h), 1);
+        for (int f=0; f<4; ++f) frame();
+        // Hover every widget; ImGui flags any two items sharing an ID
+        auto sweepFor=[&](ImGuiWindow* w, ImGuiID target) {
+            ImVec2 found(-1,-1);
+            for (float y=w->Pos.y+2; y<w->Pos.y+w->Size.y; y+=4)
+                for (float x=w->Pos.x+4; x<w->Pos.x+w->Size.x; x+=12) {
+                    io.AddMousePosEvent(x,y); frame();
+                    assert(GImGui->DebugDrawIdConflictsId==0);
+                    if (target && GImGui->HoveredId==target && found.x<0) found=ImVec2(x,y);
+                }
+            return found;
+        };
+        ImVec2 countBtn=sweepFor(tools, ImHashStr("Count##run", 0, tools->ID));
+        sweepFor(tracks, 0);
+        assert(countBtn.x>=0);
+        io.AddMousePosEvent(countBtn.x,countBtn.y); frame();
+        io.AddMouseButtonEvent(0,true); frame();
+        io.AddMouseButtonEvent(0,false); frame(); frame();
+        sweepFor(tools, 0);  // the results table, with one column per region
+        bool sawTable=false;
+        for (int i=0; i<GImGui->Tables.GetMapSize(); ++i) {
+            auto* t=GImGui->Tables.TryGetMapData(i);
+            if (t && t->ID==ImHashStr("##counts", 0, tools->ID) && t->ColumnsCount==3) sawTable=true;
+        }
+        assert(sawTable);
+        // Filter: ticking every Keep row adds the or'd pattern filter, every Remove row the and'd one
+        auto findTable=[&](const char* name) -> ImGuiTable* {
+            for (int i=0; i<GImGui->Tables.GetMapSize(); ++i) {
+                auto* t=GImGui->Tables.TryGetMapData(i);
+                if (t && t->OuterWindow && t->OuterWindow->RootWindow==tools && t->ID==ImHashStr(name,0,tools->ID)) return t;
+            }
+            return nullptr;
+        };
+        // Only Filter open so its table is fully in view
+        for (const char* h : {"Count", "Find read", "Introns", "Markers & ROI", "Save", "Sort"})
+            tools->StateStorage.SetInt(tools->GetID(h), 0);
+        frame(); frame();
+        ImVec2 applyBtn=sweepFor(tools, ImHashStr("Apply Filters", 0, tools->ID));
+        assert(applyBtn.x>=0);
+        auto* flagsTable=findTable("##samflags"); assert(flagsTable);
+        auto toolClick=[&](float x,float y) {
+            io.AddMousePosEvent(x,y); frame();
+            io.AddMouseButtonEvent(0,true); frame();
+            io.AddMouseButtonEvent(0,false); frame();
+        };
+        auto tickColumn=[&](int column) {
+            const float x=flagsTable->Columns[column].WorkMinX+ImGui::GetFrameHeight()*0.5f;  // checkbox square
+            const float rowH=ImGui::GetFrameHeight();
+            for (float y=flagsTable->OuterRect.Min.y+rowH*1.5f; y<flagsTable->OuterRect.Max.y; y+=rowH*0.5f) {
+                ImGuiID before=GImGui->HoveredId;
+                io.AddMousePosEvent(x,y); frame();
+                if (GImGui->HoveredId && GImGui->HoveredId!=before) { toolClick(x,y); y+=rowH*0.5f; }
+            }
+        };
+        auto hasFilter=[&](const std::string& f) {
+            return std::any_of(plot.filters.begin(), plot.filters.end(), [&](const Parse::Parser& p){ return p.filter_str==f; });
+        };
+        tickColumn(1);
+        toolClick(applyBtn.x, applyBtn.y);
+        assert(hasFilter("pattern == del or pattern == dup or pattern == inv_f or pattern == inv_r or pattern == tra"));
+        tickColumn(2);
+        toolClick(applyBtn.x, applyBtn.y);
+        assert(hasFilter("pattern != del and pattern != dup and pattern != inv_f and pattern != inv_r and pattern != tra"));
+        assert(!hasFilter("pattern == del or pattern == dup or pattern == inv_f or pattern == inv_r or pattern == tra"));
+        plot.filters.clear();
+        auto* cp=&plot; std::ostringstream out;
+        std::string cmd="remove-roi chr1:20-40"; Commands::run_command_map(cp, cmd, out);
+        assert(plot.tracks[0].allBlocks["chr1"].data.empty());
+        cmd="remove-marker chr1:50"; Commands::run_command_map(cp, cmd, out);
+        assert(plot.markers.empty());
+        plot.tracks.clear(); plot.collections.clear(); plot.bam_paths.clear(); plot.bams.clear(); plot.headers.clear();
+        plot.regions.pop_back();
+        plot.commandDialogOpen=false; plot.trackManagerOpen=false;
+        plot.labelTableDialogOpen=savedVariantsOpen;
+        io.AddMousePosEvent(-100,-100); frame();
+        sam_hdr_destroy(hdr);
+    }
     // Output constraints must stay consistent on narrow remote viewports.
     {
         plot.remoteCommand = [](const std::string&) {};
@@ -971,6 +1233,46 @@ int main() {
             ImGui::NewFrame(); ImGui::Render();
         }
         plot.remoteCommand={}; io.DisplaySize=ImVec2(1000,700);
+    }
+    // Hovering a read's flag value lists what its bits mean; other values have no tooltip
+    {
+        Manager::GwPlot::ReadPopup rp; rp.uid=4242; rp.x=200; rp.y=100;
+        rp.ansi="\033[1mqname    \033[00mread1\n\033[1mflag     \033[00m99\n\033[1mmapq     \033[00m60\n";
+        plot.readPopups={rp};
+        auto pop=[&]{ ImGui::NewFrame(); Menu::drawImGuiInfoPopup(&plot); ImGui::Render(); };
+        pop(); pop();
+        auto* win=ImGui::FindWindowByName("Read info##readpopup4242"); assert(win);
+        auto tooltipAt=[&](float y){
+            io.AddMousePosEvent(win->Pos.x+win->Size.x*0.75f, y);
+            for (int k=0;k<60;++k) pop();
+            auto* t=ImGui::FindWindowByName("##Tooltip_00"); return t && t->Active;
+        };
+        std::vector<float> hits;
+        for (float y=win->Pos.y+ImGui::GetFrameHeight(); y<win->Pos.y+win->Size.y; y+=ImGui::GetFrameHeight()*0.5f)
+            if (tooltipAt(y)) hits.push_back(y);
+        assert(!hits.empty());  // only the flag row explains itself
+        const float rowH=ImGui::GetFrameHeight()*1.5f;
+        for (float y : hits) assert(std::abs(y-hits.front())<=rowH);
+        plot.readPopups.clear(); io.AddMousePosEvent(-100,-100); pop();
+    }
+    // Output text fills the window as one wrapped, mouse-selectable box with a single scrollbar
+    {
+        plot.showCommandStatus=true;
+        plot.lastCommandOutputAnsi="Genome: could not open Human (GRCh37/hg19)\n"+std::string(400,'y')+"\n";
+        ++plot.lastCommandOutputFrame;
+        auto out=[&]{ ImGui::NewFrame(); Menu::drawImGuiCommandStatus(&plot); ImGui::Render(); };
+        out(); out();
+        auto* win=ImGui::FindWindowByName("Output"); assert(win && win->DC.ChildWindows.Size==1);
+        auto* box=win->DC.ChildWindows[0];
+        assert(box->Size.x>=win->ContentRegionRect.GetWidth()-1 && !box->ScrollbarX);  // wrapped, full width
+        const ImVec2 a(box->Pos.x+8, box->Pos.y+8), b(box->Pos.x+80, box->Pos.y+8);
+        io.AddMousePosEvent(a.x,a.y); out();
+        io.AddMouseButtonEvent(0,true); out();
+        io.AddMousePosEvent(b.x,b.y); out(); out();
+        io.AddMouseButtonEvent(0,false); out();
+        auto* state=ImGui::GetInputTextState(ImGui::GetActiveID()?ImGui::GetActiveID():GImGui->InputTextState.ID);
+        assert(state && state->HasSelection());
+        plot.showCommandStatus=false; io.AddMousePosEvent(-100,-100); out();
     }
     // Escape dismisses only the foremost dialog, including when a file
     // browser modal is layered over ordinary windows.
@@ -1045,7 +1347,8 @@ int main() {
     auto table = [&](int columns) -> ImGuiTable* {
         for (int i=0; i<GImGui->Tables.GetMapSize(); ++i) {
             auto* t = GImGui->Tables.TryGetMapData(i);
-            if (t && t->ColumnsCount == columns) return t;
+            // Other dialogs' tables stay in the pool; only look inside the Variants window
+            if (t && t->ColumnsCount == columns && t->OuterWindow && t->OuterWindow->RootWindow == variantWindow) return t;
         }
         return nullptr;
     };
@@ -1672,6 +1975,263 @@ int main() {
         io.DisplaySize = ImVec2(1000,700);
         std::filesystem::remove_all(directory);
         plot.opts = originalOptions;
+    }
+    // Tools and Variants share the right-hand dock: Tools on top (half height, or
+    // just its title bar when collapsed), Variants below; the tile picker sets the grid.
+    {
+        const auto savedNumber=plot.opts.number;
+        plot.labelTableDialogOpen=true; plot.labelTableDocked=true;
+        plot.commandDialogOpen=true; plot.toolsDocked=true;
+        bool collapseTools=false;
+        auto frame=[&]() {
+            ImGui::NewFrame(); bool redraw=false;
+            if (collapseTools) { ImGui::SetWindowCollapsed("Tools", true); collapseTools=false; }
+            Menu::drawImGuiCommandDialog(&plot, &plot.commandDialogOpen, redraw);
+            Menu::drawImGuiLabelTableDialog(&plot, redraw);
+            ImGui::Render();
+        };
+        for (int f=0; f<4; ++f) frame();
+        auto* tools=ImGui::FindWindowByName("Tools");
+        auto* variants=ImGui::FindWindowByName("Variants");
+        const float dockW=(plot.fb_width-plot.drawingWidth())/plot.monitorScale;
+        assert(dockW>0 && tools->Pos.x==io.DisplaySize.x-dockW && variants->Pos.x==tools->Pos.x);
+        assert(tools->Size.x==variants->Size.x);
+        assert(tools->Pos.y==0 && tools->Size.y==io.DisplaySize.y*0.5f);
+        assert(variants->Pos.y==io.DisplaySize.y*0.5f && variants->Pos.y+variants->Size.y==io.DisplaySize.y);
+        collapseTools=true; frame(); frame();
+        assert(plot.toolsCollapsed && variants->Pos.y==ImGui::GetFrameHeight());
+        ImGui::SetWindowCollapsed("Tools", false);
+        bool collapseVariants=true;
+        auto collapsedFrame=[&]() {
+            ImGui::NewFrame(); bool redraw=false;
+            if (collapseVariants) { ImGui::SetWindowCollapsed("Variants", true); collapseVariants=false; }
+            Menu::drawImGuiCommandDialog(&plot, &plot.commandDialogOpen, redraw);
+            Menu::drawImGuiLabelTableDialog(&plot, redraw);
+            ImGui::Render();
+        };
+        collapsedFrame(); collapsedFrame(); collapsedFrame();
+        assert(plot.labelTableCollapsed && !plot.toolsCollapsed);
+        assert(variants->Pos.y==io.DisplaySize.y-ImGui::GetFrameHeight());
+        assert(tools->Size.y==io.DisplaySize.y-ImGui::GetFrameHeight());
+        ImGui::SetWindowCollapsed("Variants", false); frame(); frame();
+        assert(!plot.labelTableCollapsed);
+        plot.toolsDocked=false; frame(); frame();
+        assert(variants->Pos.y==0 && tools->Pos.x+tools->Size.x<=io.DisplaySize.x);
+        plot.commandDialogOpen=false; plot.toolsDocked=true; frame(); frame();
+        // Tile picker: the four-square button left of Dock opens an 8x8 grid
+        const float titleH=ImGui::GetFrameHeight(), controlW=titleH-4;
+        const float gx=variants->Pos.x+variants->Size.x-titleH-(controlW+4)*2+controlW/2, gy=variants->Pos.y+2+controlW/2;
+        auto click=[&](float x,float y) {
+            io.AddMousePosEvent(x,y); frame();
+            io.AddMouseButtonEvent(0,true); frame();
+            io.AddMouseButtonEvent(0,false); frame();
+        };
+        click(gx,gy); frame();
+        auto& stack=ImGui::GetCurrentContext()->OpenPopupStack;
+        assert(stack.Size==1);
+        const ImVec2 origin=stack.back().Window->WorkRect.Min;
+        const float cell=ImGui::GetFrameHeight()*0.75f+3.0f;
+        click(origin.x+cell*2.5f, origin.y+cell*1.5f);
+        assert(plot.opts.number.x==3 && plot.opts.number.y==2 && stack.empty());
+        plot.opts.number=savedNumber;
+        plot.labelTableDialogOpen=false; frame();
+    }
+    // A variant row's play button opens that variant in alignment view, and
+    // clicking it again returns to the tiles.
+    {
+        const auto savedMode=plot.mode; const auto savedRegions=plot.regions;
+        plot.mode=Manager::Show::TILED; plot.labelTableDialogOpen=true; plot.commandDialogOpen=false;
+        auto frame=[&]() { ImGui::NewFrame(); bool redraw=false;
+            Menu::drawImGuiLabelTableDialog(&plot, redraw); ImGui::Render(); };
+        auto click=[&](float x,float y){ io.AddMousePosEvent(x,y); frame();
+            io.AddMouseButtonEvent(0,true); frame(); io.AddMouseButtonEvent(0,false); frame(); };
+        frame(); frame();
+        auto& vt=plot.variantTracks[0];
+        assert(!vt.multiRegions.empty());
+        ImGuiTable* rows=nullptr;
+        auto* variants=ImGui::FindWindowByName("Variants");
+        for (int i=0; i<GImGui->Tables.GetMapSize(); ++i) {
+            auto* t=GImGui->Tables.TryGetMapData(i);
+            if (t && t->ColumnsCount==3 && t->OuterWindow && t->OuterWindow->RootWindow==variants) rows=t;
+        }
+        assert(rows);
+        const float h=ImGui::GetTextLineHeight();
+        const ImVec2 play(rows->Columns[1].WorkMinX+h*0.5f, rows->RowPosY1+h*0.5f);
+        click(play.x,play.y); frame();
+        assert(plot.mode==Manager::Show::SINGLE);
+        assert(plot.regions[0].chrom==vt.multiRegions[0][0].chrom && plot.regions[0].start==vt.multiRegions[0][0].start);
+        click(play.x,play.y); frame();
+        assert(plot.mode==Manager::Show::TILED);
+        plot.mode=savedMode; plot.regions=savedRegions; plot.labelTableDialogOpen=false;
+        io.AddMousePosEvent(-100,-100); frame();
+    }
+    // The label close pill's x is centred, and the chromosome name opens the
+    // header's chromosome list in index order.
+    {
+        const auto savedOptions=plot.opts; const auto savedMode=plot.mode;
+        const float savedScale=plot.monitorScale, savedTabix=plot.totalTabixY, savedSlider=plot.sliderSpace;
+        plot.mode=Manager::SINGLE; plot.monitorScale=1; plot.opts.data_labels=true;
+        plot.sliderSpace=plot.gap*4; plot.totalTabixY=80;
+        plot.tracks.emplace_back(); plot.tracks.back().name="a.bed"; plot.tracks.back().px_height=80;
+        auto frame=[&]() { ImGui::NewFrame(); bool redraw=false;
+            Menu::drawImGuiDataLabels(&plot, plot.gap, plot.fonts.overlayHeight, redraw);
+            Menu::drawImGuiChromosomeList(&plot, redraw); ImGui::Render(); };
+        const float trackTop=plot.fb_height-plot.totalTabixY-plot.sliderSpace;
+        io.AddMousePosEvent(plot.gap+6, trackTop+plot.gap+4); frame(); frame();
+        auto* close=ImGui::FindWindowByName("##datalabel_close_trk0");
+        assert(close && close->Active);
+        const SkColor gc=plot.opts.theme.tcDel.getColor();
+        ImVec2 lo(1e9f,1e9f), hi(-1e9f,-1e9f);
+        for (auto& v : close->DrawList->VtxBuffer) {
+            if ((v.col & 0x00FFFFFF) != (IM_COL32(SkColorGetR(gc),SkColorGetG(gc),SkColorGetB(gc),0) & 0x00FFFFFF)) continue;
+            lo=ImMin(lo,v.pos); hi=ImMax(hi,v.pos);
+        }
+        assert(hi.x>lo.x);
+        const ImVec2 mid=close->Rect().GetCenter();
+        assert(std::abs((lo.x+hi.x)*.5f-mid.x)<0.01f && std::abs((lo.y+hi.y)*.5f-mid.y)<0.01f);
+        assert(close->Pos.x==std::round(close->Pos.x) && close->Pos.y==std::round(close->Pos.y));
+        // With labels hidden the close pill still appears, in the label's place
+        plot.opts.data_labels=false;
+        io.AddMousePosEvent(-100,-100); frame();
+        io.AddMousePosEvent(plot.gap+6, trackTop+plot.gap+4); frame(); frame();
+        close=ImGui::FindWindowByName("##datalabel_close_trk0");
+        assert(close && close->Active && std::abs(close->Pos.x-std::round(plot.gap+1))<1.0f);
+        assert(!ImGui::FindWindowByName("##datalabel_trk0") || !ImGui::FindWindowByName("##datalabel_trk0")->Active);
+        // The whole pill stays hoverable, even for an unnamed track whose label is narrower than it
+        plot.tracks.back().name="";
+        io.AddMousePosEvent(close->Pos.x+close->Size.x*0.9f, close->Pos.y+close->Size.y*0.5f); frame(); frame();
+        close=ImGui::FindWindowByName("##datalabel_close_trk0");
+        assert(close && close->Active);
+        plot.tracks.back().name="a.bed";
+        plot.opts.data_labels=true;
+        plot.tracks.clear();
+
+        std::string hdrText="@SQ\tSN:chr1\tLN:1000\n@SQ\tSN:chr2\tLN:900\n@SQ\tSN:chr10\tLN:800\n";
+        auto* hdr=sam_hdr_parse(hdrText.size(), hdrText.c_str());
+        plot.headers={hdr};
+        auto& rgn=plot.regions[0];
+        const auto savedRegion=rgn;
+        rgn.chromNameWidth=40; rgn.regionLen=90; rgn.chromLen=1000;
+        std::vector<std::string> sent;
+        plot.remoteCommand=[&](const std::string& c){ sent.push_back(c); };
+        auto click=[&](float x,float y){ io.AddMousePosEvent(x,y); frame();
+            io.AddMouseButtonEvent(0,true); frame(); io.AddMouseButtonEvent(0,false); frame(); };
+        const float nameX=plot.gap+10, nameY=(plot.fb_height-plot.gap*2);
+        auto& stack=ImGui::GetCurrentContext()->OpenPopupStack;
+        click(nameX,nameY); frame();
+        assert(stack.Size==1);
+        const ImRect work=stack.back().Window->WorkRect;
+        for (float y=work.Min.y; y<work.Max.y; y+=2) {
+            if (stack.empty()) { click(nameX,nameY); frame(); }
+            size_t before=sent.size();
+            click(work.Min.x+10,y);
+            if (sent.size()>before) y+=ImGui::GetTextLineHeight()*0.5f;
+        }
+        sent.erase(std::unique(sent.begin(), sent.end()), sent.end());  // a row may be hit twice by the sweep
+        assert((sent==std::vector<std::string>{"goto chr1","goto chr2","goto chr10"}));
+        // The Genome submenu below the list opens a catalogue reference with its ideogram;
+        // a remote viewer lists only the bundled catalogue (alphabetical: hg19 first), so no network is touched
+        if (stack.empty()) { click(nameX,nameY); frame(); }
+        sent.clear();
+        frame(); frame();  // let the auto-resized popup settle before reading its rect
+        {
+            const ImRect list=stack.back().Window->Rect();
+            // The menu item is the first row; hovering opens it after a short delay
+            const float menuY=list.Min.y+stack.back().Window->WindowPadding.y+ImGui::GetTextLineHeight()*0.5f;
+            auto subOpen=[&]{ auto* m=ImGui::FindWindowByName("Genome###Menu_00"); return m && m->Active; };
+            io.AddMousePosEvent(list.Min.x+20, menuY);
+            for (int k=0; k<120 && !subOpen(); ++k) frame();
+            assert(ImGui::FindWindowByName("Genome###Menu_00") && ImGui::FindWindowByName("Genome###Menu_00")->Active);
+            assert(sent.empty());
+            auto* sub=ImGui::FindWindowByName("Genome###Menu_00");
+            const ImVec2 first(sub->WorkRect.Min.x+20, sub->WorkRect.Min.y+ImGui::GetTextLineHeight()*0.5f);
+            io.AddMousePosEvent(first.x, menuY); frame();
+            click(first.x, first.y); frame();
+            assert((sent==std::vector<std::string>{"load genome https://igv.org/genomes/data/hg19/hg19.fasta","rm ideogram","load ideogram hg19"}));
+            assert(stack.empty());
+        }
+        if (!stack.empty()) click(600,300);
+        plot.remoteCommand={}; plot.headers.clear(); sam_hdr_destroy(hdr);
+        rgn=savedRegion;
+        plot.opts=savedOptions; plot.mode=savedMode; plot.monitorScale=savedScale;
+        plot.totalTabixY=savedTabix; plot.sliderSpace=savedSlider;
+        io.AddMousePosEvent(-100,-100); frame();
+    }
+    // Opening a reference picks the ideogram for its assembly, embedded first, then IGV's online list
+    {
+        assert(Ideo::ideogramForAssembly("hs1")=="t2t" && Ideo::ideogramForAssembly("danRer11")=="danrer11");
+        assert(Ideo::ideogramForAssembly("mm10").rfind("https://",0)==0 && Ideo::ideogramForAssembly("sacCer3").empty());
+        const auto savedIdeo=plot.ideogram; const auto savedPath=plot.ideogram_path;
+        plot.loadIdeogramForAssembly("hg19");
+        assert(plot.ideogram.count("chr1") && !plot.ideogram["chr1"].empty());
+        plot.loadIdeogramForAssembly("sacCer3");  // unknown: the old genome's ideogram goes
+        assert(plot.ideogram.empty() && plot.ideogram_path.empty());
+        plot.ideogram=savedIdeo; plot.ideogram_path=savedPath;
+    }
+    // Genome menu plumbing: an unrecognised reference is matched by its contigs, a no-chr
+    // reference gets a no-chr ideogram, and a .gw.ini tag opens through loadGenome
+    {
+        auto dir=std::filesystem::temp_directory_path()/"gw-genome-menu"; std::filesystem::create_directories(dir);
+        const auto copy=(dir/"same.fa").string(), other=(dir/"other.fa").string(), bare=(dir/"bare.fa").string();
+        std::filesystem::copy_file("test/test.fa",copy,std::filesystem::copy_options::overwrite_existing);
+        std::filesystem::copy_file("test/test.fa.fai",copy+".fai",std::filesystem::copy_options::overwrite_existing);
+        { std::ofstream(other)<<">chr1\nACGTACGTAC\n"; std::ofstream(other+".fai")<<"chr1\t10\t6\t10\t11\n"; }
+        { std::ofstream(bare)<<">1\nACGTACGTAC\n"; std::ofstream(bare+".fai")<<"1\t10\t3\t10\t11\n"; }
+        Themes::IniOptions o; o.threads=1;
+        std::vector<std::string> none; std::vector<Utils::Region> rg{Utils::Region("chr1",1,100)};
+        Manager::GwPlot g("test/test.fa",none,o,rg,none); g.terminalOutput=false;
+        Online::Entry e; e.category="reference"; e.url=copy;
+        assert(Online::referenceMatches(&g,e));
+        e.url=other; assert(!Online::referenceMatches(&g,e));  // chr1 length differs
+        Manager::GwPlot b(bare,none,o,rg,none); b.terminalOutput=false;
+        b.loadIdeogramForAssembly("hg19");
+        assert(b.ideogram.count("1") && !b.ideogram.count("chr1"));
+        g.opts.myIni["genomes"]["mine"]=copy;
+        e.url=copy; e.assembly="mine";
+        assert(Online::openReference(&g,e,true).empty());
+        assert(g.reference==copy && g.opts.genome_tag=="mine");
+        std::filesystem::remove_all(dir);
+    }
+    // UCSC cytoBandIdeo files load gzipped, with the extra mouse stains and empty columns
+    {
+        auto path=(std::filesystem::temp_directory_path()/"gw-cytoBandIdeo.txt.gz").string();
+        const std::string text="chr1\t0\t100\tqA1\tgpos33\nchr1\t100\t200\tqA2\tn/a\nchrUn_x\t0\t50\t\t\nnot a band\n";
+        BGZF* w=bgzf_open(path.c_str(),"wg");
+        assert(w && bgzf_write(w,text.data(),text.size())==(ssize_t)text.size()); bgzf_close(w);
+        std::unordered_map<std::string, std::vector<Ideo::Band>> ideo;
+        Themes::readIdeogramFile(path, ideo, plot.opts.theme);
+        assert(ideo["chr1"].size()==2 && ideo["chr1"][0].red==215 && ideo["chr1"][1].red==255);
+        assert(ideo["chrUn_x"].size()==1 && ideo["chrUn_x"][0].end==50);
+        std::filesystem::remove(path);
+    }
+    // Overlays stay hidden while another window is under the pointer
+    {
+        const auto savedOptions=plot.opts;
+        const float savedTrackY=plot.trackY, savedScale=plot.monitorScale;
+        const auto savedMode=plot.mode;
+        plot.mode=Manager::SINGLE; plot.monitorScale=1; plot.trackY=250;
+        plot.opts.alignments=true; plot.opts.tlen_yscale=false;
+        plot.remoteScrollbars={{0,100,500,100,0,true}};
+        plot.remoteCommand=[&](const std::string&){};
+        bool cover=false;
+        auto frame=[&]() {
+            ImGui::NewFrame();
+            if (cover) {
+                ImGui::SetNextWindowPos(ImVec2(300,100)); ImGui::SetNextWindowSize(ImVec2(300,300));
+                ImGui::Begin("Read info cover"); ImGui::End();
+            }
+            Menu::drawImGuiAlignmentScrollbars(&plot); Menu::drawImGuiYlimBox(&plot);
+            ImGui::Render();
+        };
+        auto shown=[&](const char* name) { auto* w=ImGui::FindWindowByName(name); return w && w->Active; };
+        io.AddMousePosEvent(490,200); frame(); frame();
+        assert(shown("##ylim_box") && shown("##alignment_scroll_0"));
+        cover=true; frame(); frame(); frame();
+        assert(!shown("##ylim_box") && !shown("##alignment_scroll_0"));
+        cover=false;
+        plot.remoteCommand={}; plot.remoteScrollbars.clear();
+        plot.opts=savedOptions; plot.trackY=savedTrackY; plot.monitorScale=savedScale; plot.mode=savedMode;
+        io.AddMousePosEvent(-100,-100); frame();
     }
     Menu::clearThemePreview();
     ImGui::DestroyContext();
