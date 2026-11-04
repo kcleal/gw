@@ -302,10 +302,29 @@
       if(!gwRunning){showToast('Wait for GW to finish loading');return;}
       localLoaderReady.then(function(api){return ensureLocalLoader(api).accept(files,localFileOptions);}).catch(function(error){showToast(error.message);});
     }
-    window.gwOpenFiles=function(reference,track,tiles){
+    function openFilePicker(reference,track,tiles){
       localFileOptions={track:!!track,tiles:!!tiles};
       fileInput.accept=reference?'.fa,.fasta,.fai':tiles&&!track?'.vcf,.bed':'.fa,.fasta,.fai,.bam,.bai,.csi,.vcf,.bed,.gff,.gff3,.gtf,.bw,.bb,.bigwig,.bigbed';
       fileInput.value='';fileInput.click();
+    }
+    // Safari opens a file picker only from inside a click, but GW handles clicks in its
+    // next frame. While the pointer is over GW's "Choose files" button, GW arms the picker
+    // every frame; a press and release on the armed button open it here, inside the
+    // release event, and GW's own request that follows is skipped.
+    var pickerArm=null,pickerArmedAtPress=false,pickerOpenedAt=-1e9;
+    window.gwArmFilePicker=function(reference,track,tiles){
+      pickerArm={reference:reference,track:track,tiles:tiles,at:performance.now()};
+    };
+    function pickerArmed(){return pickerArm&&performance.now()-pickerArm.at<250;}
+    document.addEventListener('mousedown',function(){pickerArmedAtPress=!!pickerArmed();},true);
+    document.addEventListener('mouseup',function(){
+      if(!pickerArmedAtPress||!pickerArmed())return;
+      pickerArmedAtPress=false;pickerOpenedAt=performance.now();
+      openFilePicker(pickerArm.reference,pickerArm.track,pickerArm.tiles);
+    },true);
+    window.gwOpenFiles=function(reference,track,tiles){
+      if(performance.now()-pickerOpenedAt<2000)return;
+      openFilePicker(reference,track,tiles);
     };
     document.addEventListener('dragover',function(event){event.preventDefault();});
     document.addEventListener('drop',function(event){event.preventDefault();importFiles(Array.from(event.dataTransfer.files));});

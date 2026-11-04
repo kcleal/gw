@@ -29,6 +29,7 @@ struct OnlineDialogState {
     bool downloading=false;
     bool busy = false, asTrack = true, asTable = false, checkAssembly = true;
     bool cancelled = false, catalogueRequested = false, catalogueLoading = false;
+    bool showReferenceTab = false;  // select the reference tab on the next frame
 #ifndef __EMSCRIPTEN__
     std::future<std::vector<Online::Entry>> task, catalogueTask;
     std::future<std::string> discoveryTask;
@@ -315,7 +316,9 @@ static void drawImGuiOnlineFileDialog(Manager::GwPlot* plot, bool& redraw) {
     ImGui::BeginDisabled(s.busy);
     if (ImGui::BeginTabBar("##online_categories", ImGuiTabBarFlags_FittingPolicyScroll)) {
         const char* titles[] = {"Reference genome", "Alignment files", "Tracks", "Variant files"};
-        for (int i : {0, 2, 3}) if (ImGui::BeginTabItem(titles[i])) {
+        ImGuiTabItemFlags referenceFlags = s.showReferenceTab ? ImGuiTabItemFlags_SetSelected : 0;
+        s.showReferenceTab = false;
+        for (int i : {0, 2, 3}) if (ImGui::BeginTabItem(titles[i], nullptr, i == 0 ? referenceFlags : 0)) {
             if (s.category != i) {
                 s.category = i; s.selected = {}; s.pendingInspection={}; s.url[0] = s.index[0] = s.gzi[0] = 0;
             }
@@ -431,5 +434,28 @@ static void drawImGuiOnlineFileDialog(Manager::GwPlot* plot, bool& redraw) {
     }
     ImGui::End();
     if (!onlineFileDialogOpen && s.busy && !s.cancelled) onlineCancel(s);
+}
+
+// Bottom-left shortcut to the online reference genomes, shown until a reference is open.
+static void drawImGuiOnlineGenomesButton(Manager::GwPlot* plot) {
+    if (!plot->reference.empty() || plot->remoteCommand || onlineFileDialogOpen) return;
+    float pad = plot->gap / plot->monitorScale;
+    ImGui::SetNextWindowPos(ImVec2(pad, ImGui::GetIO().DisplaySize.y - pad), ImGuiCond_Always, ImVec2(0.f, 1.f));
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration
+                            | ImGuiWindowFlags_NoBackground
+                            | ImGuiWindowFlags_AlwaysAutoResize
+                            | ImGuiWindowFlags_NoMove
+                            | ImGuiWindowFlags_NoSavedSettings
+                            | ImGuiWindowFlags_NoFocusOnAppearing
+                            | ImGuiWindowFlags_NoNav;
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::Begin("##OnlineGenomesButton", nullptr, flags);
+    if (ImGui::Button("Online genomes")) {
+        auto& s = onlineState();
+        s.showReferenceTab = true;
+        onlineFileDialogOpen = true;
+    }
+    ImGui::End();
+    ImGui::PopStyleVar();
 }
 }

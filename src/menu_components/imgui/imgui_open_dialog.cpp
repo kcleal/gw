@@ -88,6 +88,7 @@ void drawImGuiOpenDialog(Manager::GwPlot* plot,
                          bool* p_open,
                          bool& redraw)
 {
+    drawImGuiOnlineGenomesButton(plot);
     drawImGuiOnlineFileDialog(plot, redraw);
     ImGui::FileBrowser& browser = getFileBrowser();
 
@@ -112,7 +113,12 @@ void drawImGuiOpenDialog(Manager::GwPlot* plot,
         ImGui::TextDisabled("Select the file and its index together, or add the index later.");
         if(ImGui::Button("GW downloaded files")) { browser.SetDirectory(Online::downloadDirectory(plot->opts.ini_path));browser.Open();ImGui::CloseCurrentPopup(); }
         ImGui::BeginDisabled(!localReference && !localTrack && !localTiles);
-        if(ImGui::Button("Choose files…")) {
+        bool chooseFiles = ImGui::Button("Choose files…");
+        // Safari opens a file picker only inside the click itself, which ends before this
+        // frame runs, so the page opens it on release while the pointer is over the button.
+        if(ImGui::IsItemHovered())
+            EM_ASM({ if(window.gwArmFilePicker)window.gwArmFilePicker(!!$0,!!$1,!!$2); },localReference,localTrack,localTiles);
+        if(chooseFiles) {
             EM_ASM({ if(window.gwOpenFiles)window.gwOpenFiles(!!$0,!!$1,!!$2); },localReference,localTrack,localTiles);
             ImGui::CloseCurrentPopup();
         }
