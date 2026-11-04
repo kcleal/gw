@@ -577,8 +577,8 @@ namespace Themes {
         dimensions = {1366, 768};
         link = "none";
         link_op = 0;
-        number_str = "3x3";
-        number = {3, 3};
+        number_str = "1x1";
+        number = {1, 1};
         labels = "PASS,FAIL";
         canvas_width = 0;
         canvas_height = 0;

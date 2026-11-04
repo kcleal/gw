@@ -3,19 +3,15 @@ title: API and integrations
 layout: default
 nav_order: 5
 has_children: true
+has_toc: false
 description: The GW v2 API — deployment models, libgw, remote viewer protocol and Python bindings
 ---
 
 # API and integrations
 
-GW v2 offers a more stable programmatic interface than v1. This section covers the ways to run
-and interact with GW:
-
-| Section | Contents |
-| ------- | -------- |
-| [C++ API (libgw)]({{ site.baseurl }}/api/libgw.html) | Embed GW's `Manager::GwPlot` renderer in a C++ application |
-| [Remote viewer protocol]({{ site.baseurl }}/api/protocol.html) | Drive GW over a versioned JSON protocol; embed GW in web apps |
-| [Python (gwplot)]({{ site.baseurl }}/api/python.html) | The gwplot Python package for scripting GW |
+GW v2 offers a more stable programmatic interface than v1: embed the renderer over the C++ API,
+drive it over a versioned remote protocol, or script it from Python. Use the menu on the left to
+pick a page.
 
 ## Ways to run GW
 

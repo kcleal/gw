@@ -9,13 +9,6 @@ description: Viewing alignment and variant data in GW
 # Alignments and variants
 {: .no_toc }
 
-<details open markdown="block">
-  <summary>Table of contents</summary>
-  {: .text-delta }
-1. TOC
-{:toc}
-</details>
-
 ## Loading alignment data
 
 Drag-and-drop a BAM/CRAM into the window, use the `load` command (tab-completion works), or the

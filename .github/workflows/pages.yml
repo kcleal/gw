@@ -91,7 +91,7 @@ jobs:
           cd deps/wasm
           WASM_HASH=$(sha256sum gw.wasm | cut -c1-16)
           DATA_HASH=$(sha256sum gw.data | cut -c1-16)
-          sed -i "s/gw\.wasm/gw.$WASM_HASH.wasm/g; s/gw\.data/gw.$DATA_HASH.data/g" gw.js
+          sed -i "s/gw\.wasm/gw.$WASM_HASH.wasm/g; s/gw\.data/gw.$DATA_HASH.data/g; s|\./online-files\.mjs|./online-files.js|g" gw.js
           JS_HASH=$(sha256sum gw.js | cut -c1-16)
           mv gw.js "gw.$JS_HASH.js"
           mv gw.wasm "gw.$WASM_HASH.wasm"
@@ -107,6 +107,10 @@ jobs:
           # http(s) genome URLs over HTTP range reads at startup.
           sed $COMMON -e "s|<script async src=|<script>window.GW_ARGS=['https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg38/hg38.fa'];</script><script async src=|" gw.html > "$GITHUB_WORKSPACE/app/index.html"
           sed $COMMON -e "s|<script async src=|<script>window.GW_ARGS=['/test.fa','-b','/test.bam','-r','chr1:9900-10300'];</script><script async src=|" gw.html > "$GITHUB_WORKSPACE/app/demo.html"
+          # hg008.html streams the GIAB HG008-T tumor BAM (PacBio HiFi, GRCh38)
+          # straight from NCBI over HTTP ranges — nothing is bundled. First load
+          # fetches the ~22 MB .bai, then only reads in the viewed region.
+          sed $COMMON -e "s|<script async src=|<script>window.GW_ARGS=['https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg38/hg38.fa','-b','https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data_somatic/HG008/Liss_lab/BCM_Revio_20240313/HG008-T_PacBio-HiFi-Revio_20240313_106x_GRCh38-GIABv3.bam','-r','chr1:13220000-13255000','-c','link sv'];</script><script async src=|" gw.html > "$GITHUB_WORKSPACE/app/hg008.html"
 
       - name: Upload WASM app
         uses: actions/upload-artifact@v4

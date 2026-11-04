@@ -66,17 +66,23 @@ __attribute__((weak)) void glfwGetFramebufferSize(GLFWwindow* /*win*/,
 
 }  // extern "C"
 
-// CLI/session reference URLs use the same bounded transport as Open → Online.
+// Remote http(s) files are streamed over the same bounded transport as Open → Online.
 // This also avoids Asyncify suspension inside individual readv buffers.
+// Category is inferred from the URL so the right companion index is fetched
+// (.fai for references, .bai/.csi for alignments, .tbi/.csi for tracks).
 EM_ASYNC_JS(char*, gw_mount_remote_js, (const char* url), {
     try {
         var api=await import('./online-files.mjs');
-        var resource={id:'reference', name:'Reference', category:'reference', url:UTF8ToString(url)};
+        var path=UTF8ToString(url), lower=path.split('?')[0].toLowerCase();
+        var category='reference';
+        if (lower.endsWith('.bam')||lower.endsWith('.cram')) category='alignment';
+        else if (/\\.(vcf|bcf|bed|gff|gff3|gtf)(\\.gz|\\.bgz)?$/.test(lower)) category='track';
+        var resource={id:'remote', name:path.split('/').pop(), category:category, url:path};
         var prepared=await api.prepareOnline(resource, {FS:FS, Module:Module, status:function(text){console.log(text);}});
         var text=prepared.entry.url;
         var bytes=lengthBytesUTF8(text)+1;
         var ptr=_malloc(bytes);stringToUTF8(text,ptr,bytes);return ptr;
-    } catch(error) {console.error('[GW] Cannot stream reference:',error);return 0;}
+    } catch(error) {console.error('[GW] Cannot stream remote file:',error);return 0;}
 });
 
 std::string resolve_genome_path(const std::string& path) {

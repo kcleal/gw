@@ -28,13 +28,15 @@ stable API.
 No install needed — GW v2 can run as WebAssembly. Your data stays in the browser.
 
 [Open GW]({{ site.baseurl }}/app/){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[Open GW with demo data]({{ site.baseurl }}/app/demo.html){: .btn .fs-5 .mb-4 .mb-md-0 }
+[Open GW with demo data]({{ site.baseurl }}/app/demo.html){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
+[Open GW with HG008-T (GIAB)]({{ site.baseurl }}/app/hg008.html){: .btn .fs-5 .mb-4 .mb-md-0 }
 
 {: .note }
-Requires a WebGL2-capable browser. Both entries stream the human GRCh38
+Requires a WebGL2-capable browser. All entries stream the human GRCh38
 reference (from IGV/AWS) at startup — no reference download needed. The demo
-entry also loads a small bundled example BAM; open your own data via the GW
-menu or drag-and-drop.
+entry loads a small bundled example BAM. The HG008-T entry streams the GIAB
+HG008-T tumor BAM (PacBio HiFi) over HTTP from NCBI — the first load fetches
+its ~22 MB index, so it is slower to open.
 
 ## What is GW?
 
@@ -54,13 +56,3 @@ It generates static images and labels variants.
 **GW v2 is in beta.** It must be [built from source]({{ site.baseurl }}/install.html) — it is not
 yet on conda or Homebrew. GW v1 packages remain available from the
 [v1 install docs]({{ site.baseurl }}/v1/install/Install.html).
-
-## Sections
-
-| | |
-| --- | --- |
-| [Quickstart]({{ site.baseurl }}/quickstart.html) | Get GW v2 running |
-| [Installation]({{ site.baseurl }}/install.html) | Build from source |
-| [User guide]({{ site.baseurl }}/guide/) | Interface, commands, tracks, images, labelling |
-| [API & integrations]({{ site.baseurl }}/api/) | libgw, remote protocol, Python |
-| [Version 1 docs]({{ site.baseurl }}/v1/) | Archived v1 documentation |

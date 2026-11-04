@@ -13,13 +13,6 @@ description: Build GW version 2 from source
 downloadable app — you must build it from source. The v1 packages remain available from the
 [v1 install docs]({{ site.baseurl }}/v1/install/Install.html).
 
-<details open markdown="block">
-  <summary>Table of contents</summary>
-  {: .text-delta }
-1. TOC
-{:toc}
-</details>
-
 ## Requirements
 
 - C++17 compiler (clang or gcc)

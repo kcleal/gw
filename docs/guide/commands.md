@@ -15,13 +15,6 @@ history.
 
 Commands can also be applied at launch: `gw hg38 -b a.bam -r chr1 -c 'sort strand'`.
 
-<details open markdown="block">
-  <summary>Table of contents</summary>
-  {: .text-delta }
-1. TOC
-{:toc}
-</details>
-
 ---
 
 - ## [locus / feature]

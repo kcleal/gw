@@ -8,13 +8,6 @@ description: Get up and running with GW version 2
 # Quickstart
 {: .no_toc }
 
-<details open markdown="block">
-  <summary>Table of contents</summary>
-  {: .text-delta }
-1. TOC
-{:toc}
-</details>
-
 ## 1. Build GW
 
 GW v2 is in beta and must be built from source — see

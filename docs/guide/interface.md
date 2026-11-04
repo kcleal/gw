@@ -13,13 +13,6 @@ GW v2's overlay UI is built with [Dear ImGui](https://github.com/ocornut/imgui):
 dialogs, read popups, the command box, label tables and file browsers, all rendered on top of the
 plot window.
 
-<details open markdown="block">
-  <summary>Table of contents</summary>
-  {: .text-delta }
-1. TOC
-{:toc}
-</details>
-
 <div style="border: 2px dashed #5c5c5c; border-radius: 8px; padding: 3rem 1rem; text-align: center; color: #8a8a8a; margin: 1.5rem 0;">
   <strong>Screenshot placeholder</strong> — GW v2 window with labelled UI regions<br>
   <code>docs/assets/images/v2/interface_overview.png</code>

@@ -15,13 +15,6 @@ in web applications — including a WASM build of GW running the same ImGui over
 The protocol is defined in `deps/protocol/viewer/v1/`; the authoritative spec is
 `deps/protocol/viewer/v1/README.md`, with the JSON Schema in `deps/protocol/viewer/v1/schema.json`.
 
-<details open markdown="block">
-  <summary>Table of contents</summary>
-  {: .text-delta }
-1. TOC
-{:toc}
-</details>
-
 ## At a glance
 
 - Every message carries `protocol: "gw-viewer"` and `version: 1`, plus `request_id` and

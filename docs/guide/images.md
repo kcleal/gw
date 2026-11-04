@@ -9,13 +9,6 @@ description: Static images, variant tiles and screenshots
 # Images and tiles
 {: .no_toc }
 
-<details open markdown="block">
-  <summary>Table of contents</summary>
-  {: .text-delta }
-1. TOC
-{:toc}
-</details>
-
 ## Variant image tiles
 
 Load a variant file (VCF/BCF/BED/GW_LABEL) and each variant is drawn as a static image tile.

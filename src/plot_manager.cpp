@@ -756,6 +756,16 @@ namespace Manager {
 
     bool GwPlot::addBam(std::string &bam_path) {
         std::ostream& outerr = terminalOutput ? std::cerr : outStr;
+#ifdef __EMSCRIPTEN__
+        if (bam_path.rfind("http://",0)==0 || bam_path.rfind("https://",0)==0) {
+            std::string resolved = resolve_genome_path(bam_path);
+            if (resolved.empty()) {
+                outerr << "Error: could not stream " << bam_path << "\n";
+                return false;
+            }
+            bam_path = resolved;
+        }
+#endif
         htsFile *f = sam_open(bam_path.c_str(), "r");
         if (!f) {
             outerr << "Error: could not open " << bam_path << "\n";

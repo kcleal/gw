@@ -18,6 +18,10 @@ GW
 .. image:: include/resources/images/banner.png
     :align: center
 
+🌐 Run GW in your browser (WASM, no install): `<https://kcleal.github.io/gw/app/>`_
+
+▶️ Same, with a demo BAM preloaded: `<https://kcleal.github.io/gw/app/demo.html>`_
+
 
 GW is a fast browser for genomic sequencing data (.bam/.cram format) used directly from the terminal. GW also
 allows you to view and annotate variants from vcf/bcf files.
