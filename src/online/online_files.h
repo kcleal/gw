@@ -24,6 +24,10 @@ bool referenceMatches(const Manager::GwPlot* plot, const Entry& entry);
 // reference is loaded by its .gw.ini tag, so the tag's own tracks and ideogram come with it.
 // Returns an error message, empty on success (no exceptions, so callers in any module see it).
 std::string openReference(Manager::GwPlot* plot, const Entry& entry, bool iniTag);
+// For a BAM/CRAM/VCF/BCF opened with no reference: the bundled catalogue reference whose chromosome
+// lengths match its header, with locus set to its first record where one can be read. Returns false
+// for other file types (message empty) or when no reference matches (message says why).
+bool referenceForData(const std::string& path, Entry& reference, std::string& message);
 #ifndef __EMSCRIPTEN__
 std::int64_t fetchFileSize(const std::string& url);
 std::string fetchCatalogue(const std::string& url, const std::shared_ptr<std::atomic<bool>>& cancelled);

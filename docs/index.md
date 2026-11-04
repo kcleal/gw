@@ -28,15 +28,12 @@ stable API.
 No install needed — GW v2 can run as WebAssembly. Your data stays in the browser.
 
 [Open GW]({{ site.baseurl }}/app/){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[Open GW with demo data]({{ site.baseurl }}/app/demo.html){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[Open GW with HG008-T (GIAB)]({{ site.baseurl }}/app/hg008.html){: .btn .fs-5 .mb-4 .mb-md-0 }
+[Open GW with demo data]({{ site.baseurl }}/app/demo.html){: .btn .fs-5 .mb-4 .mb-md-0 }
 
 {: .note }
-Requires a WebGL2-capable browser. All entries stream the human GRCh38
-reference (from IGV/AWS) at startup — no reference download needed. The demo
-entry loads a small bundled example BAM. The HG008-T entry streams the GIAB
-HG008-T tumor BAM (PacBio HiFi) over HTTP from NCBI — the first load fetches
-its ~22 MB index, so it is slower to open.
+Requires a WebGL2-capable browser. The demo entry loads a small bundled example
+BAM. Open your own data via the GW menu or drag-and-drop — remote references
+stream over HTTP range reads.
 
 ## What is GW?
 

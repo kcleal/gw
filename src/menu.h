@@ -100,6 +100,9 @@ namespace Menu {
 
     void drawImGuiChromosomeList(Manager::GwPlot* plot, bool& redraw);
 
+    // With no reference open, open the online reference matching a BAM/CRAM/VCF file's header
+    void openReferenceForData(Manager::GwPlot* plot, const std::string& path);
+
     // Info popup showing ANSI-colored text from click output near the click location.
     void drawImGuiInfoPopup(Manager::GwPlot* plot);
 

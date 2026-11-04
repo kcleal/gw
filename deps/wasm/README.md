@@ -13,8 +13,10 @@ make -C deps/wasm serve
 ```
 
 Open <http://127.0.0.1:8765/gw.html>. Serve over HTTP rather than opening the HTML
-as a local file. Stop the server with Ctrl-C. The checked-in demo includes the
-small test reference, BAM and indexes and opens `chr1:9900-10300`.
+as a local file. Stop the server with Ctrl-C. GW starts with nothing loaded; to open the
+bundled test reference and BAM at `chr1:9900-10300`, set
+`window.GW_ARGS=['/test.fa','-b','/test.bam','-r','chr1:9900-10300']` before `gw.js` loads
+(the published `demo.html` does this).
 
 ## Rebuild GW using existing WASM dependencies
 

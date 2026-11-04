@@ -1640,6 +1640,8 @@ namespace Manager {
             redraw = true;
             imageCacheQueue.clear();
             imageCache.clear();
+            // Data opened before any reference brings in the reference it was made with
+            if (reference.empty()) Menu::openReferenceForData(this, path);
         } else {
             redraw = false;
         }

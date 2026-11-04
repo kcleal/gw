@@ -332,10 +332,85 @@ static void pollGenomeOpen(Manager::GwPlot* plot) {
 #endif
 }
 
+// Short name of the open reference for the menu title: its genome tag (hg38, GRCh38, ...) where
+// one is known, otherwise the file name without its extensions
+static std::string openGenomeName(const Manager::GwPlot* plot, const GenomeMenuState& s) {
+    if (!plot->fai || plot->reference.empty()) return "Genome";
+    std::string name;
+    if (!s.matchedKey.empty() && s.matchedReference == plot->reference) {
+        name = s.matchedKey;
+    } else {
+        // A tag is only trusted while it still names the open file
+        const auto genomes = plot->opts.myIni.get("genomes");
+        if (genomes.has(plot->opts.genome_tag) && samePath(genomes.get(plot->opts.genome_tag), plot->reference)) {
+            name = plot->opts.genome_tag;
+        } else {
+            for (const auto& kv : genomes) {
+                if (samePath(kv.second, plot->reference)) { name = kv.first; break; }
+            }
+        }
+        if (name.empty()) name = Online::referenceAssembly(plot);
+    }
+    if (name.empty()) {
+        name = Online::resourceName(plot->reference);
+        for (const char* ext : {".gz", ".bgz", ".fa", ".fasta", ".fna", ".fas"}) {
+            const std::string e = ext;
+            if (name.size() > e.size() && genomeLower(name.substr(name.size() - e.size())) == e)
+                name.erase(name.size() - e.size());
+        }
+    }
+    if (name.size() > 24) name = name.substr(0, 23) + "…";
+    return name.empty() ? "Genome" : name;
+}
+
+// A BAM/CRAM/VCF opened before any reference: open the online reference its header matches
+void openReferenceForData(Manager::GwPlot* plot, const std::string& path) {
+    if (!plot->reference.empty() || plot->remoteCommand) return;
+    auto& s = genomeMenuState();
+    if (s.browserOpening) return;  // a reference is already on its way
+    Online::Entry e;
+    std::string message;
+    bool found = false;
+    try {
+        found = Online::referenceForData(path, e, message);
+    } catch (...) {
+        return;
+    }
+    if (!found) {
+        if (!message.empty()) reportGenomeError(plot, message);
+        return;
+    }
+#ifdef __EMSCRIPTEN__
+    // Same route as choosing the genome from this menu
+    auto encoded = Online::encodeCatalogue({e});
+    EM_ASM({ if (Module.gwOpenOnline) Module.gwOpenOnline(UTF8ToString($0), false, false, false); }, encoded.c_str());
+    s.browserOpening = true;
+    s.matchedKey = e.assembly;
+    s.matchedReference.clear();
+#else
+    const bool iniTag = plot->opts.myIni.get("genomes").has(e.assembly);  // a local copy wins
+    std::string error = Online::openReference(plot, e, iniTag);
+    if (!error.empty()) {
+        reportGenomeError(plot, "could not open " + e.name + "\n" + stripAnsiCodes(error));
+        return;
+    }
+    s.matchedKey = e.assembly;
+    s.matchedReference = plot->reference;
+    if (!e.locus.empty()) {
+        std::ostringstream out;
+        Commands::run_command_map(plot, e.locus, out);
+    }
+    plot->processed = false;
+    plot->redraw = true;
+#endif
+}
+
 static void drawGenomeMenu(Manager::GwPlot* plot, bool& redraw) {
     auto& s = genomeMenuState();
     ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0), ImVec2(FLT_MAX, ImGui::GetIO().DisplaySize.y * 0.6f));
-    if (!ImGui::BeginMenu("Genome")) return;
+    // Titled with the open genome; the ### id keeps the submenu the same item when it changes
+    const std::string title = openGenomeName(plot, s) + "###genome_menu";
+    if (!ImGui::BeginMenu(title.c_str())) return;
     if (!s.built) buildGenomeList(plot, s);
     pollGenomeList(plot, s);
 

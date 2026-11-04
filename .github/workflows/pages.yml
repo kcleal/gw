@@ -102,15 +102,12 @@ jobs:
           sed 's|\./local-files\.mjs|./local-files.js|g' local-files.mjs > "$GITHUB_WORKSPACE/app/local-files.js"
           sed 's|\./local-files\.mjs|./local-files.js|g; s|\./online-files\.mjs|./online-files.js|g' online-files.mjs > "$GITHUB_WORKSPACE/app/online-files.js"
           COMMON="-e s|src=gw\.js|src=gw.$JS_HASH.js| -e s|local-files\.mjs|local-files.js|g -e s|online-files\.mjs|online-files.js|g"
-          # index.html starts GW with the GRCh38 reference (no BAM); demo.html
-          # additionally loads the bundled example BAM. The WASM build mounts
+          # index.html starts GW empty: a reference comes from the Online genomes
+          # button, Open, or a dropped BAM/VCF (its matching reference opens with it).
+          # demo.html loads the bundled example BAM. The WASM build mounts
           # http(s) genome URLs over HTTP range reads at startup.
-          sed $COMMON -e "s|<script async src=|<script>window.GW_ARGS=['https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg38/hg38.fa'];</script><script async src=|" gw.html > "$GITHUB_WORKSPACE/app/index.html"
+          sed $COMMON -e "s|<script async src=|<script>window.GW_ARGS=[];</script><script async src=|" gw.html > "$GITHUB_WORKSPACE/app/index.html"
           sed $COMMON -e "s|<script async src=|<script>window.GW_ARGS=['/test.fa','-b','/test.bam','-r','chr1:9900-10300'];</script><script async src=|" gw.html > "$GITHUB_WORKSPACE/app/demo.html"
-          # hg008.html streams the GIAB HG008-T tumor BAM (PacBio HiFi, GRCh38)
-          # straight from NCBI over HTTP ranges — nothing is bundled. First load
-          # fetches the ~22 MB .bai, then only reads in the viewed region.
-          sed $COMMON -e "s|<script async src=|<script>window.GW_ARGS=['https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg38/hg38.fa','-b','https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/data_somatic/HG008/Liss_lab/BCM_Revio_20240313/HG008-T_PacBio-HiFi-Revio_20240313_106x_GRCh38-GIABv3.bam','-r','chr1:13220000-13255000','-c','link sv'];</script><script async src=|" gw.html > "$GITHUB_WORKSPACE/app/hg008.html"
 
       - name: Upload WASM app
         uses: actions/upload-artifact@v4

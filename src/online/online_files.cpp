@@ -189,6 +189,77 @@ std::string openReference(Manager::GwPlot* p,const Entry& e,bool iniTag){
     std::string refresh="refresh";std::ostringstream out;Commands::run_command_map(p,refresh,out);
     return {};
 }
+bool referenceForData(const std::string& path,Entry& reference,std::string& message){
+    const auto name=resourceName(path);
+    std::vector<std::pair<std::string,long long>> contigs;
+    std::string firstRead;  // chrom:pos of the first record, to open the view on data
+    if(ends(name,".bam")||ends(name,".cram")){
+        auto* f=sam_open(path.c_str(),"r");auto* h=f?sam_hdr_read(f):nullptr;
+        if(h){
+            for(int i=0;i<h->n_targets;++i)contigs.emplace_back(h->target_name[i],h->target_len[i]);
+            // A CRAM record cannot be decoded before its reference is open
+            auto* idx=ends(name,".bam")?sam_index_load2(f,path.c_str(),indexPath(path)):nullptr;
+            if(idx){
+                // Chromosome 1 first (hg19 lists chrM before it), then the header's order
+                std::vector<int> order;
+                for(int tid=0;tid<h->n_targets;++tid)if(canonical(h->target_name[tid])=="1")order.push_back(tid);
+                for(int tid=0;tid<h->n_targets;++tid)if(canonical(h->target_name[tid])!="1")order.push_back(tid);
+                for(int tid:order){
+                    if(!firstRead.empty())break;
+                    uint64_t mapped=0,unmapped=0;
+                    if(hts_idx_get_stat(idx,tid,&mapped,&unmapped)!=0||mapped==0)continue;
+                    auto* it=sam_itr_queryi(idx,tid,0,h->target_len[tid]);auto* b=bam_init1();
+                    if(it&&b&&sam_itr_next(f,it,b)>=0)firstRead=std::string(h->target_name[tid])+":"+std::to_string(b->core.pos+1);
+                    if(b)bam_destroy1(b);if(it)hts_itr_destroy(it);
+                }
+                hts_idx_destroy(idx);
+            }
+            sam_hdr_destroy(h);
+        }
+        if(f)sam_close(f);
+    }else if(ends(name,".vcf")||ends(name,".vcf.gz")||ends(name,".bcf")){
+        auto* f=bcf_open(path.c_str(),"r");auto* h=f?bcf_hdr_read(f):nullptr;
+        if(h){
+            int n=0;const char** names=bcf_hdr_seqnames(h,&n);
+            for(int i=0;i<n;++i){
+                long long length=0;auto* record=bcf_hdr_get_hrec(h,BCF_HL_CTG,"ID",names[i],nullptr);
+                int key=record?bcf_hrec_find_key(record,"length"):-1;
+                if(key>=0)length=std::strtoll(record->vals[key],nullptr,10);
+                contigs.emplace_back(names[i],length);
+            }
+            free(names);
+            auto* v=bcf_init();
+            if(v&&bcf_read(f,h,v)==0)firstRead=std::string(bcf_hdr_id2name(h,v->rid))+":"+std::to_string(v->pos+1);
+            if(v)bcf_destroy(v);
+            bcf_hdr_destroy(h);
+        }
+        if(f)bcf_close(f);
+    }else return false;
+    // Chromosome 1 identifies the bundled human assemblies
+    std::string chr1;long long length=0;
+    for(const auto& c:contigs)if(canonical(c.first)=="1"){chr1=c.first;length=c.second;break;}
+    const char* assembly=length==248956422?"hg38":length==249250621?"hg19":length==248387328?"hs1":nullptr;
+    if(!assembly){
+        message="No reference matched "+name+"; open one from Online genomes or Open > Reference genome";
+        return false;
+    }
+    if(chr1!="chr1"){
+        message=name+" looks like "+assembly+" but names chromosomes without 'chr'; open a matching reference from Open > Reference genome";
+        return false;
+    }
+    for(const auto& e:bundledCatalogue()){
+        if(e.category!="reference"||e.assembly!=assembly)continue;
+        reference=e;
+        if(!firstRead.empty()){
+            auto colon=firstRead.rfind(':');long long pos=std::stoll(firstRead.substr(colon+1));
+            reference.locus=firstRead.substr(0,colon)+":"+std::to_string(std::max(1LL,pos-500))+"-"+std::to_string(pos+500);
+        }
+        message="Opening the "+e.name+" reference to match "+name;
+        return true;
+    }
+    message="No online "+std::string(assembly)+" reference is available; open one from Open > Reference genome";
+    return false;
+}
 #ifndef __EMSCRIPTEN__
 std::int64_t fetchFileSize(const std::string& url){
     if(!httpURL(url))return -1;
