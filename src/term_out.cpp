@@ -45,6 +45,7 @@ namespace Term {
         out << termcolor::green << "filter           expression      " << termcolor::reset << "Examples 'filter mapq > 0', 'filter soft-clips >= 30'\n                                 'filter sa at chr1:1-20000'\n";
         out << termcolor::green << "find, f          qname?          " << termcolor::reset << "To find other alignments from selected read use 'find'\n                                 Or use 'find [QNAME]' to find target read'\n";
         out << termcolor::green << "goto             loci/feature    " << termcolor::reset << "e.g. 'goto chr1:1-20000'. 'goto hTERT' \n";
+        out << termcolor::green << "font-size        number          " << termcolor::reset << "Set the font size of labels and the ruler e.g. 'font-size 20'\n";
         out << termcolor::green << "grid             width x height  " << termcolor::reset << "Set the grid size for --variant images 'grid 8x8' \n";
         out << termcolor::green << "header           names?          " << termcolor::reset << "Prints the header of the current bam to terminal\n";
         out << termcolor::green << "indel-length     int             " << termcolor::reset << "Label indels >= length\n";
@@ -57,6 +58,7 @@ namespace Term {
         out << termcolor::green << "log2-cov                         " << termcolor::reset << "Toggle scale coverage by log2\n";
         out << termcolor::green << "mate             add?            " << termcolor::reset << "Use 'mate' to navigate to mate-pair, or 'mate add' \n                                 to add a new region with mate \n";
         out << termcolor::green << "mismatches, mm                   " << termcolor::reset << "Toggle mismatches\n";
+        out << termcolor::green << "name             bam0/track0 text" << termcolor::reset << "Name a file's data label e.g. 'name bam1 Father'.\n                                 Use 'name' alone to list the current names\n";
         out << termcolor::green << "online                           " << termcolor::reset << "Show links to online genome browsers\n";
         out << termcolor::green << "quit, q          -               " << termcolor::reset << "Quit GW\n";
         out << termcolor::green << "refresh, r       -               " << termcolor::reset << "Refresh and re-draw the window\n";
@@ -73,6 +75,7 @@ namespace Term {
         out << termcolor::green << "theme            igv/dark/slate  " << termcolor::reset << "Switch color theme e.g. 'theme dark'\n";
         out << termcolor::green << "translate        on/off/frame/   " << termcolor::reset << "Toggle translation track. 'translate frame 1-3',\n";
         out << termcolor::green << "                 strand/code     " << termcolor::reset << "'translate strand +/-', 'translate code N'\n";
+        out << termcolor::green << "tiles            on/off?         " << termcolor::reset << "Switch between tiled variant images and the normal view\n";
         out << termcolor::green << "tlen-y                           " << termcolor::reset << "Toggle --tlen-y option\n";
         out << termcolor::green << "track-height     target? number? " << termcolor::reset << "Resize one track or the alignment panel. Use\n                                 'track-height' alone to list current heights\n";
         out << termcolor::green << "var, v           vcf_column?     " << termcolor::reset << "Print variant information e.g. 'var', 'var info',\n                                 or a list of columns 'var pos qual format.SU'\n";

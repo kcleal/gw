@@ -77,6 +77,7 @@ EM_ASYNC_JS(char*, gw_mount_remote_js, (const char* url), {
         var category='reference';
         if (lower.endsWith('.bam')||lower.endsWith('.cram')) category='alignment';
         else if (/\\.(vcf|bcf|bed|gff|gff3|gtf)(\\.gz|\\.bgz)?$/.test(lower)) category='track';
+        else if (/\\.(bb|bigbed|bw|bigwig)$/.test(lower)) category='track';  // self-indexed
         var resource={id:'remote', name:path.split('/').pop(), category:category, url:path};
         var prepared=await api.prepareOnline(resource, {FS:FS, Module:Module, status:function(text){console.log(text);}});
         var text=prepared.entry.url;

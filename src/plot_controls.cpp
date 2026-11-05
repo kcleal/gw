@@ -1581,15 +1581,33 @@ namespace Manager {
         } else if (
                 (!vcf_as_track && (Utils::endsWith(Online::resourceName(path), ".vcf.gz") || Utils::endsWith(Online::resourceName(path), ".vcf") || Utils::endsWith(Online::resourceName(path), ".bcf")))
              || (!bed_as_track && (Utils::endsWith(Online::resourceName(path), ".bed") || Utils::endsWith(Online::resourceName(path), ".bed.gz")))) {
-            good = true;
-
+#ifdef __EMSCRIPTEN__
+            // Tiled VCF/BED from a URL: stream it like other remote files (a .gz needs
+            // its .tbi/.csi; plain text up to 16 MiB is read whole)
+            if (Utils::startsWith(path, "http://") || Utils::startsWith(path, "https://")) {
+                std::string resolved = resolve_genome_path(path);
+                if (resolved.empty()) {
+                    outStr << termcolor::red << "Error:" << termcolor::reset << " could not stream " << path << "\n";
+                    redraw = false;
+                    return false;
+                }
+                path = resolved;
+            }
+#endif
             std::vector<std::string> labels = Utils::split(opts.labels, ',');
             setLabelChoices(labels);
+            try {
+                addVariantTrack(path, opts.start_index, false, false);
+            } catch (const std::exception& error) {
+                out << termcolor::red << "Error:" << termcolor::reset << " could not open " << path << " as tiles: " << error.what() << "\n";
+                redraw = false;
+                return false;
+            }
+            good = true;
             mouseOverTileIndex = 0;
             bboxes = tileBoundingBoxes();
             imageCache.clear();
 
-            addVariantTrack(path, opts.start_index, false, false);
             variantFileSelection = (int) variantTracks.size() - 1;
             currentVarTrack = &variantTracks[variantFileSelection];
             currentVarTrack->blockStart = 0;
@@ -1615,6 +1633,19 @@ namespace Manager {
             fetchRefSeqs();
             good = true;
         } else {
+#ifdef __EMSCRIPTEN__
+            // The browser has no libcurl: stream http(s) tracks over the same HTTP range
+            // bridge as remote BAM/CRAM files (bigBed/bigWig directly, BGZF with its index)
+            if (Utils::startsWith(path, "http://") || Utils::startsWith(path, "https://")) {
+                std::string resolved = resolve_genome_path(path);
+                if (resolved.empty()) {
+                    outStr << termcolor::red << "Error:" << termcolor::reset << " could not stream " << path << "\n";
+                    redraw = false;
+                    return false;
+                }
+                path = resolved;
+            }
+#endif
             tracks.push_back(HGW::GwTrack());
             try {
                 tracks.back().track_label_parser_rules = opts.track_label_parser_rules;
@@ -1633,6 +1664,9 @@ namespace Manager {
                 good = true;
             } catch (...) {
                 tracks.pop_back();
+                if (print_message) {
+                    out << termcolor::red << "Error:" << termcolor::reset << " could not open track " << path << "\n";
+                }
             }
         }
         if (good) {

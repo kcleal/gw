@@ -57,9 +57,9 @@ namespace Menu {
 
     std::vector<std::string> getCommandTip();
 
-    constexpr std::array<const char*, 33> commandToolTip = {"ylim", "var", "track-height", "tlen-y", "tags", "tab-track-height", "sort", "soft-clips", "save", "sam", "remove",
-                                                            "refresh", "online", "mods", "mismatches", "mate", "mate add", "log2-cov", "load", "link", "line", "insertions", "indel-length",
-                                                            "grid", "find", "filter", "expand-tracks", "edges", "cov",  "count", "alignments", "add", "min-junction-reads"};
+    constexpr std::array<const char*, 36> commandToolTip = {"ylim", "var", "track-height", "tlen-y", "tiles", "tags", "tab-track-height", "sort", "soft-clips", "save", "sam", "remove",
+                                                            "refresh", "online", "name", "mods", "mismatches", "mate", "mate add", "log2-cov", "load", "link", "line", "insertions", "indel-length",
+                                                            "grid", "font-size", "find", "filter", "expand-tracks", "edges", "cov",  "count", "alignments", "add", "min-junction-reads"};
 
     constexpr std::array<const char*, 17> exec = {"alignments", "cov", "count", "edges", "expand-tracks", "insertions", "line", "log2-cov", "mate", "mate add", "mismatches", "mods", "tags", "soft-clips", "sam", "refresh", "tlen-y"};
 
@@ -95,6 +95,11 @@ namespace Menu {
 
     // Close-file dialog: lists open BAM/CRAM, track, and variant files for removal.
     void drawImGuiCloseDialog(Manager::GwPlot* plot, bool* p_open, bool& redraw);
+
+    // Ask-before-close confirmation for destructive track/file close actions.
+    // 'pending' holds the item's display name; set it where the user triggers the
+    // action and call each frame. Returns true once when the user confirms.
+    bool confirmItemClose(const char* title, const char* what, std::string& pending, bool& redraw);
 
     void drawImGuiTrackManager(Manager::GwPlot* plot, bool* p_open, bool& redraw);
 

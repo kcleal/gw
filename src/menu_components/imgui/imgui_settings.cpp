@@ -285,8 +285,10 @@ static void renderNamePathTable(
             }
 
             ImGui::TableSetColumnIndex(2);
-            if (ImGui::SmallButton("Delete"))
+            if (ImGui::SmallButton("Delete")) {
                 pendingDelete = name;
+                ImGui::OpenPopup("Delete entry?");
+            }
 
             ImGui::PopID();
         }

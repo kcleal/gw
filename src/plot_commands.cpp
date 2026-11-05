@@ -1626,7 +1626,10 @@ namespace Commands {
                     out << termcolor::red << "Error:" << termcolor::reset << " Bam/cram can not be loaded as a track\n";
                     return Err::SILENT;
                 } else {
-                    p->addTrack(filename, true, true, true);
+                    if (!p->addTrack(filename, true, true, true)) {
+                        out << termcolor::red << "Error:" << termcolor::reset << " could not open " << parts.back() << "\n";
+                        return Err::SILENT;
+                    }
                     refreshGw(p);
                     return Err::NONE;
                 }
@@ -1636,7 +1639,10 @@ namespace Commands {
                     return Err::INVALID_PATH;
                 }
                 if (ext == ".vcf" || ext == ".gz" || ext == ".bcf" || ext == ".bed") {
-                    p->addTrack(filename, true, false, false);
+                    if (!p->addTrack(filename, true, false, false)) {
+                        out << termcolor::red << "Error:" << termcolor::reset << " could not open " << parts.back() << " as tiles\n";
+                        return Err::SILENT;
+                    }
                     refreshGw(p);
                     return Err::NONE;
                 } else {
@@ -1647,7 +1653,10 @@ namespace Commands {
                 if (!maybe_online && !std::filesystem::exists(filename)) {
                     return Err::INVALID_PATH;
                 }
-                p->addTrack(filename, true, p->opts.vcf_as_tracks, p->opts.bed_as_tracks);
+                if (!p->addTrack(filename, true, p->opts.vcf_as_tracks, p->opts.bed_as_tracks)) {
+                    out << termcolor::red << "Error:" << termcolor::reset << " could not open " << parts.back() << "\n";
+                    return Err::SILENT;
+                }
                 refreshGw(p);
                 return Err::NONE;
             } else if (parts[1] == "genome") {
@@ -1727,8 +1736,9 @@ namespace Commands {
             Utils::endsWith(filename, ".fa.gz")    || Utils::endsWith(filename, ".fasta.gz") ||
             Utils::endsWith(filename, ".fa.bgz")   || Utils::endsWith(filename, ".fasta.bgz")) {
             p->loadGenome(filename, out);
-        } else {
-            p->addTrack(filename, true, p->opts.vcf_as_tracks, p->opts.bed_as_tracks);
+        } else if (!p->addTrack(filename, true, p->opts.vcf_as_tracks, p->opts.bed_as_tracks)) {
+            out << termcolor::red << "Error:" << termcolor::reset << " could not open " << parts.back() << "\n";
+            return Err::SILENT;
         }
         refreshGw(p);
         return Err::NONE;
@@ -2106,7 +2116,54 @@ namespace Commands {
         return Err::NONE;
     }
 
-    // :introns           → toggle intron track for bam 0
+    // move-bam <from> <to>  → reorder the alignment files
+    Err move_bam(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        if (p->bam_paths.empty()) {
+            out << termcolor::red << "Error:" << termcolor::reset << " no BAM loaded\n";
+            return Err::NONE;
+        }
+        int from, to;
+        try {
+            from = std::stoi(parts.at(1));
+            to = std::stoi(parts.at(2));
+        } catch (...) {
+            out << "Usage: move-bam <from-index> <to-index>\n";
+            return Err::OPTION_NOT_UNDERSTOOD;
+        }
+        int n = (int)p->bam_paths.size();
+        if (from < 0 || from >= n || to < 0 || to >= n) {
+            out << termcolor::red << "Error:" << termcolor::reset << " bam index out of range (0.." << n - 1 << ")\n";
+            return Err::SILENT;
+        }
+        if (from == to) {
+            return Err::NONE;
+        }
+        auto moveAt = [from, to](auto& v) {
+            auto moving = std::move(*(v.begin() + from));
+            v.erase(v.begin() + from);
+            v.insert(v.begin() + to, std::move(moving));
+        };
+        moveAt(p->bams);
+        moveAt(p->headers);
+        moveAt(p->indexes);
+        moveAt(p->bam_paths);
+        // Intron tracks point at a bam by index; shift the pointer along with its bam
+        for (auto& trk : p->tracks) {
+            if (trk.kind != HGW::FType::INTRON || trk.bamIndex < 0) continue;
+            int& k = trk.bamIndex;
+            if (k == from) k = to;
+            else if (from < k && k <= to) --k;
+            else if (to <= k && k < from) ++k;
+        }
+        p->redraw = true;
+        p->processed = false;
+        p->imageCache.clear();
+        p->imageCacheQueue.clear();
+        for (auto& cl : p->collections) {
+            cl.resetDrawState();
+        }
+        return Err::NONE;
+    }
     // :introns <bamIdx>  → toggle intron track for the given bam
     Err add_introns(Plot* p, std::string& /*command*/, std::vector<std::string> parts, std::ostream& out) {
         if (p->bam_paths.empty()) {
@@ -2169,6 +2226,113 @@ namespace Commands {
             return std::filesystem::path(trk.path).filename().string();
         }
         return std::string();
+    }
+
+    static void redrawLabels(Plot* p) {
+        p->redraw = true;
+        p->processed = false;
+        p->imageCache.clear();
+        p->imageCacheQueue.clear();
+        for (auto &cl : p->collections) {
+            cl.resetDrawState();
+        }
+    }
+
+    // 'name' lists the data labels; 'name bam1 Father (NA12891)' or 'name track0 Genes'
+    // sets one. The name is the rest of the line, spaces included; no name restores the
+    // file name. Alignment names belong to the file, so they survive adding panes.
+    Err name_data(Plot* p, std::string& command, std::vector<std::string>& parts, std::ostream& out) {
+        if (parts.size() == 1) {
+            for (int i = 0; i < (int) p->bam_paths.size(); ++i) {
+                out << "bam" << i << "    " << p->bamLabel(i) << "\n";
+            }
+            for (int i = 0; i < (int) p->tracks.size(); ++i) {
+                out << "track" << i << "  " << trackLabel(p->tracks[i]) << "\n";
+            }
+            if (p->bam_paths.empty() && p->tracks.empty()) {
+                out << "No alignments or tracks are open\n";
+            }
+            return Err::NONE;
+        }
+        const std::string& target = parts[1];
+        const bool isBam = Utils::startsWith(target, "bam");
+        const bool isTrack = Utils::startsWith(target, "track");
+        int index = -1;
+        try {
+            size_t used = 0;
+            std::string number = target.substr(isBam ? 3 : (isTrack ? 5 : target.size()));
+            index = std::stoi(number, &used);
+            if (used != number.size()) index = -1;
+        } catch (...) {}
+        const int count = isBam ? (int) p->bam_paths.size() : (int) p->tracks.size();
+        if ((!isBam && !isTrack) || index < 0 || index >= count) {
+            out << termcolor::red << "Error:" << termcolor::reset
+                << " expected 'name bam<index> <name>' or 'name track<index> <name>' (0-based; 'name' lists them)\n";
+            return Err::SILENT;
+        }
+        // Everything after the target, as typed
+        size_t pos = command.find(target, command.find(parts[0]) + parts[0].size()) + target.size();
+        std::string label = pos < command.size() ? command.substr(pos) : "";
+        const auto first = label.find_first_not_of(" \t");
+        label = first == std::string::npos ? "" : label.substr(first, label.find_last_not_of(" \t") - first + 1);
+        if (label.size() > 200) {
+            out << termcolor::red << "Error:" << termcolor::reset << " names are limited to 200 characters\n";
+            return Err::SILENT;
+        }
+        if (isBam) {
+            if (label.empty()) p->bam_labels.erase(p->bam_paths[index]);
+            else p->bam_labels[p->bam_paths[index]] = label;
+        } else {
+            p->tracks[index].name = label;  // empty falls back to the file name
+        }
+        if (!label.empty()) p->opts.data_labels = true;  // a name is only useful if it is shown
+        redrawLabels(p);
+        return Err::NONE;
+    }
+
+    // 'font-size 20' enlarges labels, the ruler and feature names, e.g. for a projector
+    Err font_size(Plot* p, std::vector<std::string>& parts, std::ostream& out) {
+        if (parts.size() == 1) {
+            out << "Font size is " << p->opts.font_size << "\n";
+            return Err::NONE;
+        }
+        int size = 0;
+        try {
+            size_t used = 0;
+            size = std::stoi(parts[1], &used);
+            if (used != parts[1].size()) size = 0;
+        } catch (...) {}
+        if (parts.size() != 2 || size < 6 || size > 48) {
+            out << termcolor::red << "Error:" << termcolor::reset << " usage 'font-size <6-48>'\n";
+            return Err::SILENT;
+        }
+        p->opts.font_size = size;
+        p->fonts.setTypeface(p->opts.font_str, p->opts.font_size);
+        p->fonts.setOverlayHeight(p->monitorScale);
+        p->setScaling();
+        p->tracksLayoutDirty = true;
+        redrawLabels(p);
+        return Err::NONE;
+    }
+
+    // 'tiles' switches between the tiled variant view and the normal view;
+    // 'tiles on' / 'tiles off' choose one. Tiles come from 'load tiled FILE'.
+    Err tiles(Plot* p, std::vector<std::string>& parts, std::ostream& out) {
+        if (parts.size() > 2 || (parts.size() == 2 && parts[1] != "on" && parts[1] != "off")) {
+            out << termcolor::red << "Error:" << termcolor::reset << " usage 'tiles', 'tiles on' or 'tiles off'\n";
+            return Err::SILENT;
+        }
+        if (p->variantTracks.empty()) {
+            out << termcolor::red << "Error:" << termcolor::reset << " no tiled file is open (use 'load tiled FILE')\n";
+            return Err::SILENT;
+        }
+        const bool tiled = p->mode == Manager::Show::TILED;
+        if (parts.size() == 2 && (parts[1] == "on") == tiled) return Err::NONE;
+        if (!p->toggleCurrentVariantTiledView()) {
+            out << termcolor::red << "Error:" << termcolor::reset << " the tiled file has no variants to show\n";
+            return Err::SILENT;
+        }
+        return Err::NONE;
     }
 
     static void trackHeightUsage(std::ostream& out) {
@@ -2543,6 +2707,7 @@ namespace Commands {
                 {"remove-roi", PARAMS { return remove_roi(p, parts, out); }},
                 {"clear-roi", PARAMS { return clear_roi(p); }},
                 {"remove-filter", PARAMS { return remove_filter(p, command, out); }},
+                {"move-bam", PARAMS { return move_bam(p, parts, out); }},
                 {"move-track", PARAMS { return move_track(p, parts, out); }},
                 {"introns",  PARAMS { return add_introns(p, command, parts, out); }},
                 {"track-height", PARAMS { return set_track_height(p, command, parts, out); }},
@@ -2576,6 +2741,9 @@ namespace Commands {
                 {"online",   PARAMS { return online(p, parts, out); }},
                 {"load",     PARAMS { return load_file(p, parts, out); }},
                 {"grid",     PARAMS { return grid(p, parts); }},
+                {"name",     PARAMS { return name_data(p, command, parts, out); }},
+                {"font-size", PARAMS { return font_size(p, parts, out); }},
+                {"tiles",    PARAMS { return tiles(p, parts, out); }},
 
         };
 

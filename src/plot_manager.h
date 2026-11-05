@@ -21,6 +21,7 @@
 #include <functional>
 #include <filesystem>
 #include <GLFW/glfw3.h>
+#include <map>
 #include <memory>
 #include <string>
 #include <utility>
@@ -165,6 +166,10 @@ namespace Manager {
         std::string target_qname;
 
         std::vector<std::string> bam_paths;
+        // Display names for alignment files, keyed by their bam_paths entry. Kept per
+        // file, not per read collection, so names follow files when panes are added.
+        std::map<std::string, std::string> bam_labels;
+        std::string bamLabel(int bamIdx) const;  // the name, or the file name if unset
         std::vector<htsFile* > bams;
         std::vector<sam_hdr_t* > headers;
         std::vector<hts_idx_t* > indexes;

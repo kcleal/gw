@@ -1213,6 +1213,34 @@ int main() {
         io.AddMousePosEvent(-100,-100); frame();
         sam_hdr_destroy(hdr);
     }
+    // move-bam reorders bams, headers and indexes, and intron tracks follow their bam
+    {
+        std::string hdrText="@SQ\tSN:chr1\tLN:1000\n";
+        auto* h1=sam_hdr_parse(hdrText.size(), hdrText.c_str());
+        auto* h2=sam_hdr_parse(hdrText.size(), hdrText.c_str());
+        auto* h3=sam_hdr_parse(hdrText.size(), hdrText.c_str());
+        Themes::IniOptions options; options.threads=1;
+        std::vector<std::string> none; std::vector<Utils::Region> rg{Utils::Region("chr1",1,100)};
+        Manager::GwPlot plot("test/test.fa",none,options,rg,none); plot.terminalOutput=false;
+        plot.bam_paths={"a.bam","b.bam","c.bam"};
+        plot.bams={nullptr,nullptr,nullptr};
+        plot.headers={h1,h2,h3};
+        plot.indexes={nullptr,nullptr,nullptr};
+        plot.tracks.emplace_back(); plot.tracks.back().kind=HGW::FType::INTRON; plot.tracks.back().bamIndex=2;
+        std::ostringstream out;
+        std::string cmd="move-bam 2 0"; Commands::run_command_map(&plot, cmd, out);
+        assert((plot.bam_paths==std::vector<std::string>{"c.bam","a.bam","b.bam"}));
+        assert(plot.headers[0]==h3 && plot.headers[1]==h1 && plot.headers[2]==h2);  // headers move with their bam
+        assert(plot.tracks[0].bamIndex==0);                  // intron track follows its bam
+        cmd="move-bam 0 2"; Commands::run_command_map(&plot, cmd, out);
+        assert((plot.bam_paths==std::vector<std::string>{"a.bam","b.bam","c.bam"}));
+        assert(plot.headers[0]==h1 && plot.headers[2]==h3);
+        assert(plot.tracks[0].bamIndex==2);
+        cmd="move-bam 0 5"; Commands::run_command_map(&plot, cmd, out);  // out of range: order unchanged
+        assert(plot.bam_paths[0]=="a.bam");
+        plot.headers.clear(); plot.tracks.clear();  // keep ownership of the parsed headers
+        sam_hdr_destroy(h1); sam_hdr_destroy(h2); sam_hdr_destroy(h3);
+    }
     // Output constraints must stay consistent on narrow remote viewports.
     {
         plot.remoteCommand = [](const std::string&) {};
@@ -2153,6 +2181,52 @@ int main() {
         if (!stack.empty()) click(600,300);
         plot.remoteCommand={}; plot.headers.clear(); sam_hdr_destroy(hdr);
         rgn=savedRegion;
+        plot.opts=savedOptions; plot.mode=savedMode; plot.monitorScale=savedScale;
+        plot.totalTabixY=savedTabix; plot.sliderSpace=savedSlider;
+        io.AddMousePosEvent(-100,-100); frame();
+    }
+    // The X pill beside a track label asks before closing: Cancel keeps the track, Close removes it
+    {
+        const auto savedOptions=plot.opts; const auto savedMode=plot.mode;
+        const float savedScale=plot.monitorScale, savedTabix=plot.totalTabixY, savedSlider=plot.sliderSpace;
+        plot.mode=Manager::SINGLE; plot.monitorScale=1; plot.opts.data_labels=true;
+        plot.sliderSpace=plot.gap*4; plot.totalTabixY=80;
+        plot.tracks.emplace_back(); plot.tracks.back().name="a.bed"; plot.tracks.back().path="a.bed";
+        plot.tracks.back().px_height=80;
+        auto frame=[&]() { ImGui::NewFrame(); bool redraw=false;
+            Menu::drawImGuiDataLabels(&plot, plot.gap, plot.fonts.overlayHeight, redraw);
+            ImGui::Render(); };
+        auto clickAt=[&](float x,float y) { io.AddMousePosEvent(x,y); frame();
+            io.AddMouseButtonEvent(0,true); frame(); io.AddMouseButtonEvent(0,false); frame(); };
+        const float trackTop=plot.fb_height-plot.totalTabixY-plot.sliderSpace;
+        io.AddMousePosEvent(-100,-100); frame();
+        io.AddMousePosEvent(plot.gap+6, trackTop+plot.gap+4); frame(); frame();
+        auto pill=[&]() { return ImGui::FindWindowByName("##datalabel_close_trk0"); };
+        auto modal=[&]() { auto* m=ImGui::FindWindowByName("Close track?"); return (m && m->Active) ? m : nullptr; };
+        auto clickButton=[&](ImGuiWindow* m, const char* label) {
+            for (float y=m->Rect().Min.y; y<m->Rect().Max.y; y+=2)
+                for (float x=m->Rect().Min.x; x<m->Rect().Max.x; x+=2) {
+                    io.AddMousePosEvent(x,y); frame();
+                    if (GImGui->HoveredId==m->GetID(label)) { clickAt(x,y); return; }
+                }
+            assert(false);  // button not found
+        };
+        assert(pill() && pill()->Active);
+        clickAt(pill()->Pos.x+pill()->Size.x*0.5f, pill()->Pos.y+pill()->Size.y*0.5f);
+        assert(plot.tracks.size()==1);  // the click only opens the dialog
+        auto* m=modal();
+        assert(m);
+        clickButton(m, "Cancel");
+        frame();  // let the closed popup drop its Active flag
+        assert(plot.tracks.size()==1 && !modal());
+        io.AddMousePosEvent(plot.gap+6, trackTop+plot.gap+4); frame(); frame();
+        assert(pill() && pill()->Active);
+        clickAt(pill()->Pos.x+pill()->Size.x*0.5f, pill()->Pos.y+pill()->Size.y*0.5f);
+        m=modal();
+        assert(m);
+        clickButton(m, "Close");
+        assert(plot.tracks.empty());
+        plot.tracks.clear();
         plot.opts=savedOptions; plot.mode=savedMode; plot.monitorScale=savedScale;
         plot.totalTabixY=savedTabix; plot.sliderSpace=savedSlider;
         io.AddMousePosEvent(-100,-100); frame();

@@ -121,10 +121,54 @@ Open `/embed.html` on the static demo host. It embeds `gw.html`, the full local
 WASM renderer; there is no gw-server connection, PNG stream or file upload.
 The separate `deps/wasm_remote` demo still uses server rendering intentionally.
 Keep `embed.html`, `embed.mjs` and `local-files.mjs` alongside the built GW files.
-The host component exports `createViewer(container, {url, onState, onError})`,
-with `ready`, `navigate`, `command`, `snapshot`, `focus`, and `destroy` methods.
-Local state events report the current theme, regions and alignment paths; they
-are not remote frame descriptors. It needs only ordinary static HTTP hosting.
+The host component exports `createViewer(container, {url, params, focus, onState, onError})`,
+with `ready`, `navigate`, `command`, `load`, `loadTrack`, `snapshot`, `focus`, and
+`destroy` methods. Local state events report the current theme, regions, alignment
+paths and names (`alignment_names`), track names (`tracks`), tiled files (`tiled`)
+and the view (`mode`: `single` or `tiled`); they are not remote
+frame descriptors. It needs only ordinary static HTTP hosting. The Pages build
+publishes this module as `app/embed.js`.
+
+```js
+import {createViewer} from 'https://kcleal.github.io/gw/app/embed.js';
+const viewer = createViewer(element, {params: {genome: 'hg38', theme: 'igv'}});
+await viewer.ready;
+await viewer.load('https://…/NA12878.final.cram', {name: 'Daughter'});   // resolves when open
+await viewer.loadTrack('https://hgdownload.soe.ucsc.edu/gbdb/hg38/mane/mane.bb', {name: 'MANE'});
+await viewer.navigate('chr11:5226990-5227035');
+```
+
+Commands reject with GW's error text (for example a URL that cannot be opened).
+Embedded, GW does not take the keyboard until it is clicked, so a host such as a
+slide deck keeps its keys; pass `focus: true` (or `?focus=1`) to focus on start.
+
+### Startup from the URL
+
+`gw.html` (or the published `index.html`) reads a view from its URL, so a plain link
+or `<iframe>` can open prepared data without page code:
+
+```
+index.html?genome=hg38&theme=igv&bam=URL1&bam=URL2&name=Daughter&name=Father
+          &track=https://…/mane.bb&region=chr11:5226990-5227035&font-size=18
+```
+
+`genome` (a FASTA URL, or `hg38`, `hg19`, `hs1` for the catalogue's CORS-enabled
+copies), `theme`, `region` and `font-size` take one value; `bam`, `name` (applied
+to the opened BAMs in order), `track`, `tiled` and `cmd` (any GW command) repeat. They
+run in that order after GW starts, and failures are shown as a toast.
+
+Annotation files open as tracks by default. `tiled=URL` (or `viewer.loadTiled(url, {grid: '4x3'})`,
+or the command `load tiled URL`) opens a VCF/BED as a grid of image tiles, one per
+variant, instead (`grid=4x3` sets the layout; GW's default is 1x1); `tiles off`/`tiles on` (or `tiles` to toggle) switches between the
+grid and the normal view, and navigating to a region also leaves the grid. Remote
+`.vcf.gz`/`.bed.gz` need their `.tbi`/`.csi`; plain `.vcf`/`.bed` up to 16 MiB are
+read whole.
+
+Remote http(s) annotation tracks (bigBed, bigWig, and indexed BGZF BED/GFF/VCF)
+stream over the same range bridge as remote BAM/CRAM files. Two commands help
+teaching views: `name bam1 Father` / `name track0 Genes` sets a data label (names
+belong to the file, so they survive added panes), and `font-size 20` enlarges labels
+for a projector.
 
 `test/test_wasm_local_files.mjs` checks bounded reads on a simulated 10 GB File,
 index pairing, alternate index names and close/reload mounts, and forbids calling

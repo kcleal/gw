@@ -81,6 +81,22 @@ namespace Manager {
         double x=0,y=0;
     };
     static std::deque<WasmInputEvent> wasmInputEvents;
+
+    // Sends GW's view (regions, files, names, mode) to the page and any embedding host
+    static void publishBrowserState(GwPlot* p) {
+        std::string browserRegions, browserFiles, browserNames, browserTracks;
+        for(const auto& region:p->regions) browserRegions+=region.chrom+":"+std::to_string(region.start+1)+"-"+std::to_string(region.end)+"\n";
+        for(const auto& path:p->bam_paths) browserFiles+=path+"\n";
+        for(int i=0;i<(int)p->bam_paths.size();++i) browserNames+=p->bamLabel(i)+"\n";
+        for(const auto& trk:p->tracks) browserTracks+=(trk.name.empty()?std::filesystem::path(trk.path).filename().string():trk.name)+"\n";
+        std::string browserTiles;
+        for(const auto& vt:p->variantTracks) browserTiles+=vt.fileName+"\n";
+        EM_ASM({
+            var lines=function(ptr){return UTF8ToString(ptr).split(String.fromCharCode(10)).filter(Boolean);};
+            if(Module.gwPublishState)Module.gwPublishState({shared:{theme:UTF8ToString($0),regions:lines($1),alignments:lines($2),alignment_names:lines($3),tracks:lines($4),tiled:lines($5),mode:$6?'tiled':'single'}});
+        },p->opts.theme_str.c_str(),browserRegions.c_str(),browserFiles.c_str(),browserNames.c_str(),browserTracks.c_str(),browserTiles.c_str(),p->mode==Manager::Show::TILED);
+    }
+
     static void queueWasmInput(WasmInputEvent event) {
         if(event.type==3 && !wasmInputEvents.empty() && wasmInputEvents.back().type==3 && wasmInputEvents.back().plot==event.plot)
             wasmInputEvents.back()=event;
@@ -364,6 +380,15 @@ namespace Manager {
         // pongasoft emscripten-glfw uses GLFW_SCALE_FRAMEBUFFER (GLFW 3.4 name)
         // to create a HiDPI framebuffer sized to devicePixelRatio * CSS size.
         glfwWindowHint(GLFW_SCALE_FRAMEBUFFER, GLFW_TRUE);
+        // Embedded in another page (e.g. a slide deck), GW leaves the keyboard with the
+        // host page until GW is clicked; '?focus=1' in GW's URL restores focus-on-start.
+        {
+            const int takeFocus = EM_ASM_INT({
+                return (window.parent === window || new URLSearchParams(location.search).get('focus') === '1') ? 1 : 0;
+            });
+            glfwWindowHint(GLFW_FOCUSED, takeFocus ? GLFW_TRUE : GLFW_FALSE);
+            glfwWindowHint(GLFW_FOCUS_ON_SHOW, takeFocus ? GLFW_TRUE : GLFW_FALSE);
+        }
 #else
         glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
 #endif
@@ -752,6 +777,13 @@ namespace Manager {
         for (auto &rgn: regions) {
             fetchRefSeq(rgn);
         }
+    }
+
+    std::string GwPlot::bamLabel(int bamIdx) const {
+        if (bamIdx < 0 || bamIdx >= (int) bam_paths.size()) return {};
+        auto it = bam_labels.find(bam_paths[bamIdx]);
+        if (it != bam_labels.end() && !it->second.empty()) return it->second;
+        return std::filesystem::path(bam_paths[bamIdx]).filename().string();
     }
 
     bool GwPlot::addBam(std::string &bam_path) {
@@ -1488,6 +1520,8 @@ namespace Manager {
                 catch(const std::runtime_error& error) {output << "Error: " << error.what();}
                 catch(...) {output << "Error: could not complete browser command";}
                 p->processed=false;p->redraw=true;
+                // Before the reply, so a host's snapshot() right after a command sees its result
+                publishBrowserState(p);
                 const auto result=output.str();
                 EM_ASM({if(Module.gwCompleteCommand)Module.gwCompleteCommand(UTF8ToString($0));},result.c_str());
             }
@@ -1582,12 +1616,7 @@ namespace Manager {
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
             p->redraw = uiRedraw;
             glfwSwapBuffers(s.wind);
-            std::string browserRegions, browserFiles;
-            for(const auto& region:p->regions) browserRegions+=region.chrom+":"+std::to_string(region.start+1)+"-"+std::to_string(region.end)+"\n";
-            for(const auto& path:p->bam_paths) browserFiles+=path+"\n";
-            EM_ASM({
-                if(Module.gwPublishState)Module.gwPublishState({shared:{theme:UTF8ToString($0),regions:UTF8ToString($1).split(String.fromCharCode(10)).filter(Boolean),alignments:UTF8ToString($2).split(String.fromCharCode(10)).filter(Boolean)}});
-            },p->opts.theme_str.c_str(),browserRegions.c_str(),browserFiles.c_str());
+            publishBrowserState(p);
 
 
             while (p->imageCacheQueue.size() > 100) { p->imageCacheQueue.pop_front(); }
@@ -1646,6 +1675,7 @@ namespace Manager {
                 Utils::Region * reg = &regions[j];
 
                 collections[idx].bamIdx = i;
+                collections[idx].name = bamLabel(i);  // slots move when panes change
                 collections[idx].regionIdx = j;
                 collections[idx].region = &regions[j];
                 if (collections[idx].skipDrawingReads) {
@@ -2840,6 +2870,7 @@ namespace Manager {
                 Segs::ReadCollection &col = collections[idx];
                 col.skipDrawingCoverage = false;
                 col.bamIdx = i;
+                col.name = bamLabel(i);
                 if (!col.levelsStart.empty()) {
                     col.clear();
                 }

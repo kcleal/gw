@@ -77,6 +77,9 @@ void drawImGuiDataLabels(Manager::GwPlot* plot,
     static char editBuf[256] = {};
     if (!labels) editingIndex = -1;
 
+    static std::string confirmName;  // track awaiting close confirmation
+    static int confirmIdx = -1;
+
     ImGuiWindowFlags flags =
         ImGuiWindowFlags_NoDecoration |
         ImGuiWindowFlags_NoBackground |
@@ -185,6 +188,8 @@ void drawImGuiDataLabels(Manager::GwPlot* plot,
                                  ImGuiInputTextFlags_EnterReturnsTrue))
             {
                 cl.name = editBuf;
+                if (cl.bamIdx >= 0 && cl.bamIdx < (int) plot->bam_paths.size())
+                    plot->bam_labels[plot->bam_paths[cl.bamIdx]] = editBuf;
                 editingIndex = -1;
                 redraw = true;
                 plot->processed = false;
@@ -264,8 +269,12 @@ void drawImGuiDataLabels(Manager::GwPlot* plot,
         if (!labels) {
             if (overLabelOrClose(sx, sy, std::max(0.0f, sw - sh - 2.0f), sh)) {
                 std::snprintf(winLabel, sizeof(winLabel), "##datalabel_close_trk%zu", ti);
-                if (drawLabelCloseButton(plot, winLabel, ImVec2(sx, sy), sh, "Close track"))
-                    pendingClose = "rm track" + std::to_string(ti);
+                if (drawLabelCloseButton(plot, winLabel, ImVec2(sx, sy), sh, "Close track")) {
+                    confirmName = trk.name.empty()
+                        ? std::filesystem::path(trk.path).filename().string()
+                        : trk.name;
+                    confirmIdx = (int)ti;
+                }
             }
             trackY += trk.px_height;
             continue;
@@ -347,12 +356,21 @@ void drawImGuiDataLabels(Manager::GwPlot* plot,
 
             if (overLabelOrClose(sx, sy, sw, sh)) {
                 std::snprintf(winLabel, sizeof(winLabel), "##datalabel_close_trk%zu", ti);
-                if (drawLabelCloseButton(plot, winLabel, ImVec2(sx + sw + 2.0f, sy), sh, "Close track"))
-                    pendingClose = "rm track" + std::to_string(ti);
+                if (drawLabelCloseButton(plot, winLabel, ImVec2(sx + sw + 2.0f, sy), sh, "Close track")) {
+                    confirmName = trk.name.empty()
+                        ? std::filesystem::path(trk.path).filename().string()
+                        : trk.name;
+                    confirmIdx = (int)ti;
+                }
             }
         }
 
         trackY += trk.px_height;
+    }
+
+    if (confirmItemClose("Close track?", "the track", confirmName, redraw) && confirmIdx >= 0) {
+        pendingClose = "rm track" + std::to_string(confirmIdx);
+        confirmIdx = -1;
     }
 
     if (!pendingClose.empty()) {

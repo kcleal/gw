@@ -440,6 +440,22 @@ Toggle mismatches. Mismatches with the reference genome are turned on or off.
 Toggle base modifications. Mods are turned on or off.
 <br>
 
+- ## move-bam
+
+Reorder the alignment files. The bam at from-index is moved to to-index;
+the others shift to make room.
+
+    move-bam 1 0   # move the second bam to the top
+<br>
+
+- ## move-track
+
+Reorder the tracks. The track at from-index is moved to to-index;
+the others shift to make room.
+
+    move-track 1 0   # move the second track to the top
+<br>
+
 - ## online
 
 Show links to online browsers for the current region.

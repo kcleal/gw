@@ -1,8 +1,18 @@
-/** Mount the native GW WASM UI inside a host-owned element. */
-export function createViewer(container, {url = './gw.html', onState, onError} = {}) {
+/**
+ * Mount the native GW WASM UI inside a host-owned element.
+ *
+ * params: a startup view, as the page's URL parameters (see shell.html), e.g.
+ *   {genome: 'hg38', bam: [urlA, urlB], name: ['Daughter', 'Father'], region: 'chr11:5227000-5227030'}
+ * focus: take the keyboard when GW starts. Off by default, so a host such as a slide deck
+ *   keeps its keys until GW is clicked.
+ */
+export function createViewer(container, {url = './gw.html', params = {}, focus = false, onState, onError} = {}) {
     const target = new URL(url, window.location.href);
     if (target.pathname.endsWith('/')) target.pathname += 'gw.html';
     target.searchParams.set('embed', '1');
+    if (focus) target.searchParams.set('focus', '1');
+    for (const [key, value] of Object.entries(params))
+        for (const item of [].concat(value)) if (item !== undefined && item !== null) target.searchParams.append(key, String(item));
 
     const channel = crypto.randomUUID();
     target.hash = channel;
@@ -50,11 +60,32 @@ export function createViewer(container, {url = './gw.html', onState, onError} = 
             frame.contentWindow.postMessage({channel, type:'call', id, method, value}, target.origin);
         });
     }
+    const command = text => call('action', {type:'command', text});
+    const snapshot = () => call('snapshot');
+    // Opens a file and, given a name, labels it. Resolves once the file is open.
+    async function open(prefix, kind, url, name) {
+        const before = ((await snapshot())?.shared?.[kind] || []).length;
+        await command(prefix + url);
+        if (name) await command(`name ${kind === 'tracks' ? 'track' : 'bam'}${before} ${name}`);
+        return before;
+    }
     return {
         element: frame, ready,
         navigate: region => call('action', {type:'navigate', region}),
-        command: text => call('action', {type:'command', text}),
-        snapshot: () => call('snapshot'),
+        command, snapshot,
+        /** Open a BAM/CRAM (URL or path); resolves to its bam index. */
+        load: (url, {name} = {}) => open('load ', 'alignments', url, name),
+        /** Open an annotation track (bigBed, bigWig, BED/GFF/VCF); resolves to its track index. */
+        loadTrack: (url, {name} = {}) => open('load track ', 'tracks', url, name),
+        /**
+         * Open a VCF/BED as a grid of image tiles, one per variant, and show the grid.
+         * grid: tiles across x down, e.g. '4x3' (GW's default is 1x1, one variant per screen).
+         * command('tiles off') or navigate() returns to the normal view, 'tiles on' back.
+         */
+        loadTiled: async (url, {grid} = {}) => {
+            if (grid) await command('grid ' + grid);
+            return open('load tiled ', 'tiled', url);
+        },
         focus: () => frame.focus(),
         async destroy() {
             if (disposed) return;

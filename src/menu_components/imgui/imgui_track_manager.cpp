@@ -47,6 +47,8 @@ void drawImGuiTrackManager(Manager::GwPlot* plot, bool* p_open, bool& redraw) {
     }
 
     std::string pending;  // run after the widgets so indexes stay valid this frame
+    static std::string confirmName;  // track awaiting close confirmation
+    static int confirmIdx = -1;
     const float drawingArea = (float)plot->fb_height - plot->refSpace - plot->sliderSpace;
     auto fractionOf = [&](const HGW::GwTrack& trk) -> float {
         if (trk.height_fraction > 0.0) return (float)trk.height_fraction;
@@ -96,6 +98,14 @@ void drawImGuiTrackManager(Manager::GwPlot* plot, bool* p_open, bool& redraw) {
                 if (text) appendCommandOutput(plot, std::string("\n") + text);
             }
             ImGui::SameLine();
+            ImGui::BeginDisabled(i == 0);
+            if (ImGui::ArrowButton("##up", ImGuiDir_Up)) pending = "move-bam " + std::to_string(i) + " " + std::to_string(i - 1);
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::BeginDisabled(i == (int)plot->bam_paths.size() - 1);
+            if (ImGui::ArrowButton("##down", ImGuiDir_Down)) pending = "move-bam " + std::to_string(i) + " " + std::to_string(i + 1);
+            ImGui::EndDisabled();
+            ImGui::SameLine();
             if (trackManagerButton("x", "Close file")) {
                 pending = "rm bam" + std::to_string(i);
             }
@@ -123,7 +133,10 @@ void drawImGuiTrackManager(Manager::GwPlot* plot, bool* p_open, bool& redraw) {
                 ImGui::AlignTextToFramePadding();
                 ImGui::TextUnformatted(plot->remoteTracks[i].name.c_str());
                 ImGui::SameLine();
-                if (trackManagerButton("x", "Close track")) pending = "rm track" + std::to_string(i);
+                if (trackManagerButton("x", "Close track")) {
+                    confirmName = plot->remoteTracks[i].name;
+                    confirmIdx = i;
+                }
                 ImGui::PopID();
             }
         }
@@ -156,7 +169,10 @@ void drawImGuiTrackManager(Manager::GwPlot* plot, bool* p_open, bool& redraw) {
                 if (ImGui::ArrowButton("##down", ImGuiDir_Down)) pending = "move-track " + std::to_string(i) + " " + std::to_string(i + 1);
                 ImGui::EndDisabled();
                 ImGui::SameLine();
-                if (trackManagerButton("x", "Close track")) pending = "rm track" + std::to_string(i);
+                if (trackManagerButton("x", "Close track")) {
+                    confirmName = trackManagerLabel(trk);
+                    confirmIdx = i;
+                }
                 ImGui::PopID();
             }
             ImGui::EndTable();
@@ -181,6 +197,11 @@ void drawImGuiTrackManager(Manager::GwPlot* plot, bool* p_open, bool& redraw) {
             ImGui::PopID();
         }
         ImGui::PopID();
+    }
+
+    if (confirmItemClose("Close track?", "the track", confirmName, redraw)) {
+        if (confirmIdx >= 0) pending = "rm track" + std::to_string(confirmIdx);
+        confirmIdx = -1;
     }
 
     ImGui::End();

@@ -101,6 +101,9 @@ jobs:
           # Pages does not serve .mjs with a JavaScript MIME type — use .js
           sed 's|\./local-files\.mjs|./local-files.js|g' local-files.mjs > "$GITHUB_WORKSPACE/app/local-files.js"
           sed 's|\./local-files\.mjs|./local-files.js|g; s|\./online-files\.mjs|./online-files.js|g' online-files.mjs > "$GITHUB_WORKSPACE/app/online-files.js"
+          # Embedding API for other sites: import {createViewer} from '…/gw/app/embed.js'
+          sed "s|url = './gw.html'|url = new URL('./index.html', import.meta.url).href|" embed.mjs > "$GITHUB_WORKSPACE/app/embed.js"
+          grep -q "import.meta.url" "$GITHUB_WORKSPACE/app/embed.js"
           COMMON="-e s|src=gw\.js|src=gw.$JS_HASH.js| -e s|local-files\.mjs|local-files.js|g -e s|online-files\.mjs|online-files.js|g"
           # index.html starts GW empty: a reference comes from the Online genomes
           # button, Open, or a dropped BAM/VCF (its matching reference opens with it).

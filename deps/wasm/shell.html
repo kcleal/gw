@@ -492,8 +492,51 @@
       }
       gwRunning = true;   // ResizeObserver now routes through gw_notify_resize
       loadingEl.style.display = 'none';
-      gwCanvas.focus();
+      // Embedded, GW waits to be clicked so the host page keeps its keyboard
+      // (arrow keys still turn slides); ?focus=1 restores the standalone behaviour.
+      if (parent === window || gwParams.get('focus') === '1') gwCanvas.focus();
       notifyHost('ready');
+      runStartupParams();
+    }
+
+    // ── Startup from the page URL ─────────────────────────────────────────────
+    // A link can open a prepared view without any page code, e.g.
+    //   index.html?genome=hg38&bam=https://…/NA12878.cram&name=Daughter&region=chr11:5227000-5227030
+    // genome, theme, font-size and region take one value; bam, name (applied to bams
+    // in order), track, tiled (VCF/BED shown as image tiles) and cmd (any GW command)
+    // repeat. Commands run in that order.
+    var gwParams = new URLSearchParams(location.search);
+    var GENOME_ALIASES = {  // CORS-enabled references from GW's online catalogue
+      hg38: 'https://igv.org/genomes/data/hg38/hg38.fa',
+      hg19: 'https://igv.org/genomes/data/hg19/hg19.fasta',
+      hs1: 'https://s3.amazonaws.com/igv.org.genomes/chm13v2.0/chm13v2.0.fa'
+    };
+    function startupCommands(params, openBams) {
+      var commands = [], one = function(key) { return params.get(key); };
+      if (one('theme')) commands.push('theme ' + one('theme'));
+      if (one('genome')) commands.push('load genome ' + (GENOME_ALIASES[one('genome')] || one('genome')));
+      var bams = params.getAll('bam'), names = params.getAll('name');
+      bams.forEach(function(url) { commands.push('load ' + url); });
+      names.slice(0, bams.length).forEach(function(name, i) { if (name) commands.push('name bam' + (openBams + i) + ' ' + name); });
+      params.getAll('track').forEach(function(url) { commands.push('load track ' + url); });
+      if (one('region')) commands.push(one('region'));
+      // VCF/BED as a grid of image tiles, one per variant; 'tiles off' returns to the region
+      if (one('grid')) commands.push('grid ' + one('grid'));  // e.g. 4x3; GW's default is 1x1
+      params.getAll('tiled').forEach(function(url) { commands.push('load tiled ' + url); });
+      if (one('font-size')) commands.push('font-size ' + one('font-size'));
+      return commands.concat(params.getAll('cmd'));
+    }
+    async function runStartupParams() {
+      if (!startupCommands(gwParams, 0).length) return;
+      // GW publishes its first state on its first frame
+      await new Promise(function(resolve) { requestAnimationFrame(function() { requestAnimationFrame(resolve); }); });
+      // Names count from BAMs already opened by GW_ARGS (e.g. demo.html's)
+      var state = Module.gwLastState && Module.gwLastState.shared;
+      var commands = startupCommands(gwParams, state && state.alignments ? state.alignments.length : 0);
+      for (var i = 0; i < commands.length; ++i) {
+        try { await runLocalCommand(commands[i]); }
+        catch (error) { showToast(commands[i].split(' ').slice(0, 2).join(' ') + ': ' + error.message, 8000); }
+      }
     }
 
     window.onerror = function(msg, source, line, column, error) { console.error(error && error.stack || msg); Module.onAbort(msg); };
