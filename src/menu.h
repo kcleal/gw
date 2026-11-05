@@ -57,8 +57,8 @@ namespace Menu {
 
     std::vector<std::string> getCommandTip();
 
-    constexpr std::array<const char*, 36> commandToolTip = {"ylim", "var", "track-height", "tlen-y", "tiles", "tags", "tab-track-height", "sort", "soft-clips", "save", "sam", "remove",
-                                                            "refresh", "online", "name", "mods", "mismatches", "mate", "mate add", "log2-cov", "load", "link", "line", "insertions", "indel-length",
+    constexpr std::array<const char*, 37> commandToolTip = {"ylim", "var", "track-height", "tlen-y", "tiles", "tags", "tab-track-height", "sort", "soft-clips", "save", "sam", "remove",
+                                                            "refresh", "online", "name", "mods", "mismatches", "mate", "mate add", "log2-cov", "load", "link", "line", "insertions", "indel-length", "ideogram",
                                                             "grid", "font-size", "find", "filter", "expand-tracks", "edges", "cov",  "count", "alignments", "add", "min-junction-reads"};
 
     constexpr std::array<const char*, 17> exec = {"alignments", "cov", "count", "edges", "expand-tracks", "insertions", "line", "log2-cov", "mate", "mate add", "mismatches", "mods", "tags", "soft-clips", "sam", "refresh", "tlen-y"};

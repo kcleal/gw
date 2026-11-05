@@ -139,6 +139,9 @@ int main(int argc, char *argv[]) try {
             plotter.addIdeogram(program.get("--ideogram"));
         } else if (!iopts.genome_tag.empty() && plotter.ideogram_path.empty()) {
             plotter.loadIdeogramTag();
+        } else if (plotter.ideogram.empty()) {
+            const std::string assembly = plotter.matchIdeogramToReference();
+            if (!assembly.empty()) plotter.loadIdeogramForAssembly(assembly);
         }
 
         // initialize graphics window

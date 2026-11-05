@@ -315,6 +315,14 @@ find D00360:18:H8VC6ADXX:1:1107:5538:24033
 ```
 <br>
 
+- ## font-size
+
+Set the font size of data labels, the ruler and feature names, e.g. for a projector.
+Use `font-size` alone to show the current size.
+
+    font-size 20
+<br>
+
 - ## goto
 
 Navigate to a locus or track feature.
@@ -343,6 +351,20 @@ Prints the header of the current selected bam to the terminal. Use `header names
     header        # print the full header
     header names  # prints only the @SQ lines (chromosome names)
 
+<br>
+
+- ## ideogram
+
+Show chromosome bands (the ideogram) at the bottom of the window. Built-in ideograms
+cover hg38, GRCh38, hg19, GRCh37, hs1 (T2T-CHM13), mm39, danRer11 and ce11; native GW can
+also fetch others from the IGV genome catalogue. `ideogram auto` picks the built-in
+ideogram whose chromosome lengths match the open reference; GW does this by itself when
+a genome is opened by path or URL. Use `ideogram` alone to list the choices.
+
+    ideogram hg38
+    ideogram auto
+    ideogram cytoBandIdeo.txt   # a UCSC/IGV cytoband file
+    ideogram off
 <br>
 
 - ## indel-length
@@ -437,7 +459,7 @@ Toggle mismatches. Mismatches with the reference genome are turned on or off.
 
 - ## mods
 
-Toggle base modifications. Mods are turned on or off.
+Toggle base modifications (MM/ML tags), or set them with `mods on` / `mods off`.
 <br>
 
 - ## move-bam
@@ -454,6 +476,16 @@ Reorder the tracks. The track at from-index is moved to to-index;
 the others shift to make room.
 
     move-track 1 0   # move the second track to the top
+<br>
+
+- ## name
+
+Name a file's data label. Alignment names belong to the file, so they stay put when
+panes are added or files reordered. Use `name` alone to list the current names; a
+name left empty restores the file name.
+
+    name bam1 Father (NA12891)
+    name track0 Genes
 <br>
 
 - ## online
@@ -648,6 +680,15 @@ Use `theme custom:<name>` if a custom name matches a built-in name:
 theme custom:dark
 ```
 
+<br>
+
+- ## tiles
+
+Switch between tiled variant images (from `load tiled FILE`) and the normal view;
+`tiles on` / `tiles off` choose one.
+
+    load tiled variants.vcf.gz
+    tiles off
 <br>
 
 - ## tlen-y

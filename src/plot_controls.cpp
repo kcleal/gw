@@ -1066,6 +1066,9 @@ namespace Manager {
                     hts_set_fai_filename(bm, reference.c_str());
                 }
                 outerr << termcolor::bold << "\nGenome" << termcolor::reset << " loaded from " << reference << std::endl;
+                // No tag to look the ideogram up by: recognise the assembly from its lengths
+                const std::string assembly = matchIdeogramToReference();
+                if (!assembly.empty()) loadIdeogramForAssembly(assembly);
             } else {
                 outerr << termcolor::red << "Error:" << termcolor::reset << " could not open " << genome_tag_or_path << std::endl;
             }

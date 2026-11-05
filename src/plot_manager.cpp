@@ -944,6 +944,40 @@ namespace Manager {
         ideogram = std::move(renamed);
     }
 
+    // The embedded ideogram whose chromosome lengths match the open reference, so a genome
+    // opened by path or URL (e.g. igv.org's hg38.fa) still gets its bands; "" when none fits.
+    // grch37/grch38 are not tried: loadIdeogramForAssembly follows the reference's chr spelling.
+    std::string GwPlot::matchIdeogramToReference() {
+        if (!fai) return "";
+        auto saved = std::move(ideogram);
+        const std::string savedTag = opts.genome_tag;
+        std::string found;
+        for (const char* tag : {"hg38", "hg19", "t2t", "mm39", "danrer11", "ce11"}) {
+            ideogram.clear();
+            opts.genome_tag = tag;
+            if (!loadIdeogramTag()) continue;
+            int checked = 0, matched = 0;
+            for (const auto& kv : ideogram) {
+                int end = 0;
+                for (const auto& band : kv.second) end = std::max(end, band.end);
+                std::string name = kv.first;
+                if (!faidx_has_seq(fai, name.c_str())) {
+                    name = Utils::startsWith(name, "chr") ? name.substr(3) : "chr" + name;
+                    if (!faidx_has_seq(fai, name.c_str())) continue;
+                }
+                ++checked;
+                if (std::abs((long long) faidx_seq_len(fai, name.c_str()) - end) <= 1) ++matched;
+            }
+            if (checked >= 3 && matched * 10 >= checked * 9) {
+                found = tag;
+                break;
+            }
+        }
+        ideogram = std::move(saved);
+        opts.genome_tag = savedTag;
+        return found;
+    }
+
     bool GwPlot::loadIdeogramTag() {
         const unsigned char* ptr;
         size_t size = 0;

@@ -48,6 +48,7 @@ namespace Term {
         out << termcolor::green << "font-size        number          " << termcolor::reset << "Set the font size of labels and the ruler e.g. 'font-size 20'\n";
         out << termcolor::green << "grid             width x height  " << termcolor::reset << "Set the grid size for --variant images 'grid 8x8' \n";
         out << termcolor::green << "header           names?          " << termcolor::reset << "Prints the header of the current bam to terminal\n";
+        out << termcolor::green << "ideogram         assembly/file?  " << termcolor::reset << "Show chromosome bands e.g. 'ideogram hg38', 'ideogram auto',\n                                 'ideogram off'. Use 'ideogram' alone to list them\n";
         out << termcolor::green << "indel-length     int             " << termcolor::reset << "Label indels >= length\n";
         out << termcolor::green << "insertions, ins                  " << termcolor::reset << "Toggle insertions\n";
         out << termcolor::green << "introns          bam_index?      " << termcolor::reset << "Toggle splice-junction track for a BAM e.g. 'introns 0'\n";
@@ -57,6 +58,7 @@ namespace Term {
         out << termcolor::green << "load             type? file      " << termcolor::reset << "Load bams, tracks, tiles, session file or ideogram\n";
         out << termcolor::green << "log2-cov                         " << termcolor::reset << "Toggle scale coverage by log2\n";
         out << termcolor::green << "mate             add?            " << termcolor::reset << "Use 'mate' to navigate to mate-pair, or 'mate add' \n                                 to add a new region with mate \n";
+        out << termcolor::green << "mods             on/off?         " << termcolor::reset << "Toggle base modifications (MM/ML tags), or set 'mods on'\n";
         out << termcolor::green << "mismatches, mm                   " << termcolor::reset << "Toggle mismatches\n";
         out << termcolor::green << "name             bam0/track0 text" << termcolor::reset << "Name a file's data label e.g. 'name bam1 Father'.\n                                 Use 'name' alone to list the current names\n";
         out << termcolor::green << "online                           " << termcolor::reset << "Show links to online genome browsers\n";

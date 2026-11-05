@@ -322,8 +322,13 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err mods(Plot* p) {
-        p->opts.parse_mods = !(p->opts.parse_mods);
+    // 'mods' toggles base-modification drawing; 'mods on' / 'mods off' set it
+    Err mods(Plot* p, std::vector<std::string>& parts, std::ostream& out) {
+        if (parts.size() > 2 || (parts.size() == 2 && parts[1] != "on" && parts[1] != "off")) {
+            out << termcolor::red << "Error:" << termcolor::reset << " usage 'mods', 'mods on' or 'mods off'\n";
+            return Err::SILENT;
+        }
+        p->opts.parse_mods = parts.size() == 2 ? parts[1] == "on" : !(p->opts.parse_mods);
         p->processed = false;
         p->redraw = true;
         p->imageCache.clear();
@@ -2335,6 +2340,57 @@ namespace Commands {
         return Err::NONE;
     }
 
+    // 'ideogram' lists ideograms; 'ideogram hg38' (an assembly), 'ideogram FILE|URL' (cytoband
+    // .bed/.txt), 'ideogram auto' (match the reference's chromosome lengths) or 'ideogram off'
+    Err ideogram_command(Plot* p, std::vector<std::string>& parts, std::ostream& out) {
+        if (parts.size() == 1) {
+            out << "Current ideogram: " << (p->ideogram.empty() ? "none" : (p->ideogram_path.empty() ? "embedded" : p->ideogram_path)) << "\n";
+            out << "Built in:";
+            for (const auto& s : Ideo::embeddedIdeograms()) out << " " << s.assembly;
+#ifndef __EMSCRIPTEN__
+            out << "\nOnline:  ";
+            for (const auto& s : Ideo::onlineIdeograms()) out << " " << s.assembly;
+#endif
+            out << "\nUsage: ideogram <assembly|file|auto|off>\n";
+            return Err::NONE;
+        }
+        if (parts.size() != 2) {
+            out << termcolor::red << "Error:" << termcolor::reset << " usage 'ideogram <assembly|file|auto|off>'\n";
+            return Err::SILENT;
+        }
+        const std::string arg = parts[1];
+        const std::string source = Ideo::ideogramForAssembly(arg);
+        if (arg == "off") {
+            p->ideogram.clear();
+            p->ideogram_path.clear();
+        } else if (arg == "auto") {
+            const std::string assembly = p->matchIdeogramToReference();
+            if (assembly.empty()) {
+                out << termcolor::red << "Error:" << termcolor::reset << " no built-in ideogram matches the reference's chromosome lengths\n";
+                return Err::SILENT;
+            }
+            p->loadIdeogramForAssembly(assembly);
+        } else if (!source.empty()) {
+#ifdef __EMSCRIPTEN__
+            if (Utils::startsWith(source, "http")) {
+                out << termcolor::red << "Error:" << termcolor::reset << " the browser version has only the built-in ideograms (use 'ideogram' to list them)\n";
+                return Err::SILENT;
+            }
+#endif
+            p->loadIdeogramForAssembly(arg);
+            if (p->ideogram.empty()) {
+                out << termcolor::red << "Error:" << termcolor::reset << " could not load the " << arg << " ideogram\n";
+                return Err::SILENT;
+            }
+        } else {
+            std::vector<std::string> loadParts = {"load", "ideogram", arg};
+            return load_file(p, loadParts, out);
+        }
+        p->redraw = true;
+        p->processed = false;
+        return Err::NONE;
+    }
+
     static void trackHeightUsage(std::ostream& out) {
         out << "Usage:\n"
             << "    track-height                     list current heights\n"
@@ -2682,7 +2738,7 @@ namespace Commands {
                 {"insertions",  PARAMS { return insertions(p); }},
                 {"mm",       PARAMS { return mismatches(p); }},
                 {"mismatches",  PARAMS { return mismatches(p); }},
-                {"mods",     PARAMS { return mods(p); }},
+                {"mods",     PARAMS { return mods(p, parts, out); }},
                 {"edges",    PARAMS { return edges(p); }},
                 {"soft-clips",  PARAMS { return soft_clips(p); }},
                 {"log2-cov",  PARAMS { return log2_cov(p); }},
@@ -2744,6 +2800,7 @@ namespace Commands {
                 {"name",     PARAMS { return name_data(p, command, parts, out); }},
                 {"font-size", PARAMS { return font_size(p, parts, out); }},
                 {"tiles",    PARAMS { return tiles(p, parts, out); }},
+                {"ideogram", PARAMS { return ideogram_command(p, parts, out); }},
 
         };
 

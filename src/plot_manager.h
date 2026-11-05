@@ -319,6 +319,7 @@ namespace Manager {
 
         // Embedded or online (IGV/UCSC) ideogram for an assembly id such as hg38, hs1 or mm10
         void loadIdeogramForAssembly(const std::string& assembly);
+        std::string matchIdeogramToReference();  // embedded ideogram matching the reference, or ""
         // removeIdeogram missing todo
         void loadSession();
 
