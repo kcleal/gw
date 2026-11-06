@@ -129,6 +129,7 @@ namespace Commands {
             p->selectedFeatureParent.clear();
             p->selectedFeatureStart = -1;
             p->selectedFeatureEnd = -1;
+            p->selectedFeatureTrack = -1;
             p->selectedIntronChrom.clear();
             p->selectedIntronStart = -1;
             p->selectedIntronEnd = -1;

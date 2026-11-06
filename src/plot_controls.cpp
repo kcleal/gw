@@ -77,8 +77,7 @@ namespace Manager {
         if (index>=tracks.size()) return;
         const int previousRegion=regionSelection;
         const float x=drawingWidth()*.5f;
-        float top=fb_height-sliderSpace-totalTabixY;
-        for (size_t i=0;i<index;++i) top+=tracks[i].px_height;
+        float top=trackTopOf((int)index);
         // Enter the existing native drag path with a known boundary, then apply
         // its final pointer position. No read/track resize mathematics is copied.
         pointerEvent("press",x,top,GLFW_MOUSE_BUTTON_LEFT,0,0,0);
@@ -1704,8 +1703,8 @@ namespace Manager {
         }
         if (y <= refSpace) {
             return REFERENCE_TRACK;
-        } else if (!tracks.empty() && y > (fb_height - sliderSpace - totalTabixY) && y < (fb_height - sliderSpace)) {
-            float top_y = (float)fb_height - sliderSpace - totalTabixY;
+        } else if (!tracks.empty() && y > tracksTop() && y < (fb_height - sliderSpace)) {
+            float top_y = tracksTop();
             // Track index counts down from -3, to find the actual index
             // idx=0 --> index=-3
             // idx=1 --> index=-4
@@ -1737,7 +1736,7 @@ namespace Manager {
                 float min_x = cl.xOffset;
                 float max_x = cl.xScaling * ((float) (cl.region->end - cl.region->start)) + min_x;
                 float min_y = refSpace;
-                float max_y = fb_height - sliderSpace - totalTabixY;
+                float max_y = tracksTop();
                 if (x > min_x && x < max_x && y > min_y && y < max_y) {
                     return i;
                 }
@@ -1817,9 +1816,6 @@ namespace Manager {
         calculateCursorCoordinates(button, action, xW, yW);
         if (xW >= drawingWidth()) {
             if (action == GLFW_RELEASE) resetDragState();
-            return;
-        }
-        if (handleToolButtons(button, action, xW, yW)) {
             return;
         }
         if (handleCommandTooltipInteraction(button, action, xW, yW)) {
@@ -1962,19 +1958,6 @@ namespace Manager {
         // Update mouse position
         xPos_fb = x;
         yPos_fb = y;
-    }
-
-    bool GwPlot::handleToolButtons(int button, int action, float xW, float yW) {
-        float half_h = (float)fb_height / 2;
-        float b = 30.0f * monitorScale;
-        bool tool_popup = (xW > 0 && xW <= b && yW >= half_h - b && yW <= half_h + b);
-        if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE && tool_popup) {
-            xDrag = DRAG_UNSET;
-            yDrag = DRAG_UNSET;
-            toggleCommandCapture();
-            return true;
-        }
-        return false;
     }
 
     void GwPlot::toggleSettingsMode() {
@@ -2299,15 +2282,12 @@ namespace Manager {
                 return;
             }
             int trackIdx = (idx * -1) - 3;
-            // Sum up the px heights of tracks 'above' target track
-            float track_px_start = totalCovY + refSpace + (trackY*(float)headers.size());
-            for (int i=0; i < trackIdx; ++i) {
-                track_px_start += tracks[i].px_height;
+            if (trackIdx < 0 || trackIdx >= (int)tracks.size()) {
+                return;
             }
             HGW::GwTrack &targetTrack = tracks[trackIdx];
-            float stepY = targetTrack.px_height;
-            float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[trackIdx]);
-            int featureLevel = (int)(yW - track_px_start) / step_track;
+            // Same row layout as drawTracks(), so the click resolves to the row drawn here
+            int featureLevel = trackLevelAt(trackIdx, tIdx, yW);
             // Save state that printTrack mutates (same-name/same-pos detection)
             std::string saved_qname = target_qname;
             int saved_pos = target_pos;
@@ -2323,19 +2303,52 @@ namespace Manager {
             // Capture the clicked feature for  terminal output
             // introns use the dedicated selectedIntron TSV; other GFF/BED features use the
             // generic selectedFeature record
+            // Remember the current selection: clicking the selected feature again clears it.
+            const std::string prevIntronChrom = selectedIntronChrom;
+            const int prevIntronStart = selectedIntronStart, prevIntronEnd = selectedIntronEnd;
+            const int prevIntronStrand = selectedIntronStrand;
+            const std::string prevChrom = selectedFeatureChrom, prevName = selectedFeatureName;
+            const std::string prevParent = selectedFeatureParent;
+            const int prevStart = selectedFeatureStart, prevEnd = selectedFeatureEnd;
+            const int prevTrack = selectedFeatureTrack;
+            const bool hadSelection = !prevIntronChrom.empty() || !prevChrom.empty();
+            bool deselected = false;
+
             selectedIntron.clear();
             selectedFeature.clear();
+            selectedIntronChrom.clear();
+            selectedIntronStart = -1;
+            selectedIntronEnd = -1;
+            selectedIntronStrand = -2;
             selectedFeatureChrom.clear();
             selectedFeatureName.clear();
             selectedFeatureParent.clear();
             selectedFeatureStart = -1;
             selectedFeatureEnd = -1;
+            selectedFeatureTrack = -1;
             if (trackIdx < (int)regions[tIdx].featuresInView.size()) {
                 auto *rgn = &regions[tIdx];
                 int target = (int)((float)(rgn->end - rgn->start) * relX) + rgn->start;
                 int jitter = (rgn->end - rgn->start) * 0.025;
+                // Prefer a feature under the click; otherwise the nearest one within `jitter`
+                Utils::TrackBlock *hit = nullptr;
+                int hitDist = jitter + 1;
                 for (auto &b : rgn->featuresInView.at(trackIdx)) {
-                    if (b.start - jitter <= target && b.end + jitter >= target && b.level == featureLevel) {
+                    if (b.level != featureLevel || !b.anyToDraw) {
+                        continue;
+                    }
+                    int dist = (target < b.start) ? b.start - target : (target > b.end) ? target - b.end : 0;
+                    if (dist < hitDist) {
+                        hit = &b;
+                        hitDist = dist;
+                        if (dist == 0) {
+                            break;
+                        }
+                    }
+                }
+                if (hit != nullptr) {
+                    Utils::TrackBlock &b = *hit;
+                    {
                         featureDetails = b.line;
                         if (featureDetails.empty()) {
                             for (const auto& part : b.parts) {
@@ -2350,11 +2363,16 @@ namespace Manager {
                                            + std::to_string((int)b.value);
                             // Record the highlight identity (persists across redraws) and force a
                             // redraw so the selection outline renders on this click.
-                            selectedIntronChrom = b.chrom;
-                            selectedIntronStart = b.start;
-                            selectedIntronEnd = b.end;
-                            selectedIntronStrand = b.strand;
-                            redraw = true;
+                            if (prevIntronChrom == b.chrom && prevIntronStart == b.start
+                                    && prevIntronEnd == b.end && prevIntronStrand == b.strand) {
+                                selectedIntron.clear();  // second click on the selected junction
+                                deselected = true;
+                            } else {
+                                selectedIntronChrom = b.chrom;
+                                selectedIntronStart = b.start;
+                                selectedIntronEnd = b.end;
+                                selectedIntronStrand = b.strand;
+                            }
                         } else {
                             // Resolve the click to a specific exon (a drawn box) or intron
                             // (a gap between boxes). Merge the drawn sub-blocks
@@ -2449,17 +2467,32 @@ namespace Manager {
                                             + "-" + Term::intToStringCommas(segEnd)
                                             + "\tStrand\t" + strand
                                             + "\tParent\t" + (b.parent.empty() ? "-" : b.parent);
-                            // Highlight identity (persists across redraws) + force redraw.
-                            selectedFeatureChrom = b.chrom;
-                            selectedFeatureName = b.name;
-                            selectedFeatureParent = b.parent;
-                            selectedFeatureStart = segStart;
-                            selectedFeatureEnd = segEnd;
-                            redraw = true;
+                            // Highlight the whole feature (gene/transcript/element), not just the
+                            // clicked exon or intron. The identity persists across redraws, as
+                            // the blocks are rebuilt each frame; drawTracks() sets b.selected.
+                            if (prevTrack == trackIdx && prevChrom == b.chrom && prevName == b.name
+                                    && prevParent == b.parent && prevStart == b.start && prevEnd == b.end) {
+                                selectedFeature.clear();  // second click on the selected feature
+                                deselected = true;
+                            } else {
+                                selectedFeatureChrom = b.chrom;
+                                selectedFeatureName = b.name;
+                                selectedFeatureParent = b.parent;
+                                selectedFeatureStart = b.start;
+                                selectedFeatureEnd = b.end;
+                                selectedFeatureTrack = trackIdx;
+                            }
                         }
-                        break;
                     }
                 }
+            }
+            // Redraw whenever the selection changed, including a click on empty space
+            // that cleared it.
+            if (hadSelection || !selectedIntronChrom.empty() || !selectedFeatureChrom.empty()) {
+                redraw = true;
+            }
+            if (deselected) {
+                return;  // a deselecting click doesn't open another popup
             }
             // Build track popup
             std::string ansiStr = uiOut.str();
@@ -2473,6 +2506,17 @@ namespace Manager {
                 tp.isVcf = (targetTrack.kind == HGW::FType::VCF_IDX ||
                              targetTrack.kind == HGW::FType::VCF_NOI ||
                              targetTrack.kind == HGW::FType::BCF_IDX);
+                switch (targetTrack.kind) {
+                    case HGW::FType::GFF3_IDX: case HGW::FType::GFF3_NOI:
+                    case HGW::FType::GTF_IDX:  case HGW::FType::GTF_NOI:
+                        tp.format = TrackPopup::DataFormat::Gff; break;
+                    case HGW::FType::BED_IDX: case HGW::FType::BED_NOI: case HGW::FType::BIGBED:
+                        tp.format = TrackPopup::DataFormat::Bed; break;
+                    default: break;
+                }
+                tp.chrom = regions[tIdx].chrom;
+                tp.clickPos = (int)((float)(regions[tIdx].end - regions[tIdx].start) * relX) + regions[tIdx].start;
+                tp.regionIdx = tIdx;
                 trackPopups.push_back(std::move(tp));
             }
         }
@@ -3086,7 +3130,7 @@ namespace Manager {
         bool nearBoundary = false;
         if (!tracks.empty()) {
             // Must match where drawTracks() starts the panel (drawing.cpp)
-            float currentY = (float)fb_height - sliderSpace - (float)totalTabixY;
+            float currentY = tracksTop();
             trackBoundaries.push_back(currentY);
             for (size_t i = 0; i < tracks.size() - 1; ++i) {
                 trackBoundaries.push_back(trackBoundaries.back() + tracks[i].px_height);
@@ -3094,7 +3138,9 @@ namespace Manager {
         }
         // Update cursor if hovering over any boundary
         if (!tracks.empty() && !trackBoundaries.empty() && !tabBorderPress) {
-            for (size_t i = 0; i < trackBoundaries.size(); ++i) {
+            // With no alignments the panel always fills the view, so its top edge (boundary
+            // 0, which sizes the whole panel against the alignments) is not draggable.
+            for (size_t i = bams.empty() ? 1 : 0; i < trackBoundaries.size(); ++i) {
                 if (std::fabs(yPos_fb - trackBoundaries[i]) < 5 * monitorScale) {
                     if (wind) glfwSetCursor(wind, vCursor);
                     nearBoundary = true;
@@ -3196,10 +3242,17 @@ namespace Manager {
                                 tracks[boundaryIndex].px_height = new_bottom_height;
 
                                 if (availableHeight > 0) {
+                                    // Split the pair's combined fraction in the new ratio. The
+                                    // other tracks and the total are unchanged, so this holds
+                                    // whether or not computeTrackHeights() rescales the panel
+                                    // (it does with no BAMs, or when the panel is too tall).
+                                    double pairFrac = trackFraction(tracks[boundaryIndex - 1])
+                                                    + trackFraction(tracks[boundaryIndex]);
+                                    double topShare = new_top_height / combined_height;
                                     tracks[boundaryIndex - 1].height_fraction =
-                                        std::fmax((double)new_top_height / availableHeight, 0.005);
+                                        std::fmax(pairFrac * topShare, 0.005);
                                     tracks[boundaryIndex].height_fraction =
-                                        std::fmax((double)new_bottom_height / availableHeight, 0.005);
+                                        std::fmax(pairFrac * (1.0 - topShare), 0.005);
                                     tracksLayoutDirty = true;
                                 }
 
@@ -3343,13 +3396,10 @@ namespace Manager {
                         }
                         HGW::GwTrack &targetTrack = tracks[targetIndex];
 
-                        float stepY = tabixY;
-                        if (regionSelection >= (int)regions.size() || targetIndex >= (int)regions[regionSelection].featureLevels.size()) {
+                        if (targetIndex < 0 || tIdx >= (int)regions.size() || targetIndex >= (int)regions[tIdx].featureLevels.size()) {
                             return;
                         }
-                        float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[targetIndex]);
-                        float y = fb_height - totalTabixY - sliderSpace;  // start of tracks on canvas
-                        int featureLevel = (int)(yPos_fb - y - (targetIndex * stepY) + gap) / step_track;
+                        int featureLevel = trackLevelAt(targetIndex, tIdx, (float)yPos_fb);
 			            Term::printTrack(relX, targetTrack, &regions[tIdx], true, featureLevel, targetIndex, target_qname, &target_pos, out);
 		            }
                     return;

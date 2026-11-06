@@ -241,6 +241,10 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
         if (ImGui::MenuItem("Tools", nullptr, plot->commandDialogOpen)) {
             plot->commandDialogOpen = !plot->commandDialogOpen;
         }
+        if (ImGui::MenuItem("Enter command", "/")) {
+            if (!plot->commandBoxOpen()) plot->toggleCommandCapture();
+            redraw = true;
+        }
         ImGui::EndPopup();
     }
     ImGui::PopStyleVar(2);  // item spacing, popup padding

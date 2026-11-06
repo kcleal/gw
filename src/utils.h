@@ -65,6 +65,7 @@ namespace Utils {
         int level{0};
         float value{0};
         bool anyToDraw{false};
+        bool selected{false};  // clicked by the user; set from GwPlot's selection while drawing
         std::vector<std::string> parts;
         std::vector<int> s;  // block starts and block ends for bed12/GFF
         std::vector<int> e;

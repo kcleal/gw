@@ -849,10 +849,298 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
 // Track popup
 // ─────────────────────────────────────────────────────────────────────────────
 
+    // The "Feature data" of a track popup: the source lines of the clicked feature (a
+    // GFF transcript's exon/CDS/UTR lines, or a BED line), split into columns. Values
+    // that are identical on every line are listed once, as `shared`, so each row only
+    // shows what differs between lines.
+    struct FeatureDataView {
+        std::vector<std::pair<std::string, std::string>> shared;  // name, value
+        std::vector<std::string> header;                          // names of the per-line columns
+        std::vector<std::vector<std::string>> cells;              // per line, per column
+        std::vector<int> starts, ends;                            // 0-based half-open; -1 = unknown
+        int clicked{-1};                                          // line under the click
+    };
+
+    static FeatureDataView parseFeatureData(const Manager::GwPlot::TrackPopup& tp) {
+        using Fmt = Manager::GwPlot::TrackPopup::DataFormat;
+        FeatureDataView v;
+        std::vector<std::vector<std::string>> lines;
+        size_t nCols = 0;
+        for (size_t pos = 0; pos < tp.details.size();) {
+            size_t nl = tp.details.find('\n', pos);
+            if (nl == std::string::npos) nl = tp.details.size();
+            std::string line = tp.details.substr(pos, nl - pos);
+            while (!line.empty() && line.back() == '\r') line.pop_back();
+            pos = nl + 1;
+            if (line.empty() || line[0] == '#') continue;
+            std::vector<std::string> cols;
+            Utils::split(line, '\t', cols);
+            nCols = std::max(nCols, cols.size());
+            lines.push_back(std::move(cols));
+        }
+        if (lines.empty()) return v;
+
+        static const char* gffNames[] = {"seqid", "source", "type", "start", "end", "score",
+                                         "strand", "phase", "attributes"};
+        static const char* bedNames[] = {"chrom", "start", "end", "name", "score", "strand",
+                                         "thickStart", "thickEnd", "itemRgb", "blockCount",
+                                         "blockSizes", "blockStarts"};
+        auto colName = [&](size_t c) -> std::string {
+            if (tp.format == Fmt::Gff && c < 9) return gffNames[c];
+            if (tp.format == Fmt::Bed && c < 12) return bedNames[c];
+            return "col" + std::to_string(c + 1);
+        };
+        const bool gff = tp.format == Fmt::Gff;
+        const size_t attrCol = 8;
+        const bool multi = lines.size() > 1;
+
+        // GFF attributes are "key=value;..." (GFF3) or "key \"value\"; ..." (GTF). Split
+        // them so attributes shared by every line (e.g. Parent) are only shown once.
+        auto splitAttrs = [](const std::string& s) {
+            std::vector<std::string> out;
+            size_t p = 0;
+            while (p <= s.size()) {
+                size_t q = s.find(';', p);
+                if (q == std::string::npos) q = s.size();
+                std::string a = s.substr(p, q - p);
+                size_t b = a.find_first_not_of(' '), e = a.find_last_not_of(' ');
+                if (b != std::string::npos) out.push_back(a.substr(b, e - b + 1));
+                p = q + 1;
+            }
+            return out;
+        };
+        std::vector<std::vector<std::string>> attrs(lines.size());
+        if (gff) {
+            for (size_t i = 0; i < lines.size(); ++i)
+                if (lines[i].size() > attrCol) attrs[i] = splitAttrs(lines[i][attrCol]);
+        }
+        auto inAll = [&](const std::string& a) {
+            for (auto& l : attrs)
+                if (std::find(l.begin(), l.end(), a) == l.end()) return false;
+            return true;
+        };
+
+        std::vector<size_t> varying;
+        for (size_t c = 0; c < nCols; ++c) {
+            bool same = multi;
+            for (auto& l : lines) {
+                if (l.size() <= c || l[c] != lines[0][c]) { same = false; break; }
+            }
+            if (gff && c == attrCol) {
+                // Shared attributes go in the shared list; the rest stay per line.
+                bool anyLeft = false;
+                if (multi && lines[0].size() > attrCol) {
+                    for (auto& a : attrs[0]) {
+                        if (!inAll(a)) continue;
+                        size_t eq = a.find_first_of("= ");
+                        if (eq == std::string::npos) v.shared.emplace_back(a, "");
+                        else {
+                            std::string val = a.substr(eq + 1);
+                            if (val.size() >= 2 && val.front() == '"' && val.back() == '"') val = val.substr(1, val.size() - 2);
+                            v.shared.emplace_back(a.substr(0, eq), val);
+                        }
+                    }
+                }
+                for (auto& l : attrs) {
+                    for (auto& a : l) if (!multi || !inAll(a)) { anyLeft = true; break; }
+                    if (anyLeft) break;
+                }
+                if (anyLeft) varying.push_back(c);
+            } else if (same) {
+                v.shared.emplace_back(colName(c), lines[0][c]);
+            } else {
+                varying.push_back(c);
+            }
+        }
+
+        for (size_t c : varying) v.header.push_back(colName(c));
+        long bestSpan = -1;
+        for (size_t i = 0; i < lines.size(); ++i) {
+            const auto& l = lines[i];
+            std::vector<std::string> row;
+            for (size_t c : varying) {
+                if (gff && c == attrCol) {
+                    std::string rest;
+                    for (auto& a : attrs[i]) {
+                        if (multi && inAll(a)) continue;
+                        if (!rest.empty()) rest += "; ";
+                        rest += a;
+                    }
+                    row.push_back(rest);
+                } else {
+                    row.push_back(c < l.size() ? l[c] : "");
+                }
+            }
+            v.cells.push_back(std::move(row));
+
+            // Feature coordinates, to mark the clicked line and to pan to a line
+            int s = -1, e = -1;
+            auto num = [&](size_t c, int& out) {
+                if (c >= l.size() || l[c].empty()) return false;
+                char* end = nullptr;
+                long n = std::strtol(l[c].c_str(), &end, 10);
+                if (*end != '\0' || n < 0) return false;
+                out = (int)n;
+                return true;
+            };
+            if (gff && num(3, s) && num(4, e)) {
+                s -= 1;  // GFF is 1-based, inclusive
+            } else if (tp.format == Fmt::Bed && num(1, s) && num(2, e)) {
+            } else {
+                s = e = -1;
+            }
+            if (e < s) s = e = -1;
+            v.starts.push_back(s);
+            v.ends.push_back(e);
+            // The narrowest feature under the click, e.g. the exon rather than the mRNA
+            if (s >= 0 && !l.empty() && l[0] == tp.chrom && s <= tp.clickPos && tp.clickPos < std::max(e, s + 1)) {
+                long span = (long)e - s;
+                if (bestSpan < 0 || span < bestSpan) { bestSpan = span; v.clicked = (int)i; }
+            }
+        }
+        return v;
+    }
+
+    // Pan the clicked region so feature [start, end) is centred, keeping the zoom level.
+    static void panToFeature(Manager::GwPlot* plot, const Manager::GwPlot::TrackPopup& tp, int start, int end) {
+        if (tp.regionIdx < 0 || tp.regionIdx >= (int)plot->regions.size()) return;
+        const Utils::Region& rgn = plot->regions[tp.regionIdx];
+        if (rgn.chrom != tp.chrom) return;  // the view has moved to another chromosome
+        const int width = rgn.end - rgn.start;
+        const int mid = start + (end - start) / 2;
+        int newStart = std::max(0, mid - width / 2);
+        std::string cmd = rgn.chrom + ":" + std::to_string(newStart) + "-" + std::to_string(newStart + width);
+        if (plot->remoteCommand) {
+            plot->remoteCommand(cmd);
+            return;
+        }
+        const int previous = plot->regionSelection;
+        plot->regionSelection = tp.regionIdx;
+        std::ostringstream out;
+        Commands::run_command_map(plot, cmd, out);
+        plot->regionSelection = std::min(previous, (int)plot->regions.size() - 1);
+        plot->processed = false;
+        plot->redraw = true;
+    }
+
+    // Read-only, frameless text field: looks like text, but can be selected with the mouse.
+    static void selectableText(const char* id, const std::string& text, float width) {
+        ImGui::SetNextItemWidth(width);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+        ImGui::InputText(id, const_cast<char*>(text.c_str()), text.size() + 1, ImGuiInputTextFlags_ReadOnly);
+        ImGui::PopStyleColor();
+    }
+
+    // Feature data as tables: values shared by every line once, then one row per line
+    // with only the columns that differ. Each row starts with a play button that pans
+    // the view to that line's feature; the clicked feature's row is highlighted.
+    // Returns the width the tables need, so the popup can open wide enough.
+    static float drawFeatureData(Manager::GwPlot* plot, const Manager::GwPlot::TrackPopup& tp,
+                                 const FeatureDataView& fd) {
+        auto& style = ImGui::GetStyle();
+        const float padW = style.FramePadding.x * 2 + 2;
+        auto textW = [&](const std::string& s) { return ImGui::CalcTextSize(s.c_str()).x + padW; };
+
+        float needW = 0;
+        if (!fd.shared.empty()) {
+            float keyW = 0, valW = 0;
+            for (auto& kv : fd.shared) {
+                keyW = std::max(keyW, ImGui::CalcTextSize(kv.first.c_str()).x);
+                valW = std::max(valW, textW(kv.second));
+            }
+            if (ImGui::BeginTable("##fd_shared", 2, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_BordersInnerV)) {
+                ImGui::TableSetupColumn("##k", ImGuiTableColumnFlags_WidthFixed, keyW);
+                ImGui::TableSetupColumn("##v", ImGuiTableColumnFlags_WidthFixed, valW);
+                for (size_t i = 0; i < fd.shared.size(); ++i) {
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + style.FramePadding.y);
+                    ImGui::TextDisabled("%s", fd.shared[i].first.c_str());
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::PushID((int)i);
+                    selectableText("##sv", fd.shared[i].second, valW);
+                    ImGui::PopID();
+                }
+                ImGui::EndTable();
+            }
+            needW = keyW + valW + style.CellPadding.x * 4;
+            if (!fd.cells.empty()) ImGui::Spacing();
+        }
+        if (fd.cells.empty()) return needW;
+
+        const size_t nCols = fd.header.size();
+        std::vector<float> colW(nCols, 0);
+        for (size_t c = 0; c < nCols; ++c) {
+            colW[c] = ImGui::CalcTextSize(fd.header[c].c_str()).x + padW;
+            for (auto& row : fd.cells)
+                if (c < row.size()) colW[c] = std::max(colW[c], textW(row[c]));
+        }
+        const float btnW = ImGui::GetFrameHeight();
+        float rowsW = btnW + style.CellPadding.x * 2;
+        for (float w : colW) rowsW += w + style.CellPadding.x * 2;
+        needW = std::max(needW, rowsW);
+        ImGuiTableFlags tflags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_BordersInnerV;
+        if (!ImGui::BeginTable("##fd_rows", (int)nCols + 1, tflags)) return needW;
+        ImGui::TableSetupColumn("##go", ImGuiTableColumnFlags_WidthFixed, btnW);
+        for (size_t c = 0; c < nCols; ++c)
+            ImGui::TableSetupColumn(fd.header[c].c_str(), ImGuiTableColumnFlags_WidthFixed, colW[c]);
+
+        // Header: dimmed column names
+        ImGui::TableNextRow();
+        for (size_t c = 0; c < nCols; ++c) {
+            ImGui::TableSetColumnIndex((int)c + 1);
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + style.FramePadding.x);
+            ImGui::TextDisabled("%s", fd.header[c].c_str());
+        }
+
+        const ImU32 accent = ImGui::GetColorU32(ImGuiCol_CheckMark);
+        for (size_t i = 0; i < fd.cells.size(); ++i) {
+            ImGui::TableNextRow();
+            ImGui::PushID((int)i);
+            const bool clicked = (int)i == fd.clicked;
+            if (clicked)
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, ImGui::GetColorU32(ImGuiCol_Header, 0.6f));
+
+            // Play button: pan to this feature
+            ImGui::TableSetColumnIndex(0);
+            if (fd.starts[i] >= 0) {
+                ImVec2 p = ImGui::GetCursorScreenPos();
+                const float side = ImGui::GetFrameHeight();
+                if (ImGui::InvisibleButton("##go", ImVec2(side, side)))
+                    panToFeature(plot, tp, fd.starts[i], fd.ends[i]);
+                const bool hov = ImGui::IsItemHovered();
+                if (hov) ImGui::SetTooltip("Move the view to this feature");
+                ImDrawList* dl = ImGui::GetWindowDrawList();
+                if (hov)
+                    dl->AddRectFilled(p, ImVec2(p.x + side, p.y + side),
+                                      ImGui::GetColorU32(ImGuiCol_ButtonHovered), style.FrameRounding);
+                const float h = side * 0.36f;
+                const ImVec2 c(p.x + side * 0.5f + h * 0.15f, p.y + side * 0.5f);
+                const ImVec2 a(c.x - h * 0.5f, c.y - h * 0.58f), b(c.x - h * 0.5f, c.y + h * 0.58f), t(c.x + h * 0.5f, c.y);
+                if (clicked || hov) {
+                    dl->AddTriangleFilled(a, b, t, clicked ? accent : ImGui::GetColorU32(ImGuiCol_Text));
+                } else {
+                    dl->AddTriangle(a, b, t, ImGui::GetColorU32(ImGuiCol_Text, 0.6f), 1.0f);
+                }
+            }
+            for (size_t c = 0; c < nCols; ++c) {
+                ImGui::TableSetColumnIndex((int)c + 1);
+                ImGui::PushID((int)c);
+                static const std::string empty;
+                selectableText("##cell", c < fd.cells[i].size() ? fd.cells[i][c] : empty, colW[c]);
+                ImGui::PopID();
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndTable();
+        return needW;
+    }
+
 void drawImGuiTrackPopup(Manager::GwPlot* plot) {
         if (plot->trackPopups.empty()) return;
 
         static std::unordered_map<int, std::vector<RowData>> rowCache;
+        static std::unordered_map<int, FeatureDataView> featureCache;
 
         auto& style = ImGui::GetStyle();
 
@@ -987,25 +1275,66 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                 ImGui::EndTable();
             }
 
+            float fitW = ImGui::GetWindowWidth();  // widened when feature data opens
             if (!tp.details.empty()) {
                 ImGui::SetNextItemOpen(tp.detailsOpen, ImGuiCond_Always);
-                tp.detailsOpen = ImGui::TreeNodeEx("Feature data", ImGuiTreeNodeFlags_NoTreePushOnOpen);
+                bool open = ImGui::TreeNodeEx("Feature data", ImGuiTreeNodeFlags_NoTreePushOnOpen);
+                if (open != tp.detailsOpen) {
+                    tp.detailsOpen = open;
+                    tp.fitHeight = true;  // grow to show the data, or shrink back when closed
+                }
                 if (tp.detailsOpen) {
                     ImGui::SameLine();
                     if (ImGui::SmallButton("Copy"))
                         ImGui::SetClipboardText(tp.details.c_str());
-                    float dataHeight = ImGui::GetTextLineHeight() + style.WindowPadding.y * 2 + style.ScrollbarSize;
+                    auto fdIt = featureCache.find(tp.uid);
+                    if (fdIt == featureCache.end())
+                        fdIt = featureCache.emplace(tp.uid, parseFeatureData(tp)).first;
+                    const FeatureDataView& fd = fdIt->second;
+                    const float lineH = rowH_plain;
+                    const float frameH = style.WindowPadding.y * 2 + style.ScrollbarSize;
+                    float dataHeight;
+                    if (tp.fitHeight) {
+                        // Opening: show up to ~14 rows (shared values, header, one row per
+                        // GFF child line), but keep the window on screen. The user can drag
+                        // it taller afterwards.
+                        int nLines = (int)fd.shared.size() + (fd.header.empty() ? 0 : 1) + (int)fd.cells.size();
+                        dataHeight = (float)std::clamp(nLines, 1, 14) * lineH + frameH;
+                        float roomBelow = io.DisplaySize.y - ImGui::GetWindowPos().y
+                                        - ImGui::GetCursorPosY() - style.WindowPadding.y;
+                        if (roomBelow < dataHeight) {
+                            // Move the window up to make room, as far as the top of the screen
+                            float shift = std::min(dataHeight - roomBelow, ImGui::GetWindowPos().y);
+                            if (shift > 0) {
+                                ImGui::SetWindowPos(ImVec2(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y - shift));
+                                roomBelow += shift;
+                            }
+                        }
+                        dataHeight = std::max(std::min(dataHeight, roomBelow), lineH + frameH);
+                    } else {
+                        // Afterwards the data fills the window, so resizing the window
+                        // resizes the data view.
+                        dataHeight = std::max(ImGui::GetContentRegionAvail().y, lineH + frameH);
+                    }
                     ImGui::BeginChild("##feature_data", ImVec2(0, dataHeight), true,
                                       ImGuiWindowFlags_HorizontalScrollbar);
-                    ImGui::TextUnformatted(tp.details.c_str());
+                    float needW = drawFeatureData(plot, tp, fd);
                     ImGui::EndChild();
+                    if (tp.fitHeight) {
+                        // Opening: widen to show every column, within the screen
+                        float want = needW + style.WindowPadding.x * 4 + style.ScrollbarSize + 4;
+                        float room = io.DisplaySize.x - ImGui::GetWindowPos().x;
+                        fitW = std::max(fitW, std::min(want, room));
+                    }
                 }
             }
-            // Keep the top anchored and fit the actual contents, growing downward
-            // only while feature data is open.
-            if (!ImGui::IsWindowCollapsed())
-                ImGui::SetWindowSize(ImVec2(ImGui::GetWindowWidth(),
+            // Keep the top anchored and fit the contents: always while the feature data
+            // is closed, and once when it opens. While open the height is the user's, so
+            // the window can be dragged taller to see every exon.
+            if (!ImGui::IsWindowCollapsed() && (tp.fitHeight || !tp.detailsOpen))
+                ImGui::SetWindowSize(ImVec2(fitW,
                     ImGui::GetCursorPosY() + style.WindowPadding.y - style.ItemSpacing.y));
+            tp.fitHeight = false;
             ImGui::End();
 
             if (!windowOpen) {
@@ -1015,6 +1344,10 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
         }
 
         if (!toRemove.empty()) {
+            for (int uid : toRemove) {
+                rowCache.erase(uid);
+                featureCache.erase(uid);
+            }
             plot->trackPopups.erase(
                 std::remove_if(plot->trackPopups.begin(), plot->trackPopups.end(),
                                [&](const Manager::GwPlot::TrackPopup& p) {

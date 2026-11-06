@@ -140,6 +140,15 @@ namespace Manager {
         // track pixel heights are determined by the below cached values. Here we cache them
         // and if they change the track heights are re-calculated
         void computeTrackHeights(float availableHeight);
+        // Canvas y where the first annotation track starts. Drawing, borders, dividers
+        // and click handling must all use this so they agree.
+        float tracksTop() const;
+        // A track's share of the drawing area (its height_fraction, or the default share).
+        double trackFraction(const HGW::GwTrack &trk) const;
+        // Canvas y where annotation track `trackIdx` starts.
+        float trackTopOf(int trackIdx) const;
+        // The feature row of a track under canvas y, laid out as drawTracks() draws it.
+        int trackLevelAt(int trackIdx, int regionIdx, float y) const;
         bool   tracksLayoutDirty{true};
         float  cachedAvailableHeight{-1.0f};
         size_t cachedNbams{SIZE_MAX};
@@ -225,12 +234,14 @@ namespace Manager {
         int selectedIntronStart{-1};
         int selectedIntronEnd{-1};
         int selectedIntronStrand{-2};  // -2 = none (0/1/2 are valid gw strands)
-        // Identity of a highlighted gff exon/intron segment (persists across redraws).
+        // Identity of the highlighted annotation feature (persists across redraws, since
+        // track blocks are rebuilt from the file on every frame).
         std::string selectedFeatureChrom;
         std::string selectedFeatureName;   // transcript name, to disambiguate overlapping features
         std::string selectedFeatureParent; // unique GFF transcript id (Parent), to isolate one isoform
         int selectedFeatureStart{-1};
         int selectedFeatureEnd{-1};
+        int selectedFeatureTrack{-1};
         // Identity of a clicked reference base (persists across redraws). 0-based position, -1 = none.
         std::string selectedBaseChrom;
         int selectedBasePos{-1};
@@ -255,11 +266,18 @@ namespace Manager {
 
         struct TrackPopup {
             bool detailsOpen{false};
+            bool fitHeight{true};  // size the window to its contents on the next frame
             std::string details;  // captured source feature data
             std::string ansi;     // ANSI-coded track info text
             float x{0}, y{0};    // screen position near click
             int uid{0};
             bool isVcf{false};   // true for VCF/BCF tracks (changes copy-all behaviour)
+            // Where the click was, so the feature data can mark the clicked line and
+            // pan the view to a line's feature.
+            enum class DataFormat { Other, Bed, Gff } format{DataFormat::Other};
+            std::string chrom;
+            int clickPos{-1};    // 0-based genomic position of the click
+            int regionIdx{0};    // region (split view panel) that was clicked
         };
         std::vector<TrackPopup> trackPopups;
 
@@ -358,6 +376,7 @@ namespace Manager {
         void pathDrop(int count, const char** paths);
         bool commandProcessed();
         bool commandBoxOpen() const { return captureText; }
+        void toggleCommandCapture();  // open/close the '/' command box
         bool commandBoxReady() const { return processText && !captureText; }
         std::string commandBoxState() const { return inputText + "|" + std::to_string(charIndex) + "|" + std::to_string(commandToolTipIndex); }
         bool commandKey(int key, int scancode, int action, int mods);
@@ -497,9 +516,7 @@ namespace Manager {
 
         // Helper methods for mouse interaction
         void calculateCursorCoordinates(int button, int action, float& xW, float& yW);
-        bool handleToolButtons(int button, int action, float xW, float yW);
         void toggleSettingsMode();
-        void toggleCommandCapture();
         bool handleCommandTooltipInteraction(int button, int action, float xW, float yW);
         void updateDragState();
         void updateCursorGenomePos(float xOffset, float xScaling, float xPos_fb, Utils::Region* region, int bamIdx);

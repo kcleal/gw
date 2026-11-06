@@ -1784,6 +1784,39 @@ namespace Manager {
         fonts.setOverlayHeight(monitorScale);
     }
 
+    double GwPlot::trackFraction(const HGW::GwTrack &trk) const {
+        if (trk.height_fraction > 0.0) {
+            return trk.height_fraction;
+        }
+        // Same default as the track-height command and track manager. With no BAMs the
+        // shares are normalised in computeTrackHeights, so this scale only matters once
+        // alignments are opened, when the tracks should take tab_track_height of the view.
+        return opts.tab_track_height / std::max((double)tracks.size(), 1.0);
+    }
+
+    float GwPlot::tracksTop() const {
+        return std::fmax((float)fb_height - sliderSpace - totalTabixY, refSpace);
+    }
+
+    float GwPlot::trackTopOf(int trackIdx) const {
+        float top = tracksTop();
+        for (int i = 0; i < trackIdx && i < (int)tracks.size(); ++i) {
+            top += tracks[i].px_height;
+        }
+        return top;
+    }
+
+    int GwPlot::trackLevelAt(int trackIdx, int regionIdx, float y) const {
+        if (trackIdx < 0 || trackIdx >= (int)tracks.size() || regionIdx < 0 || regionIdx >= (int)regions.size()
+                || trackIdx >= (int)regions[regionIdx].featureLevels.size()) {
+            return 0;
+        }
+        const int nLevels = std::max(regions[regionIdx].featureLevels[trackIdx], 1);
+        const Drawing::TrackRowLayout rows = Drawing::trackRowLayout(trackTopOf(trackIdx), tracks[trackIdx].px_height,
+                                                                     nLevels, fonts.overlayHeight, gap, monitorScale);
+        return Drawing::trackRowAt(rows, y, nLevels);
+    }
+
     // Derives each annotation track's pixel height from its height_fraction. Only
     // called when one of the cached inputs changed, so this must always recompute from
     // scratch (never scale px_height in place) to keep the clamp from compounding.
@@ -1794,13 +1827,20 @@ namespace Manager {
             totalTabixY = 0;
         } else {
             // Each track gets its own height
-            float default_frac = (nbams == 0) ? (1.0f / nTracks)
-                                              : (opts.tab_track_height / nTracks);
+            double fracSum = 0;
+            for (auto &item : tracks) {
+                fracSum += trackFraction(item);
+            }
+            // With no alignments the tracks are the whole view: treat the fractions as
+            // relative shares so the panel always fills the space below the reference.
+            // Otherwise fractions set while BAMs were open leave a gap at the top, and
+            // the panel no longer starts where the borders and dividers expect it.
+            const bool fill = (nbams == 0);
             totalTabixY = 0;
             for (auto &item : tracks) {
-                float frac = (item.height_fraction > 0.0) ? (float)item.height_fraction
-                                                          : default_frac;
-                item.px_height = availableHeight * frac;
+                double frac = !fill ? trackFraction(item)
+                            : (fracSum > 0 ? trackFraction(item) / fracSum : 1.0 / nTracks);
+                item.px_height = (float)(availableHeight * frac);
                 totalTabixY += item.px_height;
             }
             // Alignment space is only reserved when there are bams to put in it.
@@ -2207,6 +2247,7 @@ namespace Manager {
         ctx.yScaling = yScaling;
         ctx.linkOp = opts.link_op;
         ctx.totalTabixY = totalTabixY;
+        ctx.tracksTop = tracksTop();
         ctx.pointSlop = pointSlop;
         ctx.textDrop = textDrop;
         ctx.pH = pH;
@@ -2228,6 +2269,7 @@ namespace Manager {
         ctx.selectedFeatureParent = selectedFeatureParent;
         ctx.selectedFeatureStart = selectedFeatureStart;
         ctx.selectedFeatureEnd = selectedFeatureEnd;
+        ctx.selectedFeatureTrack = selectedFeatureTrack;
         ctx.selectedBaseChrom = selectedBaseChrom;
         ctx.selectedBasePos = selectedBasePos;
         ctx.show_translation = opts.show_translation;
@@ -2472,7 +2514,6 @@ namespace Manager {
             }
         }
 
-        // bubble — command box shortcut (">_" prompt icon)
     }
 
     void GwPlot::drawOverlay(SkCanvas *canvas) {
@@ -2541,29 +2582,8 @@ namespace Manager {
 
         drawCommandBox(canvas);
 
-        float half_h = (float)fb_height / 2;
-        bool tool_popup = (xposm > 0 && xposm <= 30 * monitorScale && yposm >= half_h - 30 * monitorScale && yposm <= half_h + 30 * monitorScale && (xDrag == -1000000 || xDrag == 0) && (yDrag == -1000000 || yDrag == 0));
-        if (tool_popup) {
-            SkRect rect{};
-            SkPaint pop_paint = opts.theme.bgPaint;
-            pop_paint.setStrokeWidth(monitorScale);
-            pop_paint.setStyle(SkPaint::kStrokeAndFill_Style);
-            pop_paint.setAntiAlias(true);
-            pop_paint.setAlpha(255);
-            float bbl_size = 15 * monitorScale;
-            rect.setXYWH(-10, half_h - bbl_size, 30 * monitorScale + 10, bbl_size * 2);
-            canvas->drawRoundRect(rect, 5 * monitorScale, 5 * monitorScale, pop_paint);
-
-            SkPaint prompt_paint = opts.theme.lcBright;
-            prompt_paint.setAntiAlias(true);
-            prompt_paint.setStrokeWidth(1.5f * monitorScale);
-            prompt_paint.setStyle(SkPaint::kStrokeAndFill_Style);
-            sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(">_", fonts.overlay);
-            float tw = fonts.overlay.measureText(">_", 2, SkTextEncoding::kUTF8);
-            canvas->drawTextBlob(blob, 15 * monitorScale - tw * 0.5f, half_h + fonts.overlayHeight * 0.35f, prompt_paint);
-
         // Line at mouse position
-        } else if (drawLine && !showUIOverlay && mode != SETTINGS) {
+        if (drawLine && !showUIOverlay && mode != SETTINGS) {
             SkPathBuilder path;
             path.moveTo(xposm, refSpace);
             path.lineTo(xposm, fb_height - sliderSpace);
