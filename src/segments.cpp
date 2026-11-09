@@ -727,7 +727,7 @@ namespace Segs {
 
         uint32_t seq_index = 0;
 
-        self->any_ins.reserve(cigar_l);
+        // any_ins is not reserved: most reads have no insertions, so reserving would cost an allocation per read
         self->blocks.reserve(cigar_l);
 
         for (k = 0; k < cigar_l; k++) {
@@ -765,7 +765,8 @@ namespace Segs {
                     break;
             }
         }
-        self->reference_end = self->blocks.back().end;
+        // unmapped / CIGAR-less records have no blocks (handled below as y = -2)
+        self->reference_end = self->blocks.empty() ? self->pos : self->blocks.back().end;
         if (add_clip_space) {
             self->cov_start = (int)self->pos - self->left_soft_clip;
             self->cov_end = (int)self->reference_end + self->right_soft_clip;
@@ -783,7 +784,9 @@ namespace Segs {
         }
 
         if (parse_mods_threshold > 0) {
-            hts_base_mod_state* mod_state = new hts_base_mod_state;
+            // Reused per thread: bam_parse_basemod_gw resets the state, so no per-read allocation is needed
+            thread_local hts_base_mod_state mod_state_storage;
+            hts_base_mod_state* mod_state = &mod_state_storage;
             int res = bam_parse_basemod_gw(src, mod_state, 0);
             if (res >= 0) {
                 hts_base_mod mods[10];
@@ -806,7 +809,6 @@ namespace Segs {
                     nm = bam_next_basemod(src, mod_state, mods, 10, &pos);
                 }
             }
-            delete mod_state;
         }
 
         self->y = -1;  // -1 has no level, -2 means initialized but filtered
@@ -1048,7 +1050,7 @@ namespace Segs {
     }
 
     void findYWithSort(ReadCollection &rc, std::vector<Align> &rQ, std::vector<int> &ls, std::vector<int> &le, bool joinLeft,
-                       int vScroll, Segs::map_t &lm, ankerl::unordered_dense::map< std::string, int >& linkedSeen,
+                       int vScroll, Segs::map_t &lm, qname_y_map_t& linkedSeen,
                        int linkType, int ylim) {
         // sorting by strand or haplotype is a categorical sort that separates reads into groups
         bool re_sort = false;  // sort the level names (strand/haplotype)
@@ -1113,12 +1115,19 @@ namespace Segs {
                 q_ptr += move;
                 continue;
             }
+            bool isLinked = false;
+            std::string_view qv;
             if (linkType > 0) {
                 qname = bam_get_qname(q_ptr->delegate);
-                if (qname != nullptr && linkedSeen.find(qname) != linkedSeen.end()) {
-                    q_ptr->y = linkedSeen[qname];
-                    q_ptr += move;
-                    continue;
+                if (qname != nullptr) {
+                    qv = qname;
+                    auto seen = linkedSeen.find(qv);
+                    if (seen != linkedSeen.end()) {
+                        q_ptr->y = seen->second;
+                        q_ptr += move;
+                        continue;
+                    }
+                    isLinked = lm.find(qv) != lm.end();
                 }
             }
 
@@ -1143,14 +1152,14 @@ namespace Segs {
                         if (i >= vScroll_level) {
                             q_ptr->y = i - (vScroll*(group+1));
                         }
-                        if (linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
-                            linkedSeen[qname] = q_ptr->y;
+                        if (isLinked) {
+                            linkedSeen[qv] = q_ptr->y;
                         }
                         break;
                     }
                 }
-                if (i == end_i && linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
-                    linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
+                if (i == end_i && isLinked) {
+                    linkedSeen[qv] = q_ptr->y;  // y is out of range i.e. -1
                 }
                 q_ptr += move;
 
@@ -1164,14 +1173,14 @@ namespace Segs {
                         if (i >= vScroll_level) {
                             q_ptr->y = i - (vScroll*(group+1));
                         }
-                        if (linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
-                            linkedSeen[qname] = q_ptr->y;
+                        if (isLinked) {
+                            linkedSeen[qv] = q_ptr->y;
                         }
                         break;
                     }
                 }
-                if (i == end_i && linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
-                    linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
+                if (i == end_i && isLinked) {
+                    linkedSeen[qv] = q_ptr->y;  // y is out of range i.e. -1
                 }
                 q_ptr += move;
             }
@@ -1204,7 +1213,7 @@ namespace Segs {
 
 
     void findYNoSort(std::vector<Align> &rQ, std::vector<int> &ls, std::vector<int> &le, bool joinLeft,
-                     int vScroll, Segs::map_t &lm, ankerl::unordered_dense::map< std::string, int >& linkedSeen,
+                     int vScroll, Segs::map_t &lm, qname_y_map_t& linkedSeen,
                      int linkType) {
         int qLen = (int)rQ.size();
         int stopCondition, move, si;
@@ -1229,12 +1238,19 @@ namespace Segs {
                 q_ptr += move;
                 continue;
             }
+            bool isLinked = false;
+            std::string_view qv;
             if (linkType > 0) {
                 qname = bam_get_qname(q_ptr->delegate);
-                if (qname != nullptr && linkedSeen.find(qname) != linkedSeen.end()) {
-                    q_ptr->y = linkedSeen[qname];
-                    q_ptr += move;
-                    continue;
+                if (qname != nullptr) {
+                    qv = qname;
+                    auto seen = linkedSeen.find(qv);
+                    if (seen != linkedSeen.end()) {
+                        q_ptr->y = seen->second;
+                        q_ptr += move;
+                        continue;
+                    }
+                    isLinked = lm.find(qv) != lm.end();
                 }
             }
             if (!joinLeft) {
@@ -1247,14 +1263,14 @@ namespace Segs {
                         if (i >= vScroll) {
                             q_ptr->y = i - vScroll;
                         }
-                        if (linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
-                            linkedSeen[qname] = q_ptr->y;
+                        if (isLinked) {
+                            linkedSeen[qv] = q_ptr->y;
                         }
                         break;
                     }
                 }
-                if (i == memLen && linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
-                    linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
+                if (i == memLen && isLinked) {
+                    linkedSeen[qv] = q_ptr->y;  // y is out of range i.e. -1
                 }
                 q_ptr += move;
 
@@ -1268,14 +1284,14 @@ namespace Segs {
                         if (i >= vScroll) {
                             q_ptr->y = i - vScroll;
                         }
-                        if (linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
-                            linkedSeen[qname] = q_ptr->y;
+                        if (isLinked) {
+                            linkedSeen[qv] = q_ptr->y;
                         }
                         break;
                     }
                 }
-                if (i == memLen && linkType > 0 && qname != nullptr && lm.find(qname) != lm.end()) {
-                    linkedSeen[qname] = q_ptr->y;  // y is out of range i.e. -1
+                if (i == memLen && isLinked) {
+                    linkedSeen[qv] = q_ptr->y;  // y is out of range i.e. -1
                 }
                 q_ptr += move;
             }
@@ -1292,12 +1308,15 @@ namespace Segs {
         Align *q_ptr;
         const char *qname = nullptr;
         Segs::map_t &lm = rc.linked;  // pointers to alignments with same qname
-        ankerl::unordered_dense::map< std::string, int > linkedSeen;  // Mapping of qname to y value
+        qname_y_map_t linkedSeen;  // Mapping of qname to y value
 
         int i;
         // first find reads that should be linked together using qname
         if (linkType > 0) {
             lm.clear();
+            if (linkType > 1) {
+                lm.reserve(rQ.size());
+            }
             q_ptr = &rQ.front();
             // find the start and end coverage locations of aligns with same name
             for (i=0; i < (int)rQ.size(); ++i) {
@@ -1313,10 +1332,10 @@ namespace Segs {
                 if (linkType == 1) {
                     uint32_t flag = q_ptr->delegate->core.flag;
                     if (q_ptr->has_SA || ~flag & 2) {
-                        lm[qname].push_back(q_ptr);
+                        lm[std::string_view(qname)].push_back(q_ptr);
                     }
                 } else {
-                    lm[qname].push_back(q_ptr);
+                    lm[std::string_view(qname)].push_back(q_ptr);
                 }
                 ++q_ptr;
             }
@@ -1328,6 +1347,8 @@ namespace Segs {
                     }
                 }
             }
+
+            linkedSeen.reserve(lm.size());
 
             // set all aligns with same name to have the same start and end coverage locations
             for (auto const &keyVal : lm) {

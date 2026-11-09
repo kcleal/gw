@@ -13,6 +13,7 @@
 #include "htslib/vcf.h"
 #include "htslib/sam.h"
 #include "htslib/tbx.h"
+#include "htslib/kstring.h"
 
 namespace Drawing { struct drawContext; }
 
@@ -131,6 +132,20 @@ namespace HGW {
     * Non-indexed files are cached using TrackBlock items. Files with an index are fetched during drawing.
     * Can also have no file associated with it, just an array of TrackBlock (used for roi drawing)
     */
+    // Scratch line buffer for htslib readers. Copies start empty so two tracks never share (and double-free) one buffer.
+    struct LineBuffer {
+        kstring_t s{0, 0, nullptr};
+        LineBuffer() = default;
+        LineBuffer(const LineBuffer&) {}
+        LineBuffer& operator=(const LineBuffer&) { return *this; }
+        LineBuffer(LineBuffer&& o) noexcept : s(o.s) { o.s = {0, 0, nullptr}; }
+        LineBuffer& operator=(LineBuffer&& o) noexcept {
+            if (this != &o) { free(s.s); s = o.s; o.s = {0, 0, nullptr}; }
+            return *this;
+        }
+        ~LineBuffer() { free(s.s); }
+    };
+
     class GwTrack {
     public:
         GwTrack() = default;
@@ -143,6 +158,10 @@ namespace HGW {
         std::string path, genome_tag;
         std::string chrom, chrom2, rid, vartype, parent, gene_name, unique_id;
         std::string track_label_parser_rules;
+        // Label-rule keys resolved from track_label_parser_rules, cached so they are not re-parsed per line
+        std::string labelRulesResolved, labelKeyGff3{"auto"}, labelKeyGtf{"auto"};
+        bool labelKeysReady{false};
+        LineBuffer lineBuf;  // reused by the indexed (tabix) readers in next()
         int start, stop;  // genome coordinates
         int strand;
         int fetch_start, fetch_end;
@@ -202,6 +221,7 @@ namespace HGW {
         void parseVcfRecord(Utils::TrackBlock &b);
         void parseVcfRecord();
         void printTargetRecord(std::string &id_str, std::string &chrm, int pos);
+        const std::string& labelKey(bool gtf);
     };
 
     bool searchTracks(std::vector<GwTrack> &tracks, std::string &feature, Utils::Region &region);

@@ -498,21 +498,17 @@ void drawImGuiCommandDialog(Manager::GwPlot* plot,
                 ImGui::TableSetColumnIndex(0);
                 ImGui::TextUnformatted(flag_labels[i]);
 
+                ImGui::PushID(i);  // unique IDs without building strings every frame
                 ImGui::TableSetColumnIndex(1);
-                if (ImGui::Checkbox(
-                        ("##inc" + std::to_string(i)).c_str(),
-                        &flag_include[i]))
-                {
+                if (ImGui::Checkbox("##inc", &flag_include[i])) {
                     if (flag_include[i]) flag_exclude[i] = false;
                 }
 
                 ImGui::TableSetColumnIndex(2);
-                if (ImGui::Checkbox(
-                        ("##exc" + std::to_string(i)).c_str(),
-                        &flag_exclude[i]))
-                {
+                if (ImGui::Checkbox("##exc", &flag_exclude[i])) {
                     if (flag_exclude[i]) flag_include[i] = false;
                 }
+                ImGui::PopID();
             }
 
             ImGui::TableNextRow();
@@ -522,14 +518,16 @@ void drawImGuiCommandDialog(Manager::GwPlot* plot,
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 ImGui::TextUnformatted(pattern_labels[i]);
+                ImGui::PushID(i);
                 ImGui::TableSetColumnIndex(1);
-                if (ImGui::Checkbox(("##pinc" + std::to_string(i)).c_str(), &pattern_include[i])) {
+                if (ImGui::Checkbox("##pinc", &pattern_include[i])) {
                     if (pattern_include[i]) pattern_exclude[i] = false;
                 }
                 ImGui::TableSetColumnIndex(2);
-                if (ImGui::Checkbox(("##pexc" + std::to_string(i)).c_str(), &pattern_exclude[i])) {
+                if (ImGui::Checkbox("##pexc", &pattern_exclude[i])) {
                     if (pattern_exclude[i]) pattern_include[i] = false;
                 }
+                ImGui::PopID();
             }
             ImGui::EndTable();
         }

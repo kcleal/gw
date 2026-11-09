@@ -993,7 +993,7 @@ namespace Manager {
         out << termcolor::bold << pos_str << termcolor::reset;
         term_width -= (int)pos_str.size();
 
-        auto r = regions[regionSelection];
+        const auto& r = regions[regionSelection];
         std::string region_str = r.chrom + ":" + std::to_string(r.start + 1) + "-" + std::to_string(r.end + 1);
         if (term_width <= (int)region_str.size()) {
             out << std::flush;
@@ -2726,6 +2726,7 @@ namespace Manager {
             // Not highlighted, highlight it
             bnd->edge_type = 4;
             target_qname = bam_get_qname(bnd->delegate);
+            selectedAlignBamIdx = cl.bamIdx;
             Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq,
                            cl.region->start, cl.region->start + cl.region->refSeqLen, opts.low_memory, out,
                            pos, opts.indel_length, opts.parse_mods);
@@ -2743,6 +2744,7 @@ namespace Manager {
             rp.y    = (float)(yPos_fb / monitorScale);
             rp.uid  = nextPopupUid++;
             rp.regionSelection = cl.regionIdx;
+            rp.bamIdx = cl.bamIdx;
             readPopups.push_back(std::move(rp));
         }
         redraw = true;

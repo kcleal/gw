@@ -47,14 +47,14 @@ namespace Utils {
 
     std::vector<std::string> split(const std::string &s, char delim);
 
-    std::vector<std::string> split(const std::string &s, char delim, std::vector<std::string> &elems);
+    void split(const std::string &s, char delim, std::vector<std::string> &elems);  // appends non-empty fields to elems
 
     std::vector<std::string> split_keep_empty_str(const std::string &s, const char delim);
 
     // https://stackoverflow.com/questions/1528298/get-path-of-executable
     std::string getExecutableDir();
 
-    bool is_file_exist(std::string FileName);
+    bool is_file_exist(const std::string &FileName);
 
     class EXPORT TrackBlock {
     public:
@@ -114,7 +114,7 @@ namespace Utils {
         std::vector<std::vector<Utils::TrackBlock>> featuresInView;  // one vector for each Track
         std::vector<int> featureLevels;
         Region() {};
-        Region(std::string chromosome, int startPos, int endPos) : chrom{chromosome}, start{startPos}, end{endPos} {};
+        Region(std::string chromosome, int startPos, int endPos) : chrom{std::move(chromosome)}, start{startPos}, end{endPos} {};
         ~Region() = default;
         std::string toString();
         void setRefBaseAtPos();

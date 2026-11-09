@@ -2,6 +2,7 @@
 //
 // Created by Kez Cleal on 12/08/2022.
 //
+#include <charconv>
 #include <algorithm>
 #include <cctype>
 #include <chrono>
@@ -338,8 +339,7 @@ namespace Drawing {
                 if (cl.name.empty()) {
                     std::filesystem::path fsp(bam_paths[cl.bamIdx]);
 #if defined(_WIN32) || defined(_WIN64)
-                    const wchar_t* pc = fsp.filename().c_str();
-                    std::wstring ws(pc);
+                    std::wstring ws = fsp.filename().wstring();  // keep the path temporary's buffer alive
                     std::string p(ws.begin(), ws.end());
                     cl.name = p;
 #else
@@ -359,52 +359,52 @@ namespace Drawing {
     }
 
     inline void
-    chooseFacecolors(const int mapq, const Segs::Align &a, SkPaint &faceColor, const Themes::BaseTheme &theme) {
+    chooseFacecolors(const int mapq, const Segs::Align &a, const SkPaint *&faceColor, const Themes::BaseTheme &theme) {
         if (mapq == 0) {
             switch (a.orient_pattern) {
                 case Segs::NORMAL:
-                    faceColor = theme.fcNormal0;
+                    faceColor = &theme.fcNormal0;
                     break;
                 case Segs::DEL:
-                    faceColor = theme.fcDel0;
+                    faceColor = &theme.fcDel0;
                     break;
                 case Segs::INV_F:
-                    faceColor = theme.fcInvF0;
+                    faceColor = &theme.fcInvF0;
                     break;
                 case Segs::INV_R:
-                    faceColor = theme.fcInvR0;
+                    faceColor = &theme.fcInvR0;
                     break;
                 case Segs::DUP:
-                    faceColor = theme.fcDup0;
+                    faceColor = &theme.fcDup0;
                     break;
                 case Segs::TRA: {
                     int mate_idx = (a.delegate->core.tid + ((a.delegate->core.mtid >= 0) ? a.delegate->core.mtid : 0)) % 48;
                     if (mate_idx < 0) mate_idx += 48;
-                    faceColor = theme.mate_fc0[mate_idx];
+                    faceColor = &theme.mate_fc0[mate_idx];
                     break;
                 }
             }
         } else {
             switch (a.orient_pattern) {
                 case Segs::NORMAL:
-                    faceColor = theme.fcNormal;
+                    faceColor = &theme.fcNormal;
                     break;
                 case Segs::DEL:
-                    faceColor = theme.fcDel;
+                    faceColor = &theme.fcDel;
                     break;
                 case Segs::INV_F:
-                    faceColor = theme.fcInvF;
+                    faceColor = &theme.fcInvF;
                     break;
                 case Segs::INV_R:
-                    faceColor = theme.fcInvR;
+                    faceColor = &theme.fcInvR;
                     break;
                 case Segs::DUP:
-                    faceColor = theme.fcDup;
+                    faceColor = &theme.fcDup;
                     break;
                 case Segs::TRA: {
                     int mate_idx = (a.delegate->core.tid + ((a.delegate->core.mtid >= 0) ? a.delegate->core.mtid : 0)) % 48;
                     if (mate_idx < 0) mate_idx += 48;
-                    faceColor = theme.mate_fc[mate_idx];
+                    faceColor = &theme.mate_fc[mate_idx];
                     break;
                 }
             }
@@ -412,13 +412,13 @@ namespace Drawing {
     }
 
     inline void
-    chooseEdgeColor(const int edge_type, SkPaint &edgeColor, const Themes::BaseTheme &theme) {
+    chooseEdgeColor(const int edge_type, const SkPaint *&edgeColor, const Themes::BaseTheme &theme) {
         if (edge_type == 2) {
-            edgeColor = theme.ecSplit;
+            edgeColor = &theme.ecSplit;
         } else if (edge_type == 4) {
-            edgeColor = theme.ecSelected;
+            edgeColor = &theme.ecSelected;
         } else {
-            edgeColor = theme.ecMateUnmapped;
+            edgeColor = &theme.ecMateUnmapped;
         }
     }
 
@@ -640,10 +640,36 @@ namespace Drawing {
                 "",     // 14
                 "N"      // 15
         };
-         for (int i = 0; i < 16; i++) {
+        // Only rebuild when the font changes; this used to run on every drawCollection call
+        static SkFont builtFor;
+        static bool built = false;
+        if (built && builtFor == fonts.overlay) {
+            return;
+        }
+        for (int i = 0; i < 16; i++) {
             lookup_table_bam_textblobs[i] = SkTextBlob::MakeFromString(
                 lookup_table_bam_text[i], fonts.overlay);
         }
+        builtFor = fonts.overlay;
+        built = true;
+    }
+
+    // Indel-length labels repeat heavily, so shape each length once per font
+    const sk_sp<SkTextBlob>& indelLengthBlob(uint32_t length, const SkFont &font) {
+        static ankerl::unordered_dense::map<uint32_t, sk_sp<SkTextBlob>> cache;
+        static SkFont cachedFont;
+        if (!(cachedFont == font) || cache.size() > 4096) {
+            cache.clear();
+            cachedFont = font;
+        }
+        auto it = cache.find(length);
+        if (it == cache.end()) {
+            char buf[16];
+            auto res = std::to_chars(buf, buf + sizeof(buf) - 1, length);
+            *res.ptr = '\0';
+            it = cache.emplace(length, SkTextBlob::MakeFromString(buf, font)).first;
+        }
+        return it->second;
     }
 
     int countDigits(uint32_t number) {
@@ -837,7 +863,7 @@ namespace Drawing {
 
     void drawBlock(const bool plotPointedPolygons, const bool pointLeft, const bool edged, const float s, const float width,
                    const float pointSlop, const float pH, const float yScaledOffset, const float xOffset,
-                   SkCanvas *const canvas, SkPathBuilder &path, SkRect &rect, SkPaint &faceColor, SkPaint &edgeColor) {
+                   SkCanvas *const canvas, SkPathBuilder &path, SkRect &rect, const SkPaint &faceColor, const SkPaint &edgeColor) {
 
         if (plotPointedPolygons) {
             if (pointLeft) {
@@ -872,15 +898,13 @@ namespace Drawing {
         if (isize >= opts.indel_length) {
             if (regionLen < 500000 && indelTextFits) {
                 const int digits = countDigits(isize);
-                std::to_string(isize).copy(indelChars, digits);
-                indelChars[digits] = '\0';
                 const float textWidth = fonts.textWidths[digits - 1];
                 const float textCenter = (lastEnd + size * 0.5f) * xScaling;
                 const float textBegin = textCenter - (textWidth * 0.5f);
                 const float textEnd = textBegin + textWidth;
                 const float textYPosition = yh + (fonts.overlayHeight * 0.5f);
                 text.emplace_back(
-                    SkTextBlob::MakeFromString(indelChars, fonts.overlay),
+                    indelLengthBlob((uint32_t) isize, fonts.overlay),
                     textBegin + xOffset,
                     textYPosition
                 );
@@ -1015,12 +1039,13 @@ namespace Drawing {
         const float pH = ctx.pH;
         const float monitorScale = ctx.monitorScale;
 
-        SkPaint faceColor;
-        SkPaint edgeColor;
+        const Themes::BaseTheme &theme = opts.theme;
+        // Pointers into the theme: avoids copy-assigning an SkPaint per read
+        const SkPaint *faceColor = &theme.fcNormal;
+        const SkPaint *edgeColor = &theme.ecMateUnmapped;
 
         SkRect rect;
         SkPathBuilder path;
-        const Themes::BaseTheme &theme = opts.theme;
 
         static std::vector<TextItemIns> text_ins;
         static std::vector<TextItem> text_del;
@@ -1120,7 +1145,7 @@ namespace Drawing {
                         e = (double)a.blocks[idx - 1].end - regionBegin;
                         width = (e - s) * xScaling;
                         drawBlock(plotPointedPolygons, pointLeft, edged, (float) s * xScaling, (float) width,
-                                  pointSlop, pH, yScaledOffset, xOffset, canvas, path, rect, faceColor, edgeColor);
+                                  pointSlop, pH, yScaledOffset, xOffset, canvas, path, rect, *faceColor, *edgeColor);
                         idx_begin = idx;
                     }
                 }
@@ -1129,7 +1154,7 @@ namespace Drawing {
                 e = (double)a.blocks[idx - 1].end - regionBegin;
                 width = (e - s) * xScaling;
                 drawBlock(plotPointedPolygons, pointLeft, edged, (float) s * xScaling, (float) width,
-                          pointSlop, pH, yScaledOffset, xOffset, canvas, path, rect, faceColor, edgeColor);
+                          pointSlop, pH, yScaledOffset, xOffset, canvas, path, rect, *faceColor, *edgeColor);
                 idx_begin = idx;
 
                 idx = 1;
@@ -1151,7 +1176,7 @@ namespace Drawing {
                 e = (double)a.blocks[0].end - regionBegin;
                 width = (e - s) * xScaling;
                 drawBlock(plotPointedPolygons, pointLeft, edged, (float) s * xScaling, (float) width,
-                          pointSlop, pH, yScaledOffset, xOffset, canvas, path, rect, faceColor, edgeColor);
+                          pointSlop, pH, yScaledOffset, xOffset, canvas, path, rect, *faceColor, *edgeColor);
             }
 
             // add soft-clip blocks
@@ -1169,7 +1194,7 @@ namespace Drawing {
                         if (pointLeft && plotPointedPolygons) {
                             drawLeftPointedRectangle(canvas, pH, yScaledOffset, s * xScaling, width * xScaling,
                                                      xOffset, (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip,
-                                                     path, pointSlop, false, edgeColor);
+                                                     path, pointSlop, false, *edgeColor);
                         } else {
                             drawRectangle(canvas, pH, yScaledOffset, (s * xScaling) + xOffset, width * xScaling,
                                           (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip, rect);
@@ -1197,7 +1222,7 @@ namespace Drawing {
                         if (!pointLeft && plotPointedPolygons) {
                             drawRightPointedRectangle(canvas, pH, yScaledOffset, s * xScaling, width * xScaling,
                                                       xOffset, (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip, path,
-                                                      pointSlop, false, edgeColor);
+                                                      pointSlop, false, *edgeColor);
                         } else {
                             drawRectangle(canvas, pH, yScaledOffset, (s * xScaling) + xOffset, width * xScaling,
                                           (mapq == 0) ? theme.fcSoftClip0 : theme.fcSoftClip, rect);
@@ -1223,9 +1248,8 @@ namespace Drawing {
                     if (0 <= p && p < regionPixels) {
                         if (ins.length >= (uint32_t) opts.indel_length) {
                             if (regionLen < 500000 && indelTextFits) {  // line and text
-                                std::sprintf(indelChars, "%d", ins.length);
-                                size_t sl = strlen(indelChars);
-                                text_ins.emplace_back() = {SkTextBlob::MakeFromString(indelChars, fonts.overlay),
+                                const int sl = countDigits(ins.length);
+                                text_ins.emplace_back() = {indelLengthBlob(ins.length, fonts.overlay),
                                                            p + mm_textOffsetX + xOffset,  // x
                                                            yScaledOffset - textDrop, // y
                                                            yScaledOffset,  // box_y
@@ -1426,8 +1450,7 @@ namespace Drawing {
             if (cl.name.empty()) {
                 std::filesystem::path fsp(bam_paths[cl.bamIdx]);
 #if defined(_WIN32) || defined(_WIN64)
-                const wchar_t* pc = fsp.filename().c_str();
-                std::wstring ws(pc);
+                std::wstring ws = fsp.filename().wstring();  // keep the path temporary's buffer alive
                 std::string p(ws.begin(), ws.end());
                 cl.name = p;
 #else
@@ -1462,7 +1485,8 @@ namespace Drawing {
             return;
         }
         SkRect rect;
-        SkPaint faceColor;
+        static const SkPaint defaultPaint;
+        const SkPaint *faceColor = &defaultPaint;  // pointer into the theme: no SkPaint copy per base
         const Themes::BaseTheme &theme = opts.theme;
         const double regionW = (double) fb_width / (double) regions.size();
         const double xPixels = regionW - gap - gap;
@@ -1495,43 +1519,47 @@ namespace Drawing {
             i += gap;
             if (textW > 0 && (float) size < minLetterSize && fonts.overlayHeight <= refSpace * 1.35) {
                 const double v = (xScaling - textW) * 0.5;
+                std::array<sk_sp<SkTextBlob>, 256> letterBlobs;  // one shaped blob per distinct base letter
 
                 const char* refEnd = ref + rgn.refSeqLen;
                 while (ref < refEnd) {
                     switch ((unsigned int) *ref) {
                         case 65:
-                            faceColor = theme.fcA;
+                            faceColor = &theme.fcA;
                             break;
                         case 67:
-                            faceColor = theme.fcC;
+                            faceColor = &theme.fcC;
                             break;
                         case 71:
-                            faceColor = theme.fcG;
+                            faceColor = &theme.fcG;
                             break;
                         case 78:
-                            faceColor = theme.fcN;
+                            faceColor = &theme.fcN;
                             break;
                         case 84:
-                            faceColor = theme.fcT;
+                            faceColor = &theme.fcT;
                             break;
                         case 97:
-                            faceColor = theme.fcA;
+                            faceColor = &theme.fcA;
                             break;
                         case 99:
-                            faceColor = theme.fcC;
+                            faceColor = &theme.fcC;
                             break;
                         case 103:
-                            faceColor = theme.fcG;
+                            faceColor = &theme.fcG;
                             break;
                         case 110:
-                            faceColor = theme.fcN;
+                            faceColor = &theme.fcN;
                             break;
                         case 116:
-                            faceColor = theme.fcT;
+                            faceColor = &theme.fcT;
                             break;
                     }
-                    canvas->drawTextBlob(SkTextBlob::MakeFromText(ref, 1, fonts.overlay, SkTextEncoding::kUTF8),
-                                         i + v, yp, faceColor);
+                    sk_sp<SkTextBlob> &blob = letterBlobs[(unsigned char) *ref];
+                    if (!blob) {
+                        blob = SkTextBlob::MakeFromText(ref, 1, fonts.overlay, SkTextEncoding::kUTF8);
+                    }
+                    canvas->drawTextBlob(blob, i + v, yp, *faceColor);
                     i += xScaling;
                     ++ref;
                 }
@@ -1837,7 +1865,7 @@ namespace Drawing {
     void drawLabel(const Themes::IniOptions &opts, SkCanvas *const canvas, SkRect &rect, Utils::Label &label, const Themes::Fonts &fonts,
               const ankerl::unordered_dense::set<std::string> &seenLabels, const std::vector<std::string> &srtLabels) {
         float pad = 2;
-        std::string cur = label.current();
+        const std::string &cur = label.current();
         if (cur.empty()) {
             return;
         }
@@ -2404,10 +2432,9 @@ namespace Drawing {
             float trackTop = y;  // top of the current track
             int trackIdx = 0;
 
-            rgn.featuresInView.clear();
+            // resize without clear(): each inner vector is cleared below, so its capacity is kept between redraws
             rgn.featuresInView.resize(tracks.size());
-            rgn.featureLevels.clear();
-            rgn.featureLevels.resize(tracks.size());
+            rgn.featureLevels.assign(tracks.size(), 0);
             for (auto &trk: tracks) {
 
                 SkPaint &faceColour = trk.faceColour;
@@ -2423,6 +2450,7 @@ namespace Drawing {
                     trk.fetch(&rgn);
                 }
                 if (trk.kind == HGW::BIGWIG) {
+                    rgn.featuresInView[trackIdx].clear();  // no stale features if tracks were reordered
                     drawTrackBigWig(trk, rgn, rect, padX, 0, trackTop, stepX, trk.px_height,
                                     xScaling, t, opts, canvas, fonts, faceColour, ctx);
                     trackIdx += 1;
@@ -2538,8 +2566,7 @@ namespace Drawing {
                     if (trk.name.empty()) {
                         std::filesystem::path fsp(trk.path);
     #if defined(_WIN32) || defined(_WIN64)
-                        const wchar_t* pc = fsp.filename().c_str();
-                        std::wstring ws(pc);
+                        std::wstring ws = fsp.filename().wstring();  // keep the path temporary's buffer alive
                         trk.name = std::string(ws.begin(), ws.end());
     #else
                         trk.name = fsp.filename();
@@ -2548,7 +2575,7 @@ namespace Drawing {
 
                     const char * name_s = trk.name.c_str();
                     sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(name_s, fonts.overlay);
-                    float text_width = fonts.measureTextWidth(name_s);
+                    float text_width = fonts.measureTextWidth(trk.name);
                     float rr = 2.5*monitorScale;
                     rect.setXYWH(padX + monitorScale, trackTop + gap + monitorScale,
                                 text_width + 8 * monitorScale + 8 * monitorScale, fonts.overlayHeight * 2);

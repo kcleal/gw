@@ -85,6 +85,7 @@ static void execReadPopupCommand(Manager::GwPlot* plot,
         int previousRegionSelection = plot->regionSelection;
         if (!rp.sam.empty()) {
             plot->selectedAlign = rp.sam;
+            plot->selectedAlignBamIdx = rp.bamIdx;
         }
         if (!rp.qname.empty()) {
             plot->target_qname = rp.qname;

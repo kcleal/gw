@@ -135,7 +135,7 @@ static std::vector<RowData> parseVariantDetailRows(HGW::GwVariantTrack& vt, Util
                 RowData infoHdr = makeRow("INFO", "");
                 infoHdr.isSection = true;
                 infoHdr.sectionKey = "INFO";
-                rows.push_back(infoHdr);
+                rows.push_back(std::move(infoHdr));
                 for (const auto& item : Utils::split(fields[7], ';')) {
                     if (item.empty()) continue;
                     auto eq = item.find('=');
@@ -167,7 +167,7 @@ static std::vector<RowData> parseVariantDetailRows(HGW::GwVariantTrack& vt, Util
                 RowData fmtHdr = makeRow("FORMAT", fields[8]);
                 fmtHdr.isSection = true;
                 fmtHdr.sectionKey = "FORMAT";
-                rows.push_back(fmtHdr);
+                rows.push_back(std::move(fmtHdr));
                 std::vector<std::string> fmtKeys = Utils::split(fields[8], ':');
                 int nSamples = std::max(0, (int)fields.size() - 9);
                 if (nSamples > 0) {
@@ -522,9 +522,12 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                          : labelOverlapsRegion({}, lbl, filterRegion);
                 }
                 if (!keep && !filterLower.empty()) {
-                    std::string hay = lbl.chrom + ":" + std::to_string(lbl.pos) + " "
-                                    + lbl.variantId + " " + lbl.current() + " "
-                                    + lbl.comment + " " + lbl.vartype;
+                    // Reused buffer: no allocation per label per frame once it has grown
+                    static std::string hay;
+                    hay.clear();
+                    hay += lbl.chrom; hay += ':'; hay += std::to_string(lbl.pos); hay += ' ';
+                    hay += lbl.variantId; hay += ' '; hay += lbl.current(); hay += ' ';
+                    hay += lbl.comment; hay += ' '; hay += lbl.vartype;
                     for (auto& c : hay) c = (char)std::tolower((unsigned char)c);
                     keep = hay.find(filterLower) != std::string::npos;
                 }
@@ -571,18 +574,34 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                     const ImU32 dotDateCol    = IM_COL32(100, 200, 100, 220); // green – has date
                     const ImU32 dotCommentCol = IM_COL32(100, 160, 240, 220); // blue  – has comment
 
-                    for (int i : visibleRows) {
-                        // Expression filter: need detail rows to evaluate
-                        if (!exprFilter.empty() && isVcfTrack) {
+                    // Expression filter is applied up front so the list can be clipped to the visible rows
+                    const size_t preExprCount = visibleRows.size();
+                    if (!exprFilter.empty() && isVcfTrack) {
+                        size_t kept = 0;
+                        for (int i : visibleRows) {
                             Utils::Label& lbl2 = labels[i];
                             std::string ck = trackKey + "#" + std::to_string(i) + "#"
                                            + std::to_string(lbl2.i) + "#" + lbl2.savedDate
                                            + "#" + lbl2.comment + "#" + std::to_string(selectedSampleIdx);
-                            if (detailCache.find(ck) == detailCache.end()) {
-                                detailCache[ck] = parseVariantDetailRows(vt, lbl2, selectedSampleIdx);
+                            auto cit = detailCache.find(ck);
+                            if (cit == detailCache.end()) {
+                                cit = detailCache.emplace(std::move(ck), parseVariantDetailRows(vt, lbl2, selectedSampleIdx)).first;
                             }
-                            if (!evalVcfExpr(detailCache[ck], exprFilter)) continue;
+                            if (evalVcfExpr(cit->second, exprFilter)) visibleRows[kept++] = i;
                         }
+                        visibleRows.resize(kept);
+                    }
+
+                    // Only rows in view are submitted; the selected row is always included so it can be scrolled to
+                    ImGuiListClipper clipper;
+                    clipper.Begin((int)visibleRows.size());
+                    if (needScroll) {
+                        auto sel = std::find(visibleRows.begin(), visibleRows.end(), selectedRow);
+                        if (sel != visibleRows.end()) clipper.IncludeItemByIndex((int)(sel - visibleRows.begin()));
+                    }
+                    while (clipper.Step())
+                    for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
+                        const int i = visibleRows[row];
 
                         Utils::Label& lbl = labels[i];
                         bool isSelected  = (selectedRow == i);
@@ -702,7 +721,7 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                     if (hasMoreVariants() &&
                         ((ImGui::IsWindowHovered() && ImGui::GetScrollMaxY() > 0 &&
                           ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - ImGui::GetWindowHeight() * 2) ||
-                         ((!trimmedFilter.empty() || !exprFilter.empty()) && visibleRows.size() < 32))) {
+                         ((!trimmedFilter.empty() || !exprFilter.empty()) && preExprCount < 32))) {
                         loadMore = true;
                         plot->redraw = true;
                         redraw = true;
@@ -865,11 +884,12 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                     std::string cacheKey = trackKey + "#" + std::to_string(selectedRow) + "#"
                                          + std::to_string(lbl.i) + "#" + lbl.savedDate
                                          + "#" + lbl.comment + "#" + std::to_string(selectedSampleIdx);
-                    if (detailCache.find(cacheKey) == detailCache.end()) {
-                        detailCache[cacheKey] = parseVariantDetailRows(vt, lbl, selectedSampleIdx);
+                    auto cacheIt = detailCache.find(cacheKey);
+                    if (cacheIt == detailCache.end()) {
+                        cacheIt = detailCache.emplace(cacheKey, parseVariantDetailRows(vt, lbl, selectedSampleIdx)).first;
                     }
 
-                    auto& rows = detailCache[cacheKey];
+                    auto& rows = cacheIt->second;
 
                     // Build active field-filter set from comma-separated string
                     std::vector<std::string> fldTokens;

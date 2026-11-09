@@ -6,6 +6,7 @@
 #include <iostream>
 #include <utility>
 #include <string>
+#include <string_view>
 #include <regex>
 #include <climits>
 #include <cstdlib>
@@ -215,11 +216,11 @@ namespace Parse {
             return ref_len;
         }
 
-        bool saTagAtTarget(const std::string& sa_tag, const Eval& e) {
+        bool saTagAtTarget(std::string_view sa_tag, const Eval& e) {
             if (sa_tag.empty() || sa_tag == "''") {
                 return false;
             }
-            for (const auto& item : Utils::split(sa_tag, ';')) {
+            for (const auto& item : Utils::split(std::string(sa_tag), ';')) {
                 auto fields = Utils::split(item, ',');
                 if (fields.size() < 4) {
                     continue;
@@ -248,13 +249,14 @@ namespace Parse {
     }
 
     namespace {
-        ankerl::unordered_dense::set<std::string> collectFamilyMatches(
+        ankerl::unordered_dense::set<std::string_view> collectFamilyMatches(
                 const std::vector<Segs::Align>& alignments,
                 Parse::Parser& filter,
                 const sam_hdr_t* hdr,
                 int bamIdx,
                 int regionIdx) {
-            ankerl::unordered_dense::set<std::string> keep_qnames;
+            ankerl::unordered_dense::set<std::string_view> keep_qnames;  // views into the bam records
+            keep_qnames.reserve(alignments.size());
             for (const auto& align : alignments) {
                 if (filter.eval(align, hdr, bamIdx, regionIdx)) {
                     keep_qnames.emplace(bam_get_qname(align.delegate));
@@ -626,15 +628,11 @@ namespace Parse {
         }
     }
 
-    void getStrTag(const char* tag, std::string& str_val, const Segs::Align& aln, bool& exists) {
-        const uint8_t *tag_ptr;
-        tag_ptr = bam_aux_get(aln.delegate, tag);
-        if (tag_ptr == nullptr) {
-            exists = false;
-            str_val = "''";
-            return;
-        }
-        str_val = std::string(bam_aux2Z(tag_ptr));
+    // The view points into the bam record, which outlives the evaluation
+    void getStrTag(const char* tag, std::string_view& str_val, const Segs::Align& aln) {
+        const uint8_t *tag_ptr = bam_aux_get(aln.delegate, tag);
+        const char *z = (tag_ptr == nullptr) ? nullptr : bam_aux2Z(tag_ptr);
+        str_val = (z == nullptr) ? "''" : z;
     }
 
     void getIntTag(const char* tag, int& int_val, const Segs::Align& aln, bool& exists) {
@@ -668,9 +666,10 @@ namespace Parse {
         }
         bool block_result = true;
         if (!evaluations_block.empty()) {
+            std::string cigar_buf;  // only allocates when a CIGAR clause is used
             for (auto &e : evaluations_block) {
                 int int_val = 0;
-                std::string str_val;
+                std::string_view str_val;
                 bool this_result = false;
                 const char *char_ptr;
                 switch (e.property) {
@@ -712,11 +711,11 @@ namespace Parse {
                         break;
                     case RNAME:
                         char_ptr = sam_hdr_tid2name(hdr, aln.delegate->core.tid);
-                        str_val = char_ptr ? char_ptr : "*";
+                        str_val = char_ptr ? std::string_view(char_ptr) : std::string_view("*");
                         break;
                     case RNEXT:
                         char_ptr = sam_hdr_tid2name(hdr, aln.delegate->core.mtid);
-                        str_val = char_ptr ? char_ptr : "*";
+                        str_val = char_ptr ? std::string_view(char_ptr) : std::string_view("*");
                         break;
                     case TID:
                         int_val = aln.delegate->core.tid;
@@ -725,34 +724,34 @@ namespace Parse {
                         int_val = aln.delegate->core.mtid;
                         break;
                     case RG:
-                        getStrTag("RG", str_val, aln, e.exists);
+                        getStrTag("RG", str_val, aln);
                         break;
                     case BC:
-                        getStrTag("BC", str_val, aln, e.exists);
+                        getStrTag("BC", str_val, aln);
                         break;
                     case LB:
-                        getStrTag("LB", str_val, aln, e.exists);
+                        getStrTag("LB", str_val, aln);
                         break;
                     case MD:
-                        getStrTag("MD", str_val, aln, e.exists);
+                        getStrTag("MD", str_val, aln);
                         break;
                     case PU:
-                        getStrTag("PU", str_val, aln, e.exists);
+                        getStrTag("PU", str_val, aln);
                         break;
                     case SA:
-                        getStrTag("SA", str_val, aln, e.exists);
+                        getStrTag("SA", str_val, aln);
                         break;
                     case MC:
-                        getStrTag("MC", str_val, aln, e.exists);
+                        getStrTag("MC", str_val, aln);
                         break;
                     case BX:
-                        getStrTag("BX", str_val, aln, e.exists);
+                        getStrTag("BX", str_val, aln);
                         break;
                     case RX:
-                        getStrTag("RX", str_val, aln, e.exists);
+                        getStrTag("RX", str_val, aln);
                         break;
                     case MI:
-                        getStrTag("MI", str_val, aln, e.exists);
+                        getStrTag("MI", str_val, aln);
                         break;
                     case NM:
                         getIntTag("NM", int_val, aln, e.exists);
@@ -785,7 +784,9 @@ namespace Parse {
                         getIntTag("HP", int_val, aln, e.exists);
                         break;
                     case CIGAR:
-                        getCigarStr(str_val, aln);
+                        cigar_buf.clear();
+                        getCigarStr(cigar_buf, aln);
+                        str_val = cigar_buf;
                         break;
                     default:
                         break;
@@ -838,7 +839,7 @@ namespace Parse {
     }
 
 
-    void countExpression(std::vector<Segs::ReadCollection> &collections, std::string &str, std::vector<sam_hdr_t*> hdrs,
+    void countExpression(std::vector<Segs::ReadCollection> &collections, std::string &str, const std::vector<sam_hdr_t*>& hdrs,
                          std::vector<std::string> &bam_paths, int nBams, int nRegions, std::ostream& out) {
 
         std::vector<Parser> filters;
@@ -846,7 +847,7 @@ namespace Parse {
             Parse::Parser p = Parse::Parser(out);
             int rr = p.set_filter(s, nBams, nRegions);
             if (rr > 0) {
-                filters.push_back(p);
+                filters.push_back(std::move(p));
             }
         }
         for (auto &col: collections) {
@@ -868,9 +869,13 @@ namespace Parse {
             int inv_f = 0;
             int inv_r = 0;
             int tra = 0;
-            std::vector<ankerl::unordered_dense::set<std::string>> family_keep_qnames(filters.size());
+            std::vector<ankerl::unordered_dense::set<std::string_view>> family_keep_qnames(filters.size());
+            std::vector<char> keepsFamily(filters.size());
             for (size_t i = 0; i < filters.size(); ++i) {
-                if (filters[i].keepsReadFamily()) {
+                keepsFamily[i] = filters[i].keepsReadFamily();  // computed once, not per read
+            }
+            for (size_t i = 0; i < filters.size(); ++i) {
+                if (keepsFamily[i]) {
                     family_keep_qnames[i] = collectFamilyMatches(col.readQueue, filters[i], hdrs[col.bamIdx],
                                                                  col.bamIdx, col.regionIdx);
                 }
@@ -880,8 +885,8 @@ namespace Parse {
                 sam_hdr_t* hdr = hdrs[col.bamIdx];
                 for (size_t i = 0; i < filters.size(); ++i) {
                     auto &f = filters[i];
-                    if (f.keepsReadFamily()) {
-                        if (family_keep_qnames[i].find(bam_get_qname(align.delegate)) == family_keep_qnames[i].end()) {
+                    if (keepsFamily[i]) {
+                        if (family_keep_qnames[i].find(std::string_view(bam_get_qname(align.delegate))) == family_keep_qnames[i].end()) {
                             drop = true;
                             break;
                         }
@@ -919,35 +924,36 @@ namespace Parse {
                     inv_r += 1;
                 }
             }
-            out << termcolor::bright_blue << "File\t" << bam_paths[col.bamIdx] << termcolor::reset << std::endl;
-            out << "Region\t" << col.region->chrom << ":" << col.region->start << "-" << col.region->end << std::endl;
+            out << termcolor::bright_blue << "File\t" << bam_paths[col.bamIdx] << termcolor::reset << '\n';
+            out << "Region\t" << col.region->chrom << ":" << col.region->start << "-" << col.region->end << '\n';
             if (!str.empty()) {
-                out << "Filter\t" << str << std::endl;
+                out << "Filter\t" << str << '\n';
             }
-            out << "Total\t" << tot << std::endl;
-            out << "Paired\t" << paired << std::endl;
-            out << "Proper-pair\t" << proper_pair << std::endl;
-            out << "Read-unmapped\t" << read_unmapped << std::endl;
-            out << "Mate-unmapped\t" << mate_unmapped << std::endl;
-            out << "Read-reverse\t" << read_reverse << std::endl;
-            out << "Mate-reverse\t" << mate_reverse << std::endl;
-            out << "First-in-pair\t" << first << std::endl;
-            out << "Second-in-pair\t" << second << std::endl;
-            out << "Not-primary\t" << not_primary << std::endl;
-            out << "Fails-qc\t" << fails_qc << std::endl;
-            out << "Duplicate\t" << duplicate << std::endl;
-            out << "Supplementary\t" << supp << std::endl;
+            out << "Total\t" << tot << '\n';
+            out << "Paired\t" << paired << '\n';
+            out << "Proper-pair\t" << proper_pair << '\n';
+            out << "Read-unmapped\t" << read_unmapped << '\n';
+            out << "Mate-unmapped\t" << mate_unmapped << '\n';
+            out << "Read-reverse\t" << read_reverse << '\n';
+            out << "Mate-reverse\t" << mate_reverse << '\n';
+            out << "First-in-pair\t" << first << '\n';
+            out << "Second-in-pair\t" << second << '\n';
+            out << "Not-primary\t" << not_primary << '\n';
+            out << "Fails-qc\t" << fails_qc << '\n';
+            out << "Duplicate\t" << duplicate << '\n';
+            out << "Supplementary\t" << supp << '\n';
             if (del > 0)
-                out << "Deletion-pattern\t" << del << std::endl;
+                out << "Deletion-pattern\t" << del << '\n';
             if (dup > 0)
-                out << "Duplication-pattern\t" << dup << std::endl;
+                out << "Duplication-pattern\t" << dup << '\n';
             if (tra > 0)
-                out << "Translocation-pattern\t" << tra << std::endl;
+                out << "Translocation-pattern\t" << tra << '\n';
             if (inv_f > 0)
-                out << "F-inversion-pattern\t" << inv_f << std::endl;
+                out << "F-inversion-pattern\t" << inv_f << '\n';
             if (inv_r > 0)
-                out << "R-inversion-pattern\t" << inv_r << std::endl;
+                out << "R-inversion-pattern\t" << inv_r << '\n';
         }
+        out << std::flush;
     }
 
 	void get_value_in_brackets(std::string &requestBracket, std::ostream& out) {
@@ -1013,6 +1019,10 @@ namespace Parse {
 	}
 
 	void parse_FORMAT (std::string &result, std::vector<std::string> &vcfCols, std::string &request, std::vector<std::string> &sample_names, std::ostream& out) {
+		if (vcfCols.size() < 10) {  // sites-only VCF: no FORMAT/sample columns
+			result.clear();
+			return;
+		}
 		if (request == "format" || request == "genome" || request == "format[0]") {
 			result = vcfCols[9];
 			return;
@@ -1036,7 +1046,8 @@ namespace Parse {
 		int nvars = formatVars.size();
 		for (int j = 0; j < nvars; ++j) {
 			if (formatVars[j] == request) {
-                result = formatVals[j];
+                // trailing FORMAT fields may be omitted per sample (VCF spec)
+                result = (j < (int)formatVals.size()) ? formatVals[j] : ".";
                 break;
             }
 		}
@@ -1172,13 +1183,14 @@ namespace Parse {
         return stringpath;
     }
 
-    std::string longestCommonPrefix(std::vector<std::string> ar) {
+    std::string longestCommonPrefix(const std::vector<std::string>& ar) {
         if (ar.empty())
             return "";
         if (ar.size() == 1)
             return ar[0];
-        std::sort(ar.begin(), ar.end());
-        std::string first = ar.front(), last = ar.back();
+        // The common prefix of a set equals that of its lexicographic min and max: no copy or sort needed
+        auto mm = std::minmax_element(ar.begin(), ar.end());
+        const std::string &first = *mm.first, &last = *mm.second;
         int end = std::min(first.size(), last.size());
         int i = 0;
         while (i < end && first[i] == last[i])
@@ -1226,7 +1238,7 @@ namespace Parse {
         charIndex = inputText.size();
         size_t width = (size_t)Utils::get_terminal_width() - 1;
         size_t i = 0;
-        for (auto s_path : glob_paths) {
+        for (const auto& s_path : glob_paths) {
             std::string s = s_path.filename().generic_string();
             if (s.size() < width) {
                 out << s;

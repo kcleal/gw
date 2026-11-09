@@ -228,6 +228,7 @@ namespace Manager {
         Show last_mode;
 
         std::string selectedAlign;  // SAM text of most-recently clicked read (used by commands)
+        int selectedAlignBamIdx{0};  // index into bams/headers of the file selectedAlign came from
         std::string selectedIntron;  // TSV (chrom,start,end,strand,count) of most-recently clicked intron
         std::string selectedFeature;  // TAB record "TITLE\tkey\tval..." for a clicked gff/coverage/reference element
         std::string selectedIntronChrom;  // identity of the highlighted intron (persists across redraws)
@@ -253,6 +254,7 @@ namespace Manager {
             float x{0}, y{0};
             int uid{0};
             int regionSelection{-1};
+            int bamIdx{0};  // bams/headers index of the read
         };
         std::vector<ReadPopup> readPopups;
 
@@ -332,7 +334,7 @@ namespace Manager {
         bool selectVariantFile(int index);
         bool toggleCurrentVariantTiledView();
         bool openVariantInAlignmentView(int index);  // as right-clicking that variant's tile
-        void addIdeogram(std::string path);
+        void addIdeogram(const std::string &path);
         bool loadIdeogramTag();
 
         // Embedded or online (IGV/UCSC) ideogram for an assembly id such as hg38, hs1 or mm10
@@ -425,7 +427,7 @@ namespace Manager {
 
         // Output functions
         sk_sp<SkImage> makeImage();
-        void saveSession(std::string out_session);
+        void saveSession(const std::string &out_session);
         void rasterToPng(const char* path);
 #ifndef __EMSCRIPTEN__
         void saveToPdf(const char* path, bool force_buffered_reads=false);
@@ -564,7 +566,7 @@ namespace Manager {
 
     void imagePngToStdOut(sk_sp<SkImage> &img);
 
-    void imagePngToFile(sk_sp<SkImage> &img, std::string path);
+    void imagePngToFile(sk_sp<SkImage> &img, const std::string &path);
 
     void savePlotToPdfFile(Manager::GwPlot *plot, std::string path);
 

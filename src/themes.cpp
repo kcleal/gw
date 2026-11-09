@@ -1565,7 +1565,7 @@ namespace Themes {
         style.AntiAliasedLinesUseTex = true;
     }
 
-    void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
+    void readIdeogramFile(const std::string &file_path, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
                           Themes::BaseTheme &theme) {
         // htslib opens local paths and URLs alike, and reads plain or gzip-compressed text
         // (UCSC/IGV serve cytoBandIdeo.txt.gz)

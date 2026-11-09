@@ -68,17 +68,9 @@ namespace {
         GTF,
     };
 
-    std::string stripQuotes(std::string value) {
-        Utils::trim(value);
-        if (value.size() >= 2 && value.front() == '"' && value.back() == '"') {
-            value = value.substr(1, value.size() - 2);
-        }
-        return value;
-    }
-
     std::unordered_map<std::string, std::string> parseTrackLabelRules(const std::string &rules) {
         std::unordered_map<std::string, std::string> parsed;
-        for (auto item : Utils::split(rules, ';')) {
+        for (auto &item : Utils::split(rules, ';')) {
             Utils::trim(item);
             if (item.empty()) {
                 continue;
@@ -156,44 +148,6 @@ namespace {
         return ss.str();
     }
 
-    std::unordered_map<std::string, std::string> parseGffAttributes(const std::string &raw) {
-        std::unordered_map<std::string, std::string> attrs;
-        for (auto item : Utils::split(raw, ';')) {
-            Utils::trim(item);
-            if (item.empty()) {
-                continue;
-            }
-            auto eq = item.find('=');
-            if (eq == std::string::npos) {
-                continue;
-            }
-            std::string key = item.substr(0, eq);
-            std::string value = item.substr(eq + 1);
-            Utils::trim(key);
-            attrs[key] = stripQuotes(value);
-        }
-        return attrs;
-    }
-
-    std::unordered_map<std::string, std::string> parseGtfAttributes(const std::string &raw) {
-        std::unordered_map<std::string, std::string> attrs;
-        for (auto item : Utils::split(raw, ';')) {
-            Utils::trim(item);
-            if (item.empty()) {
-                continue;
-            }
-            auto ws = item.find_first_of(" \t");
-            if (ws == std::string::npos) {
-                continue;
-            }
-            std::string key = item.substr(0, ws);
-            std::string value = item.substr(ws + 1);
-            Utils::trim(key);
-            attrs[key] = stripQuotes(value);
-        }
-        return attrs;
-    }
-
     std::string getTrackLabelRuleForFormat(const std::string &rules, AnnotationLabelFormat format) {
         if (rules.empty()) {
             return "auto";
@@ -210,33 +164,6 @@ namespace {
             it = parsed.find("GFF");
         }
         return (it == parsed.end() || it->second.empty()) ? "auto" : it->second;
-    }
-
-    std::string firstAvailableAttr(const std::unordered_map<std::string, std::string> &attrs,
-                                   std::initializer_list<const char*> keys) {
-        for (const char *key : keys) {
-            auto it = attrs.find(key);
-            if (it != attrs.end() && !it->second.empty()) {
-                return it->second;
-            }
-        }
-        return "";
-    }
-
-    std::string resolveTrackLabel(const std::unordered_map<std::string, std::string> &attrs,
-                                  AnnotationLabelFormat format,
-                                  const std::string &rules) {
-        const std::string chosen = getTrackLabelRuleForFormat(rules, format);
-        if (chosen != "auto") {
-            auto it = attrs.find(chosen);
-            if (it != attrs.end() && !it->second.empty()) {
-                return it->second;
-            }
-        }
-        if (format == AnnotationLabelFormat::GTF) {
-            return firstAvailableAttr(attrs, {"gene_name", "gene_id", "transcript_id"});
-        }
-        return firstAvailableAttr(attrs, {"gene_name", "Name", "ID"});
     }
 
     // ---------- Fast-path helpers for the bulk GFF3/GTF non-indexed load ----------
@@ -333,7 +260,7 @@ namespace {
         }
     }
 
-    // GFF3 label resolution that mirrors resolveTrackLabel but never builds a map.
+    // GFF3 label resolution (gene_name > Name > ID, or the configured key) without building a map.
     static std::string resolveGff3LabelFast(const std::string &attrsRaw,
                                             const std::string &chosen) {
         if (chosen != "auto") {
@@ -424,9 +351,39 @@ namespace {
         return n;
     }
 
+    // Split on delim, skipping empty fields like Utils::split, but reusing the string capacity already in parts
+    static void splitInto(const char* s, size_t n, char delim, std::vector<std::string>& parts) {
+        size_t count = 0;
+        size_t start = 0;
+        for (size_t i = 0; i <= n; ++i) {
+            if (i == n || s[i] == delim) {
+                if (i > start) {
+                    if (count < parts.size()) {
+                        parts[count].assign(s + start, i - start);
+                    } else {
+                        parts.emplace_back(s + start, i - start);
+                    }
+                    ++count;
+                }
+                start = i + 1;
+            }
+        }
+        parts.resize(count);
+    }
+
 } // namespace
 
 namespace HGW {
+
+    const std::string& GwTrack::labelKey(bool gtf) {
+        if (!labelKeysReady || labelRulesResolved != track_label_parser_rules) {
+            labelKeyGff3 = getTrackLabelRuleForFormat(track_label_parser_rules, AnnotationLabelFormat::GFF3);
+            labelKeyGtf = getTrackLabelRuleForFormat(track_label_parser_rules, AnnotationLabelFormat::GTF);
+            labelRulesResolved = track_label_parser_rules;
+            labelKeysReady = true;
+        }
+        return gtf ? labelKeyGtf : labelKeyGff3;
+    }
 
     int bamContigId(sam_hdr_t* header, const std::string& chrom) {
         if (!header || chrom.empty()) return -1;
@@ -444,8 +401,8 @@ namespace HGW {
         int longest;
         faidx_t *fai;
         GenomeJob(std::string qRefName, std::string qPath) {
-            refName = qRefName;
-            path = qPath;
+            refName = std::move(qRefName);
+            path = std::move(qPath);
             success = false;
             longest = 0;
         }
@@ -559,27 +516,44 @@ namespace HGW {
         std::cerr << "Error: could not find suitable reference genome in .gw.ini. Try a local file?\n";
     }
 
+    // Removes reads that fail a filter and frees their records. Nothing else references a removed
+    // read: changing or clearing the filter makes processBam refetch everything from the file.
+    template <typename Keep>
+    static void removeReadsAndFree(std::vector<Segs::Align>& readQueue, Keep keep) {
+        size_t w = 0;
+        for (size_t r = 0; r < readQueue.size(); ++r) {
+            if (keep(readQueue[r])) {
+                if (w != r) {
+                    readQueue[w] = std::move(readQueue[r]);  // slot w holds a freed or moved-from read
+                }
+                ++w;
+            } else {
+                bam_destroy1(readQueue[r].delegate);
+                readQueue[r].delegate = nullptr;
+            }
+        }
+        readQueue.erase(readQueue.begin() + (std::ptrdiff_t)w, readQueue.end());
+    }
+
     void applyFilters(std::vector<Parse::Parser> &filters, std::vector<Segs::Align>& readQueue, const sam_hdr_t* hdr,
                       int bamIdx, int regionIdx) {
         for (auto &f: filters) {
             if (f.keepsReadFamily()) {
-                ankerl::unordered_dense::set<std::string> keep_qnames;
+                // Views into the bam records of reads that pass, which are all kept: no string copy per read
+                ankerl::unordered_dense::set<std::string_view> keep_qnames;
+                keep_qnames.reserve(readQueue.size());
                 for (const auto &align : readQueue) {
                     if (f.eval(align, hdr, bamIdx, regionIdx)) {
                         keep_qnames.emplace(bam_get_qname(align.delegate));
                     }
                 }
-                readQueue.erase(std::remove_if(readQueue.begin(), readQueue.end(),
-                                               [&](const Segs::Align &align) {
-                                                   return keep_qnames.find(bam_get_qname(align.delegate)) == keep_qnames.end();
-                                               }),
-                                readQueue.end());
+                removeReadsAndFree(readQueue, [&](const Segs::Align &align) {
+                    return keep_qnames.find(std::string_view(bam_get_qname(align.delegate))) != keep_qnames.end();
+                });
             } else {
-                readQueue.erase(std::remove_if(readQueue.begin(), readQueue.end(),
-                                               [&](const Segs::Align &align) {
-                                                   return !f.eval(align, hdr, bamIdx, regionIdx);
-                                               }),
-                                readQueue.end());
+                removeReadsAndFree(readQueue, [&](const Segs::Align &align) {
+                    return f.eval(align, hdr, bamIdx, regionIdx);
+                });
             }
         }
     }
@@ -588,14 +562,16 @@ namespace HGW {
                       int bamIdx, int regionIdx) {
         for (auto &f: filters) {
             if (f.keepsReadFamily()) {
-                ankerl::unordered_dense::set<std::string> keep_qnames;
+                // Views into the bam records, which outlive the set: no string copy per read
+                ankerl::unordered_dense::set<std::string_view> keep_qnames;
+                keep_qnames.reserve(readQueue.size());
                 for (const auto &align : readQueue) {
                     if (f.eval(align, hdr, bamIdx, regionIdx)) {
                         keep_qnames.emplace(bam_get_qname(align.delegate));
                     }
                 }
                 for (auto &align : readQueue) {
-                    if (keep_qnames.find(bam_get_qname(align.delegate)) == keep_qnames.end()) {
+                    if (keep_qnames.find(std::string_view(bam_get_qname(align.delegate))) == keep_qnames.end()) {
                         align.y = -2;
                     }
                 }
@@ -1120,7 +1096,7 @@ namespace HGW {
         bool prepend = known && added && (region->start < oldStart ||
             (!readQueue.empty() && newReads.front().delegate->core.pos <= readQueue.back().delegate->core.pos));
         if (added) {
-            Segs::init_parallel(newReads, opts.threads, pool, opts.parse_mods ? 50 : 0,
+            Segs::init_parallel(newReads, opts.threads, pool, opts.parse_mods ? opts.mods_qual_threshold : 0,
                                 opts.soft_clip_threshold > 0);
             if (!filters.empty()) applyFilters(filters, newReads, hdr_ptr, col.bamIdx, col.regionIdx);
         }
@@ -1134,6 +1110,7 @@ namespace HGW {
                 [](const Segs::Align& a, const Segs::Align& b) { return a.pos < b.pos; });
             readQueue.swap(newReads);
         } else {
+            readQueue.reserve(readQueue.size() + newReads.size());
             std::move(newReads.begin(), newReads.end(), std::back_inserter(readQueue));
         }
         if (!known || opts.link_op != 0 || opts.tlen_yscale) {
@@ -1465,6 +1442,7 @@ namespace HGW {
                     break;
                 }
             }
+            if (kstr.s) free(kstr.s);
         }
     }
 
@@ -1510,7 +1488,12 @@ namespace HGW {
         bcf1_t *tv = bcf_init1();
         std::string tmp_id;
         htsFile *_fp = bcf_open(path.c_str(), "r");
-        bcf_hdr_t *_hdr = bcf_hdr_read(_fp);
+        bcf_hdr_t *_hdr = _fp ? bcf_hdr_read(_fp) : nullptr;
+        if (!_hdr) {
+            if (_fp) bcf_close(_fp);
+            bcf_destroy1(tv);
+            return;
+        }
         while (bcf_read(_fp, _hdr, tv) == 0) {
             bcf_unpack(tv, BCF_UN_STR);
             tmp_id = tv->d.id;
@@ -1531,8 +1514,14 @@ namespace HGW {
         bcf1_t *tv = bcf_init1();
         std::string tmp_id;
         htsFile *_fp = bcf_open(path.c_str(), "r");
-        bcf_hdr_t *_hdr = bcf_hdr_read(_fp);
-        tbx_t *_idx_t = tbx_index_load2(path.c_str(), Online::indexPath(path));
+        bcf_hdr_t *_hdr = _fp ? bcf_hdr_read(_fp) : nullptr;
+        tbx_t *_idx_t = _hdr ? tbx_index_load2(path.c_str(), Online::indexPath(path)) : nullptr;
+        if (!_idx_t) {
+            if (_hdr) bcf_hdr_destroy(_hdr);
+            if (_fp) bcf_close(_fp);
+            bcf_destroy1(tv);
+            return;
+        }
         hts_itr_t *_iter_q = tbx_itr_queryi(_idx_t, tbx_name2id(_idx_t, chrom.c_str()), pos-10, pos+10);
         while (true) {
             int res = tbx_itr_next(_fp, _idx_t, _iter_q, &kstr);
@@ -1565,13 +1554,20 @@ namespace HGW {
 	void print_BED_IDX(std::string &path, std::string &chrom, int pos, std::string &variantString) {
 		kstring_t kstr = {0,0,0};
 		htsFile *fp = hts_open(path.c_str(), "r");
-		tbx_t * idx_t = tbx_index_load2(path.c_str(), Online::indexPath(path));
+		tbx_t * idx_t = fp ? tbx_index_load2(path.c_str(), Online::indexPath(path)) : nullptr;
+		if (!idx_t) {
+			std::cerr << "\nError: could not open " << path << " or its index" << std::endl;
+			if (fp) hts_close(fp);
+			return;
+		}
 		int tid = tbx_name2id(idx_t, chrom.c_str());
 		hts_itr_t *iter_q = tbx_itr_queryi(idx_t, tid, pos, pos + 1);
 		if (iter_q == nullptr) {
 			std::cerr << "\nError: Null iterator when trying to fetch from indexed bed file in print "
 			          << chrom
 			          << " " << pos << std::endl;
+			tbx_destroy(idx_t);
+			hts_close(fp);
 			return;
 		}
 		int res = tbx_itr_next(fp, idx_t, iter_q, &kstr);
@@ -2082,6 +2078,10 @@ namespace HGW {
                 throw std::exception();
             }
             idx_v = bcf_index_load2(p.c_str(), Online::indexPath(p));
+            if (!idx_v) {
+                std::cerr << "Error: could not open index of " << path << std::endl;
+                throw std::exception();
+            }
             v = bcf_init1();
             v->max_unpack = BCF_UN_INFO;
         } else if (kind == VCF_IDX) {
@@ -2096,6 +2096,10 @@ namespace HGW {
                 throw std::exception();
             }
             idx_t = tbx_index_load2(path.c_str(), Online::indexPath(path));
+            if (!idx_t) {
+                std::cerr << "Error: could not open index of " << path << std::endl;
+                throw std::exception();
+            }
             v = bcf_init1();
             v->max_unpack = BCF_UN_INFO;
         } else if (kind == BIGWIG) {
@@ -2170,6 +2174,11 @@ namespace HGW {
                     }
                 }
             } else if (kind == BCF_IDX) {
+                if (rgn == nullptr) {
+                    iter_q = nullptr;
+                    done = true;
+                    return;
+                }
                 int tid = bcf_hdr_name2id(hdr, rgn->chrom.c_str());
                 iter_q = bcf_itr_queryi(idx_v, tid, rgn->start, rgn->end);
                 if (iter_q == nullptr) {
@@ -2302,7 +2311,7 @@ namespace HGW {
                 done = true;
                 return;
             }
-            kstring_t str = {0,0, nullptr};
+            kstring_t &str = lineBuf.s;
             while (true) {
                 res = tbx_itr_next(fp, idx_t, iter_q, &str);
                 if (res < 0) {
@@ -2328,7 +2337,7 @@ namespace HGW {
             }
 
         } else if (kind == BED_IDX || kind == GFF3_IDX || kind == GTF_IDX) {
-            kstring_t str = {0,0, nullptr};
+            kstring_t &str = lineBuf.s;
             while (true) {
                 if (iter_q != nullptr) {
                     res = tbx_itr_next(fp, idx_t, iter_q, &str);
@@ -2350,8 +2359,7 @@ namespace HGW {
                     }
                 }
                 if (kind == BED_IDX) {
-                    parts.clear();
-                    parts = Utils::split(str.s, '\t');
+                    splitInto(str.s, str.l, '\t', parts);
                     if (parts.size() < 3) {
                         std::cerr << "Warning: skipping malformed BED line in " << path << ": " << str.s << std::endl;
                         continue;
@@ -2377,8 +2385,7 @@ namespace HGW {
                     break;
                 }
 
-                parts.clear();
-                parts = Utils::split(str.s, '\t');
+                splitInto(str.s, str.l, '\t', parts);
                 if (parts.size() < 9) {
                     std::cerr << "Warning: skipping malformed GFF/GTF line in " << path << ": " << str.s << std::endl;
                     continue;
@@ -2399,32 +2406,21 @@ namespace HGW {
                 if (kind == GTF_IDX && vartype != "exon") {
                     continue;
                 }
+                // Map-free attribute parsing; the label rule is resolved once per rules string, not per line
                 if (kind == GFF3_IDX) {
-                    const auto attrs = parseGffAttributes(parts[8]);
-                    rid = resolveTrackLabel(attrs, AnnotationLabelFormat::GFF3, track_label_parser_rules);
-                    auto parent_it = attrs.find("Parent");
-                    if (parent_it != attrs.end()) {
-                        parent = parent_it->second;
-                    }
-                    auto id_it = attrs.find("ID");
-                    if (id_it != attrs.end()) {
-                        unique_id = id_it->second;
-                    }
+                    rid = resolveGff3LabelFast(parts[8], labelKey(false));
+                    extractGff3Attrs(parts[8], &unique_id, nullptr, &parent, nullptr);
                 } else {  // GTF_IDX
-                    const auto attrs = parseGtfAttributes(parts[8]);
-                    auto gene_id_it = attrs.find("gene_id");
-                    if (gene_id_it != attrs.end()) {
-                        parent = gene_id_it->second;
+                    std::string geneId, geneName, transcriptId;
+                    extractGtfAttrs(parts[8], &geneId, &geneName, &transcriptId);
+                    // Precedence matches the old map-based code: transcript_id > gene_name > gene_id
+                    parent = !transcriptId.empty() ? transcriptId : (!geneName.empty() ? geneName : geneId);
+                    const std::string &key = labelKey(true);
+                    if (key == "auto") {
+                        rid = !geneName.empty() ? geneName : (!geneId.empty() ? geneId : transcriptId);
+                    } else {
+                        rid = resolveGtfLabelFast(parts[8], key);
                     }
-                    auto gene_name_it = attrs.find("gene_name");
-                    if (gene_name_it != attrs.end()) {
-                        parent = gene_name_it->second;
-                    }
-                    auto transcript_id_it = attrs.find("transcript_id");
-                    if (transcript_id_it != attrs.end()) {
-                        parent = transcript_id_it->second;
-                    }
-                    rid = resolveTrackLabel(attrs, AnnotationLabelFormat::GTF, track_label_parser_rules);
                 }
                 break;
             }
@@ -2455,8 +2451,7 @@ namespace HGW {
             int fileIndex_tmp = 0;
             bool found = false;
             while (hts_getline(fp_temp, '\n', &str) >= 0) {
-                parts.clear();
-                parts = Utils::split(str.s, '\t');
+                splitInto(str.s, str.l, '\t', parts);
                 if (parts.size() < 3) {
                     continue;
                 }
@@ -2471,7 +2466,8 @@ namespace HGW {
                     region.start = std::stoi(parts[1]);
                     region.end = std::stoi(parts[2]);
                     region.markers = {{region.start, region.end}};
-                    return true;
+                    found = true;
+                    break;
                 }
             }
             if (str.s) free(str.s);
@@ -2501,7 +2497,8 @@ namespace HGW {
                     region.start = (int)v2->pos;
                     region.end = vcfReferenceEnd(hdr2, v2);
                     region.markers = {{region.start, region.end}};
-                    return true;
+                    found = true;
+                    break;
                 }
             }
             bcf_destroy1(v2);
@@ -2558,8 +2555,7 @@ namespace HGW {
         std::string variantFilename;
         std::filesystem::path fsp(input_vcf_path);
     #if defined(_WIN32) || defined(_WIN64)
-        const wchar_t* pc = fsp.filename().c_str();
-            std::wstring ws(pc);
+        std::wstring ws = fsp.filename().wstring();  // keep the path temporary's buffer alive
             std::string p(ws.begin(), ws.end());
             variantFilename = p;
     #else
@@ -2706,8 +2702,7 @@ namespace HGW {
 
         std::filesystem::path fsp(path);
 #if defined(_WIN32) || defined(_WIN64)
-        const wchar_t* pc = fsp.filename().c_str();
-        std::wstring ws(pc);
+        std::wstring ws = fsp.filename().wstring();  // keep the path temporary's buffer alive
         std::string p(ws.begin(), ws.end());
         fileName = p;
 #else
@@ -2967,9 +2962,10 @@ namespace HGW {
                g->name = trk.parent;
             }
             g->vartype = trk.vartype;
-            g->strand = (trk.parts[6] == "-") ? 2 : 1; // assume all on same strand
-            g->parts.insert(g->parts.end(), trk.parts.begin(), trk.parts.end());
-            gffParentMap[trk.parent].push_back(g);
+            g->strand = (trk.parts.size() > 6 && trk.parts[6] == "-") ? 2 : 1; // assume all on same strand
+            g->parts = std::move(trk.parts);  // iterator scratch, refilled by next()
+            trk.parts.clear();
+            gffParentMap[trk.parent].push_back(std::move(g));
         }
         
         features.resize(gffParentMap.size());
@@ -3003,17 +2999,17 @@ namespace HGW {
                     track.start = g->start;
                     track.name = g->name;
 
-                    if (track.name.front() == '"') {
+                    if (!track.name.empty() && track.name.front() == '"') {
                         track.name.erase(0, 1);
                     }
-                    if (track.name.back() == '"') {
+                    if (!track.name.empty() && track.name.back() == '"') {
                         track.name.erase(track.name.size() - 1, 1);
                     }
                     track.parent = pg.first;
-                    if (track.parent.front() == '"') {
+                    if (!track.parent.empty() && track.parent.front() == '"') {
                         track.parent.erase(0, 1);
                     }
-                    if (track.parent.back() == '"') {
+                    if (!track.parent.empty() && track.parent.back() == '"') {
                         track.parent.erase(track.parent.size() - 1, 1);
                     }
                     track.end = g->end;
@@ -3022,7 +3018,9 @@ namespace HGW {
                 } else if (g->end > track.end) {
                     track.end = g->end;
                 }
-                track.parts.insert(track.parts.end(), g->parts.begin(), g->parts.end());
+                // gffBlocks is local, so the child's fields can be moved rather than copied
+                track.parts.insert(track.parts.end(), std::make_move_iterator(g->parts.begin()),
+                                   std::make_move_iterator(g->parts.end()));
                 track.parts.push_back("\n");
                 track.s.push_back(g->start);
                 track.e.push_back(g->end);
@@ -3054,6 +3052,7 @@ namespace HGW {
     }
     void collectTrackData(HGW::GwTrack &trk, std::vector<Utils::TrackBlock> &features) {
         bool isVCF = trk.kind == HGW::VCF_NOI || trk.kind == HGW::BCF_IDX || trk.kind == HGW::VCF_IDX;
+        std::vector<std::string> lens, starts;  // reused across features
         while (true) {
             trk.next();
             if (trk.done) {
@@ -3070,8 +3069,12 @@ namespace HGW {
             b->name = trk.rid;
             b->start = trk.start;
             b->end = trk.stop;
-            b->line = trk.variantString;
-            b->parts = trk.parts;
+            // trk.variantString/trk.parts are per-feature iterator scratch, refilled by next(): move instead of copy
+            b->line = std::move(trk.variantString);
+            b->parts = std::move(trk.parts);
+            trk.variantString.clear();
+            trk.parts.clear();
+            const std::vector<std::string> &parts = b->parts;
             b->anyToDraw = true;
             b->strand = trk.strand;
 
@@ -3079,10 +3082,10 @@ namespace HGW {
                 b->vartype = trk.vartype;
             }
             if (trk.kind == BIGBED) {
-                if (trk.parts.size() > 2) {
-                if (trk.parts[2] == "-") {
+                if (parts.size() > 2) {
+                if (parts[2] == "-") {
                     b->strand = 1;
-                } else if (trk.parts[2] == "+") {
+                } else if (parts[2] == "+") {
                     b->strand = 2;
                 } else {
                     b->strand = 0;
@@ -3097,18 +3100,19 @@ namespace HGW {
             if (trk.kind == BIGBED) {
                 // libBigWig returns the payload after chrom/start/end, so BED12-style
                 // columns are shifted left by 3 compared with plain BED records.
-                tryBed12 = trk.parts.size() >= 9;
+                tryBed12 = parts.size() >= 9;
                 thickStartIdx = 3;
                 thickEndIdx = 4;
                 blockSizesIdx = 7;
                 blockStartsIdx = 8;
             } else {
-                tryBed12 = !trk.parts.empty() && trk.parts.size() >= 12;
+                tryBed12 = !parts.empty() && parts.size() >= 12;
             }
             if (tryBed12) {
-                std::vector<std::string> lens, starts;
-                Utils::split(trk.parts[blockSizesIdx], ',', lens);
-                Utils::split(trk.parts[blockStartsIdx], ',', starts);
+                lens.clear();
+                starts.clear();
+                Utils::split(parts[blockSizesIdx], ',', lens);
+                Utils::split(parts[blockStartsIdx], ',', starts);
                 if (starts.size() != lens.size()) {
                     continue;
                 }
@@ -3116,8 +3120,8 @@ namespace HGW {
                 int gene_start = trk.start;
                 int thickStart, thickEnd;
                 try {
-                    thickStart = std::stoi(trk.parts[thickStartIdx]);
-                    thickEnd = (std::stoi(trk.parts[thickEndIdx]));
+                    thickStart = std::stoi(parts[thickStartIdx]);
+                    thickEnd = (std::stoi(parts[thickEndIdx]));
                 } catch (...) {
                     continue;
                 }

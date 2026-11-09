@@ -45,8 +45,9 @@ void drawImGuiTrackSeparators(Manager::GwPlot* plot) {
         ImGui::SetNextWindowSize(ImVec2(plot->drawingWidth()/scale,8),ImGuiCond_Always);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(0,0));
         ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize,ImVec2(1,1));
-        const std::string name="##track_separator_"+std::to_string(i);
-        ImGui::Begin(name.c_str(),nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoBackground|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoNav|ImGuiWindowFlags_NoFocusOnAppearing);
+        char name[48];  // window name built without a heap string every frame
+        std::snprintf(name,sizeof(name),"##track_separator_%zu",i);
+        ImGui::Begin(name,nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoBackground|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoNav|ImGuiWindowFlags_NoFocusOnAppearing);
         ImGui::BringWindowToDisplayBack(ImGui::GetCurrentWindow());
         ImGui::InvisibleButton("##drag",ImVec2(plot->drawingWidth()/scale,8));
         if (ImGui::IsItemActivated()) {
@@ -101,8 +102,9 @@ void drawImGuiAlignmentScrollbars(Manager::GwPlot* plot) {
         ImGui::SetNextWindowSize(ImVec2(16.0f, height), ImGuiCond_Always);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
         ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(1, 1));
-        std::string id = "##alignment_scroll_" + std::to_string(i);
-        ImGui::Begin(id.c_str(), nullptr, ImGuiWindowFlags_NoDecoration |
+        char id[48];  // window name built without a heap string every frame
+        std::snprintf(id, sizeof(id), "##alignment_scroll_%d", (int)i);
+        ImGui::Begin(id, nullptr, ImGuiWindowFlags_NoDecoration |
             ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
             ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav |
             ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoBackground);

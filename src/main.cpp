@@ -748,8 +748,7 @@ int main(int argc, char *argv[]) try {
                 std::string empty_comment;
                 std::filesystem::path fsp(vcf.path);
 #if defined(_WIN32) || defined(_WIN64)
-                const wchar_t* pc = fsp.filename().c_str();
-                std::wstring ws(pc);
+                std::wstring ws = fsp.filename().wstring();  // keep the path temporary's buffer alive
                 std::string p(ws.begin(), ws.end());
                 fileName = p;
 #else

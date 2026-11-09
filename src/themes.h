@@ -266,7 +266,7 @@ namespace Themes {
 
     void applyImGuiTheme(const std::string &theme_str);
 
-    void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
+    void readIdeogramFile(const std::string &file_path, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
                           Themes::BaseTheme &theme);
 
     void readIdeogramData(const unsigned char *data, size_t size, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,

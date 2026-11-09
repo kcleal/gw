@@ -827,8 +827,7 @@ namespace Manager {
         if (!useFullPath) {
             std::filesystem::path fsp(path);
 #if defined(_WIN32) || defined(_WIN64)
-            const wchar_t* pc = fsp.filename().c_str();
-        std::wstring ws(pc);
+            std::wstring ws = fsp.filename().wstring();  // keep the path temporary's buffer alive
         std::string p(ws.begin(), ws.end());
         variantFilename = p;
 #else
@@ -871,8 +870,7 @@ namespace Manager {
             if (vf.type != HGW::TrackType::IMAGES) {
                 std::filesystem::path fsp(vf.path);
 #if defined(_WIN32) || defined(_WIN64)
-                const wchar_t* pc = fsp.filename().c_str();
-            std::wstring ws(pc);
+                std::wstring ws = fsp.filename().wstring();  // keep the path temporary's buffer alive
             std::string p(ws.begin(), ws.end());
             fileName = p;
 #else
@@ -884,8 +882,7 @@ namespace Manager {
                 if (vf.type == HGW::TrackType::IMAGES) {
                     std::filesystem::path fsp(vf.image_glob[i]);
 #if defined(_WIN32) || defined(_WIN64)
-                    const wchar_t* pc = fsp.filename().c_str();
-            std::wstring ws(pc);
+                    std::wstring ws = fsp.filename().wstring();  // keep the path temporary's buffer alive
             std::string p(ws.begin(), ws.end());
             fileName = p;
 #else
@@ -899,7 +896,7 @@ namespace Manager {
         f.close();
     }
 
-    void GwPlot::addIdeogram(std::string path) {
+    void GwPlot::addIdeogram(const std::string &path) {
         if (path == "hg19" || path == "hg38" || path == "grch38" || path == "grch37" || path == "t2t" ||
             path == "mm39" || path == "ce11" || path == "danrer11") {
             std::string original_tag = opts.genome_tag;
@@ -1021,7 +1018,7 @@ namespace Manager {
     void GwPlot::addFilter(std::string &filter_str) {
         Parse::Parser p = Parse::Parser(outStr);
         if (p.set_filter(filter_str, bams.size(), regions.size()) > 0) {
-            filters.push_back(p);
+            filters.push_back(std::move(p));
         }
     }
 
@@ -1199,7 +1196,7 @@ namespace Manager {
         redraw = true;
     }
 
-    void GwPlot::saveSession(std::string output_session = "") {
+    void GwPlot::saveSession(const std::string &output_session = "") {
         std::vector<std::string> track_paths;
         for (const auto &item: tracks) {
             if (item.kind != HGW::FType::ROI) {
@@ -2787,7 +2784,9 @@ namespace Manager {
 
         std::vector<std::string> srtLabels;
         std::string &fileName = variantTracks[variantFileSelection].fileName;
-        for (auto &itm: seenLabels[fileName]) {
+        auto &fileSeenLabels = seenLabels[fileName];  // looked up once, not per tile
+        srtLabels.reserve(fileSeenLabels.size());
+        for (auto &itm: fileSeenLabels) {
             srtLabels.push_back(itm);
         }
         std::sort(srtLabels.begin(), srtLabels.end());
@@ -2805,9 +2804,11 @@ namespace Manager {
         int i = bStart;
         for (auto &b : bboxes) {
             SkRect rect;
-            if (imageCache.find(i) != imageCache.end()) {
-                int w = imageCache[i]->width();
-                int h = imageCache[i]->height();
+            auto cached = imageCache.find(i);
+            if (cached != imageCache.end()) {
+                const sk_sp<SkImage> &img = cached->second;
+                int w = img->width();
+                int h = img->height();
                 float ratio = (float)w / (float)h;
                 float box_ratio = (float)b.width / (float)b.height;
                 if (currentVarTrack->type != HGW::TrackType::IMAGES) {
@@ -2823,14 +2824,14 @@ namespace Manager {
                     float newHeight = newWidth / ratio;
                     rect.setXYWH(b.xStart, b.yStart, newWidth, newHeight);
                 }
-                rasterCanvas->drawImageRect(imageCache[i], rect, sampOpts);
+                rasterCanvas->drawImageRect(img, rect, sampOpts);
                 if (currentVarTrack->multiLabels.empty()) {
                     ++i; continue;
                 }
                 if (i - bStart != mouseOverTileIndex) {
                     currentVarTrack->multiLabels[i].mouseOver = false;
                 }
-                Drawing::drawLabel(opts, rasterCanvas, rect, currentVarTrack->multiLabels[i], fonts, seenLabels[fileName], srtLabels);
+                Drawing::drawLabel(opts, rasterCanvas, rect, currentVarTrack->multiLabels[i], fonts, fileSeenLabels, srtLabels);
             }
             ++i;
         }
@@ -3060,7 +3061,7 @@ namespace Manager {
 #endif
 
         if (!png) { return; }
-        FILE* fout = fopen(path, "w");
+        FILE* fout = fopen(path, "wb");
         if (fout == nullptr) {
             std::cerr << "Error: could not open " << path << " for writing\n";
             return;
@@ -3212,7 +3213,7 @@ namespace Manager {
         fwrite(png->data(), 1, png->size(), fout);
     }
 
-    void imagePngToFile(sk_sp<SkImage> &img, std::string path) {
+    void imagePngToFile(sk_sp<SkImage> &img, const std::string &path) {
         if (!img) { return; }
 #if !defined(OLD_SKIA) || OLD_SKIA == 0
         SkPngEncoder::Options options;
@@ -3221,7 +3222,7 @@ namespace Manager {
         sk_sp<SkData> png(img->encodeToData());
 #endif
         if (!png) { std::cerr << "Error: Png creation failed\n"; return; }
-        FILE* fout = fopen(path.c_str(), "w");
+        FILE* fout = fopen(path.c_str(), "wb");
         if (fout == nullptr) {
             std::cerr << "Error: could not open " << path << " for writing\n";
             return;
