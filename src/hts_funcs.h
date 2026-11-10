@@ -191,6 +191,10 @@ namespace HGW {
         bigWigFile_t *bigWig_fp;
         bwOverlappingIntervals_t *bigWig_intervals;
         bbOverlappingEntries_t *bigBed_entries;
+        // bigBed column names and descriptions from the file's autoSql schema (full BED
+        // columns, chrom first); empty when the file has none.
+        std::vector<std::string> bbFieldNames, bbFieldDescs;
+        int bbLabelIdx{0};  // index into the bigBed payload (after chromEnd) used as the feature label
 
         int region_end;
         std::vector<std::string> parts;  // string split by delimiter

@@ -72,6 +72,7 @@ namespace Drawing {
         std::string selectedFeatureChrom;  // identity of the highlighted gff exon/intron (empty = none)
         std::string selectedFeatureName;
         std::string selectedFeatureParent;
+        std::string selectedFeatureLine;
         int selectedFeatureStart = -1;
         int selectedFeatureEnd = -1;
         int selectedFeatureTrack = -1;

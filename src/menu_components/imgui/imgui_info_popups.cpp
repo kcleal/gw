@@ -856,14 +856,158 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
     // shows what differs between lines.
     struct FeatureDataView {
         std::vector<std::pair<std::string, std::string>> shared;  // name, value
+        std::vector<std::string> sharedTips;                      // optional hover text per shared row
         std::vector<std::string> header;                          // names of the per-line columns
         std::vector<std::vector<std::string>> cells;              // per line, per column
         std::vector<int> starts, ends;                            // 0-based half-open; -1 = unknown
         int clicked{-1};                                          // line under the click
     };
 
+    // bigBed records: one key/value row per field (named from the file's autoSql schema,
+    // descriptions as tooltips), and the comma-separated block columns turned into an exon
+    // table whose rows pan the view. Empty and "none" values are left out.
+    static FeatureDataView parseBigBedData(const Manager::GwPlot::TrackPopup& tp) {
+        FeatureDataView v;
+        std::string line;
+        for (size_t pos = 0; pos < tp.details.size();) {
+            size_t nl = tp.details.find('\n', pos);
+            if (nl == std::string::npos) nl = tp.details.size();
+            line = tp.details.substr(pos, nl - pos);
+            while (!line.empty() && line.back() == '\r') line.pop_back();
+            pos = nl + 1;
+            if (!line.empty() && line[0] != '#') break;
+        }
+        std::vector<std::string> cols;
+        Utils::split(line, '\t', cols);
+        if (cols.size() < 3) return v;
+
+        static const char* bedNames[] = {"chrom", "chromStart", "chromEnd", "name", "score", "strand",
+                                         "thickStart", "thickEnd", "itemRgb", "blockCount",
+                                         "blockSizes", "chromStarts"};
+        const bool haveSchema = tp.fieldNames.size() >= 3;
+        auto colName = [&](size_t c) -> std::string {
+            if (haveSchema && c < tp.fieldNames.size()) return tp.fieldNames[c];
+            if (!haveSchema && c < 12) return bedNames[c];
+            return "col" + std::to_string(c + 1);
+        };
+        auto colDesc = [&](size_t c) -> std::string {
+            return (haveSchema && c < tp.fieldDescs.size()) ? tp.fieldDescs[c] : std::string();
+        };
+        auto findCol = [&](std::initializer_list<const char*> names) -> int {
+            for (size_t c = 0; c < cols.size(); ++c) {
+                std::string n = colName(c);
+                for (const char* want : names) if (n == want) return (int)c;
+            }
+            return -1;
+        };
+        auto toInt = [](const std::string& s, long& out) {
+            if (s.empty()) return false;
+            char* end = nullptr;
+            out = std::strtol(s.c_str(), &end, 10);
+            return *end == '\0';
+        };
+        auto splitList = [](const std::string& s) {
+            std::vector<std::string> out;
+            Utils::split(s, ',', out);
+            while (!out.empty() && out.back().empty()) out.pop_back();
+            return out;
+        };
+
+        long fStart = 0;
+        toInt(cols[1], fStart);
+        const int iStrand = findCol({"strand"});
+        const int iThickS = findCol({"thickStart"}), iThickE = findCol({"thickEnd"});
+        const int iRgb = findCol({"itemRgb", "reserved"});
+        const int iCount = findCol({"blockCount"});
+        const int iSizes = findCol({"blockSizes"});
+        const int iStarts = findCol({"chromStarts", "blockStarts"});
+        const int iFrames = findCol({"exonFrames"});
+        const bool minus = iStrand >= 0 && cols[iStrand] == "-";
+
+        long thickS = -1, thickE = -1;
+        if (iThickS >= 0 && iThickE >= 0 && toInt(cols[iThickS], thickS) && toInt(cols[iThickE], thickE)
+                && thickE <= thickS) {
+            thickS = thickE = -1;  // no coding region
+        }
+
+        auto add = [&](const std::string& k, const std::string& val, const std::string& tip) {
+            v.shared.emplace_back(k, val);
+            v.sharedTips.push_back(tip);
+        };
+        for (size_t c = 3; c < cols.size(); ++c) {
+            const int ci = (int)c;
+            // strand is already in the summary rows above (the summary ID is the gene name
+            // when there is one, so the name column stays); block columns go in the exon table
+            if (ci == iStrand) continue;
+            if (ci == iThickE || ci == iSizes || ci == iStarts || ci == iFrames || ci == iCount) continue;
+            const std::string& val = cols[c];
+            if (val.empty() || val == "none" || val == ".") continue;
+            if (ci == iThickS) {
+                if (thickS >= 0)
+                    add("coding", std::to_string(thickS) + "-" + std::to_string(thickE) + "  ("
+                        + std::to_string(thickE - thickS) + " bp)", "thickStart-thickEnd: the coding (thick) part");
+                else
+                    add("coding", "none", "thickStart equals thickEnd: no coding (thick) part");
+                continue;
+            }
+            if (ci == iRgb) {
+                long rgb;
+                if (val.find(',') == std::string::npos && toInt(val, rgb) && rgb > 0) {
+                    add("colour", std::to_string((rgb >> 16) & 255) + "," + std::to_string((rgb >> 8) & 255)
+                        + "," + std::to_string(rgb & 255), colDesc(c));
+                } else if (val != "0") {
+                    add("colour", val, colDesc(c));
+                }
+                continue;
+            }
+            std::string shown = val;
+            if (shown.find(',') != std::string::npos) {  // lists read better with spaces
+                auto items = splitList(shown);
+                shown.clear();
+                for (auto& it : items) { if (!shown.empty()) shown += ", "; shown += it; }
+            }
+            add(colName(c), shown, colDesc(c));
+        }
+
+        // Exon table from blockSizes/chromStarts (relative to chromStart)
+        if (iSizes < 0 || iStarts < 0) return v;
+        auto sizes = splitList(cols[iSizes]);
+        auto starts = splitList(cols[iStarts]);
+        if (sizes.empty() || sizes.size() != starts.size()) return v;
+        std::vector<std::string> frames;
+        if (iFrames >= 0) frames = splitList(cols[iFrames]);
+        const bool showFrames = frames.size() == sizes.size()
+            && std::any_of(frames.begin(), frames.end(), [](const std::string& f) { return f != "-1"; });
+        const size_t n = sizes.size();
+        v.header = {minus ? "exon (-)" : "exon", "start", "end", "length"};
+        if (thickS >= 0) v.header.push_back("part");
+        if (showFrames) v.header.push_back("frame");
+        for (size_t i = 0; i < n; ++i) {
+            long rel, len;
+            if (!toInt(starts[i], rel) || !toInt(sizes[i], len)) { v = {}; return v; }
+            long s = fStart + rel, e = s + len;
+            std::vector<std::string> row;
+            row.push_back(std::to_string(minus ? n - i : i + 1));  // numbered in transcription order
+            row.push_back(std::to_string(s));
+            row.push_back(std::to_string(e));
+            row.push_back(std::to_string(len));
+            if (thickS >= 0) {
+                if (e <= thickS || s >= thickE) row.push_back("UTR");
+                else if (s >= thickS && e <= thickE) row.push_back("CDS");
+                else row.push_back("CDS+UTR");
+            }
+            if (showFrames) row.push_back(frames[i]);
+            v.cells.push_back(std::move(row));
+            v.starts.push_back((int)s);
+            v.ends.push_back((int)e);
+            if (cols[0] == tp.chrom && s <= tp.clickPos && tp.clickPos < e) v.clicked = (int)i;
+        }
+        return v;
+    }
+
     static FeatureDataView parseFeatureData(const Manager::GwPlot::TrackPopup& tp) {
         using Fmt = Manager::GwPlot::TrackPopup::DataFormat;
+        if (tp.format == Fmt::BigBed) return parseBigBedData(tp);
         FeatureDataView v;
         std::vector<std::vector<std::string>> lines;
         size_t nCols = 0;
@@ -1057,6 +1201,9 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
                     ImGui::TableSetColumnIndex(0);
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + style.FramePadding.y);
                     ImGui::TextDisabled("%s", fd.shared[i].first.c_str());
+                    if (i < fd.sharedTips.size() && !fd.sharedTips[i].empty()
+                            && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                        ImGui::SetTooltip("%s", fd.sharedTips[i].c_str());
                     ImGui::TableSetColumnIndex(1);
                     ImGui::PushID((int)i);
                     selectableText("##sv", fd.shared[i].second, valW);
@@ -1300,7 +1447,9 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                         // GFF child line), but keep the window on screen. The user can drag
                         // it taller afterwards.
                         int nLines = (int)fd.shared.size() + (fd.header.empty() ? 0 : 1) + (int)fd.cells.size();
-                        dataHeight = (float)std::clamp(nLines, 1, 14) * lineH + frameH;
+                        // bigBed popups show one feature's fields plus its exons, so allow more
+                        const int maxLines = tp.format == Manager::GwPlot::TrackPopup::DataFormat::BigBed ? 30 : 14;
+                        dataHeight = (float)std::clamp(nLines, 1, maxLines) * lineH + frameH;
                         float roomBelow = io.DisplaySize.y - ImGui::GetWindowPos().y
                                         - ImGui::GetCursorPosY() - style.WindowPadding.y;
                         if (roomBelow < dataHeight) {

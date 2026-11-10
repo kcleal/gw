@@ -2264,6 +2264,7 @@ namespace Manager {
         ctx.selectedFeatureChrom = selectedFeatureChrom;
         ctx.selectedFeatureName = selectedFeatureName;
         ctx.selectedFeatureParent = selectedFeatureParent;
+        ctx.selectedFeatureLine = selectedFeatureLine;
         ctx.selectedFeatureStart = selectedFeatureStart;
         ctx.selectedFeatureEnd = selectedFeatureEnd;
         ctx.selectedFeatureTrack = selectedFeatureTrack;

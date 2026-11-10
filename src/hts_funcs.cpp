@@ -1726,6 +1726,42 @@ namespace HGW {
         this->shadedFaceColour.setARGB(faceColour.getAlpha() * 0.5, SkColorGetR(c), SkColorGetG(c), SkColorGetB(c));
     }
 
+
+    // Parse a bigBed autoSql schema, e.g.
+    //   table bed6 "..." ( string chrom; "Chromosome" uint chromStart; "Start" ... )
+    // into column names and their descriptions.
+    static void parseAutoSql(const char *sql, std::vector<std::string> &names, std::vector<std::string> &descs) {
+        std::string s(sql);
+        size_t p = s.find('(');
+        if (p == std::string::npos) return;
+        size_t close = s.rfind(')');
+        if (close == std::string::npos || close < p) close = s.size();
+        ++p;
+        while (p < close) {
+            size_t semi = s.find(';', p);
+            if (semi == std::string::npos || semi > close) break;
+            // the field name is the identifier just before ';' (types may contain spaces or brackets)
+            size_t e = semi;
+            while (e > p && std::isspace((unsigned char)s[e - 1])) --e;
+            size_t b = e;
+            while (b > p && (std::isalnum((unsigned char)s[b - 1]) || s[b - 1] == '_')) --b;
+            std::string desc;
+            size_t q = semi + 1;
+            while (q < close && std::isspace((unsigned char)s[q])) ++q;
+            if (q < close && s[q] == '"') {
+                size_t qe = s.find('"', q + 1);
+                if (qe == std::string::npos) qe = close;
+                desc = s.substr(q + 1, qe - q - 1);
+                q = qe + 1;
+            }
+            if (e > b) {
+                names.push_back(s.substr(b, e - b));
+                descs.push_back(std::move(desc));
+            }
+            p = q;
+        }
+    }
+
     void GwTrack::open(const std::string &p, bool add_to_dict=true) {
         fileIndex = 0;
         path = p;
@@ -2122,6 +2158,22 @@ namespace HGW {
                 std::cerr << "Error: could not open " << path << std::endl;
                 throw std::exception();
             }
+            bbFieldNames.clear();
+            bbFieldDescs.clear();
+            if (char *sql = bbGetSQL(bigWig_fp)) {
+                parseAutoSql(sql, bbFieldNames, bbFieldDescs);
+                free(sql);
+            }
+            // Label features by gene name when the schema has one (e.g. GENCODE/RefSeq
+            // bigGenePred), otherwise by the BED name column.
+            bbLabelIdx = 0;
+            for (const char *want : {"geneName", "geneSymbol", "name2"}) {
+                auto it = std::find(bbFieldNames.begin(), bbFieldNames.end(), want);
+                if (it != bbFieldNames.end() && it - bbFieldNames.begin() >= 3) {
+                    bbLabelIdx = (int)(it - bbFieldNames.begin()) - 3;
+                    break;
+                }
+            }
         } else {
             std::cerr << "Error: file stype not supported for " << path << std::endl;
             throw std::exception();
@@ -2432,8 +2484,27 @@ namespace HGW {
             start = (int)bigBed_entries->start[current_iter_index];
             stop = (int)bigBed_entries->end[current_iter_index];
             if (bigBed_entries->str != nullptr) {
-                parts = Utils::split(bigBed_entries->str[current_iter_index], '\t');
-                rid = parts[0];
+                const char *rest = bigBed_entries->str[current_iter_index];
+                parts = Utils::split(rest, '\t');
+                rid.clear();
+                if (bbLabelIdx > 0 && bbLabelIdx < (int)parts.size()) {
+                    const std::string &g = parts[bbLabelIdx];
+                    if (!g.empty() && g != "none" && g != ".") rid = g;
+                }
+                if (rid.empty() && !parts.empty()) rid = parts[0];
+                // libBigWig omits chrom/start/end from the payload; keep the full BED
+                // record so popups and terminal output see standard column positions.
+                variantString = chrom;
+                variantString += '\t';
+                variantString += std::to_string(start);
+                variantString += '\t';
+                variantString += std::to_string(stop);
+                if (*rest) {
+                    variantString += '\t';
+                    variantString += rest;
+                }
+            } else {
+                variantString = chrom + "\t" + std::to_string(start) + "\t" + std::to_string(stop);
             }
             current_iter_index += 1;
             chrom2 = chrom;
@@ -3083,9 +3154,9 @@ namespace HGW {
             }
             if (trk.kind == BIGBED) {
                 if (parts.size() > 2) {
-                if (parts[2] == "-") {
+                if (parts[2] == "+") {
                     b->strand = 1;
-                } else if (parts[2] == "+") {
+                } else if (parts[2] == "-") {
                     b->strand = 2;
                 } else {
                     b->strand = 0;

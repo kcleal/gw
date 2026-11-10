@@ -1134,6 +1134,8 @@ namespace Term {
                             i = j + 1;
                         }
 
+                    } else if (track.kind == HGW::FType::BIGBED && !b.line.empty()) {
+                        out << b.line;  // full BED record (parts lacks chrom/start/end)
                     } else {
                         bool first = true;
                         for (auto &p: parts) {

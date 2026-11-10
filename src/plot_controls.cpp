@@ -2309,6 +2309,7 @@ namespace Manager {
             const int prevIntronStrand = selectedIntronStrand;
             const std::string prevChrom = selectedFeatureChrom, prevName = selectedFeatureName;
             const std::string prevParent = selectedFeatureParent;
+            const std::string prevLine = selectedFeatureLine;
             const int prevStart = selectedFeatureStart, prevEnd = selectedFeatureEnd;
             const int prevTrack = selectedFeatureTrack;
             const bool hadSelection = !prevIntronChrom.empty() || !prevChrom.empty();
@@ -2323,6 +2324,7 @@ namespace Manager {
             selectedFeatureChrom.clear();
             selectedFeatureName.clear();
             selectedFeatureParent.clear();
+            selectedFeatureLine.clear();
             selectedFeatureStart = -1;
             selectedFeatureEnd = -1;
             selectedFeatureTrack = -1;
@@ -2471,13 +2473,15 @@ namespace Manager {
                             // clicked exon or intron. The identity persists across redraws, as
                             // the blocks are rebuilt each frame; drawTracks() sets b.selected.
                             if (prevTrack == trackIdx && prevChrom == b.chrom && prevName == b.name
-                                    && prevParent == b.parent && prevStart == b.start && prevEnd == b.end) {
+                                    && prevParent == b.parent && prevStart == b.start && prevEnd == b.end
+                                    && prevLine == b.line) {
                                 selectedFeature.clear();  // second click on the selected feature
                                 deselected = true;
                             } else {
                                 selectedFeatureChrom = b.chrom;
                                 selectedFeatureName = b.name;
                                 selectedFeatureParent = b.parent;
+                                selectedFeatureLine = b.line;
                                 selectedFeatureStart = b.start;
                                 selectedFeatureEnd = b.end;
                                 selectedFeatureTrack = trackIdx;
@@ -2510,8 +2514,14 @@ namespace Manager {
                     case HGW::FType::GFF3_IDX: case HGW::FType::GFF3_NOI:
                     case HGW::FType::GTF_IDX:  case HGW::FType::GTF_NOI:
                         tp.format = TrackPopup::DataFormat::Gff; break;
-                    case HGW::FType::BED_IDX: case HGW::FType::BED_NOI: case HGW::FType::BIGBED:
+                    case HGW::FType::BED_IDX: case HGW::FType::BED_NOI:
                         tp.format = TrackPopup::DataFormat::Bed; break;
+                    case HGW::FType::BIGBED:
+                        tp.format = TrackPopup::DataFormat::BigBed;
+                        tp.detailsOpen = true;  // the fields are the useful part of a bigBed popup
+                        tp.fieldNames = targetTrack.bbFieldNames;
+                        tp.fieldDescs = targetTrack.bbFieldDescs;
+                        break;
                     default: break;
                 }
                 tp.chrom = regions[tIdx].chrom;

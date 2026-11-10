@@ -240,6 +240,7 @@ namespace Manager {
         std::string selectedFeatureChrom;
         std::string selectedFeatureName;   // transcript name, to disambiguate overlapping features
         std::string selectedFeatureParent; // unique GFF transcript id (Parent), to isolate one isoform
+        std::string selectedFeatureLine;   // source record, to tell apart features sharing name/span (e.g. bigBed isoforms labelled by gene)
         int selectedFeatureStart{-1};
         int selectedFeatureEnd{-1};
         int selectedFeatureTrack{-1};
@@ -276,7 +277,9 @@ namespace Manager {
             bool isVcf{false};   // true for VCF/BCF tracks (changes copy-all behaviour)
             // Where the click was, so the feature data can mark the clicked line and
             // pan the view to a line's feature.
-            enum class DataFormat { Other, Bed, Gff } format{DataFormat::Other};
+            enum class DataFormat { Other, Bed, Gff, BigBed } format{DataFormat::Other};
+            // bigBed column names/descriptions from the file's autoSql (empty = plain BED names)
+            std::vector<std::string> fieldNames, fieldDescs;
             std::string chrom;
             int clickPos{-1};    // 0-based genomic position of the click
             int regionIdx{0};    // region (split view panel) that was clicked

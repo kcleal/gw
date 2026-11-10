@@ -2516,6 +2516,7 @@ namespace Drawing {
                               && f.end == ctx.selectedFeatureEnd
                               && f.name == ctx.selectedFeatureName
                               && f.parent == ctx.selectedFeatureParent
+                              && f.line == ctx.selectedFeatureLine
                               && rgn.chrom == ctx.selectedFeatureChrom;
 
                     if (trk.kind == HGW::INTRON) {

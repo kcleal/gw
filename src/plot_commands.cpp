@@ -127,6 +127,7 @@ namespace Commands {
             p->selectedFeatureChrom.clear();
             p->selectedFeatureName.clear();
             p->selectedFeatureParent.clear();
+            p->selectedFeatureLine.clear();
             p->selectedFeatureStart = -1;
             p->selectedFeatureEnd = -1;
             p->selectedFeatureTrack = -1;
