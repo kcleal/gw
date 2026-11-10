@@ -3197,6 +3197,11 @@ namespace HGW {
                     continue;
                 }
                 b->drawThickness.resize(target, 0);
+                if (thickEnd > thickStart) {
+                    // CDS bounds: exons holding the start/stop codon are split at them when drawn
+                    b->coding_start = thickStart;
+                    b->coding_end = thickEnd;
+                }
                 thickEnd = (thickEnd == thickStart) ? trk.stop : thickEnd;
                 for (int i=0; i < target; ++i) {
                     int s, e;

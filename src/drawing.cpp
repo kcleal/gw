@@ -2252,16 +2252,17 @@ namespace Drawing {
                 }
                 assert (i < trk.drawThickness.size());
                 uint8_t thickness = trk.drawThickness[i];
-                if (s < right_cds && e > right_cds) { //overlaps, split into two blocks!
-                    drawTrackBlock(right_cds, e, trk.name, rgn, rect, path, padX, padY, y + (h * 0.25), h * 0.5, stepX, stepY,
-                                xScaling, opts, canvas, fonts, false, true, true, labelsEnd, empty_str, text, false, false, sfc, strand, customPointSlop, ctx, halo);
-                    drawTrackBlock(s, right_cds, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY,
+                // A block crossing the CDS start and/or stop is split: thin UTR outside, thick CDS inside
+                const int cdsL = std::max(s, left_cds), cdsR = std::min(e, right_cds);
+                if (left_cds < right_cds && cdsL < cdsR && (s < left_cds || e > right_cds)) {
+                    if (s < cdsL)
+                        drawTrackBlock(s, cdsL, trk.name, rgn, rect, path, padX, padY, y + (h * 0.25), h * 0.5, stepX, stepY,
+                                    xScaling, opts, canvas, fonts, false, true, true, labelsEnd, empty_str, text, false, false, sfc, strand, customPointSlop, ctx, halo);
+                    drawTrackBlock(cdsL, cdsR, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY,
                                 xScaling, opts, canvas, fonts, false, true, false, labelsEnd, empty_str, text, false, false, fc, strand, customPointSlop, ctx, halo);
-                } else if (s < left_cds && e > left_cds) {
-                    drawTrackBlock(s, left_cds, trk.name, rgn, rect, path, padX, padY, y + (h * 0.25), h * 0.5, stepX, stepY,
-                                xScaling, opts, canvas, fonts, false, true, true, labelsEnd, empty_str, text, false, false, sfc, strand, customPointSlop, ctx, halo);
-                    drawTrackBlock(left_cds, e, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY,
-                                xScaling, opts, canvas, fonts, false, true, false, labelsEnd, empty_str, text, false, false, fc, strand, customPointSlop, ctx, halo);
+                    if (cdsR < e)
+                        drawTrackBlock(cdsR, e, trk.name, rgn, rect, path, padX, padY, y + (h * 0.25), h * 0.5, stepX, stepY,
+                                    xScaling, opts, canvas, fonts, false, true, true, labelsEnd, empty_str, text, false, false, sfc, strand, customPointSlop, ctx, halo);
                 } else if (thickness <= 1) {
                     drawTrackBlock(s, e, trk.name, rgn, rect, path, padX, padY, y + (h * 0.25), h * 0.5, stepX, stepY, xScaling,
                                 opts, canvas, fonts, false, true, true, labelsEnd, empty_str, text, false, false, sfc, strand, customPointSlop, ctx, halo);
