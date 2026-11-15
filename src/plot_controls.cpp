@@ -3523,7 +3523,7 @@ namespace Manager {
         // GL calls here would access GLctx outside the main loop and crash.
         glfwGetFramebufferSize(window, &fb_width, &fb_height);
         bboxes = tileBoundingBoxes();
-        if (opts.theme_str == "igv") {
+        if (Themes::isLightTheme(opts.theme_str)) {
             glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         } else {
             glClearColor(0.f, 0.f, 0.f, 1.0f);

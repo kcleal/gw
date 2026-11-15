@@ -664,7 +664,7 @@ Alternatively supply a list of tags to print out:
 
 Switch the theme.
 
-Choose `igv`, `dark`, `slate`, or a named theme from `.gw.theme.json` beside
+Choose `igv`, `dark`, `slate`, `tide`, `frost`, or a named theme from `.gw.theme.json` beside
 `.gw.ini`. Names with spaces can be entered directly or quoted. Run `theme`
 without a name to list available themes.
 

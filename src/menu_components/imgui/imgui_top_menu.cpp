@@ -154,7 +154,7 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
     float btnSide = overlayHeight;
     ImVec2 btnSize(btnSide, btnSide);
     float iconStroke = iconStrokeThickness(ms);
-    bool lightTheme = (plot->opts.theme_str == "igv");
+    bool lightTheme = Themes::isLightTheme(plot->opts.theme_str);
     ImU32 iconCol = lightTheme ? IM_COL32(80, 80, 80, 255) : IM_COL32(200, 200, 200, 255);
     ImU32 iconHoverCol = lightTheme ? IM_COL32(0, 0, 0, 255) : IM_COL32(255, 255, 255, 255);
 

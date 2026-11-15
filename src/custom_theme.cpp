@@ -67,6 +67,8 @@ namespace Themes {
     void IniOptions::rebuildTheme() {
         if (theme_str == "igv") theme = IgvTheme();
         else if (theme_str == "slate") theme = SlateTheme();
+        else if (theme_str == "tide") theme = TideTheme();
+        else if (theme_str == "frost") theme = FrostTheme();
         else { theme_str = "dark"; theme = DarkTheme(); }
         if (custom_theme_enabled) theme.colorOverrides = custom_theme_colors;
         theme.setAlphas();
@@ -186,7 +188,7 @@ namespace Themes {
             }
         };
 
-        bool validBase(const std::string& base) { return base == "dark" || base == "igv" || base == "slate"; }
+        bool validBase(const std::string& base) { return isBaseTheme(base); }
         std::string themeName(std::string name) {
             const auto start = name.find_first_not_of(" \t\r\n");
             if (start == std::string::npos) throw std::runtime_error("Enter a theme name");
@@ -228,7 +230,7 @@ namespace Themes {
                     throw std::runtime_error("Unknown theme field: " + field.first);
             const auto& name = value.at("name"); const auto& base = value.at("base");
             if (name.type != JsonValue::String || base.type != JsonValue::String || !validBase(base.text))
-                throw std::runtime_error("Theme requires a name and a dark, igv, or slate base");
+                throw std::runtime_error("Theme requires a name and a dark, igv, slate, tide, or frost base");
             return {themeName(name.text), base.text, readColors(value.at("colors"))};
         }
     }
@@ -245,7 +247,7 @@ namespace Themes {
 
     bool IniOptions::selectThemeByName(const std::string& name) {
         ensureCustomThemesLoaded();
-        if (name == "dark" || name == "igv" || name == "slate") {
+        if (isBaseTheme(name)) {
             if (custom_theme_enabled) storeCustomTheme();
             auto base = name;
             setTheme(base);

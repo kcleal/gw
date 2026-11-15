@@ -37,7 +37,7 @@ Always use a local file for best performance. Genomes can be selected in three w
 
 Open the custom theme settings and enable **Use custom colors**. Create your own color palettes:
 select a saved theme, or enter a **Name** and click **New**/**Duplicate**. Each theme has an `igv`,
-`dark` or `slate` base. Saved themes appear in Settings → General and via the `theme <name>`
+`dark`, `slate`, `tide` or `frost` base. Saved themes appear in Settings → General and via the `theme <name>`
 command (names can contain spaces).
 
 Click a swatch to open the colour picker and build a palette — backgrounds, reads, nucleotides,

@@ -1016,7 +1016,7 @@ namespace Commands {
         if (!selected && name.size() >= 2 && (name.front() == '"' || name.front() == '\'') && name.back() == name.front())
             selected = p->opts.selectThemeByName(name.substr(1, name.size() - 2));
         if (!selected) {
-            out << "Available themes: dark, igv, slate";
+            out << "Available themes: dark, igv, slate, tide, frost";
             for (const auto& saved : p->opts.custom_themes) out << ", " << saved.name;
             out << "\nUsage: theme <name>\n";
             if (!p->opts.custom_theme_error.empty()) out << p->opts.custom_theme_error << "\n";

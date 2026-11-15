@@ -160,6 +160,26 @@ namespace Themes {
         ~SlateTheme() = default;
     };
 
+    // Deep-sea dark theme: ink-blue background, teal and coral accents
+    class EXPORT TideTheme: public BaseTheme {
+    public:
+        TideTheme();
+        ~TideTheme() = default;
+    };
+
+    // Cool light theme: near-white background, blue-grey reads, ink text, indigo accents
+    class EXPORT FrostTheme: public BaseTheme {
+    public:
+        FrostTheme();
+        ~FrostTheme() = default;
+    };
+
+    // Built-in base themes, in menu order
+    EXPORT const std::vector<std::string>& baseThemeNames();
+    EXPORT bool isBaseTheme(const std::string& name);
+    // Base themes with a light background (igv, frost)
+    EXPORT bool isLightTheme(const std::string& name);
+
     struct CustomTheme {
         std::string name;
         std::string base;

@@ -46,7 +46,7 @@ gw t2t -t 24 -b your.bam -n --outdir chrom_plots                  # every chromo
 gw hg38.fa -b your.bam -v variants.vcf --outdir all_images --no-show -t 16
 ```
 
-Output options: `--dims`, `--theme` (`igv`, `dark`, `slate`), `--font-size`, `--ylim`, `--cov`,
+Output options: `--dims`, `--theme` (`igv`, `dark`, `slate`, `tide`, `frost`), `--font-size`, `--ylim`, `--cov`,
 `--ideogram`, `--fmt`, `-f`/`--outdir`.
 
 ## Screenshots

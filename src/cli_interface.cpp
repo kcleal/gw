@@ -60,7 +60,7 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
     options.useSession = false;
 
     static const std::vector<std::string> img_fmt = { "png", "pdf", "svg" };
-    static const std::vector<std::string> img_themes = { "igv", "dark", "slate" };
+    static const std::vector<std::string> img_themes = { "igv", "dark", "slate", "tide", "frost" };
     static const std::vector<std::string> links = { "none", "sv", "all" };
 
     argparse::ArgumentParser& program = options.program;
@@ -117,9 +117,9 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
             .default_value(iopts.theme_str)
             .action([](const std::string& value) {
                 if (std::find(img_themes.begin(), img_themes.end(), value) != img_themes.end()) { return value;}
-                std::cerr << "Error: --theme not in {igv, dark, slate}" << std::endl;
+                std::cerr << "Error: --theme not in {igv, dark, slate, tide, frost}" << std::endl;
                 std::exit(1);
-            }).help("Image theme igv|dark|slate");
+            }).help("Image theme igv|dark|slate|tide|frost");
     program.add_argument("--fmt")
             .default_value("png")
             .action([](const std::string& value) {
@@ -466,6 +466,10 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
             iopts.theme = Themes::IgvTheme();
         } else if (iopts.theme_str == "slate") {
             iopts.theme = Themes::SlateTheme();
+        } else if (iopts.theme_str == "tide") {
+            iopts.theme = Themes::TideTheme();
+        } else if (iopts.theme_str == "frost") {
+            iopts.theme = Themes::FrostTheme();
         } else {
             std::cerr << "Error: unknown theme " << iopts.theme_str << std::endl;
             std::exit(-1);

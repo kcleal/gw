@@ -74,7 +74,7 @@ namespace Term {
         out << termcolor::green << "sort             strand/hap/pos  " << termcolor::reset << "Sort reads by strand, haplotype, and/or pos\n";
         out << termcolor::green << "tab-track-height number          " << termcolor::reset << "Fraction of the window used by all tabix tracks\n";
         out << termcolor::green << "tags                             " << termcolor::reset << "Print selected sam tags\n";
-        out << termcolor::green << "theme            igv/dark/slate  " << termcolor::reset << "Switch color theme e.g. 'theme dark'\n";
+        out << termcolor::green << "theme            name            " << termcolor::reset << "Switch color theme: igv, dark, slate, tide or frost\n";
         out << termcolor::green << "translate        on/off/frame/   " << termcolor::reset << "Toggle translation track. 'translate frame 1-3',\n";
         out << termcolor::green << "                 strand/code     " << termcolor::reset << "'translate strand +/-', 'translate code N'\n";
         out << termcolor::green << "tiles            on/off?         " << termcolor::reset << "Switch between tiled variant images and the normal view\n";
@@ -389,7 +389,7 @@ namespace Term {
                    "        track-height 0 0.2               # tabix track 0\n"
                    "        track-height introns 0.15        # match a track by name\n\n";
         } else if (s == "theme") {
-            out << "    Switch the theme.\n        Currently 'igv', 'dark' or 'slate' themes are supported.\n\n";
+            out << "    Switch the theme.\n        Currently 'igv', 'dark', 'slate', 'tide' or 'frost' themes are supported.\n\n";
         } else if (s == "translate") {
             out << "    Toggle the translation track.\n"
                    "        Shows a compact 3-frame translation track below the reference.\n"

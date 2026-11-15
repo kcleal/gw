@@ -1875,7 +1875,7 @@ namespace Drawing {
         float x = rect.left() + pad;
         SkPaint p;
         // PASS is the sole inverted label; all others share a high-contrast pair.
-        bool lightBackground = (cur == "PASS") != (opts.theme.name == "igv");
+        bool lightBackground = (cur == "PASS") != Themes::isLightTheme(opts.theme.name);
         p.setColor(lightBackground ? SK_ColorWHITE : SK_ColorBLACK);
         SkPaint textPaint;
         textPaint.setColor(lightBackground ? SK_ColorBLACK : SK_ColorWHITE);
@@ -2728,7 +2728,7 @@ namespace Drawing {
 
         light_paint = opts.theme.lcLightJoins;
 
-        line.setColor((opts.theme_str == "dark") ? SK_ColorGRAY : SK_ColorBLACK);
+        line.setColor((opts.theme_str == "dark" || opts.theme_str == "tide") ? SK_ColorGRAY : SK_ColorBLACK);
         line.setStrokeWidth(monitorScale);
         line.setStyle(SkPaint::kStroke_Style);
         SkRect rect{};

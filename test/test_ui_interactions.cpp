@@ -1463,7 +1463,7 @@ int main() {
     assert(cl.vScroll == 0); // Streamed view waits for release.
     io.AddMouseButtonEvent(0, false); frame();
     assert(cl.vScroll > 0);
-    for (const auto& theme : {"igv", "dark", "slate"}) {
+    for (const auto& theme : {"igv", "dark", "slate", "tide", "frost"}) {
         Themes::applyImGuiTheme(theme);
         io.AddMousePosEvent(702, 200); frame(); frame();
         auto* sliderWindow = ImGui::FindWindowByName("##alignment_scroll_0");
