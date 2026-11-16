@@ -81,6 +81,33 @@ static std::string lowerCopy(std::string value) {
     return value;
 }
 
+// Genotype bars in the variant list. Muted colours, apart from GW's base and label palette.
+static const char* const genotypeNames[] = {"missing", "hom ref", "het", "hom alt"};
+static const ImU32 genotypeColors[] = {
+    IM_COL32(128, 128, 128, 170),  // missing: outline only
+    IM_COL32(122, 134, 152, 150),  // hom ref: slate
+    IM_COL32(84, 170, 160, 255),   // het: teal
+    IM_COL32(150, 112, 176, 255),  // hom alt: mauve
+};
+
+// 0 missing, 1 hom ref, 2 het, 3 hom alt, for one sample's GT text such as "0/1"
+static int genotypeKind(const char* gt, size_t length) {
+    int first = -1;
+    bool anyAlt = false, differ = false, anyMissing = false;
+    for (size_t i = 0; i < length;) {
+        if (gt[i] == '/' || gt[i] == '|') { ++i; continue; }
+        if (gt[i] < '0' || gt[i] > '9') { anyMissing = true; ++i; continue; }
+        int allele = 0;
+        while (i < length && gt[i] >= '0' && gt[i] <= '9') allele = allele * 10 + (gt[i++] - '0');
+        if (first < 0) first = allele;
+        else if (allele != first) differ = true;
+        if (allele > 0) anyAlt = true;
+    }
+    if (first < 0) return 0;
+    if (!anyAlt) return 1;
+    return (differ || anyMissing) ? 2 : 3;
+}
+
 static std::vector<RowData> parseVariantDetailRows(HGW::GwVariantTrack& vt, Utils::Label& lbl, int selectedSampleIdx) {
         auto makeRow = [](const std::string& label, const std::string& plain) -> RowData {
             RowData rd{label, plain, plain, false, {}};
@@ -419,7 +446,8 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                 gridButton = r;
                 if (ImGui::Button("##tile_grid_btn", r.GetSize())) ImGui::OpenPopup("##tile_grid");
                 bool hov = ImGui::IsItemHovered();
-                ImU32 col = ImGui::GetColorU32(hov ? ImGuiCol_Text : ImGuiCol_TextDisabled);
+                // Full text colour (white on dark themes, black on light) so the dots stand out on the title bar
+                ImU32 col = ImGui::GetColorU32(ImGuiCol_Text);
                 ImDrawList* dl = ImGui::GetWindowDrawList();
                 float cell = r.GetWidth() * 0.22f, gapPx = r.GetWidth() * 0.12f;
                 float x0 = r.GetCenter().x - cell - gapPx * 0.5f, y0 = r.GetCenter().y - cell - gapPx * 0.5f;
@@ -552,17 +580,28 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
             if (detailsCollapsed) topH = std::max(1.0f, availH);
             if (listOpen) {
             if (ImGui::BeginChild("##labels_master", ImVec2(0, topH), false)) {
-                // Dot column width: fits two small dots side-by-side
-                float dotColW = ImGui::GetFrameHeight() * 1.4f;
+                // Comment column on the right: just wide enough for two small dots side-by-side
+                float dotColW = ImGui::GetTextLineHeight() * 0.9f + 6.0f;
+                // Genotype bars, one per sample, when the VCF has few enough samples to show
+                int gtSamples = 0;
+                if (isVcfTrack) {
+                    vt.vcf.get_samples();
+                    const int n = (int)vt.vcf.sample_names.size();
+                    if (n > 0 && n <= HGW::GwVariantTrack::maxGenotypeSamples) gtSamples = n;
+                }
+                const float gtBarW = gtSamples > 8 ? 3.0f : 5.0f, gtBarGap = 1.0f;
+                const float gtColW = std::max(ImGui::CalcTextSize("GT").x, gtSamples * (gtBarW + gtBarGap));
+                const int colGt = gtSamples ? 0 : -1, colPos = colGt + 1, colLabel = colPos + 1, colNote = colLabel + 1;
                 // Tighten vertical cell padding so more rows fit on screen
                 ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4.0f, 1.0f));
                 ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(ImGui::GetStyle().ItemSpacing.x, 2.0f));
-                bool tableOpen = ImGui::BeginTable("##ltbl", 3,
+                bool tableOpen = ImGui::BeginTable(gtSamples ? "##ltbl_gt" : "##ltbl", colNote + 1,
                         ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp);
                 if (tableOpen) {
-                    ImGui::TableSetupColumn("##dots",     ImGuiTableColumnFlags_WidthFixed,   dotColW);
+                    if (gtSamples) ImGui::TableSetupColumn("GT", ImGuiTableColumnFlags_WidthFixed, gtColW);
                     ImGui::TableSetupColumn("Position",   ImGuiTableColumnFlags_WidthStretch);
                     ImGui::TableSetupColumn("Label",      ImGuiTableColumnFlags_WidthStretch);
+                    ImGui::TableSetupColumn("##dots",     ImGuiTableColumnFlags_WidthFixed,   dotColW);
                     ImGui::TableHeadersRow();
 
                     // Auto-scroll to keep selectedRow in view
@@ -608,59 +647,39 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                         ImGui::TableNextRow();
                         ImGui::PushID(i);
 
-                        // ---- Column 0: dots / circle marker ----
-                        ImGui::TableSetColumnIndex(0);
-
                         // Scroll this row into view when it becomes selected
                         if (isSelected && needScroll) {
                             ImGui::SetScrollHereY(0.5f);
                         }
 
-                        bool hasDate    = !lbl.savedDate.empty();
-                        bool hasComment = !lbl.comment.empty();
-                        bool hasDots    = hasDate || hasComment;
-
-                        {
-                            ImVec2 cellPos  = ImGui::GetCursorScreenPos();
-                            float  textH    = ImGui::GetTextLineHeight();
-                            float  cellH    = textH + ImGui::GetStyle().CellPadding.y * 2.0f;
-                            float  r        = textH * 0.28f;
-                            float  cy       = cellPos.y + cellH * 0.5f;
-                            float  xCursor  = cellPos.x + r + 2.0f;
-
-                            if (hasDate) {
-                                drawList->AddCircleFilled(ImVec2(xCursor, cy), r, dotDateCol);
-                                xCursor += r * 2.0f + 2.0f;
-                            }
-                            if (hasComment) {
-                                drawList->AddCircleFilled(ImVec2(xCursor, cy), r, dotCommentCol);
-                            }
-
-                            // Invisible button always present — opens Label details for THIS row.
-                            // When the row has no dots, an empty hint circle appears on hover.
-                            ImGui::SetCursorScreenPos(cellPos);
-                            if (ImGui::InvisibleButton("##dotbtn", ImVec2(dotColW, cellH))) {
-                                labelDetailsRow  = i;
-                                labelDetailsOpen = true;
-                                commentEdit      = lbl.comment;
-                            }
-                            bool hovered = ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort);
-                            if (!hasDots && ImGui::IsItemHovered()) {
-                                float xEmpty = cellPos.x + r + 2.0f;
-                                drawList->AddCircle(ImVec2(xEmpty, cy), r,
-                                                    IM_COL32(160, 160, 160, 180), 0, 1.2f);
-                            }
-                            if (hovered) {
-                                std::string tip;
-                                if (hasDate)    tip += "Date: "    + lbl.savedDate + "\n";
-                                if (hasComment) tip += "Comment: " + lbl.comment;
-                                if (tip.empty()) tip = "Click to add a comment";
-                                ImGui::SetTooltip("%s", tip.c_str());
+                        // ---- Genotypes: one bar per sample, an empty box where the call is missing ----
+                        if (colGt >= 0) {
+                            ImGui::TableSetColumnIndex(colGt);
+                            const ImVec2 p = ImGui::GetCursorScreenPos();
+                            const float textH = ImGui::GetTextLineHeight();
+                            ImGui::Dummy(ImVec2(gtSamples * (gtBarW + gtBarGap), textH));
+                            const bool cellHovered = ImGui::IsItemHovered();
+                            const float mouseX = ImGui::GetIO().MousePos.x;
+                            const std::string& g = lbl.genotypes;
+                            size_t from = 0;
+                            for (int sample = 0; sample < gtSamples && from <= g.size() && !g.empty(); ++sample) {
+                                size_t to = g.find(',', from);
+                                if (to == std::string::npos) to = g.size();
+                                const int kind = genotypeKind(g.data() + from, to - from);
+                                const ImVec2 a(p.x + sample * (gtBarW + gtBarGap), p.y + 1.0f);
+                                const ImVec2 b(a.x + gtBarW, p.y + textH - 1.0f);
+                                if (kind == 0) drawList->AddRect(a, b, genotypeColors[0]);
+                                else drawList->AddRectFilled(a, b, genotypeColors[kind]);
+                                if (cellHovered && mouseX >= a.x && mouseX < b.x + gtBarGap) {
+                                    ImGui::SetTooltip("%s\n%.*s  %s", vt.vcf.sample_names[sample].c_str(),
+                                                      (int)(to - from), g.data() + from, genotypeNames[kind]);
+                                }
+                                from = to + 1;
                             }
                         }
 
-                        // ---- Column 1: alignment-view toggle, then position ----
-                        ImGui::TableSetColumnIndex(1);
+                        // ---- Alignment-view toggle, then position ----
+                        ImGui::TableSetColumnIndex(colPos);
                         {
                             // Right triangle: open this variant in alignment view; filled while it
                             // is shown there, and clicking it again returns to the tiles
@@ -703,8 +722,8 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                             plot->processed = false;
                         }
 
-                        // ---- Column 2: label text ----
-                        ImGui::TableSetColumnIndex(2);
+                        // ---- Label text ----
+                        ImGui::TableSetColumnIndex(colLabel);
                         if (ImGui::Selectable(lbl.labels.empty() ? "-" : lbl.current().c_str(), false)
                                 && !lbl.labels.empty()) {
                             lbl.next();
@@ -715,6 +734,52 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                         }
                         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                             ImGui::SetTooltip("Click to cycle label");
+
+                        // ---- Last column: comment / date dots; click to add or edit a comment ----
+                        ImGui::TableSetColumnIndex(colNote);
+
+                        bool hasDate    = !lbl.savedDate.empty();
+                        bool hasComment = !lbl.comment.empty();
+                        bool hasDots    = hasDate || hasComment;
+
+                        {
+                            ImVec2 cellPos  = ImGui::GetCursorScreenPos();
+                            float  textH    = ImGui::GetTextLineHeight();
+                            float  cellH    = textH + ImGui::GetStyle().CellPadding.y * 2.0f;
+                            float  r        = textH * 0.22f;
+                            float  cy       = cellPos.y + cellH * 0.5f;
+                            float  xCursor  = cellPos.x + r + 2.0f;
+
+                            if (hasDate) {
+                                drawList->AddCircleFilled(ImVec2(xCursor, cy), r, dotDateCol);
+                                xCursor += r * 2.0f + 2.0f;
+                            }
+                            if (hasComment) {
+                                drawList->AddCircleFilled(ImVec2(xCursor, cy), r, dotCommentCol);
+                            }
+
+                            // Invisible button always present — opens Label details for THIS row.
+                            // When the row has no dots, an empty hint circle appears on hover.
+                            ImGui::SetCursorScreenPos(cellPos);
+                            if (ImGui::InvisibleButton("##dotbtn", ImVec2(dotColW, cellH))) {
+                                labelDetailsRow  = i;
+                                labelDetailsOpen = true;
+                                commentEdit      = lbl.comment;
+                            }
+                            bool hovered = ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort);
+                            if (!hasDots && ImGui::IsItemHovered()) {
+                                float xEmpty = cellPos.x + r + 2.0f;
+                                drawList->AddCircle(ImVec2(xEmpty, cy), r,
+                                                    IM_COL32(160, 160, 160, 180), 0, 1.2f);
+                            }
+                            if (hovered) {
+                                std::string tip;
+                                if (hasDate)    tip += "Date: "    + lbl.savedDate + "\n";
+                                if (hasComment) tip += "Comment: " + lbl.comment;
+                                if (tip.empty()) tip = "Click to add a comment";
+                                ImGui::SetTooltip("%s", tip.c_str());
+                            }
+                        }
 
                         ImGui::PopID();
                     }

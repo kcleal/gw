@@ -56,7 +56,7 @@
  *     add to relevant functions
  *         getCommandSwitchValue applyBoolOption, applyKeyboardKeyOption etc
  *     add a tool tip in drawMenu
- *     if the function should be in the pop-up menu, add to commandToolTip in menu.h
+ *     if the function should be in the pop-up menu, add to commandList (and commandToolTip) in menu.h
  *     if the function should be applied straight away add to exec in menu.h
  * 5. Optionally add a setting to .gw.ini
  * 6. If new option should be saved in a session add it to saveCurrentSession in themes.cpp

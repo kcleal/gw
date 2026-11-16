@@ -22,7 +22,6 @@
 
 #include "termcolor.h"
 #include "GLFW/glfw3.h"
-#include "menu_components/startup_genome_dialog.h"
 
 #include <unistd.h>
 
@@ -56,7 +55,6 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
     if (!success) {
 
     }
-    bool have_session_file = !iopts.session_file.empty();
     options.useSession = false;
 
     static const std::vector<std::string> img_fmt = { "png", "pdf", "svg" };
@@ -200,6 +198,9 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
     program.add_argument("--max-tlen")
             .default_value(iopts.max_tlen).append().scan<'i', int>()
             .help("Maximum tlen to display on plot");
+    program.add_argument("--wait")
+            .default_value(false).implicit_value(true)
+            .help("Open an empty window and wait for input, without the genome chooser or startup hints. Useful when GW is driven by a server or another program");
     program.add_argument("--introns")
             .default_value(false).implicit_value(true)
             .help("Show splice-junction (intron) track for each loaded BAM on startup");
@@ -278,18 +279,25 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
 
     if (program.is_used("--session")) {
         iopts.session_file = program.get<std::string>("--session");
-        have_session_file = true;
         options.useSession = true;
     }
 
     // check if bam/cram file provided as main argument
     std::string &genome = options.genome;
     genome = program.get<std::string>("genome");
+    // With no genome GW opens its window and the reference is chosen there (or matched to the
+    // data); only a run without a window still needs one up front.
+    const bool windowed = !program.is_used("--no-show");
     if (Utils::endsWith(genome, ".bam") || Utils::endsWith(genome, ".cram")) {
+        const std::string alignmentPath = genome;
         HGW::guessRefGenomeFromBam(genome, iopts, bamPaths, regions);
-        if (genome.empty()) {
-            std::cerr << "Error: please provide a reference genome\n";
-            std::exit(1);
+        if (genome.empty() || genome == alignmentPath) {  // no genome in .gw.ini matched
+            if (!windowed) {
+                std::cerr << "Error: please provide a reference genome\n";
+                std::exit(1);
+            }
+            if (bamPaths.empty()) bamPaths.push_back(alignmentPath);
+            genome.clear();
         }
     }
 
@@ -297,102 +305,6 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
     if (iopts.myIni["genomes"].has(genome)) {
         iopts.genome_tag = genome;
         genome = iopts.myIni["genomes"][genome];
-    } else if (genome.empty() && !program.is_used("--images") && !iopts.ini_path.empty() && !program.is_used("--no-show") && !program.is_used("--session")
-#ifdef __EMSCRIPTEN__
-               && false  // No interactive stdin in WebAssembly — provide genome via Module.arguments in pre.js
-#endif
-               ) {
-        // prompt for genome
-        options.showBanner = false;
-
-        if (iopts.myIni["genomes"].size() == 0 && !have_session_file && !std::filesystem::exists(iopts.session_file)) {
-            std::cerr << "No genomes listed, finishing\n";
-            std::exit(1);
-        }
-
-        // Interactive terminal dialog when stdin/stdout are connected to a TTY.
-        if (isatty(STDIN_FILENO) && isatty(STDOUT_FILENO)) {
-            auto choice = Menu::runStartupGenomeDialog(iopts);
-            switch (choice.result) {
-                case Menu::StartupResult::Genome:
-                    options.genome = choice.genomePath;
-                    iopts.genome_tag = choice.genomeTag;
-                    break;
-                case Menu::StartupResult::Session:
-                    options.useSession = true;
-                    break;
-                case Menu::StartupResult::Quit:
-                    std::exit(0);
-                case Menu::StartupResult::Error:
-                    std::cerr << "Warning: could not open interactive genome picker, falling back to text prompt\n";
-                    break;
-            }
-        }
-
-        // Legacy plain-stdin prompt, used when the TUI is unavailable or the user
-        // pipes input into GW.
-        if (options.genome.empty() && !options.useSession) {
-            std::vector<std::pair<std::string, std::string>> vals;
-            for (auto &rg: iopts.myIni["genomes"]) {
-                vals.push_back(rg);
-            }
-
-        user_prompt:
-
-            if (have_session_file && std::filesystem::exists(iopts.session_file)) {
-                std::cout << "\nPress ENTER to load previous session \nInput a genome number/tag, path, or session: " << std::flush;
-            } else {
-                std::cout << "\nEnter genome number/tag, path or session: " << std::flush;
-            }
-
-            std::string user_input;
-            std::getline(std::cin, user_input);
-            int user_i = -1;
-            if (user_input == "q" || user_input == "quit" || user_input == "exit") {
-                std::exit(0);
-            }
-            if (user_input.empty()) {
-                have_session_file = std::filesystem::exists(iopts.session_file);
-                if (have_session_file) {
-                    options.useSession = true;
-                } else {
-                    goto user_prompt;
-                }
-            } else {
-                bool is_number = str_is_number(user_input);
-                if (Utils::endsWith(user_input, ".ini")) {  // Assume session
-                    iopts.session_file = user_input;
-                    have_session_file = true;
-                    options.useSession = true;
-                } else if (is_number) {
-                    try {
-                        user_i = std::stoi(user_input);
-                    } catch (...) {
-                        goto user_prompt;
-                    }
-                    if (user_i < 0 || static_cast<size_t>(user_i) >= vals.size()) {
-                        goto user_prompt;
-                    }
-                    options.genome = vals[user_i].second;
-                    iopts.genome_tag = vals[user_i].first;
-                    std::cout << "Genome:  " << iopts.genome_tag << std::endl;
-                } else {  // try tag or path
-                    bool found_tag = false;
-                    for (auto &rg: iopts.myIni["genomes"]) {
-                        std::string tag = rg.first;
-                        if (tag == user_input) {
-                            options.genome = rg.second;
-                            found_tag = true;
-                            break;
-                        }
-                    }
-                    if (!found_tag) {
-                        options.genome = user_input;
-                    }
-                }
-            }
-        }
-
     } else if (!options.genome.empty() && !Utils::is_file_exist(options.genome)) {
         std::cerr << "Loading remote genome" << std::endl;
     }
@@ -433,9 +345,9 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
         if (!options.useSession && !program.is_used("genome") && options.genome.empty() && !bamPaths.empty()) {
             HGW::guessRefGenomeFromBam(options.genome, iopts, bamPaths, regions);
             if (options.genome.empty()) {
-                std::exit(1);
-            }
-            if (iopts.myIni["genomes"].has(options.genome)) {
+                // The window can still open: the reference is matched or chosen there
+                if (!windowed) std::exit(1);
+            } else if (iopts.myIni["genomes"].has(options.genome)) {
                 iopts.genome_tag = options.genome;
                 options.genome = iopts.myIni["genomes"][genome];
             } else {
@@ -455,6 +367,10 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
 
     if (program.is_used("-n")) {
         iopts.no_show = program.get<bool>("-n");
+    }
+    if (iopts.no_show && options.genome.empty() && !program.is_used("--images")) {
+        std::cerr << "Error: a reference genome is required with --no-show; provide a genome path or tag\n";
+        std::exit(1);
     }
 
     if (program.is_used("--theme")) {

@@ -905,7 +905,7 @@ namespace Manager {
                     0, lastCommandOutputAnsi.size() - maxHistory);
             }
             lastCommandOutputFrame = frameId;
-            showCommandStatus = !captured.empty();
+            if (!captured.empty()) showCommandStatus = true;  // stays open until the user closes it
             if (window) {
                 glfwPostEmptyEvent();
             }
@@ -1203,7 +1203,6 @@ namespace Manager {
         // Cancel scale-bar drag on Escape
         if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS && scaleBarDragging) {
             scaleBarDragging = false;
-            redraw = true;
             return;
         }
         // key events concerning the menu are handled here
@@ -1533,14 +1532,6 @@ namespace Manager {
                     currentVarTrack->blockStart = (currentVarTrack->blockStart - bLen > 0) ? currentVarTrack->blockStart - bLen : 0;
                     mouseOverTileIndex = 0;
                     redraw = true;
-                } else if (key == opts.zoom_out) {
-                    opts.number.x += 1;
-                    opts.number.y += 1;
-                    redraw = true;
-                } else if (key == opts.zoom_in) {
-                    opts.number.x = (opts.number.x - 1 > 0) ? opts.number.x - 1 : 1;
-                    opts.number.y = (opts.number.y - 1 > 0) ? opts.number.y - 1 : 1;
-                    redraw = true;
                 } else if (key >= GLFW_KEY_1 && key <= GLFW_KEY_9 && mouseOverTileIndex >= 0) {
                     int num_idx = key - (int)GLFW_KEY_1;
                     if (currentVarTrack->multiLabels.empty() || currentVarTrack->blockStart + mouseOverTileIndex > (int)currentVarTrack->multiLabels.size()) {
@@ -1828,7 +1819,6 @@ namespace Manager {
         // Right-click cancels an in-progress scale-bar drag without zooming
         if (scaleBarDragging && button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
             scaleBarDragging = false;
-            redraw = true;
             return;
         }
 
@@ -1988,8 +1978,47 @@ namespace Manager {
         commandToolTipIndex = 0;
     }
 
+    void GwPlot::setCommandCapture(bool on) {
+        if (on == captureText) return;
+        captureText = on;
+        processText = false;
+        textFromSettings = false;
+        commandToolTipIndex = -1;
+        if (on) {
+            inputText.clear();
+            charIndex = 0;
+        }
+    }
+
+    void GwPlot::setCommandText(const std::string& text) {
+        inputText = text;
+        charIndex = (int)inputText.size();
+    }
+
+    bool GwPlot::submitCommand(const std::string& text) {
+        captureText = false;
+        processText = false;
+        shiftPress = false;
+        commandToolTipIndex = -1;
+        setCommandText(text);
+        return commandProcessed();
+    }
+
+    bool GwPlot::tabCompleteCommand(std::string& text) {
+        int index = (int)text.size();
+        if (tryGenomeTagCompletion(text, index, opts)) return true;
+        for (const char* cmd : {"load ", "save ", "snapshot "}) {
+            if (Utils::startsWith(text, cmd) && text != cmd) {
+                std::ostringstream discard;
+                Parse::tryTabCompletion(text, discard, index);
+                return true;
+            }
+        }
+        return false;
+    }
+
     bool GwPlot::handleCommandTooltipInteraction(int button, int action, float xW, float yW) {
-        if (commandToolTipIndex >= 0 && captureText && mode != SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT) {
+        if (commandToolTipIndex >= 0 && captureText && !showUIOverlay && mode != SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT) {
             double xPos_fb_local = xPos_fb;
             double yPos_fb_local = yPos_fb;
             convertScreenCoordsToFrameBufferCoords(window, &xPos_fb_local, &yPos_fb_local, fb_width, fb_height);
@@ -3079,7 +3108,7 @@ namespace Manager {
             convertScreenCoordsToFrameBufferCoords(wind, &xPosOri_fb, &yPosOri_fb, fb_width, fb_height);
         }
         // register popup toolbar
-        if (captureText && mode != SETTINGS && xPos_fb < (50 + fonts.overlayWidth * 20)) {
+        if (captureText && !showUIOverlay && mode != SETTINGS && xPos_fb < (50 + fonts.overlayWidth * 20)) {
             int tip_lb = 0;
             int tip_ub = (int)inputText.size();
             if (!inputText.empty()) {
@@ -3185,8 +3214,7 @@ namespace Manager {
                     return;
                 }
                 if (scaleBarDragging) {
-                    redraw = true;
-                    return;
+                    return;  // the selection box is an ImGui overlay; the plot beneath is not re-rendered
                 }
                 if (!tracks.empty()) {
                     if (nearBoundary || tabBorderPress) {

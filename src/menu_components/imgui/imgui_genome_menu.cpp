@@ -405,6 +405,125 @@ void openReferenceForData(Manager::GwPlot* plot, const std::string& path) {
 #endif
 }
 
+void openGenomeSelector(const std::string& previousSession) {
+    genomeSelectorOpen = true;
+    genomeSelectorSession = previousSession;
+}
+
+// Reference chooser in the middle of the window, shown when GW starts without a reference.
+// It lists the same genomes as the Genome menu and opens them the same way; the window stays
+// usable behind it, so files can still be dropped in or opened from the menu.
+static void drawGenomeSelector(Manager::GwPlot* plot, bool& redraw) {
+    if (!genomeSelectorOpen) return;
+    auto& s = genomeMenuState();
+    if (!plot->reference.empty() || plot->remoteCommand || s.browserOpening) { genomeSelectorOpen = false; return; }
+    // Alignments given on the command line that matched no .gw.ini genome: try the bundled
+    // references once, as for a file dropped onto an empty window
+    static bool triedData = false;
+    if (!triedData) {
+        triedData = true;
+        if (!plot->bam_paths.empty()) {
+            openReferenceForData(plot, plot->bam_paths.front());
+            if (!plot->reference.empty()) { genomeSelectorOpen = false; redraw = true; return; }
+        }
+    }
+    // Step aside for the dialogs it opens
+    if (onlineFileDialogOpen || plot->openDialogOpen) return;
+    if (!s.built) buildGenomeList(plot, s);
+    pollGenomeList(plot, s);
+
+    static char filter[128] = {};
+    const ImGuiIO& io = ImGui::GetIO();
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const float width = std::min(420.0f, io.DisplaySize.x - 32.0f);
+    // Centre again whenever the display changes size: the browser canvas is sized after the first frame
+    static ImVec2 centredFor(0, 0);
+    const bool recentre = centredFor.x != io.DisplaySize.x || centredFor.y != io.DisplaySize.y;
+    centredFor = io.DisplaySize;
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f),
+                            recentre ? ImGuiCond_Always : ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(width, 0.0f), ImGuiCond_Always);
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
+                                   ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar;
+    if (!ImGui::Begin("Reference genome###genome_selector", &genomeSelectorOpen, flags)) { ImGui::End(); return; }
+    if (closeOnEscape(&genomeSelectorOpen)) { ImGui::End(); return; }
+
+    ImGui::TextUnformatted("Choose a reference genome");
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    ImGui::InputTextWithHint("##genome_filter", "Filter", filter, sizeof(filter));
+    const std::string needle = genomeLower(filter);
+
+    std::vector<int> shown;
+    bool anyLocal = false;
+    for (int i = 0; i < (int)s.items.size(); ++i) {
+        const auto& item = s.items[i];
+        if (blockedInBrowser(item)) continue;
+        if (!needle.empty() && genomeLower(item.label).find(needle) == std::string::npos &&
+            genomeLower(item.key).find(needle) == std::string::npos) continue;
+        anyLocal = anyLocal || item.local;
+        shown.push_back(i);
+    }
+
+    int pick = -1;
+    const float rowH = ImGui::GetTextLineHeightWithSpacing();
+    const float maxRows = std::max(4.0f, std::min(12.0f, (io.DisplaySize.y * 0.45f) / rowH));
+    ImGui::BeginChild("##genome_list", ImVec2(0, maxRows * rowH + style.WindowPadding.y * 2), ImGuiChildFlags_Borders);
+    const float dotR = ImGui::GetFontSize() * 0.16f;
+    const ImU32 dotCol = ImGui::GetColorU32(ImGuiCol_CheckMark);
+    ImGuiListClipper clipper;
+    clipper.Begin((int)shown.size());
+    while (clipper.Step()) {
+        for (int r = clipper.DisplayStart; r < clipper.DisplayEnd; ++r) {
+            const auto& item = s.items[shown[r]];
+            ImGui::PushID(shown[r]);
+            if (ImGui::Selectable(item.label.c_str())) pick = shown[r];
+            if (item.local) {  // a file on disk, as in the Genome menu
+                const ImVec2 lo = ImGui::GetItemRectMin(), hi = ImGui::GetItemRectMax();
+                ImGui::GetWindowDrawList()->AddCircleFilled(
+                    ImVec2(lo.x + ImGui::CalcTextSize(item.label.c_str()).x + style.ItemInnerSpacing.x + dotR,
+                           (lo.y + hi.y) * 0.5f), dotR, dotCol);
+            }
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) ImGui::SetTooltip("%s", item.entry.url.c_str());
+            ImGui::PopID();
+        }
+    }
+    if (shown.empty() && !s.loading) ImGui::TextDisabled(s.items.empty() ? "No genomes listed" : "No match");
+    if (s.loading) ImGui::TextDisabled("Loading IGV genomes...");
+    ImGui::EndChild();
+    if (anyLocal) {
+        ImGui::TextDisabled("Local file");
+        const ImVec2 lo = ImGui::GetItemRectMin(), hi = ImGui::GetItemRectMax();
+        ImGui::GetWindowDrawList()->AddCircleFilled(
+            ImVec2(hi.x + style.ItemInnerSpacing.x + dotR, (lo.y + hi.y) * 0.5f), dotR, dotCol);
+    }
+
+    ImGui::Spacing();
+    if (ImGui::Button("Open file")) plot->openDialogOpen = true;
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) ImGui::SetTooltip("Open a FASTA, or a BAM/CRAM/VCF to match a reference to it");
+    ImGui::SameLine();
+    if (ImGui::Button("Online genomes")) {
+        onlineState().showReferenceTab = true;
+        onlineFileDialogOpen = true;
+    }
+    bool loadSession = false;
+    if (!genomeSelectorSession.empty()) {
+        ImGui::SameLine();
+        loadSession = ImGui::Button("Previous session");
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) ImGui::SetTooltip("%s", genomeSelectorSession.c_str());
+    }
+    ImGui::End();
+
+    if (pick >= 0) {
+        const GenomeItem chosen = s.items[pick];
+        selectGenome(plot, s, chosen, false, redraw);
+    } else if (loadSession) {
+        execCommand(plot, "load session " + genomeSelectorSession, redraw);
+        plot->processed = false;
+        redraw = true;
+    }
+    if (!plot->reference.empty()) genomeSelectorOpen = false;
+}
+
 static void drawGenomeMenu(Manager::GwPlot* plot, bool& redraw) {
     auto& s = genomeMenuState();
     ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0), ImVec2(FLT_MAX, ImGui::GetIO().DisplaySize.y * 0.6f));

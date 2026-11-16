@@ -2,6 +2,7 @@
 // Created by Kez Cleal on 07/12/2022.
 // Collection of terminal printing functions
 //
+#include <climits>
 #include <cassert>
 #include <filesystem>
 #include <htslib/sam.h>
@@ -862,6 +863,191 @@ namespace Term {
         }
     }
 
+    // Writes styled text, changing the terminal colour only when the style changes
+    struct SeqWriter {
+        enum Style { PLAIN, BASE_A, BASE_C, BASE_G, BASE_T, BASE_N, INSERTION, DELETION };
+        std::ostream& out;
+        int style = PLAIN;
+        bool highlight = false;
+        bool dim = false;  // low base quality
+
+        static Style baseStyle(char base) {
+            switch (base) {
+                case 'A': return BASE_A;
+                case 'C': return BASE_C;
+                case 'G': return BASE_G;
+                case 'T': return BASE_T;
+                default: return BASE_N;
+            }
+        }
+        void set(int newStyle, bool newHighlight = false, bool newDim = false) {
+            if (newStyle == style && newHighlight == highlight && newDim == dim) return;
+            out << termcolor::reset;
+            if (newDim) out << termcolor::dark;
+            if (newHighlight) out << termcolor::reverse;
+            switch (newStyle) {
+                case BASE_A: out << termcolor::green; break;
+                case BASE_C: out << termcolor::blue; break;
+                case BASE_G: out << termcolor::yellow; break;
+                case BASE_T: out << termcolor::red; break;
+                case BASE_N: out << termcolor::grey; break;
+                case INSERTION: out << termcolor::magenta; break;
+                case DELETION: out << termcolor::red; break;
+                default: break;
+            }
+            style = newStyle;
+            highlight = newHighlight;
+            dim = newDim;
+        }
+        void finish() { set(PLAIN); }
+    };
+
+    // Longest insertion near the clicked position, for showing in full
+    struct SeqWindowInsertion {
+        int length = 0;
+        int queryStart = 0;
+    };
+
+    /* The read's sequence around the clicked reference position 'pos': leftFlank reference
+     * columns before it and rightFlank after, with the clicked base highlighted.
+     *   matches       plain
+     *   mismatches    coloured
+     *   insertions    [5:ACGTA], or [1200:ACGTACGTAC...ACGTACGTAC] when longer than maxInsertion
+     *   deletions     dashes, or ---1200bp--- when long
+     *   soft-clips    coloured lower case
+     *   low quality   bases under Q10 are dimmed
+     * Soft-clips are laid out past the ends of the alignment, as they are drawn in the plot.
+     * Returns the insertion closest to pos that was shortened, if any. */
+    static SeqWindowInsertion printSeqWindow(std::vector<Segs::Align>::iterator r, const char *refSeq, int refStart, int refEnd,
+                                             std::ostream& out, int pos, int leftFlank, int rightFlank, int maxInsertion) {
+        SeqWindowInsertion nearest;
+        const bam1_t *b = r->delegate;
+        const int l_seq = (int)b->core.l_qseq;
+        if (l_seq == 0) {
+            out << "*";
+            return nearest;
+        }
+        const uint32_t n_cigar = b->core.n_cigar;
+        const uint32_t *cigar = bam_get_cigar(b);
+        const uint8_t *seq = bam_get_seq(b);
+        auto baseAt = [&](int i) -> char { return (i >= 0 && i < l_seq) ? basemap[bam_seqi(seq, i)] : 'N'; };
+        const uint8_t *qual = bam_get_qual(b);
+        const bool hasQual = qual[0] != 0xff;
+        auto lowQual = [&](int i) -> bool { return hasQual && i >= 0 && i < l_seq && qual[i] < 10; };
+
+        // Where the read starts and ends on the reference once its soft-clips are laid out
+        int layoutStart = (int)b->core.pos, layoutEnd = (int)b->core.pos;
+        for (uint32_t k = 0; k < n_cigar; ++k) {
+            const int op = (int)(cigar[k] & BAM_CIGAR_MASK), l = (int)(cigar[k] >> BAM_CIGAR_SHIFT);
+            if (op == BAM_CSOFT_CLIP) {
+                if (layoutEnd == (int)b->core.pos && layoutStart == (int)b->core.pos) layoutStart -= l;
+                else layoutEnd += l;
+            } else if (bam_cigar_type(op) & 2) {
+                layoutEnd += l;
+            }
+        }
+        // Keep the window on the read when the click is at or beyond one end
+        pos = std::clamp(pos, layoutStart, std::max(layoutStart, layoutEnd - 1));
+        // A long deletion or skip is written as one short token, so it does not use up the
+        // flanks: the window is widened by its length and sequence shows on both sides of it.
+        const int longGap = 12;
+        std::vector<std::pair<int, int>> gaps;  // reference start and end of each long gap
+        {
+            int g = (int)b->core.pos;
+            for (uint32_t k = 0; k < n_cigar; ++k) {
+                const int op = (int)(cigar[k] & BAM_CIGAR_MASK), l = (int)(cigar[k] >> BAM_CIGAR_SHIFT);
+                if ((op == BAM_CDEL || op == BAM_CREF_SKIP) && l > longGap) gaps.emplace_back(g, g + l);
+                if (bam_cigar_type(op) & 2) g += l;
+            }
+        }
+        int leftEdge = pos, rightEdge = pos + 1;
+        for (const auto &gap : gaps) {  // clicked inside a gap: flank the whole gap
+            if (pos >= gap.first && pos < gap.second) { leftEdge = gap.first; rightEdge = gap.second; }
+        }
+        int winStart = leftEdge - leftFlank, winEnd = rightEdge + rightFlank;  // half open
+        for (const auto &gap : gaps) {
+            if (gap.first >= rightEdge && gap.first < winEnd) winEnd += gap.second - gap.first;
+        }
+        for (auto gap = gaps.rbegin(); gap != gaps.rend(); ++gap) {
+            if (gap->second <= leftEdge && gap->second > winStart) winStart -= gap->second - gap->first;
+        }
+
+        SeqWriter w{out};
+        if (winStart > layoutStart) out << "...";
+        int p = layoutStart;  // reference column, including soft-clip columns
+        int i = 0;            // query index
+        int nearestDistance = INT_MAX;
+        for (uint32_t k = 0; k < n_cigar; ++k) {
+            const int op = (int)(cigar[k] & BAM_CIGAR_MASK), l = (int)(cigar[k] >> BAM_CIGAR_SHIFT);
+            if (op == BAM_CHARD_CLIP || op == BAM_CPAD) continue;
+            if (p >= winEnd) break;
+            if (op == BAM_CINS) {
+                if (p >= winStart && p <= winEnd) {
+                    w.set(SeqWriter::INSERTION);
+                    out << "[" << l << ":";
+                    const bool shortened = l > maxInsertion;
+                    const int edge = shortened ? std::max(1, maxInsertion / 3) : l;
+                    for (int n = 0; n < l; ++n) {
+                        if (shortened && n == edge) {
+                            w.set(SeqWriter::INSERTION);
+                            out << "...";
+                            n = l - edge;
+                        }
+                        const char base = baseAt(i + n);
+                        w.set(SeqWriter::baseStyle(base), false, lowQual(i + n));
+                        out << base;
+                    }
+                    w.set(SeqWriter::INSERTION);
+                    out << "]";
+                    if (shortened && std::abs(p - pos) < nearestDistance) {
+                        nearestDistance = std::abs(p - pos);
+                        nearest.length = l;
+                        nearest.queryStart = i;
+                    }
+                }
+                i += l;
+                continue;
+            }
+            const int from = std::max(p, winStart), to = std::min(p + l, winEnd);
+            if (from < to) {
+                if (op == BAM_CDEL || op == BAM_CREF_SKIP) {
+                    const char gap = op == BAM_CDEL ? '-' : '~';
+                    const bool clicked = pos >= p && pos < p + l;
+                    if (l <= longGap) {
+                        for (int c = from; c < to; ++c) {
+                            w.set(SeqWriter::DELETION, c == pos);
+                            out << gap;
+                        }
+                    } else {  // one token, whatever part of it falls in the window
+                        w.set(SeqWriter::DELETION, clicked);
+                        out << gap << gap << gap << l << "bp" << gap << gap << gap;
+                    }
+                } else if (op == BAM_CSOFT_CLIP) {
+                    for (int c = from; c < to; ++c) {
+                        const char base = baseAt(i + (c - p));
+                        w.set(SeqWriter::baseStyle(base), c == pos, lowQual(i + (c - p)));
+                        out << (char)std::tolower(base);
+                    }
+                } else {  // M, =, X
+                    for (int c = from; c < to; ++c) {
+                        const char base = baseAt(i + (c - p));
+                        bool mismatch = op == BAM_CDIFF;
+                        if (op == BAM_CMATCH && refSeq != nullptr && c >= refStart && c < refEnd) {
+                            mismatch = std::toupper((unsigned char)refSeq[c - refStart]) != base;
+                        }
+                        w.set(mismatch ? SeqWriter::baseStyle(base) : SeqWriter::PLAIN, c == pos, lowQual(i + (c - p)));
+                        out << base;
+                    }
+                }
+            }
+            p += l;
+            if (bam_cigar_type(op) & 1) i += l;
+        }
+        w.finish();
+        if (winEnd < layoutEnd) out << "...";
+        return nearest;
+    }
+
     void read2sam(std::vector<Segs::Align>::iterator r, const sam_hdr_t* hdr, std::string &sam, bool low_mem, std::ostream& out) {
         kstring_t kstr = {0, 0, nullptr};
         int res = sam_format1(hdr, r->delegate, &kstr);
@@ -889,7 +1075,28 @@ namespace Term {
         out << termcolor::bold << "mapq     " << termcolor::reset << (int)r->delegate->core.qual << std::endl;
         out << termcolor::bold << "len      " << termcolor::reset << (int)r->delegate->core.l_qseq << std::endl;
         out << termcolor::bold << "cigar    " << termcolor::reset; printCigar(r, out); out << std::endl;
-        out << termcolor::bold << "seq      " << termcolor::reset; printSeq(r, refSeq, refStart, refEnd, term_width, out, pos, indel_length, false, ""); out << std::endl << std::endl;
+        // The sequence around the clicked position; the read popup wraps it over several lines
+        out << termcolor::bold << "seq      " << termcolor::reset;
+        const SeqWindowInsertion insertion = printSeqWindow(r, refSeq, refStart, refEnd, out, pos, 100, 200, 30);
+        out << std::endl;
+        if (insertion.length > 0) {  // a long insertion by the click, in full
+            const int maxShown = 20000;
+            out << termcolor::bold << "ins      " << termcolor::reset << insertion.length << " bp  ";
+            SeqWriter w{out};
+            const uint8_t *seq = bam_get_seq(r->delegate);
+            const uint8_t *qual = bam_get_qual(r->delegate);
+            const bool hasQual = qual[0] != 0xff;
+            const int shown = std::min(insertion.length, maxShown);
+            for (int n = 0; n < shown; ++n) {
+                const char base = basemap[bam_seqi(seq, insertion.queryStart + n)];
+                w.set(SeqWriter::baseStyle(base), false, hasQual && qual[insertion.queryStart + n] < 10);
+                out << base;
+            }
+            w.finish();
+            if (shown < insertion.length) out << "...";
+            out << std::endl;
+        }
+        out << std::endl;
 
         if (show_mod) {
             std::unordered_set<char> mods;  // make a list of mods in this read

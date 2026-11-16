@@ -1863,8 +1863,11 @@ namespace Drawing {
     }
 
     void drawLabel(const Themes::IniOptions &opts, SkCanvas *const canvas, SkRect &rect, Utils::Label &label, const Themes::Fonts &fonts,
-              const ankerl::unordered_dense::set<std::string> &seenLabels, const std::vector<std::string> &srtLabels) {
+              const ankerl::unordered_dense::set<std::string> &seenLabels, const std::vector<std::string> &srtLabels,
+              float bottomInset) {
+        // Centred along the bottom of the tile; bottomInset lifts it clear of the tile's ideogram
         float pad = 2;
+        const float bottom = rect.bottom() - bottomInset;
         const std::string &cur = label.current();
         if (cur.empty()) {
             return;
@@ -1872,7 +1875,6 @@ namespace Drawing {
         sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(cur.c_str(), fonts.overlay);
         float wl = fonts.overlayWidth * (cur.size() + 1);
         SkRect bg;
-        float x = rect.left() + pad;
         SkPaint p;
         // PASS is the sole inverted label; all others share a high-contrast pair.
         bool lightBackground = (cur == "PASS") != Themes::isLightTheme(opts.theme.name);
@@ -1881,12 +1883,13 @@ namespace Drawing {
         textPaint.setColor(lightBackground ? SK_ColorBLACK : SK_ColorWHITE);
 
         if ((wl + pad) > (rect.width() * 0.5)) {
-            bg.setXYWH(x + pad, rect.bottom() - fonts.overlayHeight - pad - pad - pad - pad, fonts.overlayHeight,
+            bg.setXYWH(rect.centerX() - fonts.overlayHeight * 0.5f, bottom - fonts.overlayHeight - pad - pad - pad - pad, fonts.overlayHeight,
                        fonts.overlayHeight);
             canvas->drawRoundRect(bg, fonts.overlayHeight, fonts.overlayHeight, p);
             canvas->drawRoundRect(bg, fonts.overlayHeight, fonts.overlayHeight, opts.theme.lcLabel);
         } else {
-            bg.setXYWH(x + pad, rect.bottom() - fonts.overlayHeight - pad - pad - pad - pad, wl + pad,
+            const float x = rect.centerX() - (wl + pad) * 0.5f - pad;
+            bg.setXYWH(x + pad, bottom - fonts.overlayHeight - pad - pad - pad - pad, wl + pad,
                        fonts.overlayHeight + pad + pad);
             canvas->drawRoundRect(bg, 5, 5, p);
             canvas->drawRoundRect(bg, 5, 5, opts.theme.lcLabel);
@@ -1899,7 +1902,7 @@ namespace Drawing {
             canvas->drawRect(rect, opts.theme.lcJoins);
         }
         if (!label.comment.empty()) {
-            bg.setXYWH(rect.right() - fonts.overlayHeight - (4*pad), rect.bottom() - fonts.overlayHeight - pad - pad - pad - pad, fonts.overlayHeight,
+            bg.setXYWH(rect.right() - fonts.overlayHeight - (4*pad), bottom - fonts.overlayHeight - pad - pad - pad - pad, fonts.overlayHeight,
                        fonts.overlayHeight);
             canvas->drawRoundRect(bg, fonts.overlayHeight, fonts.overlayHeight, opts.theme.fcG);
         }
@@ -2714,7 +2717,7 @@ namespace Drawing {
                            const std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
                            SkCanvas *const canvas, const drawContext& ctx) {
         const float fb_width = ctx.fb_width;
-        const float fb_height = ctx.fb_height;
+        const float fb_height = ctx.fb_height - ctx.commandBarSpace;
         const float monitorScale = ctx.monitorScale;
         const float plot_gap = ctx.gap;
         const bool addLocation = ctx.drawLocation;

@@ -1118,7 +1118,8 @@ namespace HGW {
             refreshLinkedCollection(col, opts, samMaxY, sortState);
         } else if (pruned || added) {
             int sortState = Segs::getSortCodes(readQueue, opts.threads, pool, region);
-            *samMaxY = std::max(*samMaxY, Segs::placeUnassignedReads(col, opts, sortState));
+            const int64_t leftBefore = known && region->start < oldStart ? oldStart : -1;
+            *samMaxY = std::max(*samMaxY, Segs::placeUnassignedReads(col, opts, sortState, leftBefore));
         }
         if (coverage) {  // re process coverage for all reads
             col.covArr.resize(region->end - region->start + 1);
@@ -1222,8 +1223,9 @@ namespace HGW {
             l2p = label_to_parse;
         }
         v_->max_unpack = BCF_UN_INFO;
-        if (cacheStdin) {
-            v_->max_unpack = BCF_UN_ALL;
+        const int nSamples = bcf_hdr_nsamples(hdr_);
+        if (cacheStdin || (nSamples > 0 && nSamples <= maxGenotypeSamples)) {
+            v_->max_unpack = BCF_UN_ALL;  // FORMAT fields too, for genotypeString()
         }
         if (l2p.empty()) {
             parse = -1;
@@ -1444,6 +1446,32 @@ namespace HGW {
             }
             if (kstr.s) free(kstr.s);
         }
+    }
+
+    std::string VCFfile::genotypeString(int maxSamples) {
+        std::string out;
+        const int n = bcf_hdr_nsamples(hdr);
+        if (n <= 0 || n > maxSamples) return out;
+        int32_t *gt = nullptr;
+        int allocated = 0;
+        const int total = bcf_get_genotypes(hdr, v, &gt, &allocated);
+        if (total >= n) {
+            const int ploidy = total / n;
+            for (int i = 0; i < n; ++i) {
+                if (i) out += ',';
+                const size_t before = out.size();
+                for (int j = 0; j < ploidy; ++j) {
+                    const int32_t a = gt[i * ploidy + j];
+                    if (a == bcf_int32_vector_end) break;
+                    if (j) out += bcf_gt_is_phased(a) ? '|' : '/';
+                    if (bcf_gt_is_missing(a)) out += '.';
+                    else out += std::to_string(bcf_gt_allele(a));
+                }
+                if (out.size() == before) out += '.';
+            }
+        }
+        free(gt);
+        return out;
     }
 
 	void VCFfile::get_samples() {
@@ -2840,7 +2868,8 @@ namespace HGW {
                     if (*trackDone) {
                         break;
                     }
-                    this->appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype);
+                    this->appendVariantSite(vcf.chrom, vcf.start, vcf.chrom2, vcf.stop, vcf.rid, vcf.label, vcf.vartype,
+                                            vcf.genotypeString(maxGenotypeSamples));
                 } else {
                     variantTrack.next();
                     if (*trackDone) {
@@ -2917,6 +2946,7 @@ namespace HGW {
         }
         std::string queryLower = toLowerCopy(trimmed);
 
+        HGW::VCFfile *genotypeSource = nullptr;  // the reader positioned on the record being tested
         auto appendIfMatch = [&](std::string &chrom, long start, std::string &chrom2, long stop,
                                  std::string &rid, std::string &label, std::string &vartype) {
             bool keep = false;
@@ -2942,7 +2972,8 @@ namespace HGW {
                 return;
             }
             seen.insert(key);
-            appendVariantSite(chrom, start, chrom2, stop, rid, label, vartype);
+            appendVariantSite(chrom, start, chrom2, stop, rid, label, vartype,
+                              genotypeSource ? genotypeSource->genotypeString(maxGenotypeSamples) : "");
         };
 
         if (type == VCF) {
@@ -2950,6 +2981,7 @@ namespace HGW {
             reader.cacheStdin = false;
             reader.label_to_parse = m_opts->parse_label.c_str();
             reader.open(path);
+            genotypeSource = &reader;
             while (!reader.done) {
                 reader.next();
                 if (reader.done) {
@@ -2976,7 +3008,7 @@ namespace HGW {
         }
     }
 
-    void GwVariantTrack::appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label, std::string &vartype) {
+    void GwVariantTrack::appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label, std::string &vartype, const std::string &genotypes) {
         long rlen = stop - start;
         std::vector<Utils::Region> v;
         bool isTrans = chrom != chrom2;
@@ -3008,6 +3040,7 @@ namespace HGW {
         } else {
             multiLabels.push_back(Utils::makeLabel(chrom, start, label, labelChoices, rid, vartype, "", false, false, empty_comment));
         }
+        multiLabels.back().genotypes = genotypes;
     }
 
     void collectGFFTrackData(HGW::GwTrack &trk, std::vector<Utils::TrackBlock> &features) {

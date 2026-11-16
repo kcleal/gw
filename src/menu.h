@@ -61,6 +61,16 @@ namespace Menu {
                                                             "refresh", "online", "name", "mods", "mismatches", "mate", "mate add", "log2-cov", "load", "link", "line", "insertions", "indel-length", "ideogram",
                                                             "grid", "font-size", "find", "filter", "expand-tracks", "edges", "cov",  "count", "alignments", "add", "min-junction-reads"};
 
+    // Every command offered by the command bar, in the order listed
+    constexpr std::array<const char*, 60> commandList = {
+        "add", "alignments", "clear-markers", "clear-roi", "colour", "count", "cov", "edges", "expand-tracks", "filter",
+        "find", "font-size", "goto", "grid", "header", "help", "ideogram", "indel-length", "insertions", "introns",
+        "labels", "line", "link", "load", "log2-cov", "marker", "mate", "mate add", "min-junction-reads", "mismatches",
+        "mods", "move-bam", "move-track", "name", "online", "quit", "refresh", "remove", "remove-filter", "remove-marker",
+        "remove-roi", "roi", "sam", "save", "settings", "snapshot", "soft-clips", "sort", "tab-track-height", "tags",
+        "theme", "tiles", "tlen-y", "track-height", "translate", "translate_code", "translate_frame", "translate_strand",
+        "var", "ylim"};
+
     constexpr std::array<const char*, 17> exec = {"alignments", "cov", "count", "edges", "expand-tracks", "insertions", "line", "log2-cov", "mate", "mate add", "mismatches", "mods", "tags", "soft-clips", "sam", "refresh", "tlen-y"};
 
     int getCommandSwitchValue(Themes::IniOptions &opts, std::string &cmd_s, bool &drawLine);
@@ -105,6 +115,10 @@ namespace Menu {
 
     void drawImGuiChromosomeList(Manager::GwPlot* plot, bool& redraw);
 
+    // Show the in-window reference chooser (GW started without a reference). previousSession is
+    // a session file to offer alongside the genomes, or empty.
+    void openGenomeSelector(const std::string& previousSession);
+
     // With no reference open, open the online reference matching a BAM/CRAM/VCF file's header
     void openReferenceForData(Manager::GwPlot* plot, const std::string& path);
 
@@ -127,6 +141,10 @@ namespace Menu {
     // Transient status overlay showing the most recent command output/errors
     // triggered from the ImGui UI. Terminal colors are preserved separately.
     void drawImGuiCommandStatus(Manager::GwPlot* plot);
+
+    // Command bar along the bottom edge: text entry with a scrollable list of every command.
+    // Shows the position under the pointer while empty.
+    void drawImGuiCommandBar(Manager::GwPlot* plot, bool& redraw);
 
     // Keep Escape in the UI instead of also triggering legacy plot shortcuts.
     bool hasImGuiEscapeTarget();

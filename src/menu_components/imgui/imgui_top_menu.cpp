@@ -186,7 +186,7 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(gap * 0.75f, gap * 0.5f));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(gap * 0.5f, gap * 0.4f));
     if (ImGui::BeginPopup("##TopMenuPopup")) {
-        if (ImGui::BeginMenu("Open")) {
+        if (ImGui::BeginMenu("Open file")) {
         if (ImGui::MenuItem("Local file")) {
             if(plot->remoteCommand) plot->remoteCommand("open");
 #ifdef __EMSCRIPTEN__
@@ -204,20 +204,6 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
         }
         if (ImGui::MenuItem("Tracks", nullptr, plot->trackManagerOpen)) {
             plot->trackManagerOpen = !plot->trackManagerOpen;
-        }
-        if (ImGui::MenuItem("Settings")) {
-            if (plot->mode != Manager::Show::SETTINGS) {
-                plot->last_mode = plot->mode;
-                plot->mode = Manager::Show::SETTINGS;
-                plot->opts.menu_table = Themes::MenuTable::MAIN;
-                plot->opts.menu_level = "";
-            } else {
-                plot->mode = plot->last_mode;
-                plot->opts.editing_underway = false;
-            }
-        }
-        if (ImGui::MenuItem("Help")) {
-            plot->helpDialogOpen = !plot->helpDialogOpen;
         }
         if (!plot->variantTracks.empty() && ImGui::MenuItem("Variants", nullptr, plot->labelTableDialogOpen)) {
             plot->labelTableDialogOpen = !plot->labelTableDialogOpen;
@@ -241,9 +227,28 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
         if (ImGui::MenuItem("Tools", nullptr, plot->commandDialogOpen)) {
             plot->commandDialogOpen = !plot->commandDialogOpen;
         }
-        if (ImGui::MenuItem("Enter command", "/")) {
-            if (!plot->commandBoxOpen()) plot->toggleCommandCapture();
+        if (ImGui::MenuItem("Command bar", "/", plot->commandBarVisible)) {
+            plot->commandBarVisible = !plot->commandBarVisible;
+            if (!plot->commandBarVisible) plot->setCommandCapture(false);
             redraw = true;
+        }
+        if (ImGui::MenuItem("Output", nullptr, plot->showCommandStatus)) {
+            plot->showCommandStatus = !plot->showCommandStatus;
+            redraw = true;
+        }
+        if (ImGui::MenuItem("Settings")) {
+            if (plot->mode != Manager::Show::SETTINGS) {
+                plot->last_mode = plot->mode;
+                plot->mode = Manager::Show::SETTINGS;
+                plot->opts.menu_table = Themes::MenuTable::MAIN;
+                plot->opts.menu_level = "";
+            } else {
+                plot->mode = plot->last_mode;
+                plot->opts.editing_underway = false;
+            }
+        }
+        if (ImGui::MenuItem("Help")) {
+            plot->helpDialogOpen = !plot->helpDialogOpen;
         }
         ImGui::EndPopup();
     }

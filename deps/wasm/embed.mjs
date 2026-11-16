@@ -3,14 +3,17 @@
  *
  * params: a startup view, as the page's URL parameters (see shell.html), e.g.
  *   {genome: 'hg38', bam: [urlA, urlB], name: ['Daughter', 'Father'], region: 'chr11:5227000-5227030'}
+ * blank: start empty, with no reference genome chooser or startup hints, and wait to be
+ *   driven through the returned API. Without it a viewer given no genome shows the chooser.
  * focus: take the keyboard when GW starts. Off by default, so a host such as a slide deck
  *   keeps its keys until GW is clicked.
  */
-export function createViewer(container, {url = './gw.html', params = {}, focus = false, onState, onError} = {}) {
+export function createViewer(container, {url = './gw.html', params = {}, blank = false, focus = false, onState, onError} = {}) {
     const target = new URL(url, window.location.href);
     if (target.pathname.endsWith('/')) target.pathname += 'gw.html';
     target.searchParams.set('embed', '1');
     if (focus) target.searchParams.set('focus', '1');
+    if (blank) target.searchParams.set('blank', '1');
     for (const [key, value] of Object.entries(params))
         for (const item of [].concat(value)) if (item !== undefined && item !== null) target.searchParams.append(key, String(item));
 

@@ -102,6 +102,8 @@ namespace Manager {
         bool drawLine;
         bool drawLocation;
         bool commandDialogOpen{false};
+        bool commandBarVisible{true};  // ImGui command bar docked along the bottom edge
+        float commandBarSpace{0};      // framebuffer pixels reserved for the command bar, set by setScaling()
         bool openDialogOpen{false};
         bool helpDialogOpen{false};
         bool closeDialogOpen{false};
@@ -382,6 +384,11 @@ namespace Manager {
         bool commandProcessed();
         bool commandBoxOpen() const { return captureText; }
         void toggleCommandCapture();  // open/close the '/' command box
+        // Used by the ImGui command bar, which edits the text itself
+        void setCommandCapture(bool on);
+        void setCommandText(const std::string& text);
+        bool submitCommand(const std::string& text);
+        bool tabCompleteCommand(std::string& text);  // genome tags and file paths; false if neither applies
         bool commandBoxReady() const { return processText && !captureText; }
         std::string commandBoxState() const { return inputText + "|" + std::to_string(charIndex) + "|" + std::to_string(commandToolTipIndex); }
         bool commandKey(int key, int scancode, int action, int mods);
@@ -421,6 +428,9 @@ namespace Manager {
         void prepareImGui(bool& pending_settings_close, void (*background)() = nullptr, void (*input)() = nullptr);
         // Existing overlay, reusable above a locally or remotely rendered frame.
         void overlayImGui(bool& pending_settings_close, void (*background)() = nullptr, void (*input)() = nullptr);
+        // Genome shortcuts and the "drag-and-drop"/"open the command box" messages of an empty
+        // view. Off when GW is embedded or driven by another program and should just wait (--wait).
+        bool startupHints = true;
         // Optional UI-only transport. Never consulted by drawing/read-packing loops.
         std::function<void(const std::string&)> remoteCommand;
         struct RemoteScrollbar { float xOffset, yOffset, regionPixels; int maximum, value; bool live; };

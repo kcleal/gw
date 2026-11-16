@@ -11,6 +11,9 @@
 namespace Menu {
 namespace {
 bool onlineFileDialogOpen = false;
+// In-window reference chooser, shown when GW starts without a reference (imgui_genome_menu.cpp)
+bool genomeSelectorOpen = false;
+std::string genomeSelectorSession;  // previous session offered by the chooser, when one exists
 constexpr const char* genomeCatalogueURL = "https://s3.amazonaws.com/igv.org.genomes/genomes.json";
 const char* onlineCategories[] = {"reference", "alignment", "track", "variant"};
 
@@ -436,11 +439,11 @@ static void drawImGuiOnlineFileDialog(Manager::GwPlot* plot, bool& redraw) {
     if (!onlineFileDialogOpen && s.busy && !s.cancelled) onlineCancel(s);
 }
 
-// Bottom-left shortcut to the online reference genomes, shown until a reference is open.
+// Bottom-left shortcuts to the reference genomes, shown until a reference is open.
 static void drawImGuiOnlineGenomesButton(Manager::GwPlot* plot) {
-    if (!plot->reference.empty() || plot->remoteCommand || onlineFileDialogOpen) return;
+    if (!plot->reference.empty() || plot->remoteCommand || !plot->startupHints || onlineFileDialogOpen || genomeSelectorOpen) return;
     float pad = plot->gap / plot->monitorScale;
-    ImGui::SetNextWindowPos(ImVec2(pad, ImGui::GetIO().DisplaySize.y - pad), ImGuiCond_Always, ImVec2(0.f, 1.f));
+    ImGui::SetNextWindowPos(ImVec2(pad, ImGui::GetIO().DisplaySize.y - pad - plot->commandBarSpace / plot->monitorScale), ImGuiCond_Always, ImVec2(0.f, 1.f));
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration
                             | ImGuiWindowFlags_NoBackground
                             | ImGuiWindowFlags_AlwaysAutoResize
@@ -450,6 +453,8 @@ static void drawImGuiOnlineGenomesButton(Manager::GwPlot* plot) {
                             | ImGuiWindowFlags_NoNav;
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::Begin("##OnlineGenomesButton", nullptr, flags);
+    if (ImGui::Button("Select genome")) genomeSelectorOpen = true;
+    ImGui::SameLine();
     if (ImGui::Button("Online genomes")) {
         auto& s = onlineState();
         s.showReferenceTab = true;

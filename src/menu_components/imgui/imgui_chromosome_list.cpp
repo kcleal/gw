@@ -34,6 +34,7 @@ static std::vector<ChromEntry> chromosomeList(Manager::GwPlot* plot) {
 
 void drawImGuiChromosomeList(Manager::GwPlot* plot, bool& redraw) {
     pollGenomeOpen(plot);
+    drawGenomeSelector(plot, redraw);
     if (plot->mode != Manager::Show::SINGLE || plot->regions.empty() || plot->sliderSpace <= 0) return;
     static int popupRegion = -1;
     static char filter[128] = {};
@@ -41,7 +42,7 @@ void drawImGuiChromosomeList(Manager::GwPlot* plot, bool& redraw) {
     const float ms = plot->monitorScale;
     const float gap = plot->gap;
     const float colWidth = (float)plot->drawingWidth() / (float)plot->regions.size();
-    const float top = (plot->fb_height - gap * 3) / ms;
+    const float top = (plot->fb_height - plot->commandBarSpace - gap * 3) / ms;
     const float height = (gap * 2) / ms;
 
     // One hit area per region, matching where drawChromLocation writes the name

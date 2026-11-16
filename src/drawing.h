@@ -45,6 +45,7 @@ namespace Drawing {
         float covYh;
         float refSpace;
         float sliderSpace;
+        float commandBarSpace{0};  // strip below the slider kept clear for the command bar
         float gap;
         float monitorScale;
         float trackY;
@@ -110,7 +111,8 @@ namespace Drawing {
                      SkCanvas *const canvas, std::vector<HGW::GwTrack> &tracks, const drawContext& ctx);
 
     void drawLabel(const Themes::IniOptions &opts, SkCanvas *const canvas, SkRect &rect, Utils::Label &label, const Themes::Fonts &fonts,
-              const ankerl::unordered_dense::set<std::string> &seenLabels, const std::vector<std::string> &srtLabels);
+              const ankerl::unordered_dense::set<std::string> &seenLabels, const std::vector<std::string> &srtLabels,
+              float bottomInset = 0);
 
 
     void drawTracks(Themes::IniOptions &opts, SkCanvas *const canvas, std::vector<HGW::GwTrack> &tracks,

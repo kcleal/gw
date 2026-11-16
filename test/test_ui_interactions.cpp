@@ -318,6 +318,30 @@ static void testStableRowGaps() {
     for (size_t i = 0; i < collection.readQueue.size(); ++i) assert(collection.readQueue[i].y == expected[i]);
 }
 
+static void testLeftPanPacksAgainstPile() {
+    // 150 bp reads every 5 bp: depth 30, so a tight layout needs 31 rows.
+    Themes::IniOptions options; options.ylim = 60;
+    auto layout = [&](int64_t leftBefore) {
+        Segs::ReadCollection collection;
+        auto add = [&](int start) {
+            collection.readQueue.emplace_back(nullptr);
+            auto& a = collection.readQueue.back();
+            a.pos = a.cov_start = start; a.reference_end = a.cov_end = start + 150; a.y = -1;
+        };
+        for (int start = 1000; start < 3000; start += 5) add(start);
+        for (auto& a : collection.readQueue) if (a.reference_end <= 2000) a.y = -2;  // not loaded yet
+        Segs::placeUnassignedReads(collection, options, Utils::SortType::NONE);
+        for (auto& a : collection.readQueue) if (a.y == -2) a.y = -1;  // pan left exposes them
+        Segs::placeUnassignedReads(collection, options, Utils::SortType::NONE, leftBefore);
+        int rows = 0, unplaced = 0;
+        for (const auto& a : collection.readQueue) { rows = std::max(rows, a.y + 1); unplaced += a.y < 0; }
+        return std::make_pair(rows, unplaced);
+    };
+    auto packed = layout(2000);
+    assert(packed.first == 31 && packed.second == 0);
+    assert(layout(-1).first > 40);  // left-to-right leaves a band and a gap
+}
+
 static void testLeftClipDrawingPastRightEdge() {
     Themes::IniOptions options;
     options.theme = Themes::IgvTheme(); options.theme.setAlphas();
@@ -754,6 +778,7 @@ int main() {
     testHiddenMismatchPrefix();
     testLeftClipDrawingPastRightEdge();
     testStableRowGaps();
+    testLeftPanPacksAgainstPile();
     testHaplotypeRows();
     testCoverageBaseCounts();
     testPatternFilters();
@@ -1382,7 +1407,8 @@ int main() {
     };
     auto* master = table(3);
     assert(master);
-    click(master->Columns[2].WorkMinX + 10, master->RowPosY1 + ImGui::GetTextLineHeight()/2);
+    // Columns: Position, Label, comment dots
+    click(master->Columns[1].WorkMinX + 10, master->RowPosY1 + ImGui::GetTextLineHeight()/2);
     assert(label.i == 1);
     assert(label.clicked && !label.savedDate.empty());
     assert(plot.mode == Manager::Show::SINGLE);

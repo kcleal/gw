@@ -162,6 +162,7 @@ namespace Utils {
         Label() = default;
         ~Label() = default;
         std::string chrom, variantId, savedDate, vartype, comment;
+        std::string genotypes;  // per-sample GT of a VCF record, "0/1,./.,1|1"; empty when not kept
         std::vector<std::string> labels;
         int i, pos, ori_i;
         bool clicked;

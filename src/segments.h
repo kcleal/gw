@@ -236,7 +236,9 @@ namespace Segs {
     void findYNoSortForward(std::vector<Align> &rQ, std::vector<int> &ls, std::vector<int> &le, int vScroll);
 
     // Works with buffered reads or stream of reads, needed if reads are to be re-sorted
-    int placeUnassignedReads(ReadCollection& rc, Themes::IniOptions& opts, int sortReadsBy);
+    // leftBefore: reads ending at or before this position were newly exposed by a
+    // leftward pan and are placed right-to-left; -1 places everything left-to-right.
+    int placeUnassignedReads(ReadCollection& rc, Themes::IniOptions& opts, int sortReadsBy, int64_t leftBefore = -1);
 
     int EXPORT findY(ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, bool joinLeft, int sortReadsBy);
 

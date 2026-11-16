@@ -13,11 +13,15 @@ bool hasImGuiEscapeTarget() {
     return false;
 }
 
+// Escape pressed while typing in the command bar only cancels the typing
+static ImGuiID commandBarInputId = 0;
+
 // Resolve once per key press so closing a front window cannot also close one
 // behind it. Include native ImGui popups, which handle their own Escape key.
 static bool closeOnEscape(bool* open = nullptr) {
     auto& g = *ImGui::GetCurrentContext();
     if (!ImGui::IsKeyPressed(ImGuiKey_Escape, false)) return false;
+    if (commandBarInputId && g.ActiveId == commandBarInputId) return false;
     static int frame = -1;
     static ImGuiContext* context = nullptr;
     static ImGuiWindow* target = nullptr;
@@ -64,3 +68,4 @@ static bool closeOnEscape(bool* open = nullptr) {
 #include "menu_components/imgui/imgui_genome_menu.cpp"
 #include "menu_components/imgui/imgui_chromosome_list.cpp"
 #include "menu_components/imgui/imgui_label_table.cpp"
+#include "menu_components/imgui/imgui_command_bar.cpp"

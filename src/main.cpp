@@ -111,6 +111,7 @@ int main(int argc, char *argv[]) try {
     argparse::ArgumentParser& program = options.program;
 
     if (!iopts.no_show) {  // draw something to screen
+        std::string previousSession;
         if (options.useSession) {
             mINI::INIFile file(iopts.session_file);
             file.read(iopts.seshIni);
@@ -120,12 +121,26 @@ int main(int argc, char *argv[]) try {
             }
             iopts.getOptionsFromSessionIni(iopts.seshIni);
         } else {
+            previousSession = iopts.session_file;
             iopts.session_file = "";
         }
         Manager::GwPlot plotter = Manager::GwPlot(options.genome, options.bamPaths, iopts, options.regions, options.tracks);
+        // --wait: an empty window that waits for a server or another program to drive it
+        const bool waitForInput = program.get<bool>("--wait");
+        plotter.startupHints = !waitForInput;
+        bool chooseGenome = !waitForInput && plotter.reference.empty() && !options.useSession && !program.is_used("--images");
 #ifdef __EMSCRIPTEN__
         g_wasm_plot = &plotter;
+        previousSession.clear();
+        // A page link that names its genome (?genome=hg38) loads it right after startup
+        if (chooseGenome && EM_ASM_INT({ return new URLSearchParams(location.search).has('genome') ? 1 : 0; })) chooseGenome = false;
 #endif
+        // Started without a reference: it is chosen in the window
+        if (chooseGenome) {
+            std::error_code ec;
+            if (!std::filesystem::is_regular_file(previousSession, ec)) previousSession.clear();
+            Menu::openGenomeSelector(previousSession);
+        }
 
         if (options.showBanner) {
             print_gw_banner();

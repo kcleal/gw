@@ -1426,7 +1426,7 @@ namespace Segs {
         return samMaxY;
     }
 
-    int placeUnassignedReads(ReadCollection& rc, Themes::IniOptions& opts, int sortReadsBy) {
+    int placeUnassignedReads(ReadCollection& rc, Themes::IniOptions& opts, int sortReadsBy, int64_t leftBefore) {
         // Visible rows are anchors. Only unplaced reads may fill the holes between
         // them; a single start/end envelope cannot describe those holes.
         const int visibleRows = std::max(1, opts.ylim);
@@ -1479,16 +1479,13 @@ namespace Segs {
             rc.levelsEnd[row] = std::max(rc.levelsEnd[row], a.cov_end);
             return true;
         };
-        for (auto& a : rc.readQueue) {
-            if (a.y != -1) continue;
+        auto place = [&](Align& a) {
             int cat = category(a);
             int group = categorical ? (int)(std::find(rc.sortLevels.begin(), rc.sortLevels.end(), cat) - rc.sortLevels.begin()) : 0;
-            bool placed = false;
             // Preserve vertical scrolling: consume the skipped rows first.
             for (int row = group * scroll; row < (group + 1) * scroll; ++row) {
-                if (insert(row, a)) { placed = true; break; }
+                if (insert(row, a)) return;
             }
-            if (placed) continue;
             int begin = group * visibleRows / categories;
             int end = (group + 1) * visibleRows / categories;
             if ((sortReadsBy & Utils::SortType::HP) && group + 1 < categories && end - begin >= 3) --end;
@@ -1502,7 +1499,20 @@ namespace Segs {
                     break;
                 }
             }
+        };
+        // First-fit packs tightly only when the read touching the existing pile is
+        // placed first. Reads exposed on the left are therefore visited right-to-left;
+        // visiting them left-to-right leaves a diagonal band and a gap per pan step.
+        auto exposedLeft = [&](const Align& a) { return leftBefore >= 0 && (int64_t)a.reference_end <= leftBefore; };
+        std::vector<Align*> leftReads;
+        for (auto& a : rc.readQueue) {
+            if (a.y != -1) continue;
+            if (exposedLeft(a)) leftReads.push_back(&a);
+            else place(a);
         }
+        std::stable_sort(leftReads.begin(), leftReads.end(),
+                         [](const Align* a, const Align* b) { return a->cov_end > b->cov_end; });
+        for (auto* a : leftReads) place(*a);
         return visibleRows;
     }
 

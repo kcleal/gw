@@ -1875,7 +1875,8 @@ namespace Manager {
             const float translationTrackHeight = fonts.overlayHeight * 4.0f + gap * 2.0f;
             refSpace += translationTrackHeight;
         }
-        sliderSpace = gap * 4;
+        commandBarSpace = (showUIOverlay && commandBarVisible) ? topMenuSpace : 0;
+        sliderSpace = gap * 4 + commandBarSpace;
 
         // Calculate available space
         float availableHeight = fb_height - refSpace - sliderSpace;
@@ -2138,6 +2139,7 @@ namespace Manager {
         if (regions.empty() || xPos_fb <= 0 || yPos_fb <= 0 || yPos_fb < fb_height - sliderSpace + (gap*0.5) || regionSelection < 0) {
             return;
         }
+        const float sliderBottom = fb_height - commandBarSpace;
         float colWidth = (float) drawingWidth() / (float) regions.size();
         regionSelection = (int)(xPos_fb / colWidth);
         regionSelection = std::clamp(regionSelection, 0, (int)regions.size() - 1);
@@ -2154,8 +2156,8 @@ namespace Manager {
         float text_width = fonts.measureTextWidth(s);
         sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(s.c_str(), fonts.overlay);
         SkPathBuilder path;
-        path.moveTo(xPos_fb, fb_height - (gap * 2.5));
-        path.lineTo(xPos_fb, fb_height - (gap * 2.5) - fonts.overlayHeight);
+        path.moveTo(xPos_fb, sliderBottom - (gap * 2.5));
+        path.lineTo(xPos_fb, sliderBottom - (gap * 2.5) - fonts.overlayHeight);
         canvas->drawPath(path.snapshot(), opts.theme.lcBright);
         float xbox = xPos_fb;
         if (xbox + text_width > rgn.ideogramEnd) {
@@ -2163,7 +2165,7 @@ namespace Manager {
         } else {
             xbox += monitorScale + monitorScale;
         }
-        float font_y_pos = fb_height - (gap * 2.5) - fonts.overlayHeight;
+        float font_y_pos = sliderBottom - (gap * 2.5) - fonts.overlayHeight;
         SkRect rect;
         rect.setXYWH(xbox - (monitorScale*3), font_y_pos - fonts.overlayHeight, text_width + (monitorScale *6), fonts.overlayHeight);
         canvas->drawRoundRect(rect, 5*monitorScale, 5*monitorScale, opts.theme.bgPaint);
@@ -2237,6 +2239,7 @@ namespace Manager {
         ctx.covYh = covY;
         ctx.refSpace = refSpace;
         ctx.sliderSpace = sliderSpace;
+        ctx.commandBarSpace = commandBarSpace;
         ctx.gap = gap;
         ctx.monitorScale = monitorScale;
         ctx.trackY = trackY;
@@ -2390,17 +2393,23 @@ namespace Manager {
         Menu::drawImGuiTrackPopup(this);
         Menu::drawImGuiSeqPopup(this);
         Menu::drawImGuiLabelTableDialog(this, redraw);
-        if (drawingWidth() != lastDrawingWidth) {
+        const float wantBarSpace = (showUIOverlay && commandBarVisible) ? topMenuSpace : 0;
+        if (drawingWidth() != lastDrawingWidth || wantBarSpace != commandBarSpace) {
             lastDrawingWidth = drawingWidth();
             imageCache.clear();
             imageCacheQueue.clear();
-            bboxes = tileBoundingBoxes();
             setScaling();
+            bboxes = tileBoundingBoxes();
             setDrawContext(ctx);
             processed = false;
             redraw = true;
         }
         Menu::drawImGuiCommandStatus(this);
+        redraw_before = redraw;
+        Menu::drawImGuiCommandBar(this, redraw);  // last, so Escape in the bar is seen before other windows act on it
+        if (redraw && !redraw_before) {
+            processed = false;
+        }
 
         if (input) input(); // Consume wheel deltas before EndFrame clears them.
         ImGui::Render();
@@ -2412,8 +2421,8 @@ namespace Manager {
     }
 
     void GwPlot::drawCommandBox(SkCanvas* canvas) {
-        // command popup box
-        if (captureText && !opts.editing_underway) {
+        // Skia command box, for callers that draw without the ImGui overlay (which has its own bar)
+        if (captureText && !opts.editing_underway && !showUIOverlay) {
             SkRect rect{};
             float height_f = fonts.overlayHeight * 2;
             float x = 25 * monitorScale;
@@ -2590,7 +2599,9 @@ namespace Manager {
 
         // Help messages
         bool current_view_is_images = (!variantTracks.empty() && variantTracks[variantFileSelection].type == HGW::TrackType::IMAGES);
-        if (bams.empty() && !current_view_is_images && mode != SETTINGS && frameId < 10) {
+        if (!startupHints) {
+            // Waiting for input from elsewhere: the empty view stays blank
+        } else if (bams.empty() && !current_view_is_images && mode != SETTINGS && frameId < 10) {
             float trackBoundary = fb_height - totalTabixY - refSpace;
             std::string dd_msg = "Drag-and-drop bam or cram files here";
             float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
@@ -2637,7 +2648,7 @@ namespace Manager {
     void GwPlot::prepareTileCache() {
         std::string key = std::to_string(opts.number.x) + ":" + std::to_string(opts.number.y)
             + ":" + std::to_string(drawingWidth()) + ":" + std::to_string(fb_height)
-            + ":" + std::to_string(topMenuSpace) + ":" + std::to_string(monitorScale)
+            + ":" + std::to_string(topMenuSpace) + ":" + std::to_string(commandBarSpace) + ":" + std::to_string(monitorScale)
             + ":" + std::to_string(tileDataLabelsEnabled()) + ":" + std::to_string(variantFileSelection);
         if (key != cachedTileLayout) {
             cachedTileLayout = key;
@@ -2652,7 +2663,7 @@ namespace Manager {
         float pad = 6 * monitorScale;
         float top = showUIOverlay ? topMenuSpace : 0;
         float cellW = std::max(1.0f, (drawingWidth() - pad) / nx);
-        float cellH = std::max(1.0f, (fb_height - top - pad) / ny);
+        float cellH = std::max(1.0f, (fb_height - commandBarSpace - top - pad) / ny);
         for (int x = 0; x < nx; ++x) {
             for (int y = 0; y < ny; ++y) {
                 Utils::BoundingBox box{};
@@ -2668,11 +2679,16 @@ namespace Manager {
         return boxes;
     }
 
+    // Tiles are rendered larger than small cells and scaled down when composited
+    static float tileRenderScale(const Utils::BoundingBox& box, float monitorScale) {
+        return std::max({1.0f, 200.0f * monitorScale / std::max(1.0f, box.width),
+                               100.0f * monitorScale / std::max(1.0f, box.height)});
+    }
+
     sk_sp<SkImage> GwPlot::renderVariantTile(int index, const Utils::BoundingBox& box) {
         // Render small cells at a useful logical resolution, preserving aspect
         // ratio; the composite then downsamples the result into the actual cell.
-        float renderScale = std::max({1.0f, 200.0f * monitorScale / std::max(1.0f, box.width),
-                                           100.0f * monitorScale / std::max(1.0f, box.height)});
+        float renderScale = tileRenderScale(box, monitorScale);
         int width = std::max(1, (int)std::ceil(box.width * renderScale));
         int height = std::max(1, (int)std::ceil(box.height * renderScale));
 #if !defined(OLD_SKIA) || OLD_SKIA == 0
@@ -2832,7 +2848,11 @@ namespace Manager {
                 if (i - bStart != mouseOverTileIndex) {
                     currentVarTrack->multiLabels[i].mouseOver = false;
                 }
-                Drawing::drawLabel(opts, rasterCanvas, rect, currentVarTrack->multiLabels[i], fonts, fileSeenLabels, srtLabels);
+                // A rendered tile ends with its chromosome name and ideogram, gap * 4 tall before scaling
+                const float ideogramHeight = currentVarTrack->type != HGW::TrackType::IMAGES
+                                             ? gap * 4 / tileRenderScale(b, monitorScale) : 0;
+                Drawing::drawLabel(opts, rasterCanvas, rect, currentVarTrack->multiLabels[i], fonts, fileSeenLabels, srtLabels,
+                                   ideogramHeight);
             }
             ++i;
         }

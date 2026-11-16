@@ -67,6 +67,8 @@ namespace HGW {
     */
     class VCFfile {
     public:
+        // Genotypes are only read, and shown in the variant table, for files with up to this many samples
+        static constexpr int maxGenotypeSamples = 16;
         VCFfile (); // = default;
         ~VCFfile();
         htsFile *fp;
@@ -93,6 +95,8 @@ namespace HGW {
         void next();
         void printTargetRecord(std::string &id_str, std::string &chrom, int pos);
 		void get_samples();
+        // GT of every sample in the current record as "0/1,./.,1|1"; empty with no samples or more than maxSamples
+        std::string genotypeString(int maxSamples);
 
     };
 
@@ -248,6 +252,7 @@ namespace HGW {
     };
     class GwVariantTrack {
     public:
+        static constexpr int maxGenotypeSamples = VCFfile::maxGenotypeSamples;
         GwVariantTrack(std::string &path, bool cacheStdin, Themes::IniOptions *t_opts, int endIndex,
                        std::vector<std::string> &t_labelChoices,
                        std::shared_ptr<ankerl::unordered_dense::map< std::string, Utils::Label>> t_inputLabels,
@@ -278,7 +283,7 @@ namespace HGW {
         void appendSearchMatches(const std::string &query);
 
     private:
-        void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label, std::string &vartype);
+        void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label, std::string &vartype, const std::string &genotypes = "");
     };
 
 }
