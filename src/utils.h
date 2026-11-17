@@ -70,7 +70,36 @@ namespace Utils {
         std::vector<int> s;  // block starts and block ends for bed12/GFF
         std::vector<int> e;
         std::vector<uint8_t> drawThickness;  // 0 no line, 1 is thin line, 2 fat line
+        std::string genotypes;  // per-sample GT of a VCF record, "0/1,./.,1|1"; empty when not kept
     };
+
+    // Genotype display shared by the variant list and VCF tracks: muted colours,
+    // apart from GW's base and label palette. Indexed by genotypeKind().
+    constexpr uint8_t GENOTYPE_RGBA[4][4] = {
+        {128, 128, 128, 170},  // missing: outline only
+        {122, 134, 152, 150},  // hom ref: slate
+        {84, 170, 160, 255},   // het: teal
+        {166, 228, 176, 255},  // hom alt: light green
+    };
+    constexpr uint8_t GENOTYPE_TRACK_ALPHA = 200;  // het / hom alt glyphs on a track
+
+    // 0 missing, 1 hom ref, 2 het, 3 hom alt, for one sample's GT text such as "0/1"
+    inline int genotypeKind(const char* gt, size_t length) {
+        int first = -1;
+        bool anyAlt = false, differ = false, anyMissing = false;
+        for (size_t i = 0; i < length;) {
+            if (gt[i] == '/' || gt[i] == '|') { ++i; continue; }
+            if (gt[i] < '0' || gt[i] > '9') { anyMissing = true; ++i; continue; }
+            int allele = 0;
+            while (i < length && gt[i] >= '0' && gt[i] <= '9') allele = allele * 10 + (gt[i++] - '0');
+            if (first < 0) first = allele;
+            else if (allele != first) differ = true;
+            if (allele > 0) anyAlt = true;
+        }
+        if (first < 0) return 0;
+        if (!anyAlt) return 1;
+        return (differ || anyMissing) ? 2 : 3;
+    }
 
     class EXPORT GFFTrackBlock {
     public:

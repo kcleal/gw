@@ -1108,6 +1108,9 @@ namespace Segs {
             q_ptr = &rQ.back();
         }
         int i;
+        LevelIndex index;  // row search for deep stacks, see LevelIndex
+        if ((int)ls.size() >= LevelIndex::minRows) index.build(joinLeft ? ls : le, !joinLeft);
+        const bool indexed = index.active();
         assert (q_ptr->y < 0);
         while (si != stopCondition) {
             si += move;
@@ -1143,9 +1146,15 @@ namespace Segs {
 
             if (!joinLeft) {
 
-                for (i=start_i; i < end_i; ++i) {
+                i = start_i;
+                if (indexed) {
+                    i = index.first(start_i, end_i, q_ptr->cov_start);
+                    if (i < 0) i = end_i;
+                }
+                for (; i < end_i; ++i) {
                     if (q_ptr->cov_start > le[i]) {
                         le[i] = q_ptr->cov_end;
+                        if (indexed) index.set(i, le[i]);
                         if (q_ptr->cov_start < ls[i]) {
                             ls[i] = q_ptr->cov_start;
                         }
@@ -1164,9 +1173,15 @@ namespace Segs {
                 q_ptr += move;
 
             } else {
-                for (i=start_i; i < end_i; ++i) {
+                i = start_i;
+                if (indexed) {
+                    i = index.first(start_i, end_i, q_ptr->cov_end);
+                    if (i < 0) i = end_i;
+                }
+                for (; i < end_i; ++i) {
                     if (q_ptr->cov_end < ls[i]) {
                         ls[i] = q_ptr->cov_start;
+                        if (indexed) index.set(i, ls[i]);
                         if (q_ptr->cov_end > le[i]) {
                             le[i] = q_ptr->cov_end;
                         }
@@ -1187,8 +1202,54 @@ namespace Segs {
         }
     }
 
-    void alignFindYForward(Align &a, std::vector<int> &ls, std::vector<int> &le, int vScroll) {
+    void LevelIndex::build(const std::vector<int> &values, bool wantBelow) {
+        below = wantBelow;
+        leaves = 1;
+        while (leaves < (int)values.size()) leaves <<= 1;
+        // Padding never matches a query
+        tree.assign((size_t)leaves * 2, below ? std::numeric_limits<int>::max() : std::numeric_limits<int>::min());
+        std::copy(values.begin(), values.end(), tree.begin() + leaves);
+        for (int i = leaves - 1; i >= 1; --i) {
+            tree[i] = below ? std::min(tree[2 * i], tree[2 * i + 1]) : std::max(tree[2 * i], tree[2 * i + 1]);
+        }
+    }
+
+    void LevelIndex::set(int i, int value) {
+        i += leaves;
+        tree[i] = value;
+        for (i >>= 1; i >= 1; i >>= 1) {
+            tree[i] = below ? std::min(tree[2 * i], tree[2 * i + 1]) : std::max(tree[2 * i], tree[2 * i + 1]);
+        }
+    }
+
+    int LevelIndex::find(int node, int nodeLo, int nodeHi, int lo, int hi, int x) const {
+        if (nodeHi <= lo || nodeLo >= hi) return -1;
+        if (below ? tree[node] >= x : tree[node] <= x) return -1;  // nothing fits under this node
+        if (nodeHi - nodeLo == 1) return nodeLo;
+        const int mid = (nodeLo + nodeHi) / 2;
+        const int left = find(2 * node, nodeLo, mid, lo, hi, x);
+        return left >= 0 ? left : find(2 * node + 1, mid, nodeHi, lo, hi, x);
+    }
+
+    int LevelIndex::first(int lo, int hi, int x) const {
+        return lo < hi ? find(1, 0, leaves, lo, hi, x) : -1;
+    }
+
+    void alignFindYForward(Align &a, std::vector<int> &ls, std::vector<int> &le, int vScroll, LevelIndex *index) {
         if (a.y == -2) {
+            return;
+        }
+        if (index != nullptr && index->active()) {
+            const int i = index->first(0, (int)le.size(), a.cov_start);
+            if (i < 0) return;
+            le[i] = a.cov_end;
+            index->set(i, a.cov_end);
+            if (a.cov_start < ls[i]) {
+                ls[i] = a.cov_start;
+            }
+            if (i >= vScroll) {
+                a.y = i - vScroll;
+            }
             return;
         }
         for (int i=0; i < (int)le.size(); ++i) {
@@ -1206,8 +1267,10 @@ namespace Segs {
     }
 
     void findYNoSortForward(std::vector<Align> &rQ, std::vector<int> &ls, std::vector<int> &le, int vScroll) {
+        LevelIndex index;
+        if ((int)le.size() >= LevelIndex::minRows && rQ.size() > 8) index.build(le, true);
         for (auto &a : rQ) {
-            alignFindYForward(a, ls, le, vScroll);
+            alignFindYForward(a, ls, le, vScroll, &index);
         }
     }
 
@@ -1232,6 +1295,9 @@ namespace Segs {
             q_ptr = &rQ.back();
         }
         int i;
+        LevelIndex index;  // row search for deep stacks, see LevelIndex
+        if (memLen >= LevelIndex::minRows) index.build(joinLeft ? ls : le, !joinLeft);
+        const bool indexed = index.active();
         while (si != stopCondition) {
             si += move;
             if (q_ptr->y == -2) {
@@ -1254,9 +1320,15 @@ namespace Segs {
                 }
             }
             if (!joinLeft) {
-                for (i=0; i < memLen; ++i) {
+                i = 0;
+                if (indexed) {
+                    i = index.first(0, memLen, q_ptr->cov_start);
+                    if (i < 0) i = memLen;
+                }
+                for (; i < memLen; ++i) {
                     if (q_ptr->cov_start > le[i]) {
                         le[i] = q_ptr->cov_end;
+                        if (indexed) index.set(i, le[i]);
                         if (q_ptr->cov_start < ls[i]) {
                             ls[i] = q_ptr->cov_start;
                         }
@@ -1275,9 +1347,15 @@ namespace Segs {
                 q_ptr += move;
 
             } else {
-                for (i=0; i < memLen; ++i) {
+                i = 0;
+                if (indexed) {
+                    i = index.first(0, memLen, q_ptr->cov_end);
+                    if (i < 0) i = memLen;
+                }
+                for (; i < memLen; ++i) {
                     if (q_ptr->cov_end < ls[i]) {
                         ls[i] = q_ptr->cov_start;
+                        if (indexed) index.set(i, ls[i]);
                         if (q_ptr->cov_end > le[i]) {
                             le[i] = q_ptr->cov_end;
                         }

@@ -11,8 +11,8 @@ description: Remote data access, online genomes and embedding GW
 
 ## Online genomes and files
 
-GW loads online reference genomes directly — when GW starts without a reference, a terminal picker
-lists the online genomes (type a number or a tag such as `hg38`). The same catalogue is browsable
+GW loads online reference genomes directly — when GW starts without a reference, a Reference genome
+chooser lists them in the window. The same catalogue is browsable
 from the ImGui file dialogs, which can also download remote data into a session.
 
 The `online` command prints links for the current region in online genome browsers:

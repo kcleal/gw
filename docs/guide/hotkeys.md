@@ -24,10 +24,9 @@ description: Keyboard shortcuts in GW
 | previous region view | `[` |
 | cycle link mode | `L` |
 | find matching alignments | `F` |
-| repeat last command | `ENTER` |
 | resize window | `SHIFT` + `ARROW_KEY` |
 | switch viewing mode | `TAB` |
-| repeat last command | `R` |
+| repeat last command | `CTRL` + `R` |
 | switch variant file | `COMMAND` / `CTRL` + `ARROW_KEY` |
 
 Hotkeys can be customised in Settings → Keymap.

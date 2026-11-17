@@ -81,32 +81,12 @@ static std::string lowerCopy(std::string value) {
     return value;
 }
 
-// Genotype bars in the variant list. Muted colours, apart from GW's base and label palette.
+// Genotype bars in the variant list; colours and kinds are shared with VCF tracks.
 static const char* const genotypeNames[] = {"missing", "hom ref", "het", "hom alt"};
-static const ImU32 genotypeColors[] = {
-    IM_COL32(128, 128, 128, 170),  // missing: outline only
-    IM_COL32(122, 134, 152, 150),  // hom ref: slate
-    IM_COL32(84, 170, 160, 255),   // het: teal
-    IM_COL32(150, 112, 176, 255),  // hom alt: mauve
-};
-
-// 0 missing, 1 hom ref, 2 het, 3 hom alt, for one sample's GT text such as "0/1"
-static int genotypeKind(const char* gt, size_t length) {
-    int first = -1;
-    bool anyAlt = false, differ = false, anyMissing = false;
-    for (size_t i = 0; i < length;) {
-        if (gt[i] == '/' || gt[i] == '|') { ++i; continue; }
-        if (gt[i] < '0' || gt[i] > '9') { anyMissing = true; ++i; continue; }
-        int allele = 0;
-        while (i < length && gt[i] >= '0' && gt[i] <= '9') allele = allele * 10 + (gt[i++] - '0');
-        if (first < 0) first = allele;
-        else if (allele != first) differ = true;
-        if (allele > 0) anyAlt = true;
-    }
-    if (first < 0) return 0;
-    if (!anyAlt) return 1;
-    return (differ || anyMissing) ? 2 : 3;
-}
+#define GW_GT_COL(k) IM_COL32(Utils::GENOTYPE_RGBA[k][0], Utils::GENOTYPE_RGBA[k][1], Utils::GENOTYPE_RGBA[k][2], Utils::GENOTYPE_RGBA[k][3])
+static const ImU32 genotypeColors[] = {GW_GT_COL(0), GW_GT_COL(1), GW_GT_COL(2), GW_GT_COL(3)};
+#undef GW_GT_COL
+static int genotypeKind(const char* gt, size_t length) { return Utils::genotypeKind(gt, length); }
 
 static std::vector<RowData> parseVariantDetailRows(HGW::GwVariantTrack& vt, Utils::Label& lbl, int selectedSampleIdx) {
         auto makeRow = [](const std::string& label, const std::string& plain) -> RowData {

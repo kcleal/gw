@@ -217,6 +217,14 @@ namespace HGW {
         std::string name;  // editable label, defaults to filename
         SkPaint faceColour, shadedFaceColour;
         double px_height{0};
+        float genotypePx{0};  // part of px_height, at the bottom, showing per-sample genotypes (VCF/BCF); set when drawn
+        std::vector<std::string> sampleNames;  // VCF/BCF samples whose genotypes are kept, empty if none or too many
+        std::vector<std::string> genotypeLabels;  // label shown beside each sample's genotype row; empty = "GT: <sample>"
+        std::string genotypeLabel(size_t sample) const {
+            if (sample < genotypeLabels.size() && !genotypeLabels[sample].empty()) return genotypeLabels[sample];
+            return sample < sampleNames.size() ? "GT: " + sampleNames[sample] : std::string();
+        }
+        std::string genotypes;  // genotypes of the current record, see Utils::TrackBlock
         double height_fraction{0};  // 0 = use default share; >0 = this track's fraction of canvas height
 
         void setPaint(SkPaint &faceColour);

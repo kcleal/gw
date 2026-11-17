@@ -1827,7 +1827,9 @@ namespace Manager {
             return 0;
         }
         const int nLevels = std::max(regions[regionIdx].featureLevels[trackIdx], 1);
-        const Drawing::TrackRowLayout rows = Drawing::trackRowLayout(trackTopOf(trackIdx), tracks[trackIdx].px_height,
+        // Feature rows sit above any genotype bands
+        const Drawing::TrackRowLayout rows = Drawing::trackRowLayout(trackTopOf(trackIdx),
+                                                                     tracks[trackIdx].px_height - tracks[trackIdx].genotypePx,
                                                                      nLevels, fonts.overlayHeight, gap, monitorScale);
         return Drawing::trackRowAt(rows, y, nLevels);
     }

@@ -229,8 +229,27 @@ namespace Segs {
     // Used to get sorting codes before using findY functions
     int getSortCodes(std::vector<Align> &aligns, int n, BS::thread_pool &pool, Utils::Region *region);
 
-    // Find Y for single alignment
-    void alignFindYForward(Align &a, std::vector<int> &ls, std::vector<int> &le, int vScroll);
+    // Finds the first row a read fits on in O(log rows). Read stacking is
+    // first-fit, and a plain scan over the rows costs rows x reads, which stalls
+    // when scrolled far down a very deep pileup. Results match the scan exactly.
+    class LevelIndex {
+    public:
+        static constexpr int minRows = 256;  // below this a plain scan is faster
+        // below=true finds values < x (row ends); false finds values > x (row starts)
+        void build(const std::vector<int> &values, bool below);
+        void set(int i, int value);
+        int first(int lo, int hi, int x) const;  // first row in [lo, hi), or -1
+        bool active() const { return !tree.empty(); }
+    private:
+        int find(int node, int nodeLo, int nodeHi, int lo, int hi, int x) const;
+        std::vector<int> tree;
+        int leaves{0};
+        bool below{true};
+    };
+
+    // Find Y for single alignment. index, when active, must mirror le.
+    void alignFindYForward(Align &a, std::vector<int> &ls, std::vector<int> &le, int vScroll,
+                           LevelIndex *index = nullptr);
 
     // Used for drawing in a stream only
     void findYNoSortForward(std::vector<Align> &rQ, std::vector<int> &ls, std::vector<int> &le, int vScroll);

@@ -27,8 +27,8 @@ CONDA_PREFIX=$(conda info --base) LDLIBS+="-lcrypto -lssl" make -j4
 gw
 ```
 
-A terminal picker lists the online reference genomes — type a number or a tag such as `hg38`.
-To skip the picker, pass the tag on the command line (`gw hg38`). Genomes can also be added later
+A **Reference genome** chooser opens in the window — pick a genome from the list, filter by name,
+or open a local FASTA. To skip the chooser, pass the tag on the command line (`gw hg38`). Genomes can also be added later
 in Settings → Genomes — local FASTA files are much faster than online genomes.
 
 ## 3. Open data
@@ -43,16 +43,14 @@ top menu — it includes online genomes, data catalogues and a
 
 ## 4. The interface
 
-- **Plot window** — click a read to select it, right-click for its popup, drag to zoom, scroll to
+- **Plot window** — click a read to open its popup, drag to pan, drag on the scale bar to zoom, scroll to
   zoom at the cursor
 - **Top menu** — hamburger button (top-left): open files, settings, save images/sessions, online
   files. The view dropdown controls layout options
-- **Command box** — press `:` or `/`, then type a command (below)
+- **Command bar** — along the bottom; press `/` (or click it), then type a command. It lists every
+  command and shows the position under the pointer
 
-<div style="border: 2px dashed #5c5c5c; border-radius: 8px; padding: 3rem 1rem; text-align: center; color: #8a8a8a; margin: 1.5rem 0;">
-  <strong>Screenshot placeholder</strong> — annotated GW v2 window<br>
-  <code>docs/assets/images/v2/quickstart_annotated.png</code>
-</div>
+![GW window with numbered interface regions]({{ site.baseurl }}/assets/images/v2/interface_overview.png)
 
 See [The interface]({{ site.baseurl }}/guide/interface.html) for a full tour.
 

@@ -365,6 +365,65 @@ void drawImGuiDataLabels(Manager::GwPlot* plot,
             }
         }
 
+        // "GT: sample" labels of a VCF/BCF track's genotype rows: same box as drawTrackGenotypes()
+        const int nSamples = (int)trk.sampleNames.size();
+        const float gtLabelH = plot->fonts.overlayHeight + 4 * ms;
+        const float gtBand = nSamples > 0 ? (trk.genotypePx - gap * 0.5f) / (float)nSamples : 0;
+        if (trk.genotypePx > 0 && gtBand >= gtLabelH) {
+            const float gtTop = trackY + trk.px_height - trk.genotypePx;
+            for (int sample = 0; sample < nSamples; ++sample) {
+                const int gtIdx = 100000 + (int)ti * 64 + sample;
+                const std::string label = trk.genotypeLabel((size_t)sample);
+                const float gx = (gap + ms) / ms;
+                const float gy = (gtTop + ((float)sample + 0.5f) * gtBand - gtLabelH * 0.5f) / ms;
+                const float gw = (plot->fonts.measureTextWidth(label) + 16 * ms) / ms;
+                const float gh = gtLabelH / ms;
+                std::snprintf(winLabel, sizeof(winLabel), "##datalabel_gt%zu_%d", ti, sample);
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+                if (editingIndex == gtIdx) {
+                    ImGui::SetNextWindowPos(ImVec2(gx, gy - 2), ImGuiCond_Always);
+                    ImGui::SetNextWindowSize(ImVec2(std::max(gw, 150.0f), gh + 4), ImGuiCond_Always);
+                    ImGui::PushStyleColor(ImGuiCol_FrameBg, editBg);
+                    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, editBg);
+                    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, editBg);
+                    ImGui::Begin(winLabel, nullptr,
+                                 (flags & ~ImGuiWindowFlags_NoBringToFrontOnFocus) & ~ImGuiWindowFlags_NoBackground);
+                    ImGui::SetCursorPos(ImVec2(0, 0));
+                    ImGui::PushItemWidth(std::max(gw, 150.0f));
+                    if (editJustOpened) {
+                        ImGui::SetKeyboardFocusHere();
+                        editJustOpened = false;
+                    }
+                    if (ImGui::InputText("##edit", editBuf, sizeof(editBuf), ImGuiInputTextFlags_EnterReturnsTrue)) {
+                        trk.genotypeLabels.resize(trk.sampleNames.size());
+                        trk.genotypeLabels[sample] = editBuf;  // emptied: back to "GT: <sample>"
+                        editingIndex = -1;
+                        redraw = true;
+                        plot->processed = false;
+                    }
+                    if (ImGui::IsItemDeactivated() && editingIndex == gtIdx) editingIndex = -1;
+                    ImGui::PopItemWidth();
+                    ImGui::End();
+                    ImGui::PopStyleColor(3);
+                } else {
+                    ImGui::SetNextWindowPos(ImVec2(gx, gy), ImGuiCond_Always);
+                    ImGui::SetNextWindowSize(ImVec2(gw, gh), ImGuiCond_Always);
+                    ImGui::Begin(winLabel, nullptr, flags);
+                    ImGui::SetCursorPos(ImVec2(0, 0));
+                    if (ImGui::InvisibleButton("##click", ImVec2(gw, gh))) {
+                        editingIndex = gtIdx;
+                        editJustOpened = true;
+                        std::strncpy(editBuf, label.c_str(), sizeof(editBuf) - 1);
+                        editBuf[sizeof(editBuf) - 1] = '\0';
+                    }
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                        ImGui::SetTooltip("Click to edit label");
+                    ImGui::End();
+                }
+                ImGui::PopStyleVar();
+            }
+        }
+
         trackY += trk.px_height;
     }
 

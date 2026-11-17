@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <chrono>
 #include <string>
 #include <unordered_map>
 #include "menu.h"
@@ -71,7 +72,9 @@ void drawImGuiTrackSeparators(Manager::GwPlot* plot) {
 void drawImGuiAlignmentScrollbars(Manager::GwPlot* plot) {
     if (plot->mode != Manager::Show::SINGLE || !plot->opts.alignments ||
             plot->opts.tlen_yscale || plot->trackY <= 0) return;
-    struct DragState { int value{0}; int maximum{0}; bool active{false}; };
+    // layoutMs is the cost of the last re-stack; it decides whether the view
+    // follows the drag or only updates on release (deep pileups).
+    struct DragState { int value{0}; int maximum{0}; bool active{false}; double layoutMs{-1}; size_t layoutReads{0}; };
     static std::unordered_map<size_t, DragState> drags;
     auto& io = ImGui::GetIO();
     float ms = plot->monitorScale;
@@ -125,10 +128,24 @@ void drawImGuiAlignmentScrollbars(Manager::GwPlot* plot) {
         drag.value = drag.maximum - sliderValue;
         drag.active = ImGui::IsItemActive();
         bool released = ImGui::IsItemDeactivatedAfterEdit();
-        bool smallView = !remote && (cl->region && cl->region->end - cl->region->start < plot->opts.low_memory &&
-                         cl->readQueue.size() <= 10000);
-        if ((changed && smallView) || released)
+        // Follow the drag only while re-stacking is cheap, so shallow regions
+        // stay smooth and very deep ones cannot queue up slow updates.
+        bool smallView = false;
+        if (!remote && cl->region && cl->region->end - cl->region->start < plot->opts.low_memory) {
+            const size_t reads = cl->readQueue.size();
+            // A timing only describes a view of similar depth
+            const bool timed = drag.layoutMs >= 0 && reads <= drag.layoutReads * 2 && drag.layoutReads <= reads * 2;
+            smallView = timed ? drag.layoutMs < 12.0 : reads <= 50000;
+        }
+        if ((changed && smallView) || released) {
+            const auto t0 = std::chrono::steady_clock::now();
             plot->setCollectionVScroll(i, drag.value);
+            if (!remote) {
+                drag.layoutMs = std::chrono::duration<double, std::milli>(
+                        std::chrono::steady_clock::now() - t0).count();
+                drag.layoutReads = cl->readQueue.size();
+            }
+        }
         if (ImGui::IsItemHovered() || drag.active)
             ImGui::SetTooltip("Offset: %d", drag.value);
         ImGui::End();

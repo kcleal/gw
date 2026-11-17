@@ -13,16 +13,13 @@ GW v2's overlay UI is built with [Dear ImGui](https://github.com/ocornut/imgui):
 dialogs, read popups, the command box, label tables and file browsers, all rendered on top of the
 plot window.
 
-<div style="border: 2px dashed #5c5c5c; border-radius: 8px; padding: 3rem 1rem; text-align: center; color: #8a8a8a; margin: 1.5rem 0;">
-  <strong>Screenshot placeholder</strong> — GW v2 window with labelled UI regions<br>
-  <code>docs/assets/images/v2/interface_overview.png</code>
-</div>
+![GW window with numbered interface regions]({{ site.baseurl }}/assets/images/v2/interface_overview.png)
 
 ## The plot window
 
 The plot area responds to the mouse directly:
 
-- **Left-click** a read to select it; **right-click** for the read popup
+- **Click** a read to open the read popup; click the coverage or reference for a per-base popup
 - **Drag** to zoom; scroll to zoom in/out at the cursor
 - **Drag** pane boundaries to resize them (e.g. the track pane)
 
@@ -35,14 +32,20 @@ The hamburger button (top-left) opens the main menu: open files, settings, save 
 browse online genomes and files, open the label table. The view dropdown next to it controls
 layout options (grid lines, coverage scale, track expansion and more).
 
-<div style="border: 2px dashed #5c5c5c; border-radius: 8px; padding: 2rem 1rem; text-align: center; color: #8a8a8a; margin: 1rem 0;">
-  <strong>Screenshot placeholder</strong> — the top menu, opened<br>
-  <code>docs/assets/images/v2/top_menu.png</code>
-</div>
+![view_menu]({{ site.baseurl }}/assets/images/v2/view_menu.png)
 
-## Command box
+![The main menu]({{ site.baseurl }}/assets/images/v2/top_menu.png)
 
-Press `:` or `/` to open the command box. Type `help` for a summary or `man COMMAND` for details.
+## Command bar
+
+The command bar sits along the bottom of the window. Press `/` or click it to type; a scrollable
+list shows every command (ticks mark switches that are on) and narrows as you type. When idle it
+shows the genomic position under the pointer. Hide or show it from the main menu (**Command bar**);
+**Output** in the same menu shows command output.
+
+![command_bar]({{ site.baseurl }}/assets/images/v2/command_bar.png)
+
+Type `help` for a summary or `man COMMAND` for details.
 
 - `↑` / `↓` cycles through command history
 - Unrecognised text is echoed to the terminal (useful for notes)
@@ -54,10 +57,7 @@ Clicking a read selects it and opens a popup with read details (SAM fields, tags
 read-specific actions such as `mate add`, `find`, `sam` and `tags`. Each popup keeps its own read
 context, so popups stay valid after you click elsewhere.
 
-<div style="border: 2px dashed #5c5c5c; border-radius: 8px; padding: 2rem 1rem; text-align: center; color: #8a8a8a; margin: 1rem 0;">
-  <strong>Screenshot placeholder</strong> — a read popup<br>
-  <code>docs/assets/images/v2/read_popup.png</code>
-</div>
+![Read popup with the sequence around the clicked base]({{ site.baseurl }}/assets/images/v2/read_popup.png)
 
 ## Settings dialogs
 
@@ -75,6 +75,8 @@ session. See [Labelling]({{ site.baseurl }}/guide/labelling.html) and
 
 ## Startup genome picker
 
-When GW starts without a reference genome, a terminal (ncurses) picker lists the available online
-genomes — type a number or a genome tag (e.g. `hg38`). The same genomes can be selected from the
-ImGui menus (Settings → Genomes, or the online files dialog).
+When GW starts without a reference genome, a **Reference genome** chooser opens in the window:
+pick a configured or online genome, filter the list, or open a local FASTA. Start with `--wait`
+to open an empty window with no chooser (useful when GW is driven by another program).
+
+![genome_chooser]({{ site.baseurl }}/assets/images/v2/genome_chooser.png)

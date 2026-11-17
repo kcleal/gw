@@ -921,6 +921,8 @@ namespace HGW {
         bool filter = !filters.empty();
         const int parse_mods_threshold = (opts.parse_mods) ? opts.mods_qual_threshold : 0;
         const bool add_clip_space = opts.soft_clip_threshold > 0;
+        Segs::LevelIndex levelIndex;  // keeps stacking fast when scrolled far down
+        if ((int)col.levelsEnd.size() >= Segs::LevelIndex::minRows) levelIndex.build(col.levelsEnd, true);
         while (sam_itr_next(b, iter_q, readQueue.back().delegate) >= 0) {
             src = readQueue.back().delegate;
             if (src->core.flag & 4 || src->core.n_cigar == 0) {
@@ -937,7 +939,7 @@ namespace HGW {
             if (coverage) {
                 Segs::addToCovArray(col.covArr, readQueue.back(), region->start, region->end);
             }
-            Segs::alignFindYForward(readQueue.back(), col.levelsStart, col.levelsEnd, col.vScroll);
+            Segs::alignFindYForward(readQueue.back(), col.levelsStart, col.levelsEnd, col.vScroll, &levelIndex);
             Drawing::drawCollection(opts, col, canvas, fonts, bam_paths, ctx);
             Segs::align_clear(&readQueue.back());
         }
@@ -1448,7 +1450,8 @@ namespace HGW {
         }
     }
 
-    std::string VCFfile::genotypeString(int maxSamples) {
+    // Per-sample GT text, "0/1,./.,1|1"; empty when the file has no samples or more than maxSamples
+    static std::string vcfGenotypeString(bcf_hdr_t *hdr, bcf1_t *v, int maxSamples) {
         std::string out;
         const int n = bcf_hdr_nsamples(hdr);
         if (n <= 0 || n > maxSamples) return out;
@@ -1472,6 +1475,22 @@ namespace HGW {
         }
         free(gt);
         return out;
+    }
+
+    std::string VCFfile::genotypeString(int maxSamples) {
+        return vcfGenotypeString(hdr, v, maxSamples);
+    }
+
+    // Keep FORMAT fields for files with few enough samples to show their genotypes
+    static void keepTrackGenotypes(GwTrack &trk) {
+        trk.sampleNames.clear();
+        const int n = bcf_hdr_nsamples(trk.hdr);
+        if (n > 0 && n <= VCFfile::maxGenotypeSamples) {
+            trk.sampleNames.assign(trk.hdr->samples, trk.hdr->samples + n);
+            trk.v->max_unpack = BCF_UN_ALL;
+        } else {
+            trk.v->max_unpack = BCF_UN_INFO;
+        }
     }
 
 	void VCFfile::get_samples() {
@@ -1689,6 +1708,7 @@ namespace HGW {
         b.start = (int)v->pos;
         b.end = vcfReferenceEnd(hdr, v);
         b.name = v->d.id;
+        if (!sampleNames.empty()) b.genotypes = vcfGenotypeString(hdr, v, VCFfile::maxGenotypeSamples);
         switch (bcf_get_variant_types(v)) {
             case VCF_SNP: b.vartype = "SNP"; break;
             case VCF_INDEL: b.vartype = "INDEL"; break;
@@ -1723,6 +1743,8 @@ namespace HGW {
         start = (int)v->pos;
         stop = vcfReferenceEnd(hdr, v);
         rid = v->d.id;
+        if (!sampleNames.empty()) genotypes = vcfGenotypeString(hdr, v, VCFfile::maxGenotypeSamples);
+        else genotypes.clear();
         switch (bcf_get_variant_types(v)) {
             case VCF_SNP: vartype = "SNP"; break;
             case VCF_INDEL: vartype = "INDEL"; break;
@@ -1842,7 +1864,7 @@ namespace HGW {
                 throw std::exception();
             }
             v = bcf_init1();
-            v->max_unpack = BCF_UN_INFO;
+            keepTrackGenotypes(*this);
             while (true) {
                 int res = bcf_read(fp, hdr, v);
                 if (res < -1) {
@@ -2147,7 +2169,7 @@ namespace HGW {
                 throw std::exception();
             }
             v = bcf_init1();
-            v->max_unpack = BCF_UN_INFO;
+            keepTrackGenotypes(*this);
         } else if (kind == VCF_IDX) {
             fp = bcf_open(path.c_str(), "r");
             if (!fp) {
@@ -2165,7 +2187,7 @@ namespace HGW {
                 throw std::exception();
             }
             v = bcf_init1();
-            v->max_unpack = BCF_UN_INFO;
+            keepTrackGenotypes(*this);
         } else if (kind == BIGWIG) {
             if(bwInit(1<<17) != 0) {
                 std::cerr << "Error: bw init error from file: " << path << std::endl;
@@ -2355,6 +2377,7 @@ namespace HGW {
                         strand = iter_blk->strand;
                         variantString = iter_blk->line;
                         parts = iter_blk->parts;
+                        genotypes = iter_blk->genotypes;
                         ++iter_blk;
                         if (kind == VCF_NOI && (start < fetch_start - *variant_distance && stop > fetch_end + *variant_distance)) {
                             continue;
@@ -3184,6 +3207,8 @@ namespace HGW {
 
             if (isVCF) {
                 b->vartype = trk.vartype;
+                b->genotypes = std::move(trk.genotypes);
+                trk.genotypes.clear();
             }
             if (trk.kind == BIGBED) {
                 if (parts.size() > 2) {

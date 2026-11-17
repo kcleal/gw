@@ -29,10 +29,7 @@ instead, set `vcf_as_tracks` in Settings → Interaction.
 
 `expand-tracks` (view menu or command) displays overlapping features in separate rows.
 
-<div style="border: 2px dashed #5c5c5c; border-radius: 8px; padding: 3rem 1rem; text-align: center; color: #8a8a8a; margin: 1rem 0;">
-  <strong>Screenshot placeholder</strong> — alignment view with feature tracks<br>
-  <code>docs/assets/images/v2/tracks.png</code>
-</div>
+![Alignments with a feature track and ideogram]({{ site.baseurl }}/assets/images/v2/tracks.png)
 
 ## Ideograms
 

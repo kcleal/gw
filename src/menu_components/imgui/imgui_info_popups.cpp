@@ -3,6 +3,7 @@
 // Extracted from menu.cpp with no functional changes.
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstring>
 #include <optional>
@@ -995,9 +996,16 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
         std::vector<std::pair<std::string, std::string>> shared;  // name, value
         std::vector<std::string> sharedTips;                      // optional hover text per shared row
         std::vector<std::string> header;                          // names of the per-line columns
+        std::vector<std::string> headerTips;                      // optional hover text per column
         std::vector<std::vector<std::string>> cells;              // per line, per column
         std::vector<int> starts, ends;                            // 0-based half-open; -1 = unknown
         int clicked{-1};                                          // line under the click
+        // VCF/BCF records are drawn like the Variant details panel: `shared` holds the fixed
+        // columns then, from infoStart, the INFO keys; FORMAT values are shown for one sample.
+        bool vcf{false};
+        size_t infoStart{0};
+        std::vector<std::string> formatKeys, formatTips;
+        std::vector<std::vector<std::string>> sampleValues;      // per sample, per FORMAT key
     };
 
     // bigBed records: one key/value row per field (named from the file's autoSql schema,
@@ -1142,25 +1150,340 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
         return v;
     }
 
-    static FeatureDataView parseFeatureData(const Manager::GwPlot::TrackPopup& tp) {
-        using Fmt = Manager::GwPlot::TrackPopup::DataFormat;
-        if (tp.format == Fmt::BigBed) return parseBigBedData(tp);
-        FeatureDataView v;
+    // The non-comment lines of a popup's feature data, split into tab-separated columns
+    static std::vector<std::vector<std::string>> featureDataLines(const std::string& details) {
         std::vector<std::vector<std::string>> lines;
-        size_t nCols = 0;
-        for (size_t pos = 0; pos < tp.details.size();) {
-            size_t nl = tp.details.find('\n', pos);
-            if (nl == std::string::npos) nl = tp.details.size();
-            std::string line = tp.details.substr(pos, nl - pos);
+        for (size_t pos = 0; pos < details.size();) {
+            size_t nl = details.find('\n', pos);
+            if (nl == std::string::npos) nl = details.size();
+            std::string line = details.substr(pos, nl - pos);
             while (!line.empty() && line.back() == '\r') line.pop_back();
             pos = nl + 1;
             if (line.empty() || line[0] == '#') continue;
             std::vector<std::string> cols;
             Utils::split(line, '\t', cols);
-            nCols = std::max(nCols, cols.size());
             lines.push_back(std::move(cols));
         }
+        return lines;
+    }
+
+    // Long values (inserted sequence, long lists) are cut for display; Copy gives the full record
+    static std::string shortenValue(const std::string& s, size_t maxLen = 72) {
+        if (s.size() <= maxLen) return s;
+        return s.substr(0, maxLen) + "... (" + std::to_string(s.size()) + " chars)";
+    }
+
+    static std::string spaceCommas(const std::string& s) {
+        std::string out;
+        out.reserve(s.size() + 8);
+        for (char c : s) {
+            out += c;
+            if (c == ',') out += ' ';
+        }
+        return out;
+    }
+
+    // VCF/BCF records: the fixed columns, one row per INFO key (header descriptions as
+    // tooltips) and the FORMAT values of each sample, shown one sample at a time.
+    static FeatureDataView parseVcfData(const Manager::GwPlot::TrackPopup& tp) {
+        FeatureDataView v;
+        auto lines = featureDataLines(tp.details);
+        if (lines.empty() || lines[0].size() < 8) return v;
+        const std::vector<std::string>& cols = lines[0];
+        v.vcf = true;
+        auto describe = [&](const std::string& name) -> std::string {
+            for (size_t i = 0; i < tp.fieldNames.size() && i < tp.fieldDescs.size(); ++i)
+                if (tp.fieldNames[i] == name) return tp.fieldDescs[i];
+            return {};
+        };
+        auto add = [&](const std::string& k, const std::string& val, const std::string& tip) {
+            v.shared.emplace_back(k, val);
+            v.sharedTips.push_back(tip);
+        };
+        add("POS", cols[1], "1-based position of the first reference base");
+        add("REF", cols[3], "");
+        add("ALT", spaceCommas(cols[4]), "");
+        if (cols[5] != ".") add("QUAL", cols[5], "Phred-scaled quality of the ALT assertion");
+        if (cols[6] != ".") add("FILTER", cols[6], "");
+        v.infoStart = v.shared.size();
+        if (cols[7] != ".") {
+            std::vector<std::string> items;
+            Utils::split(cols[7], ';', items);
+            for (const std::string& item : items) {
+                if (item.empty()) continue;
+                const size_t eq = item.find('=');
+                const std::string key = item.substr(0, eq);
+                // a flag has no value
+                add(key, eq == std::string::npos ? "yes" : spaceCommas(item.substr(eq + 1)), describe("INFO/" + key));
+            }
+        }
+        if (cols.size() < 10) return v;
+        Utils::split(cols[8], ':', v.formatKeys);
+        for (const std::string& k : v.formatKeys) v.formatTips.push_back(describe("FORMAT/" + k));
+        for (size_t c = 9; c < cols.size(); ++c) {
+            std::vector<std::string> vals;
+            Utils::split(cols[c], ':', vals);
+            for (auto& val : vals) val = spaceCommas(val);
+            vals.resize(v.formatKeys.size(), ".");
+            v.sampleValues.push_back(std::move(vals));
+        }
+        return v;
+    }
+
+    // A VCF/BCF record laid out like the Variant details panel: field | value rows (click a
+    // field name to copy its value), an INFO section, and a FORMAT section whose drop-down
+    // picks the sample. Values too long for the column are clipped and shown in full on hover.
+    static float drawVcfFeatureData(Manager::GwPlot::TrackPopup& tp, const FeatureDataView& fd) {
+        auto& style = ImGui::GetStyle();
+        float keyW = ImGui::CalcTextSize("FORMAT").x, valW = 0;
+        for (auto& kv : fd.shared) {
+            keyW = std::max(keyW, ImGui::CalcTextSize(kv.first.c_str()).x);
+            valW = std::max(valW, ImGui::CalcTextSize(kv.second.c_str()).x);
+        }
+        for (auto& k : fd.formatKeys) keyW = std::max(keyW, ImGui::CalcTextSize(k.c_str()).x);
+        for (auto& vals : fd.sampleValues)
+            for (auto& val : vals) valW = std::max(valW, ImGui::CalcTextSize(val.c_str()).x);
+        for (auto& name : tp.sampleNames)
+            valW = std::max(valW, ImGui::CalcTextSize(name.c_str()).x + ImGui::GetFrameHeight() + style.FramePadding.x * 2);
+        keyW += style.FramePadding.x * 2;
+        valW = std::clamp(valW + style.FramePadding.x * 2, 150.0f, 260.0f);
+        const float needW = keyW + valW + style.CellPadding.x * 4;
+        if (!ImGui::BeginTable("##fd_vcf", 2, ImGuiTableFlags_SizingFixedFit)) return needW;
+        ImGui::TableSetupColumn("##k", ImGuiTableColumnFlags_WidthFixed, keyW);
+        ImGui::TableSetupColumn("##v", ImGuiTableColumnFlags_WidthFixed, valW);
+        int rowId = 0;
+        auto row = [&](const std::string& key, const std::string& val, const std::string& tip) {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::PushID(rowId++);
+            if (ImGui::Selectable(key.c_str(), false, 0, ImVec2(keyW, 0)))
+                ImGui::SetClipboardText(val.c_str());
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
+                ImGui::BeginTooltip();
+                ImGui::PushTextWrapPos(ImGui::GetFontSize() * 24);
+                if (!tip.empty()) ImGui::TextUnformatted(tip.c_str());
+                ImGui::TextDisabled("Click to copy %s", key.c_str());
+                ImGui::PopTextWrapPos();
+                ImGui::EndTooltip();
+            }
+            ImGui::PopID();
+            ImGui::TableSetColumnIndex(1);
+            ImGui::TextUnformatted(val.c_str());
+            if (ImGui::CalcTextSize(val.c_str()).x > valW && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
+                ImGui::BeginTooltip();
+                ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30);
+                // very long values (inserted sequence) are cut here too; Copy gives all of it
+                ImGui::TextUnformatted(shortenValue(val, 600).c_str());
+                ImGui::PopTextWrapPos();
+                ImGui::EndTooltip();
+            }
+        };
+        auto section = [&](const char* name) {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextDisabled("%s", name);
+            ImGui::TableSetColumnIndex(1);
+        };
+        for (size_t i = 0; i < fd.shared.size(); ++i) {
+            if (i == fd.infoStart) section("INFO");
+            row(fd.shared[i].first, fd.shared[i].second, i < fd.sharedTips.size() ? fd.sharedTips[i] : std::string());
+        }
+        if (!fd.formatKeys.empty() && !fd.sampleValues.empty()) {
+            const int nSamples = (int)fd.sampleValues.size();
+            tp.sampleIdx = std::clamp(tp.sampleIdx, 0, nSamples - 1);
+            auto sampleName = [&](int i) {
+                return i < (int)tp.sampleNames.size() ? tp.sampleNames[i] : "sample " + std::to_string(i + 1);
+            };
+            section("FORMAT");
+            ImGui::SetNextItemWidth(valW);
+            if (ImGui::BeginCombo("##sample", sampleName(tp.sampleIdx).c_str())) {
+                for (int i = 0; i < nSamples; ++i) {
+                    ImGui::PushID(i);
+                    if (ImGui::Selectable(sampleName(i).c_str(), tp.sampleIdx == i)) tp.sampleIdx = i;
+                    ImGui::PopID();
+                }
+                ImGui::EndCombo();
+            }
+            const auto& vals = fd.sampleValues[tp.sampleIdx];
+            for (size_t k = 0; k < fd.formatKeys.size(); ++k)
+                row(fd.formatKeys[k], k < vals.size() ? vals[k] : ".", k < fd.formatTips.size() ? fd.formatTips[k] : std::string());
+        }
+        ImGui::EndTable();
+        return needW;
+    }
+
+    // GFF3/GTF: the source lines of a feature (one, or a transcript's exon/CDS/UTR lines).
+    // Columns and attributes with the same value on every line are listed once as key/value
+    // rows; the rest become one table column each, so every attribute has its own cell.
+    static FeatureDataView parseGffData(const Manager::GwPlot::TrackPopup& tp) {
+        FeatureDataView v;
+        auto lines = featureDataLines(tp.details);
+        lines.erase(std::remove_if(lines.begin(), lines.end(),
+                                   [](const std::vector<std::string>& l) { return l.size() < 8; }), lines.end());
         if (lines.empty()) return v;
+        const size_t n = lines.size();
+
+        // attributes: "key=value;..." (GFF3, %XX escapes) or "key \"value\"; ..." (GTF)
+        typedef std::vector<std::pair<std::string, std::string>> Attrs;
+        auto parseAttrs = [](const std::string& s) {
+            Attrs out;
+            size_t p = 0;
+            while (p < s.size()) {
+                size_t q = p;
+                bool quoted = false;
+                while (q < s.size() && (quoted || s[q] != ';')) { if (s[q] == '"') quoted = !quoted; ++q; }
+                std::string a = s.substr(p, q - p);
+                p = q + 1;
+                const size_t b = a.find_first_not_of(' '), e = a.find_last_not_of(' ');
+                if (b == std::string::npos) continue;
+                a = a.substr(b, e - b + 1);
+                const size_t sep = a.find_first_of("= ");
+                std::string key = a.substr(0, sep), val;
+                if (sep != std::string::npos) {
+                    val = a.substr(sep + 1);
+                    if (val.size() >= 2 && val.front() == '"' && val.back() == '"') val = val.substr(1, val.size() - 2);
+                    if (a[sep] == '=') {
+                        std::string dec;
+                        for (size_t i = 0; i < val.size(); ++i) {
+                            if (val[i] == '%' && i + 2 < val.size() && std::isxdigit((unsigned char)val[i + 1])
+                                    && std::isxdigit((unsigned char)val[i + 2])) {
+                                dec += (char)std::strtol(val.substr(i + 1, 2).c_str(), nullptr, 16);
+                                i += 2;
+                            } else dec += val[i];
+                        }
+                        val = spaceCommas(dec);
+                    }
+                }
+                auto it = std::find_if(out.begin(), out.end(), [&](const auto& kv) { return kv.first == key; });
+                if (it != out.end()) it->second += ", " + val;  // repeated GTF keys such as tag
+                else out.emplace_back(std::move(key), std::move(val));
+            }
+            return out;
+        };
+        std::vector<Attrs> attrs(n);
+        for (size_t i = 0; i < n; ++i)
+            if (lines[i].size() > 8) attrs[i] = parseAttrs(lines[i][8]);
+        auto attrOf = [&](size_t i, const std::string& key) -> const std::string* {
+            for (auto& kv : attrs[i]) if (kv.first == key) return &kv.second;
+            return nullptr;
+        };
+        auto num = [](const std::string& s, long& out) {
+            if (s.empty()) return false;
+            char* end = nullptr;
+            out = std::strtol(s.c_str(), &end, 10);
+            return *end == '\0' && out >= 0;
+        };
+
+        static const char* names[] = {"seqid", "source", "type", "start", "end", "score", "strand", "phase"};
+        static const char* tips[] = {"", "Program or database that produced the feature", "", "1-based, inclusive",
+                                     "1-based, inclusive", "", "", "Bases to skip to reach the first complete codon"};
+        auto addShared = [&](const std::string& k, const std::string& val, const std::string& tip) {
+            v.shared.emplace_back(k, shortenValue(val));
+            v.sharedTips.push_back(tip);
+        };
+        struct Column { int fixed; std::string key; };  // fixed column index, -2 = length, -1 = attribute `key`
+        std::vector<Column> columns;
+        for (int c = 0; c < 8; ++c) {
+            bool same = true;
+            for (auto& l : lines) if (l[c] != lines[0][c]) { same = false; break; }
+            if (!same) {
+                columns.push_back({c, ""});
+                if (c == 4) columns.push_back({-2, ""});
+                continue;
+            }
+            if (lines[0][c] == ".") continue;
+            addShared(names[c], lines[0][c], tips[c]);
+            long s, e;
+            if (c == 4 && num(lines[0][3], s) && num(lines[0][4], e) && e >= s) {
+                bool startsSame = true;
+                for (auto& l : lines) if (l[3] != lines[0][3]) { startsSame = false; break; }
+                if (startsSame) addShared("length", std::to_string(e - s + 1) + " bp", "");
+            }
+        }
+        // attribute keys in order of first appearance
+        std::vector<std::string> keys;
+        for (auto& a : attrs)
+            for (auto& kv : a)
+                if (std::find(keys.begin(), keys.end(), kv.first) == keys.end()) keys.push_back(kv.first);
+        std::vector<std::string> other;  // keys beyond the column limit share one column
+        const size_t maxAttrColumns = 6;
+        size_t nAttrColumns = 0;
+        for (const std::string& key : keys) {
+            const std::string* first = attrOf(0, key);
+            bool same = first != nullptr;
+            for (size_t i = 1; same && i < n; ++i) {
+                const std::string* val = attrOf(i, key);
+                same = val != nullptr && *val == *first;
+            }
+            if (same) addShared(key, *first, "");
+            else if (nAttrColumns < maxAttrColumns) { columns.push_back({-1, key}); ++nAttrColumns; }
+            else other.push_back(key);
+        }
+        if (columns.empty() && other.empty()) return v;  // a single line: everything is in the key/value rows
+
+        for (auto& col : columns) {
+            v.header.push_back(col.fixed >= 0 ? names[col.fixed] : col.fixed == -2 ? "length" : col.key);
+            v.headerTips.push_back(col.fixed >= 0 ? tips[col.fixed] : "");
+        }
+        if (!other.empty()) { v.header.push_back("other attributes"); v.headerTips.emplace_back(); }
+        long bestSpan = -1;
+        for (size_t i = 0; i < n; ++i) {
+            const auto& l = lines[i];
+            long s = -1, e = -1;
+            const bool span = num(l[3], s) && num(l[4], e) && e >= s;
+            std::vector<std::string> row;
+            for (auto& col : columns) {
+                if (col.fixed >= 0) row.push_back(l[col.fixed]);
+                else if (col.fixed == -2) row.push_back(span ? std::to_string(e - s + 1) : "");
+                else {
+                    const std::string* val = attrOf(i, col.key);
+                    row.push_back(val != nullptr ? shortenValue(*val, 48) : "");
+                }
+            }
+            if (!other.empty()) {
+                std::string rest;
+                for (auto& key : other) {
+                    const std::string* val = attrOf(i, key);
+                    if (val == nullptr) continue;
+                    if (!rest.empty()) rest += "; ";
+                    rest += key + "=" + *val;
+                }
+                row.push_back(rest);
+            }
+            v.cells.push_back(std::move(row));
+            // Feature coordinates (GFF is 1-based, inclusive), to mark the clicked line and to pan to it
+            const int start = span ? (int)s - 1 : -1, end = span ? (int)e : -1;
+            v.starts.push_back(start);
+            v.ends.push_back(end);
+            // The narrowest feature under the click, e.g. the exon rather than the mRNA
+            if (span && l[0] == tp.chrom && start <= tp.clickPos && tp.clickPos < std::max(end, start + 1)) {
+                if (bestSpan < 0 || e - s < bestSpan) { bestSpan = e - s; v.clicked = (int)i; }
+            }
+        }
+        return v;
+    }
+
+    static FeatureDataView parseFeatureData(const Manager::GwPlot::TrackPopup& tp) {
+        using Fmt = Manager::GwPlot::TrackPopup::DataFormat;
+        if (tp.format == Fmt::BigBed) return parseBigBedData(tp);
+        if (tp.format == Fmt::Vcf) {
+            FeatureDataView vcf = parseVcfData(tp);
+            if (!vcf.shared.empty()) return vcf;
+        }
+        if (tp.format == Fmt::Gff) {
+            FeatureDataView gff = parseGffData(tp);
+            if (!gff.shared.empty() || !gff.cells.empty()) return gff;
+        }
+        FeatureDataView v;
+        std::vector<std::vector<std::string>> lines = featureDataLines(tp.details);
+        size_t nCols = 0;
+        for (auto& l : lines) nCols = std::max(nCols, l.size());
+        if (lines.empty()) return v;
+        // One BED line reads best as key/value rows, with its blocks as an exon table
+        if (tp.format == Fmt::Bed && lines.size() == 1 && nCols > 3) {
+            FeatureDataView bed = parseBigBedData(tp);
+            if (!bed.shared.empty() || !bed.cells.empty()) return bed;
+        }
 
         static const char* gffNames[] = {"seqid", "source", "type", "start", "end", "score",
                                          "strand", "phase", "attributes"};
@@ -1376,6 +1699,8 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
             ImGui::TableSetColumnIndex((int)c + 1);
             ImGui::SetCursorPosX(ImGui::GetCursorPosX() + style.FramePadding.x);
             ImGui::TextDisabled("%s", fd.header[c].c_str());
+            if (c < fd.headerTips.size() && !fd.headerTips[c].empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                ImGui::SetTooltip("%s", fd.headerTips[c].c_str());
         }
 
         const ImU32 accent = ImGui::GetColorU32(ImGuiCol_CheckMark);
@@ -1585,9 +1910,13 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                         // GFF child line), but keep the window on screen. The user can drag
                         // it taller afterwards.
                         int nLines = (int)fd.shared.size() + (fd.header.empty() ? 0 : 1) + (int)fd.cells.size();
+                        if (fd.vcf) nLines += (fd.shared.size() > fd.infoStart ? 1 : 0) + (fd.formatKeys.empty() ? 0 : 1 + (int)fd.formatKeys.size());
                         // bigBed popups show one feature's fields plus its exons, so allow more
-                        const int maxLines = tp.format == Manager::GwPlot::TrackPopup::DataFormat::BigBed ? 30 : 14;
+                        const int maxLines = tp.format == Manager::GwPlot::TrackPopup::DataFormat::BigBed ? 30 : 20;
                         dataHeight = (float)std::clamp(nLines, 1, maxLines) * lineH + frameH;
+                        if (fd.vcf)  // plain text rows, plus the taller sample drop-down row
+                            dataHeight = (float)std::clamp(nLines, 1, maxLines + 6) * (ImGui::GetTextLineHeight() + style.CellPadding.y * 2)
+                                       + (fd.formatKeys.empty() ? 0 : style.FramePadding.y * 2) + style.WindowPadding.y * 2;
                         float roomBelow = io.DisplaySize.y - ImGui::GetWindowPos().y
                                         - ImGui::GetCursorPosY() - style.WindowPadding.y;
                         if (roomBelow < dataHeight) {
@@ -1606,7 +1935,7 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                     }
                     ImGui::BeginChild("##feature_data", ImVec2(0, dataHeight), true,
                                       ImGuiWindowFlags_HorizontalScrollbar);
-                    float needW = drawFeatureData(plot, tp, fd);
+                    float needW = fd.vcf ? drawVcfFeatureData(tp, fd) : drawFeatureData(plot, tp, fd);
                     ImGui::EndChild();
                     if (tp.fitHeight) {
                         // Opening: widen to show every column, within the screen

@@ -32,10 +32,7 @@ gw your.bam
 GW reads the BAM header and infers the reference genome. This also makes the macOS/Linux
 `Open with` association work.
 
-<div style="border: 2px dashed #5c5c5c; border-radius: 8px; padding: 3rem 1rem; text-align: center; color: #8a8a8a; margin: 1rem 0;">
-  <strong>Screenshot placeholder</strong> — alignment view with coverage, mismatches, indels<br>
-  <code>docs/assets/images/v2/alignments.png</code>
-</div>
+![Alignment view of a deletion with linked reads]({{ site.baseurl }}/assets/images/v2/alignments.png)
 
 ## Working with reads
 

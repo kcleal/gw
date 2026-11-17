@@ -17,6 +17,7 @@
 #include <vector>
 #include <htslib/sam.h>
 #include <htslib/hts.h>
+#include <htslib/vcf.h>
 #include <GLFW/glfw3.h>
 #define SK_GL
 #include "hts_funcs.h"
@@ -2317,6 +2318,22 @@ namespace Manager {
             HGW::GwTrack &targetTrack = tracks[trackIdx];
             // Same row layout as drawTracks(), so the click resolves to the row drawn here
             int featureLevel = trackLevelAt(trackIdx, tIdx, yW);
+            // A click in the genotype rows below the variants picks the variant at that
+            // position, whichever row of the track it was drawn on
+            if (targetTrack.genotypePx > 0 && trackIdx < (int)regions[tIdx].featuresInView.size()
+                    && yW >= trackTopOf(trackIdx) + targetTrack.px_height - targetTrack.genotypePx) {
+                const Utils::Region &gr = regions[tIdx];
+                const int gTarget = (int)((float)(gr.end - gr.start) * relX) + gr.start;
+                int best = (int)((gr.end - gr.start) * 0.025) + 1;
+                for (const auto &b : gr.featuresInView[trackIdx]) {
+                    if (b.genotypes.empty() || !b.anyToDraw) continue;
+                    const int dist = (gTarget < b.start) ? b.start - gTarget : (gTarget > b.end) ? gTarget - b.end : 0;
+                    if (dist < best) {
+                        best = dist;
+                        featureLevel = b.level;
+                    }
+                }
+            }
             // Save state that printTrack mutates (same-name/same-pos detection)
             std::string saved_qname = target_qname;
             int saved_pos = target_pos;
@@ -2550,6 +2567,25 @@ namespace Manager {
                         tp.detailsOpen = true;  // the fields are the useful part of a bigBed popup
                         tp.fieldNames = targetTrack.bbFieldNames;
                         tp.fieldDescs = targetTrack.bbFieldDescs;
+                        break;
+                    case HGW::FType::VCF_IDX: case HGW::FType::VCF_NOI: case HGW::FType::BCF_IDX:
+                        tp.format = TrackPopup::DataFormat::Vcf;
+                        if (targetTrack.hdr != nullptr) {
+                            bcf_hdr_t *hdr = targetTrack.hdr;
+                            const int nSamples = bcf_hdr_nsamples(hdr);
+                            if (nSamples > 0) tp.sampleNames.assign(hdr->samples, hdr->samples + nSamples);
+                            for (int i = 0; i < hdr->nhrec; ++i) {
+                                const bcf_hrec_t *rec = hdr->hrec[i];
+                                if (rec->type != BCF_HL_INFO && rec->type != BCF_HL_FMT) continue;
+                                const int idKey = bcf_hrec_find_key(const_cast<bcf_hrec_t*>(rec), "ID");
+                                const int descKey = bcf_hrec_find_key(const_cast<bcf_hrec_t*>(rec), "Description");
+                                if (idKey < 0 || descKey < 0 || rec->vals[idKey] == nullptr || rec->vals[descKey] == nullptr) continue;
+                                std::string desc = rec->vals[descKey];
+                                if (desc.size() >= 2 && desc.front() == '"' && desc.back() == '"') desc = desc.substr(1, desc.size() - 2);
+                                tp.fieldNames.push_back(std::string(rec->type == BCF_HL_INFO ? "INFO/" : "FORMAT/") + rec->vals[idKey]);
+                                tp.fieldDescs.push_back(std::move(desc));
+                            }
+                        }
                         break;
                     default: break;
                 }

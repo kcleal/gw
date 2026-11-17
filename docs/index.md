@@ -16,10 +16,7 @@ stable API.
 [Install from source]({{ site.baseurl }}/install.html){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [Version 1 docs]({{ site.baseurl }}/v1/){: .btn .fs-5 .mb-4 .mb-md-0 }
 
-<div style="border: 2px dashed #5c5c5c; border-radius: 8px; padding: 3rem 1rem; text-align: center; color: #8a8a8a; margin: 1.5rem 0;">
-  <strong>Screenshot placeholder</strong> — GW v2 main window<br>
-  <code>docs/assets/images/v2/main_window.png</code>
-</div>
+![GW main window with the Variants panel]({{ site.baseurl }}/assets/images/v2/main_window.png)
 
 ---
 

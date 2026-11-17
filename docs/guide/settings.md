@@ -18,18 +18,15 @@ it by hand — delete it and GW creates a fresh one on restart.
 Settings sections can also be opened as commands: `settings`, `general`, `genomes`,
 `interaction`, `labelling`, `navigation`, `tracks`, `thresholds`, `keymap`.
 
-<div style="border: 2px dashed #5c5c5c; border-radius: 8px; padding: 3rem 1rem; text-align: center; color: #8a8a8a; margin: 1rem 0;">
-  <strong>Screenshot placeholder</strong> — settings dialog with the theme editor<br>
-  <code>docs/assets/images/v2/settings.png</code>
-</div>
+![The Settings dialog]({{ site.baseurl }}/assets/images/v2/settings.png)
 
 ## Reference genomes
 
 A reference genome is a unique genome-tag (e.g. `hg19`, `t2t`) plus a local or online FASTA path.
 Always use a local file for best performance. Genomes can be selected in three ways:
 
-- **Startup picker** — when GW starts without a reference, a terminal (ncurses) picker lists the
-  online genomes. Type a number or a tag such as `hg38`.
+- **Startup chooser** — when GW starts without a reference, a Reference genome chooser opens in
+  the window.
 - **ImGui menus** — Settings → Genomes (`+`, tag, path), or the online files dialog.
 - **Config file** — the `[genomes]` section of `.gw.ini`, or `load genome hg38` in the command box.
 

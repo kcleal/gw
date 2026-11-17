@@ -2394,6 +2394,155 @@ namespace Drawing {
 
 
 
+    // Genotypes of a VCF/BCF track: one slim row per sample, coloured as in the variant list.
+    // Each row has one lane per haplotype and each alt copy is a bar in a lane: a het is one
+    // bar, a hom alt a second bar (in the hom alt colour) stacked on top of it. Hom ref is a
+    // thin tick and missing an empty outline.
+    // A phased genotype splits its row into one lane per haplotype, so alleles on the same
+    // haplotype line up along the lane.
+    static void drawTrackGenotypes(SkCanvas *const canvas, const Themes::IniOptions &opts, const Themes::Fonts &fonts,
+                                   const std::vector<Utils::TrackBlock> &features, const HGW::GwTrack &trk,
+                                   const Utils::Region &rgn, float padX, float xScaling, float top, float band,
+                                   float glyph, float monitorScale, bool drawNames) {
+        SkPaint kindPaint[4];
+        for (int k = 0; k < 4; ++k) {
+            kindPaint[k].setARGB(Utils::GENOTYPE_RGBA[k][3], Utils::GENOTYPE_RGBA[k][0], Utils::GENOTYPE_RGBA[k][1], Utils::GENOTYPE_RGBA[k][2]);
+            kindPaint[k].setAntiAlias(true);
+        }
+        kindPaint[0].setStyle(SkPaint::kStroke_Style);
+        kindPaint[0].setStrokeWidth(monitorScale);
+        kindPaint[2].setAlpha(Utils::GENOTYPE_TRACK_ALPHA);
+        kindPaint[3].setAlpha(Utils::GENOTYPE_TRACK_ALPHA);
+        const SkPaint lanePaint[2] = {kindPaint[2], kindPaint[3]};  // first haplotype's bar, then the others
+        const SkPaint halo = selectionHaloPaint(opts, monitorScale);
+        const SkPaint knockout = selectionKnockoutPaint(opts);
+        const int nSamples = (int)trk.sampleNames.size();
+        const float minWidth = 3 * monitorScale;
+        const float viewWidth = (float)(rgn.end - rgn.start) * xScaling;
+        const float tick = std::fmin(std::fmax(monitorScale * 1.5f, glyph * 0.2f), glyph);
+        SkRect rect{};
+        int alleles[8];
+        auto pill = [&](float x0, float y0, float x1, float y1, const SkPaint &paint) {
+            rect.setLTRB(x0, y0, x1, y1);
+            const float r = std::fmin(std::fmin(2 * monitorScale, (x1 - x0) * 0.5f), (y1 - y0) * 0.5f);
+            canvas->drawRoundRect(rect, r, r, paint);
+        };
+        // Faint guide along each haplotype lane of samples with phased genotypes in view
+        std::vector<int> phasedRows(nSamples, 0);
+        for (const auto &f : features) {
+            const char *g = f.genotypes.data();
+            const char *gEnd = g + f.genotypes.size();
+            for (int sample = 0; sample < nSamples && g < gEnd; ++sample) {
+                const char *tokenEnd = std::find(g, gEnd, ',');
+                const int bars = (int)std::count(g, tokenEnd, '|');
+                if (bars > 0) phasedRows[sample] = std::max(phasedRows[sample], std::min(bars + 1, 8));
+                g = tokenEnd + 1;
+            }
+        }
+        SkPaint guide = kindPaint[1];
+        guide.setAlpha(60);
+        guide.setAntiAlias(false);
+        guide.setStyle(SkPaint::kStroke_Style);
+        guide.setStrokeWidth(monitorScale);
+        for (int sample = 0; sample < nSamples; ++sample) {
+            const float y0 = top + ((float)sample + 0.5f) * band - glyph * 0.5f;
+            const float lane = glyph / (float)std::max(phasedRows[sample], 1);
+            if (phasedRows[sample] < 2 || lane < 2 * monitorScale) continue;
+            for (int h = 0; h < phasedRows[sample]; ++h) {
+                const float y = std::floor(y0 + ((float)h + 0.5f) * lane) + 0.5f * monitorScale;
+                canvas->drawLine(padX, y, padX + viewWidth, y, guide);
+            }
+        }
+        // pass 0 outlines the selected variant's genotypes, pass 1 draws every genotype
+        for (int pass = 0; pass < 2; ++pass) {
+            for (const auto &f : features) {
+                if (f.genotypes.empty() || f.end < rgn.start || f.start > rgn.end) continue;
+                if (pass == 0 && !f.selected) continue;
+                float x0 = std::fmax((float)(f.start - rgn.start) * xScaling, 0);
+                float x1 = std::fmin((float)(f.end - rgn.start) * xScaling, viewWidth);
+                if (x1 - x0 < minWidth) {  // keep point variants visible when zoomed out
+                    const float mid = (x0 + x1) * 0.5f;
+                    x0 = mid - minWidth * 0.5f;
+                    x1 = mid + minWidth * 0.5f;
+                }
+                x0 += padX;
+                x1 += padX;
+                const char *g = f.genotypes.data();
+                const char *gEnd = g + f.genotypes.size();
+                for (int sample = 0; sample < nSamples && g <= gEnd; ++sample) {
+                    const char *tokenEnd = std::find(g, gEnd, ',');
+                    const size_t length = (size_t)(tokenEnd - g);
+                    // alleles of this sample: -1 missing, 0 ref, >0 alt
+                    int nAlleles = 0;
+                    bool phased = false;
+                    for (const char *c = g; c < tokenEnd && nAlleles < 8;) {
+                        if (*c == '|') { phased = true; ++c; }
+                        else if (*c == '/') { ++c; }
+                        else if (*c >= '0' && *c <= '9') {
+                            int a = 0;
+                            while (c < tokenEnd && *c >= '0' && *c <= '9') a = a * 10 + (*c++ - '0');
+                            alleles[nAlleles++] = a;
+                        } else { alleles[nAlleles++] = -1; ++c; }
+                    }
+                    const int kind = Utils::genotypeKind(g, length);
+                    const float mid = top + ((float)sample + 0.5f) * band;
+                    const float y0 = mid - glyph * 0.5f;
+                    const float y1 = mid + glyph * 0.5f;
+                    if (pass == 0) {
+                        pill(x0, y0, x1, y1, halo);
+                        pill(x0, y0, x1, y1, knockout);
+                    } else if (kind >= 2 || (phased && nAlleles > 1)) {
+                        // One lane per haplotype, the first at the bottom. A phased allele sits
+                        // in its own haplotype's lane; unphased alt copies fill from the bottom,
+                        // so a het is one bar and a hom alt adds a second bar on top of it.
+                        const int lanes = std::max(nAlleles, 2);
+                        const float lane = glyph / (float)lanes;
+                        const float laneGap = lane >= 4 * monitorScale ? monitorScale * 0.5f : 0;
+                        int filled = 0;
+                        for (int h = 0; h < nAlleles; ++h) {
+                            const int at = phased ? h : filled;
+                            const float bottom = y1 - (float)at * lane;
+                            if (alleles[h] > 0) {
+                                pill(x0, bottom - lane + laneGap, x1, bottom - laneGap, lanePaint[at == 0 ? 0 : 1]);
+                                ++filled;
+                            } else if (!phased) {
+                                continue;
+                            } else if (alleles[h] == 0) {  // ref: a thin tick, so the lane reads as continuous
+                                const float t = std::fmin(tick, lane) * 0.5f;
+                                rect.setLTRB(x0, bottom - lane * 0.5f - t, x1, bottom - lane * 0.5f + t);
+                                canvas->drawRect(rect, kindPaint[1]);
+                            } else {
+                                pill(x0, bottom - lane + laneGap, x1, bottom - laneGap, kindPaint[0]);
+                            }
+                        }
+                    } else if (kind == 1) {
+                        rect.setLTRB(x0, mid - tick * 0.5f, x1, mid + tick * 0.5f);
+                        canvas->drawRect(rect, kindPaint[1]);
+                    } else {
+                        const float inset = monitorScale * 0.5f;
+                        pill(x0 + inset, y0 + inset, x1 - inset, y1 - inset, kindPaint[0]);
+                    }
+                    g = tokenEnd + 1;
+                }
+            }
+        }
+        // "GT: sample" labels, boxed like the track name, when a row is tall enough for text
+        const float labelHeight = fonts.overlayHeight + 4 * monitorScale;
+        if (drawNames && band >= labelHeight) {
+            const float rr = 2.5f * monitorScale;
+            for (int sample = 0; sample < nSamples; ++sample) {
+                const std::string name = trk.genotypeLabel((size_t)sample);  // same box as the editable label in drawImGuiDataLabels
+                const float width = fonts.measureTextWidth(name);
+                const float mid = top + ((float)sample + 0.5f) * band;
+                rect.setXYWH(padX + monitorScale, mid - labelHeight * 0.5f, width + 16 * monitorScale, labelHeight);
+                canvas->drawRoundRect(rect, rr, rr, opts.theme.bgPaint);
+                canvas->drawRoundRect(rect, rr, rr, opts.theme.lcLabel);
+                sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(name.c_str(), fonts.overlay);
+                canvas->drawTextBlob(blob, padX + 8 * monitorScale, mid + fonts.overlayHeight * 0.5f - monitorScale, opts.theme.tcDel);
+            }
+        }
+    }
+
     void drawTracks(Themes::IniOptions &opts, SkCanvas *const canvas, std::vector<HGW::GwTrack> &tracks,
                     std::vector<Utils::Region> &regions, const Themes::Fonts &fonts, const drawContext& ctx,
                     std::vector<Segs::ReadCollection>* collections) {
@@ -2492,7 +2641,22 @@ namespace Drawing {
                 rgn.featureLevels[trackIdx] = nLevels;
                 std::vector<float> labelsEndLevels(nLevels, 0);
 
-                const TrackRowLayout rows = trackRowLayout(trackTop, trk.px_height, nLevels,
+                // VCF/BCF tracks keep a slim row per sample below the variants, for genotypes
+                const int nSamples = (int)trk.sampleNames.size();
+                float genotypeBand = 0;
+                trk.genotypePx = 0;
+                if (nSamples > 0 && !isGFF && trk.kind != HGW::INTRON) {
+                    // room for the boxed sample label when labels are shown, else just the glyph
+                    const float wanted = opts.data_labels ? fonts.overlayHeight + 6 * monitorScale : 12 * monitorScale;
+                    const float space = std::fmin((float)nSamples * wanted, (float)trk.px_height * 0.65f);
+                    if (space / (float)nSamples >= 3 * monitorScale) {
+                        genotypeBand = space / (float)nSamples;
+                        trk.genotypePx = space + gap * 0.5f;
+                    }
+                }
+                const float featureHeight = (float)trk.px_height - trk.genotypePx;
+
+                const TrackRowLayout rows = trackRowLayout(trackTop, featureHeight, nLevels,
                                                            fonts.overlayHeight, gap, monitorScale);
                 float blockStep = rows.rowStep;
                 float h = rows.h;
@@ -2548,12 +2712,12 @@ namespace Drawing {
                             SkPaint halo = selectionHaloPaint(opts, monitorScale);
                             SkPaint knockout = selectionKnockoutPaint(opts);
                             for (SkPaint *p : {&halo, &knockout}) {
-                                drawTrackBlock(f.start, f.end, f.name, rgn, rect, path, padX, padY_track, 0, h, stepX, trk.px_height,
+                                drawTrackBlock(f.start, f.end, f.name, rgn, rect, path, padX, padY_track, 0, h, stepX, featureHeight,
                                             xScaling, opts, canvas, fonts, false, true, false, fLevelEnd, f.vartype,
                                             text, false, false, *p, strand, customPointSlop, ctx, true);
                             }
                         }
-                        drawTrackBlock(f.start, f.end, f.name, rgn, rect, path, padX, padY_track, 0, h, stepX, trk.px_height,
+                        drawTrackBlock(f.start, f.end, f.name, rgn, rect, path, padX, padY_track, 0, h, stepX, featureHeight,
                                     xScaling, opts, canvas, fonts, any_text, true, false, fLevelEnd, f.vartype,
                                     text, opts.sv_arcs, trk.kind == HGW::FType::ROI, faceColour, strand, customPointSlop, ctx);
                     }
@@ -2563,6 +2727,14 @@ namespace Drawing {
                     for (const auto&t: text) {
                         canvas->drawTextBlob(t.text, t.x, t.y, opts.theme.tcDel);
                     }
+                }
+
+                if (genotypeBand > 0) {
+                    // the stacked pills together are as tall as one of the track's own blocks
+                    const float glyph = std::fmax(std::fmin(h, genotypeBand - monitorScale), monitorScale);
+                    drawTrackGenotypes(canvas, opts, fonts, features, trk, rgn, padX, xScaling,
+                                       trackTop + featureHeight, genotypeBand, glyph, monitorScale,
+                                       regionIdx == 0 && opts.data_labels);
                 }
 
                 // Draw data labels

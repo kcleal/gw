@@ -17,10 +17,7 @@ Scroll with the mouse or arrow keys.
 Load by drag-and-drop, the `load` command, or `--var/-v`. Dragged VCF/BCF files become tiles or a
 track depending on `vcf_as_tracks` (Settings → Interaction).
 
-<div style="border: 2px dashed #5c5c5c; border-radius: 8px; padding: 3rem 1rem; text-align: center; color: #8a8a8a; margin: 1rem 0;">
-  <strong>Screenshot placeholder</strong> — tiled variant images<br>
-  <code>docs/assets/images/v2/tiles.png</code>
-</div>
+![Variant image tiles with the Variants panel]({{ site.baseurl }}/assets/images/v2/tiles.png)
 
 - **Right-click** a tile to switch to the interactive alignment view; right-click again to return
 - **Left-click** a tile to cycle its label

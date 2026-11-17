@@ -13,16 +13,14 @@ GW makes manually labelling hundreds–thousands of variants as pain-free as pos
 to a tab-separated file and can be re-opened later, supporting labelling over multiple sessions.
 GW can also write a modified VCF with labels in the filter column.
 
-<div style="border: 2px dashed #5c5c5c; border-radius: 8px; padding: 3rem 1rem; text-align: center; color: #8a8a8a; margin: 1rem 0;">
-  <strong>Screenshot placeholder</strong> — the label table dialog<br>
-  <code>docs/assets/images/v2/label_table.png</code>
-</div>
+![The Variants panel]({{ site.baseurl }}/assets/images/v2/label_table.png)
 
 ## Basic workflow
 
 1. Open a VCF with `-v` so variants are drawn as
    [image tiles]({{ site.baseurl }}/guide/images.html)
-2. `↑`/`↓` changes the number of tiles; `←`/`→` navigates
+2. `←`/`→` pages through tiles; set the number of tiles with the grid button in the Variants
+   panel title bar (or the `grid` command)
 3. **Left-click** a tile to cycle labels
 4. Save with `save labels` / `--out-labels`; reload with `--in-labels`
 

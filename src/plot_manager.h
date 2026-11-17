@@ -279,9 +279,12 @@ namespace Manager {
             bool isVcf{false};   // true for VCF/BCF tracks (changes copy-all behaviour)
             // Where the click was, so the feature data can mark the clicked line and
             // pan the view to a line's feature.
-            enum class DataFormat { Other, Bed, Gff, BigBed } format{DataFormat::Other};
-            // bigBed column names/descriptions from the file's autoSql (empty = plain BED names)
+            enum class DataFormat { Other, Bed, Gff, BigBed, Vcf } format{DataFormat::Other};
+            // bigBed column names/descriptions from the file's autoSql (empty = plain BED names).
+            // For VCF/BCF: "INFO/<id>" and "FORMAT/<id>" with the header's descriptions.
             std::vector<std::string> fieldNames, fieldDescs;
+            std::vector<std::string> sampleNames;  // VCF/BCF sample columns, in file order
+            int sampleIdx{0};    // sample whose FORMAT values are shown
             std::string chrom;
             int clickPos{-1};    // 0-based genomic position of the click
             int regionIdx{0};    // region (split view panel) that was clicked

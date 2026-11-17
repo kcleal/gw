@@ -15,8 +15,7 @@ published to GitHub Pages.
 The `app/` directory (in-browser WASM demo) is not committed — the pages
 workflow builds it and adds it to the site on each deploy.
 
-Screenshot placeholders reference files under `assets/images/v2/` — drop PNGs there using the
-indicated names to replace the placeholders.
+Screenshots live under `assets/images/v2/`.
 
 ## Building locally
 

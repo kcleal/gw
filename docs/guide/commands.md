@@ -9,7 +9,7 @@ description: GW version 2 command reference
 # Commands
 {: .no_toc }
 
-Open the command box with `:` or `/`. Type `help` for a summary, or `man COMMAND` for details.
+Open the command bar with `/` (or click it at the bottom of the window). Type `help` for a summary, or `man COMMAND` for details.
 Unrecognised text is echoed to the terminal — useful for notes. `↑` / `↓` cycles through command
 history.
 
@@ -104,11 +104,6 @@ tcIns          - text-colour of insertions
 tcLabels       - text-colour of labels
 tcBackground   - text-colour of background
 ```
-<br>
-
-- ## config
-
-Open the GW config file (`.gw.ini`) for editing.
 <br>
 
 - ## count
@@ -538,6 +533,20 @@ To remove a bam or track add a 'bam' or 'track' prefix.
     rm 0        # this will remove REGION at index 0
     rm bam1     # this will remove BAM FILE at index 1
     rm track2   # removes track at index 2
+
+<br>
+
+- ## remove-filter
+
+Remove one active filter, leaving other filters and the view in place.
+
+    remove-filter mapq > 0
+
+<br>
+
+- ## remove-roi, clear-roi
+
+`remove-roi chr1:1-20000` removes one region of interest; `clear-roi` removes them all.
 
 <br>
 
