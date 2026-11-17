@@ -1637,6 +1637,21 @@ namespace Manager {
         fonts.setOverlayHeight(monitorScale);
     }
 
+    int GwPlot::resizeCanvas(int width, int height) {
+        opts.dimensions.x = width;
+        opts.dimensions.y = height;
+        setImageSize(width, height);
+        int bytes = makeRasterSurface();
+        bboxes = tileBoundingBoxes();
+        tracksLayoutDirty = true;  // re-derive track heights for the new size
+        imageCache.clear();
+        imageCacheQueue.clear();
+        clearZoomCache();
+        processed = false;
+        redraw = true;
+        return bytes;
+    }
+
     // Derives each annotation track's pixel height from its height_fraction. Only
     // called when one of the cached inputs changed, so this must always recompute from
     // scratch (never scale px_height in place) to keep the clamp from compounding.

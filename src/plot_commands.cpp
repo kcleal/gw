@@ -113,14 +113,15 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err refreshGw(Plot* p) {
+    // Redraws from scratch: re-reads the alignments, drops the caches, selections, scroll
+    // and sorting, and re-derives the track layout, but keeps the read filters.
+    Err refreshView(Plot* p) {
         p->redraw = true;
         p->processed = false;
         if (p->frameId >= 0) {
             p->imageCache.clear();
             p->imageCacheQueue.clear();
             p->clearZoomCache();
-            p->filters.clear();
             p->target_qname = "";
             // Clear the GFF exon/intron and splice-junction highlight identities so
             // the selection outline is dropped on refresh (mirrors read deselection).
@@ -144,6 +145,15 @@ namespace Commands {
                 rgn.refBaseAtPos = '\0';
             }
             p->tracksLayoutDirty = true;  // re-derive track heights on refresh
+        }
+        return Err::NONE;
+    }
+
+    // The `refresh` command: refreshView, and the read filters are dropped too.
+    Err refreshGw(Plot* p) {
+        refreshView(p);
+        if (p->frameId >= 0) {
+            p->filters.clear();
         }
         return Err::NONE;
     }
@@ -342,7 +352,7 @@ namespace Commands {
 
     Err soft_clips(Plot* p) {
         p->opts.soft_clip_threshold = (p->opts.soft_clip_threshold == 0) ? std::stoi(p->opts.myIni["view_thresholds"]["soft_clip"]) : 0;
-        refreshGw(p);
+        refreshView(p);
         return Err::NONE;
     }
 
@@ -366,7 +376,7 @@ namespace Commands {
 
     Err expand_tracks(Plot* p) {
         p->opts.expand_tracks = !(p->opts.expand_tracks);
-        refreshGw(p);
+        refreshView(p);
         return Err::NONE;
     }
 
@@ -383,7 +393,7 @@ namespace Commands {
         p->processed = false;
         p->redraw = true;
         if (p->mode != Manager::Show::SINGLE) {
-            refreshGw(p);
+            refreshView(p);
         }
         return Err::NONE;
     }
@@ -397,7 +407,7 @@ namespace Commands {
             p->redraw = true;
         }
         if (p->mode != Manager::Show::SINGLE) {
-            refreshGw(p);
+            refreshView(p);
         }
         return Err::NONE;
     }
@@ -847,7 +857,7 @@ namespace Commands {
             out << termcolor::red << "Error:" << termcolor::reset << " ylim invalid value\n";
             return Err::NONE;
         }
-        refreshGw(p);
+        refreshView(p);
         return Err::NONE;
     }
 
@@ -2008,7 +2018,7 @@ namespace Commands {
         for (auto it = p->tracks.begin(); it != p->tracks.end(); ++it) {
             if (it->kind == HGW::FType::INTRON && it->bamIndex == bamIdx) {
                 p->tracks.erase(it);
-                refreshGw(p);
+                refreshView(p);
                 return Err::NONE;
             }
         }
@@ -2021,7 +2031,7 @@ namespace Commands {
         trk.path = trk.name;  // non-empty so the track isn't confused with a file-less ROI
         trk.faceColour = p->opts.theme.fcRoi;
         p->redraw = true;
-        refreshGw(p);
+        refreshView(p);
         return Err::NONE;
     }
 
@@ -2205,7 +2215,7 @@ namespace Commands {
 
     Err sort_command(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
         if (parts.size() == 1 || (parts.size() == 2 && parts[1] == "none")) {
-            refreshGw(p);
+            refreshView(p);
             return Err::NONE;
         }
         if (parts.size() > 3) {
@@ -2255,7 +2265,6 @@ namespace Commands {
         p->processed = false;
         p->imageCache.clear();
         p->imageCacheQueue.clear();
-        p->filters.clear();
         p->target_qname = "";
         for (auto &cl: p->collections) { cl.vScroll = 0; cl.resetDrawState(); }
         return Err::NONE;
