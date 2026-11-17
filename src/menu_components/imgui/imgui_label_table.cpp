@@ -132,6 +132,7 @@ static std::vector<RowData> parseVariantDetailRows(HGW::GwVariantTrack& vt, Util
         if (isVcf && fields.size() >= 8) {
             std::string endChrom;
             int endPos = 0;
+            bool haveChr2Pos = false;
             static const char* names[] = {"CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER"};
             for (int i = 0; i < 7 && i < (int)fields.size(); ++i) {
                 if (i == 2 && idAlreadyAdded) continue; // ID already added from lbl.variantId
@@ -153,7 +154,13 @@ static std::vector<RowData> parseVariantDetailRows(HGW::GwVariantTrack& vt, Util
                         std::string value = item.substr(eq + 1);
                         if (key == "CHROM" || key == "CHR2") { // override with CHR2 is found
                             endChrom = value;
-                        } else if (key == "END" || key == "CHR2_POS" ) { // CHR2_POS overrides
+                        } else if (key == "CHR2_POS") {  // overrides END, whichever comes first
+                            try {
+                                endPos = std::stoi(value);
+                                haveChr2Pos = true;
+                            } catch (...) {
+                            }
+                        } else if (key == "END" && !haveChr2Pos) {
                             try {
                                 endPos = std::stoi(value);
                             } catch (...) {
@@ -166,7 +173,36 @@ static std::vector<RowData> parseVariantDetailRows(HGW::GwVariantTrack& vt, Util
             if (endChrom.empty() && endPos > 0) {
                 endChrom = lbl.chrom; // Fallback to current chromosome if missing CHR2
             }
-            if (!endChrom.empty() && endPos > 0) {
+            // A breakend's ALT names its mate, e.g. N]chr2:321682] or [chr13:123456[N. That is
+            // the other end of the variant, whatever END says (END is usually POS for a BND).
+            std::string mateChrom;
+            int matePos = 0;
+            for (const auto& alt : Utils::split(fields[4], ',')) {
+                const size_t open = alt.find_first_of("[]");
+                if (open == std::string::npos) continue;
+                const size_t close = alt.find_first_of("[]", open + 1);
+                if (close == std::string::npos) continue;
+                const std::string locus = alt.substr(open + 1, close - open - 1);
+                const size_t colon = locus.rfind(':');  // contig names may contain ':'
+                if (colon == std::string::npos || colon == 0) continue;
+                std::string chrom = locus.substr(0, colon);
+                if (chrom.size() > 2 && chrom.front() == '<' && chrom.back() == '>') chrom = chrom.substr(1, chrom.size() - 2);
+                char* numEnd = nullptr;
+                const long pos = std::strtol(locus.c_str() + colon + 1, &numEnd, 10);
+                if (*numEnd != '\0' || pos <= 0) continue;
+                mateChrom = chrom;
+                matePos = (int)pos;
+                break;
+            }
+            // A second button is only useful when the other side is somewhere else: not for an
+            // insertion or a breakend whose END is the record's own position (or the next base).
+            const long vcfPos = std::strtol(fields[1].c_str(), nullptr, 10);
+            auto elsewhere = [&](const std::string& chrom, int pos) {
+                return !chrom.empty() && pos > 0 && (chrom != fields[0] || std::labs((long)pos - vcfPos) > 1);
+            };
+            if (elsewhere(mateChrom, matePos)) {
+                rows.insert(rows.begin() + 1, makeNavRow("Mate", mateChrom + ":" + std::to_string(matePos), mateChrom, matePos));
+            } else if (elsewhere(endChrom, endPos)) {
                 rows.insert(rows.begin() + 1, makeNavRow("End", endChrom + ":" + std::to_string(endPos), endChrom, endPos));
             }
             if (fields.size() > 8 && !fields[8].empty()) {
@@ -277,8 +313,64 @@ static bool evalVcfExpr(const std::vector<RowData>& rows, const std::string& exp
 
 // -------------------------------------------------------------------------    
 
+// File browser for the label file (the TSV written by --out-labels, as used by dysgu)
+static ImGui::FileBrowser& labelFileBrowser() {
+    static ImGui::FileBrowser browser(ImGuiFileBrowserFlags_EnterNewFilename | ImGuiFileBrowserFlags_CreateNewDir
+                                      | ImGuiFileBrowserFlags_CloseOnEsc | ImGuiFileBrowserFlags_ConfirmOnEnter
+                                      | ImGuiFileBrowserFlags_EditPathString | ImGuiFileBrowserFlags_SkipItemsCausingError);
+    static bool initialised = false;
+    if (!initialised) {
+        browser.SetTypeFilters({".tsv", ".txt", ".*"});
+        initialised = true;
+    }
+    return browser;
+}
+
+// A sheet of paper with a folded corner
+static void drawFileIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, float thickness) {
+    const float w = max.x - min.x, h = max.y - min.y;
+    const float l = min.x + w * 0.27f, r = min.x + w * 0.73f, t = min.y + h * 0.18f, b = min.y + h * 0.82f;
+    const float fold = w * 0.2f;
+    const ImVec2 pts[] = {{l, t}, {r - fold, t}, {r, t + fold}, {r, b}, {l, b}};
+    dl->AddPolyline(pts, 5, col, ImDrawFlags_Closed, thickness);
+    const ImVec2 corner[] = {{r - fold, t}, {r - fold, t + fold}, {r, t + fold}};
+    dl->AddPolyline(corner, 3, col, 0, thickness);
+}
+
 void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
         if (!plot->labelTableDialogOpen) return;
+        // Label file chosen in the browser last frame: handled here, before anything below
+        // holds on to the variant tracks (loading re-opens them)
+        static bool labelBrowserSaving = false;
+        static std::string labelFileMessage;
+        static double labelFileMessageUntil = 0;
+        {
+            ImGui::FileBrowser& browser = labelFileBrowser();
+            browser.Display();
+            if (browser.HasSelected()) {
+                const std::string path = browser.GetSelected().string();
+                browser.ClearSelected();
+                if (labelBrowserSaving) {
+                    plot->setOutLabelFile(path);
+                    plot->saveLabels();
+                    const bool ok = std::filesystem::exists(path);
+                    labelFileMessage = ok ? "Labels saved" : "Could not write the label file";
+                } else if (std::filesystem::exists(path)) {
+                    try {
+                        plot->loadLabels(path);
+                        labelFileMessage = "Labels loaded";
+                    } catch (const std::exception&) {
+                        labelFileMessage = "Not a label file";
+                    }
+                    plot->redraw = true;
+                    plot->processed = false;
+                    redraw = true;
+                } else {
+                    labelFileMessage = "File not found";
+                }
+                labelFileMessageUntil = ImGui::GetTime() + 3.0;
+            }
+        }
         if (plot->variantTracks.empty()) {
             plot->labelTableDialogOpen = false;
             return;
@@ -553,7 +645,57 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
 
             static std::unordered_map<std::string, bool> detailsCollapsedByTrack;
             bool& detailsCollapsed = detailsCollapsedByTrack[trackKey];
+            ImGui::SetNextItemAllowOverlap();
             bool listOpen = ImGui::CollapsingHeader("Variant List", ImGuiTreeNodeFlags_DefaultOpen);
+            // File icon at the right of the header: save / load the label file
+            {
+                const float side = ImGui::GetFrameHeight();
+                ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - side);
+                const ImVec2 p0 = ImGui::GetCursorScreenPos();
+                if (ImGui::InvisibleButton("##label_file_btn", ImVec2(side, side))) ImGui::OpenPopup("##label_file_menu");
+                const bool hov = ImGui::IsItemHovered();
+                ImDrawList* dl = ImGui::GetWindowDrawList();
+                if (hov) {
+                    dl->AddRectFilled(p0, ImVec2(p0.x + side, p0.y + side), ImGui::GetColorU32(ImGuiCol_ButtonHovered),
+                                      ImGui::GetStyle().FrameRounding);
+                    ImGui::SetTooltip("Save or load labels");
+                }
+                drawFileIcon(dl, p0, ImVec2(p0.x + side, p0.y + side), ImGui::GetColorU32(ImGuiCol_Text, hov ? 1.0f : 0.8f),
+                             iconStrokeThickness(plot->monitorScale));
+                if (ImGui::GetTime() < labelFileMessageUntil) {
+                    const float w = ImGui::CalcTextSize(labelFileMessage.c_str()).x;
+                    dl->AddText(ImVec2(p0.x - w - ImGui::GetStyle().ItemSpacing.x, p0.y + ImGui::GetStyle().FramePadding.y),
+                                ImGui::GetColorU32(ImGuiCol_Text, 0.8f), labelFileMessage.c_str());
+                }
+                ImGui::SetNextWindowPos(ImVec2(p0.x + side, p0.y + side + 2), ImGuiCond_Appearing, ImVec2(1.0f, 0));
+                if (ImGui::BeginPopup("##label_file_menu")) {
+                    ImGui::FileBrowser& browser = labelFileBrowser();
+                    auto openBrowser = [&](bool saving) {
+                        labelBrowserSaving = saving;
+                        browser.SetTitle(saving ? "Save labels" : "Load labels");
+                        browser.SetOkButtonLabel(saving ? "Save" : "Load");
+                        std::filesystem::path current(plot->outLabelFile);
+                        if (!plot->outLabelFile.empty() && std::filesystem::exists(current.parent_path()))
+                            browser.SetDirectory(current.parent_path());
+                        browser.SetInputName(saving ? (plot->outLabelFile.empty() ? std::string("labels.tsv")
+                                                                                    : current.filename().string())
+                                                    : std::string());
+                        browser.Open();
+                    };
+                    if (!plot->outLabelFile.empty()) {
+                        const std::string name = std::filesystem::path(plot->outLabelFile).filename().string();
+                        if (ImGui::MenuItem(("Save to " + name).c_str())) {
+                            plot->saveLabels();
+                            labelFileMessage = "Labels saved";
+                            labelFileMessageUntil = ImGui::GetTime() + 3.0;
+                        }
+                        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) ImGui::SetTooltip("%s", plot->outLabelFile.c_str());
+                    }
+                    if (ImGui::MenuItem(plot->outLabelFile.empty() ? "Save labels..." : "Save labels as...")) openBrowser(true);
+                    if (ImGui::MenuItem("Load labels...")) openBrowser(false);
+                    ImGui::EndPopup();
+                }
+            }
             float availH = std::max(1.0f, ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeightWithSpacing() * 2.0f);
             float minPane = ImGui::GetFrameHeight() * 2.0f;
             float topH = std::max(minPane, std::min(availH - minPane, availH * splitFrac));
@@ -873,19 +1015,14 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                 dl->AddLine(ImVec2(sp.x, lineY),
                             ImVec2(sp.x + splitterW, lineY), col, 1.0f);
             }
-            // One continuous header background, including its clipboard action.
+            // The header spans the full width and the clipboard action sits on top of it, so
+            // the button shares the header's own background (a separate fill behind a
+            // translucent header colour never matched it).
             ImGuiWindow* detailWindow = ImGui::GetCurrentWindow();
             float headerRight = detailWindow->WorkRect.Max.x;
             float iconSide = ImGui::GetFrameHeight();
-            ImVec2 headerPos = ImGui::GetCursorScreenPos();
-            float headerExtend = std::trunc(ImGui::GetStyle().WindowPadding.x * 0.5f);
-            ImGui::GetWindowDrawList()->AddRectFilled(
-                ImVec2(headerPos.x - headerExtend, headerPos.y),
-                ImVec2(headerRight + headerExtend, headerPos.y + iconSide),
-                ImGui::GetColorU32(ImGuiCol_Header), ImGui::GetStyle().FrameRounding);
-            detailWindow->WorkRect.Max.x -= iconSide + ImGui::GetStyle().ItemSpacing.x;
+            ImGui::SetNextItemAllowOverlap();
             detailsCollapsed = !ImGui::CollapsingHeader("Variant Details", ImGuiTreeNodeFlags_DefaultOpen);
-            detailWindow->WorkRect.Max.x = headerRight;
             ImGui::SameLine(headerRight - detailWindow->Pos.x - iconSide + 2);
             ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 2);
             bool copyVar = ImGui::InvisibleButton("##copy_variant_command", ImVec2(iconSide - 4, iconSide - 4));
@@ -947,7 +1084,7 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                     }
                     // Rows that are always shown regardless of filter
                     auto isAlwaysShown = [](const RowData& rd) -> bool {
-                        return rd.label == "Position" || rd.label == "End";
+                        return rd.label == "Position" || rd.label == "End" || rd.label == "Mate";
                     };
                     // "Label" row is never shown in the detail table
                     auto isNeverShown = [](const RowData& rd) -> bool {

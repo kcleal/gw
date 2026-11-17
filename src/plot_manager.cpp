@@ -857,6 +857,27 @@ namespace Manager {
         outLabelFile = path;
     }
 
+    void GwPlot::loadLabels(const std::string &path) {
+        seenLabels.clear();
+        std::string img;
+        std::vector<std::string> labels = Utils::split_keep_empty_str(opts.labels, ',');
+        Utils::openLabels(path, img, inputLabels, labels, seenLabels);
+        // Re-open the variant files so their labels are rebuilt from the loaded ones
+        std::vector<std::string> current;
+        std::vector<int> idx;
+        for (auto &v : variantTracks) {
+            current.push_back(v.path);
+            idx.push_back(v.blockStart);
+        }
+        variantTracks.clear();
+        for (size_t i = 0; i < current.size(); ++i) {
+            addVariantTrack(current[i], idx[i], false, false);  // dont cache, dont use full path as filename
+        }
+        // the old tracks are gone: never leave the current-track pointer on one of them
+        currentVarTrack = variantTracks.empty() ? nullptr
+                        : &variantTracks[std::clamp(variantFileSelection, 0, (int)variantTracks.size() - 1)];
+    }
+
     void GwPlot::saveLabels() {
         if (outLabelFile.empty()) {
             return;

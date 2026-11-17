@@ -1688,23 +1688,7 @@ namespace Commands {
                 if (!maybe_online && !std::filesystem::exists(filename)) {
                     return Err::INVALID_PATH;
                 }
-                p->seenLabels.clear();
-                std::string img;
-                std::vector<std::string> labels = Utils::split_keep_empty_str(p->opts.labels, ',');
-                Utils::openLabels(parts.back(), img, p->inputLabels, labels, p->seenLabels);
-                std::vector<std::string> current;
-                std::vector<int> idx;
-                for (auto &v : p->variantTracks) {
-                    current.push_back(v.path);
-                    idx.push_back(v.blockStart);
-                }
-                p->variantTracks.clear();
-
-                int i = 0;
-                for (auto &v : current) {
-                    p->addVariantTrack(v, idx[i], false, false);  // dont cache, dont use full path as filename
-                    i += 1;
-                }
+                p->loadLabels(parts.back());
                 refreshGw(p);
                 return Err::NONE;
             } else if (parts[1] == "session") {
