@@ -5,6 +5,8 @@
 #pragma once
 
 #include <GLFW/glfw3.h>
+#include <algorithm>
+#include <cmath>
 #include <string>
 #include <utility>
 #include <vector>
@@ -43,6 +45,7 @@ namespace Drawing {
         float covYh;
         float refSpace;
         float sliderSpace;
+        float commandBarSpace{0};  // strip below the slider kept clear for the command bar
         float gap;
         float monitorScale;
         float trackY;
@@ -50,6 +53,7 @@ namespace Drawing {
         float yScaling;
         int linkOp;
         float totalTabixY;
+        float tracksTop{0};  // canvas y of the first annotation track (GwPlot::tracksTop())
         float pointSlop;
         float textDrop;
         float pH;
@@ -69,8 +73,10 @@ namespace Drawing {
         std::string selectedFeatureChrom;  // identity of the highlighted gff exon/intron (empty = none)
         std::string selectedFeatureName;
         std::string selectedFeatureParent;
+        std::string selectedFeatureLine;
         int selectedFeatureStart = -1;
         int selectedFeatureEnd = -1;
+        int selectedFeatureTrack = -1;
         std::string selectedBaseChrom;  // identity of the clicked reference base (empty = none)
         int selectedBasePos = -1;
         float translationTrackHeight{0};
@@ -105,7 +111,8 @@ namespace Drawing {
                      SkCanvas *const canvas, std::vector<HGW::GwTrack> &tracks, const drawContext& ctx);
 
     void drawLabel(const Themes::IniOptions &opts, SkCanvas *const canvas, SkRect &rect, Utils::Label &label, const Themes::Fonts &fonts,
-              const ankerl::unordered_dense::set<std::string> &seenLabels, const std::vector<std::string> &srtLabels);
+              const ankerl::unordered_dense::set<std::string> &seenLabels, const std::vector<std::string> &srtLabels,
+              float bottomInset = 0);
 
 
     void drawTracks(Themes::IniOptions &opts, SkCanvas *const canvas, std::vector<HGW::GwTrack> &tracks,
@@ -117,6 +124,41 @@ namespace Drawing {
                            std::vector<Utils::Region> &regions,
                            const std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
                            SkCanvas *const canvas, const drawContext& ctx);
+
+    // Vertical layout of the feature rows inside one annotation track. drawTracks() and
+    // the click/hover handlers both use it, so a click resolves to the row drawn there.
+    // Each row holds a block of height h and, when labels are shown, a label below it;
+    // that content is centred within the row.
+    struct TrackRowLayout {
+        float top;        // canvas y of the first row
+        float rowStep;    // height of each row
+        float h;          // block height
+        float contentPad; // offset from a row's top to its block's top
+        bool labels;      // whether feature labels are drawn
+    };
+
+    inline TrackRowLayout trackRowLayout(float trackTop, float pxHeight, int nLevels,
+                                         float overlayHeight, float gap, float monitorScale) {
+        nLevels = std::max(nLevels, 1);
+        const float pad = gap * 0.5f;
+        TrackRowLayout L{};
+        L.top = trackTop + pad;
+        L.rowStep = std::fmax((pxHeight - pad - pad) / (float)nLevels, 1.0f);
+        L.h = std::fmin(L.rowStep * 0.35f, 10 * monitorScale);
+        L.labels = overlayHeight * (float)nLevels < pxHeight / 2;
+        const float content = L.h + (L.labels ? overlayHeight + monitorScale * 2 : 0);
+        L.contentPad = std::fmax((L.rowStep - content) * 0.5f, 0.0f);
+        return L;
+    }
+
+    inline float trackRowBlockTop(const TrackRowLayout &L, int level) {
+        return L.top + L.rowStep * (float)level + L.contentPad;
+    }
+
+    inline int trackRowAt(const TrackRowLayout &L, float y, int nLevels) {
+        int level = (int)std::floor((y - L.top) / L.rowStep);
+        return std::clamp(level, 0, std::max(nLevels, 1) - 1);
+    }
 
     // Helpers for translation-track layout so the GLFW click handler and the
     // Skia renderer agree on where the AA text row is.

@@ -1,0 +1,63 @@
+import assert from 'node:assert/strict';
+import {remoteFile,fetchCatalogue,prepareOnline,fileSize} from '../deps/wasm/online-files.mjs';
+const requests=[];let mode='range',etag='"v1"';const size=10_000_000_000;
+globalThis.fetch=async(url,{headers,signal,method}={})=>{
+    if(signal?.aborted)throw new DOMException('Aborted','AbortError');
+    requests.push({url,range:headers?.Range});
+    const total=url.endsWith('small.bed')?65536:url.endsWith('.bai')&&!url.includes('oversized')?2*1024*1024:size;
+    if(method==='HEAD')return new Response(null,{headers:{'Content-Length':String(total)}});
+    if(!headers?.Range)return new Response(JSON.stringify({version:1,entries:[]}));
+    if(mode==='200')return new Response('whole file',{status:200});
+    const [,a,b]=/bytes=(\d+)-(\d+)/.exec(headers.Range),start=Number(a),end=Math.min(Number(b),total-1);
+    const bytes=Uint8Array.from({length:end-start+1},(_,i)=>(start+i)%251);
+    const h={'Content-Range':`bytes ${start}-${end}/${total}`,ETag:etag};if(mode==='hidden'||mode==='ucsc')delete h['Content-Range'];if(mode==='ucsc')h['Content-Length']=String(bytes.length);
+    return new Response(mode==='truncated'?bytes.subarray(0,0):bytes,{status:206,headers:h});
+};
+const file=await remoteFile('https://data.test/huge.bam');assert.equal(file.size,size);assert.equal(requests.length,1);
+const start=123456789,got=new Uint8Array(await file.slice(start,start+5).arrayBuffer());
+assert.deepEqual([...got],Array.from({length:5},(_,i)=>(start+i)%251));
+assert.equal(requests.length,2);await file.slice(start+1,start+4).arrayBuffer();assert.equal(requests.length,2,'cache should avoid a second request');
+for(let i=0;i<34;++i)await file.slice(i*262144,i*262144+1).arrayBuffer();const before=requests.length;await file.slice(start,start+1).arrayBuffer();assert.equal(requests.length,before+1,'cache is bounded');
+for(const bad of ['200','hidden','truncated']){mode=bad;await assert.rejects(remoteFile('https://data.test/huge.bam'));}mode='range';
+const changed=await remoteFile('https://data.test/huge.bam');etag='"v2"';await assert.rejects(changed.slice(2,6).arrayBuffer(),/changed/);etag='"v1"';
+mode='ucsc';const ucsc=await remoteFile('https://data.test/track.bb');assert.equal(ucsc.size,size);assert.equal(new Uint8Array(await ucsc.slice(22,23).arrayBuffer())[0],22);mode='range';
+const stop=new AbortController();stop.abort();await assert.rejects(remoteFile('https://data.test/huge.bam',{signal:stop.signal}),/Cancelled/);
+assert.deepEqual(JSON.parse(await fetchCatalogue('https://data.test/catalogue.json')), {version:1,entries:[]});
+// The BAM stays lazy; its size-limited index is prepared once before entering GW.
+const nodes=new Map(),FS={mkdirTree(){},createDataFile(dir,name,data){nodes.set(dir+'/'+name,{data,node_ops:{getattr(){return {}; }},stream_ops:{}});},lookupPath(path){return {node:nodes.get(path)};},unlink(path){nodes.delete(path);},rmdir(){}};
+const first=requests.length;
+const mounted=await prepareOnline({id:'test',category:'alignment',url:'https://data.test/huge.bam',indexURL:'https://data.test/custom.bai'},{FS,Module:{Asyncify:{handleAsync:f=>f()}}});
+assert.equal(requests.length,first+4);assert.equal([...nodes.values()].find(n=>n.data.length>0).data.length,2*1024*1024);assert.ok(mounted.entry.indexURL.endsWith('.bam.bai'));assert.equal(nodes.size,2);mounted.cleanup();assert.equal(nodes.size,0);
+await assert.rejects(prepareOnline({id:'too-large',category:'alignment',url:'https://data.test/huge.bam',indexURL:'https://data.test/oversized.bai'},{FS,Module:{Asyncify:{handleAsync:f=>f()}}}),/64 MiB/);
+assert.equal(nodes.size,0);
+const annotation=await prepareOnline({id:'small',category:'track',url:'https://data.test/small.bed'},{FS,Module:{Asyncify:{handleAsync:f=>f()}}});
+assert.equal(nodes.get(annotation.entry.url).data.length,65536);assert.equal(nodes.get(annotation.entry.url).gwLocalFile,undefined);annotation.cleanup();
+const originalFetch=globalThis.fetch;let headRequests=0;
+globalThis.fetch=async(url,options)=>{assert.equal(options.method,'HEAD');++headRequests;return new Response(null,{headers:{'Content-Length':'11494021'}});};
+assert.equal(await fileSize('https://data.test/regions.bed'),11494021);assert.equal(headRequests,1);
+globalThis.fetch=async()=>new Response(null);assert.equal(await fileSize('https://data.test/unknown.bed'),-1);
+globalThis.fetch=async()=>{throw Error('CORS blocked');};assert.equal(await fileSize('https://data.test/blocked.bed'),-1);
+globalThis.fetch=originalFetch;
+console.log('HTTP range reads, bounded cache, prepared indexes/annotations, cancellation and failure handling passed');
+if(process.argv[2]){
+    const {readFile}=await import('node:fs/promises'),{pathToFileURL}=await import('node:url');
+    const path=process.argv[2],{default:initialize}=await import(pathToFileURL(path));
+    const Module=await initialize({wasmBinary:await readFile(path.replace(/\.mjs$/,'.wasm'))});
+    const bam=await readFile(new URL('./test.bam',import.meta.url)),bai=await readFile(new URL('./test.bam.bai',import.meta.url));
+    let indexRequests=0;
+    globalThis.fetch=async(url,{headers}={})=>{
+        if(url.endsWith('.bai'))++indexRequests;
+        await new Promise(r=>setTimeout(r,1));const bytes=url.endsWith('.bai')?bai:bam;
+        const [,a,b]=/bytes=(\d+)-(\d+)/.exec(headers.Range),start=Number(a),end=Math.min(Number(b),bytes.length-1);
+        return new Response(bytes.subarray(start,end+1),{status:206,headers:{'Content-Range':`bytes ${start}-${end}/${bytes.length}`}});
+    };
+    Module.FS.writeFile('/baseline.bam',bam);Module.FS.writeFile('/baseline.bam.bai',bai);
+    const loaded=await prepareOnline({id:'actual',category:'alignment',url:'https://example.test/reads.bam'},{FS:Module.FS,Module});
+    const preparedIndexRequests=indexRequests;
+    const baseline=await Module.ccall('range_bam','number',['string'],['/baseline.bam'],{async:true});
+    const actual=await Module.ccall('range_bam','number',['string'],[loaded.entry.url],{async:true});
+    assert.ok(baseline>0);assert.equal(actual,baseline);
+    assert.equal(await Module.ccall('range_bam','number',['string'],[loaded.entry.url],{async:true}),baseline);
+    assert.equal(indexRequests,preparedIndexRequests,'validation and reopening must not refetch index pages');loaded.cleanup();
+    console.log('Actual compiled WASM HTSlib returns identical indexed reads through HTTP range adapter');
+}

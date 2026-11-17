@@ -57,9 +57,19 @@ namespace Menu {
 
     std::vector<std::string> getCommandTip();
 
-    constexpr std::array<const char*, 33> commandToolTip = {"ylim", "var", "track-height", "tlen-y", "tags", "tab-track-height", "sort", "soft-clips", "save", "sam", "remove",
-                                                            "refresh", "online", "mods", "mismatches", "mate", "mate add", "log2-cov", "load", "link", "line", "insertions", "indel-length",
-                                                            "grid", "find", "filter", "expand-tracks", "edges", "cov",  "count", "alignments", "add", "min-junction-reads"};
+    constexpr std::array<const char*, 37> commandToolTip = {"ylim", "var", "track-height", "tlen-y", "tiles", "tags", "tab-track-height", "sort", "soft-clips", "save", "sam", "remove",
+                                                            "refresh", "online", "name", "mods", "mismatches", "mate", "mate add", "log2-cov", "load", "link", "line", "insertions", "indel-length", "ideogram",
+                                                            "grid", "font-size", "find", "filter", "expand-tracks", "edges", "cov",  "count", "alignments", "add", "min-junction-reads"};
+
+    // Every command offered by the command bar, in the order listed
+    constexpr std::array<const char*, 60> commandList = {
+        "add", "alignments", "clear-markers", "clear-roi", "colour", "count", "cov", "edges", "expand-tracks", "filter",
+        "find", "font-size", "goto", "grid", "header", "help", "ideogram", "indel-length", "insertions", "introns",
+        "labels", "line", "link", "load", "log2-cov", "marker", "mate", "mate add", "min-junction-reads", "mismatches",
+        "mods", "move-bam", "move-track", "name", "online", "quit", "refresh", "remove", "remove-filter", "remove-marker",
+        "remove-roi", "roi", "sam", "save", "settings", "snapshot", "soft-clips", "sort", "tab-track-height", "tags",
+        "theme", "tiles", "tlen-y", "track-height", "translate", "translate_code", "translate_frame", "translate_strand",
+        "var", "ylim"};
 
     constexpr std::array<const char*, 17> exec = {"alignments", "cov", "count", "edges", "expand-tracks", "insertions", "line", "log2-cov", "mate", "mate add", "mismatches", "mods", "tags", "soft-clips", "sam", "refresh", "tlen-y"};
 
@@ -85,6 +95,7 @@ namespace Menu {
 
     // Invisible click areas over Skia data labels; click to edit label text.
     void drawImGuiAlignmentScrollbars(Manager::GwPlot* plot);
+    void drawImGuiYlimBox(Manager::GwPlot* plot);
     void drawImGuiCursorLine(Manager::GwPlot* plot);
     void drawImGuiTrackSeparators(Manager::GwPlot* plot);
     void drawImGuiDataLabels(Manager::GwPlot* plot, float gap, float overlayHeight, bool& redraw);
@@ -94,6 +105,22 @@ namespace Menu {
 
     // Close-file dialog: lists open BAM/CRAM, track, and variant files for removal.
     void drawImGuiCloseDialog(Manager::GwPlot* plot, bool* p_open, bool& redraw);
+
+    // Ask-before-close confirmation for destructive track/file close actions.
+    // 'pending' holds the item's display name; set it where the user triggers the
+    // action and call each frame. Returns true once when the user confirms.
+    bool confirmItemClose(const char* title, const char* what, std::string& pending, bool& redraw);
+
+    void drawImGuiTrackManager(Manager::GwPlot* plot, bool* p_open, bool& redraw);
+
+    void drawImGuiChromosomeList(Manager::GwPlot* plot, bool& redraw);
+
+    // Show the in-window reference chooser (GW started without a reference). previousSession is
+    // a session file to offer alongside the genomes, or empty.
+    void openGenomeSelector(const std::string& previousSession);
+
+    // With no reference open, open the online reference matching a BAM/CRAM/VCF file's header
+    void openReferenceForData(Manager::GwPlot* plot, const std::string& path);
 
     // Info popup showing ANSI-colored text from click output near the click location.
     void drawImGuiInfoPopup(Manager::GwPlot* plot);
@@ -114,6 +141,10 @@ namespace Menu {
     // Transient status overlay showing the most recent command output/errors
     // triggered from the ImGui UI. Terminal colors are preserved separately.
     void drawImGuiCommandStatus(Manager::GwPlot* plot);
+
+    // Command bar along the bottom edge: text entry with a scrollable list of every command.
+    // Shows the position under the pointer while empty.
+    void drawImGuiCommandBar(Manager::GwPlot* plot, bool& redraw);
 
     // Keep Escape in the UI instead of also triggering legacy plot shortcuts.
     bool hasImGuiEscapeTarget();

@@ -68,11 +68,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ macos-14 ]  # macos-12,
+        os: [ macos-latest ]  # macos-12,
         include:
 #          - os: macos-13
 #            arch: intel
-          - os: macos-14
+          - os: macos-latest
             arch: m1
 
     steps:

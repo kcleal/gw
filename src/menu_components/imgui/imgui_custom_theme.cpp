@@ -40,10 +40,11 @@ static void drawCustomThemeControls(Themes::IniOptions& opts, bool& redraw) {
     ImGui::SameLine();
     if (ImGui::Button("Duplicate")) changed |= opts.createCustomTheme(name, true);
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Save a copy of the current colors with the entered name");
-    const char* bases[] = {"dark", "igv", "slate"};
-    int base = opts.theme_str == "igv" ? 1 : opts.theme_str == "slate" ? 2 : 0;
+    const char* bases[] = {"dark", "igv", "slate", "tide", "frost"};
+    int base = opts.theme_str == "igv" ? 1 : opts.theme_str == "slate" ? 2 : opts.theme_str == "tide" ? 3
+             : opts.theme_str == "frost" ? 4 : 0;
     ImGui::SetNextItemWidth(130);
-    if (ImGui::Combo("Base theme", &base, bases, 3)) {
+    if (ImGui::Combo("Base theme", &base, bases, 5)) {
         opts.theme_str = bases[base];
         opts.custom_theme_save_pending = true;
         changed = true;

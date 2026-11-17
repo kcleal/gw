@@ -6,6 +6,7 @@
 #include <future>
 #include <iostream>
 #include <limits>
+#include <string_view>
 #include <vector>
 
 #include <deque>
@@ -166,7 +167,17 @@ namespace Segs {
         uint32_t A, T, C, G;
     };
 
-    typedef ankerl::unordered_dense::map< std::string, std::vector< Align* >> map_t;
+    // Transparent hash so qname lookups can use std::string_view (no temporary std::string per read)
+    struct StringHash {
+        using is_transparent = void;
+        using is_avalanching = void;
+        uint64_t operator()(std::string_view s) const noexcept {
+            return ankerl::unordered_dense::hash<std::string_view>{}(s);
+        }
+    };
+
+    typedef ankerl::unordered_dense::map< std::string, std::vector< Align* >, StringHash, std::equal_to<>> map_t;
+    typedef ankerl::unordered_dense::map< std::string, int, StringHash, std::equal_to<>> qname_y_map_t;
 
     class EXPORT ReadCollection {
     public:
@@ -225,7 +236,9 @@ namespace Segs {
     void findYNoSortForward(std::vector<Align> &rQ, std::vector<int> &ls, std::vector<int> &le, int vScroll);
 
     // Works with buffered reads or stream of reads, needed if reads are to be re-sorted
-    int placeUnassignedReads(ReadCollection& rc, Themes::IniOptions& opts, int sortReadsBy);
+    // leftBefore: reads ending at or before this position were newly exposed by a
+    // leftward pan and are placed right-to-left; -1 places everything left-to-right.
+    int placeUnassignedReads(ReadCollection& rc, Themes::IniOptions& opts, int sortReadsBy, int64_t leftBefore = -1);
 
     int EXPORT findY(ReadCollection &rc, std::vector<Align> &rQ, int linkType, Themes::IniOptions &opts, bool joinLeft, int sortReadsBy);
 

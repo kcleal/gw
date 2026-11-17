@@ -43,7 +43,7 @@ public:
     {
         table = getMenuKey(mt);
         if (kind == ThemeOption)
-            choices = {"dark", "igv", "slate"};
+            choices = Themes::baseThemeNames();
         else if (kind == LinkOption)
             choices = {"none", "sv", "all"};
     }

@@ -1,19 +1,19 @@
+-- Starts the gw binary inside this app bundle directly, with no Terminal window.
+-- GW opens its own window; a file dropped on the app icon is passed as its first argument.
+on launchGW(arguments)
+	set gwBinary to quoted form of (POSIX path of (path to me) & "Contents/MacOS/gw")
+	do shell script "cd \"$HOME\"; " & gwBinary & arguments & " < /dev/null > /dev/null 2>&1 &"
+end launchGW
+
 on open fileList
 	if (count of fileList) is equal to 0 then
 		display dialog "No files selected!" buttons {"OK"} default button "OK"
 	else
-		set filePath to item 1 of fileList
-		tell application "Terminal"
-			do script "/Applications/gw.app/Contents/MacOS/gw " & quoted form of POSIX path of filePath
-			activate
-		end tell
+		launchGW(" " & quoted form of POSIX path of (item 1 of fileList))
 	end if
 end open
 
 on run
-	-- Code to run when the app is opened without any file
-	tell application "Terminal"
-		do script "/Applications/gw.app/Contents/MacOS/gw"
-		activate
-	end tell
+	-- Opened without a file: GW shows its reference genome chooser
+	launchGW("")
 end run

@@ -128,7 +128,7 @@ endif
 debug: CXXFLAGS += -O0 -DDEBUG
 debug: CFLAGS += -O0 -DDEBUG
 # Compile --------------------------------------------------
-OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp ./src/online/*.cpp) ./src/menu_components/online_genome_utils.cpp ./src/menu_components/startup_genome_dialog.cpp) $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
+OBJECTS = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp ./src/online/*.cpp) ./src/menu_components/online_genome_utils.cpp) $(patsubst %.c, %.o, $(wildcard ./lib/libBigWig/*.c))
 OBJECTS += $(patsubst %.c, %.o, $(if $(EMSCRIPTEN),$(filter-out ./include/glad.c, $(wildcard ./include/*.c)),$(wildcard ./include/*.c)))
 OBJECTS += $(patsubst %.cpp, %.o, $(wildcard $(IMGUI)/*.cpp) $(IMGUI)/backends/imgui_impl_glfw.cpp $(IMGUI)/backends/imgui_impl_opengl3.cpp)
 ifdef REMOTE_UI
@@ -147,7 +147,7 @@ $(WASM_BUILD_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 endif
-SERVER_OBJECTS := ./protocol/viewer/native/viewer_interface.o
+SERVER_OBJECTS := ./deps/protocol/viewer/native/viewer_interface.o
 -include $(OBJECTS:.o=.d) $(SERVER_OBJECTS:.o=.d)
 ./lib/libBigWig/%.o: ./lib/libBigWig/%.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Wno-attribute-warning -c $< -o $@

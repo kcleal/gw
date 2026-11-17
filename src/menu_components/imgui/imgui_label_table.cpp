@@ -81,6 +81,33 @@ static std::string lowerCopy(std::string value) {
     return value;
 }
 
+// Genotype bars in the variant list. Muted colours, apart from GW's base and label palette.
+static const char* const genotypeNames[] = {"missing", "hom ref", "het", "hom alt"};
+static const ImU32 genotypeColors[] = {
+    IM_COL32(128, 128, 128, 170),  // missing: outline only
+    IM_COL32(122, 134, 152, 150),  // hom ref: slate
+    IM_COL32(84, 170, 160, 255),   // het: teal
+    IM_COL32(150, 112, 176, 255),  // hom alt: mauve
+};
+
+// 0 missing, 1 hom ref, 2 het, 3 hom alt, for one sample's GT text such as "0/1"
+static int genotypeKind(const char* gt, size_t length) {
+    int first = -1;
+    bool anyAlt = false, differ = false, anyMissing = false;
+    for (size_t i = 0; i < length;) {
+        if (gt[i] == '/' || gt[i] == '|') { ++i; continue; }
+        if (gt[i] < '0' || gt[i] > '9') { anyMissing = true; ++i; continue; }
+        int allele = 0;
+        while (i < length && gt[i] >= '0' && gt[i] <= '9') allele = allele * 10 + (gt[i++] - '0');
+        if (first < 0) first = allele;
+        else if (allele != first) differ = true;
+        if (allele > 0) anyAlt = true;
+    }
+    if (first < 0) return 0;
+    if (!anyAlt) return 1;
+    return (differ || anyMissing) ? 2 : 3;
+}
+
 static std::vector<RowData> parseVariantDetailRows(HGW::GwVariantTrack& vt, Utils::Label& lbl, int selectedSampleIdx) {
         auto makeRow = [](const std::string& label, const std::string& plain) -> RowData {
             RowData rd{label, plain, plain, false, {}};
@@ -135,7 +162,7 @@ static std::vector<RowData> parseVariantDetailRows(HGW::GwVariantTrack& vt, Util
                 RowData infoHdr = makeRow("INFO", "");
                 infoHdr.isSection = true;
                 infoHdr.sectionKey = "INFO";
-                rows.push_back(infoHdr);
+                rows.push_back(std::move(infoHdr));
                 for (const auto& item : Utils::split(fields[7], ';')) {
                     if (item.empty()) continue;
                     auto eq = item.find('=');
@@ -167,7 +194,7 @@ static std::vector<RowData> parseVariantDetailRows(HGW::GwVariantTrack& vt, Util
                 RowData fmtHdr = makeRow("FORMAT", fields[8]);
                 fmtHdr.isSection = true;
                 fmtHdr.sectionKey = "FORMAT";
-                rows.push_back(fmtHdr);
+                rows.push_back(std::move(fmtHdr));
                 std::vector<std::string> fmtKeys = Utils::split(fields[8], ':');
                 int nSamples = std::max(0, (int)fields.size() - 9);
                 if (nSamples > 0) {
@@ -320,6 +347,11 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
         static std::unordered_map<std::string, int> lastSyncedTileByTrack;  // detect external tile changes
         static std::unordered_map<std::string, int> lastSyncedBlockByTrack; // detect blockStart changes from arrow keys
 
+        // Row currently opened in alignment view from its play button (-1 = none)
+        static std::string alignmentViewTrack;
+        static int alignmentViewRow = -1;
+        if (plot->mode == Manager::Show::TILED) alignmentViewRow = -1;
+
         int& selectedRow = selectedByTrack[trackKey];
         int labelCount = (int)vt.multiLabels.size();
 
@@ -375,9 +407,13 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
         ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoFocusOnAppearing;
         if (plot->labelTableDocked) {
             initW = (plot->fb_width - plot->drawingWidth()) / plot->monitorScale;
-            ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - initW, 0), ImGuiCond_Always);
-            ImGui::SetNextWindowSize(ImVec2(initW, io.DisplaySize.y), ImGuiCond_Always);
-            windowFlags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse;
+            // A docked Tools window sits above; see dockSplitY for the collapsed cases
+            float dockTop = 0.0f;
+            if (plot->commandDialogOpen && plot->toolsDocked)
+                dockTop = dockSplitY(plot, io.DisplaySize.y);
+            ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - initW, dockTop), ImGuiCond_Always);
+            ImGui::SetNextWindowSize(ImVec2(initW, io.DisplaySize.y - dockTop), ImGuiCond_Always);
+            windowFlags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
         } else {
             if (wasDocked) {
                 ImGui::SetNextWindowSize(ImVec2(plot->labelTableWidth, initH), ImGuiCond_Always);
@@ -395,52 +431,62 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
             ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
         }
+        pushDockTitleColors();
         bool windowVisible = ImGui::Begin("Variants", &windowOpen, windowFlags);
+        ImGui::PopStyleColor(3);
+        plot->labelTableCollapsed = ImGui::IsWindowCollapsed();
         if (closeOnEscape(&windowOpen)) redraw = true;
         if (dockedStyle) ImGui::PopStyleVar(2);
         if (windowVisible) {
-            if (plot->labelTableDocked) {
-                ImVec2 content = ImGui::GetCursorScreenPos();
-                ImGuiWindow* dockWindow = ImGui::GetCurrentWindow();
-                ImVec2 contentMax = dockWindow->DC.CursorMaxPos;
-                ImVec2 pos = ImGui::GetWindowPos();
-                ImGui::SetCursorScreenPos(ImVec2(pos.x, pos.y + ImGui::GetFrameHeight()));
-                ImGui::PushClipRect(pos, ImVec2(pos.x + ImGui::GetWindowWidth(), pos.y + ImGui::GetWindowHeight()), false);
-                ImGui::InvisibleButton("##dock_resize", ImVec2(6.0f, std::max(1.0f, ImGui::GetWindowHeight() - ImGui::GetFrameHeight())));
-                ImGui::PopClipRect();
-                if (ImGui::IsItemHovered() || ImGui::IsItemActive())
-                    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-                if (ImGui::IsItemActive())
-                    plot->labelTableWidth = std::max(180.0f, std::min(io.DisplaySize.x * 0.5f,
-                        initW - io.MouseDelta.x));
-                ImGui::SetCursorScreenPos(content);
-                // The resize hit area must not enlarge the scrollable contents.
-                dockWindow->DC.CursorMaxPos = contentMax;
-            }
-            // Place the docking control in the title bar, immediately before X.
-            {
-                ImGuiWindow* window = ImGui::GetCurrentWindow();
-                ImVec2 content = ImGui::GetCursorScreenPos();
-                ImVec2 contentMax = window->DC.CursorMaxPos;
-                float titleH = ImGui::GetFrameHeight();
-                float controlW = titleH - 4.0f;
-                ImVec2 pos(window->Pos.x + window->Size.x - titleH - controlW - 4,
-                           window->Pos.y + 2.0f);
-                ImGui::PushClipRect(window->Pos,
-                    ImVec2(window->Pos.x + window->Size.x, window->Pos.y + titleH), false);
-                ImGui::SetCursorScreenPos(pos);
-                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
-                // Match the other title-bar actions: clear at rest, themed on hover/press.
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-                if (ImGui::Button("D##dock_toggle", ImVec2(controlW, controlW)))
-                    plot->labelTableDocked = !plot->labelTableDocked;
-                ImGui::PopStyleColor();
-                ImGui::PopStyleVar();
-                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                    ImGui::SetTooltip(plot->labelTableDocked ? "Undock" : "Dock");
-                ImGui::PopClipRect();
-                ImGui::SetCursorScreenPos(content);
-                window->DC.CursorMaxPos = contentMax;
+            if (plot->labelTableDocked) drawDockResizeHandle(plot, initW);
+            // Title-bar controls, right to left before X: dock toggle, tile grid
+            drawDockTitleButton(plot->labelTableDocked, 0);
+            static ImRect gridButton;
+            inTitleBar(1, [&](const ImRect& r) {
+                gridButton = r;
+                if (ImGui::Button("##tile_grid_btn", r.GetSize())) ImGui::OpenPopup("##tile_grid");
+                bool hov = ImGui::IsItemHovered();
+                // Full text colour (white on dark themes, black on light) so the dots stand out on the title bar
+                ImU32 col = ImGui::GetColorU32(ImGuiCol_Text);
+                ImDrawList* dl = ImGui::GetWindowDrawList();
+                float cell = r.GetWidth() * 0.22f, gapPx = r.GetWidth() * 0.12f;
+                float x0 = r.GetCenter().x - cell - gapPx * 0.5f, y0 = r.GetCenter().y - cell - gapPx * 0.5f;
+                for (int gy = 0; gy < 2; ++gy)
+                    for (int gx = 0; gx < 2; ++gx) {
+                        ImVec2 q(x0 + gx * (cell + gapPx), y0 + gy * (cell + gapPx));
+                        dl->AddRectFilled(q, ImVec2(q.x + cell, q.y + cell), col, 1.0f);
+                    }
+                if (hov) ImGui::SetTooltip("Tiles shown (%d x %d)", plot->opts.number.x, plot->opts.number.y);
+            });
+            ImGui::SetNextWindowPos(ImVec2(gridButton.Min.x, gridButton.Max.y + 2), ImGuiCond_Appearing, ImVec2(0.5f, 0));
+            if (ImGui::BeginPopup("##tile_grid")) {
+                // Hover to preview columns x rows, click to apply (works with touch: tap a cell)
+                constexpr int maxTiles = 8;
+                static int hoverX = 0, hoverY = 0;
+                float cell = ImGui::GetFrameHeight() * 0.75f, pad = 3.0f;
+                ImVec2 origin = ImGui::GetCursorScreenPos();
+                ImGui::InvisibleButton("##grid_cells", ImVec2(maxTiles * (cell + pad), maxTiles * (cell + pad)));
+                bool over = ImGui::IsItemHovered();
+                if (over) {
+                    ImVec2 m = ImGui::GetIO().MousePos;
+                    hoverX = std::clamp((int)((m.x - origin.x) / (cell + pad)) + 1, 1, maxTiles);
+                    hoverY = std::clamp((int)((m.y - origin.y) / (cell + pad)) + 1, 1, maxTiles);
+                }
+                int showX = over ? hoverX : plot->opts.number.x, showY = over ? hoverY : plot->opts.number.y;
+                if (ImGui::IsItemClicked()) {
+                    execCommand(plot, "grid " + std::to_string(hoverX) + "x" + std::to_string(hoverY), redraw);
+                    ImGui::CloseCurrentPopup();
+                }
+                ImDrawList* dl = ImGui::GetWindowDrawList();
+                for (int gy = 0; gy < maxTiles; ++gy)
+                    for (int gx = 0; gx < maxTiles; ++gx) {
+                        ImVec2 q(origin.x + gx * (cell + pad), origin.y + gy * (cell + pad));
+                        bool on = gx < showX && gy < showY;
+                        dl->AddRectFilled(q, ImVec2(q.x + cell, q.y + cell),
+                                          ImGui::GetColorU32(on ? ImGuiCol_ButtonActive : ImGuiCol_FrameBg), 2.0f);
+                    }
+                ImGui::Text("%d x %d tiles", showX, showY);
+                ImGui::EndPopup();
             }
 
             // --- Filter row: text box + Apply button ---
@@ -504,9 +550,12 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                          : labelOverlapsRegion({}, lbl, filterRegion);
                 }
                 if (!keep && !filterLower.empty()) {
-                    std::string hay = lbl.chrom + ":" + std::to_string(lbl.pos) + " "
-                                    + lbl.variantId + " " + lbl.current() + " "
-                                    + lbl.comment + " " + lbl.vartype;
+                    // Reused buffer: no allocation per label per frame once it has grown
+                    static std::string hay;
+                    hay.clear();
+                    hay += lbl.chrom; hay += ':'; hay += std::to_string(lbl.pos); hay += ' ';
+                    hay += lbl.variantId; hay += ' '; hay += lbl.current(); hay += ' ';
+                    hay += lbl.comment; hay += ' '; hay += lbl.vartype;
                     for (auto& c : hay) c = (char)std::tolower((unsigned char)c);
                     keep = hay.find(filterLower) != std::string::npos;
                 }
@@ -531,17 +580,28 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
             if (detailsCollapsed) topH = std::max(1.0f, availH);
             if (listOpen) {
             if (ImGui::BeginChild("##labels_master", ImVec2(0, topH), false)) {
-                // Dot column width: fits two small dots side-by-side
-                float dotColW = ImGui::GetFrameHeight() * 1.4f;
+                // Comment column on the right: just wide enough for two small dots side-by-side
+                float dotColW = ImGui::GetTextLineHeight() * 0.9f + 6.0f;
+                // Genotype bars, one per sample, when the VCF has few enough samples to show
+                int gtSamples = 0;
+                if (isVcfTrack) {
+                    vt.vcf.get_samples();
+                    const int n = (int)vt.vcf.sample_names.size();
+                    if (n > 0 && n <= HGW::GwVariantTrack::maxGenotypeSamples) gtSamples = n;
+                }
+                const float gtBarW = gtSamples > 8 ? 3.0f : 5.0f, gtBarGap = 1.0f;
+                const float gtColW = std::max(ImGui::CalcTextSize("GT").x, gtSamples * (gtBarW + gtBarGap));
+                const int colGt = gtSamples ? 0 : -1, colPos = colGt + 1, colLabel = colPos + 1, colNote = colLabel + 1;
                 // Tighten vertical cell padding so more rows fit on screen
                 ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4.0f, 1.0f));
                 ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(ImGui::GetStyle().ItemSpacing.x, 2.0f));
-                bool tableOpen = ImGui::BeginTable("##ltbl", 3,
+                bool tableOpen = ImGui::BeginTable(gtSamples ? "##ltbl_gt" : "##ltbl", colNote + 1,
                         ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp);
                 if (tableOpen) {
-                    ImGui::TableSetupColumn("##dots",     ImGuiTableColumnFlags_WidthFixed,   dotColW);
+                    if (gtSamples) ImGui::TableSetupColumn("GT", ImGuiTableColumnFlags_WidthFixed, gtColW);
                     ImGui::TableSetupColumn("Position",   ImGuiTableColumnFlags_WidthStretch);
                     ImGui::TableSetupColumn("Label",      ImGuiTableColumnFlags_WidthStretch);
+                    ImGui::TableSetupColumn("##dots",     ImGuiTableColumnFlags_WidthFixed,   dotColW);
                     ImGui::TableHeadersRow();
 
                     // Auto-scroll to keep selectedRow in view
@@ -553,31 +613,130 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                     const ImU32 dotDateCol    = IM_COL32(100, 200, 100, 220); // green – has date
                     const ImU32 dotCommentCol = IM_COL32(100, 160, 240, 220); // blue  – has comment
 
-                    for (int i : visibleRows) {
-                        // Expression filter: need detail rows to evaluate
-                        if (!exprFilter.empty() && isVcfTrack) {
+                    // Expression filter is applied up front so the list can be clipped to the visible rows
+                    const size_t preExprCount = visibleRows.size();
+                    if (!exprFilter.empty() && isVcfTrack) {
+                        size_t kept = 0;
+                        for (int i : visibleRows) {
                             Utils::Label& lbl2 = labels[i];
                             std::string ck = trackKey + "#" + std::to_string(i) + "#"
                                            + std::to_string(lbl2.i) + "#" + lbl2.savedDate
                                            + "#" + lbl2.comment + "#" + std::to_string(selectedSampleIdx);
-                            if (detailCache.find(ck) == detailCache.end()) {
-                                detailCache[ck] = parseVariantDetailRows(vt, lbl2, selectedSampleIdx);
+                            auto cit = detailCache.find(ck);
+                            if (cit == detailCache.end()) {
+                                cit = detailCache.emplace(std::move(ck), parseVariantDetailRows(vt, lbl2, selectedSampleIdx)).first;
                             }
-                            if (!evalVcfExpr(detailCache[ck], exprFilter)) continue;
+                            if (evalVcfExpr(cit->second, exprFilter)) visibleRows[kept++] = i;
                         }
+                        visibleRows.resize(kept);
+                    }
+
+                    // Only rows in view are submitted; the selected row is always included so it can be scrolled to
+                    ImGuiListClipper clipper;
+                    clipper.Begin((int)visibleRows.size());
+                    if (needScroll) {
+                        auto sel = std::find(visibleRows.begin(), visibleRows.end(), selectedRow);
+                        if (sel != visibleRows.end()) clipper.IncludeItemByIndex((int)(sel - visibleRows.begin()));
+                    }
+                    while (clipper.Step())
+                    for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
+                        const int i = visibleRows[row];
 
                         Utils::Label& lbl = labels[i];
                         bool isSelected  = (selectedRow == i);
                         ImGui::TableNextRow();
                         ImGui::PushID(i);
 
-                        // ---- Column 0: dots / circle marker ----
-                        ImGui::TableSetColumnIndex(0);
-
                         // Scroll this row into view when it becomes selected
                         if (isSelected && needScroll) {
                             ImGui::SetScrollHereY(0.5f);
                         }
+
+                        // ---- Genotypes: one bar per sample, an empty box where the call is missing ----
+                        if (colGt >= 0) {
+                            ImGui::TableSetColumnIndex(colGt);
+                            const ImVec2 p = ImGui::GetCursorScreenPos();
+                            const float textH = ImGui::GetTextLineHeight();
+                            ImGui::Dummy(ImVec2(gtSamples * (gtBarW + gtBarGap), textH));
+                            const bool cellHovered = ImGui::IsItemHovered();
+                            const float mouseX = ImGui::GetIO().MousePos.x;
+                            const std::string& g = lbl.genotypes;
+                            size_t from = 0;
+                            for (int sample = 0; sample < gtSamples && from <= g.size() && !g.empty(); ++sample) {
+                                size_t to = g.find(',', from);
+                                if (to == std::string::npos) to = g.size();
+                                const int kind = genotypeKind(g.data() + from, to - from);
+                                const ImVec2 a(p.x + sample * (gtBarW + gtBarGap), p.y + 1.0f);
+                                const ImVec2 b(a.x + gtBarW, p.y + textH - 1.0f);
+                                if (kind == 0) drawList->AddRect(a, b, genotypeColors[0]);
+                                else drawList->AddRectFilled(a, b, genotypeColors[kind]);
+                                if (cellHovered && mouseX >= a.x && mouseX < b.x + gtBarGap) {
+                                    ImGui::SetTooltip("%s\n%.*s  %s", vt.vcf.sample_names[sample].c_str(),
+                                                      (int)(to - from), g.data() + from, genotypeNames[kind]);
+                                }
+                                from = to + 1;
+                            }
+                        }
+
+                        // ---- Alignment-view toggle, then position ----
+                        ImGui::TableSetColumnIndex(colPos);
+                        {
+                            // Right triangle: open this variant in alignment view; filled while it
+                            // is shown there, and clicking it again returns to the tiles
+                            const bool showing = plot->mode == Manager::Show::SINGLE &&
+                                                 alignmentViewTrack == trackKey && alignmentViewRow == i;
+                            const float side = ImGui::GetTextLineHeight();
+                            ImVec2 p0 = ImGui::GetCursorScreenPos();
+                            if (ImGui::InvisibleButton("##play", ImVec2(side, side))) {
+                                if (showing) {
+                                    alignmentViewRow = -1;
+                                    plot->toggleCurrentVariantTiledView();
+                                } else if (plot->openVariantInAlignmentView(i)) {
+                                    selectedRow = i;
+                                    tileMarkerIndex = plot->mouseOverTileIndex;
+                                    alignmentViewTrack = trackKey;
+                                    alignmentViewRow = i;
+                                }
+                                plot->redraw = true;
+                                redraw = true;
+                            }
+                            const bool hov = ImGui::IsItemHovered();
+                            const ImU32 col = ImGui::GetColorU32(hov || showing ? ImGuiCol_Text : ImGuiCol_TextDisabled);
+                            const ImVec2 a(p0.x + side * 0.25f, p0.y + side * 0.18f), b(p0.x + side * 0.82f, p0.y + side * 0.5f),
+                                         c(p0.x + side * 0.25f, p0.y + side * 0.82f);
+                            if (showing) ImGui::GetWindowDrawList()->AddTriangleFilled(a, b, c, col);
+                            else ImGui::GetWindowDrawList()->AddTriangle(a, b, c, col, 1.2f);
+                            if (hov) ImGui::SetTooltip(showing ? "Back to tiles" : "Show in alignment view");
+                            ImGui::SameLine(0, 2.0f);
+                        }
+                        std::string location = lbl.chrom + ":" + Utils::formatNum(lbl.pos);
+                        if (ImGui::Selectable(location.c_str(), isSelected,
+                                              ImGuiSelectableFlags_None)) {
+                            selectedRow = i;
+                            plot->mode = Manager::Show::TILED;
+                            int tilesPerPage = plot->opts.number.x * plot->opts.number.y;
+                            vt.blockStart = (i / tilesPerPage) * tilesPerPage;
+                            plot->mouseOverTileIndex = i - vt.blockStart;
+                            tileMarkerIndex = plot->mouseOverTileIndex; // only update on click
+                            plot->redraw = true;
+                            plot->processed = false;
+                        }
+
+                        // ---- Label text ----
+                        ImGui::TableSetColumnIndex(colLabel);
+                        if (ImGui::Selectable(lbl.labels.empty() ? "-" : lbl.current().c_str(), false)
+                                && !lbl.labels.empty()) {
+                            lbl.next();
+                            lbl.clicked = true;
+                            lbl.savedDate = Utils::dateTime();
+                            plot->redraw = true;
+                            redraw = true;
+                        }
+                        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                            ImGui::SetTooltip("Click to cycle label");
+
+                        // ---- Last column: comment / date dots; click to add or edit a comment ----
+                        ImGui::TableSetColumnIndex(colNote);
 
                         bool hasDate    = !lbl.savedDate.empty();
                         bool hasComment = !lbl.comment.empty();
@@ -587,7 +746,7 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                             ImVec2 cellPos  = ImGui::GetCursorScreenPos();
                             float  textH    = ImGui::GetTextLineHeight();
                             float  cellH    = textH + ImGui::GetStyle().CellPadding.y * 2.0f;
-                            float  r        = textH * 0.28f;
+                            float  r        = textH * 0.22f;
                             float  cy       = cellPos.y + cellH * 0.5f;
                             float  xCursor  = cellPos.x + r + 2.0f;
 
@@ -622,40 +781,12 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                             }
                         }
 
-                        // ---- Column 1: position (Selectable spans cols 1+2) ----
-                        ImGui::TableSetColumnIndex(1);
-                        std::string location = lbl.chrom + ":" + Utils::formatNum(lbl.pos);
-                        if (ImGui::Selectable(location.c_str(), isSelected,
-                                              ImGuiSelectableFlags_None)) {
-                            selectedRow = i;
-                            plot->mode = Manager::Show::TILED;
-                            int tilesPerPage = plot->opts.number.x * plot->opts.number.y;
-                            vt.blockStart = (i / tilesPerPage) * tilesPerPage;
-                            plot->mouseOverTileIndex = i - vt.blockStart;
-                            tileMarkerIndex = plot->mouseOverTileIndex; // only update on click
-                            plot->redraw = true;
-                            plot->processed = false;
-                        }
-
-                        // ---- Column 2: label text ----
-                        ImGui::TableSetColumnIndex(2);
-                        if (ImGui::Selectable(lbl.labels.empty() ? "-" : lbl.current().c_str(), false)
-                                && !lbl.labels.empty()) {
-                            lbl.next();
-                            lbl.clicked = true;
-                            lbl.savedDate = Utils::dateTime();
-                            plot->redraw = true;
-                            redraw = true;
-                        }
-                        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                            ImGui::SetTooltip("Click to cycle label");
-
                         ImGui::PopID();
                     }
                     if (hasMoreVariants() &&
                         ((ImGui::IsWindowHovered() && ImGui::GetScrollMaxY() > 0 &&
                           ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - ImGui::GetWindowHeight() * 2) ||
-                         ((!trimmedFilter.empty() || !exprFilter.empty()) && visibleRows.size() < 32))) {
+                         ((!trimmedFilter.empty() || !exprFilter.empty()) && preExprCount < 32))) {
                         loadMore = true;
                         plot->redraw = true;
                         redraw = true;
@@ -818,11 +949,12 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                     std::string cacheKey = trackKey + "#" + std::to_string(selectedRow) + "#"
                                          + std::to_string(lbl.i) + "#" + lbl.savedDate
                                          + "#" + lbl.comment + "#" + std::to_string(selectedSampleIdx);
-                    if (detailCache.find(cacheKey) == detailCache.end()) {
-                        detailCache[cacheKey] = parseVariantDetailRows(vt, lbl, selectedSampleIdx);
+                    auto cacheIt = detailCache.find(cacheKey);
+                    if (cacheIt == detailCache.end()) {
+                        cacheIt = detailCache.emplace(cacheKey, parseVariantDetailRows(vt, lbl, selectedSampleIdx)).first;
                     }
 
-                    auto& rows = detailCache[cacheKey];
+                    auto& rows = cacheIt->second;
 
                     // Build active field-filter set from comma-separated string
                     std::vector<std::string> fldTokens;

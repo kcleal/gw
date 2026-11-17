@@ -64,6 +64,26 @@ extern "C" EMSCRIPTEN_KEEPALIVE void gw_notify_resize(int w, int h) {
     if (!g_wasm_plot || !g_wasm_plot->window) return;
     glfwSetWindowSize(g_wasm_plot->window, w, h);
 }
+
+// Mobile browsers only open the on-screen keyboard for a focused text field, so the
+// page types into a hidden <input> while GW wants text and forwards it here. Input
+// goes through ImGui's GLFW callbacks, which chain on to GW's own key/char handlers.
+extern "C" EMSCRIPTEN_KEEPALIVE int gw_wants_text_input() {
+    return g_wasm_plot && (ImGui::GetIO().WantTextInput || g_wasm_plot->commandBoxOpen());
+}
+extern "C" EMSCRIPTEN_KEEPALIVE void gw_text_char(unsigned int codepoint) {
+    if (g_wasm_plot && g_wasm_plot->window) ImGui_ImplGlfw_CharCallback(g_wasm_plot->window, codepoint);
+}
+extern "C" EMSCRIPTEN_KEEPALIVE void gw_text_key(int key) {
+    if (!g_wasm_plot || !g_wasm_plot->window) return;
+    ImGui_ImplGlfw_KeyCallback(g_wasm_plot->window, key, 0, GLFW_PRESS, 0);
+    ImGui_ImplGlfw_KeyCallback(g_wasm_plot->window, key, 0, GLFW_RELEASE, 0);
+}
+// A second finger turns a touch into a pinch, so the first finger's press must not
+// end in a click when the page releases it.
+extern "C" EMSCRIPTEN_KEEPALIVE void gw_cancel_press() {
+    if (g_wasm_plot) g_wasm_plot->cancelPointerPress();
+}
 #endif
 
 
@@ -91,6 +111,7 @@ int main(int argc, char *argv[]) try {
     argparse::ArgumentParser& program = options.program;
 
     if (!iopts.no_show) {  // draw something to screen
+        std::string previousSession;
         if (options.useSession) {
             mINI::INIFile file(iopts.session_file);
             file.read(iopts.seshIni);
@@ -100,12 +121,26 @@ int main(int argc, char *argv[]) try {
             }
             iopts.getOptionsFromSessionIni(iopts.seshIni);
         } else {
+            previousSession = iopts.session_file;
             iopts.session_file = "";
         }
         Manager::GwPlot plotter = Manager::GwPlot(options.genome, options.bamPaths, iopts, options.regions, options.tracks);
+        // --wait: an empty window that waits for a server or another program to drive it
+        const bool waitForInput = program.get<bool>("--wait");
+        plotter.startupHints = !waitForInput;
+        bool chooseGenome = !waitForInput && plotter.reference.empty() && !options.useSession && !program.is_used("--images");
 #ifdef __EMSCRIPTEN__
         g_wasm_plot = &plotter;
+        previousSession.clear();
+        // A page link that names its genome (?genome=hg38) loads it right after startup
+        if (chooseGenome && EM_ASM_INT({ return new URLSearchParams(location.search).has('genome') ? 1 : 0; })) chooseGenome = false;
 #endif
+        // Started without a reference: it is chosen in the window
+        if (chooseGenome) {
+            std::error_code ec;
+            if (!std::filesystem::is_regular_file(previousSession, ec)) previousSession.clear();
+            Menu::openGenomeSelector(previousSession);
+        }
 
         if (options.showBanner) {
             print_gw_banner();
@@ -119,6 +154,9 @@ int main(int argc, char *argv[]) try {
             plotter.addIdeogram(program.get("--ideogram"));
         } else if (!iopts.genome_tag.empty() && plotter.ideogram_path.empty()) {
             plotter.loadIdeogramTag();
+        } else if (plotter.ideogram.empty()) {
+            const std::string assembly = plotter.matchIdeogramToReference();
+            if (!assembly.empty()) plotter.loadIdeogramForAssembly(assembly);
         }
 
         // initialize graphics window
@@ -725,8 +763,7 @@ int main(int argc, char *argv[]) try {
                 std::string empty_comment;
                 std::filesystem::path fsp(vcf.path);
 #if defined(_WIN32) || defined(_WIN64)
-                const wchar_t* pc = fsp.filename().c_str();
-                std::wstring ws(pc);
+                std::wstring ws = fsp.filename().wstring();  // keep the path temporary's buffer alive
                 std::string p(ws.begin(), ws.end());
                 fileName = p;
 #else

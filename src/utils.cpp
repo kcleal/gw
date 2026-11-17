@@ -110,7 +110,7 @@ namespace Utils {
     }
 #endif
 
-    bool is_file_exist(std::string FileName) {
+    bool is_file_exist(const std::string &FileName) {
         const std::filesystem::path p = FileName;
         return (std::filesystem::exists(p));
     }
@@ -153,13 +153,9 @@ namespace Utils {
         return elems;
     }
 
-    std::vector<std::string> split(const std::string &s, char delim, std::vector<std::string> &elems) {
+    void split(const std::string &s, char delim, std::vector<std::string> &elems) {
+        // The template already skips empty fields; elems is filled in place (no copy returned)
         split(s, delim, std::back_inserter(elems));
-        elems.erase(std::remove_if(elems.begin(), elems.end(),  // remove empty strings
-                                   [&](std::string const &cmp) -> bool {
-                                       return cmp == "";
-                                   }), elems.end());
-        return elems;
     }
 
     std::unique_ptr<std::vector<std::string>> split_keep_empty(const std::string &s, const char delim) {
@@ -252,17 +248,19 @@ namespace Utils {
     bool parseFilenameToRegions(std::filesystem::path &path, std::vector<Region> &regions, faidx_t* fai, int pad=500, int split_size=20000) {
 
 #if defined(_WIN32) || defined(_WIN64)
-        const wchar_t* pc = path.filename().c_str();
-		std::wstring ws(pc);
+        std::wstring ws = path.filename().wstring();  // keep the path temporary's buffer alive
         std::string fn(ws.begin(), ws.end());
 #else
         std::string fn = path.filename();
 #endif
         size_t l = fn.find_last_of('.');
         fn = fn.substr(0, l);
+        if (fn.empty()) {
+            return false;
+        }
         if (fn.back() != '~') {  // variant image
             size_t p = fn.find('~');
-            if (p == 0) {
+            if (p == 0 || p == std::string::npos) {
                 return false;
             }
             p += 1;
@@ -355,8 +353,7 @@ namespace Utils {
         r.pos = -1;
         r.pos2 = -1;
 #if defined(_WIN32) || defined(_WIN64)
-        const wchar_t* pc = path.filename().c_str();
-		std::wstring ws(pc);
+        std::wstring ws = path.filename().wstring();  // keep the path temporary's buffer alive
         std::string fn(ws.begin(), ws.end());
 #else
         std::string fn = path.filename();
@@ -404,21 +401,17 @@ namespace Utils {
 
     EXPORT Dims parseDimensions(std::string &s) {
         Dims d = {0, 0};
-        int start = 0;
-        int end = (int)s.find('x');
-        if (end == (int)s.size()) {
-            end = (int)s.find(',');
-            if (end == (int)s.size()) {
-                throw std::runtime_error("Error: 'x' or ',' not in dimensions");
-            }
+        size_t end = s.find('x');
+        if (end == std::string::npos) {
+            end = s.find(',');
         }
-        d.x = std::stoi(s.substr(start, end - start));
-        start = end + 1;
-        end = (int)s.find('x', start);
-        if (end == (int)s.size()) {
-            end = (int)s.find(',');
+        if (end == std::string::npos) {  // a single number means a square, e.g. "4" -> 4x4
+            d.x = std::stoi(s);
+            d.y = d.x;
+            return d;
         }
-        d.y = std::stoi(s.substr(start, end - start));
+        d.x = std::stoi(s.substr(0, end));
+        d.y = std::stoi(s.substr(end + 1));
 //        if (d.x == 0) {
 //            throw std::runtime_error("Error: dimension x was 0");
 //        }
@@ -523,14 +516,14 @@ namespace Utils {
         f << l.chrom << "\t" << l.pos << "\t" << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" <<
         (((l.contains_parsed_label && l.i == l.ori_i) || (!l.contains_parsed_label && l.i > 0)) ? l.savedDate : dateStr) <<
         "\t" << variantFileName << "\t" << l.comment <<
-        std::endl;
+        '\n';  // no per-line flush; the stream is flushed when closed
     }
 
     void saveLabels(Utils::Label &l, std::ofstream &fileOut, std::string &dateStr, std::string &variantFileName) {
         fileOut << l.chrom << "\t" << l.pos << "\t" << l.variantId << "\t" << l.current() << "\t" << l.vartype << "\t" <<
         (((l.contains_parsed_label && l.i == l.ori_i) || (!l.contains_parsed_label && l.i > 0)) ? l.savedDate : dateStr) <<
         "\t" << variantFileName << "\t" << l.comment <<
-        std::endl;
+        '\n';  // no per-line flush; the stream is flushed when closed
     }
 
     void openLabels(std::string path, std::string &image_glob_path,

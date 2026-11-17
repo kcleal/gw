@@ -17,6 +17,40 @@
 
 namespace Menu {
 
+// Ask-before-close confirmation for destructive track/file actions.
+// 'pending' holds the item's display name; set it where the user triggers the
+// action, then call this each frame while it is non-empty. Returns true once
+// when the user confirms — the caller then performs the action. Cancel,
+// Escape or dismissing the dialog just clears 'pending'.
+bool confirmItemClose(const char* title, const char* what, std::string& pending, bool& redraw) {
+    if (pending.empty()) return false;
+    bool confirmed = false;
+    if (!ImGui::IsPopupOpen(title, ImGuiPopupFlags_None))
+        ImGui::OpenPopup(title);
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    if (ImGui::BeginPopupModal(title, nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoNav)) {
+        ImGui::Text("Close %s '%s'?", what, pending.c_str());
+        ImGui::Separator();
+        if (ImGui::Button("Close", ImVec2(120, 0))) {
+            confirmed = true;
+            pending.clear();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0)) || closeOnEscape()) {
+            pending.clear();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    } else {
+        // Dismissed without choosing (host window gone); don't leave a stale request
+        pending.clear();
+    }
+    if (confirmed) redraw = true;
+    return confirmed;
+}
+
 void drawImGuiCloseDialog(Manager::GwPlot* plot, bool* p_open, bool& redraw)
 {
     if (!p_open || !*p_open)

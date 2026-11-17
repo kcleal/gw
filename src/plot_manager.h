@@ -21,6 +21,7 @@
 #include <functional>
 #include <filesystem>
 #include <GLFW/glfw3.h>
+#include <map>
 #include <memory>
 #include <string>
 #include <utility>
@@ -101,16 +102,26 @@ namespace Manager {
         bool drawLine;
         bool drawLocation;
         bool commandDialogOpen{false};
+        bool commandBarVisible{true};  // ImGui command bar docked along the bottom edge
+        float commandBarSpace{0};      // framebuffer pixels reserved for the command bar, set by setScaling()
         bool openDialogOpen{false};
         bool helpDialogOpen{false};
         bool closeDialogOpen{false};
+        bool trackManagerOpen{false};
         bool labelTableDialogOpen{false};
         bool labelTableDocked{true};
-        float labelTableWidth{260.0f}; // logical pixels; resized from the left edge
+        bool toolsDocked{true};     // Tools shares the right-hand dock with the Variants table
+        bool toolsCollapsed{false};
+        bool labelTableCollapsed{false};
+        float labelTableWidth{260.0f}; // logical pixels; dock width, resized from the left edge
         int lastDrawingWidth{0};
         std::string cachedTileLayout;
+        bool rightDockOpen() const {
+            return showUIOverlay && !drawToBackWindow &&
+                   ((labelTableDialogOpen && labelTableDocked) || (commandDialogOpen && toolsDocked));
+        }
         int drawingWidth() const {
-            if (!showUIOverlay || drawToBackWindow || !labelTableDialogOpen || !labelTableDocked)
+            if (!rightDockOpen())
                 return fb_width;
             return std::max(1, fb_width - (int)(std::min(labelTableWidth * monitorScale, fb_width * 0.5f)));
         }
@@ -131,6 +142,15 @@ namespace Manager {
         // track pixel heights are determined by the below cached values. Here we cache them
         // and if they change the track heights are re-calculated
         void computeTrackHeights(float availableHeight);
+        // Canvas y where the first annotation track starts. Drawing, borders, dividers
+        // and click handling must all use this so they agree.
+        float tracksTop() const;
+        // A track's share of the drawing area (its height_fraction, or the default share).
+        double trackFraction(const HGW::GwTrack &trk) const;
+        // Canvas y where annotation track `trackIdx` starts.
+        float trackTopOf(int trackIdx) const;
+        // The feature row of a track under canvas y, laid out as drawTracks() draws it.
+        int trackLevelAt(int trackIdx, int regionIdx, float y) const;
         bool   tracksLayoutDirty{true};
         float  cachedAvailableHeight{-1.0f};
         size_t cachedNbams{SIZE_MAX};
@@ -157,6 +177,10 @@ namespace Manager {
         std::string target_qname;
 
         std::vector<std::string> bam_paths;
+        // Display names for alignment files, keyed by their bam_paths entry. Kept per
+        // file, not per read collection, so names follow files when panes are added.
+        std::map<std::string, std::string> bam_labels;
+        std::string bamLabel(int bamIdx) const;  // the name, or the file name if unset
         std::vector<htsFile* > bams;
         std::vector<sam_hdr_t* > headers;
         std::vector<hts_idx_t* > indexes;
@@ -206,18 +230,22 @@ namespace Manager {
         Show last_mode;
 
         std::string selectedAlign;  // SAM text of most-recently clicked read (used by commands)
+        int selectedAlignBamIdx{0};  // index into bams/headers of the file selectedAlign came from
         std::string selectedIntron;  // TSV (chrom,start,end,strand,count) of most-recently clicked intron
         std::string selectedFeature;  // TAB record "TITLE\tkey\tval..." for a clicked gff/coverage/reference element
         std::string selectedIntronChrom;  // identity of the highlighted intron (persists across redraws)
         int selectedIntronStart{-1};
         int selectedIntronEnd{-1};
         int selectedIntronStrand{-2};  // -2 = none (0/1/2 are valid gw strands)
-        // Identity of a highlighted gff exon/intron segment (persists across redraws).
+        // Identity of the highlighted annotation feature (persists across redraws, since
+        // track blocks are rebuilt from the file on every frame).
         std::string selectedFeatureChrom;
         std::string selectedFeatureName;   // transcript name, to disambiguate overlapping features
         std::string selectedFeatureParent; // unique GFF transcript id (Parent), to isolate one isoform
+        std::string selectedFeatureLine;   // source record, to tell apart features sharing name/span (e.g. bigBed isoforms labelled by gene)
         int selectedFeatureStart{-1};
         int selectedFeatureEnd{-1};
+        int selectedFeatureTrack{-1};
         // Identity of a clicked reference base (persists across redraws). 0-based position, -1 = none.
         std::string selectedBaseChrom;
         int selectedBasePos{-1};
@@ -229,6 +257,7 @@ namespace Manager {
             float x{0}, y{0};
             int uid{0};
             int regionSelection{-1};
+            int bamIdx{0};  // bams/headers index of the read
         };
         std::vector<ReadPopup> readPopups;
 
@@ -242,11 +271,20 @@ namespace Manager {
 
         struct TrackPopup {
             bool detailsOpen{false};
+            bool fitHeight{true};  // size the window to its contents on the next frame
             std::string details;  // captured source feature data
             std::string ansi;     // ANSI-coded track info text
             float x{0}, y{0};    // screen position near click
             int uid{0};
             bool isVcf{false};   // true for VCF/BCF tracks (changes copy-all behaviour)
+            // Where the click was, so the feature data can mark the clicked line and
+            // pan the view to a line's feature.
+            enum class DataFormat { Other, Bed, Gff, BigBed } format{DataFormat::Other};
+            // bigBed column names/descriptions from the file's autoSql (empty = plain BED names)
+            std::vector<std::string> fieldNames, fieldDescs;
+            std::string chrom;
+            int clickPos{-1};    // 0-based genomic position of the click
+            int regionIdx{0};    // region (split view panel) that was clicked
         };
         std::vector<TrackPopup> trackPopups;
 
@@ -304,8 +342,13 @@ namespace Manager {
         void reloadPathBackedTracks();
         bool selectVariantFile(int index);
         bool toggleCurrentVariantTiledView();
-        void addIdeogram(std::string path);
+        bool openVariantInAlignmentView(int index);  // as right-clicking that variant's tile
+        void addIdeogram(const std::string &path);
         bool loadIdeogramTag();
+
+        // Embedded or online (IGV/UCSC) ideogram for an assembly id such as hg38, hs1 or mm10
+        void loadIdeogramForAssembly(const std::string& assembly);
+        std::string matchIdeogramToReference();  // embedded ideogram matching the reference, or ""
         // removeIdeogram missing todo
         void loadSession();
 
@@ -335,12 +378,21 @@ namespace Manager {
         void viewKey(int key, int mods);
         void mouseButton(int button, int action, int mods);
         void pointerEvent(const std::string& kind, double x, double y, int button, int mods, double dx, double dy);
+#ifdef __EMSCRIPTEN__
+        void cancelPointerPress();
+#endif
         void mousePos(double x, double y);
         void scrollGesture(double xoffset, double yoffset);
         void windowResize(int x, int y);
         void pathDrop(int count, const char** paths);
         bool commandProcessed();
         bool commandBoxOpen() const { return captureText; }
+        void toggleCommandCapture();  // open/close the '/' command box
+        // Used by the ImGui command bar, which edits the text itself
+        void setCommandCapture(bool on);
+        void setCommandText(const std::string& text);
+        bool submitCommand(const std::string& text);
+        bool tabCompleteCommand(std::string& text);  // genome tags and file paths; false if neither applies
         bool commandBoxReady() const { return processText && !captureText; }
         std::string commandBoxState() const { return inputText + "|" + std::to_string(charIndex) + "|" + std::to_string(commandToolTipIndex); }
         bool commandKey(int key, int scancode, int action, int mods);
@@ -352,6 +404,8 @@ namespace Manager {
         void prepareSelectedRegion();
         void addAlignmentToSelectedRegion();
         void setCollectionVScroll(size_t index, int value);
+        void setYlimValue(int value);  // set ylim (or max tlen in tlen-y mode) without reloading reads
+        void restackAlignments();
         void resizeTrackBoundary(size_t index, float y);
         void setVScroll(int value);  // set absolute vertical read-scroll offset and re-layout
 
@@ -378,6 +432,9 @@ namespace Manager {
         void prepareImGui(bool& pending_settings_close, void (*background)() = nullptr, void (*input)() = nullptr);
         // Existing overlay, reusable above a locally or remotely rendered frame.
         void overlayImGui(bool& pending_settings_close, void (*background)() = nullptr, void (*input)() = nullptr);
+        // Genome shortcuts and the "drag-and-drop"/"open the command box" messages of an empty
+        // view. Off when GW is embedded or driven by another program and should just wait (--wait).
+        bool startupHints = true;
         // Optional UI-only transport. Never consulted by drawing/read-packing loops.
         std::function<void(const std::string&)> remoteCommand;
         struct RemoteScrollbar { float xOffset, yOffset, regionPixels; int maximum, value; bool live; };
@@ -387,7 +444,7 @@ namespace Manager {
 
         // Output functions
         sk_sp<SkImage> makeImage();
-        void saveSession(std::string out_session);
+        void saveSession(const std::string &out_session);
         void rasterToPng(const char* path);
 #ifndef __EMSCRIPTEN__
         void saveToPdf(const char* path, bool force_buffered_reads=false);
@@ -426,6 +483,11 @@ namespace Manager {
 
         double xDrag, xOri, lastX, yDrag, yOri, lastY;
         bool leftMouseDown{false};  // Button state for windowless cursor-event replay.
+        // The WASM build replays queued input a frame or more later, possibly after a
+        // suspended file read, so it supplies the cursor and button state at queue time.
+        bool replayingInput{false};
+        double replayX{0}, replayY{0};
+        int replayLeftState{0};
         bool mouseDragged;  // true if any significant drag (x or y) occurred since last press
         int windowW, windowH;  // Window width dn height
 
@@ -473,9 +535,7 @@ namespace Manager {
 
         // Helper methods for mouse interaction
         void calculateCursorCoordinates(int button, int action, float& xW, float& yW);
-        bool handleToolButtons(int button, int action, float xW, float yW);
         void toggleSettingsMode();
-        void toggleCommandCapture();
         bool handleCommandTooltipInteraction(int button, int action, float xW, float yW);
         void updateDragState();
         void updateCursorGenomePos(float xOffset, float xScaling, float xPos_fb, Utils::Region* region, int bamIdx);
@@ -523,7 +583,7 @@ namespace Manager {
 
     void imagePngToStdOut(sk_sp<SkImage> &img);
 
-    void imagePngToFile(sk_sp<SkImage> &img, std::string path);
+    void imagePngToFile(sk_sp<SkImage> &img, const std::string &path);
 
     void savePlotToPdfFile(Manager::GwPlot *plot, std::string path);
 

@@ -47,14 +47,14 @@ namespace Utils {
 
     std::vector<std::string> split(const std::string &s, char delim);
 
-    std::vector<std::string> split(const std::string &s, char delim, std::vector<std::string> &elems);
+    void split(const std::string &s, char delim, std::vector<std::string> &elems);  // appends non-empty fields to elems
 
     std::vector<std::string> split_keep_empty_str(const std::string &s, const char delim);
 
     // https://stackoverflow.com/questions/1528298/get-path-of-executable
     std::string getExecutableDir();
 
-    bool is_file_exist(std::string FileName);
+    bool is_file_exist(const std::string &FileName);
 
     class EXPORT TrackBlock {
     public:
@@ -65,6 +65,7 @@ namespace Utils {
         int level{0};
         float value{0};
         bool anyToDraw{false};
+        bool selected{false};  // clicked by the user; set from GwPlot's selection while drawing
         std::vector<std::string> parts;
         std::vector<int> s;  // block starts and block ends for bed12/GFF
         std::vector<int> e;
@@ -113,7 +114,7 @@ namespace Utils {
         std::vector<std::vector<Utils::TrackBlock>> featuresInView;  // one vector for each Track
         std::vector<int> featureLevels;
         Region() {};
-        Region(std::string chromosome, int startPos, int endPos) : chrom{chromosome}, start{startPos}, end{endPos} {};
+        Region(std::string chromosome, int startPos, int endPos) : chrom{std::move(chromosome)}, start{startPos}, end{endPos} {};
         ~Region() = default;
         std::string toString();
         void setRefBaseAtPos();
@@ -161,6 +162,7 @@ namespace Utils {
         Label() = default;
         ~Label() = default;
         std::string chrom, variantId, savedDate, vartype, comment;
+        std::string genotypes;  // per-sample GT of a VCF record, "0/1,./.,1|1"; empty when not kept
         std::vector<std::string> labels;
         int i, pos, ori_i;
         bool clicked;

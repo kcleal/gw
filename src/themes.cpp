@@ -18,6 +18,9 @@
 #include "defaultIni.hpp"
 #include "ankerl_unordered_dense.h"
 #include "gw_fonts.h"
+#include "htslib/bgzf.h"
+#include "htslib/hfile.h"
+#include "htslib/kstring.h"
 
 #include "include/core/SkFontMgr.h"
 #include "include/core/SkPathEffect.h"
@@ -181,7 +184,11 @@ namespace Themes {
 
         lcGTFJoins.setStyle(SkPaint::kStroke_Style);
         lcGTFJoins.setStrokeWidth(2);
+#if SK_MILESTONE >= 143
         lcGTFJoins.setPathEffect(SkDashPathEffect::Make({intervals, 2}, 0.0f));
+#else
+        lcGTFJoins.setPathEffect(SkDashPathEffect::Make(intervals, 2, 0.0f));
+#endif
 
         lcLabel.setStyle(SkPaint::kStroke_Style);
         lcLabel.setStrokeWidth(1);
@@ -206,7 +213,7 @@ namespace Themes {
         lcSelectedBase.setStrokeWidth(1.5);
         lcSelectedBase.setAntiAlias(true);
         lcCodonTick.setStyle(SkPaint::kStroke_Style);
-        lcCodonTick.setStrokeWidth(3);
+        lcCodonTick.setStrokeWidth(1.5);
         lcCodonTick.setAntiAlias(true);
 
         fcMarkers.setStyle(SkPaint::kStrokeAndFill_Style);
@@ -562,6 +569,118 @@ namespace Themes {
         ecSplit.setStrokeWidth(1);
     }
 
+    EXPORT TideTheme::TideTheme() {
+        name = "tide";
+        fcCoverage.setARGB(255, 74, 98, 120);
+        fcTrack.setARGB(220, 198, 220, 236);
+        bgPaint.setARGB(255, 13, 22, 32);
+        bgPaintTiled.setARGB(255, 22, 34, 48);
+        bgMenu.setARGB(255, 18, 29, 42);
+        fcNormal.setARGB(255, 58, 78, 98);
+        fcDel.setARGB(255, 232, 88, 96);
+        fcIns.setARGB(255, 170, 130, 255);
+        fcDup.setARGB(255, 64, 140, 232);
+        fcInvF.setARGB(255, 52, 190, 150);
+        fcInvR.setARGB(255, 128, 198, 84);
+        fcTra.setARGB(255, 242, 160, 196);
+        fcSoftClip.setARGB(255, 36, 158, 168);
+        fcA.setARGB(255, 112, 208, 118);
+        fcT.setARGB(255, 242, 88, 112);
+        fcC.setARGB(255, 92, 156, 255);
+        fcG.setARGB(255, 244, 170, 66);
+        fcN.setARGB(255, 120, 134, 150);
+        fc5mc.setARGB(227, 64, 200, 232);
+        fc5hmc.setARGB(227, 242, 134, 58);
+        lcJoins.setARGB(255, 132, 152, 172);
+        lcLightJoins.setARGB(255, 66, 86, 106);
+        lcGTFJoins.setARGB(255, 112, 150, 184);
+        lcLabel.setARGB(255, 172, 192, 210);
+        lcBright.setARGB(255, 234, 242, 248);
+        lcGap.setARGB(255, 58, 78, 98);
+        tcDel.setARGB(255, 240, 246, 250);
+        tcLabels.setARGB(255, 234, 242, 248);
+        tcIns.setARGB(255, 240, 246, 250);
+        tcBackground.setARGB(255, 13, 22, 32);
+        fcMarkers.setARGB(255, 212, 226, 238);
+        fcCodonStart.setARGB(255, 60, 150, 190);
+        fcCodonStop.setARGB(255, 214, 124, 92);
+        fcCodonOther.setARGB(255, 58, 78, 98);
+        bgCodonSelected.setARGB(255, 40, 58, 76);
+        fcSelectedBase.setARGB(60, 200, 240, 255);
+        fcSelectedCodon.setARGB(80, 200, 240, 255);
+        lcSelectedBase.setARGB(255, 234, 242, 248);
+        lcCodonTick.setARGB(100, 200, 240, 255);
+        ecSelected.setARGB(255, 255, 212, 122);
+        ecSelected.setStyle(SkPaint::kStroke_Style);
+        ecSelected.setStrokeWidth(2);
+        ecSplit.setARGB(255, 96, 196, 208);
+        ecSplit.setStyle(SkPaint::kStroke_Style);
+        ecSplit.setStrokeWidth(1);
+    }
+
+    EXPORT FrostTheme::FrostTheme() {
+        name = "frost";
+        fcCoverage.setARGB(255, 186, 196, 214);
+        fcTrack.setARGB(225, 38, 50, 84);
+        bgPaint.setARGB(255, 250, 251, 253);
+        bgPaintTiled.setARGB(255, 238, 241, 246);
+        bgMenu.setARGB(255, 244, 246, 250);
+        fcNormal.setARGB(255, 208, 215, 227);
+        fcDel.setARGB(255, 226, 54, 76);
+        fcIns.setARGB(255, 140, 92, 246);
+        fcDup.setARGB(255, 50, 96, 220);
+        fcInvF.setARGB(255, 16, 160, 120);
+        fcInvR.setARGB(255, 110, 180, 50);
+        fcTra.setARGB(255, 226, 90, 170);
+        fcSoftClip.setARGB(255, 20, 160, 170);
+        fcA.setARGB(255, 34, 170, 110);
+        fcT.setARGB(255, 236, 72, 110);
+        fcC.setARGB(255, 48, 128, 246);
+        fcG.setARGB(255, 245, 158, 30);
+        fcN.setARGB(255, 148, 156, 172);
+        fc5mc.setARGB(255, 190, 40, 60);
+        fc5hmc.setARGB(255, 40, 110, 230);
+        lcJoins.setARGB(255, 92, 102, 124);
+        lcLightJoins.setARGB(255, 160, 168, 186);
+        lcGTFJoins.setARGB(255, 120, 140, 190);
+        lcLabel.setARGB(255, 78, 88, 110);
+        lcBright.setARGB(255, 20, 26, 44);
+        lcGap.setARGB(255, 208, 215, 227);
+        tcDel.setARGB(255, 44, 52, 74);
+        tcLabels.setARGB(255, 20, 26, 44);
+        tcIns.setARGB(255, 255, 255, 255);
+        tcBackground.setARGB(255, 250, 251, 253);
+        fcMarkers.setARGB(255, 20, 26, 44);
+        fcCodonStart.setARGB(255, 86, 130, 220);
+        fcCodonStop.setARGB(255, 232, 120, 88);
+        fcCodonOther.setARGB(255, 222, 227, 236);
+        bgCodonSelected.setARGB(255, 232, 236, 244);
+        fcSelectedBase.setARGB(60, 20, 26, 44);
+        fcSelectedCodon.setARGB(80, 20, 26, 44);
+        lcSelectedBase.setARGB(255, 20, 26, 44);
+        lcCodonTick.setARGB(100, 20, 26, 44);
+        ecSelected.setARGB(255, 79, 70, 229);
+        ecSelected.setStyle(SkPaint::kStroke_Style);
+        ecSelected.setStrokeWidth(2);
+        ecSplit.setARGB(255, 48, 128, 246);
+        ecSplit.setStyle(SkPaint::kStroke_Style);
+        ecSplit.setStrokeWidth(1);
+    }
+
+    const std::vector<std::string>& baseThemeNames() {
+        static const std::vector<std::string> names = {"dark", "igv", "slate", "tide", "frost"};
+        return names;
+    }
+
+    bool isLightTheme(const std::string& name) {
+        return name == "igv" || name == "frost";
+    }
+
+    bool isBaseTheme(const std::string& name) {
+        const auto& names = baseThemeNames();
+        return std::find(names.begin(), names.end(), name) != names.end();
+    }
+
     EXPORT IniOptions::IniOptions() {
         menu_level = "";
         menu_table = MAIN;
@@ -570,8 +689,8 @@ namespace Themes {
         dimensions = {1366, 768};
         link = "none";
         link_op = 0;
-        number_str = "3x3";
-        number = {3, 3};
+        number_str = "1x1";
+        number = {1, 1};
         labels = "PASS,FAIL";
         canvas_width = 0;
         canvas_height = 0;
@@ -627,8 +746,8 @@ namespace Themes {
     }
 
     void IniOptions::setTheme(std::string &name) {
-        if (name != "dark" && name != "igv" && name != "slate") {
-            std::cerr << "theme must be slate, igv, or dark\n";
+        if (!isBaseTheme(name)) {
+            std::cerr << "theme must be dark, igv, slate, tide, or frost\n";
             return;
         }
         theme_str = name;
@@ -1505,7 +1624,11 @@ namespace Themes {
         SkPaint paint1;
         const SkPaint* pnt = &paint1;
         overlay.setSize(fontTypefaceSize * yScale);
+#if SK_MILESTONE >= 143
         bounds[0] = overlay.getBounds(glyphs[0], pnt);
+#else
+        overlay.getBounds(glyphs, 1, bounds, pnt);
+#endif
         overlayCharWidth = bounds[0].width();
         overlayHeight = bounds[0].height();
         overlayWidth = overlay.measureText("Gy", 1, SkTextEncoding::kUTF8);
@@ -1527,7 +1650,28 @@ namespace Themes {
             return;  // headless mode has no ImGui context
         }
         ImGuiStyle& style = ImGui::GetStyle();
-        if (theme_str == "igv") {
+        if (theme_str == "frost") {
+            ImGui::StyleColorsLight();
+            style.Colors[ImGuiCol_WindowBg]        = ImVec4(0.965f, 0.972f, 0.985f, 0.97f);
+            style.Colors[ImGuiCol_PopupBg]         = ImVec4(0.985f, 0.988f, 0.996f, 0.98f);
+            style.Colors[ImGuiCol_Border]          = ImVec4(0.78f, 0.81f, 0.87f, 0.90f);
+            style.Colors[ImGuiCol_TitleBg]         = ImVec4(0.92f, 0.935f, 0.96f, 1.00f);
+            style.Colors[ImGuiCol_TitleBgActive]   = ImVec4(0.84f, 0.87f, 0.96f, 1.00f);
+            style.Colors[ImGuiCol_FrameBg]         = ImVec4(0.925f, 0.938f, 0.96f, 1.00f);
+            style.Colors[ImGuiCol_FrameBgHovered]  = ImVec4(0.87f, 0.89f, 0.96f, 1.00f);
+            style.Colors[ImGuiCol_FrameBgActive]   = ImVec4(0.80f, 0.83f, 0.96f, 1.00f);
+            style.Colors[ImGuiCol_Button]          = ImVec4(0.90f, 0.918f, 0.95f, 1.00f);
+            style.Colors[ImGuiCol_ButtonHovered]   = ImVec4(0.82f, 0.85f, 0.97f, 1.00f);
+            style.Colors[ImGuiCol_ButtonActive]    = ImVec4(0.72f, 0.75f, 0.96f, 1.00f);
+            style.Colors[ImGuiCol_Text]            = ImVec4(0.08f, 0.10f, 0.17f, 1.00f);
+            style.Colors[ImGuiCol_CheckMark]       = ImVec4(0.31f, 0.27f, 0.90f, 1.00f);
+            style.Colors[ImGuiCol_SliderGrab]      = ImVec4(0.42f, 0.40f, 0.92f, 1.00f);
+            style.Colors[ImGuiCol_SliderGrabActive]= ImVec4(0.31f, 0.27f, 0.90f, 1.00f);
+            style.Colors[ImGuiCol_Header]          = ImVec4(0.90f, 0.918f, 0.955f, 1.00f);
+            style.Colors[ImGuiCol_HeaderHovered]   = ImVec4(0.82f, 0.85f, 0.97f, 1.00f);
+            style.Colors[ImGuiCol_HeaderActive]    = ImVec4(0.72f, 0.75f, 0.96f, 1.00f);
+            style.Colors[ImGuiCol_Separator]       = ImVec4(0.80f, 0.83f, 0.89f, 1.00f);
+        } else if (theme_str == "igv") {
             ImGui::StyleColorsLight();
             // Tweak for GW: semi-transparent window backgrounds so Skia content shows through
             style.Colors[ImGuiCol_WindowBg]        = ImVec4(0.96f, 0.96f, 0.96f, 0.95f);
@@ -1544,6 +1688,27 @@ namespace Themes {
             style.Colors[ImGuiCol_HeaderHovered]   = ImVec4(0.78f, 0.78f, 0.78f, 1.00f);
             style.Colors[ImGuiCol_HeaderActive]    = ImVec4(0.70f, 0.70f, 0.70f, 1.00f);
             style.Colors[ImGuiCol_Separator]       = ImVec4(0.70f, 0.70f, 0.70f, 1.00f);
+        } else if (theme_str == "tide") {
+            ImGui::StyleColorsDark();
+            style.Colors[ImGuiCol_WindowBg]        = ImVec4(0.055f, 0.090f, 0.130f, 0.96f);
+            style.Colors[ImGuiCol_PopupBg]         = ImVec4(0.070f, 0.115f, 0.165f, 0.98f);
+            style.Colors[ImGuiCol_Border]          = ImVec4(0.16f, 0.25f, 0.33f, 0.80f);
+            style.Colors[ImGuiCol_TitleBg]         = ImVec4(0.06f, 0.11f, 0.16f, 1.00f);
+            style.Colors[ImGuiCol_TitleBgActive]   = ImVec4(0.09f, 0.18f, 0.25f, 1.00f);
+            style.Colors[ImGuiCol_FrameBg]         = ImVec4(0.11f, 0.17f, 0.23f, 1.00f);
+            style.Colors[ImGuiCol_FrameBgHovered]  = ImVec4(0.14f, 0.22f, 0.30f, 1.00f);
+            style.Colors[ImGuiCol_FrameBgActive]   = ImVec4(0.16f, 0.27f, 0.36f, 1.00f);
+            style.Colors[ImGuiCol_Button]          = ImVec4(0.12f, 0.22f, 0.30f, 1.00f);
+            style.Colors[ImGuiCol_ButtonHovered]   = ImVec4(0.14f, 0.34f, 0.42f, 1.00f);
+            style.Colors[ImGuiCol_ButtonActive]    = ImVec4(0.13f, 0.42f, 0.48f, 1.00f);
+            style.Colors[ImGuiCol_Text]            = ImVec4(0.86f, 0.91f, 0.95f, 1.00f);
+            style.Colors[ImGuiCol_CheckMark]       = ImVec4(0.30f, 0.82f, 0.76f, 1.00f);
+            style.Colors[ImGuiCol_SliderGrab]      = ImVec4(0.24f, 0.68f, 0.66f, 1.00f);
+            style.Colors[ImGuiCol_SliderGrabActive]= ImVec4(0.30f, 0.82f, 0.76f, 1.00f);
+            style.Colors[ImGuiCol_Header]          = ImVec4(0.12f, 0.26f, 0.34f, 1.00f);
+            style.Colors[ImGuiCol_HeaderHovered]   = ImVec4(0.14f, 0.36f, 0.44f, 1.00f);
+            style.Colors[ImGuiCol_HeaderActive]    = ImVec4(0.13f, 0.44f, 0.50f, 1.00f);
+            style.Colors[ImGuiCol_Separator]       = ImVec4(0.16f, 0.25f, 0.33f, 1.00f);
         } else {
             ImGui::StyleColorsDark();
             style.Colors[ImGuiCol_WindowBg]        = ImVec4(0.10f, 0.10f, 0.13f, 0.95f);
@@ -1554,32 +1719,24 @@ namespace Themes {
         style.AntiAliasedLinesUseTex = true;
     }
 
-    void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
+    void readIdeogramFile(const std::string &file_path, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
                           Themes::BaseTheme &theme) {
-        std::shared_ptr<std::istream> fpu;
-#if !defined(__EMSCRIPTEN__)
-
-        if (Utils::startsWith(file_path, "http") || Utils::startsWith(file_path, "ftp")) {
-            std::string content = Utils::fetchOnlineFileContent(file_path);
-            fpu = std::make_shared<std::istringstream>(content);
-        } else {
-            auto file_stream = std::make_shared<std::ifstream>(file_path);
-            if (!file_stream->is_open()) {
-                std::cerr << "Error: opening ideogram file " << file_path << std::endl;
-                throw std::runtime_error("Error opening file");
-            }
-            fpu = file_stream;
+        // htslib opens local paths and URLs alike, and reads plain or gzip-compressed text
+        // (UCSC/IGV serve cytoBandIdeo.txt.gz)
+        BGZF* bg = bgzf_open(file_path.c_str(), "r");
+        if (!bg) {
+            std::cerr << "Error: opening ideogram file " << file_path << std::endl;
+            throw std::runtime_error("Error opening file");
         }
-#else
-        {
-            auto fs = std::make_shared<std::ifstream>(file_path);
-            if (!fs->is_open()) {
-                std::cerr << "Error: opening track file " << file_path << std::endl;
-                throw std::exception();
-            }
-            fpu = fs;
+        std::string content;
+        kstring_t ks = KS_INITIALIZE;
+        while (bgzf_getline(bg, '\n', &ks) >= 0) {
+            content.append(ks.s, ks.l);
+            content.push_back('\n');
         }
-#endif
+        ks_free(&ks);
+        bgzf_close(bg);
+        auto fpu = std::make_shared<std::istringstream>(content);
 
         std::unordered_map<std::string, Ideo::Band> custom;
         std::string line, token, chrom, name, property;
@@ -1605,15 +1762,28 @@ namespace Themes {
 
             next_t;
             chrom = token;
-            next_t;
-            int start = std::stoi(token);
-            next_t;
-            int end = std::stoi(token);
-            next_t;
-            name = token;
-            next_t;
-            property = token;
-            if (property == "gneg") {
+            int start, end;
+            try {
+                next_t;
+                start = std::stoi(token);
+                next_t;
+                end = std::stoi(token);
+            } catch (...) {
+                continue;  // not a band line
+            }
+            // Unplaced contigs in cytoBandIdeo files can leave the name/stain columns empty
+            name = next_t ? token : std::string();
+            property = next_t ? token : std::string();
+            // Stains used by other UCSC assemblies (mouse, rat, fly...)
+            if (property == "n/a") property = "gneg";
+            else if (property == "stalk") property = "gvar";
+            if (property == "gpos33") {
+                ideogram[chrom].emplace_back() = {start, end, 255, 215, 215, 215, {}, name};
+            } else if (property == "gpos66") {
+                ideogram[chrom].emplace_back() = {start, end, 255, 135, 135, 135, {}, name};
+            } else if (property == "gpos") {
+                ideogram[chrom].emplace_back() = {start, end, 255, 110, 110, 110, {}, name};
+            } else if (property == "gneg") {
                 ideogram[chrom].emplace_back() = {start, end, 255, 255, 255, 255, {}, name};
             } else if (property == "gpos25") {
                 ideogram[chrom].emplace_back() = {start, end, 255, 235, 235, 235, {}, name};

@@ -1,0 +1,97 @@
+---
+title: MacOS
+layout: home
+parent: Install (v1)
+nav_order: 1
+nav_exclude: true
+---
+
+# Installing GW on macOS
+
+For best performance, install GW as a desktop application (Intel or Apple silicone), or build from source. Use one of the
+installers below, or head over to the GitHub [Releases page](https://github.com/kcleal/gw/releases).
+
+
+[GW Intel x86_64 mac dmg installer](https://github.com/kcleal/gw/releases/download/v1.2.6/gw_macos_intel.dmg)
+
+[GW Apple arm64 mac dmg installer](https://github.com/kcleal/gw/releases/download/v1.2.6/gw_macos_m1.dmg)
+
+
+To install the desktop app, open one of the dmg files above then drop GW into your Applications folder, then perform the
+following:
+
+- In the Finder on your Mac, locate the app you want to open.
+Don’t use Launchpad to locate the app.
+- Control-click the GW app icon, then choose Open from the shortcut menu.
+- Click Open.
+
+
+GW can also be copied to your bin directory if needs be to make it available as a command-line tool:
+```shell
+cp /Applications/gw.app/Contents/MacOS/gw /usr/local/bin
+```
+
+To install GW as a command-line tool, you have two primary options depending on your system 
+architecture: using Conda or Homebrew. 
+These instructions cover both Intel-based (x86_64) and Apple Silicon 
+(M1, M1 Pro, M1 Max, M2, etc.) Macs.
+
+## Using Conda (Intel chips)
+
+For users who prefer using [Conda](https://docs.conda.io/projects/miniconda/en/latest/miniconda-other-installer-links.html)
+, GW can be installed from the Conda-Forge 
+and Bioconda channels. This method works for Intel architectures only.
+Open your terminal and execute the following command:
+
+```shell
+conda install -c conda-forge -c bioconda gw
+```
+
+## Using Homebrew (Intel + Apple chips)
+
+For those who prefer Homebrew, GW has a Homebrew tap available. 
+This method is compatible with both Intel and Apple Silicon Macs. 
+Open your terminal and run:
+
+```shell
+brew install kcleal/homebrew-gw/gw
+```
+
+
+# Building from source
+
+Before building GW, you need to install the glfw3 and htslib libraries.
+These can be easily installed using Conda, and optionally,
+setting the CONDA_PREFIX environment variable is advised 
+so gw can find the required libraries.
+
+```shell
+conda install -c conda-forge -c bioconda glfw htslib
+export CONDA_PREFIX=~/miniconda3
+```
+
+Next clone the GW repository and build GW:
+
+```shell
+git clone https://github.com/kcleal/gw.git && cd gw
+make prep && make -j8
+```
+
+`make prep` downloads Skia m143 binaries from the `v0.2.0` release of
+[skia_build_arm64](https://github.com/kcleal/skia_build_arm64/releases/tag/v0.2.0).
+After upgrading an existing checkout, run `make clean` before rebuilding.
+To use an older release, pass both overrides, for example
+`make prep SKIA_VERSION=m133 SKIA_RELEASE=v0.1.0`.
+
+Also, it is recommended to add GW to your bin directory:
+
+```shell
+cp gw /usr/local/bin
+```
+
+<br>
+After installation, you can verify that GW has been installed correctly by running:
+
+```shell
+gw --version
+```

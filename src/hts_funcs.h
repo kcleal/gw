@@ -13,6 +13,7 @@
 #include "htslib/vcf.h"
 #include "htslib/sam.h"
 #include "htslib/tbx.h"
+#include "htslib/kstring.h"
 
 namespace Drawing { struct drawContext; }
 
@@ -66,6 +67,8 @@ namespace HGW {
     */
     class VCFfile {
     public:
+        // Genotypes are only read, and shown in the variant table, for files with up to this many samples
+        static constexpr int maxGenotypeSamples = 16;
         VCFfile (); // = default;
         ~VCFfile();
         htsFile *fp;
@@ -92,6 +95,8 @@ namespace HGW {
         void next();
         void printTargetRecord(std::string &id_str, std::string &chrom, int pos);
 		void get_samples();
+        // GT of every sample in the current record as "0/1,./.,1|1"; empty with no samples or more than maxSamples
+        std::string genotypeString(int maxSamples);
 
     };
 
@@ -131,6 +136,20 @@ namespace HGW {
     * Non-indexed files are cached using TrackBlock items. Files with an index are fetched during drawing.
     * Can also have no file associated with it, just an array of TrackBlock (used for roi drawing)
     */
+    // Scratch line buffer for htslib readers. Copies start empty so two tracks never share (and double-free) one buffer.
+    struct LineBuffer {
+        kstring_t s{0, 0, nullptr};
+        LineBuffer() = default;
+        LineBuffer(const LineBuffer&) {}
+        LineBuffer& operator=(const LineBuffer&) { return *this; }
+        LineBuffer(LineBuffer&& o) noexcept : s(o.s) { o.s = {0, 0, nullptr}; }
+        LineBuffer& operator=(LineBuffer&& o) noexcept {
+            if (this != &o) { free(s.s); s = o.s; o.s = {0, 0, nullptr}; }
+            return *this;
+        }
+        ~LineBuffer() { free(s.s); }
+    };
+
     class GwTrack {
     public:
         GwTrack() = default;
@@ -143,6 +162,10 @@ namespace HGW {
         std::string path, genome_tag;
         std::string chrom, chrom2, rid, vartype, parent, gene_name, unique_id;
         std::string track_label_parser_rules;
+        // Label-rule keys resolved from track_label_parser_rules, cached so they are not re-parsed per line
+        std::string labelRulesResolved, labelKeyGff3{"auto"}, labelKeyGtf{"auto"};
+        bool labelKeysReady{false};
+        LineBuffer lineBuf;  // reused by the indexed (tabix) readers in next()
         int start, stop;  // genome coordinates
         int strand;
         int fetch_start, fetch_end;
@@ -172,6 +195,10 @@ namespace HGW {
         bigWigFile_t *bigWig_fp;
         bwOverlappingIntervals_t *bigWig_intervals;
         bbOverlappingEntries_t *bigBed_entries;
+        // bigBed column names and descriptions from the file's autoSql schema (full BED
+        // columns, chrom first); empty when the file has none.
+        std::vector<std::string> bbFieldNames, bbFieldDescs;
+        int bbLabelIdx{0};  // index into the bigBed payload (after chromEnd) used as the feature label
 
         int region_end;
         std::vector<std::string> parts;  // string split by delimiter
@@ -202,6 +229,7 @@ namespace HGW {
         void parseVcfRecord(Utils::TrackBlock &b);
         void parseVcfRecord();
         void printTargetRecord(std::string &id_str, std::string &chrm, int pos);
+        const std::string& labelKey(bool gtf);
     };
 
     bool searchTracks(std::vector<GwTrack> &tracks, std::string &feature, Utils::Region &region);
@@ -224,6 +252,7 @@ namespace HGW {
     };
     class GwVariantTrack {
     public:
+        static constexpr int maxGenotypeSamples = VCFfile::maxGenotypeSamples;
         GwVariantTrack(std::string &path, bool cacheStdin, Themes::IniOptions *t_opts, int endIndex,
                        std::vector<std::string> &t_labelChoices,
                        std::shared_ptr<ankerl::unordered_dense::map< std::string, Utils::Label>> t_inputLabels,
@@ -254,7 +283,7 @@ namespace HGW {
         void appendSearchMatches(const std::string &query);
 
     private:
-        void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label, std::string &vartype);
+        void appendVariantSite(std::string &chrom, long start, std::string &chrom2, long stop, std::string &rid, std::string &label, std::string &vartype, const std::string &genotypes = "");
     };
 
 }

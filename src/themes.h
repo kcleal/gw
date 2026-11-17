@@ -30,6 +30,7 @@
     #include "include/gpu/GrDirectContext.h"
     #include "include/gpu/gl/GrGLInterface.h"
 #endif
+#include "include/core/SkMilestone.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkSurface.h"
@@ -159,6 +160,26 @@ namespace Themes {
         ~SlateTheme() = default;
     };
 
+    // Deep-sea dark theme: ink-blue background, teal and coral accents
+    class EXPORT TideTheme: public BaseTheme {
+    public:
+        TideTheme();
+        ~TideTheme() = default;
+    };
+
+    // Cool light theme: near-white background, blue-grey reads, ink text, indigo accents
+    class EXPORT FrostTheme: public BaseTheme {
+    public:
+        FrostTheme();
+        ~FrostTheme() = default;
+    };
+
+    // Built-in base themes, in menu order
+    EXPORT const std::vector<std::string>& baseThemeNames();
+    EXPORT bool isBaseTheme(const std::string& name);
+    // Base themes with a light background (igv, frost)
+    EXPORT bool isLightTheme(const std::string& name);
+
     struct CustomTheme {
         std::string name;
         std::string base;
@@ -265,7 +286,7 @@ namespace Themes {
 
     void applyImGuiTheme(const std::string &theme_str);
 
-    void readIdeogramFile(std::string file_path, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
+    void readIdeogramFile(const std::string &file_path, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,
                           Themes::BaseTheme &theme);
 
     void readIdeogramData(const unsigned char *data, size_t size, std::unordered_map<std::string, std::vector<Ideo::Band>> &ideogram,

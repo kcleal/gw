@@ -4,7 +4,7 @@
 <script type="module">
 import {createViewer} from './embed.mjs';
 const status=document.querySelector('#status');
-const viewer=createViewer(document.querySelector('#viewer'),{url:'./gw.html',onState:view=>{document.body.style.background=({igv:'#fff',slate:'#202b38',dark:'#09090d'})[view.shared.theme]||'#09090d';},onError:error=>status.textContent=error.message});
+const viewer=createViewer(document.querySelector('#viewer'),{url:'./gw.html',onState:view=>{document.body.style.background=({igv:'#fff',slate:'#202b38',tide:'#0d1620',frost:'#fafbfd',dark:'#09090d'})[view.shared.theme]||'#09090d';},onError:error=>status.textContent=error.message});
 viewer.ready.then(()=>status.textContent='').catch(error=>status.textContent=error.message);
 window.addEventListener('pagehide',()=>{void viewer.destroy();});
 </script></html>

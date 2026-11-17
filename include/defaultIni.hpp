@@ -82,7 +82,7 @@ namespace DefaultIni {
                "bed_as_tracks=false\n"
                "\n"
                "[labelling]\n"
-               "number=3x3\n"
+               "number=1x1\n"
                "parse_label=filter\n"
                "labels=PASS,FAIL\n"
                "delete_labels=DELETE\n"

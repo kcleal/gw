@@ -56,7 +56,7 @@
  *     add to relevant functions
  *         getCommandSwitchValue applyBoolOption, applyKeyboardKeyOption etc
  *     add a tool tip in drawMenu
- *     if the function should be in the pop-up menu, add to commandToolTip in menu.h
+ *     if the function should be in the pop-up menu, add to commandList (and commandToolTip) in menu.h
  *     if the function should be applied straight away add to exec in menu.h
  * 5. Optionally add a setting to .gw.ini
  * 6. If new option should be saved in a session add it to saveCurrentSession in themes.cpp
@@ -128,8 +128,10 @@ namespace Commands {
             p->selectedFeatureChrom.clear();
             p->selectedFeatureName.clear();
             p->selectedFeatureParent.clear();
+            p->selectedFeatureLine.clear();
             p->selectedFeatureStart = -1;
             p->selectedFeatureEnd = -1;
+            p->selectedFeatureTrack = -1;
             p->selectedIntronChrom.clear();
             p->selectedIntronStart = -1;
             p->selectedIntronEnd = -1;
@@ -165,7 +167,7 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err settings(Plot* p, std::string subHeading) {
+    Err settings(Plot* p, const std::string& subHeading) {
         p->last_mode = p->mode;
         p->mode = Manager::Show::SETTINGS;
         p->redraw = true;
@@ -206,10 +208,17 @@ namespace Commands {
                 return Err::NONE;
             } else if (parts.size() == 3 && (Utils::endsWith(parts[2], ".sam") || Utils::endsWith(parts[2], ".bam") || Utils::endsWith(parts[2], ".cram"))) {
                 std::string o_str = parts[2];
-                if (p->headers.empty() || p->regionSelection >= (int)p->headers.size()) {
+                const int bamIdx = p->selectedAlignBamIdx;
+                if (bamIdx < 0 || bamIdx >= (int)p->headers.size()) {
                     return Err::SILENT;
                 }
-                sam_hdr_t *hdr = sam_hdr_dup(p->headers[p->regionSelection]);
+                if (parts[1] != ">" && parts[1] != ">>") {
+                    return Err::OPTION_NOT_UNDERSTOOD;
+                }
+                sam_hdr_t *hdr = sam_hdr_dup(p->headers[bamIdx]);
+                if (hdr == nullptr) {
+                    return Err::SILENT;
+                }
 
                 cram_fd* fc = nullptr;
                 htsFile *h_out = nullptr;
@@ -217,64 +226,31 @@ namespace Commands {
                 int res;
                 std::string full_path = Parse::tilde_to_home(parts[2]);
                 const char* outf = full_path.c_str();
-                if (parts[1] == ">" || !Utils::is_file_exist(full_path)) {
+                const bool create = parts[1] == ">" || !Utils::is_file_exist(full_path);
+                if (create) {
                     out << "Creating new file: " << outf << "\n";
-                    if (Utils::endsWith(o_str, ".sam")) {
-                        h_out = hts_open(outf, "w");
-                        if (h_out == nullptr) {
-                            out << termcolor::red << "Error:" << termcolor::reset << " Could not open " << outf << " for writing\n";
-                            sam_hdr_destroy(hdr);
-                            return Err::NONE;
-                        }
-                        res = sam_hdr_write(h_out, hdr);
-                        if (res < 0) {
-                            out << termcolor::red << "Error:" << termcolor::reset << " Failed to copy header\n";
-                            sam_close(h_out);
-                            return Err::NONE;
-                        }
-                    } else if (Utils::endsWith(o_str, ".bam")) {
-                        h_out = hts_open(outf, "wb");
-                        if (h_out == nullptr) {
-                            out << termcolor::red << "Error:" << termcolor::reset << " Could not open " << outf << " for writing\n";
-                            sam_hdr_destroy(hdr);
-                            return Err::NONE;
-                        }
-                        res = sam_hdr_write(h_out, hdr);
-                        if (res < 0) {
-                            out << termcolor::red << "Error:" << termcolor::reset << " Failed to copy header\n";
-                            sam_close(h_out);
-                            return Err::NONE;
-                        }
-                    } else {
-                        h_out = hts_open(outf, "wc");
-                        if (h_out == nullptr) {
-                            out << termcolor::red << "Error:" << termcolor::reset << " Could not open " << outf << " for writing\n";
-                            sam_hdr_destroy(hdr);
-                            return Err::NONE;
-                        }
-                        fc = h_out->fp.cram;
-                        write_cram = true;
-                        cram_fd_set_header(fc, hdr);
-                        res = sam_hdr_write(h_out, hdr);
-                        if (res < 0) {
-                            out << termcolor::red << "Error:" << termcolor::reset << " Failed to copy header\n";
-                            sam_close(h_out);
-                            return Err::NONE;
-                        }
-                    }
-                } else if (parts[1] == ">>") {
+                    h_out = hts_open(outf, Utils::endsWith(o_str, ".sam") ? "w" : Utils::endsWith(o_str, ".bam") ? "wb" : "wc");
+                } else {
                     out << "Appending to file: " << outf << "\n";
-                    if (Utils::endsWith(o_str, ".sam")) {
-                        h_out = hts_open(outf, "a");
-                    } else if (Utils::endsWith(o_str, ".bam")) {
-                        h_out = hts_open(outf, "ab");
-                    } else {
-                        h_out = hts_open(outf, "ac");
-                        fc = h_out->fp.cram;
-                        write_cram = true;
+                    h_out = hts_open(outf, Utils::endsWith(o_str, ".sam") ? "a" : Utils::endsWith(o_str, ".bam") ? "ab" : "ac");
+                }
+                if (h_out == nullptr) {
+                    out << termcolor::red << "Error:" << termcolor::reset << " Could not open " << outf << (create ? " for writing\n" : " for appending\n");
+                    sam_hdr_destroy(hdr);
+                    return Err::NONE;
+                }
+                if (!Utils::endsWith(o_str, ".sam") && !Utils::endsWith(o_str, ".bam")) {
+                    fc = h_out->fp.cram;
+                    write_cram = true;
+                }
+                if (create) {
+                    if (write_cram) {
+                        cram_fd_set_header(fc, hdr);
                     }
-                    if (h_out == nullptr) {
-                        out << termcolor::red << "Error:" << termcolor::reset << " Could not open " << outf << " for appending\n";
+                    res = sam_hdr_write(h_out, hdr);
+                    if (res < 0) {
+                        out << termcolor::red << "Error:" << termcolor::reset << " Failed to copy header\n";
+                        sam_close(h_out);
                         sam_hdr_destroy(hdr);
                         return Err::NONE;
                     }
@@ -287,13 +263,13 @@ namespace Commands {
                 kstr.s = (char*)malloc(kstr.m);
                 memcpy(kstr.s, stdStr.data(), stdStr.size());
                 kstr.s[kstr.l] = '\0';
-                std::cerr << kstr.s << std::endl;
                 res = sam_parse1(&kstr, hdr, b);
                 free(kstr.s);
                 if (res < 0) {
                     out << termcolor::red << "Error:" << termcolor::reset << " Could not convert str to bam1_t\n";
                     bam_destroy1(b);
                     sam_close(h_out);
+                    sam_hdr_destroy(hdr);
                     return Err::NONE;
                 }
                 if (!write_cram) {
@@ -309,6 +285,7 @@ namespace Commands {
                 }
                 bam_destroy1(b);
                 sam_close(h_out);
+                sam_hdr_destroy(hdr);
             }
         }
         return Err::NONE;
@@ -332,8 +309,13 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err mods(Plot* p) {
-        p->opts.parse_mods = !(p->opts.parse_mods);
+    // 'mods' toggles base-modification drawing; 'mods on' / 'mods off' set it
+    Err mods(Plot* p, std::vector<std::string>& parts, std::ostream& out) {
+        if (parts.size() > 2 || (parts.size() == 2 && parts[1] != "on" && parts[1] != "off")) {
+            out << termcolor::red << "Error:" << termcolor::reset << " usage 'mods', 'mods on' or 'mods off'\n";
+            return Err::SILENT;
+        }
+        p->opts.parse_mods = parts.size() == 2 ? parts[1] == "on" : !(p->opts.parse_mods);
         p->processed = false;
         p->redraw = true;
         p->imageCache.clear();
@@ -731,7 +713,7 @@ namespace Commands {
             Parse::Parser ps = Parse::Parser(out);
             int rr = ps.set_filter(s, (int)p->bams.size(), (int)p->regions.size());
             if (rr > 0) {
-                p->filters.push_back(ps);
+                p->filters.push_back(std::move(ps));
             }
         }
         if (p->frameId >= 0) {
@@ -754,14 +736,19 @@ namespace Commands {
                 int i = 0;
                 for (auto &s : splitA) {
                     if (i > 11) {
-                        std::string t = s.substr(0, s.find(':'));
+                        const size_t colon = s.find(':');
+                        if (colon == std::string::npos) {
+                            i += 1;
+                            continue;
+                        }
+                        std::string t = s.substr(0, colon);
                         if (splitTags.empty()) {
-                            std::string rest = s.substr(s.find(':'), s.size());
+                            std::string rest = s.substr(colon);
                             out << termcolor::green << t << termcolor::reset << rest << "\t";
                         } else {
                             for (auto &target : splitTags) {
                                 if (target == t) {
-                                    std::string rest = s.substr(s.find(':'), s.size());
+                                    std::string rest = s.substr(colon);
                                     out << termcolor::green << t << termcolor::reset << rest << "\t";
                                 }
                             }
@@ -826,7 +813,7 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err findRead(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+    Err findRead(Plot* p, const std::vector<std::string>& parts, std::ostream& out) {
         p->redraw = true;
         if (!p->target_qname.empty() && parts.size() == 1) {
             return Err::NONE;
@@ -843,7 +830,7 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err setYlim(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+    Err setYlim(Plot* p, const std::vector<std::string>& parts, std::ostream& out) {
         p->redraw = true;
         try {
             if (!p->opts.tlen_yscale) {
@@ -861,7 +848,7 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err indelLength(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+    Err indelLength(Plot* p, const std::vector<std::string>& parts, std::ostream& out) {
         p->redraw = true;
         int indel_length;
         try {
@@ -879,7 +866,7 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err setTabTrackHeight(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+    Err setTabTrackHeight(Plot* p, const std::vector<std::string>& parts, std::ostream& out) {
         if (parts.size() < 2) {
             out << "Usage: tab-track-height <value>  (0.0–1.0)\n";
             return Err::NONE;
@@ -917,7 +904,7 @@ namespace Commands {
     // Set the minimum supporting-read count for drawing an intron/splice junction.
     // Introns are re-extracted every frame (see drawTracks -> extractCanonicalIntrons),
     // so changing this and refreshing re-filters the track live.
-    Err minJunctionReads(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+    Err minJunctionReads(Plot* p, const std::vector<std::string>& parts, std::ostream& out) {
         p->redraw = true;
         int n;
         try {
@@ -968,6 +955,7 @@ namespace Commands {
             p->removeVariantTrack(ind);
         } else if (Utils::startsWith(parts.back(), "ideogram")) {
             p->ideogram.clear();
+            p->ideogram_path.clear();
         } else {
             try {
                 ind = std::stoi(parts.back());
@@ -997,7 +985,7 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err cov(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+    Err cov(Plot* p, const std::vector<std::string>& parts, std::ostream& out) {
         p->redraw = true;
         if (parts.size() > 2) {
             out << termcolor::red << "Error:" << termcolor::reset << " cov must be either 'cov' to toggle coverage or 'cov NUMBER' to set max coverage\n";
@@ -1038,7 +1026,7 @@ namespace Commands {
         if (!selected && name.size() >= 2 && (name.front() == '"' || name.front() == '\'') && name.back() == name.front())
             selected = p->opts.selectThemeByName(name.substr(1, name.size() - 2));
         if (!selected) {
-            out << "Available themes: dark, igv, slate";
+            out << "Available themes: dark, igv, slate, tide, frost";
             for (const auto& saved : p->opts.custom_themes) out << ", " << saved.name;
             out << "\nUsage: theme <name>\n";
             if (!p->opts.custom_theme_error.empty()) out << p->opts.custom_theme_error << "\n";
@@ -1190,8 +1178,7 @@ namespace Commands {
             if (p->mode == Manager::Show::SINGLE) {
                 std::filesystem::path fname_path = Utils::makeFilenameFromRegions(p->regions);
 #if defined(_WIN32) || defined(_WIN64)
-                const wchar_t* pc = fname_path.filename().c_str();
-                std::wstring ws(pc);
+                std::wstring ws = fname_path.filename().wstring();  // keep the path temporary's buffer alive
                 std::string p(ws.begin(), ws.end());
                 fname = p;
 #else
@@ -1204,7 +1191,7 @@ namespace Commands {
         } else {
             std::string nameFormat = parts[1];
             // try and parse information from vcf record e.g. {pos}.png
-            if (p->currentVarTrack != nullptr && p->currentVarTrack->type == HGW::TrackType::VCF && p->mode == Manager::Show::SINGLE) {
+            if (nameFormat.find('{') != std::string::npos && p->currentVarTrack != nullptr && p->currentVarTrack->type == HGW::TrackType::VCF && p->mode == Manager::Show::SINGLE) {
                 if (p->mouseOverTileIndex == -1 || p->currentVarTrack->blockStart + p->mouseOverTileIndex >= (int) p->currentVarTrack->multiLabels.size()) {
                     return Err::SILENT;
                 }
@@ -1292,7 +1279,7 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err online(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+    Err online(Plot* p, const std::vector<std::string>& parts, std::ostream& out) {
         if (p->regions.empty()) {
             return Err::EMPTY_REGIONS;
         }
@@ -1306,12 +1293,22 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err write_bam(Plot* p, std::string& o_str, std::vector< std::vector<size_t>> targets, std::ostream& out) {
-        if (p->headers.empty() || p->regionSelection < 0 || p->regionSelection >= (int)p->headers.size()) {
-            out << termcolor::red << "Error:" << termcolor::reset << " no valid BAM header for current region\n";
+    Err write_bam(Plot* p, std::string& o_str, const std::vector< std::vector<size_t>>& targets, std::ostream& out) {
+        if (p->headers.empty()) {
+            out << termcolor::red << "Error:" << termcolor::reset << " no alignment file is open\n";
             return Err::SILENT;
         }
-        sam_hdr_t* hdr = p->headers[p->regionSelection];
+        // headers holds one entry per BAM; use the first BAM that contributes reads
+        size_t hdrIdx = 0;
+        if (!targets.empty()) {
+            for (size_t j = 0; j < targets.size() && j < p->headers.size(); ++j) {
+                if (std::any_of(targets[j].begin(), targets[j].end(), [](size_t t) { return t != 0; })) {
+                    hdrIdx = j;
+                    break;
+                }
+            }
+        }
+        sam_hdr_t* hdr = p->headers[hdrIdx];
         cram_fd* fc = nullptr;
         htsFile *h_out = nullptr;
         int res = 0;
@@ -1320,8 +1317,12 @@ namespace Commands {
         std::string idx_path;
         int min_shift = 0;
         out << "Creating new file: " << outf << "\n";
+        h_out = hts_open(outf, Utils::endsWith(o_str, ".sam") ? "w" : Utils::endsWith(o_str, ".bam") ? "wb" : "wc");
+        if (h_out == nullptr) {
+            out << termcolor::red << "Error:" << termcolor::reset << " Could not open " << outf << " for writing\n";
+            return Err::SILENT;
+        }
         if (Utils::endsWith(o_str, ".sam")) {
-            h_out = hts_open(outf, "w");
             res = sam_hdr_write(h_out, hdr);
             if (res < 0) {
                 out << termcolor::red << "Error:" << termcolor::reset << " Failed to copy header\n";
@@ -1329,7 +1330,6 @@ namespace Commands {
                 return Err::SILENT;
             }
         } else if (Utils::endsWith(o_str, ".bam")) {
-            h_out = hts_open(outf, "wb");
             res = hts_set_threads(h_out, p->opts.threads);
             res = sam_hdr_write(h_out, hdr);
             if (res < 0) {
@@ -1339,7 +1339,6 @@ namespace Commands {
             }
             idx_path = o_str + ".bai";
         } else {
-            h_out = hts_open(outf, "wc");
             fc = h_out->fp.cram;
             cram_set_option(fc, CRAM_OPT_REFERENCE, p->reference.c_str());
             cram_set_option(fc, CRAM_OPT_NTHREADS, p->opts.threads);
@@ -1405,14 +1404,18 @@ namespace Commands {
             }
             return false;
         };
-        // sort using priority queue
-        std::priority_queue<qItem, std::vector<qItem>, decltype(compare)> pq(compare);
+        // sort using a min-heap on (tid, pos); a plain vector heap so items can be moved out
+        std::vector<qItem> pq;
+        auto pushItem = [&pq, &compare](qItem &&item) {
+            pq.push_back(std::move(item));
+            std::push_heap(pq.begin(), pq.end(), compare);
+        };
         for (size_t i=0; i < region_iters.size(); ++i) {
             bam1_t* a = bam_init1();
             if (sam_itr_next(file_ptrs[i], region_iters[i], a) >= 0) {
                 Segs::Align alignment = Segs::Align(a);
                 Segs::align_init(&alignment, 0, p->opts.soft_clip_threshold > 0);  // no need to parse mods/tags here
-                pq.push({std::move(alignment), file_ptrs[i], region_iters[i], i});
+                pushItem({std::move(alignment), file_ptrs[i], region_iters[i], i});
             } else {
                 bam_destroy1(a);
             }
@@ -1427,19 +1430,31 @@ namespace Commands {
                 break;
             }
         }
+        // Align copies duplicate the bam1_t and Align never frees it, so items are only ever moved
+        // and each record is destroyed explicitly once written.
+        auto popTop = [&pq, &compare]() -> qItem {
+            std::pop_heap(pq.begin(), pq.end(), compare);
+            qItem item = std::move(pq.back());
+            pq.pop_back();
+            return item;
+        };
+        // Read the next record of item's iterator into a fresh Align; re-queue it or free it.
+        auto advance = [&pushItem](qItem &item, bam1_t *record) {
+            if (sam_itr_next(item.file_ptr, item.bam_iter, record) >= 0) {
+                item.align = Segs::Align(record);
+                Segs::align_init(&item.align, 0, 1);
+                pushItem(std::move(item));
+            } else {
+                bam_destroy1(record);
+            }
+        };
+        bool failed = false;
         if (filter_reads && family_filters) {
             std::vector<Segs::Align> buffered_alignments;
             while (!pq.empty()) {
-                qItem item = pq.top();
-                buffered_alignments.push_back(item.align);
-                if (sam_itr_next(item.file_ptr, item.bam_iter, item.align.delegate) >= 0) {
-                    Segs::align_init(&item.align, 0, 1);
-                    pq.push(item);
-                } else {
-                    bam_destroy1(item.align.delegate);
-                    item.align.delegate = nullptr;
-                }
-                pq.pop();
+                qItem item = popTop();
+                buffered_alignments.push_back(std::move(item.align));
+                advance(item, bam_init1());
                 count += 1;
             }
 
@@ -1474,41 +1489,38 @@ namespace Commands {
                 res = sam_write1(h_out, hdr, align.delegate);
                 if (res < 0) {
                     out << termcolor::red << "Error:" << termcolor::reset << " Write alignment failed" << std::endl;
+                    failed = true;
                     break;
                 }
             }
+            for (auto& align : buffered_alignments) {
+                bam_destroy1(align.delegate);
+                align.delegate = nullptr;
+            }
         } else {
             while (!pq.empty()) {
-                qItem item = pq.top();  // take copy
+                qItem item = popTop();
+                bool good = true;
                 if (filter_reads) {
-                    bool good = true;
                     for (auto &f: p->filters) {
                         if (!f.eval(item.align, hdr, -1, -1)) {
                             good = false;
                             break;
                         }
                     }
-                    if (good) {
-                        res = sam_write1(h_out, hdr, item.align.delegate);
-                        if (res < 0) {
-                            out << termcolor::red << "Error:" << termcolor::reset << " Write alignment failed" << std::endl;
-                            break;
-                        }
-                    }
-                } else {
+                }
+                if (good) {
                     res = sam_write1(h_out, hdr, item.align.delegate);
                     if (res < 0) {
                         out << termcolor::red << "Error:" << termcolor::reset << " Write alignment failed" << std::endl;
+                        bam_destroy1(item.align.delegate);
+                        failed = true;
                         break;
                     }
                 }
-                if (sam_itr_next(item.file_ptr, item.bam_iter, item.align.delegate) >= 0) {
-                    Segs::align_init(&item.align, 0, 1);
-                    pq.push(item);
-                } else {
-                    bam_destroy1(item.align.delegate);
-                }
-                pq.pop();
+                bam1_t *record = item.align.delegate;
+                item.align.delegate = nullptr;
+                advance(item, record);
                 count += 1;
             }
         }
@@ -1516,11 +1528,11 @@ namespace Commands {
         for (size_t i=0; i < region_iters.size(); ++i) {
             bam_itr_destroy(region_iters[i]);
         }
-        if (!pq.empty()) {
-            while (!pq.empty()) {
-                bam_destroy1(pq.top().align.delegate);
-                pq.pop();
-            }
+        for (auto &item : pq) {
+            bam_destroy1(item.align.delegate);
+        }
+        pq.clear();
+        if (failed) {
             hts_close(h_out);
             return Err::UNKNOWN;
         }
@@ -1611,14 +1623,22 @@ namespace Commands {
                         return Err::INVALID_PATH;
                     }
                 }
-                if (ext != ".bed") {
-                    out << termcolor::red << "Error:" << termcolor::reset << " Only .bed extension supported for ideograms\n";
+                // UCSC/IGV cytoband files: .bed, .txt, optionally gzipped
+                std::string stem = (ext == ".gz") ? std::filesystem::path(filename).stem().extension().string() : ext;
+                if (stem != ".bed" && stem != ".txt") {
+                    out << termcolor::red << "Error:" << termcolor::reset << " Ideograms must be .bed or .txt (optionally .gz)\n";
                     return Err::SILENT;
-                } else {
-                    p->addIdeogram(filename);
-                    refreshGw(p);
-                    return Err::NONE;
                 }
+                try {
+                    p->addIdeogram(filename);
+                } catch (...) {
+                    p->ideogram.clear();
+                    p->ideogram_path.clear();
+                    out << termcolor::red << "Error:" << termcolor::reset << " could not read ideogram " << filename << "\n";
+                    return Err::SILENT;
+                }
+                refreshGw(p);
+                return Err::NONE;
             } else if (parts[1] == "track") {
                 if (!maybe_online && !std::filesystem::exists(filename)) {
                     return Err::INVALID_PATH;
@@ -1627,7 +1647,10 @@ namespace Commands {
                     out << termcolor::red << "Error:" << termcolor::reset << " Bam/cram can not be loaded as a track\n";
                     return Err::SILENT;
                 } else {
-                    p->addTrack(filename, true, true, true);
+                    if (!p->addTrack(filename, true, true, true)) {
+                        out << termcolor::red << "Error:" << termcolor::reset << " could not open " << parts.back() << "\n";
+                        return Err::SILENT;
+                    }
                     refreshGw(p);
                     return Err::NONE;
                 }
@@ -1637,7 +1660,10 @@ namespace Commands {
                     return Err::INVALID_PATH;
                 }
                 if (ext == ".vcf" || ext == ".gz" || ext == ".bcf" || ext == ".bed") {
-                    p->addTrack(filename, true, false, false);
+                    if (!p->addTrack(filename, true, false, false)) {
+                        out << termcolor::red << "Error:" << termcolor::reset << " could not open " << parts.back() << " as tiles\n";
+                        return Err::SILENT;
+                    }
                     refreshGw(p);
                     return Err::NONE;
                 } else {
@@ -1648,7 +1674,10 @@ namespace Commands {
                 if (!maybe_online && !std::filesystem::exists(filename)) {
                     return Err::INVALID_PATH;
                 }
-                p->addTrack(filename, true, p->opts.vcf_as_tracks, p->opts.bed_as_tracks);
+                if (!p->addTrack(filename, true, p->opts.vcf_as_tracks, p->opts.bed_as_tracks)) {
+                    out << termcolor::red << "Error:" << termcolor::reset << " could not open " << parts.back() << "\n";
+                    return Err::SILENT;
+                }
                 refreshGw(p);
                 return Err::NONE;
             } else if (parts[1] == "genome") {
@@ -1728,8 +1757,9 @@ namespace Commands {
             Utils::endsWith(filename, ".fa.gz")    || Utils::endsWith(filename, ".fasta.gz") ||
             Utils::endsWith(filename, ".fa.bgz")   || Utils::endsWith(filename, ".fasta.bgz")) {
             p->loadGenome(filename, out);
-        } else {
-            p->addTrack(filename, true, p->opts.vcf_as_tracks, p->opts.bed_as_tracks);
+        } else if (!p->addTrack(filename, true, p->opts.vcf_as_tracks, p->opts.bed_as_tracks)) {
+            out << termcolor::red << "Error:" << termcolor::reset << " could not open " << parts.back() << "\n";
+            return Err::SILENT;
         }
         refreshGw(p);
         return Err::NONE;
@@ -1755,7 +1785,7 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err infer_region_or_feature(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
+    Err infer_region_or_feature(Plot* p, std::string& command, const std::vector<std::string>& parts, std::ostream& out) {
         Utils::Region rgn;
         Err reason = Err::NONE;
         try {
@@ -1984,6 +2014,7 @@ namespace Commands {
         if (!added) {
             p->tracks.emplace_back() = HGW::GwTrack();
             p->tracks.back().kind = HGW::FType::ROI;
+            p->tracks.back().name = "ROI";  // no file name to fall back on; keeps the data label clickable
             p->tracks.back().add_to_dict = true;
             p->tracks.back().allBlocks[b.chrom].add(b.start, b.end, b);
             p->tracks.back().allBlocks[b.chrom].index();
@@ -1993,9 +2024,169 @@ namespace Commands {
         return Err::NONE;
     }
 
-    // :introns           → toggle intron track for bam 0
+    // remove-roi <chrom:start-end>  → remove a region of interest added with the roi command
+    Err remove_roi(Plot* p, std::vector<std::string> parts, std::ostream& out) {
+        if (parts.size() != 2) {
+            out << "Usage: remove-roi <chrom:start-end>\n";
+            return Err::OPTION_NOT_UNDERSTOOD;
+        }
+        Utils::Region r;
+        try {
+            r = Utils::parseRegion(parts[1]);
+        } catch (...) {
+            out << "remove-roi: could not parse '" << parts[1] << "' as a region\n";
+            return Err::OPTION_NOT_SUPPORTED;
+        }
+        bool removed = false;
+        for (auto& t : p->tracks) {
+            if (t.kind != HGW::FType::ROI || t.allBlocks.find(r.chrom) == t.allBlocks.end()) {
+                continue;
+            }
+            auto& si = t.allBlocks[r.chrom];
+            std::vector<Utils::TrackBlock> keep;
+            for (size_t i = 0; i < si.data.size(); ++i) {
+                if (si.starts[i] == r.start && si.ends[i] == r.end) {
+                    removed = true;
+                } else {
+                    keep.push_back(si.data[i]);
+                }
+            }
+            si.clear();
+            for (auto& b : keep) {
+                si.add(b.start, b.end, b);
+            }
+            si.index();
+        }
+        if (!removed) {
+            out << "remove-roi: no region of interest at " << parts[1] << "\n";
+            return Err::SILENT;
+        }
+        p->redraw = true;
+        p->processed = false;
+        p->imageCache.clear();
+        p->imageCacheQueue.clear();
+        for (auto& cl : p->collections) {
+            cl.resetDrawState();
+        }
+        return Err::NONE;
+    }
+
+    Err clear_roi(Plot* p) {
+        p->tracks.erase(std::remove_if(p->tracks.begin(), p->tracks.end(),
+                                       [](const HGW::GwTrack& t) { return t.kind == HGW::FType::ROI; }),
+                        p->tracks.end());
+        p->tracksLayoutDirty = true;
+        refreshGw(p);
+        return Err::NONE;
+    }
+
+    // remove-filter <expression>  → drop one active filter, leaving the others and the view in place
+    Err remove_filter(Plot* p, std::string& command, std::ostream& out) {
+        std::string str = command;
+        str.erase(0, 14);
+        Utils::trim(str);
+        size_t before = p->filters.size();
+        p->filters.erase(std::remove_if(p->filters.begin(), p->filters.end(),
+                                        [&](const Parse::Parser& f) { return f.filter_str == str; }),
+                         p->filters.end());
+        if (p->filters.size() == before) {
+            out << "remove-filter: no active filter '" << str << "'\n";
+            return Err::SILENT;
+        }
+        p->redraw = true;
+        if (p->frameId >= 0) {
+            p->imageCache.clear();
+            p->imageCacheQueue.clear();
+            p->processed = false;
+            for (auto& cl : p->collections) {
+                cl.resetDrawState();
+            }
+        }
+        return Err::NONE;
+    }
+
+    // move-track <from> <to>  → reorder the tabix tracks
+    Err move_track(Plot* p, const std::vector<std::string>& parts, std::ostream& out) {
+        int from, to;
+        try {
+            from = std::stoi(parts.at(1));
+            to = std::stoi(parts.at(2));
+        } catch (...) {
+            out << "Usage: move-track <from-index> <to-index>\n";
+            return Err::OPTION_NOT_UNDERSTOOD;
+        }
+        int n = (int)p->tracks.size();
+        if (from < 0 || from >= n || to < 0 || to >= n) {
+            out << termcolor::red << "Error:" << termcolor::reset << " track index out of range (0.." << n - 1 << ")\n";
+            return Err::SILENT;
+        }
+        if (from == to) {
+            return Err::NONE;
+        }
+        HGW::GwTrack moving = p->tracks[from];
+        p->tracks.erase(p->tracks.begin() + from);
+        p->tracks.insert(p->tracks.begin() + to, moving);
+        p->tracksLayoutDirty = true;
+        p->redraw = true;
+        p->processed = false;
+        p->imageCache.clear();
+        p->imageCacheQueue.clear();
+        for (auto& cl : p->collections) {
+            cl.resetDrawState();
+        }
+        return Err::NONE;
+    }
+
+    // move-bam <from> <to>  → reorder the alignment files
+    Err move_bam(Plot* p, const std::vector<std::string>& parts, std::ostream& out) {
+        if (p->bam_paths.empty()) {
+            out << termcolor::red << "Error:" << termcolor::reset << " no BAM loaded\n";
+            return Err::NONE;
+        }
+        int from, to;
+        try {
+            from = std::stoi(parts.at(1));
+            to = std::stoi(parts.at(2));
+        } catch (...) {
+            out << "Usage: move-bam <from-index> <to-index>\n";
+            return Err::OPTION_NOT_UNDERSTOOD;
+        }
+        int n = (int)p->bam_paths.size();
+        if (from < 0 || from >= n || to < 0 || to >= n) {
+            out << termcolor::red << "Error:" << termcolor::reset << " bam index out of range (0.." << n - 1 << ")\n";
+            return Err::SILENT;
+        }
+        if (from == to) {
+            return Err::NONE;
+        }
+        auto moveAt = [from, to](auto& v) {
+            auto moving = std::move(*(v.begin() + from));
+            v.erase(v.begin() + from);
+            v.insert(v.begin() + to, std::move(moving));
+        };
+        moveAt(p->bams);
+        moveAt(p->headers);
+        moveAt(p->indexes);
+        moveAt(p->bam_paths);
+        // Intron tracks point at a bam by index; shift the pointer along with its bam
+        for (auto& trk : p->tracks) {
+            if (trk.kind != HGW::FType::INTRON || trk.bamIndex < 0) continue;
+            int& k = trk.bamIndex;
+            if (k == from) k = to;
+            else if (from < k && k <= to) --k;
+            else if (to <= k && k < from) ++k;
+        }
+        p->redraw = true;
+        p->processed = false;
+        p->imageCache.clear();
+        p->imageCacheQueue.clear();
+        for (auto& cl : p->collections) {
+            cl.resetDrawState();
+        }
+        return Err::NONE;
+    }
     // :introns <bamIdx>  → toggle intron track for the given bam
-    Err add_introns(Plot* p, std::string& /*command*/, std::vector<std::string> parts, std::ostream& out) {
+    Err add_introns(Plot* p, std::string& /*command*/, const std::vector<std::string>& parts, std::ostream& out) {
         if (p->bam_paths.empty()) {
             out << termcolor::red << "Error:" << termcolor::reset << " no BAM loaded\n";
             return Err::NONE;
@@ -2058,6 +2249,164 @@ namespace Commands {
         return std::string();
     }
 
+    static void redrawLabels(Plot* p) {
+        p->redraw = true;
+        p->processed = false;
+        p->imageCache.clear();
+        p->imageCacheQueue.clear();
+        for (auto &cl : p->collections) {
+            cl.resetDrawState();
+        }
+    }
+
+    // 'name' lists the data labels; 'name bam1 Father (NA12891)' or 'name track0 Genes'
+    // sets one. The name is the rest of the line, spaces included; no name restores the
+    // file name. Alignment names belong to the file, so they survive adding panes.
+    Err name_data(Plot* p, std::string& command, std::vector<std::string>& parts, std::ostream& out) {
+        if (parts.size() == 1) {
+            for (int i = 0; i < (int) p->bam_paths.size(); ++i) {
+                out << "bam" << i << "    " << p->bamLabel(i) << "\n";
+            }
+            for (int i = 0; i < (int) p->tracks.size(); ++i) {
+                out << "track" << i << "  " << trackLabel(p->tracks[i]) << "\n";
+            }
+            if (p->bam_paths.empty() && p->tracks.empty()) {
+                out << "No alignments or tracks are open\n";
+            }
+            return Err::NONE;
+        }
+        const std::string& target = parts[1];
+        const bool isBam = Utils::startsWith(target, "bam");
+        const bool isTrack = Utils::startsWith(target, "track");
+        int index = -1;
+        try {
+            size_t used = 0;
+            std::string number = target.substr(isBam ? 3 : (isTrack ? 5 : target.size()));
+            index = std::stoi(number, &used);
+            if (used != number.size()) index = -1;
+        } catch (...) {}
+        const int count = isBam ? (int) p->bam_paths.size() : (int) p->tracks.size();
+        if ((!isBam && !isTrack) || index < 0 || index >= count) {
+            out << termcolor::red << "Error:" << termcolor::reset
+                << " expected 'name bam<index> <name>' or 'name track<index> <name>' (0-based; 'name' lists them)\n";
+            return Err::SILENT;
+        }
+        // Everything after the target, as typed
+        size_t pos = command.find(target, command.find(parts[0]) + parts[0].size()) + target.size();
+        std::string label = pos < command.size() ? command.substr(pos) : "";
+        const auto first = label.find_first_not_of(" \t");
+        label = first == std::string::npos ? "" : label.substr(first, label.find_last_not_of(" \t") - first + 1);
+        if (label.size() > 200) {
+            out << termcolor::red << "Error:" << termcolor::reset << " names are limited to 200 characters\n";
+            return Err::SILENT;
+        }
+        if (isBam) {
+            if (label.empty()) p->bam_labels.erase(p->bam_paths[index]);
+            else p->bam_labels[p->bam_paths[index]] = label;
+        } else {
+            p->tracks[index].name = label;  // empty falls back to the file name
+        }
+        if (!label.empty()) p->opts.data_labels = true;  // a name is only useful if it is shown
+        redrawLabels(p);
+        return Err::NONE;
+    }
+
+    // 'font-size 20' enlarges labels, the ruler and feature names, e.g. for a projector
+    Err font_size(Plot* p, std::vector<std::string>& parts, std::ostream& out) {
+        if (parts.size() == 1) {
+            out << "Font size is " << p->opts.font_size << "\n";
+            return Err::NONE;
+        }
+        int size = 0;
+        try {
+            size_t used = 0;
+            size = std::stoi(parts[1], &used);
+            if (used != parts[1].size()) size = 0;
+        } catch (...) {}
+        if (parts.size() != 2 || size < 6 || size > 48) {
+            out << termcolor::red << "Error:" << termcolor::reset << " usage 'font-size <6-48>'\n";
+            return Err::SILENT;
+        }
+        p->opts.font_size = size;
+        p->fonts.setTypeface(p->opts.font_str, p->opts.font_size);
+        p->fonts.setOverlayHeight(p->monitorScale);
+        p->setScaling();
+        p->tracksLayoutDirty = true;
+        redrawLabels(p);
+        return Err::NONE;
+    }
+
+    // 'tiles' switches between the tiled variant view and the normal view;
+    // 'tiles on' / 'tiles off' choose one. Tiles come from 'load tiled FILE'.
+    Err tiles(Plot* p, std::vector<std::string>& parts, std::ostream& out) {
+        if (parts.size() > 2 || (parts.size() == 2 && parts[1] != "on" && parts[1] != "off")) {
+            out << termcolor::red << "Error:" << termcolor::reset << " usage 'tiles', 'tiles on' or 'tiles off'\n";
+            return Err::SILENT;
+        }
+        if (p->variantTracks.empty()) {
+            out << termcolor::red << "Error:" << termcolor::reset << " no tiled file is open (use 'load tiled FILE')\n";
+            return Err::SILENT;
+        }
+        const bool tiled = p->mode == Manager::Show::TILED;
+        if (parts.size() == 2 && (parts[1] == "on") == tiled) return Err::NONE;
+        if (!p->toggleCurrentVariantTiledView()) {
+            out << termcolor::red << "Error:" << termcolor::reset << " the tiled file has no variants to show\n";
+            return Err::SILENT;
+        }
+        return Err::NONE;
+    }
+
+    // 'ideogram' lists ideograms; 'ideogram hg38' (an assembly), 'ideogram FILE|URL' (cytoband
+    // .bed/.txt), 'ideogram auto' (match the reference's chromosome lengths) or 'ideogram off'
+    Err ideogram_command(Plot* p, std::vector<std::string>& parts, std::ostream& out) {
+        if (parts.size() == 1) {
+            out << "Current ideogram: " << (p->ideogram.empty() ? "none" : (p->ideogram_path.empty() ? "embedded" : p->ideogram_path)) << "\n";
+            out << "Built in:";
+            for (const auto& s : Ideo::embeddedIdeograms()) out << " " << s.assembly;
+#ifndef __EMSCRIPTEN__
+            out << "\nOnline:  ";
+            for (const auto& s : Ideo::onlineIdeograms()) out << " " << s.assembly;
+#endif
+            out << "\nUsage: ideogram <assembly|file|auto|off>\n";
+            return Err::NONE;
+        }
+        if (parts.size() != 2) {
+            out << termcolor::red << "Error:" << termcolor::reset << " usage 'ideogram <assembly|file|auto|off>'\n";
+            return Err::SILENT;
+        }
+        const std::string arg = parts[1];
+        const std::string source = Ideo::ideogramForAssembly(arg);
+        if (arg == "off") {
+            p->ideogram.clear();
+            p->ideogram_path.clear();
+        } else if (arg == "auto") {
+            const std::string assembly = p->matchIdeogramToReference();
+            if (assembly.empty()) {
+                out << termcolor::red << "Error:" << termcolor::reset << " no built-in ideogram matches the reference's chromosome lengths\n";
+                return Err::SILENT;
+            }
+            p->loadIdeogramForAssembly(assembly);
+        } else if (!source.empty()) {
+#ifdef __EMSCRIPTEN__
+            if (Utils::startsWith(source, "http")) {
+                out << termcolor::red << "Error:" << termcolor::reset << " the browser version has only the built-in ideograms (use 'ideogram' to list them)\n";
+                return Err::SILENT;
+            }
+#endif
+            p->loadIdeogramForAssembly(arg);
+            if (p->ideogram.empty()) {
+                out << termcolor::red << "Error:" << termcolor::reset << " could not load the " << arg << " ideogram\n";
+                return Err::SILENT;
+            }
+        } else {
+            std::vector<std::string> loadParts = {"load", "ideogram", arg};
+            return load_file(p, loadParts, out);
+        }
+        p->redraw = true;
+        p->processed = false;
+        return Err::NONE;
+    }
+
     static void trackHeightUsage(std::ostream& out) {
         out << "Usage:\n"
             << "    track-height                     list current heights\n"
@@ -2066,7 +2415,7 @@ namespace Commands {
             << "    track-height <name> <frac>       size a tabix track by name\n";
     }
 
-    Err set_track_height(Plot* p, std::string& /*command*/, std::vector<std::string> parts, std::ostream& out) {
+    Err set_track_height(Plot* p, std::string& /*command*/, const std::vector<std::string>& parts, std::ostream& out) {
         const double drawingArea = (double)p->fb_height - p->refSpace - p->sliderSpace;
 
         if (parts.size() < 2) {
@@ -2213,7 +2562,7 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err sort_command(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
+    Err sort_command(Plot* p, std::string& command, const std::vector<std::string>& parts, std::ostream& out) {
         if (parts.size() == 1 || (parts.size() == 2 && parts[1] == "none")) {
             refreshView(p);
             return Err::NONE;
@@ -2270,13 +2619,21 @@ namespace Commands {
         return Err::NONE;
     }
 
-    Err header_command(Plot* p, std::string& command, std::vector<std::string> parts, std::ostream& out) {
+    Err header_command(Plot* p, std::string& command, const std::vector<std::string>& parts, std::ostream& out) {
         p->redraw = true;
-        if (p->headers.empty() || p->regionSelection >= (int)p->headers.size()) {
+        if (p->headers.empty()) {
             return Err::SILENT;
         }
-        sam_hdr_t *hdr = p->headers[p->regionSelection];
+        // headers is indexed by BAM; prefer the file of the selected read
+        int bamIdx = p->selectedAlignBamIdx;
+        if (bamIdx < 0 || bamIdx >= (int)p->headers.size()) {
+            bamIdx = 0;
+        }
+        sam_hdr_t *hdr = p->headers[bamIdx];
         const char* header_text = sam_hdr_str(hdr);
+        if (header_text == nullptr) {
+            return Err::SILENT;
+        }
         std::string header_string(header_text);
         if (parts.size() == 1) {
             out << header_string << std::endl;
@@ -2404,7 +2761,7 @@ namespace Commands {
                 {"insertions",  PARAMS { return insertions(p); }},
                 {"mm",       PARAMS { return mismatches(p); }},
                 {"mismatches",  PARAMS { return mismatches(p); }},
-                {"mods",     PARAMS { return mods(p); }},
+                {"mods",     PARAMS { return mods(p, parts, out); }},
                 {"edges",    PARAMS { return edges(p); }},
                 {"soft-clips",  PARAMS { return soft_clips(p); }},
                 {"log2-cov",  PARAMS { return log2_cov(p); }},
@@ -2426,6 +2783,11 @@ namespace Commands {
                 {"colour",   PARAMS { return update_colour(p, command, parts, out); }},
                 {"color",    PARAMS { return update_colour(p, command, parts, out); }},
                 {"roi",      PARAMS { return add_roi(p, command, parts, out); }},
+                {"remove-roi", PARAMS { return remove_roi(p, parts, out); }},
+                {"clear-roi", PARAMS { return clear_roi(p); }},
+                {"remove-filter", PARAMS { return remove_filter(p, command, out); }},
+                {"move-bam", PARAMS { return move_bam(p, parts, out); }},
+                {"move-track", PARAMS { return move_track(p, parts, out); }},
                 {"introns",  PARAMS { return add_introns(p, command, parts, out); }},
                 {"track-height", PARAMS { return set_track_height(p, command, parts, out); }},
                 {"sort",     PARAMS { return sort_command(p, command, parts, out); }},
@@ -2458,6 +2820,10 @@ namespace Commands {
                 {"online",   PARAMS { return online(p, parts, out); }},
                 {"load",     PARAMS { return load_file(p, parts, out); }},
                 {"grid",     PARAMS { return grid(p, parts); }},
+                {"name",     PARAMS { return name_data(p, command, parts, out); }},
+                {"font-size", PARAMS { return font_size(p, parts, out); }},
+                {"tiles",    PARAMS { return tiles(p, parts, out); }},
+                {"ideogram", PARAMS { return ideogram_command(p, parts, out); }},
 
         };
 

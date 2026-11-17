@@ -30,6 +30,15 @@ CPPFLAGS += $(EM_SHARED_FLAGS) -I$(WASM_HTS_PATH)
 # Match the sk_sp ABI used by the CanvasKit-built libskia.a (is_trivial_abi=true).
 CXXFLAGS += -D__STDC_FORMAT_MACROS -O2 "-DSK_TRIVIAL_ABI=[[clang::trivial_abi]]"
 
+# The shared native flags carry -g, which adds tens of MB of DWARF debug
+# sections to gw.wasm. Strip debug info by default; build with WASM_DEBUG=1
+# for a debuggable WASM build.
+ifneq ($(WASM_DEBUG),1)
+CXXFLAGS := $(filter-out -g,$(CXXFLAGS))
+CFLAGS   := $(filter-out -g,$(CFLAGS))
+LDFLAGS  += -Wl,--strip-debug
+endif
+
 LDFLAGS  += -L$(WASM_SKIA_PATH) -L$(WASM_HTS_PATH) -L$(WASM_LZMA_PATH) \
             $(EM_SHARED_FLAGS) \
             -sUSE_WEBGL2=1 -sFULL_ES2=1 \

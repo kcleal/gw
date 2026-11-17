@@ -71,6 +71,11 @@ struct RowData {
 
     bool isSection = false;
     std::string sectionKey;
+
+    // Sequence rows of the read popup, wrapped to the value column
+    std::vector<std::string> wrapped;
+    int wrapChars = 0;
+    bool scrollToHighlight = false;
 };
 
 static void execReadPopupCommand(Manager::GwPlot* plot,
@@ -85,6 +90,7 @@ static void execReadPopupCommand(Manager::GwPlot* plot,
         int previousRegionSelection = plot->regionSelection;
         if (!rp.sam.empty()) {
             plot->selectedAlign = rp.sam;
+            plot->selectedAlignBamIdx = rp.bamIdx;
         }
         if (!rp.qname.empty()) {
             plot->target_qname = rp.qname;
@@ -112,11 +118,42 @@ static void execReadPopupCommand(Manager::GwPlot* plot,
         dl->AddLine(ImVec2(hx1, hy1), ImVec2(hx2, hy2), col, thickness + 0.5f);
     }
 
+// Theme of the plot whose popups are being drawn; set by each popup before it draws
+static const Themes::BaseTheme* popupTheme = nullptr;
+
+// A theme paint as text on the popup background. Fill colours can sit close to the
+// background, so a colour without enough contrast is pulled towards the normal text colour.
+static ImVec4 themeTextColor(const SkPaint& paint, const ImVec4& defaultColor) {
+    const SkColor c = paint.getColor();
+    ImVec4 col(SkColorGetR(c) / 255.f, SkColorGetG(c) / 255.f, SkColorGetB(c) / 255.f, 1.0f);
+    auto luminance = [](const ImVec4& v) { return 0.2126f * v.x + 0.7152f * v.y + 0.0722f * v.z; };
+    const ImVec4 bg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+    if (std::fabs(luminance(col) - luminance(bg)) < 0.25f) {
+        col = ImVec4((col.x + defaultColor.x) * 0.5f, (col.y + defaultColor.y) * 0.5f,
+                     (col.z + defaultColor.z) * 0.5f, 1.0f);
+    }
+    return col;
+}
+
+// Terminal colours are shown in the theme's own colours: bases as drawn in the plot,
+// and CIGAR operations in the colours of the features they describe.
 static ImVec4 ansiCodeToColor(const std::string& code, const ImVec4& defaultColor) {
     if (code == "0" || code == "00") return defaultColor;  // reset
     if (code == "1") return defaultColor;  // bold — keep current
     if (code == "3") return defaultColor;  // italic — ignore
     if (code == "4") return defaultColor;  // underline — ignore
+    if (popupTheme) {
+        const Themes::BaseTheme& t = *popupTheme;
+        if (code == "31" || code == "91") return themeTextColor(t.fcT, defaultColor);         // T, deletions
+        if (code == "32" || code == "92") return themeTextColor(t.fcA, defaultColor);         // A
+        if (code == "33" || code == "93") return themeTextColor(t.fcG, defaultColor);         // G
+        if (code == "34") return themeTextColor(t.fcC, defaultColor);                         // C, clips
+        if (code == "94" || code == "36" || code == "96") return themeTextColor(t.fcSoftClip, defaultColor);  // soft clips
+        if (code == "35" || code == "95") return themeTextColor(t.fcIns, defaultColor);       // insertions, skips
+        if (code == "30" || code == "90") return themeTextColor(t.fcN, defaultColor);         // N
+        if (code == "37" || code == "97") return defaultColor;
+        return defaultColor;
+    }
     // Standard foreground colors
     if (code == "30") return ImVec4(0.40f, 0.40f, 0.40f, 1);  // grey/black
     if (code == "31") return ImVec4(0.90f, 0.20f, 0.20f, 1);  // red
@@ -126,15 +163,6 @@ static ImVec4 ansiCodeToColor(const std::string& code, const ImVec4& defaultColo
     if (code == "35") return ImVec4(0.70f, 0.40f, 1.00f, 1);  // magenta
     if (code == "36") return ImVec4(0.20f, 0.80f, 0.80f, 1);  // cyan
     if (code == "37") return ImVec4(0.90f, 0.90f, 0.90f, 1);  // white
-    // Bright foreground colors
-    if (code == "90") return ImVec4(0.50f, 0.50f, 0.50f, 1);  // bright grey
-    if (code == "91") return ImVec4(1.00f, 0.35f, 0.35f, 1);  // bright red
-    if (code == "92") return ImVec4(0.35f, 0.90f, 0.35f, 1);  // bright green
-    if (code == "93") return ImVec4(1.00f, 0.90f, 0.30f, 1);  // bright yellow
-    if (code == "94") return ImVec4(0.50f, 0.70f, 1.00f, 1);  // bright blue
-    if (code == "95") return ImVec4(0.90f, 0.50f, 1.00f, 1);  // bright magenta
-    if (code == "96") return ImVec4(0.40f, 0.95f, 0.95f, 1);  // bright cyan
-    if (code == "97") return ImVec4(1.00f, 1.00f, 1.00f, 1);  // bright white
     return defaultColor;
 }
 
@@ -146,6 +174,8 @@ static void drawAnsiTextAtPos(ImDrawList* dl, ImVec2 origin,
                                 ImVec2 clipMin, ImVec2 clipMax) {
     ImVec4 defaultColor = ImGui::GetStyleColorVec4(ImGuiCol_Text);
     ImVec4 currentColor = defaultColor;
+    bool   reversed     = false;  // reverse video: the clicked base, drawn on a filled background
+    bool   dimmed       = false;  // faint: low base quality
     ImFont* font        = ImGui::GetFont();
     float   fontSize    = ImGui::GetFontSize();
     float   x           = origin.x;
@@ -161,7 +191,14 @@ static void drawAnsiTextAtPos(ImDrawList* dl, ImVec2 origin,
                 std::string code = ansiText.substr(i + 2, j - (i + 2));
                 size_t semi = code.rfind(';');
                 if (semi != std::string::npos) code = code.substr(semi + 1);
-                currentColor = ansiCodeToColor(code, defaultColor);
+                if (code == "7") {
+                    reversed = true;
+                } else if (code == "2") {
+                    dimmed = true;
+                } else {
+                    if (code == "0" || code == "00") reversed = dimmed = false;
+                    currentColor = ansiCodeToColor(code, defaultColor);
+                }
                 i = j + 1;
             } else {
                 ++i;
@@ -175,12 +212,53 @@ static void drawAnsiTextAtPos(ImDrawList* dl, ImVec2 origin,
             if (i > start) {
                 const char* tb = ansiText.c_str() + start;
                 const char* te = ansiText.c_str() + i;
-                ImU32 col = ImGui::ColorConvertFloat4ToU32(currentColor);
-                dl->AddText(font, fontSize, ImVec2(x, origin.y), col, tb, te, 0.0f, &clip);
-                x += font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, tb, te).x;
+                const float width = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, tb, te).x;
+                if (x > clipMax.x) return;  // the rest is out of view
+                if (x + width >= clipMin.x) {
+                    ImVec4 shade = currentColor;
+                    if (dimmed && !reversed) shade.w *= 0.45f;
+                    ImU32 col = ImGui::ColorConvertFloat4ToU32(shade);
+                    if (reversed) {
+                        const ImVec2 a(std::max(x, clipMin.x), std::max(origin.y, clipMin.y));
+                        const ImVec2 b(std::min(x + width, clipMax.x), std::min(origin.y + fontSize, clipMax.y));
+                        if (a.x < b.x && a.y < b.y) dl->AddRectFilled(a, b, col, 2.0f);
+                        col = ImGui::GetColorU32(ImGuiCol_WindowBg, 1.0f);
+                    }
+                    dl->AddText(font, fontSize, ImVec2(x, origin.y), col, tb, te, 0.0f, &clip);
+                }
+                x += width;
             }
         }
     }
+}
+
+// Splits ANSI text into lines of perLine visible characters. The style in force at a break is
+// carried onto the next line.
+static std::vector<std::string> wrapAnsiText(const std::string& ansi, int perLine) {
+    std::vector<std::string> lines;
+    std::string current, active;  // active: codes since the last reset
+    int visible = 0;
+    for (size_t i = 0; i < ansi.size();) {
+        if (ansi[i] == '\033' && i + 1 < ansi.size() && ansi[i + 1] == '[') {
+            size_t j = ansi.find('m', i);
+            if (j == std::string::npos) break;
+            const std::string code = ansi.substr(i, j - i + 1);
+            if (code == "\033[0m" || code == "\033[00m") active.clear();
+            else active += code;
+            current += code;
+            i = j + 1;
+            continue;
+        }
+        if (visible == perLine) {
+            lines.push_back(std::move(current));
+            current = active;
+            visible = 0;
+        }
+        current += ansi[i++];
+        ++visible;
+    }
+    if (visible > 0) lines.push_back(std::move(current));
+    return lines;
 }
 
 static std::vector<RowData> parseAnsiRows(const std::string& ansiText)
@@ -245,6 +323,40 @@ static std::vector<RowData> parseAnsiRows(const std::string& ansiText)
     // The track output format is a single line:
     //   \r[bold]filename[reset]    [cyan]chrom:start-end[reset][bold]    Key  [reset]value ...
     // followed optionally by a second line with tab-separated feature fields.
+    // Explain a SAM flag: each set bit, plus the strand of the read and its mate
+    static void drawSamFlagTooltip(const std::string& value) {
+        int flag = 0;
+        try { flag = std::stoi(value); } catch (...) { return; }
+        static const std::pair<int, const char*> bits[] = {
+            {0x1, "Paired"}, {0x2, "Proper pair"}, {0x4, "Read unmapped"}, {0x8, "Mate unmapped"},
+            {0x10, "Read reverse strand"}, {0x20, "Mate reverse strand"}, {0x40, "First in pair"},
+            {0x80, "Second in pair"}, {0x100, "Secondary"}, {0x200, "Fails QC"},
+            {0x400, "Duplicate"}, {0x800, "Supplementary"},
+        };
+        ImGui::BeginTooltip();
+        if (ImGui::BeginTable("##samflag", 2, ImGuiTableFlags_SizingFixedFit)) {
+            auto row = [](const char* bit, const char* meaning, bool dim) {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextDisabled("%s", bit);
+                ImGui::TableSetColumnIndex(1);
+                if (dim) ImGui::TextDisabled("%s", meaning); else ImGui::TextUnformatted(meaning);
+            };
+            for (const auto& b : bits) {
+                if (!(flag & b.first)) continue;
+                char hex[16];
+                std::snprintf(hex, sizeof(hex), "%d", b.first);
+                row(hex, b.second, false);
+            }
+            // Strands are implied by unset bits, so name them too
+            if (!(flag & 0x4) && !(flag & 0x10)) row("", "Read forward strand", true);
+            if ((flag & 0x1) && !(flag & 0x8) && !(flag & 0x20)) row("", "Mate forward strand", true);
+            if (flag == 0) row("0", "Unpaired, forward strand", false);
+            ImGui::EndTable();
+        }
+        ImGui::EndTooltip();
+    }
+
     static std::vector<RowData> parseTrackRows(const std::string& ansiText) {
         std::vector<RowData> rows;
 
@@ -393,6 +505,7 @@ static std::vector<RowData> parseAnsiRows(const std::string& ansiText)
 // ─────────────────────────────────────────────────────────────────────────────
 
 void drawImGuiInfoPopup(Manager::GwPlot* plot) {
+    popupTheme = &plot->opts.theme;
         if (plot->readPopups.empty()) return;
 
         // Per-popup row cache keyed on popup UID.
@@ -431,8 +544,24 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
                         + style.FramePadding.x * 2 + 4;
                 if (w > labelColW) labelColW = w;
             }
+            // Sequence rows wrap over up to seqMaxLines lines in the monospace font
+            ImFont* seqFont = plot->monoFont ? plot->monoFont : ImGui::GetFont();
+            ImGui::PushFont(seqFont);
+            const float seqCharW = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFontSize(), FLT_MAX, 0.f, "NNNNNNNNNN").x / 10.0f;
+            const float seqLineH = ImGui::GetTextLineHeight() + 2.0f;
+            ImGui::PopFont();
+            const int seqMaxLines = 6;
+            const int seqChars = std::max(10, (int)((valColW - style.ScrollbarSize - style.FramePadding.x * 2) / seqCharW));
+            auto isSeqRow = [](const RowData& r) { return r.label == "seq" || r.label == "ins"; };
+            auto seqRowH = [&](const RowData& r) {
+                const int lines = std::max(1, ((int)r.plainValue.size() + seqChars - 1) / seqChars);
+                return std::min(lines, seqMaxLines) * seqLineH + style.FramePadding.y * 2;
+            };
             float tableH = 0;
-            for (auto& r : rows) tableH += r.hasColor ? rowH_color : rowH_plain;
+            for (auto& r : rows) {
+                tableH += isSeqRow(r) ? seqRowH(r) + style.CellPadding.y * 2
+                                      : r.hasColor ? rowH_color : rowH_plain;
+            }
             float winW = labelColW + valColW
                        + style.ScrollbarSize
                        + style.WindowPadding.x * 2
@@ -533,7 +662,7 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
                     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 0.2f));
                     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.4f, 0.4f, 0.4f, 0.4f));
                     if (ImGui::SmallButton(row.label.c_str())) {
-                        if (row.label == "seq") {
+                        if (row.label == "seq" || row.label == "ins") {
                             std::string seq;
                             seq.reserve(row.plainValue.size());
                             for (unsigned char c : row.plainValue) {
@@ -547,9 +676,9 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
                     }
                     ImGui::PopStyleColor(3);
                     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
-                        ImGui::SetTooltip(row.label == "seq"
-                                          ? "Copy sequence (bases only)"
-                                          : "Copy %s", row.label.c_str());
+                        if (row.label == "seq") ImGui::SetTooltip("Copy the sequence shown around the click (bases only)");
+                        else if (row.label == "ins") ImGui::SetTooltip("Copy the insertion sequence");
+                        else ImGui::SetTooltip("Copy %s", row.label.c_str());
                     }
                     ImGui::PopID();
 
@@ -557,7 +686,47 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
                     ImGui::TableSetColumnIndex(1);
                     char inputId[64];
                     std::snprintf(inputId, sizeof(inputId), "##iv%d_%zu", rp.uid, i);
-                    if (row.hasColor) {
+                    if (isSeqRow(row)) {
+                        if (row.wrapChars != seqChars) {
+                            row.wrapped = wrapAnsiText(row.ansiValue, seqChars);
+                            row.wrapChars = seqChars;
+                            row.scrollToHighlight = true;
+                        }
+                        const int numLines = (int)row.wrapped.size();
+                        char childId[72];
+                        std::snprintf(childId, sizeof(childId), "##seqchild%d_%zu", rp.uid, i);
+                        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(style.FramePadding.x, style.FramePadding.y));
+                        ImGui::BeginChild(childId, ImVec2(valColW, seqRowH(row)), ImGuiChildFlags_AlwaysUseWindowPadding,
+                                          ImGuiWindowFlags_NoNav);
+                        ImGui::PopStyleVar();
+                        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+                        ImGui::PushFont(seqFont);
+                        if (row.scrollToHighlight) {  // start with the clicked base in view
+                            row.scrollToHighlight = false;
+                            for (int li = 0; li < numLines; ++li) {
+                                if (row.wrapped[li].find("\033[7m") != std::string::npos) {
+                                    ImGui::SetScrollY(std::max(0.0f, (li - seqMaxLines / 2 + 1) * seqLineH));
+                                    break;
+                                }
+                            }
+                        }
+                        const ImVec2 childPos = ImGui::GetWindowPos();
+                        const ImVec2 childMax(childPos.x + ImGui::GetWindowWidth(), childPos.y + ImGui::GetWindowHeight());
+                        ImGuiListClipper clipper;
+                        clipper.Begin(numLines, seqLineH);
+                        while (clipper.Step()) {
+                            for (int li = clipper.DisplayStart; li < clipper.DisplayEnd; ++li) {
+                                const ImVec2 cursor = ImGui::GetCursorScreenPos();
+                                drawAnsiTextAtPos(ImGui::GetWindowDrawList(), ImVec2(cursor.x, cursor.y + 1.0f),
+                                                  row.wrapped[li], childPos, childMax);
+                                ImGui::Dummy(ImVec2(seqChars * seqCharW, seqLineH));
+                            }
+                        }
+                        clipper.End();
+                        ImGui::PopFont();
+                        ImGui::PopStyleVar();
+                        ImGui::EndChild();
+                    } else if (row.hasColor) {
                         char childId[72];
                         std::snprintf(childId, sizeof(childId), "##colorchild%d_%zu", rp.uid, i);
                         ImVec2 childSz(valColW, rowContentH + scrollH_sz);
@@ -598,6 +767,9 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
                                          row.inputBuf.data(), row.inputBuf.size(),
                                          ImGuiInputTextFlags_ReadOnly);
                         ImGui::PopStyleColor();
+                        if (row.label == "flag" && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
+                            drawSamFlagTooltip(row.plainValue);
+                        }
                     }
                 }
                 ImGui::EndTable();
@@ -645,6 +817,7 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
     }
 
     void drawImGuiCovPopup(Manager::GwPlot* plot) {
+    popupTheme = &plot->opts.theme;
         if (plot->covPopups.empty()) return;
 
         ImFont* font     = ImGui::GetFont();
@@ -662,10 +835,12 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
         };
         float minW = textW("000");  // 3-char floor
 
-        static const ImVec4 clrA(0.20f, 0.75f, 0.20f, 1.f);
-        static const ImVec4 clrT(0.90f, 0.20f, 0.20f, 1.f);
-        static const ImVec4 clrC(0.30f, 0.50f, 1.00f, 1.f);
-        static const ImVec4 clrG(0.85f, 0.75f, 0.15f, 1.f);
+        // Base counts in the theme's base colours
+        const ImVec4 covText = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+        const ImVec4 clrA = themeTextColor(plot->opts.theme.fcA, covText);
+        const ImVec4 clrT = themeTextColor(plot->opts.theme.fcT, covText);
+        const ImVec4 clrC = themeTextColor(plot->opts.theme.fcC, covText);
+        const ImVec4 clrG = themeTextColor(plot->opts.theme.fcG, covText);
 
         const float kWinPad = 3.f;
         float lineH  = ImGui::GetTextLineHeight();
@@ -812,10 +987,446 @@ void drawImGuiInfoPopup(Manager::GwPlot* plot) {
 // Track popup
 // ─────────────────────────────────────────────────────────────────────────────
 
+    // The "Feature data" of a track popup: the source lines of the clicked feature (a
+    // GFF transcript's exon/CDS/UTR lines, or a BED line), split into columns. Values
+    // that are identical on every line are listed once, as `shared`, so each row only
+    // shows what differs between lines.
+    struct FeatureDataView {
+        std::vector<std::pair<std::string, std::string>> shared;  // name, value
+        std::vector<std::string> sharedTips;                      // optional hover text per shared row
+        std::vector<std::string> header;                          // names of the per-line columns
+        std::vector<std::vector<std::string>> cells;              // per line, per column
+        std::vector<int> starts, ends;                            // 0-based half-open; -1 = unknown
+        int clicked{-1};                                          // line under the click
+    };
+
+    // bigBed records: one key/value row per field (named from the file's autoSql schema,
+    // descriptions as tooltips), and the comma-separated block columns turned into an exon
+    // table whose rows pan the view. Empty and "none" values are left out.
+    static FeatureDataView parseBigBedData(const Manager::GwPlot::TrackPopup& tp) {
+        FeatureDataView v;
+        std::string line;
+        for (size_t pos = 0; pos < tp.details.size();) {
+            size_t nl = tp.details.find('\n', pos);
+            if (nl == std::string::npos) nl = tp.details.size();
+            line = tp.details.substr(pos, nl - pos);
+            while (!line.empty() && line.back() == '\r') line.pop_back();
+            pos = nl + 1;
+            if (!line.empty() && line[0] != '#') break;
+        }
+        std::vector<std::string> cols;
+        Utils::split(line, '\t', cols);
+        if (cols.size() < 3) return v;
+
+        static const char* bedNames[] = {"chrom", "chromStart", "chromEnd", "name", "score", "strand",
+                                         "thickStart", "thickEnd", "itemRgb", "blockCount",
+                                         "blockSizes", "chromStarts"};
+        const bool haveSchema = tp.fieldNames.size() >= 3;
+        auto colName = [&](size_t c) -> std::string {
+            if (haveSchema && c < tp.fieldNames.size()) return tp.fieldNames[c];
+            if (!haveSchema && c < 12) return bedNames[c];
+            return "col" + std::to_string(c + 1);
+        };
+        auto colDesc = [&](size_t c) -> std::string {
+            return (haveSchema && c < tp.fieldDescs.size()) ? tp.fieldDescs[c] : std::string();
+        };
+        auto findCol = [&](std::initializer_list<const char*> names) -> int {
+            for (size_t c = 0; c < cols.size(); ++c) {
+                std::string n = colName(c);
+                for (const char* want : names) if (n == want) return (int)c;
+            }
+            return -1;
+        };
+        auto toInt = [](const std::string& s, long& out) {
+            if (s.empty()) return false;
+            char* end = nullptr;
+            out = std::strtol(s.c_str(), &end, 10);
+            return *end == '\0';
+        };
+        auto splitList = [](const std::string& s) {
+            std::vector<std::string> out;
+            Utils::split(s, ',', out);
+            while (!out.empty() && out.back().empty()) out.pop_back();
+            return out;
+        };
+
+        long fStart = 0;
+        toInt(cols[1], fStart);
+        const int iStrand = findCol({"strand"});
+        const int iThickS = findCol({"thickStart"}), iThickE = findCol({"thickEnd"});
+        const int iRgb = findCol({"itemRgb", "reserved"});
+        const int iCount = findCol({"blockCount"});
+        const int iSizes = findCol({"blockSizes"});
+        const int iStarts = findCol({"chromStarts", "blockStarts"});
+        const int iFrames = findCol({"exonFrames"});
+        const bool minus = iStrand >= 0 && cols[iStrand] == "-";
+
+        long thickS = -1, thickE = -1;
+        if (iThickS >= 0 && iThickE >= 0 && toInt(cols[iThickS], thickS) && toInt(cols[iThickE], thickE)
+                && thickE <= thickS) {
+            thickS = thickE = -1;  // no coding region
+        }
+
+        auto add = [&](const std::string& k, const std::string& val, const std::string& tip) {
+            v.shared.emplace_back(k, val);
+            v.sharedTips.push_back(tip);
+        };
+        for (size_t c = 3; c < cols.size(); ++c) {
+            const int ci = (int)c;
+            // strand is already in the summary rows above (the summary ID is the gene name
+            // when there is one, so the name column stays); block columns go in the exon table
+            if (ci == iStrand) continue;
+            if (ci == iThickE || ci == iSizes || ci == iStarts || ci == iFrames || ci == iCount) continue;
+            const std::string& val = cols[c];
+            if (val.empty() || val == "none" || val == ".") continue;
+            if (ci == iThickS) {
+                if (thickS >= 0)
+                    add("coding", std::to_string(thickS) + "-" + std::to_string(thickE) + "  ("
+                        + std::to_string(thickE - thickS) + " bp)", "thickStart-thickEnd: the coding (thick) part");
+                else
+                    add("coding", "none", "thickStart equals thickEnd: no coding (thick) part");
+                continue;
+            }
+            if (ci == iRgb) {
+                long rgb;
+                if (val.find(',') == std::string::npos && toInt(val, rgb) && rgb > 0) {
+                    add("colour", std::to_string((rgb >> 16) & 255) + "," + std::to_string((rgb >> 8) & 255)
+                        + "," + std::to_string(rgb & 255), colDesc(c));
+                } else if (val != "0") {
+                    add("colour", val, colDesc(c));
+                }
+                continue;
+            }
+            std::string shown = val;
+            if (shown.find(',') != std::string::npos) {  // lists read better with spaces
+                auto items = splitList(shown);
+                shown.clear();
+                for (auto& it : items) { if (!shown.empty()) shown += ", "; shown += it; }
+            }
+            add(colName(c), shown, colDesc(c));
+        }
+
+        // Exon table from blockSizes/chromStarts (relative to chromStart)
+        if (iSizes < 0 || iStarts < 0) return v;
+        auto sizes = splitList(cols[iSizes]);
+        auto starts = splitList(cols[iStarts]);
+        if (sizes.empty() || sizes.size() != starts.size()) return v;
+        std::vector<std::string> frames;
+        if (iFrames >= 0) frames = splitList(cols[iFrames]);
+        const bool showFrames = frames.size() == sizes.size()
+            && std::any_of(frames.begin(), frames.end(), [](const std::string& f) { return f != "-1"; });
+        const size_t n = sizes.size();
+        v.header = {minus ? "exon (-)" : "exon", "start", "end", "length"};
+        if (thickS >= 0) v.header.push_back("part");
+        if (showFrames) v.header.push_back("frame");
+        for (size_t i = 0; i < n; ++i) {
+            long rel, len;
+            if (!toInt(starts[i], rel) || !toInt(sizes[i], len)) { v = {}; return v; }
+            long s = fStart + rel, e = s + len;
+            std::vector<std::string> row;
+            row.push_back(std::to_string(minus ? n - i : i + 1));  // numbered in transcription order
+            row.push_back(std::to_string(s));
+            row.push_back(std::to_string(e));
+            row.push_back(std::to_string(len));
+            if (thickS >= 0) {
+                if (e <= thickS || s >= thickE) row.push_back("UTR");
+                else if (s >= thickS && e <= thickE) row.push_back("CDS");
+                else row.push_back("CDS+UTR");
+            }
+            if (showFrames) row.push_back(frames[i]);
+            v.cells.push_back(std::move(row));
+            v.starts.push_back((int)s);
+            v.ends.push_back((int)e);
+            if (cols[0] == tp.chrom && s <= tp.clickPos && tp.clickPos < e) v.clicked = (int)i;
+        }
+        return v;
+    }
+
+    static FeatureDataView parseFeatureData(const Manager::GwPlot::TrackPopup& tp) {
+        using Fmt = Manager::GwPlot::TrackPopup::DataFormat;
+        if (tp.format == Fmt::BigBed) return parseBigBedData(tp);
+        FeatureDataView v;
+        std::vector<std::vector<std::string>> lines;
+        size_t nCols = 0;
+        for (size_t pos = 0; pos < tp.details.size();) {
+            size_t nl = tp.details.find('\n', pos);
+            if (nl == std::string::npos) nl = tp.details.size();
+            std::string line = tp.details.substr(pos, nl - pos);
+            while (!line.empty() && line.back() == '\r') line.pop_back();
+            pos = nl + 1;
+            if (line.empty() || line[0] == '#') continue;
+            std::vector<std::string> cols;
+            Utils::split(line, '\t', cols);
+            nCols = std::max(nCols, cols.size());
+            lines.push_back(std::move(cols));
+        }
+        if (lines.empty()) return v;
+
+        static const char* gffNames[] = {"seqid", "source", "type", "start", "end", "score",
+                                         "strand", "phase", "attributes"};
+        static const char* bedNames[] = {"chrom", "start", "end", "name", "score", "strand",
+                                         "thickStart", "thickEnd", "itemRgb", "blockCount",
+                                         "blockSizes", "blockStarts"};
+        auto colName = [&](size_t c) -> std::string {
+            if (tp.format == Fmt::Gff && c < 9) return gffNames[c];
+            if (tp.format == Fmt::Bed && c < 12) return bedNames[c];
+            return "col" + std::to_string(c + 1);
+        };
+        const bool gff = tp.format == Fmt::Gff;
+        const size_t attrCol = 8;
+        const bool multi = lines.size() > 1;
+
+        // GFF attributes are "key=value;..." (GFF3) or "key \"value\"; ..." (GTF). Split
+        // them so attributes shared by every line (e.g. Parent) are only shown once.
+        auto splitAttrs = [](const std::string& s) {
+            std::vector<std::string> out;
+            size_t p = 0;
+            while (p <= s.size()) {
+                size_t q = s.find(';', p);
+                if (q == std::string::npos) q = s.size();
+                std::string a = s.substr(p, q - p);
+                size_t b = a.find_first_not_of(' '), e = a.find_last_not_of(' ');
+                if (b != std::string::npos) out.push_back(a.substr(b, e - b + 1));
+                p = q + 1;
+            }
+            return out;
+        };
+        std::vector<std::vector<std::string>> attrs(lines.size());
+        if (gff) {
+            for (size_t i = 0; i < lines.size(); ++i)
+                if (lines[i].size() > attrCol) attrs[i] = splitAttrs(lines[i][attrCol]);
+        }
+        auto inAll = [&](const std::string& a) {
+            for (auto& l : attrs)
+                if (std::find(l.begin(), l.end(), a) == l.end()) return false;
+            return true;
+        };
+
+        std::vector<size_t> varying;
+        for (size_t c = 0; c < nCols; ++c) {
+            bool same = multi;
+            for (auto& l : lines) {
+                if (l.size() <= c || l[c] != lines[0][c]) { same = false; break; }
+            }
+            if (gff && c == attrCol) {
+                // Shared attributes go in the shared list; the rest stay per line.
+                bool anyLeft = false;
+                if (multi && lines[0].size() > attrCol) {
+                    for (auto& a : attrs[0]) {
+                        if (!inAll(a)) continue;
+                        size_t eq = a.find_first_of("= ");
+                        if (eq == std::string::npos) v.shared.emplace_back(a, "");
+                        else {
+                            std::string val = a.substr(eq + 1);
+                            if (val.size() >= 2 && val.front() == '"' && val.back() == '"') val = val.substr(1, val.size() - 2);
+                            v.shared.emplace_back(a.substr(0, eq), val);
+                        }
+                    }
+                }
+                for (auto& l : attrs) {
+                    for (auto& a : l) if (!multi || !inAll(a)) { anyLeft = true; break; }
+                    if (anyLeft) break;
+                }
+                if (anyLeft) varying.push_back(c);
+            } else if (same) {
+                v.shared.emplace_back(colName(c), lines[0][c]);
+            } else {
+                varying.push_back(c);
+            }
+        }
+
+        for (size_t c : varying) v.header.push_back(colName(c));
+        long bestSpan = -1;
+        for (size_t i = 0; i < lines.size(); ++i) {
+            const auto& l = lines[i];
+            std::vector<std::string> row;
+            for (size_t c : varying) {
+                if (gff && c == attrCol) {
+                    std::string rest;
+                    for (auto& a : attrs[i]) {
+                        if (multi && inAll(a)) continue;
+                        if (!rest.empty()) rest += "; ";
+                        rest += a;
+                    }
+                    row.push_back(rest);
+                } else {
+                    row.push_back(c < l.size() ? l[c] : "");
+                }
+            }
+            v.cells.push_back(std::move(row));
+
+            // Feature coordinates, to mark the clicked line and to pan to a line
+            int s = -1, e = -1;
+            auto num = [&](size_t c, int& out) {
+                if (c >= l.size() || l[c].empty()) return false;
+                char* end = nullptr;
+                long n = std::strtol(l[c].c_str(), &end, 10);
+                if (*end != '\0' || n < 0) return false;
+                out = (int)n;
+                return true;
+            };
+            if (gff && num(3, s) && num(4, e)) {
+                s -= 1;  // GFF is 1-based, inclusive
+            } else if (tp.format == Fmt::Bed && num(1, s) && num(2, e)) {
+            } else {
+                s = e = -1;
+            }
+            if (e < s) s = e = -1;
+            v.starts.push_back(s);
+            v.ends.push_back(e);
+            // The narrowest feature under the click, e.g. the exon rather than the mRNA
+            if (s >= 0 && !l.empty() && l[0] == tp.chrom && s <= tp.clickPos && tp.clickPos < std::max(e, s + 1)) {
+                long span = (long)e - s;
+                if (bestSpan < 0 || span < bestSpan) { bestSpan = span; v.clicked = (int)i; }
+            }
+        }
+        return v;
+    }
+
+    // Pan the clicked region so feature [start, end) is centred, keeping the zoom level.
+    static void panToFeature(Manager::GwPlot* plot, const Manager::GwPlot::TrackPopup& tp, int start, int end) {
+        if (tp.regionIdx < 0 || tp.regionIdx >= (int)plot->regions.size()) return;
+        const Utils::Region& rgn = plot->regions[tp.regionIdx];
+        if (rgn.chrom != tp.chrom) return;  // the view has moved to another chromosome
+        const int width = rgn.end - rgn.start;
+        const int mid = start + (end - start) / 2;
+        int newStart = std::max(0, mid - width / 2);
+        std::string cmd = rgn.chrom + ":" + std::to_string(newStart) + "-" + std::to_string(newStart + width);
+        if (plot->remoteCommand) {
+            plot->remoteCommand(cmd);
+            return;
+        }
+        const int previous = plot->regionSelection;
+        plot->regionSelection = tp.regionIdx;
+        std::ostringstream out;
+        Commands::run_command_map(plot, cmd, out);
+        plot->regionSelection = std::min(previous, (int)plot->regions.size() - 1);
+        plot->processed = false;
+        plot->redraw = true;
+    }
+
+    // Read-only, frameless text field: looks like text, but can be selected with the mouse.
+    static void selectableText(const char* id, const std::string& text, float width) {
+        ImGui::SetNextItemWidth(width);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+        ImGui::InputText(id, const_cast<char*>(text.c_str()), text.size() + 1, ImGuiInputTextFlags_ReadOnly);
+        ImGui::PopStyleColor();
+    }
+
+    // Feature data as tables: values shared by every line once, then one row per line
+    // with only the columns that differ. Each row starts with a play button that pans
+    // the view to that line's feature; the clicked feature's row is highlighted.
+    // Returns the width the tables need, so the popup can open wide enough.
+    static float drawFeatureData(Manager::GwPlot* plot, const Manager::GwPlot::TrackPopup& tp,
+                                 const FeatureDataView& fd) {
+        auto& style = ImGui::GetStyle();
+        const float padW = style.FramePadding.x * 2 + 2;
+        auto textW = [&](const std::string& s) { return ImGui::CalcTextSize(s.c_str()).x + padW; };
+
+        float needW = 0;
+        if (!fd.shared.empty()) {
+            float keyW = 0, valW = 0;
+            for (auto& kv : fd.shared) {
+                keyW = std::max(keyW, ImGui::CalcTextSize(kv.first.c_str()).x);
+                valW = std::max(valW, textW(kv.second));
+            }
+            if (ImGui::BeginTable("##fd_shared", 2, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_BordersInnerV)) {
+                ImGui::TableSetupColumn("##k", ImGuiTableColumnFlags_WidthFixed, keyW);
+                ImGui::TableSetupColumn("##v", ImGuiTableColumnFlags_WidthFixed, valW);
+                for (size_t i = 0; i < fd.shared.size(); ++i) {
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + style.FramePadding.y);
+                    ImGui::TextDisabled("%s", fd.shared[i].first.c_str());
+                    if (i < fd.sharedTips.size() && !fd.sharedTips[i].empty()
+                            && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                        ImGui::SetTooltip("%s", fd.sharedTips[i].c_str());
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::PushID((int)i);
+                    selectableText("##sv", fd.shared[i].second, valW);
+                    ImGui::PopID();
+                }
+                ImGui::EndTable();
+            }
+            needW = keyW + valW + style.CellPadding.x * 4;
+            if (!fd.cells.empty()) ImGui::Spacing();
+        }
+        if (fd.cells.empty()) return needW;
+
+        const size_t nCols = fd.header.size();
+        std::vector<float> colW(nCols, 0);
+        for (size_t c = 0; c < nCols; ++c) {
+            colW[c] = ImGui::CalcTextSize(fd.header[c].c_str()).x + padW;
+            for (auto& row : fd.cells)
+                if (c < row.size()) colW[c] = std::max(colW[c], textW(row[c]));
+        }
+        const float btnW = ImGui::GetFrameHeight();
+        float rowsW = btnW + style.CellPadding.x * 2;
+        for (float w : colW) rowsW += w + style.CellPadding.x * 2;
+        needW = std::max(needW, rowsW);
+        ImGuiTableFlags tflags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_BordersInnerV;
+        if (!ImGui::BeginTable("##fd_rows", (int)nCols + 1, tflags)) return needW;
+        ImGui::TableSetupColumn("##go", ImGuiTableColumnFlags_WidthFixed, btnW);
+        for (size_t c = 0; c < nCols; ++c)
+            ImGui::TableSetupColumn(fd.header[c].c_str(), ImGuiTableColumnFlags_WidthFixed, colW[c]);
+
+        // Header: dimmed column names
+        ImGui::TableNextRow();
+        for (size_t c = 0; c < nCols; ++c) {
+            ImGui::TableSetColumnIndex((int)c + 1);
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + style.FramePadding.x);
+            ImGui::TextDisabled("%s", fd.header[c].c_str());
+        }
+
+        const ImU32 accent = ImGui::GetColorU32(ImGuiCol_CheckMark);
+        for (size_t i = 0; i < fd.cells.size(); ++i) {
+            ImGui::TableNextRow();
+            ImGui::PushID((int)i);
+            const bool clicked = (int)i == fd.clicked;
+            if (clicked)
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, ImGui::GetColorU32(ImGuiCol_Header, 0.6f));
+
+            // Play button: pan to this feature
+            ImGui::TableSetColumnIndex(0);
+            if (fd.starts[i] >= 0) {
+                ImVec2 p = ImGui::GetCursorScreenPos();
+                const float side = ImGui::GetFrameHeight();
+                if (ImGui::InvisibleButton("##go", ImVec2(side, side)))
+                    panToFeature(plot, tp, fd.starts[i], fd.ends[i]);
+                const bool hov = ImGui::IsItemHovered();
+                if (hov) ImGui::SetTooltip("Move the view to this feature");
+                ImDrawList* dl = ImGui::GetWindowDrawList();
+                if (hov)
+                    dl->AddRectFilled(p, ImVec2(p.x + side, p.y + side),
+                                      ImGui::GetColorU32(ImGuiCol_ButtonHovered), style.FrameRounding);
+                const float h = side * 0.36f;
+                const ImVec2 c(p.x + side * 0.5f + h * 0.15f, p.y + side * 0.5f);
+                const ImVec2 a(c.x - h * 0.5f, c.y - h * 0.58f), b(c.x - h * 0.5f, c.y + h * 0.58f), t(c.x + h * 0.5f, c.y);
+                if (clicked || hov) {
+                    dl->AddTriangleFilled(a, b, t, clicked ? accent : ImGui::GetColorU32(ImGuiCol_Text));
+                } else {
+                    dl->AddTriangle(a, b, t, ImGui::GetColorU32(ImGuiCol_Text, 0.6f), 1.0f);
+                }
+            }
+            for (size_t c = 0; c < nCols; ++c) {
+                ImGui::TableSetColumnIndex((int)c + 1);
+                ImGui::PushID((int)c);
+                static const std::string empty;
+                selectableText("##cell", c < fd.cells[i].size() ? fd.cells[i][c] : empty, colW[c]);
+                ImGui::PopID();
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndTable();
+        return needW;
+    }
+
 void drawImGuiTrackPopup(Manager::GwPlot* plot) {
+    popupTheme = &plot->opts.theme;
         if (plot->trackPopups.empty()) return;
 
         static std::unordered_map<int, std::vector<RowData>> rowCache;
+        static std::unordered_map<int, FeatureDataView> featureCache;
 
         auto& style = ImGui::GetStyle();
 
@@ -950,25 +1561,68 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                 ImGui::EndTable();
             }
 
+            float fitW = ImGui::GetWindowWidth();  // widened when feature data opens
             if (!tp.details.empty()) {
                 ImGui::SetNextItemOpen(tp.detailsOpen, ImGuiCond_Always);
-                tp.detailsOpen = ImGui::TreeNodeEx("Feature data", ImGuiTreeNodeFlags_NoTreePushOnOpen);
+                bool open = ImGui::TreeNodeEx("Feature data", ImGuiTreeNodeFlags_NoTreePushOnOpen);
+                if (open != tp.detailsOpen) {
+                    tp.detailsOpen = open;
+                    tp.fitHeight = true;  // grow to show the data, or shrink back when closed
+                }
                 if (tp.detailsOpen) {
                     ImGui::SameLine();
                     if (ImGui::SmallButton("Copy"))
                         ImGui::SetClipboardText(tp.details.c_str());
-                    float dataHeight = ImGui::GetTextLineHeight() + style.WindowPadding.y * 2 + style.ScrollbarSize;
+                    auto fdIt = featureCache.find(tp.uid);
+                    if (fdIt == featureCache.end())
+                        fdIt = featureCache.emplace(tp.uid, parseFeatureData(tp)).first;
+                    const FeatureDataView& fd = fdIt->second;
+                    const float lineH = rowH_plain;
+                    const float frameH = style.WindowPadding.y * 2 + style.ScrollbarSize;
+                    float dataHeight;
+                    if (tp.fitHeight) {
+                        // Opening: show up to ~14 rows (shared values, header, one row per
+                        // GFF child line), but keep the window on screen. The user can drag
+                        // it taller afterwards.
+                        int nLines = (int)fd.shared.size() + (fd.header.empty() ? 0 : 1) + (int)fd.cells.size();
+                        // bigBed popups show one feature's fields plus its exons, so allow more
+                        const int maxLines = tp.format == Manager::GwPlot::TrackPopup::DataFormat::BigBed ? 30 : 14;
+                        dataHeight = (float)std::clamp(nLines, 1, maxLines) * lineH + frameH;
+                        float roomBelow = io.DisplaySize.y - ImGui::GetWindowPos().y
+                                        - ImGui::GetCursorPosY() - style.WindowPadding.y;
+                        if (roomBelow < dataHeight) {
+                            // Move the window up to make room, as far as the top of the screen
+                            float shift = std::min(dataHeight - roomBelow, ImGui::GetWindowPos().y);
+                            if (shift > 0) {
+                                ImGui::SetWindowPos(ImVec2(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y - shift));
+                                roomBelow += shift;
+                            }
+                        }
+                        dataHeight = std::max(std::min(dataHeight, roomBelow), lineH + frameH);
+                    } else {
+                        // Afterwards the data fills the window, so resizing the window
+                        // resizes the data view.
+                        dataHeight = std::max(ImGui::GetContentRegionAvail().y, lineH + frameH);
+                    }
                     ImGui::BeginChild("##feature_data", ImVec2(0, dataHeight), true,
                                       ImGuiWindowFlags_HorizontalScrollbar);
-                    ImGui::TextUnformatted(tp.details.c_str());
+                    float needW = drawFeatureData(plot, tp, fd);
                     ImGui::EndChild();
+                    if (tp.fitHeight) {
+                        // Opening: widen to show every column, within the screen
+                        float want = needW + style.WindowPadding.x * 4 + style.ScrollbarSize + 4;
+                        float room = io.DisplaySize.x - ImGui::GetWindowPos().x;
+                        fitW = std::max(fitW, std::min(want, room));
+                    }
                 }
             }
-            // Keep the top anchored and fit the actual contents, growing downward
-            // only while feature data is open.
-            if (!ImGui::IsWindowCollapsed())
-                ImGui::SetWindowSize(ImVec2(ImGui::GetWindowWidth(),
+            // Keep the top anchored and fit the contents: always while the feature data
+            // is closed, and once when it opens. While open the height is the user's, so
+            // the window can be dragged taller to see every exon.
+            if (!ImGui::IsWindowCollapsed() && (tp.fitHeight || !tp.detailsOpen))
+                ImGui::SetWindowSize(ImVec2(fitW,
                     ImGui::GetCursorPosY() + style.WindowPadding.y - style.ItemSpacing.y));
+            tp.fitHeight = false;
             ImGui::End();
 
             if (!windowOpen) {
@@ -978,6 +1632,10 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
         }
 
         if (!toRemove.empty()) {
+            for (int uid : toRemove) {
+                rowCache.erase(uid);
+                featureCache.erase(uid);
+            }
             plot->trackPopups.erase(
                 std::remove_if(plot->trackPopups.begin(), plot->trackPopups.end(),
                                [&](const Manager::GwPlot::TrackPopup& p) {
@@ -1000,6 +1658,7 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
     // visible lines in flight so large sequences are cheap to render.
 
     void drawImGuiSeqPopup(Manager::GwPlot* plot) {
+    popupTheme = &plot->opts.theme;
         if (plot->seqPopups.empty()) return;
 
         struct LineCache { std::string ansi; };
@@ -1470,13 +2129,9 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
 
     void drawImGuiCommandStatus(Manager::GwPlot* plot) {
         if (!plot->showCommandStatus) return;
-        if (plot->lastCommandOutputAnsi.empty()) {
-            plot->showCommandStatus = false;
-            return;
-        }
 
         static std::string displayedText;
-        static std::vector<char> textBuf;
+        static std::vector<char> textBuf;  // InputText needs a writable buffer
         static long displayedFrame = -1;
         static bool scrollToBottom = false;
         static bool contentJustChanged = false;
@@ -1495,19 +2150,14 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
             contentJustChanged = true;
         }
 
-        if (textBuf.empty()) {
-            plot->showCommandStatus = false;
-            return;
-        }
+        if (textBuf.empty()) textBuf.assign(1, '\0');
 
         auto clearHistory = [&]() {
             plot->lastCommandOutputAnsi.clear();
             displayedText.clear();
-            textBuf.clear();
-            textBuf.push_back('\0');
+            textBuf.assign(1, '\0');
             plot->lastCommandOutputFrame = -1;
             displayedFrame = -1;
-            plot->showCommandStatus = false;
         };
 
         auto drawTrashIcon = [](ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, float thickness) {
@@ -1561,7 +2211,7 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
         const float limitH = std::min(maxH, std::max(minH, io.DisplaySize.y * 0.5f));
         float winW = std::min(480.f, limitW);
         float winH = std::min(400.f, limitH);
-        ImVec2 pos(io.DisplaySize.x - pad, io.DisplaySize.y - pad);
+        ImVec2 pos(io.DisplaySize.x - pad, io.DisplaySize.y - pad - plot->commandBarSpace / std::max(1.f, plot->monitorScale));
         ImGui::SetNextWindowPos(pos, ImGuiCond_Appearing, ImVec2(1, 1));
         ImGui::SetNextWindowBgAlpha(plot->remoteCommand ? 1.0f : 0.85f);
         ImGui::SetNextWindowSize(ImVec2(winW, winH), ImGuiCond_Appearing);
@@ -1622,29 +2272,22 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
             ImFont* font = plot->monoFont ? plot->monoFont : ImGui::GetFont();
             ImGui::PushFont(font);
 
-            // Size the input widget to its full text so selection works; the
-            // surrounding child window provides horizontal/vertical scrolling.
-            ImVec2 textSize = ImGui::CalcTextSize(displayedText.c_str(),
-                                                  displayedText.c_str() + displayedText.size(),
-                                                  false, -1.0f);
-            float padX = style.FramePadding.x * 2.0f;
-            float padY = style.FramePadding.y * 2.0f;
-            ImVec2 inputSize(textSize.x + padX, textSize.y + padY);
-
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-            ImGui::BeginChild("##cmdoutputscroll", size, ImGuiChildFlags_None,
-                              ImGuiWindowFlags_HorizontalScrollbar
-                              | ImGuiWindowFlags_AlwaysVerticalScrollbar);
-            ImGui::PopStyleVar();
-
-            ImGuiWindow* scrollChild = ImGui::GetCurrentWindow();
-
+            // One read-only, word-wrapped text box filling the window: selectable with the
+            // mouse, and its own scrollbar is the only one
             ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
-            ImGui::InputTextMultiline("##cmdoutput",
-                                      textBuf.data(), textBuf.size(),
-                                      inputSize,
-                                      ImGuiInputTextFlags_ReadOnly);
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+            if (displayedText.empty()) {
+                const ImVec2 start = ImGui::GetCursorPos();
+                ImGui::SetCursorPos(ImVec2(start.x + style.FramePadding.x, start.y + style.FramePadding.y));
+                ImGui::TextDisabled("No output yet");
+                ImGui::SetCursorPos(start);
+            }
+            ImGui::InputTextMultiline("##cmdoutput", textBuf.data(), textBuf.size(), size,
+                                      ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_WordWrap);
+            ImGui::PopStyleVar();
             ImGui::PopStyleColor();
+            auto& children = ImGui::GetCurrentWindow()->DC.ChildWindows;
+            ImGuiWindow* scrollChild = children.empty() ? nullptr : children.back();
 
             if (scrollChild) {
                 if (scrollToBottom) {
@@ -1661,7 +2304,6 @@ void drawImGuiTrackPopup(Manager::GwPlot* plot) {
                 contentJustChanged = false;
             }
 
-            ImGui::EndChild();
             ImGui::PopFont();
         }
         ImGui::End();

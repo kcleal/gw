@@ -123,7 +123,7 @@ namespace Parse {
         int split_into_or(std::string &f, std::vector<Eval> &results, int nBams, int nRegions);
     };
 
-    void countExpression(std::vector<Segs::ReadCollection> &collections, std::string &str, std::vector<sam_hdr_t*> hdrs,
+    void countExpression(std::vector<Segs::ReadCollection> &collections, std::string &str, const std::vector<sam_hdr_t*>& hdrs,
                          std::vector<std::string> &bam_paths, int nBams, int nRegions, std::ostream& out);
 
 	void parse_INFO(std::string &result, std::string &infoCol, std::string &request);

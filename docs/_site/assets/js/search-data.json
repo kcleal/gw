@@ -1,0 +1,576 @@
+{"0": {
+    "doc": "Alignment data",
+    "title": "Alignment data",
+    "content": "The easiest way to load an alignment file (bam or cram format) is to start GW and drag-and-drop a file into the window. This will open the file and navigate to the first chromosome in the bam file header, showing the first 20 kb. Using the CLI the same can be achieved using: . gw hg38 -b your.bam -r chr1:1-20000 . The hg38 argument is a genome-tag listed in the config file and will load a remote reference genome. For much faster performance, either replace the argument with the path to a local file, or change the config file to point to a local file rather than a remote reference genome. This command will open a GW window that can be used interactively with the mouse and keyboard. Note multiple -b and -r options can be used. ",
+    "url": "/docs/guide/Alignments.html",
+    
+    "relUrl": "/docs/guide/Alignments.html"
+  },"1": {
+    "doc": "Alignment data",
+    "title": "Genome tags",
+    "content": "If you have a genome-tag configured in your config file it is possible to provide the alignment file as a single argument: . gw your.bam . GW will read the bam file header and infer the correct reference genome to load by comparing with the references listed in your config file. If you are using the desktop application this feature allows you to use the Open with function (found by right-clicking on a bam file). ",
+    "url": "/docs/guide/Alignments.html#genome-tags",
+    
+    "relUrl": "/docs/guide/Alignments.html#genome-tags"
+  },"2": {
+    "doc": "Android",
+    "title": "Installing GW on Android",
+    "content": "This is a guide to installing GW on your android phone/tablet. Currently, using GW on android is only advised for advanced users. Furthermore, we recommend using a bluetooth mouse and keyboard, as a touch interface can be fiddly to use with a VNC viewer. Installation involves adding a Linux desktop environment (DE) to your device, so you can potentially use other bioinformatics tools, not just GW! . ",
+    "url": "/docs/install/Android.html#installing-gw-on-android",
+    
+    "relUrl": "/docs/install/Android.html#installing-gw-on-android"
+  },"3": {
+    "doc": "Android",
+    "title": "Prerequisites",
+    "content": ". | Termux - a terminal emulator. Get this from the fdroid &lt;https://f-droid.org/en/&gt;_ repository | VNC Viewer - this is the screen sharing tool for your Linux DE | . ",
+    "url": "/docs/install/Android.html#prerequisites",
+    
+    "relUrl": "/docs/install/Android.html#prerequisites"
+  },"4": {
+    "doc": "Android",
+    "title": "Installation",
+    "content": "GW can be installed using the package manager. Open the termux app, update the package manager and grab GW . pkg update -y pkg install -y x11-repo pkg install -y gw aterm tigervnc . The following are recommended to use GW interactively, but not essential: . pkg install -y xfce4 vim kitty . ",
+    "url": "/docs/install/Android.html#installation",
+    
+    "relUrl": "/docs/install/Android.html#installation"
+  },"5": {
+    "doc": "Android",
+    "title": "Usage",
+    "content": ". | Start the vncserver by opening the termux app. This will enable screen sharing with your VNC Viewer app. You will be asked to set a password! vncserver -localhost | . You should see a message like New 'localhost:1 ()' desktop is localhost:1. This is telling you that the screen is hosted at display :1, so the connection port will (normally) be 5901. | Open VNC Viewer. Add a new connection to 127.0.0.1:5901 and type in password. | . You will see an aterm terminal window. It is possible to run GW from here, although it’s worth going an extra step and starting xfce for a full linux desktop. Type this into the aterm window: . xfce4-session &amp; . You should now see a Linux desktop environment, with access to kitty - a nicer terminal than aterm (see top-left menu Applications -&gt; System -&gt; Kitty). Kitty also works well for accessing data on remote servers using your Android device. | To access files outside of termux on the device, run termux-setup-storage in termux and allow file permissions. You can then connect external hard drives, for example. | . ",
+    "url": "/docs/install/Android.html#usage",
+    
+    "relUrl": "/docs/install/Android.html#usage"
+  },"6": {
+    "doc": "Android",
+    "title": "Testing",
+    "content": "To test gw, you can use any bam file with its reference fasta file. A test bam and fasta can be downloaded by cloning gw from github. pkg install git git clone https://github.com/kcleal/gw.git . These files are found in the gw/test directory, and can be viewed with. cd gw/test gw -r chr1 -b test.bam test.fa . ",
+    "url": "/docs/install/Android.html#testing",
+    
+    "relUrl": "/docs/install/Android.html#testing"
+  },"7": {
+    "doc": "Android",
+    "title": "Next steps",
+    "content": "The gw config file currently ends up in an obscure location. To get gw to read it copy it to your home directory using cp $PREFIX/share/doc/gw/gw.ini ~. You can also save yourself some typing every session by editing .bashrc. If you dont have .bashrc in your termux home directory, copy the one from cp $PREFIX/etc/bash.bashrc ~/.bashrc. Add this to your .bashrc: . alias vnc=\"vncserver -geometry 1920x1080 -localhost\" alias desktop=\"xfce4-session &amp;\" . Now, typing vnc in termux will launch the vncserver. When you open your VNC Viewer, typing desktop will start an xfce4 session. ",
+    "url": "/docs/install/Android.html#next-steps",
+    
+    "relUrl": "/docs/install/Android.html#next-steps"
+  },"8": {
+    "doc": "Android",
+    "title": "Debugging",
+    "content": ". | Check to see what vncservers are already running using vncserver -list. You can kill a server by using vncserver -kill :1, for example. | You may have an x11 lock file located in $PREFIX/tmp, remove this might help rm -rf $PREFIX/tmp/.X* . | . Useful links to aid with debugging: . https://wiki.termux.com/wiki/Building_packages https://wiki.termux.com/wiki/Termux-setup-storage https://wiki.termux.com/wiki/Graphical_Environment . ",
+    "url": "/docs/install/Android.html#debugging",
+    
+    "relUrl": "/docs/install/Android.html#debugging"
+  },"9": {
+    "doc": "Android",
+    "title": "Android",
+    "content": " ",
+    "url": "/docs/install/Android.html",
+    
+    "relUrl": "/docs/install/Android.html"
+  },"10": {
+    "doc": "Commands",
+    "title": "Commands",
+    "content": "To open the command box press the forward slash or click on the button found on the menu at the left-hand-side of the screen: . Type help to print a quick help summary to the terminal, or for more information about each command type man [COMMAND] into the box, where COMMAND is the name of the command e.g. man ylim . If you type some text that is not recognised as a command, then the text will be output in the terminal. This can be useful for note-taking. Pressing the UP ARROW key will cycle through your command history. The list of available commands are given below. ",
+    "url": "/docs/guide/Commands.html",
+    
+    "relUrl": "/docs/guide/Commands.html"
+  },"11": {
+    "doc": "Commands",
+    "title": "Table of contents",
+    "content": ". | [locus / feature] | add | count | cov | edges | expand-tracks | filter | find, f | goto | grid | indel-length | insertions, ins | line | link, l | low-mem | log2-cov | mate | mismatches, mm | online | quit, q | refresh, r | remove, rm | sam | settings | snapshot, s | soft-clips, sc | tags | theme | tlen-y | var, v | ylim | . | ",
+    "url": "/docs/guide/Commands.html#table-of-contents",
+    
+    "relUrl": "/docs/guide/Commands.html#table-of-contents"
+  },"12": {
+    "doc": "Commands",
+    "title": "[locus / feature]",
+    "content": "| . Navigate to a genomic locus, or feature of interest. You can use chromosome names or chromosome coordinates to change the current view point to a new location. chr1:1-20000 chr1 chr1:10000 . Additionally, if you have tracks loaded, such as a bed file of genes, you can type the name of a gene or feature into the command box to navigate to that feature. Note, this feature only really works with non-indexed files, because when using indexed files, GW will only load the data that is on-screen, rather than the whole file. hTERT . | ",
+    "url": "/docs/guide/Commands.html#locus--feature",
+    
+    "relUrl": "/docs/guide/Commands.html#locus--feature"
+  },"13": {
+    "doc": "Commands",
+    "title": "add",
+    "content": "| . This will add a new region view to the right-hand-side of your screen. add chr1:1-20000 . | ",
+    "url": "/docs/guide/Commands.html#add",
+    
+    "relUrl": "/docs/guide/Commands.html#add"
+  },"14": {
+    "doc": "Commands",
+    "title": "count",
+    "content": "| . Counts the visible reads in each view. A summary output will be displayed for each view on the screen. Optionally a filter expression may be added to the command. See the section for ‘filter’ for mote details. count ... File HG002.bwa.bam Region chr1:1-20000 Total 4220 Paired 4220 Proper-pair 3791 Read-unmapped 0 Mate-unmapped 6 Read-reverse 2024 Mate-reverse 2107 First-in-pair 2118 Second-in-pair 2102 Not-primary 0 Fails-qc 0 Duplicate 60 Supplementary 76 Deletion-pattern 6 Duplication-pattern 3 Translocation-pattern 356 F-inversion-pattern 26 R-inversion-pattern 40 . Count after applying a filter expression: . count flag &amp; 2 count flag &amp; proper-pair . | ",
+    "url": "/docs/guide/Commands.html#count",
+    
+    "relUrl": "/docs/guide/Commands.html#count"
+  },"15": {
+    "doc": "Commands",
+    "title": "cov",
+    "content": "| . Toggles the coverage track, turning it off/on. | ",
+    "url": "/docs/guide/Commands.html#cov",
+    
+    "relUrl": "/docs/guide/Commands.html#cov"
+  },"16": {
+    "doc": "Commands",
+    "title": "edges",
+    "content": "| . Toggles the edges of tracks, turning them off/on. Edge-highlights are used to indicate split-reads, or reads that have an unmapped mate-pair. | ",
+    "url": "/docs/guide/Commands.html#edges",
+    
+    "relUrl": "/docs/guide/Commands.html#edges"
+  },"17": {
+    "doc": "Commands",
+    "title": "expand-tracks",
+    "content": "| . Toggle expand-tracks. Features in the tracks panel are expanded so overlapping features can be seen. | ",
+    "url": "/docs/guide/Commands.html#expand-tracks",
+    
+    "relUrl": "/docs/guide/Commands.html#expand-tracks"
+  },"18": {
+    "doc": "Commands",
+    "title": "filter",
+    "content": "| . Filters visible reads, and removes them from view if a filter is ‘failed’. Reads can be filtered using an expression ‘{property} {operation} {value}’ (the white-spaces are also needed). For example, here are some useful expressions: . filter mapq &gt;= 20 filter flag &amp; 2048 filter seq contains TTAGGG . Here are a list of ‘{property}’ values you can use: . maps, flag, ~flag, name, tlen, abs-tlen, rnext, pos, ref-end, pnext, seq, seq-len, RG, BC, BX, RX, LB, MD, MI, PU, SA, MC, NM, CM, FI, HO, MQ, SM, TC, UQ, AS . These can be combined with ‘{operator}’ values: . &amp;, ==, !=, &gt;, &lt;, &gt;=, &lt;=, eq, ne, gt, lt, ge, le, contains, omit . Bitwise flags can also be applied with named values: . paired, proper-pair, unmapped, munmap, reverse, mreverse, read1, read2, secondary, dup, supplementary . Expressions can be chained together providing all expressions are ‘AND’ or ‘OR’ blocks: . filter mapq &gt;= 20 and mapq &lt; 30 filter mapq &gt;= 20 or flag &amp; supplementary . Finally, you can apply filters to specific panels using array indexing notation: . filter mapq &gt; 0 [:, 0] # All rows, column 0 (all bams, first region only) filter mapq &gt; 0 [0, :] # Row 0, all columns (the first bam only, all regions) filter mapq &gt; 0 [1, -1] # Row 1, last column . Here are a list of some example filtering commands: . filter mapq &gt;= 20 # only reads with mapping quality &gt;= 20 will be shown filter flag &amp; 2048 # only supplementary alignments are shown filter flag &amp; supplementary # same as above filter ~flag &amp; supplementary # supplementary reads will be removed filter seq contains TTAGGG # Only reads with TTAGGG kmer will be shown filter seq omit AAAAAA # Reads with this kmer will be removed filter mapq &gt; 30 and ~flag &amp; duplicate # also removes duplicate reads filter mapq &gt; 10 or seq-len &gt; 100; ~flag &amp; duplicate # multiple commands . | ",
+    "url": "/docs/guide/Commands.html#filter",
+    
+    "relUrl": "/docs/guide/Commands.html#filter"
+  },"19": {
+    "doc": "Commands",
+    "title": "find, f",
+    "content": "| . Find a read with target name. All alignments with the same name will be highlighted with a bright edge border. find D00360:18:H8VC6ADXX:1:1107:5538:24033 . | ",
+    "url": "/docs/guide/Commands.html#find-f",
+    
+    "relUrl": "/docs/guide/Commands.html#find-f"
+  },"20": {
+    "doc": "Commands",
+    "title": "goto",
+    "content": "| . Navigate to a locus or track feature. This moves the current region to a new view point, or adds a new view point if one is not already open. You can also specify a feature name from one of the loaded tracks. Searching for track features works mainly for non-indexed files that are loaded into memory during startup. goto chr1 goto hTERT . | ",
+    "url": "/docs/guide/Commands.html#goto",
+    
+    "relUrl": "/docs/guide/Commands.html#goto"
+  },"21": {
+    "doc": "Commands",
+    "title": "grid",
+    "content": "| . Set the grid size for viewing image tiles. grid 8x8 # this will display 64 image tiles . | ",
+    "url": "/docs/guide/Commands.html#grid",
+    
+    "relUrl": "/docs/guide/Commands.html#grid"
+  },"22": {
+    "doc": "Commands",
+    "title": "indel-length",
+    "content": "| . Set the minimum indel-length. Indels (gaps in alignments) will be labelled with text if they have length ≥ ‘indel-length . indel-length 30 . | ",
+    "url": "/docs/guide/Commands.html#indel-length",
+    
+    "relUrl": "/docs/guide/Commands.html#indel-length"
+  },"23": {
+    "doc": "Commands",
+    "title": "insertions, ins",
+    "content": "| . Toggle insertions. Insertions smaller than ‘indel-length’ are turned on or off. | ",
+    "url": "/docs/guide/Commands.html#insertions-ins",
+    
+    "relUrl": "/docs/guide/Commands.html#insertions-ins"
+  },"24": {
+    "doc": "Commands",
+    "title": "line",
+    "content": "| . Toggles a vertical line drawn over cursor position. | ",
+    "url": "/docs/guide/Commands.html#line",
+    
+    "relUrl": "/docs/guide/Commands.html#line"
+  },"25": {
+    "doc": "Commands",
+    "title": "link, l",
+    "content": "| . Link alignments. This will change how alignments are linked, options are ‘none’, ‘sv’, ‘all’. Linking by ‘sv’ will draw links between alignments that have either a discordant flag, or have a supplementary mapping. | ",
+    "url": "/docs/guide/Commands.html#link-l",
+    
+    "relUrl": "/docs/guide/Commands.html#link-l"
+  },"26": {
+    "doc": "Commands",
+    "title": "low-mem",
+    "content": "| . Toggle low-mem mode. This will discard all base-quality information and sam tags from newly loaded alignments. Use this option if you wish to display large regions and you have memory concerns. Memory consumption can be reduced by up to half. | ",
+    "url": "/docs/guide/Commands.html#low-mem",
+    
+    "relUrl": "/docs/guide/Commands.html#low-mem"
+  },"27": {
+    "doc": "Commands",
+    "title": "log2-cov",
+    "content": "| . Toggle log2-coverage. The coverage track will be scaled by log2. | ",
+    "url": "/docs/guide/Commands.html#log2-cov",
+    
+    "relUrl": "/docs/guide/Commands.html#log2-cov"
+  },"28": {
+    "doc": "Commands",
+    "title": "mate",
+    "content": "| . Goto mate alignment. Either moves the current view to the mate locus, or adds a new view of the mate locus. mate mate add . | ",
+    "url": "/docs/guide/Commands.html#mate",
+    
+    "relUrl": "/docs/guide/Commands.html#mate"
+  },"29": {
+    "doc": "Commands",
+    "title": "mismatches, mm",
+    "content": "| . Toggle mismatches. Mismatches with the reference genome are turned on or off. | ",
+    "url": "/docs/guide/Commands.html#mismatches-mm",
+    
+    "relUrl": "/docs/guide/Commands.html#mismatches-mm"
+  },"30": {
+    "doc": "Commands",
+    "title": "online",
+    "content": "| . Show links to online browsers for the current region. This function is mainly implemented for human reference genomes including hg19/GRCh37, hg38/GRCh38 and hs1/t2t. If you are not using a genome tag, you can add one as an additional argument: . online online GRCh37 . For human references, links to databases with the same region as the current view are provided. Supported databases include: . | UCSC Genome Browser link | . | DECIPHER Genome Browser link | . | Gnomad Browser link | . | Ensemble Genome Browser link | . | NCBI Genome Data Viewer link | . If you would like to see more databases added, please get in touch. | ",
+    "url": "/docs/guide/Commands.html#online",
+    
+    "relUrl": "/docs/guide/Commands.html#online"
+  },"31": {
+    "doc": "Commands",
+    "title": "quit, q",
+    "content": "| . Simply quits GW . | ",
+    "url": "/docs/guide/Commands.html#quit-q",
+    
+    "relUrl": "/docs/guide/Commands.html#quit-q"
+  },"32": {
+    "doc": "Commands",
+    "title": "refresh, r",
+    "content": "| . Refresh the screen and re-draws everything. All filters will also be removed. | ",
+    "url": "/docs/guide/Commands.html#refresh-r",
+    
+    "relUrl": "/docs/guide/Commands.html#refresh-r"
+  },"33": {
+    "doc": "Commands",
+    "title": "remove, rm",
+    "content": "| . Remove a region, bam or track by index. To remove a bam or track add a ‘bam’ or ‘track’ prefix. rm 0 # this will remove REGION at index 0 rm bam1 # this will remove BAM FILE at index 1 rm track2 # removes track at index 2 . | ",
+    "url": "/docs/guide/Commands.html#remove-rm",
+    
+    "relUrl": "/docs/guide/Commands.html#remove-rm"
+  },"34": {
+    "doc": "Commands",
+    "title": "sam",
+    "content": "| . Print the entire seclected read in sam format to the terminal. First select a read using the mouse then type sam . | ",
+    "url": "/docs/guide/Commands.html#sam",
+    
+    "relUrl": "/docs/guide/Commands.html#sam"
+  },"35": {
+    "doc": "Commands",
+    "title": "settings",
+    "content": "| . Opens the settings panel. | ",
+    "url": "/docs/guide/Commands.html#settings",
+    
+    "relUrl": "/docs/guide/Commands.html#settings"
+  },"36": {
+    "doc": "Commands",
+    "title": "snapshot, s",
+    "content": "| . Save an image of the screen. If no name is provided, the image name will be ‘chrom_start_end.png’ and will be saved in the current working directory, or if you are in tiled-mode, the image name will be ‘index_start_end.png’ . snapshot snapshot my_image.png . If you have a vcf/bcf open in ‘single’ mode (not ‘tiled’) it is also possible to parse info from the vcf record. Use curley braces to select what fields to use in the filename: . snapshot {pos}_{qual}.png # parse the position and qual fields snapshot {info.SU}.png # parse SU from info field s {format[samp1].SU}.png # samp1 sample, SU column from format field . Valid fields are chrom, pos, id, ref, alt, qual, filter, info, format. Just to note, you can press the repeat key (R by default) to repeat the last command, which can save typing this command over and over. | ",
+    "url": "/docs/guide/Commands.html#snapshot-s",
+    
+    "relUrl": "/docs/guide/Commands.html#snapshot-s"
+  },"37": {
+    "doc": "Commands",
+    "title": "soft-clips, sc",
+    "content": "| . Soft-clipped bases or hard-clips are turned on or off. | ",
+    "url": "/docs/guide/Commands.html#soft-clips-sc",
+    
+    "relUrl": "/docs/guide/Commands.html#soft-clips-sc"
+  },"38": {
+    "doc": "Commands",
+    "title": "tags",
+    "content": "| . This will print all the tags of the selected read (select a read with the mouse first). | ",
+    "url": "/docs/guide/Commands.html#tags",
+    
+    "relUrl": "/docs/guide/Commands.html#tags"
+  },"39": {
+    "doc": "Commands",
+    "title": "theme",
+    "content": "| . Switch the theme. Currently, ‘igv’, ‘dark’ or ‘slate’ themes are supported. theme slate . | ",
+    "url": "/docs/guide/Commands.html#theme",
+    
+    "relUrl": "/docs/guide/Commands.html#theme"
+  },"40": {
+    "doc": "Commands",
+    "title": "tlen-y",
+    "content": "| . Toggle tlen-y option. This will scale the read position by template length, so will apply to paired-end reads only. Reads with a shorter template-length will be drawn towards the top of the screen, and reads with a longer template-length will be drawn below. You can set a maximum y-limit on the template-length by adding a number argument: . tlen-y tlen-y 50000 . | ",
+    "url": "/docs/guide/Commands.html#tlen-y",
+    
+    "relUrl": "/docs/guide/Commands.html#tlen-y"
+  },"41": {
+    "doc": "Commands",
+    "title": "var, v",
+    "content": "| . Print variant information. This function requires a VCF file to be opened as a variant file, which can be added using the -v option on command line, or by dragging-and-dropping a VCF into the window. Using var will print the full record of the selected variant (use mouse to select). If you are viewing a VCF then columns can be parsed e.g: . var pos # position var info.SU # SU column from info v chrom pos info.SU # list of variables to print v format.SU # SU column from format v format[samp1].SU # using sample name to select SU . Valid fields are chrom, pos, id, ref, alt, qual, filter, info, format. Just to note, you can press ENTER to repeat the last command, which can save typing this command over and over. | ",
+    "url": "/docs/guide/Commands.html#var-v",
+    
+    "relUrl": "/docs/guide/Commands.html#var-v"
+  },"42": {
+    "doc": "Commands",
+    "title": "ylim",
+    "content": "| . Set the y limit. The y limit is the maximum height of stacked reads shown on the drawing. ylim 100 . ",
+    "url": "/docs/guide/Commands.html#ylim",
+    
+    "relUrl": "/docs/guide/Commands.html#ylim"
+  },"43": {
+    "doc": "Docker",
+    "title": "Install using Docker",
+    "content": "To use the Docker container interactively (i.e. not just from the command line) you must have a screen-sharing tool available on your system - Xpra (https://xpra.org/) can work well for this. This allows a screen to be shared between the container and host. | Grab the gw docker image: | . docker pull kcleal/gw . | Run the docker container using: | . sudo docker run -it -p 9876:9876 \\ --mount src=/path/genome,target=/home/genome,type=bind,readonly \\ --mount src=/path/bams,target=/home/bams,type=bind,readonly \\ kcleal/gw . The -p option binds the port 9876 between host and container. The –mount options are used to share the folders containing your reference genome and bam files - modify the src=… path as needed. Now open a web-browser and type in the address 0.0.0.0:9876. A window into the container will be shown, with an xterm terminal open. You can then run gw using: . gw genome/ref.fasta -b bams/your.bam -r chr1:1-20000 . If you want to get data out of the container, you will need a setup another mount point when starting the container e.g.: . sudo docker run -it -p 9876:9876 \\ --mount src=/path/genome,target=/home/genome,type=bind,readonly \\ --mount src=/path/bams,target=/home/bams,type=bind,readonly \\ --mount src=${PWD},target=/home/out,type=bind \\ kcleal/gw . Anything saved in /home/out when in the container will be saved in the present-working-directory on your host machine. Also of note, the container contains the micromamba package manager, so you can download and install new packages as needed. ",
+    "url": "/docs/install/Docker.html#install-using-docker",
+    
+    "relUrl": "/docs/install/Docker.html#install-using-docker"
+  },"44": {
+    "doc": "Docker",
+    "title": "Docker",
+    "content": " ",
+    "url": "/docs/install/Docker.html",
+    
+    "relUrl": "/docs/install/Docker.html"
+  },"45": {
+    "doc": "Hot keys",
+    "title": "Hot keys and shortcuts",
+    "content": "GW has a number of hotkeys to make things quicker for advanced users. These are listed below: . | Function | Key | . | scroll left | LEFT | . | scroll right | RIGHT | . | scroll down | PAGE_DOWN | . | scroll up | PAGE_UP | . | zoom in | UP | . | zoom out | DOWN | . | zoom to cursor | CTRL + LEFT_MOUSE | . | next region view | ] | . | previous region view | [ | . | cycle link mode | L | . | find matching alignments | F | . | repeat last command | ENTER | . | resize window | SHIFT + ARROW_KEY | . | switch viewing mode | TAB | . | repeat last command | R | . | switch variant file | COMMAND + ARROW_KEY | . ",
+    "url": "/docs/guide/Hotkeys.html#hot-keys-and-shortcuts",
+    
+    "relUrl": "/docs/guide/Hotkeys.html#hot-keys-and-shortcuts"
+  },"46": {
+    "doc": "Hot keys",
+    "title": "Hot keys",
+    "content": " ",
+    "url": "/docs/guide/Hotkeys.html",
+    
+    "relUrl": "/docs/guide/Hotkeys.html"
+  },"47": {
+    "doc": "Images",
+    "title": "Images",
+    "content": "GW can generate static images in .png/.pdf format of target genomic regions. These can be saved to a file but only .png images can be re-opened for exploring at a later date. Images can be generated using the snapshot command, or using options on the command line. The command line options are detailed below. ",
+    "url": "/docs/guide/Images.html",
+    
+    "relUrl": "/docs/guide/Images.html"
+  },"48": {
+    "doc": "Images",
+    "title": "Saving images",
+    "content": "Images are directed to stdout, to a file using the -f option, or to a folder using --outdir. The --no-show/-n option is also needed to stop GW displaying a window: . gw hg38 -b your.bam -r chr1:1-20000 -n &gt; out.png # png to stdout gw hg38 -b your.bam -r chr1:1-20000 -n --fmt pdf -f out.pdf # pdf saved to file . All variants in a VCF file can also be generated: . gw hg38.fa -b your.bam -v variants.vcf --outdir all_images -n -t 16 . Or, all chromosome in a BAM file can be drawn: . gw t2t -t 12 -b your.bam -n --outdir chrom_plots . GW can also encode the genomic location of a region in the file name, allowing you to open static images alongside bam files at a later date. To use this function, let GW name the png file for you by supplying only the output directory with --outdir: . gw hg38.fa -b your.bam -r chr1:1-20000 --outdir . -n . Here an image file will be saved in the current directory with the filename GW~chr1~1~20000~.png. ",
+    "url": "/docs/guide/Images.html#saving-images",
+    
+    "relUrl": "/docs/guide/Images.html#saving-images"
+  },"49": {
+    "doc": "Images",
+    "title": "Opening images",
+    "content": "The image file mentioned above can be opened alongside a BAM file, allowing you to explore the image dynamically: . gw hg19 -i GW~chr1~1~20000~.png -b your.bam . Images saved in .png format can be opened in a similar way to variant data, using the -i or –images option. Files are input using a glob pattern. For example all .png images in a folder called ‘images’ can be opened with: . gw -i \"images/*.png\" . If you previously used GW to generate images from a vcf file (see example in Variant data section), any parsed-labels will be saved in the –outdir directory. For example if –outdir images was used when generating images, you can now view these images and labels using: . gw -i \"images/*.png\" --in-labels images/gw.parsed_labels.tsv . To open one or more bam files alongside your images you will need to supply a reference genome. Right-clicking using the mouse will then switch between images and bam files: . gw hg38.fa -b your.bam -i \"images/*.png\" . ",
+    "url": "/docs/guide/Images.html#opening-images",
+    
+    "relUrl": "/docs/guide/Images.html#opening-images"
+  },"50": {
+    "doc": "Install",
+    "title": "Installation",
+    "content": "GW can be installed on several platforms, as a command-line tool or desktop application. Follow the relevant section below for more details. ",
+    "url": "/docs/install/Install.html#installation",
+    
+    "relUrl": "/docs/install/Install.html#installation"
+  },"51": {
+    "doc": "Install",
+    "title": "Install",
+    "content": " ",
+    "url": "/docs/install/Install.html",
+    
+    "relUrl": "/docs/install/Install.html"
+  },"52": {
+    "doc": "Labelling",
+    "title": "Labelling",
+    "content": "GW is designed to make manually labelling 100s - 1000s of variants as pain free as possible. Using the command-line interface, labels can be saved to a tab-separated file and opened at a later date to support labelling over multiple sessions. GW can also write a modified VCF, updating the filter column with curated labels. Use the UP and DOWN arrows to increase or decrease the number of image tiles, or LEFT and RIGHT to navigate through images. Below is a view of 196 variant images. To use labelling correctly in GW, ensure all variant IDs in your input VCF/BCF are unique - this should normally be the case anyway. When you open a VCF file, GW will parse the ‘filter’ column and display this as a label in the bottom left-hand corner of image tiles. Other labels can be parsed from the VCF using the –parse-label option. For example, the SU tag can be parsed from the info column using: . gw hg38.fa -b your.bam -v variants.vcf --parse-label info.SU . Image tiles can then be clicked-on using the mouse to modify the label, choosing between PASS/FAIL by default. To provide a list of alternate labels, use the --labels option: . gw hg38.fa -b your.bam -v variants.vcf --labels Yes,No,Maybe . Now, when you left-click on a tiled image, you can cycle through this list. To save or open a list of annotations, use the --in-labels and --out-labels options. This makes it straightforward to keep track of labelling progress between sessions. Only variants that have been displayed to screen will be appended to the results in --out-labels file. The same file can be used for in and out labels, if desired: . gw hg38 -b your.bam -v variants.vcf --in-labels labels.tsv --out-labels labels.tsv . Labels are output as a tab-separated file with the following format: . | chrom | pos | variant_ID | label | var_type | labelled_date | variant_filename | . | chr1 | 200000 | 27390 | PASS | DEL |   | test.vcf | . | chr1 | 250000 | 2720 | FAIL | SNP | 14-10-2022 16-05-46 | test.vcf | . The labelled_date column is only filled out if one of the tiled images was manually clicked - if this field is blank then the --parsed-label was used. This feature allows you to keep track of which variants were user-labelled over multiple sessions. Additionally, the --out-labels file is auto-saved every minute for safe keeping. GW can also write labels to a VCF file. We recommend using this feature to finalise your annotation - the whole VCF file will be written to --out-vcf. The final label will appear in the ‘filter’ column in the vcf. Additionally, the date and previous filter label are kept in the info column under GW_DATE, GW_PREV: . gw hg38.fa -b your.bam -v variants.vcf --in-labels labels.tsv --out-vcf final_annotations.vcf . Note, the --in-labels option is not required here, but could be used if labelling over multiple sessions, for example. Also, a GW window will still pop-up here, but this could be supressed using the --no-show option. ",
+    "url": "/docs/guide/Labelling.html",
+    
+    "relUrl": "/docs/guide/Labelling.html"
+  },"53": {
+    "doc": "Linux",
+    "title": "Installing GW on Linux x86_64 Systems",
+    "content": "To install GW as a desktop application on debian systems (Intel only), click the download links below, or head over to GitHub Releases page. | GW Intel x86_64 debian installer | . GW is also available for Linux x86_64 systems as a command-line tool and can be installed using Conda. ",
+    "url": "/docs/install/Linux.html#installing-gw-on-linux-x86_64-systems",
+    
+    "relUrl": "/docs/install/Linux.html#installing-gw-on-linux-x86_64-systems"
+  },"54": {
+    "doc": "Linux",
+    "title": "Using Conda",
+    "content": "Once Conda is installed, you can install GW by running the following command in your terminal: . conda install -c conda-forge -c bioconda gw . ",
+    "url": "/docs/install/Linux.html#using-conda",
+    
+    "relUrl": "/docs/install/Linux.html#using-conda"
+  },"55": {
+    "doc": "Linux",
+    "title": "Building from source",
+    "content": "Before building GW, you need to install the glfw3 and htslib libraries. For Ubuntu, fetch these using: . sudo apt install libgl1-mesa-dev libfontconfig-dev libhts-dev glfw . GW can be built and installed using: . git clone https://github.com/kcleal/gw.git &amp;&amp; cd gw make prep &amp;&amp; make cp gw /usr/local/bin . After installation, you can verify that GW has been installed correctly by running: . gw --version . ",
+    "url": "/docs/install/Linux.html#building-from-source",
+    
+    "relUrl": "/docs/install/Linux.html#building-from-source"
+  },"56": {
+    "doc": "Linux",
+    "title": "Linux",
+    "content": " ",
+    "url": "/docs/install/Linux.html",
+    
+    "relUrl": "/docs/install/Linux.html"
+  },"57": {
+    "doc": "MacOS",
+    "title": "Installing GW on macOS",
+    "content": "To install GW as a desktop application (Intel or Apple silicone), click one of the download links below, or head over to GitHub Releases page. | GW Intel x86_64 mac dmg installer | . | GW Apple arm64 mac dmg installer | . To install GW on macOS as a command-line tool, you have two primary options depending on your system architecture: using Conda or Homebrew. These instructions cover both Intel-based (x86_64) and Apple Silicon (M1, M1 Pro, M1 Max, M2, etc.) Macs. ",
+    "url": "/docs/install/MacOS.html#installing-gw-on-macos",
+    
+    "relUrl": "/docs/install/MacOS.html#installing-gw-on-macos"
+  },"58": {
+    "doc": "MacOS",
+    "title": "Using Conda (Intel chips)",
+    "content": "For users who prefer using Conda , GW can be installed from the Conda-Forge and Bioconda channels. This method works for Intel architectures only. Open your terminal and execute the following command: . conda install -c conda-forge -c bioconda gw . ",
+    "url": "/docs/install/MacOS.html#using-conda-intel-chips",
+    
+    "relUrl": "/docs/install/MacOS.html#using-conda-intel-chips"
+  },"59": {
+    "doc": "MacOS",
+    "title": "Using Homebrew (Intel + Apple chips)",
+    "content": "For those who prefer Homebrew, GW has a Homebrew tap available. This method is compatible with both Intel and Apple Silicon Macs. Open your terminal and run: . brew install kcleal/homebrew-gw/gw . ",
+    "url": "/docs/install/MacOS.html#using-homebrew-intel--apple-chips",
+    
+    "relUrl": "/docs/install/MacOS.html#using-homebrew-intel--apple-chips"
+  },"60": {
+    "doc": "MacOS",
+    "title": "Building from source",
+    "content": "Before building GW, you need to install the glfw3 and htslib libraries. These can be easily installed using Conda. conda install -c conda-forge -c bioconda glfw htslib . Next clone the GW repository: . git clone https://github.com/kcleal/gw.git &amp;&amp; cd gw . Set the CONDA_PREFIX environment variable so gw can use the required libraries. export CONDA_PREFIX=~/miniconda3 . Build gw using . make prep &amp;&amp; make . Also, it is recommended to add GW to your bin directory: . cp gw /usr/local/bin . After installation, you can verify that GW has been installed correctly by running: . gw --version . ",
+    "url": "/docs/install/MacOS.html#building-from-source",
+    
+    "relUrl": "/docs/install/MacOS.html#building-from-source"
+  },"61": {
+    "doc": "MacOS",
+    "title": "MacOS",
+    "content": " ",
+    "url": "/docs/install/MacOS.html",
+    
+    "relUrl": "/docs/install/MacOS.html"
+  },"62": {
+    "doc": "Remote",
+    "title": "Remote",
+    "content": "GW can be used on remote servers by using ssh -X when logging on to the server, and a GW window will show up on your local screen. This should work seamlessly with linux server-client machines, although there are known issues with Mac-Linux server-client interfaces. We also recommend adding an update delay (in miliseconds) using gw --delay 100 which can help prevent bandwidth/latency issues. Alternatively, the screen sharing tool Xpra can offer much better performance for rendering over a remote connection. Xpra will need to be installed on local and remote machines. One way to use Xpra is to start GW on port 100 (on remote machine) using: . xpra start :100 --start=\"gw ref.fa -b your.bam -r chr1:50000-60000\" --sharing=yes --daemon=no . You (or potentially multiple users) can view the GW window on your local machine using: . xpra attach ssh:ubuntu@18.234.114.252:100 . The :100 indicates the port. If you need to supply more options to the ssh command use e.g. xpra attach ssh:ubuntu@18.234.114.252:102 --ssh \"ssh -o IdentitiesOnly=yes -i .ssh/dysgu.pem\" . ",
+    "url": "/docs/guide/Remote.html",
+    
+    "relUrl": "/docs/guide/Remote.html"
+  },"63": {
+    "doc": "Settings",
+    "title": "Settings and config",
+    "content": "The settings menu can be accessed by clicking the cog button on the left-hand side of the screen, or by hitting the ESC key. Settings can be changed for the current session by navigating the menu and altering the desired options. If you want to save the changes permanently, click the save button located in the menu at the top left-hand corer. The config file for GW is called .gw.ini and is usually saved in your home directory, or under ~/.config folder. Feel free to edit this. If you mess things up, just remove the ini file and GW will make a new one in the home directory when you restart. ",
+    "url": "/docs/guide/Settings.html#settings-and-config",
+    
+    "relUrl": "/docs/guide/Settings.html#settings-and-config"
+  },"64": {
+    "doc": "Settings",
+    "title": "Settings",
+    "content": " ",
+    "url": "/docs/guide/Settings.html",
+    
+    "relUrl": "/docs/guide/Settings.html"
+  },"65": {
+    "doc": "Tracks",
+    "title": "Tracks",
+    "content": "One or more data tracks can be loaded into GW by dragging-and-dropping files into the main window, or by using the --track command-line option. Data tracks (--track) appear below alignments towards the bottom of the screen. Currently, the following file formats are supported: . | Data option | File formats supported | . | --track | VCF, BCF, BED, GFF3, GTF, BIGBED, BIGWIG, GW_TRACK | . By default, dragging a VCF/BCF file will load the file in the same way as using the --var option, resulting in images being drawn as tiles on a grid. To change this behaviour, goto Settings-&gt;Interaction and change the vcf_as_tracks option to true. ",
+    "url": "/docs/guide/Tracks.html",
+    
+    "relUrl": "/docs/guide/Tracks.html"
+  },"66": {
+    "doc": "Tracks",
+    "title": "Loading track data",
+    "content": "gw hg19 -r chr1 -b HG002.bwa.bam --track test.gff3.gz . Note the track pane can be dynamically resized using the mouse by clicking on the boundary line and dragging up or down. Additionally selecting expand-tracks from the menu will display all overlapping features in a separate row. ",
+    "url": "/docs/guide/Tracks.html#loading-track-data",
+    
+    "relUrl": "/docs/guide/Tracks.html#loading-track-data"
+  },"67": {
+    "doc": "User guide",
+    "title": "User guide",
+    "content": "GW can be used to display alignment data, feature tracks, draw image tiles, and generate and label images. Follow the relevant section below for more information. ",
+    "url": "/docs/guide/User_guide.html",
+    
+    "relUrl": "/docs/guide/User_guide.html"
+  },"68": {
+    "doc": "Variant data",
+    "title": "Variant data and image tiles",
+    "content": "One or more variant data files can be loaded into GW by dragging-and-dropping files into the main window, or by using the --var command-line option. Variant data files are only used for drawing image tiles. To draw the locations of variants, add the variant data track using the --track option. Currently, the following file formats are supported: . | Data option | File formats supported | . | --var | VCF, BCF, BED, GW_LABEL | . ",
+    "url": "/docs/guide/Variants_and_tracks.html#variant-data-and-image-tiles",
+    
+    "relUrl": "/docs/guide/Variants_and_tracks.html#variant-data-and-image-tiles"
+  },"69": {
+    "doc": "Variant data",
+    "title": "Loading variant data",
+    "content": "gw hg19 -b HG002.bwa.bam -v HG002.dysgu.vcf . Image tiles can be selected by right-clicking, which will switch to the interactive alignment-view mode. To get back to the tiled image panel just right click again. To change the label, and cycle through your label list, left-click an image tile. Also it is possible to load multiple variant data files at the same time. The blue rectangles at the top-left of the screen indicates the current variant data file being displayed. Click on a different rectangle to switch to another variant data file, or use the keyboard short-cut by pressing COMMAND+RIGHT-ARROW. gw hg19 -b HG002.bwa.bam -v variants1.vcf -v variants2.vcf . VCF files can also be open in a stream e.g. using bcftools to select and filter variant can be convenient: . bcftools view -r chr1:1-1000000 your.bcf | gw hg38 -b your.bam -v - . ",
+    "url": "/docs/guide/Variants_and_tracks.html#loading-variant-data",
+    
+    "relUrl": "/docs/guide/Variants_and_tracks.html#loading-variant-data"
+  },"70": {
+    "doc": "Variant data",
+    "title": "Saving images of variant data",
+    "content": "You can also generate an image of every variant in your VCF file, using the --outdir and --no-show options. Also, you might want to increase the number of threads -t to speed things up a bit. Be warned this will probably generate a huge number of files: . gw hg38.fa -b your.bam -v variants.vcf --outdir all_images --no-show -t 16 . ",
+    "url": "/docs/guide/Variants_and_tracks.html#saving-images-of-variant-data",
+    
+    "relUrl": "/docs/guide/Variants_and_tracks.html#saving-images-of-variant-data"
+  },"71": {
+    "doc": "Variant data",
+    "title": "Variant data",
+    "content": " ",
+    "url": "/docs/guide/Variants_and_tracks.html",
+    
+    "relUrl": "/docs/guide/Variants_and_tracks.html"
+  },"72": {
+    "doc": "Windows",
+    "title": "Installing GW on Windows",
+    "content": "GW can be installed on Windows using MSYS2 or Windows Subsystem for Linux (WSL). Below are the instructions for both methods. ",
+    "url": "/docs/install/Windows.html#installing-gw-on-windows",
+    
+    "relUrl": "/docs/install/Windows.html#installing-gw-on-windows"
+  },"73": {
+    "doc": "Windows",
+    "title": "Using MSYS2",
+    "content": "MSYS2 is a software distro and building platform for Windows. Follow these steps to install GW using MSYS2: . | Download and Install MSYS2: | . Visit the MSYS2 website and download the installer. Follow the installation instructions on the website to set up MSYS2 on your Windows system. | Install GW using install script: | . Download the GW installer script below: . | GW Intel x86_64 Windows installer | . Run the downloaded visual-basic script by right-clicking and selecting Run as program. The script will insall GW and add a shortcut to GW in the Start Menu. Alternatively, GW can be installed by opening a ucrt64 shell from the Start Menu (installed when Msys2 is installed), and running the following command: . pacman -Sy mingw-w64-ucrt-x86_64-gw . ",
+    "url": "/docs/install/Windows.html#using-msys2",
+    
+    "relUrl": "/docs/install/Windows.html#using-msys2"
+  },"74": {
+    "doc": "Windows",
+    "title": "Using Windows Subsystem for Linux (WSL)",
+    "content": "If you prefer using a Linux environment on your Windows machine, you can use WSL: . | Install WSL: | . Follow Microsoft’s guide on installing WSL. Choose a Linux distribution of your choice (like Ubuntu) from the Microsoft Store. | Install GW within WSL: | . Once WSL is set up with your chosen Linux distribution, open the WSL terminal. You can then follow the Linux installation instructions for GW (as provided in the Linux section of the documentation). ",
+    "url": "/docs/install/Windows.html#using-windows-subsystem-for-linux-wsl",
+    
+    "relUrl": "/docs/install/Windows.html#using-windows-subsystem-for-linux-wsl"
+  },"75": {
+    "doc": "Windows",
+    "title": "Windows",
+    "content": " ",
+    "url": "/docs/install/Windows.html",
+    
+    "relUrl": "/docs/install/Windows.html"
+  },"76": {
+    "doc": "Home",
+    "title": "Home",
+    "content": "GW is a fast genome browser that allows you to display sequencing data, feature tracks, draw image tiles, generate static images and label variants. ",
+    "url": "/",
+    
+    "relUrl": "/"
+  },"77": {
+    "doc": "Quickstart",
+    "title": "Quick Start",
+    "content": " ",
+    "url": "/docs/quickstart.html#quick-start",
+    
+    "relUrl": "/docs/quickstart.html#quick-start"
+  },"78": {
+    "doc": "Quickstart",
+    "title": "Desktop Application:",
+    "content": "Open the GW application and drag-and-drop data files into the window. Next, navigate to a region using the command box by typing, for example /chr1. GW also supports opening a bam file by right-clicking and selecting GW from the list of programs. In order for this to work, a matching reference genome is needed in the GW configuration file, see the Config section for more details. ",
+    "url": "/docs/quickstart.html#desktop-application",
+    
+    "relUrl": "/docs/quickstart.html#desktop-application"
+  },"79": {
+    "doc": "Quickstart",
+    "title": "Command line:",
+    "content": "Start gw using the hg38 genome tag, next, drag and drop bams into the window: . gw hg38 . Open a target bam file (a matching reference genome will be needed in the config file): . gw a.bam . View start of chr1: . gw hg38 -b your.bam -r chr1: . Two regions, side-by-side: . gw hg38 -b your.bam -r chr1:1-20000 -r chr2:50000-60000 . Multiple bams: . gw hg38 -b '*.bam' -r chr1 gw hg38 -b b1.bam -b b2.bam -r chr1 . Add a track BED/VCF/BCF/GFF3/GTF/GW_LABEL/BIGBED/BIGWIG: . gw hg38 -b your.bam -r chr1 --track a.bed . png image to stdout: . gw hg38 -b your.bam -r chr1:1-20000 -n &gt; out.png . Save pdf: . gw hg38 -b your.bam -r chr1:1-20000 -n --fmt pdf -f out.pdf . Plot every chromosome in parallel: . gw t2t -t 24 -b your.bam -n --outdir chrom_plots . View VCF/BCF/BED as tiled images: . gw hg38 -b your.bam -v var.vcf . View VCF/BCF from stdin: . gw hg38 -b your.bam -v - . View some png images: . gw -i \"images/*.png\" . Save some annotations: . gw hg38 -b your.bam -v var.vcf --labels Yes,No --out-labels labels.tsv . ",
+    "url": "/docs/quickstart.html#command-line",
+    
+    "relUrl": "/docs/quickstart.html#command-line"
+  },"80": {
+    "doc": "Quickstart",
+    "title": "Useful commands",
+    "content": "GW commands - access command box with : or /. Example commands: . help # help menu config # open config file for editing chr1:1-20000 # Navigate to region add chr2:1-50000 # Append new region rm 1 # Region at column index 1 removed rm bam1 # Bam file at row index 1 removed mate # Move view to mate of read mate add # mate added in new view line # Toggle vertical line ylim 100 # View depth increased to 100 find QNAME # Highlight all reads with qname==QNAME filter mapq &gt;= 10 # Filer reads for mapq &gt;= 10 count # Counts of all reads for each view point snapshot # Save screenshot to .png man COMMAND # manual for command . ",
+    "url": "/docs/quickstart.html#useful-commands",
+    
+    "relUrl": "/docs/quickstart.html#useful-commands"
+  },"81": {
+    "doc": "Quickstart",
+    "title": "Quickstart",
+    "content": " ",
+    "url": "/docs/quickstart.html",
+    
+    "relUrl": "/docs/quickstart.html"
+  }
+}

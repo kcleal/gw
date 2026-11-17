@@ -1,5 +1,5 @@
-#include "protocol/viewer/native/viewer_interface.h"
-#include "protocol/viewer/native/viewer_settings.h"
+#include "deps/protocol/viewer/native/viewer_interface.h"
+#include "deps/protocol/viewer/native/viewer_settings.h"
 #include "plot_manager.h"
 #include "plot_commands.h"
 #include "include/core/SkSurface.h"

@@ -77,8 +77,7 @@ namespace Manager {
         if (index>=tracks.size()) return;
         const int previousRegion=regionSelection;
         const float x=drawingWidth()*.5f;
-        float top=fb_height-sliderSpace-totalTabixY;
-        for (size_t i=0;i<index;++i) top+=tracks[i].px_height;
+        float top=trackTopOf((int)index);
         // Enter the existing native drag path with a known boundary, then apply
         // its final pointer position. No read/track resize mathematics is copied.
         pointerEvent("press",x,top,GLFW_MOUSE_BUTTON_LEFT,0,0,0);
@@ -241,21 +240,7 @@ namespace Manager {
                 reset = true;
             }
             if (reset) {
-                redraw = true;
-                processed = true;
-                imageCacheQueue.clear();
-                if (!collections.empty()) {
-                    for (auto & cl : collections) {
-                        cl.resetDrawState();
-                        cl.levelsStart.clear();
-                        cl.levelsEnd.clear();
-                        cl.linked.clear();
-                        Utils::SortType srt_option = regions[regionSelection].getSortOption();
-                        for (auto &itm: cl.readQueue) { itm.y = -1; }
-                        int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, srt_option);
-                        samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
-                    }
-                }
+                restackAlignments();
                 return GLFW_KEY_UNKNOWN;
             }
             // Fall though to other functions
@@ -723,6 +708,40 @@ namespace Manager {
         return true;
     }
 
+    bool GwPlot::openVariantInAlignmentView(int index) {
+        if (variantTracks.empty() || index < 0) {
+            return false;
+        }
+        if (variantFileSelection < 0 || variantFileSelection >= (int)variantTracks.size()) {
+            variantFileSelection = 0;
+        }
+        currentVarTrack = &variantTracks[variantFileSelection];
+        auto& vt = *currentVarTrack;
+        if (vt.type == HGW::TrackType::IMAGES) {
+            if (index >= (int)vt.image_glob.size()) {
+                return false;
+            }
+            std::vector<Utils::Region> rt;
+            if (!Utils::parseFilenameToRegions(vt.image_glob[index], rt, fai, opts.pad, opts.split_view_size)) {
+                return false;
+            }
+            regions = rt;
+        } else {
+            if (index >= (int)vt.multiRegions.size() || vt.multiRegions[index].empty() ||
+                    vt.multiRegions[index][0].chrom.empty()) {
+                return false;
+            }
+            regions = vt.multiRegions[index];
+        }
+        // Keep the tile page in step, so going back to tiles shows this variant
+        int perPage = std::max(1, opts.number.x * opts.number.y);
+        vt.blockStart = (index / perPage) * perPage;
+        mouseOverTileIndex = index - vt.blockStart;
+        regionSelection = 0;
+        switchToSingleMode();
+        return true;
+    }
+
     bool GwPlot::toggleCurrentVariantTiledView() {
         if (variantTracks.empty()) {
             return false;
@@ -886,7 +905,7 @@ namespace Manager {
                     0, lastCommandOutputAnsi.size() - maxHistory);
             }
             lastCommandOutputFrame = frameId;
-            showCommandStatus = !captured.empty();
+            if (!captured.empty()) showCommandStatus = true;  // stays open until the user closes it
             if (window) {
                 glfwPostEmptyEvent();
             }
@@ -974,7 +993,7 @@ namespace Manager {
         out << termcolor::bold << pos_str << termcolor::reset;
         term_width -= (int)pos_str.size();
 
-        auto r = regions[regionSelection];
+        const auto& r = regions[regionSelection];
         std::string region_str = r.chrom + ":" + std::to_string(r.start + 1) + "-" + std::to_string(r.end + 1);
         if (term_width <= (int)region_str.size()) {
             out << std::flush;
@@ -1021,8 +1040,7 @@ namespace Manager {
                     ideogram_path = opts.genome_tag + "_ideogram";
                     addIdeogram(opts.myIni["tracks"][ideogram_path]);
                 } else {
-                    ideogram.clear();
-                    loadIdeogramTag();
+                    loadIdeogramForAssembly(opts.genome_tag);
                 }
 
                 outerr << termcolor::bold << "\n" << opts.genome_tag << termcolor::reset << " loaded from " << reference << std::endl;
@@ -1047,6 +1065,9 @@ namespace Manager {
                     hts_set_fai_filename(bm, reference.c_str());
                 }
                 outerr << termcolor::bold << "\nGenome" << termcolor::reset << " loaded from " << reference << std::endl;
+                // No tag to look the ideogram up by: recognise the assembly from its lengths
+                const std::string assembly = matchIdeogramToReference();
+                if (!assembly.empty()) loadIdeogramForAssembly(assembly);
             } else {
                 outerr << termcolor::red << "Error:" << termcolor::reset << " could not open " << genome_tag_or_path << std::endl;
             }
@@ -1182,7 +1203,6 @@ namespace Manager {
         // Cancel scale-bar drag on Escape
         if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS && scaleBarDragging) {
             scaleBarDragging = false;
-            redraw = true;
             return;
         }
         // key events concerning the menu are handled here
@@ -1512,14 +1532,6 @@ namespace Manager {
                     currentVarTrack->blockStart = (currentVarTrack->blockStart - bLen > 0) ? currentVarTrack->blockStart - bLen : 0;
                     mouseOverTileIndex = 0;
                     redraw = true;
-                } else if (key == opts.zoom_out) {
-                    opts.number.x += 1;
-                    opts.number.y += 1;
-                    redraw = true;
-                } else if (key == opts.zoom_in) {
-                    opts.number.x = (opts.number.x - 1 > 0) ? opts.number.x - 1 : 1;
-                    opts.number.y = (opts.number.y - 1 > 0) ? opts.number.y - 1 : 1;
-                    redraw = true;
                 } else if (key >= GLFW_KEY_1 && key <= GLFW_KEY_9 && mouseOverTileIndex >= 0) {
                     int num_idx = key - (int)GLFW_KEY_1;
                     if (currentVarTrack->multiLabels.empty() || currentVarTrack->blockStart + mouseOverTileIndex > (int)currentVarTrack->multiLabels.size()) {
@@ -1562,15 +1574,33 @@ namespace Manager {
         } else if (
                 (!vcf_as_track && (Utils::endsWith(Online::resourceName(path), ".vcf.gz") || Utils::endsWith(Online::resourceName(path), ".vcf") || Utils::endsWith(Online::resourceName(path), ".bcf")))
              || (!bed_as_track && (Utils::endsWith(Online::resourceName(path), ".bed") || Utils::endsWith(Online::resourceName(path), ".bed.gz")))) {
-            good = true;
-
+#ifdef __EMSCRIPTEN__
+            // Tiled VCF/BED from a URL: stream it like other remote files (a .gz needs
+            // its .tbi/.csi; plain text up to 16 MiB is read whole)
+            if (Utils::startsWith(path, "http://") || Utils::startsWith(path, "https://")) {
+                std::string resolved = resolve_genome_path(path);
+                if (resolved.empty()) {
+                    outStr << termcolor::red << "Error:" << termcolor::reset << " could not stream " << path << "\n";
+                    redraw = false;
+                    return false;
+                }
+                path = resolved;
+            }
+#endif
             std::vector<std::string> labels = Utils::split(opts.labels, ',');
             setLabelChoices(labels);
+            try {
+                addVariantTrack(path, opts.start_index, false, false);
+            } catch (const std::exception& error) {
+                out << termcolor::red << "Error:" << termcolor::reset << " could not open " << path << " as tiles: " << error.what() << "\n";
+                redraw = false;
+                return false;
+            }
+            good = true;
             mouseOverTileIndex = 0;
             bboxes = tileBoundingBoxes();
             imageCache.clear();
 
-            addVariantTrack(path, opts.start_index, false, false);
             variantFileSelection = (int) variantTracks.size() - 1;
             currentVarTrack = &variantTracks[variantFileSelection];
             currentVarTrack->blockStart = 0;
@@ -1596,6 +1626,19 @@ namespace Manager {
             fetchRefSeqs();
             good = true;
         } else {
+#ifdef __EMSCRIPTEN__
+            // The browser has no libcurl: stream http(s) tracks over the same HTTP range
+            // bridge as remote BAM/CRAM files (bigBed/bigWig directly, BGZF with its index)
+            if (Utils::startsWith(path, "http://") || Utils::startsWith(path, "https://")) {
+                std::string resolved = resolve_genome_path(path);
+                if (resolved.empty()) {
+                    outStr << termcolor::red << "Error:" << termcolor::reset << " could not stream " << path << "\n";
+                    redraw = false;
+                    return false;
+                }
+                path = resolved;
+            }
+#endif
             tracks.push_back(HGW::GwTrack());
             try {
                 tracks.back().track_label_parser_rules = opts.track_label_parser_rules;
@@ -1614,6 +1657,9 @@ namespace Manager {
                 good = true;
             } catch (...) {
                 tracks.pop_back();
+                if (print_message) {
+                    out << termcolor::red << "Error:" << termcolor::reset << " could not open track " << path << "\n";
+                }
             }
         }
         if (good) {
@@ -1621,6 +1667,8 @@ namespace Manager {
             redraw = true;
             imageCacheQueue.clear();
             imageCache.clear();
+            // Data opened before any reference brings in the reference it was made with
+            if (reference.empty()) Menu::openReferenceForData(this, path);
         } else {
             redraw = false;
         }
@@ -1646,8 +1694,8 @@ namespace Manager {
         }
         if (y <= refSpace) {
             return REFERENCE_TRACK;
-        } else if (!tracks.empty() && y > (fb_height - sliderSpace - totalTabixY) && y < (fb_height - sliderSpace)) {
-            float top_y = (float)fb_height - sliderSpace - totalTabixY;
+        } else if (!tracks.empty() && y > tracksTop() && y < (fb_height - sliderSpace)) {
+            float top_y = tracksTop();
             // Track index counts down from -3, to find the actual index
             // idx=0 --> index=-3
             // idx=1 --> index=-4
@@ -1679,7 +1727,7 @@ namespace Manager {
                 float min_x = cl.xOffset;
                 float max_x = cl.xScaling * ((float) (cl.region->end - cl.region->start)) + min_x;
                 float min_y = refSpace;
-                float max_y = fb_height - sliderSpace - totalTabixY;
+                float max_y = tracksTop();
                 if (x > min_x && x < max_x && y > min_y && y < max_y) {
                     return i;
                 }
@@ -1761,9 +1809,6 @@ namespace Manager {
             if (action == GLFW_RELEASE) resetDragState();
             return;
         }
-        if (handleToolButtons(button, action, xW, yW)) {
-            return;
-        }
         if (handleCommandTooltipInteraction(button, action, xW, yW)) {
             return;
         }
@@ -1774,7 +1819,6 @@ namespace Manager {
         // Right-click cancels an in-progress scale-bar drag without zooming
         if (scaleBarDragging && button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
             scaleBarDragging = false;
-            redraw = true;
             return;
         }
 
@@ -1875,7 +1919,8 @@ namespace Manager {
         double x, y;
         bool windowlessMode = window == nullptr;
         if (!windowlessMode) {
-            glfwGetCursorPos(window, &x, &y);
+            if (replayingInput) { x = replayX; y = replayY; }
+            else glfwGetCursorPos(window, &x, &y);
             glfwGetWindowSize(window, &windowW, &windowH);
             if (fb_width > windowW) {
                 float ratio = (float) fb_width / (float) windowW;
@@ -1903,19 +1948,6 @@ namespace Manager {
         // Update mouse position
         xPos_fb = x;
         yPos_fb = y;
-    }
-
-    bool GwPlot::handleToolButtons(int button, int action, float xW, float yW) {
-        float half_h = (float)fb_height / 2;
-        float b = 30.0f * monitorScale;
-        bool tool_popup = (xW > 0 && xW <= b && yW >= half_h - b && yW <= half_h + b);
-        if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE && tool_popup) {
-            xDrag = DRAG_UNSET;
-            yDrag = DRAG_UNSET;
-            toggleCommandCapture();
-            return true;
-        }
-        return false;
     }
 
     void GwPlot::toggleSettingsMode() {
@@ -1946,8 +1978,47 @@ namespace Manager {
         commandToolTipIndex = 0;
     }
 
+    void GwPlot::setCommandCapture(bool on) {
+        if (on == captureText) return;
+        captureText = on;
+        processText = false;
+        textFromSettings = false;
+        commandToolTipIndex = -1;
+        if (on) {
+            inputText.clear();
+            charIndex = 0;
+        }
+    }
+
+    void GwPlot::setCommandText(const std::string& text) {
+        inputText = text;
+        charIndex = (int)inputText.size();
+    }
+
+    bool GwPlot::submitCommand(const std::string& text) {
+        captureText = false;
+        processText = false;
+        shiftPress = false;
+        commandToolTipIndex = -1;
+        setCommandText(text);
+        return commandProcessed();
+    }
+
+    bool GwPlot::tabCompleteCommand(std::string& text) {
+        int index = (int)text.size();
+        if (tryGenomeTagCompletion(text, index, opts)) return true;
+        for (const char* cmd : {"load ", "save ", "snapshot "}) {
+            if (Utils::startsWith(text, cmd) && text != cmd) {
+                std::ostringstream discard;
+                Parse::tryTabCompletion(text, discard, index);
+                return true;
+            }
+        }
+        return false;
+    }
+
     bool GwPlot::handleCommandTooltipInteraction(int button, int action, float xW, float yW) {
-        if (commandToolTipIndex >= 0 && captureText && mode != SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT) {
+        if (commandToolTipIndex >= 0 && captureText && !showUIOverlay && mode != SETTINGS && button == GLFW_MOUSE_BUTTON_LEFT) {
             double xPos_fb_local = xPos_fb;
             double yPos_fb_local = yPos_fb;
             convertScreenCoordsToFrameBufferCoords(window, &xPos_fb_local, &yPos_fb_local, fb_width, fb_height);
@@ -2098,12 +2169,14 @@ namespace Manager {
     void GwPlot::printReferenceSequence(float xW, float yW) {
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
         // Helper: capture ANSI output and push a sequence popup
+        // With the translation table shown, a click selects the base (column + codon) and opens
+        // no popup; otherwise it opens the sequence popup and selects nothing.
         auto pushSeqPopup = [&](Utils::Region* region, float xOffset, float xScaling) {
             std::ostringstream uiOut;
             uiOut << termcolor::colorize;
             Term::printRefSeq(region, xW, xOffset, xScaling, uiOut);
             std::string ansiStr = uiOut.str();
-            if (!ansiStr.empty()) {
+            if (!ansiStr.empty() && !opts.show_translation) {
                 SeqPopup rp;
                 rp.ansi = std::move(ansiStr);
                 rp.x    = xW / monitorScale;
@@ -2121,14 +2194,16 @@ namespace Manager {
                 selectedFeature = "Reference\tPosition\t" + region->chrom + ":"
                                 + Term::intToStringCommas(pos) + "\tBase\t" + std::string(1, up);
                 // Select the base (persists across redraws); clicking the selected base again deselects it
-                if (selectedBaseChrom == region->chrom && selectedBasePos == pos) {
-                    selectedBaseChrom.clear();
-                    selectedBasePos = -1;
-                } else {
-                    selectedBaseChrom = region->chrom;
-                    selectedBasePos = pos;
+                if (opts.show_translation) {
+                    if (selectedBaseChrom == region->chrom && selectedBasePos == pos) {
+                        selectedBaseChrom.clear();
+                        selectedBasePos = -1;
+                    } else {
+                        selectedBaseChrom = region->chrom;
+                        selectedBasePos = pos;
+                    }
+                    redraw = true;
                 }
-                redraw = true;
             }
         };
         if (collections.empty()) {
@@ -2236,15 +2311,12 @@ namespace Manager {
                 return;
             }
             int trackIdx = (idx * -1) - 3;
-            // Sum up the px heights of tracks 'above' target track
-            float track_px_start = totalCovY + refSpace + (trackY*(float)headers.size());
-            for (int i=0; i < trackIdx; ++i) {
-                track_px_start += tracks[i].px_height;
+            if (trackIdx < 0 || trackIdx >= (int)tracks.size()) {
+                return;
             }
             HGW::GwTrack &targetTrack = tracks[trackIdx];
-            float stepY = targetTrack.px_height;
-            float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[trackIdx]);
-            int featureLevel = (int)(yW - track_px_start) / step_track;
+            // Same row layout as drawTracks(), so the click resolves to the row drawn here
+            int featureLevel = trackLevelAt(trackIdx, tIdx, yW);
             // Save state that printTrack mutates (same-name/same-pos detection)
             std::string saved_qname = target_qname;
             int saved_pos = target_pos;
@@ -2260,19 +2332,54 @@ namespace Manager {
             // Capture the clicked feature for  terminal output
             // introns use the dedicated selectedIntron TSV; other GFF/BED features use the
             // generic selectedFeature record
+            // Remember the current selection: clicking the selected feature again clears it.
+            const std::string prevIntronChrom = selectedIntronChrom;
+            const int prevIntronStart = selectedIntronStart, prevIntronEnd = selectedIntronEnd;
+            const int prevIntronStrand = selectedIntronStrand;
+            const std::string prevChrom = selectedFeatureChrom, prevName = selectedFeatureName;
+            const std::string prevParent = selectedFeatureParent;
+            const std::string prevLine = selectedFeatureLine;
+            const int prevStart = selectedFeatureStart, prevEnd = selectedFeatureEnd;
+            const int prevTrack = selectedFeatureTrack;
+            const bool hadSelection = !prevIntronChrom.empty() || !prevChrom.empty();
+            bool deselected = false;
+
             selectedIntron.clear();
             selectedFeature.clear();
+            selectedIntronChrom.clear();
+            selectedIntronStart = -1;
+            selectedIntronEnd = -1;
+            selectedIntronStrand = -2;
             selectedFeatureChrom.clear();
             selectedFeatureName.clear();
             selectedFeatureParent.clear();
+            selectedFeatureLine.clear();
             selectedFeatureStart = -1;
             selectedFeatureEnd = -1;
+            selectedFeatureTrack = -1;
             if (trackIdx < (int)regions[tIdx].featuresInView.size()) {
                 auto *rgn = &regions[tIdx];
                 int target = (int)((float)(rgn->end - rgn->start) * relX) + rgn->start;
                 int jitter = (rgn->end - rgn->start) * 0.025;
+                // Prefer a feature under the click; otherwise the nearest one within `jitter`
+                Utils::TrackBlock *hit = nullptr;
+                int hitDist = jitter + 1;
                 for (auto &b : rgn->featuresInView.at(trackIdx)) {
-                    if (b.start - jitter <= target && b.end + jitter >= target && b.level == featureLevel) {
+                    if (b.level != featureLevel || !b.anyToDraw) {
+                        continue;
+                    }
+                    int dist = (target < b.start) ? b.start - target : (target > b.end) ? target - b.end : 0;
+                    if (dist < hitDist) {
+                        hit = &b;
+                        hitDist = dist;
+                        if (dist == 0) {
+                            break;
+                        }
+                    }
+                }
+                if (hit != nullptr) {
+                    Utils::TrackBlock &b = *hit;
+                    {
                         featureDetails = b.line;
                         if (featureDetails.empty()) {
                             for (const auto& part : b.parts) {
@@ -2287,11 +2394,16 @@ namespace Manager {
                                            + std::to_string((int)b.value);
                             // Record the highlight identity (persists across redraws) and force a
                             // redraw so the selection outline renders on this click.
-                            selectedIntronChrom = b.chrom;
-                            selectedIntronStart = b.start;
-                            selectedIntronEnd = b.end;
-                            selectedIntronStrand = b.strand;
-                            redraw = true;
+                            if (prevIntronChrom == b.chrom && prevIntronStart == b.start
+                                    && prevIntronEnd == b.end && prevIntronStrand == b.strand) {
+                                selectedIntron.clear();  // second click on the selected junction
+                                deselected = true;
+                            } else {
+                                selectedIntronChrom = b.chrom;
+                                selectedIntronStart = b.start;
+                                selectedIntronEnd = b.end;
+                                selectedIntronStrand = b.strand;
+                            }
                         } else {
                             // Resolve the click to a specific exon (a drawn box) or intron
                             // (a gap between boxes). Merge the drawn sub-blocks
@@ -2386,17 +2498,34 @@ namespace Manager {
                                             + "-" + Term::intToStringCommas(segEnd)
                                             + "\tStrand\t" + strand
                                             + "\tParent\t" + (b.parent.empty() ? "-" : b.parent);
-                            // Highlight identity (persists across redraws) + force redraw.
-                            selectedFeatureChrom = b.chrom;
-                            selectedFeatureName = b.name;
-                            selectedFeatureParent = b.parent;
-                            selectedFeatureStart = segStart;
-                            selectedFeatureEnd = segEnd;
-                            redraw = true;
+                            // Highlight the whole feature (gene/transcript/element), not just the
+                            // clicked exon or intron. The identity persists across redraws, as
+                            // the blocks are rebuilt each frame; drawTracks() sets b.selected.
+                            if (prevTrack == trackIdx && prevChrom == b.chrom && prevName == b.name
+                                    && prevParent == b.parent && prevStart == b.start && prevEnd == b.end
+                                    && prevLine == b.line) {
+                                selectedFeature.clear();  // second click on the selected feature
+                                deselected = true;
+                            } else {
+                                selectedFeatureChrom = b.chrom;
+                                selectedFeatureName = b.name;
+                                selectedFeatureParent = b.parent;
+                                selectedFeatureLine = b.line;
+                                selectedFeatureStart = b.start;
+                                selectedFeatureEnd = b.end;
+                                selectedFeatureTrack = trackIdx;
+                            }
                         }
-                        break;
                     }
                 }
+            }
+            // Redraw whenever the selection changed, including a click on empty space
+            // that cleared it.
+            if (hadSelection || !selectedIntronChrom.empty() || !selectedFeatureChrom.empty()) {
+                redraw = true;
+            }
+            if (deselected) {
+                return;  // a deselecting click doesn't open another popup
             }
             // Build track popup
             std::string ansiStr = uiOut.str();
@@ -2410,6 +2539,23 @@ namespace Manager {
                 tp.isVcf = (targetTrack.kind == HGW::FType::VCF_IDX ||
                              targetTrack.kind == HGW::FType::VCF_NOI ||
                              targetTrack.kind == HGW::FType::BCF_IDX);
+                switch (targetTrack.kind) {
+                    case HGW::FType::GFF3_IDX: case HGW::FType::GFF3_NOI:
+                    case HGW::FType::GTF_IDX:  case HGW::FType::GTF_NOI:
+                        tp.format = TrackPopup::DataFormat::Gff; break;
+                    case HGW::FType::BED_IDX: case HGW::FType::BED_NOI:
+                        tp.format = TrackPopup::DataFormat::Bed; break;
+                    case HGW::FType::BIGBED:
+                        tp.format = TrackPopup::DataFormat::BigBed;
+                        tp.detailsOpen = true;  // the fields are the useful part of a bigBed popup
+                        tp.fieldNames = targetTrack.bbFieldNames;
+                        tp.fieldDescs = targetTrack.bbFieldDescs;
+                        break;
+                    default: break;
+                }
+                tp.chrom = regions[tIdx].chrom;
+                tp.clickPos = (int)((float)(regions[tIdx].end - regions[tIdx].start) * relX) + regions[tIdx].start;
+                tp.regionIdx = tIdx;
                 trackPopups.push_back(std::move(tp));
             }
         }
@@ -2619,6 +2765,7 @@ namespace Manager {
             // Not highlighted, highlight it
             bnd->edge_type = 4;
             target_qname = bam_get_qname(bnd->delegate);
+            selectedAlignBamIdx = cl.bamIdx;
             Term::printRead(bnd, headers[cl.bamIdx], selectedAlign, cl.region->refSeq,
                            cl.region->start, cl.region->start + cl.region->refSeqLen, opts.low_memory, out,
                            pos, opts.indel_length, opts.parse_mods);
@@ -2636,6 +2783,7 @@ namespace Manager {
             rp.y    = (float)(yPos_fb / monitorScale);
             rp.uid  = nextPopupUid++;
             rp.regionSelection = cl.regionIdx;
+            rp.bamIdx = cl.bamIdx;
             readPopups.push_back(std::move(rp));
         }
         redraw = true;
@@ -2686,6 +2834,36 @@ namespace Manager {
                                            indexes[col.bamIdx], opts, (bool)opts.max_coverage,
                                            lt_last, &samMaxY, filters, pool, regions[regionSelection]);
             }
+        }
+    }
+
+    // Re-assign read rows after ylim / vertical scroll changes, keeping filters and the loaded reads
+    void GwPlot::restackAlignments() {
+        redraw = true;
+        processed = true;
+        imageCacheQueue.clear();
+        for (auto & cl : collections) {
+            cl.resetDrawState();
+            cl.levelsStart.clear();
+            cl.levelsEnd.clear();
+            cl.linked.clear();
+            Utils::SortType srt_option = regions[regionSelection].getSortOption();
+            for (auto &itm: cl.readQueue) { itm.y = -1; }
+            int maxY = Segs::findY(cl, cl.readQueue, opts.link_op, opts, false, srt_option);
+            samMaxY = (maxY > samMaxY || opts.tlen_yscale) ? maxY : samMaxY;
+        }
+    }
+
+    void GwPlot::setYlimValue(int value) {
+        value = std::max(1, value);
+        if (!opts.tlen_yscale) {
+            opts.ylim = value;
+        } else {
+            opts.max_tlen = value;
+        }
+        samMaxY = value;
+        if (!regions.empty()) {
+            restackAlignments();
         }
     }
 
@@ -2913,7 +3091,8 @@ namespace Manager {
             lastX = xPos;
             lastY = yPos;
         }
-        int state = wind ? glfwGetMouseButton(wind, GLFW_MOUSE_BUTTON_LEFT) :
+        int state = replayingInput ? replayLeftState :
+                    wind ? glfwGetMouseButton(wind, GLFW_MOUSE_BUTTON_LEFT) :
                            (leftMouseDown ? GLFW_PRESS : GLFW_RELEASE);
 
         bool lt_last = xPos < lastX;
@@ -2929,7 +3108,7 @@ namespace Manager {
             convertScreenCoordsToFrameBufferCoords(wind, &xPosOri_fb, &yPosOri_fb, fb_width, fb_height);
         }
         // register popup toolbar
-        if (captureText && mode != SETTINGS && xPos_fb < (50 + fonts.overlayWidth * 20)) {
+        if (captureText && !showUIOverlay && mode != SETTINGS && xPos_fb < (50 + fonts.overlayWidth * 20)) {
             int tip_lb = 0;
             int tip_ub = (int)inputText.size();
             if (!inputText.empty()) {
@@ -2992,7 +3171,7 @@ namespace Manager {
         bool nearBoundary = false;
         if (!tracks.empty()) {
             // Must match where drawTracks() starts the panel (drawing.cpp)
-            float currentY = (float)fb_height - sliderSpace - (float)totalTabixY;
+            float currentY = tracksTop();
             trackBoundaries.push_back(currentY);
             for (size_t i = 0; i < tracks.size() - 1; ++i) {
                 trackBoundaries.push_back(trackBoundaries.back() + tracks[i].px_height);
@@ -3000,7 +3179,9 @@ namespace Manager {
         }
         // Update cursor if hovering over any boundary
         if (!tracks.empty() && !trackBoundaries.empty() && !tabBorderPress) {
-            for (size_t i = 0; i < trackBoundaries.size(); ++i) {
+            // With no alignments the panel always fills the view, so its top edge (boundary
+            // 0, which sizes the whole panel against the alignments) is not draggable.
+            for (size_t i = bams.empty() ? 1 : 0; i < trackBoundaries.size(); ++i) {
                 if (std::fabs(yPos_fb - trackBoundaries[i]) < 5 * monitorScale) {
                     if (wind) glfwSetCursor(wind, vCursor);
                     nearBoundary = true;
@@ -3033,8 +3214,7 @@ namespace Manager {
                     return;
                 }
                 if (scaleBarDragging) {
-                    redraw = true;
-                    return;
+                    return;  // the selection box is an ImGui overlay; the plot beneath is not re-rendered
                 }
                 if (!tracks.empty()) {
                     if (nearBoundary || tabBorderPress) {
@@ -3102,10 +3282,17 @@ namespace Manager {
                                 tracks[boundaryIndex].px_height = new_bottom_height;
 
                                 if (availableHeight > 0) {
+                                    // Split the pair's combined fraction in the new ratio. The
+                                    // other tracks and the total are unchanged, so this holds
+                                    // whether or not computeTrackHeights() rescales the panel
+                                    // (it does with no BAMs, or when the panel is too tall).
+                                    double pairFrac = trackFraction(tracks[boundaryIndex - 1])
+                                                    + trackFraction(tracks[boundaryIndex]);
+                                    double topShare = new_top_height / combined_height;
                                     tracks[boundaryIndex - 1].height_fraction =
-                                        std::fmax((double)new_top_height / availableHeight, 0.005);
+                                        std::fmax(pairFrac * topShare, 0.005);
                                     tracks[boundaryIndex].height_fraction =
-                                        std::fmax((double)new_bottom_height / availableHeight, 0.005);
+                                        std::fmax(pairFrac * (1.0 - topShare), 0.005);
                                     tracksLayoutDirty = true;
                                 }
 
@@ -3249,13 +3436,10 @@ namespace Manager {
                         }
                         HGW::GwTrack &targetTrack = tracks[targetIndex];
 
-                        float stepY = tabixY;
-                        if (regionSelection >= (int)regions.size() || targetIndex >= (int)regions[regionSelection].featureLevels.size()) {
+                        if (targetIndex < 0 || tIdx >= (int)regions.size() || targetIndex >= (int)regions[tIdx].featureLevels.size()) {
                             return;
                         }
-                        float step_track = (stepY) / ((float)regions[regionSelection].featureLevels[targetIndex]);
-                        float y = fb_height - totalTabixY - sliderSpace;  // start of tracks on canvas
-                        int featureLevel = (int)(yPos_fb - y - (targetIndex * stepY) + gap) / step_track;
+                        int featureLevel = trackLevelAt(targetIndex, tIdx, (float)yPos_fb);
 			            Term::printTrack(relX, targetTrack, &regions[tIdx], true, featureLevel, targetIndex, target_qname, &target_pos, out);
 		            }
                     return;
@@ -3367,7 +3551,7 @@ namespace Manager {
         // GL calls here would access GLctx outside the main loop and crash.
         glfwGetFramebufferSize(window, &fb_width, &fb_height);
         bboxes = tileBoundingBoxes();
-        if (opts.theme_str == "igv") {
+        if (Themes::isLightTheme(opts.theme_str)) {
             glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         } else {
             glClearColor(0.f, 0.f, 0.f, 1.0f);

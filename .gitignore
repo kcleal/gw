@@ -65,7 +65,7 @@ libgw.so
 /src/theme_preview.o
 
 /libgw_server_core.a
-/protocol/viewer/native/viewer_interface.o
+/deps/protocol/viewer/native/viewer_interface.o
 /src/viewer_controls.o
 
 /src/online_catalogue.o
@@ -75,3 +75,4 @@ libgw.so
 
 /src/online/*.o
 /src/online/*.d
+/gw_downloads/

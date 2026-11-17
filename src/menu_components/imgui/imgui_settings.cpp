@@ -99,7 +99,8 @@ static bool renderIniWidget(
         const std::string selected = opts.custom_theme_enabled ? opts.custom_theme_name : opts.theme_str;
         ImGui::SetNextItemWidth(200.f);
         if (ImGui::BeginCombo(key.c_str(), selected.c_str())) {
-            for (const char* base : {"dark", "igv", "slate"}) {
+            for (const auto& baseName : Themes::baseThemeNames()) {
+                const char* base = baseName.c_str();
                 if (ImGui::Selectable(base, !opts.custom_theme_enabled && opts.theme_str == base)) {
                     opt.value = base; applyThemeOption(opt, opts); changed = true;
                 }
@@ -285,8 +286,10 @@ static void renderNamePathTable(
             }
 
             ImGui::TableSetColumnIndex(2);
-            if (ImGui::SmallButton("Delete"))
+            if (ImGui::SmallButton("Delete")) {
                 pendingDelete = name;
+                ImGui::OpenPopup("Delete entry?");
+            }
 
             ImGui::PopID();
         }

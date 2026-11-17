@@ -11,3 +11,6 @@
 
 # Generated browser binary; distribute through releases rather than Git.
 /gw.wasm
+/gw.js
+/gw.html
+/gw.data
