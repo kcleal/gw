@@ -324,6 +324,10 @@ namespace Manager {
         void setGlfwFrameBufferSize();
         void setImageSize(int width, int height);
         int makeRasterSurface();
+        // Resize the off-screen canvas (headless use, e.g. gwplot) and redo what a window
+        // resize redoes. Filters, selections and scroll are kept. Returns makeRasterSurface's
+        // byte count (0 if the surface couldn't be made).
+        int resizeCanvas(int width, int height);
 
         // Data loading functions
         void loadGenome(std::string genome_tag_or_path, std::ostream& outerr);

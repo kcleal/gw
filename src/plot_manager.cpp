@@ -1781,6 +1781,24 @@ namespace Manager {
         fonts.setOverlayHeight(monitorScale);
     }
 
+    int GwPlot::resizeCanvas(int width, int height) {
+        opts.dimensions.x = width;
+        opts.dimensions.y = height;
+        setImageSize(width, height);
+        int bytes = makeRasterSurface();
+        // As a window resize does (the UI loops in this file), except setScaling: the
+        // collections may still point at regions changed since the last draw, and the next
+        // draw (processed = false) rebuilds them and then sets the scaling itself.
+        bboxes = tileBoundingBoxes();
+        tracksLayoutDirty = true;  // re-derive track heights for the new size
+        imageCache.clear();
+        imageCacheQueue.clear();
+        clearZoomCache();
+        processed = false;
+        redraw = true;
+        return bytes;
+    }
+
     double GwPlot::trackFraction(const HGW::GwTrack &trk) const {
         if (trk.height_fraction > 0.0) {
             return trk.height_fraction;
