@@ -9,7 +9,11 @@ description: GW version 2 command reference
 # Commands
 {: .no_toc }
 
-Open the command bar with `/` (or click it at the bottom of the window). Type `help` for a summary, or `man COMMAND` for details.
+Commands are an optional, faster route to actions that are also in the menus and the
+[Tools panel]({{ site.baseurl }}/guide/interface.html#tools-panel).
+
+Open the command bar with `/` (or click it at the bottom of the window). A list of every command
+appears and narrows as you type. Type `help` for a summary, or `man COMMAND` for details.
 Unrecognised text is echoed to the terminal — useful for notes. `↑` / `↓` cycles through command
 history.
 

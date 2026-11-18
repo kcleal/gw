@@ -9,32 +9,52 @@ description: Feature tracks in GW
 # Tracks
 {: .no_toc }
 
-Load tracks by drag-and-drop, the `--track` option, or the `load track` command. Tracks appear
-below the alignments.
+Tracks show annotations below the alignments: VCF, BCF, BED, GFF3, GTF, bigBed, bigWig and
+GW_TRACK files.
 
-| Data option | File formats supported |
-|-------------|------------------------|
-| `--track` | VCF, BCF, BED, GFF3, GTF, BIGBED, BIGWIG, GW_TRACK |
+![Alignments with a feature track and ideogram]({{ site.baseurl }}/assets/images/v2/tracks.png)
+
+## Opening tracks
+
+Drag-and-drop a file onto the window, or use **Main menu → Open file**. **Online file** can also
+fetch annotation tracks from [UCSC]({{ site.baseurl }}/guide/remote.html#ucsc-tables).
+
+For a VCF/BCF, GW asks whether to load it as an annotation track, as
+[tiled images]({{ site.baseurl }}/guide/images.html), or both.
+
+## Working with tracks
+
+- **Click** a feature for a popup with its fields. VCF/BCF, GFF/GTF and bigBed records are shown
+  as a table; a VCF record lists INFO fields and per-sample FORMAT values
+- **Drag** the line above the tracks to resize the track area
+- **Click** a track's name label to rename it
+- Tick **Expand tracks** in the display options to draw overlapping features on separate rows
+
+**Main menu → Tracks** lists every track: set its height, move it up or down, or close it.
+
+![The track manager]({{ site.baseurl }}/assets/images/v2/track_manager.png)
+
+Tracks to load at every startup are set in **Settings → Tracks**.
+
+## Genotypes
+
+A VCF/BCF track with samples draws a genotype row per sample beneath its features. Each bar is one
+haplotype: a heterozygous variant has one bar, a homozygous variant a second bar stacked on top.
+Click a bar to highlight its variant.
+
+## From the command line
 
 ```shell
 gw hg19 -r chr1 -b HG002.bwa.bam --track test.gff3.gz
 ```
 
-Resize the track pane by dragging its boundary, with `track-height` / `tab-track-height`, or via
-Settings → Tracks.
-
-By default, dragging a VCF/BCF file loads it as
-[image tiles]({{ site.baseurl }}/guide/images.html) (like `--var`). To add variants as a track
-instead, set `vcf_as_tracks` in Settings → Interaction.
-
-`expand-tracks` (view menu or command) displays overlapping features in separate rows.
-
-![Alignments with a feature track and ideogram]({{ site.baseurl }}/assets/images/v2/tracks.png)
+The `load track`, `track-height` and `expand-tracks` commands do the same from the command bar.
 
 ## Ideograms
 
 Many reference genomes come with a preset ideogram for matching genome-tags (e.g. `hg19`, `hg38`,
-`t2t`). Manage them manually:
+`t2t`). Click the chromosome name beside the ideogram to jump to another chromosome. To manage
+ideograms manually, use the command bar:
 
 ```shell
 load ideogram hg19

@@ -57,6 +57,12 @@ generating figures or working in a Python pipeline.
 application: a host page creates a viewer, navigates it and receives state. Start here if you
 have a web app and want a genome view inside it.
 
+**JavaScript bindings (gwplot-js)** — [gwplot-js](https://github.com/APridgeon/gwplot-js) wraps
+the GW renderer for JavaScript, in the same spirit as gwplot for Python.
+
+**C++ (libgw)** — run GW headless from your own C++ program: load data, run commands, draw
+images. See the [C++ API]({{ site.baseurl }}/api/libgw.html).
+
 **Viewer protocol** — for serving GW from your own backend: multi-client shared sessions,
 custom authentication, custom transports (HTTP or WebSocket), or a non-Python/non-JS server. The
 protocol is the common contract underneath the JavaScript adapter; reach for it when the bindings

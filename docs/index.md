@@ -12,9 +12,9 @@ A fast browser for genomic sequencing data — now with an ImGui interface, more
 stable API.
 {: .fs-6 .fw-300 }
 
-[Get started]({{ site.baseurl }}/quickstart.html){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[Install from source]({{ site.baseurl }}/install.html){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[Version 1 docs]({{ site.baseurl }}/v1/){: .btn .fs-5 .mb-4 .mb-md-0 }
+[Open GW]({{ site.baseurl }}/app/){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
+[GW demo]({{ site.baseurl }}/app/demo.html){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
+[Install local GW]({{ site.baseurl }}/install.html){: .btn .fs-5 .mb-4 .mb-md-0 }
 
 ![GW main window with the Variants panel]({{ site.baseurl }}/assets/images/v2/main_window.png)
 
@@ -22,15 +22,13 @@ stable API.
 
 ## Run GW in your browser
 
-No install needed — GW v2 can run as WebAssembly. Your data stays in the browser.
+No install needed — GW v2 can run as WebAssembly, and your data stays in the browser.
+**Open GW** starts an empty browser; **GW demo** loads a small bundled example BAM. Open your own
+data from the main menu or by drag-and-drop — remote references stream over HTTP range reads.
+A WebGL2-capable browser is required.
 
-[Open GW]({{ site.baseurl }}/app/){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[Open GW with demo data]({{ site.baseurl }}/app/demo.html){: .btn .fs-5 .mb-4 .mb-md-0 }
-
-{: .note }
-Requires a WebGL2-capable browser. The demo entry loads a small bundled example
-BAM. Open your own data via the GW menu or drag-and-drop — remote references
-stream over HTTP range reads.
+For large files, [install GW locally]({{ site.baseurl }}/install.html). New to GW? Start with the
+[Quickstart]({{ site.baseurl }}/quickstart.html).
 
 ## What is GW?
 
@@ -39,8 +37,9 @@ It generates static images and labels variants.
 
 ## What's new in version 2
 
-- **ImGui interface** — all overlay UI (menus, settings, popups, command box) is now built with
-  Dear ImGui. See [The interface]({{ site.baseurl }}/guide/interface.html).
+- **Point-and-click interface** — menus, a track manager, tools panel, popups and settings
+  dialogs cover everyday use; no commands needed. See
+  [The interface]({{ site.baseurl }}/guide/interface.html).
 - **More commands** — `translate`, `marker`, `link`, `cov`, `theme`, `grid`, `online`, `load`,
   `goto` and more. See [Commands]({{ site.baseurl }}/guide/commands.html).
 - **Stable API and protocol** — embed GW via the `libgw` C++ API, or drive it remotely over a

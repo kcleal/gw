@@ -13,22 +13,51 @@ GW makes manually labelling hundreds–thousands of variants as pain-free as pos
 to a tab-separated file and can be re-opened later, supporting labelling over multiple sessions.
 GW can also write a modified VCF with labels in the filter column.
 
-![The Variants panel]({{ site.baseurl }}/assets/images/v2/label_table.png)
+![The Variants panel]({{ site.baseurl }}/assets/images/v2/label_table.png){: width="260" }
 
 ## Basic workflow
 
-1. Open a VCF with `-v` so variants are drawn as
-   [image tiles]({{ site.baseurl }}/guide/images.html)
-2. `←`/`→` pages through tiles; set the number of tiles with the grid button in the Variants
-   panel title bar (or the `grid` command)
-3. **Left-click** a tile to cycle labels
-4. Save with `save labels` / `--out-labels`; reload with `--in-labels`
+1. Open a VCF as [tiled images]({{ site.baseurl }}/guide/images.html) — drag it onto the window
+   and choose **Variant file as tiled images**
+2. Page through the tiles with `←`/`→`; set the number of tiles with the grid button in the
+   Variants panel title bar
+3. **Click** a tile, or its label in the Variant list, to cycle through the labels
+4. [Save the labels](#saving-and-loading-labels) with the file icon in the **Variant List** header
+
+Selecting a row in the Variant list shows the record under **Variant Details**: its fields, INFO
+values and per-sample FORMAT values, with buttons to jump to its position.
+
+Ensure all variant IDs in the input VCF/BCF are unique.
+
+To set label files at launch instead:
 
 ```shell
 gw hg38 -b your.bam -v variants.vcf --in-labels labels.tsv --out-labels labels.tsv
 ```
 
-Ensure all variant IDs in the input VCF/BCF are unique.
+## Saving and loading labels
+
+The file icon at the right of the **Variant List** header saves labels to a file and loads them
+back, so labelling can be spread over several sessions.
+
+![The label file menu in the Variant List header]({{ site.baseurl }}/assets/images/v2/label_file_menu.png){: width="260" }
+
+| Menu item | What it does |
+|-----------|--------------|
+| **Save labels...** | Opens a file browser to choose where to save. The name defaults to `labels.tsv` |
+| **Save to *file*** | Saves straight to the current label file. Shown once a label file is set |
+| **Save labels as...** | Saves to a different file, which becomes the current label file |
+| **Load labels...** | Opens a file browser to pick a label file, and applies its labels to the open variant files |
+
+A short message beside the icon confirms the result — **Labels saved** or **Labels loaded** — or
+reports a problem, such as a file that is not a label file.
+
+A label file is set by saving once from this menu, or at launch with `--out-labels`. Once set, GW
+also saves to it automatically every minute. Labels are matched to variants by variant file name and ID, so load a
+label file alongside the variant file it was made from.
+
+The same actions are available from the command bar: `save labels.tsv` and
+`load labels labels.tsv`.
 
 ## Labels and comments
 

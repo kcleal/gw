@@ -11,9 +11,9 @@ description: Remote data access, online genomes and embedding GW
 
 ## Online genomes and files
 
-GW loads online reference genomes directly — when GW starts without a reference, a Reference genome
-chooser lists them in the window. The same catalogue is browsable
-from the ImGui file dialogs, which can also download remote data into a session.
+GW loads online reference genomes directly — when GW starts without a reference, the Reference
+genome chooser lists them. **Main menu → Open file → Online file** browses the same catalogue
+along with online data, and can download files into a session.
 
 The `online` command prints links for the current region in online genome browsers:
 
@@ -24,7 +24,7 @@ online hg19
 
 ## UCSC tables
 
-The online files dialog (top menu → Online files) includes a **Search UCSC** interface. Enter an
+The online files dialog (**Main menu → Open file → Online file**) includes a **Search UCSC** interface. Enter an
 assembly (e.g. `hg38`) and a search term to query UCSC table tracks directly:
 
 - Matching tracks are listed with their name, assembly and description

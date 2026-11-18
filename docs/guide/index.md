@@ -9,5 +9,6 @@ description: How to use GW version 2
 
 # User guide
 
-How to use GW v2 — the ImGui interface, the command reference, tracks, images, labelling,
-remote data and settings. Use the menu on the left to pick a page.
+How to use GW v2. Start with [The interface]({{ site.baseurl }}/guide/interface.html) — a tour
+of the window, menus and panels — then pick a topic from the menu on the left. Each page describes
+the point-and-click route first, with the equivalent commands and command-line options at the end.

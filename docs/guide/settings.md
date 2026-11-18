@@ -9,16 +9,17 @@ description: Settings, configuration and themes in GW
 # Settings and config
 {: .no_toc }
 
-Open Settings from the top-left menu. Settings save automatically; a status message at the bottom
-reports any save failure.
+Open **Main menu → Settings**. The sections — General, Genomes, Interaction, Labelling,
+Navigation, Tracks, Thresholds and Keymap — apply changes immediately and save automatically; a
+status message at the bottom reports any save failure.
+
+![The Settings dialog]({{ site.baseurl }}/assets/images/v2/settings.png)
 
 The config file is `.gw.ini`, usually in your home directory or under `~/.config`. You can edit
 it by hand — delete it and GW creates a fresh one on restart.
 
-Settings sections can also be opened as commands: `settings`, `general`, `genomes`,
+Each section can also be opened from the command bar: `settings`, `general`, `genomes`,
 `interaction`, `labelling`, `navigation`, `tracks`, `thresholds`, `keymap`.
-
-![The Settings dialog]({{ site.baseurl }}/assets/images/v2/settings.png)
 
 ## Reference genomes
 
@@ -27,7 +28,7 @@ Always use a local file for best performance. Genomes can be selected in three w
 
 - **Startup chooser** — when GW starts without a reference, a Reference genome chooser opens in
   the window.
-- **ImGui menus** — Settings → Genomes (`+`, tag, path), or the online files dialog.
+- **Menus** — Settings → Genomes (`+`, tag, path), or Main menu → Open file → Online file.
 - **Config file** — the `[genomes]` section of `.gw.ini`, or `load genome hg38` in the command box.
 
 ## Custom themes and color palettes
