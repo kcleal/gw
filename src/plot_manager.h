@@ -435,7 +435,7 @@ namespace Manager {
         void prepareImGui(bool& pending_settings_close, void (*background)() = nullptr, void (*input)() = nullptr);
         // Existing overlay, reusable above a locally or remotely rendered frame.
         void overlayImGui(bool& pending_settings_close, void (*background)() = nullptr, void (*input)() = nullptr);
-        // Genome shortcuts and the "drag-and-drop"/"open the command box" messages of an empty
+        // Genome shortcuts and the "drag-and-drop" message of an empty
         // view. Off when GW is embedded or driven by another program and should just wait (--wait).
         bool startupHints = true;
         // Optional UI-only transport. Never consulted by drawing/read-packing loops.

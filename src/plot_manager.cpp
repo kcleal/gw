@@ -2655,22 +2655,6 @@ namespace Manager {
             if (trackBoundary > (float)fb_height / 2) {
                 canvas->drawTextBlob(blob.get(), txt_start, (float)fb_height / 2, tcMenu);
             }
-        } else if (regions.empty() && !current_view_is_images && mode != SETTINGS && frameId < 10) {
-            std::string dd_msg = "Open the command box '/' and enter a chromosome name or location";
-            float msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
-            float txt_start = ((float)drawingWidth() / 2) - (msg_width / 2);
-            sk_sp<SkTextBlob> blob = SkTextBlob::MakeFromString(dd_msg.c_str(), fonts.overlay);
-            SkPaint tcMenu;
-            tcMenu.setARGB(255, 100, 100, 100);
-            tcMenu.setStyle(SkPaint::kStrokeAndFill_Style);
-            tcMenu.setAntiAlias(true);
-            canvas->drawTextBlob(blob.get(), txt_start, (float)fb_height / 2, tcMenu);
-
-            dd_msg = "Or type 'help' to see the help menu in the terminal";
-            msg_width = fonts.overlay.measureText(dd_msg.c_str(), dd_msg.size(), SkTextEncoding::kUTF8);
-            txt_start = ((float)drawingWidth() / 2) - (msg_width / 2);
-            sk_sp<SkTextBlob> blob2 = SkTextBlob::MakeFromString(dd_msg.c_str(), fonts.overlay);
-            canvas->drawTextBlob(blob2.get(), txt_start, (float)fb_height / 2 + (fonts.overlayHeight * 2), tcMenu);
         }
     }
 

@@ -1814,6 +1814,9 @@ namespace Drawing {
         const float refSpace = ctx.refSpace;
         const float gap = ctx.gap;
         const float totalCovY = ctx.totalCovY;
+        if (nRegions == 0) {
+            return;  // nothing is plotted yet, so there are no panels to separate
+        }
         SkPathBuilder path;
         // Separator line below top menu buttons
         // if (ctx.topMenuSpace > 0) {
