@@ -109,14 +109,35 @@ namespace Utils {
         int strand;  // 0 is none, 1 forward, 2 reverse
     };
 
-    enum EXPORT SortType {  // Bit field
+    // One grouping key, optionally combined with POS (sort by the base at a position).
+    // Grouping keys never share a bit with POS, so `key | POS` is always valid.
+    enum EXPORT SortType {
         NONE = 0,
         STRAND = 2,
         HP = 4,
         POS = 8,
         STRAND_AND_POS = 10,
         HP_AND_POS = 12,
+        ORIENTATION = 16,    // pair orientation (Segs::Pattern)
+        FIRST_STRAND = 32,   // strand of the first read in the pair
+        READ_ORDER = 48,     // first / second in pair
+        SUPPLEMENTARY = 64,
+        DUPLICATE = 80,
+        SPLIT = 96,          // has an SA tag or is supplementary
     };
+
+    inline SortType sortGroup(SortType s) { return static_cast<SortType>(s & ~POS); }
+    inline SortType sortWithPos(SortType s) { return static_cast<SortType>(s | POS); }
+
+    struct SortGroupInfo {
+        SortType type;
+        const char* command;  // word used by the sort command
+        const char* label;    // menu label
+    };
+    // The grouping keys offered by the sort command and the Sort menus
+    EXPORT const std::vector<SortGroupInfo>& sortGroups();
+    // Display name of one group (category) of a grouping key
+    EXPORT std::string sortGroupLabel(SortType group, int category);
 
     class EXPORT Region {
     public:

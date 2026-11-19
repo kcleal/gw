@@ -3,6 +3,9 @@
 // Extracted from menu.cpp with no functional changes.
 
 #include <algorithm>
+#include <cfloat>
+#include <cstring>
+#include <filesystem>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -337,6 +340,291 @@ static void drawFileIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, floa
     dl->AddPolyline(corner, 3, col, 0, thickness);
 }
 
+// An italic "i"
+static void drawInfoIcon(ImDrawList* dl, ImVec2 min, ImVec2 max, ImU32 col, float thickness) {
+    const float w = max.x - min.x, h = max.y - min.y;
+    const ImVec2 c(min.x + w * 0.5f, min.y + h * 0.5f);
+    const float half = h * 0.27f;       // half the letter height
+    const float slant = 0.22f;          // x shift per unit of height
+    auto at = [&](float y) { return ImVec2(c.x - y * slant, c.y + y); };  // y runs from -half (top) to half
+    const float t = thickness * 1.35f, serif = w * 0.09f;
+    const ImVec2 top = at(-half * 0.28f), bottom = at(half);
+    dl->AddLine(top, bottom, col, t);
+    dl->AddLine(ImVec2(top.x - serif, top.y), top, col, t);                               // lead-in stroke
+    dl->AddLine(bottom, ImVec2(bottom.x + serif, bottom.y), col, t);                      // tail
+    dl->AddCircleFilled(at(-half * 0.88f), t * 0.75f, col, 10);
+}
+
+// The VCF header, split into the sections shown in the file info window
+struct VcfHeaderView {
+    struct Field { std::string id, number, type, description; };
+    const bcf_hdr_t* hdr = nullptr;
+    std::vector<std::pair<std::string, std::string>> general;  // ##key=value
+    std::vector<Field> info, format, filter;
+    std::vector<std::pair<std::string, std::string>> contigs;  // name, length
+    std::vector<std::pair<std::string, std::string>> other;    // ##KEY=<...> lines such as ALT, SAMPLE
+    std::string assembly;
+
+    void build(const bcf_hdr_t* h) {
+        *this = VcfHeaderView();
+        hdr = h;
+        if (!h) return;
+        auto unquote = [](const char* v) {
+            std::string out = v ? v : "";
+            if (out.size() >= 2 && out.front() == '"' && out.back() == '"') out = out.substr(1, out.size() - 2);
+            return out;
+        };
+        for (int i = 0; i < h->nhrec; ++i) {
+            const bcf_hrec_t* rec = h->hrec[i];
+            if (!rec || !rec->key) continue;
+            auto get = [&](const char* key) -> std::string {
+                for (int k = 0; k < rec->nkeys; ++k) {
+                    if (rec->keys[k] && std::strcmp(rec->keys[k], key) == 0) return unquote(rec->vals[k]);
+                }
+                return "";
+            };
+            if (rec->type == BCF_HL_GEN) {
+                general.emplace_back(rec->key, unquote(rec->value));
+            } else if (rec->type == BCF_HL_INFO || rec->type == BCF_HL_FMT) {
+                (rec->type == BCF_HL_INFO ? info : format).push_back({get("ID"), get("Number"), get("Type"), get("Description")});
+            } else if (rec->type == BCF_HL_FLT) {
+                filter.push_back({get("ID"), "", "", get("Description")});
+            } else if (rec->type == BCF_HL_CTG) {
+                contigs.emplace_back(get("ID"), get("length"));
+                if (assembly.empty()) assembly = get("assembly");
+            } else {
+                std::string fields;
+                for (int k = 0; k < rec->nkeys; ++k) {
+                    if (!rec->keys[k] || std::strcmp(rec->keys[k], "IDX") == 0) continue;
+                    if (!fields.empty()) fields += ", ";
+                    fields += std::string(rec->keys[k]) + "=" + unquote(rec->vals[k]);
+                }
+                other.emplace_back(rec->key, fields);
+            }
+        }
+    }
+};
+
+static std::string withThousands(long long n) {
+    std::string digits = std::to_string(n), out;
+    for (size_t i = 0; i < digits.size(); ++i) {
+        if (i > 0 && (digits.size() - i) % 3 == 0 && digits[i - 1] != '-') out += ',';
+        out += digits[i];
+    }
+    return out;
+}
+
+// File and label statistics for the variant file shown in the Variants window, with its VCF header
+static void drawVariantFileInfoWindow(Manager::GwPlot* plot, HGW::GwVariantTrack& vt, bool& open) {
+    if (!open) return;
+    ImGui::SetNextWindowSize(ImVec2(560, 520), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(320, 200), ImVec2(FLT_MAX, FLT_MAX));
+    ImGui::SetNextWindowBgAlpha(1.0f);  // tables are hard to read over the plot
+    const bool visible = ImGui::Begin("Variant file info", &open, ImGuiWindowFlags_NoCollapse);
+    closeOnEscape(&open);
+    if (!visible) { ImGui::End(); return; }
+
+    const bool isVcf = vt.type == HGW::TrackType::VCF;
+    const bool isImages = vt.type == HGW::TrackType::IMAGES;
+    const bool allRead = isVcf ? vt.vcf.done : vt.type == HGW::TrackType::GW_TRACK ? vt.variantTrack.done : true;
+    const ImGuiTableFlags kvFlags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoSavedSettings;
+    auto row = [](const char* key, const std::string& value) {
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextDisabled("%s", key);
+        ImGui::TableSetColumnIndex(1);
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextUnformatted(value.c_str());
+        ImGui::PopTextWrapPos();
+    };
+    auto beginKeyValue = [&](const char* id) {
+        if (!ImGui::BeginTable(id, 2, kvFlags)) return false;
+        ImGui::TableSetupColumn("key", ImGuiTableColumnFlags_WidthFixed);
+        ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch);
+        return true;
+    };
+    // label -> count, in first-seen order
+    auto addCount = [](std::vector<std::pair<std::string, int>>& counts, const std::string& key) {
+        for (auto& c : counts) if (c.first == key) { c.second += 1; return; }
+        counts.emplace_back(key, 1);
+    };
+    auto countTable = [&](const char* id, const char* heading, std::vector<std::pair<std::string, int>>& counts) {
+        std::stable_sort(counts.begin(), counts.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
+        if (!ImGui::BeginTable(id, 2, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV
+                                      | ImGuiTableFlags_NoSavedSettings)) return;
+        ImGui::TableSetupColumn(heading);
+        ImGui::TableSetupColumn("Count");
+        ImGui::TableHeadersRow();
+        for (const auto& c : counts) {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0); ImGui::TextUnformatted(c.first.empty() ? "-" : c.first.c_str());
+            ImGui::TableSetColumnIndex(1); ImGui::TextUnformatted(withThousands(c.second).c_str());
+        }
+        ImGui::EndTable();
+    };
+
+    // ---- File ----
+    ImGui::SeparatorText("File");
+    if (beginKeyValue("##vfi_file")) {
+        row("Path", vt.path);
+        const char* format = isImages ? "Images" : !isVcf ? "Track file (BED / GFF / label table)"
+                           : vt.vcf.fp && vt.vcf.fp->format.format == bcf ? "BCF"
+                           : vt.vcf.fp && vt.vcf.fp->format.compression != no_compression ? "VCF (compressed)" : "VCF";
+        row("Format", format);
+        std::error_code ec;
+        if (!isImages && std::filesystem::is_regular_file(vt.path, ec)) {
+            const double bytes = (double)std::filesystem::file_size(vt.path, ec);
+            if (!ec) {
+                char buf[64];
+                if (bytes >= 1e9) std::snprintf(buf, sizeof(buf), "%.2f GB", bytes / 1e9);
+                else if (bytes >= 1e6) std::snprintf(buf, sizeof(buf), "%.1f MB", bytes / 1e6);
+                else std::snprintf(buf, sizeof(buf), "%.1f kB", bytes / 1e3);
+                row("Size", buf);
+            }
+        }
+        const std::string n = withThousands((long long)vt.multiLabels.size());
+        row(isImages ? "Images" : "Variants", allRead ? n : n + " read so far (the file has more)");
+        if (isVcf) {
+            vt.vcf.get_samples();
+            const auto& names = vt.vcf.sample_names;
+            std::string samples = withThousands((long long)names.size());
+            if (!names.empty()) {
+                samples += "  (";
+                for (size_t i = 0; i < names.size() && i < 6; ++i) samples += (i ? ", " : "") + names[i];
+                if (names.size() > 6) samples += ", ...";
+                samples += ")";
+            }
+            row("Samples", samples);
+        }
+        ImGui::EndTable();
+    }
+    if (!isImages && !vt.multiLabels.empty()) {
+        std::vector<std::pair<std::string, int>> types;
+        for (const auto& l : vt.multiLabels) addCount(types, l.vartype);
+        if (!(types.size() == 1 && types[0].first.empty())) {
+            ImGui::Spacing();
+            countTable("##vfi_types", "Type", types);
+        }
+    }
+
+    // ---- Labels ----
+    ImGui::SeparatorText("Labels");
+    int changed = 0, commented = 0;
+    std::vector<std::pair<std::string, int>> labelCounts;
+    for (auto& l : vt.multiLabels) {
+        if (l.clicked) changed += 1;
+        if (!l.comment.empty()) commented += 1;
+        if (!l.labels.empty()) addCount(labelCounts, l.current());
+    }
+    if (beginKeyValue("##vfi_labels")) {
+        row("Label file", plot->outLabelFile.empty() ? std::string("none set") : plot->outLabelFile);
+        const size_t fromFile = vt.inputLabels ? vt.inputLabels->size() : 0;
+        row("In label file", withThousands((long long)fromFile) + (fromFile ? " for this variant file" : ""));
+        row("Changed here", withThousands(changed) + " this session");
+        row("Comments", withThousands(commented));
+        ImGui::EndTable();
+    }
+    if (!labelCounts.empty()) {
+        ImGui::Spacing();
+        countTable("##vfi_label_counts", allRead ? "Label" : "Label (variants read so far)", labelCounts);
+    }
+
+    // ---- VCF header ----
+    if (isVcf && vt.vcf.hdr != nullptr) {
+        static VcfHeaderView view;
+        if (view.hdr != vt.vcf.hdr) view.build(vt.vcf.hdr);
+        ImGui::Spacing();
+        if (ImGui::CollapsingHeader("VCF header")) {
+            if (ImGui::SmallButton("Copy header")) {
+                kstring_t text = {0, 0, nullptr};
+                if (bcf_hdr_format(vt.vcf.hdr, 0, &text) == 0 && text.s) ImGui::SetClipboardText(text.s);
+                free(text.s);
+            }
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Copy the header text to the clipboard");
+            if (!view.general.empty() && beginKeyValue("##vfi_general")) {
+                for (const auto& g : view.general) row(g.first.c_str(), g.second);
+                ImGui::EndTable();
+            }
+            const ImGuiTableFlags tf = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_Resizable
+                                     | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoSavedSettings;
+            auto fieldTable = [&](const char* name, const std::vector<VcfHeaderView::Field>& fields, bool typed) {
+                if (fields.empty()) return;
+                const std::string title = std::string(name) + " (" + std::to_string(fields.size()) + ")###vfi_" + name;
+                if (!ImGui::TreeNodeEx(title.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth)) return;
+                if (ImGui::BeginTable(name, typed ? 4 : 2, tf)) {
+                    ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed);
+                    if (typed) {
+                        ImGui::TableSetupColumn("Number", ImGuiTableColumnFlags_WidthFixed);
+                        ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed);
+                    }
+                    ImGui::TableSetupColumn("Description", ImGuiTableColumnFlags_WidthStretch);
+                    ImGui::TableHeadersRow();
+                    for (const auto& f : fields) {
+                        ImGui::TableNextRow();
+                        int col = 0;
+                        ImGui::TableSetColumnIndex(col++); ImGui::TextUnformatted(f.id.c_str());
+                        if (typed) {
+                            ImGui::TableSetColumnIndex(col++); ImGui::TextDisabled("%s", f.number.c_str());
+                            ImGui::TableSetColumnIndex(col++); ImGui::TextDisabled("%s", f.type.c_str());
+                        }
+                        ImGui::TableSetColumnIndex(col);
+                        ImGui::PushTextWrapPos(0.0f);
+                        ImGui::TextUnformatted(f.description.c_str());
+                        ImGui::PopTextWrapPos();
+                    }
+                    ImGui::EndTable();
+                }
+                ImGui::TreePop();
+            };
+            fieldTable("FILTER", view.filter, false);
+            fieldTable("INFO", view.info, true);
+            fieldTable("FORMAT", view.format, true);
+            if (!view.other.empty()) {
+                const std::string title = "Other (" + std::to_string(view.other.size()) + ")###vfi_other";
+                if (ImGui::TreeNodeEx(title.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth)) {
+                    if (beginKeyValue("##vfi_other_table")) {
+                        for (const auto& o : view.other) row(o.first.c_str(), o.second);
+                        ImGui::EndTable();
+                    }
+                    ImGui::TreePop();
+                }
+            }
+            if (!view.contigs.empty()) {
+                std::string title = "Contigs (" + withThousands((long long)view.contigs.size()) + ")";
+                if (!view.assembly.empty()) title += "  " + view.assembly;
+                title += "###vfi_contigs";
+                if (ImGui::TreeNodeEx(title.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth)) {
+                    const float rowH = ImGui::GetTextLineHeightWithSpacing();
+                    const float tableH = std::min((float)view.contigs.size() + 1.5f, 12.0f) * rowH;
+                    if (ImGui::BeginTable("##vfi_contig_table", 2, tf | ImGuiTableFlags_ScrollY, ImVec2(0, tableH))) {
+                        ImGui::TableSetupScrollFreeze(0, 1);
+                        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed);
+                        ImGui::TableSetupColumn("Length", ImGuiTableColumnFlags_WidthStretch);
+                        ImGui::TableHeadersRow();
+                        ImGuiListClipper clipper;
+                        clipper.Begin((int)view.contigs.size());
+                        while (clipper.Step()) {
+                            for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
+                                const auto& c = view.contigs[i];
+                                ImGui::TableNextRow();
+                                ImGui::TableSetColumnIndex(0); ImGui::TextUnformatted(c.first.c_str());
+                                ImGui::TableSetColumnIndex(1);
+                                char* endp = nullptr;
+                                const long long len = std::strtoll(c.second.c_str(), &endp, 10);
+                                ImGui::TextUnformatted(!c.second.empty() && endp && *endp == '\0' ? withThousands(len).c_str()
+                                                                                                    : c.second.c_str());
+                            }
+                        }
+                        ImGui::EndTable();
+                    }
+                    ImGui::TreePop();
+                }
+            }
+        }
+    }
+    ImGui::End();
+}
+
 void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
         if (!plot->labelTableDialogOpen) return;
         // Label file chosen in the browser last frame: handled here, before anything below
@@ -426,6 +714,13 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
 
         int& selectedRow = selectedByTrack[trackKey];
         int labelCount = (int)vt.multiLabels.size();
+        // Follow the variant shown in the alignment view (edge arrows, Ctrl/Cmd + arrow keys)
+        if (plot->mode == Manager::Show::SINGLE && plot->liveVariantIndex >= 0 && plot->liveVariantIndex < labelCount &&
+            (alignmentViewRow != plot->liveVariantIndex || alignmentViewTrack != trackKey)) {
+            alignmentViewTrack = trackKey;
+            alignmentViewRow = plot->liveVariantIndex;
+            selectedRow = alignmentViewRow;
+        }
 
         bool isVcfTrack = (vt.type == HGW::TrackType::VCF);
 
@@ -507,12 +802,38 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
         bool windowVisible = ImGui::Begin("Variants", &windowOpen, windowFlags);
         ImGui::PopStyleColor(3);
         plot->labelTableCollapsed = ImGui::IsWindowCollapsed();
-        if (closeOnEscape(&windowOpen)) redraw = true;
+        // Escape does not close the Variants window (see ignoresEscape)
         if (dockedStyle) ImGui::PopStyleVar(2);
         if (windowVisible) {
             if (plot->labelTableDocked) drawDockResizeHandle(plot, initW);
-            // Title-bar controls, right to left before X: dock toggle, tile grid
+            // Title-bar controls, right to left before X: dock toggle, tile grid, tile view toggle
             drawDockTitleButton(plot->labelTableDocked, 0);
+            inTitleBar(2, [&](const ImRect& r) {
+                // Tile view on / off. Turning it on pins it, so it is shown even with a 1 x 1 grid
+                const bool on = plot->mode == Manager::Show::TILED;
+                if (ImGui::Button("##tile_view_btn", r.GetSize())) {
+                    plot->tileViewPinned = !on;
+                    if (!plot->toggleCurrentVariantTiledView()) plot->tileViewPinned = false;
+                    plot->redraw = true;
+                    redraw = true;
+                }
+                const bool hov = ImGui::IsItemHovered();
+                ImDrawList* dl = ImGui::GetWindowDrawList();
+                if (on) dl->AddRectFilled(r.Min, r.Max, ImGui::GetColorU32(ImGuiCol_ButtonActive), ImGui::GetStyle().FrameRounding);
+                // A picture: frame, sun and hills
+                const ImU32 col = ImGui::GetColorU32(ImGuiCol_Text);
+                const float w = r.GetWidth(), h = r.GetHeight(), t = iconStrokeThickness(plot->monitorScale);
+                const ImVec2 a(r.Min.x + w * 0.14f, r.Min.y + h * 0.2f), b(r.Max.x - w * 0.14f, r.Max.y - h * 0.2f);
+                dl->AddRect(a, b, col, 1.5f, 0, t);
+                const float iw = b.x - a.x, ih = b.y - a.y;
+                dl->AddCircleFilled(ImVec2(a.x + iw * 0.28f, a.y + ih * 0.32f), std::max(1.0f, ih * 0.11f), col, 8);
+                const ImVec2 hills[] = {{a.x + iw * 0.08f, b.y - ih * 0.14f}, {a.x + iw * 0.4f, a.y + ih * 0.58f},
+                                        {a.x + iw * 0.58f, b.y - ih * 0.26f}, {a.x + iw * 0.74f, a.y + ih * 0.44f},
+                                        {b.x - iw * 0.08f, b.y - ih * 0.14f}};
+                dl->AddPolyline(hills, 5, col, 0, t);
+                if (hov) ImGui::SetTooltip(on ? "Tile view is on: the mouse wheel pages through variants\nClick for the alignment view"
+                                              : "Tile view: static images, the mouse wheel pages through variants");
+            });
             static ImRect gridButton;
             inTitleBar(1, [&](const ImRect& r) {
                 gridButton = r;
@@ -546,7 +867,20 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                 }
                 int showX = over ? hoverX : plot->opts.number.x, showY = over ? hoverY : plot->opts.number.y;
                 if (ImGui::IsItemClicked()) {
+                    // Choosing a grid also shows it: from the alignment view, switch to the tiles on the
+                    // page holding the variant that was being viewed
+                    const int viewed = plot->mode == Manager::Show::SINGLE ? plot->liveVariantIndex : -1;
                     execCommand(plot, "grid " + std::to_string(hoverX) + "x" + std::to_string(hoverY), redraw);
+                    if (plot->singleTileIsLive()) {
+                        // 1 x 1: the single "tile" is the live alignment view
+                        if (plot->mode == Manager::Show::TILED) {
+                            if (plot->showVariantFileInAlignmentView()) redraw = true;
+                        }
+                    } else if (plot->mode == Manager::Show::SINGLE) {
+                        const int perPage = std::max(1, plot->opts.number.x * plot->opts.number.y);
+                        if (viewed >= 0) vt.blockStart = (viewed / perPage) * perPage;
+                        if (plot->toggleCurrentVariantTiledView()) redraw = true;
+                    }
                     ImGui::CloseCurrentPopup();
                 }
                 ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -647,9 +981,30 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
             bool& detailsCollapsed = detailsCollapsedByTrack[trackKey];
             ImGui::SetNextItemAllowOverlap();
             bool listOpen = ImGui::CollapsingHeader("Variant List", ImGuiTreeNodeFlags_DefaultOpen);
+            // Info icon at the right of the header: file and label statistics, VCF header
+            static bool fileInfoOpen = false;
+            float infoIconX = 0;
+            {
+                const float side = ImGui::GetFrameHeight();
+                ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - side * 2 - 2);
+                const ImVec2 p0 = ImGui::GetCursorScreenPos();
+                infoIconX = p0.x;
+                if (ImGui::InvisibleButton("##variant_file_info_btn", ImVec2(side, side))) fileInfoOpen = !fileInfoOpen;
+                const bool hov = ImGui::IsItemHovered();
+                ImDrawList* dl = ImGui::GetWindowDrawList();
+                if (hov) {
+                    dl->AddRectFilled(p0, ImVec2(p0.x + side, p0.y + side), ImGui::GetColorU32(ImGuiCol_ButtonHovered),
+                                      ImGui::GetStyle().FrameRounding);
+                    ImGui::SetTooltip("File and label information");
+                }
+                drawInfoIcon(dl, p0, ImVec2(p0.x + side, p0.y + side), ImGui::GetColorU32(ImGuiCol_Text, hov ? 1.0f : 0.8f),
+                             iconStrokeThickness(plot->monitorScale));
+            }
+            drawVariantFileInfoWindow(plot, vt, fileInfoOpen);
             // File icon at the right of the header: save / load the label file
             {
                 const float side = ImGui::GetFrameHeight();
+                ImGui::SetNextItemAllowOverlap();
                 ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - side);
                 const ImVec2 p0 = ImGui::GetCursorScreenPos();
                 if (ImGui::InvisibleButton("##label_file_btn", ImVec2(side, side))) ImGui::OpenPopup("##label_file_menu");
@@ -664,7 +1019,7 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                              iconStrokeThickness(plot->monitorScale));
                 if (ImGui::GetTime() < labelFileMessageUntil) {
                     const float w = ImGui::CalcTextSize(labelFileMessage.c_str()).x;
-                    dl->AddText(ImVec2(p0.x - w - ImGui::GetStyle().ItemSpacing.x, p0.y + ImGui::GetStyle().FramePadding.y),
+                    dl->AddText(ImVec2(infoIconX - w - ImGui::GetStyle().ItemSpacing.x, p0.y + ImGui::GetStyle().FramePadding.y),
                                 ImGui::GetColorU32(ImGuiCol_Text, 0.8f), labelFileMessage.c_str());
                 }
                 ImGui::SetNextWindowPos(ImVec2(p0.x + side, p0.y + side + 2), ImGuiCond_Appearing, ImVec2(1.0f, 0));
@@ -809,10 +1164,14 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                                                  alignmentViewTrack == trackKey && alignmentViewRow == i;
                             const float side = ImGui::GetTextLineHeight();
                             ImVec2 p0 = ImGui::GetCursorScreenPos();
+                            // With a 1 x 1 grid there are no tiles to go back to
+                            const bool canShowTiles = !plot->singleTileIsLive();
                             if (ImGui::InvisibleButton("##play", ImVec2(side, side))) {
                                 if (showing) {
-                                    alignmentViewRow = -1;
-                                    plot->toggleCurrentVariantTiledView();
+                                    if (canShowTiles) {
+                                        alignmentViewRow = -1;
+                                        plot->toggleCurrentVariantTiledView();
+                                    }
                                 } else if (plot->openVariantInAlignmentView(i)) {
                                     selectedRow = i;
                                     tileMarkerIndex = plot->mouseOverTileIndex;
@@ -828,18 +1187,23 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                                          c(p0.x + side * 0.25f, p0.y + side * 0.82f);
                             if (showing) ImGui::GetWindowDrawList()->AddTriangleFilled(a, b, c, col);
                             else ImGui::GetWindowDrawList()->AddTriangle(a, b, c, col, 1.2f);
-                            if (hov) ImGui::SetTooltip(showing ? "Back to tiles" : "Show in alignment view");
+                            if (hov && !(showing && !canShowTiles)) ImGui::SetTooltip(showing ? "Back to tiles" : "Show in alignment view");
                             ImGui::SameLine(0, 2.0f);
                         }
                         std::string location = lbl.chrom + ":" + Utils::formatNum(lbl.pos);
                         if (ImGui::Selectable(location.c_str(), isSelected,
                                               ImGuiSelectableFlags_None)) {
                             selectedRow = i;
-                            plot->mode = Manager::Show::TILED;
-                            int tilesPerPage = plot->opts.number.x * plot->opts.number.y;
-                            vt.blockStart = (i / tilesPerPage) * tilesPerPage;
-                            plot->mouseOverTileIndex = i - vt.blockStart;
-                            tileMarkerIndex = plot->mouseOverTileIndex; // only update on click
+                            if (plot->singleTileIsLive()) {
+                                // 1 x 1 grid: the row opens in the alignment view
+                                if (plot->openVariantInAlignmentView(i)) tileMarkerIndex = plot->mouseOverTileIndex;
+                            } else {
+                                plot->mode = Manager::Show::TILED;
+                                int tilesPerPage = plot->opts.number.x * plot->opts.number.y;
+                                vt.blockStart = (i / tilesPerPage) * tilesPerPage;
+                                plot->mouseOverTileIndex = i - vt.blockStart;
+                                tileMarkerIndex = plot->mouseOverTileIndex; // only update on click
+                            }
                             plot->redraw = true;
                             plot->processed = false;
                         }

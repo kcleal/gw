@@ -25,8 +25,9 @@ description: Keyboard shortcuts in GW
 | cycle link mode | `L` |
 | find matching alignments | `F` |
 | resize window | `SHIFT` + `ARROW_KEY` |
-| switch viewing mode | `TAB` |
+| switch between variant tiles and the alignment view | `TAB` |
 | repeat last command | `CTRL` + `R` |
-| switch variant file | `COMMAND` / `CTRL` + `ARROW_KEY` |
+| next / previous variant, or page of tiles | `COMMAND` / `CTRL` + `LEFT` / `RIGHT` |
+| label the variant in the alignment view | `1` - `9` |
 
 Hotkeys can be customised in Settings → Keymap.

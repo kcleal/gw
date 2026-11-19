@@ -645,10 +645,24 @@ Soft-clipped bases or hard-clips are turned on or off.
 
 - ## sort
 
-Sort reads by strand, haplotype (defined by HP tag in bam file), or pos. Sorting by position also has a hotkey - pressing `S` will sort based on cursor position.
+Sort reads into groups, by the base at a position, or both. Sorting by position also has a hotkey - pressing `S` will sort based on cursor position.
+
+| Group | Reads are separated by |
+|-------|------------------------|
+| `strand` | Forward or reverse strand |
+| `hap` | Haplotype (the `HP` tag) |
+| `orientation` | Pair orientation: normal, deletion, inversion, duplication or translocation |
+| `first-strand` | Strand of the first read in the pair |
+| `read-order` | First or second in pair |
+| `supplementary` | Supplementary flag |
+| `duplicate` | Duplicate flag |
+| `split` | Reads that have a supplementary alignment |
+
+Each group is labelled at the right-hand edge of the plot. `sort none` resets the view.
 
     sort hap
     sort strand
+    sort orientation
     sort 6400234       # Sorting based on genomic position
     sort strand 120000 # By strand and then position
     sort hap 120000    # Haplotype then position
@@ -697,8 +711,9 @@ theme custom:dark
 
 - ## tiles
 
-Switch between tiled variant images (from `load tiled FILE`) and the normal view;
-`tiles on` / `tiles off` choose one.
+Switch between tiled variant images (from `load tiled FILE`) and the alignment view;
+`tiles on` / `tiles off` choose one. A variant file opens in the alignment view, so use
+`tiles on` to see the tiles. This is the same as the tile view button in the Variants panel.
 
     load tiled variants.vcf.gz
     tiles off

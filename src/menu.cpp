@@ -2,11 +2,17 @@
 #include "imgui_internal.h"
 
 namespace Menu {
+// Windows that Escape never closes: the key passes to the next window, or on to GW
+static bool ignoresEscape(const ImGuiWindow* window) {
+    static const ImGuiID variants = ImHashStr("Variants");
+    return window->ID == variants;
+}
+
 bool hasImGuiEscapeTarget() {
     auto* context = ImGui::GetCurrentContext();
     if (!context) return false;
     for (auto* window : context->Windows) {
-        if (window->Active && !window->Hidden &&
+        if (window->Active && !window->Hidden && !ignoresEscape(window) &&
             (window->HasCloseButton || (window->Flags & ImGuiWindowFlags_Popup)))
             return true;
     }
@@ -31,7 +37,7 @@ static bool closeOnEscape(bool* open = nullptr) {
         target = nullptr;
         for (int i = g.Windows.Size - 1; i >= 0; --i) {
             auto* window = g.Windows[i];
-            if (window->WasActive && !window->Hidden &&
+            if (window->WasActive && !window->Hidden && !ignoresEscape(window) &&
                 (window->HasCloseButton || (window->Flags & ImGuiWindowFlags_Popup))) {
                 target = window;
                 break;
@@ -63,6 +69,7 @@ static bool closeOnEscape(bool* open = nullptr) {
 #include "menu_components/imgui/imgui_info_popups.cpp"
 #include "menu_components/imgui/imgui_data_labels.cpp"
 #include "menu_components/imgui/imgui_alignment_scrollbars.cpp"
+#include "menu_components/imgui/imgui_variant_nav.cpp"
 #include "menu_components/imgui/imgui_close_dialog.cpp"
 #include "menu_components/imgui/imgui_track_manager.cpp"
 #include "menu_components/imgui/imgui_genome_menu.cpp"

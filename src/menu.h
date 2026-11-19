@@ -137,6 +137,7 @@ namespace Menu {
     // Label progress table: one row per tile/variant with current label and date.
     // Only shown in TILED mode; auto-hides when returning to alignment view.
     void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw);
+    void drawImGuiVariantNav(Manager::GwPlot* plot, bool& redraw);  // edge arrows and the variant chip
 
     // Transient status overlay showing the most recent command output/errors
     // triggered from the ImGui UI. Terminal colors are preserved separately.

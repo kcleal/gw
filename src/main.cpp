@@ -432,7 +432,10 @@ int main(int argc, char *argv[]) try {
                 bool cacheStdin = (v == "-");
                 plotter.addVariantTrack(v, iopts.start_index, cacheStdin, false);
             }
-            plotter.mode = Manager::Show::TILED;
+            // Variant files open on their first variant in the alignment view; Tab shows the tiles
+            if (!plotter.showVariantFileInAlignmentView()) {
+                plotter.mode = Manager::Show::TILED;
+            }
 
             int res = plotter.startUI(sContext, sSurface,
                                       program.get<int>("--delay"),

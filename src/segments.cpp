@@ -866,10 +866,10 @@ namespace Segs {
         }
     }
 
-    constexpr int POS_MASK = 0b0000111;
+    constexpr int POS_MASK = 0b0111111;  // the group (category) of a read; the base code starts at bit 6
 
     void setAlignSortCode(Align &a, Utils::SortType sort_state, int target_pos, char ref_base) {
-        // strand and hap codes are stored in 2nd and 3rd bit
+        // The group of the read (strand, haplotype, ...) is stored in the first 6 bits (POS_MASK)
         // If the base is non-reference, then its number encoding is added after 6th bit
         // Makes it possible to sort using this bit field
         bam1_t* b = a.delegate;
@@ -877,18 +877,42 @@ namespace Segs {
         if (b->core.l_qseq == 0) {
             return;
         }
-        if (sort_state == Utils::SortType::HP) {
-            uint8_t *HP_tag = bam_aux_get(b, "HP");
-            a.sort_tag = (HP_tag != nullptr) ? (int) bam_aux2i(HP_tag) : 0;
-            return;
-        } else if (sort_state == Utils::SortType::STRAND) {
-            a.sort_tag = (int) (b->core.flag & BAM_FREVERSE) ? 1 : 0;
-            return;
-        } else if (sort_state == Utils::SortType::HP_AND_POS) {
-            uint8_t *HP_tag = bam_aux_get(b, "HP");
-            a.sort_tag = (HP_tag != nullptr) ? (int) bam_aux2i(HP_tag) : 0;
-        } else if (sort_state == Utils::SortType::STRAND_AND_POS)  {
-            a.sort_tag = (int) (b->core.flag & BAM_FREVERSE) ? 1 : 0;
+        const uint16_t flag = b->core.flag;
+        switch (Utils::sortGroup(sort_state)) {
+            case Utils::SortType::HP: {
+                uint8_t *HP_tag = bam_aux_get(b, "HP");
+                int hp = (HP_tag != nullptr) ? (int) bam_aux2i(HP_tag) : 0;
+                a.sort_tag = std::min(std::max(hp, 0), POS_MASK);
+                break;
+            }
+            case Utils::SortType::STRAND:
+                a.sort_tag = (flag & BAM_FREVERSE) ? 1 : 0;
+                break;
+            case Utils::SortType::ORIENTATION:
+                a.sort_tag = a.orient_pattern & POS_MASK;
+                break;
+            case Utils::SortType::FIRST_STRAND:
+                // The mate's strand for the second read of a pair, otherwise the read's own strand
+                if ((flag & BAM_FPAIRED) && (flag & BAM_FREAD2)) {
+                    a.sort_tag = (flag & BAM_FMREVERSE) ? 1 : 0;
+                } else {
+                    a.sort_tag = (flag & BAM_FREVERSE) ? 1 : 0;
+                }
+                break;
+            case Utils::SortType::READ_ORDER:
+                a.sort_tag = !(flag & BAM_FPAIRED) ? 2 : (flag & BAM_FREAD2) ? 1 : 0;
+                break;
+            case Utils::SortType::SUPPLEMENTARY:
+                a.sort_tag = (flag & BAM_FSUPPLEMENTARY) ? 1 : 0;
+                break;
+            case Utils::SortType::DUPLICATE:
+                a.sort_tag = (flag & BAM_FDUP) ? 1 : 0;
+                break;
+            case Utils::SortType::SPLIT:
+                a.sort_tag = (a.has_SA || (flag & BAM_FSUPPLEMENTARY)) ? 1 : 0;
+                break;
+            default:
+                break;
         }
         if (((sort_state & Utils::SortType::POS) == 0) ||  b->core.pos > target_pos || target_pos < 0 || ref_base == '\0') {
             return;
@@ -1140,9 +1164,8 @@ namespace Segs {
             int start_i = group * ylim / n_cats + group * vScroll;
             int vScroll_level = start_i + vScroll;
             int end_i = (group + 1) * ylim / n_cats + (group + 1) * vScroll;
-            // Leave a row between haplotypes when the viewport has room.
-            const bool haplotypes = (rc.region->sortOption & Utils::SortType::HP) != 0;
-            if ((!haplotypes || group + 1 < n_cats) && end_i - vScroll_level >= 3) --end_i;
+            // Leave a row between groups when the viewport has room.
+            if (group + 1 < n_cats && end_i - vScroll_level >= 3) --end_i;
 
             if (!joinLeft) {
 
@@ -1466,7 +1489,7 @@ namespace Segs {
                 le.resize(sz, EMPTY_LEVEL_END);
             }
             findYNoSort(rQ, ls, le, joinLeft, vScroll, lm, linkedSeen, linkType);
-        } else if (sortReadsBy >= Utils::SortType::POS) {
+        } else if (sortReadsBy & Utils::SortType::POS) {
             // sorting by position maintains all reads in the same plot region
             // Use the encoded positional information to find new sort order
             std::stable_sort(rQ.begin(), rQ.end(), [](const Align &a, const Align &b) {
@@ -1566,7 +1589,7 @@ namespace Segs {
             }
             int begin = group * visibleRows / categories;
             int end = (group + 1) * visibleRows / categories;
-            if ((sortReadsBy & Utils::SortType::HP) && group + 1 < categories && end - begin >= 3) --end;
+            if (group + 1 < categories && end - begin >= 3) --end;
             for (int row = 0; row < visibleRows; ++row) {
                 // Keep categorical rows together without moving existing anchors
                 // when a category appears or disappears at the edge of the view.

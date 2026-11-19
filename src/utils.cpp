@@ -214,7 +214,7 @@ namespace Utils {
     }
 
     SortType Region::getSortOption() {
-        if (sortOption < POS) {
+        if ((sortOption & POS) == 0) {
             return sortOption;
         }
         if (sortPos >= start && sortPos < end) {
@@ -223,12 +223,39 @@ namespace Utils {
                 return sortOption;
             }
         }
-        if (sortOption == STRAND_AND_POS) {
-            return STRAND;
-        } else if (sortOption == HP_AND_POS) {
-            return HP;
+        return sortGroup(sortOption);  // position out of view, keep the grouping only
+    }
+
+    const std::vector<SortGroupInfo>& sortGroups() {
+        static const std::vector<SortGroupInfo> groups = {
+            {STRAND, "strand", "Strand"},
+            {HP, "hap", "Haplotype"},
+            {ORIENTATION, "orientation", "Pair orientation"},
+            {FIRST_STRAND, "first-strand", "First-in-pair strand"},
+            {READ_ORDER, "read-order", "Read order"},
+            {SUPPLEMENTARY, "supplementary", "Supplementary"},
+            {DUPLICATE, "duplicate", "Duplicate"},
+            {SPLIT, "split", "Split read"},
+        };
+        return groups;
+    }
+
+    std::string sortGroupLabel(SortType group, int category) {
+        switch (sortGroup(group)) {
+            case STRAND: return category == 0 ? "Forward" : "Reverse";
+            case HP: return category == 0 ? "Unassigned" : "HP:" + std::to_string(category);
+            case ORIENTATION: {
+                static const char* names[] = {"Normal", "Deletion", "Inversion-F", "Inversion-R",
+                                              "Duplication", "Translocation"};
+                return (category >= 0 && category < 6) ? names[category] : "Other";
+            }
+            case FIRST_STRAND: return category == 0 ? "First forward" : "First reverse";
+            case READ_ORDER: return category == 0 ? "First" : category == 1 ? "Second" : "Unpaired";
+            case SUPPLEMENTARY: return category == 0 ? "Not supplementary" : "Supplementary";
+            case DUPLICATE: return category == 0 ? "Not duplicate" : "Duplicate";
+            case SPLIT: return category == 0 ? "Not split" : "Split";
+            default: return "";
         }
-        return NONE;
     }
 
     std::string Region::toString() {

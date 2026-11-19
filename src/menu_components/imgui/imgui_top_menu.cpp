@@ -325,17 +325,20 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,
                             ImVec2(style.ItemSpacing.x, style.ItemSpacing.y + style.FramePadding.y * 2));
         ImGui::Separator();
-        ImGui::BeginDisabled(!haveReads || plot->regions.empty());
+        const bool tiled = plot->mode == Manager::Show::TILED;
+        ImGui::BeginDisabled(!haveReads || (!tiled && plot->regions.empty()));
         if (ImGui::BeginMenu("Sort")) {
             ImGui::PushItemFlag(ImGuiItemFlags_AutoClosePopups, false);
-            Utils::SortType srt = plot->regions.empty() ? Utils::SortType::NONE : plot->regions[plot->regionSelection].sortOption;
-            bool byStrand = srt == Utils::SortType::STRAND || srt == Utils::SortType::STRAND_AND_POS;
-            bool byHap = srt == Utils::SortType::HP || srt == Utils::SortType::HP_AND_POS;
-            bool byNone = !byStrand && !byHap;
+            Utils::SortType srt = tiled ? plot->tileSortOption
+                : plot->regions.empty() ? Utils::SortType::NONE : plot->regions[plot->regionSelection].sortOption;
+            const Utils::SortType current = Utils::sortGroup(srt);
+            bool byNone = current == Utils::SortType::NONE;
             if (ImGui::MenuItem("None", nullptr, byNone) && !byNone) execCommand(plot, "sort none", redraw);
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Resets the view, including filters");
-            if (ImGui::MenuItem("Strand", nullptr, byStrand) && !byStrand) execCommand(plot, "sort strand", redraw);
-            if (ImGui::MenuItem("Haplotype", nullptr, byHap) && !byHap) execCommand(plot, "sort hap", redraw);
+            for (const auto& g : Utils::sortGroups()) {
+                bool on = current == g.type;
+                if (ImGui::MenuItem(g.label, nullptr, on) && !on) execCommand(plot, std::string("sort ") + g.command, redraw);
+            }
             ImGui::PopItemFlag();
             ImGui::EndMenu();
         }

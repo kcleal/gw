@@ -74,7 +74,7 @@ A local install can open files at launch, or draw images without a window:
 gw hg38 -b your.bam -r chr1:1-20000
 gw hg38 -b your.bam -r chr1:1-20000 -r chr2:50000-60000   # two regions side-by-side
 gw hg38 -b b1.bam -b b2.bam -r chr1                       # stacked bams
-gw hg38 -b your.bam -v var.vcf                            # variant tiles
+gw hg38 -b your.bam -v var.vcf                            # review variants
 gw hg38 -b your.bam -r chr1:1-20000 -n > out.png          # png to stdout
 gw hg38 -b your.bam -r chr1:1-20000 -n --fmt pdf -f out.pdf
 ```

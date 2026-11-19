@@ -20,7 +20,8 @@ Drag-and-drop a file onto the window, or use **Main menu → Open file**. **Onli
 fetch annotation tracks from [UCSC]({{ site.baseurl }}/guide/remote.html#ucsc-tables).
 
 For a VCF/BCF, GW asks whether to load it as an annotation track, as
-[tiled images]({{ site.baseurl }}/guide/images.html), or both.
+[tiled images]({{ site.baseurl }}/guide/labelling.html#reviewing-variants) for reviewing variants, or
+both.
 
 ## Working with tracks
 

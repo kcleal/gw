@@ -53,7 +53,7 @@ The button at the top-left (1).
 | **Open file** | **Local file** opens a file browser; **Online file** browses online genomes, data catalogues and UCSC tables |
 | **Close file** | Choose loaded files to close |
 | **Tracks** | The [track manager](#tracks-panel): reorder, resize and close alignments and tracks |
-| **Variants** | The Variants panel — shown once a variant file is open as tiles |
+| **Variants** | The Variants panel — shown once a variant file is open for review |
 | **Tools** | The [Tools panel](#tools-panel): count, filter, find, markers, save and sort |
 | **Command bar** | Show or hide the command bar |
 | **Output** | Text output from tools and commands |
@@ -71,7 +71,8 @@ The second button (2) holds switches for what is drawn.
 - **Tick boxes** — alignments, coverage, insertions, mismatches, edges, soft-clips, base
   modifications, the cursor line, template-length y-axis, expanded tracks, log2 coverage and
   amino-acid translation
-- **Sort** — by strand or haplotype
+- **Sort** — group reads by strand, haplotype, pair orientation, first-in-pair strand, read order,
+  or the supplementary, duplicate or split-read status
 - **Hide** — duplicates, secondary or supplementary reads, MAPQ 0 reads; **Clear filters** removes
   them
 - **Link** — draw lines between reads of a structural variant, or all read pairs
@@ -92,7 +93,7 @@ side of the window.
 | **Introns** | Toggle the splice-junction track |
 | **Markers & ROI** | Add, visit and clear markers and regions of interest |
 | **Save** | Save a PNG, SVG or PDF image, the visible alignments (BAM/SAM), or the session |
-| **Sort** | Sort reads by strand, haplotype or the base at a position |
+| **Sort** | Group reads (strand, haplotype, pair orientation and more) and sort by the base at a position |
 
 ## Tracks panel
 

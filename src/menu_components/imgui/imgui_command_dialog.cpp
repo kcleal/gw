@@ -262,7 +262,7 @@ void drawImGuiCommandDialog(Manager::GwPlot* plot,
     static bool pattern_include[nPatterns] = {};
     static bool pattern_exclude[nPatterns] = {};
 
-    static int sort_choice = 0;      // 0=none, 1=strand, 2=hap
+    static int sort_choice = 0;      // 0=none, otherwise 1 + index into Utils::sortGroups()
     static int prev_sort_choice = 0;
     static char sort_pos[64] = {};
 
@@ -870,22 +870,20 @@ void drawImGuiCommandDialog(Manager::GwPlot* plot,
 
     if (ImGui::CollapsingHeader("Sort")) {
 
-        ImGui::RadioButton("None", &sort_choice, 0);
-        ImGui::SameLine();
-        ImGui::RadioButton("Strand", &sort_choice, 1);
-        ImGui::SameLine();
-        ImGui::RadioButton("Haplotype", &sort_choice, 2);
+        const auto& sortGroups = Utils::sortGroups();
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+        if (ImGui::BeginCombo("##sort_group", sort_choice == 0 ? "None" : sortGroups[sort_choice - 1].label)) {
+            if (ImGui::Selectable("None", sort_choice == 0)) sort_choice = 0;
+            for (int i = 0; i < (int)sortGroups.size(); ++i) {
+                if (ImGui::Selectable(sortGroups[i].label, sort_choice == i + 1)) sort_choice = i + 1;
+            }
+            ImGui::EndCombo();
+        }
 
         if (sort_choice != prev_sort_choice) {
             prev_sort_choice = sort_choice;
-
-            std::string cmd;
-            if (sort_choice == 0) cmd = "refresh";
-            else if (sort_choice == 1) cmd = "sort strand";
-            else if (sort_choice == 2) cmd = "sort hap";
-
-            if (!cmd.empty())
-                execCommand(plot, cmd, redraw);
+            execCommand(plot, sort_choice == 0 ? std::string("refresh")
+                                               : std::string("sort ") + sortGroups[sort_choice - 1].command, redraw);
         }
 
         ImGui::SetNextItemWidth(
@@ -904,8 +902,7 @@ void drawImGuiCommandDialog(Manager::GwPlot* plot,
             sort_pos[0])
         {
             std::string cmd = "sort ";
-            if (sort_choice == 1) cmd += "strand ";
-            else if (sort_choice == 2) cmd += "hap ";
+            if (sort_choice > 0) cmd += std::string(sortGroups[sort_choice - 1].command) + " ";
             cmd += sort_pos;
 
             execCommand(plot, cmd, redraw);

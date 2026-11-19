@@ -556,6 +556,16 @@ namespace Manager {
         auto func_key = [](GLFWwindow *w, int k, int s, int a, int m) {
             auto* plot = static_cast<GwPlot *>(glfwGetWindowUserPointer(w));
             if (k == GLFW_KEY_ESCAPE && plot->showUIOverlay && Menu::hasImGuiEscapeTarget()) return;
+            // A modifier released while a text box has the keyboard must still be seen,
+            // otherwise ctrlPress / shiftPress stay set and change wheel-zoom and clicks
+            if (a == GLFW_RELEASE) {
+                if (k == GLFW_KEY_LEFT_CONTROL || k == GLFW_KEY_RIGHT_CONTROL ||
+                    k == GLFW_KEY_LEFT_SUPER || k == GLFW_KEY_RIGHT_SUPER) {
+                    plot->ctrlPress = false;
+                } else if (k == GLFW_KEY_LEFT_SHIFT || k == GLFW_KEY_RIGHT_SHIFT) {
+                    plot->shiftPress = false;
+                }
+            }
             if (ImGui::GetIO().WantCaptureKeyboard) return;
 #ifdef __EMSCRIPTEN__
             queueWasmInput({plot,0,k,s,a,m});
@@ -603,6 +613,9 @@ namespace Manager {
             queueWasmInput({plot,2,b,a,m,0,x,y});
 #else
             if (ImGui::GetIO().WantCaptureMouse) return;
+            // Take the modifiers from the event, the tracked key state can be stale
+            plot->ctrlPress = (m & (GLFW_MOD_CONTROL | GLFW_MOD_SUPER)) != 0;
+            plot->shiftPress = (m & GLFW_MOD_SHIFT) != 0;
             plot->mouseButton(b,a,m);
 #endif
         };
@@ -625,10 +638,20 @@ namespace Manager {
 #ifdef __EMSCRIPTEN__
             queueWasmInput({plot,4,0,0,0,0,x,y});
 #else
+            // Scroll events carry no modifiers, so read the keys (ctrl + wheel zooms by 1 bp)
+            plot->ctrlPress = glfwGetKey(w, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS || glfwGetKey(w, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS ||
+                              glfwGetKey(w, GLFW_KEY_LEFT_SUPER) == GLFW_PRESS || glfwGetKey(w, GLFW_KEY_RIGHT_SUPER) == GLFW_PRESS;
             plot->scrollGesture(x,y);
 #endif
         };
         glfwSetScrollCallback(window, func_scroll);
+
+        // Keys released while another window has focus are never reported
+        auto func_focus = [](GLFWwindow *w, int focused) {
+            auto* plot=static_cast<GwPlot *>(glfwGetWindowUserPointer(w));
+            if (!focused) { plot->ctrlPress = false; plot->shiftPress = false; }
+        };
+        glfwSetWindowFocusCallback(window, func_focus);
 
         auto func_resize = [](GLFWwindow *w, int x, int y) {
             static_cast<GwPlot *>(glfwGetWindowUserPointer(w))->windowResize(x, y);
@@ -1447,6 +1470,7 @@ namespace Manager {
 
             bool sceneRedraw = redraw;
             redraw = false;
+            uiWakeAt = 0;
             prepareImGui(pending_settings_close);
             sceneRedraw = sceneRedraw || redraw;
             const bool uiRedraw = redraw;
@@ -1481,7 +1505,11 @@ namespace Manager {
                 glfwPostEmptyEvent();
             }
 
-            glfwWaitEvents();
+            if (uiWakeAt > 0) {  // an overlay is fading: wake for its next frame
+                glfwWaitEventsTimeout(std::max(0.005, uiWakeAt - ImGui::GetTime()));
+            } else {
+                glfwWaitEvents();
+            }
 
             while (imageCacheQueue.size() > 100) {
                 imageCacheQueue.pop_front();
@@ -2434,6 +2462,7 @@ namespace Manager {
         Menu::drawImGuiTrackPopup(this);
         Menu::drawImGuiSeqPopup(this);
         Menu::drawImGuiLabelTableDialog(this, redraw);
+        Menu::drawImGuiVariantNav(this, redraw);
         const float wantBarSpace = (showUIOverlay && commandBarVisible) ? topMenuSpace : 0;
         if (drawingWidth() != lastDrawingWidth || wantBarSpace != commandBarSpace) {
             lastDrawingWidth = drawingWidth();
@@ -2731,6 +2760,11 @@ namespace Manager {
         fb_height = height;
         showUIOverlay = false;
         regions = currentVarTrack->multiRegions[index];
+        for (auto& rgn : regions) {
+            rgn.sortOption = tileSortOption;
+            rgn.sortPos = tileSortPos;
+            rgn.refBaseAtPos = '\0';
+        }
         processed = false;
         runDrawOnCanvas(surface->getCanvas());
         auto image = surface->makeImageSnapshot();
@@ -2810,6 +2844,7 @@ namespace Manager {
     }
 
     void GwPlot::drawTiles() {
+        liveVariantIndex = -1;  // no variant is open in the alignment view
         currentVarTrack = &variantTracks[variantFileSelection];
         int bStart = currentVarTrack->blockStart;
 

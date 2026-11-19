@@ -265,6 +265,9 @@ namespace Manager {
                 return key;
             }
 
+            if (mode == Manager::SINGLE && singleTileIsLive()) {
+                return GLFW_KEY_UNKNOWN;  // a 1 x 1 grid is the alignment view, there are no tiles to show
+            }
             if (mode == Manager::SINGLE && !regions.empty() && (!currentVarTrack->multiRegions.empty() || currentVarTrack->type == HGW::TrackType::IMAGES) ) {
                 mode = Manager::TILED;
                 redraw = true;
@@ -284,6 +287,7 @@ namespace Manager {
                         return key; // check for "" no chrom set
                     } else {
                         regions = currentVarTrack->multiRegions[currentVarTrack->blockStart];
+                        liveVariantIndex = currentVarTrack->blockStart;
                         redraw = true;
                         processed = false;
                         fetchRefSeqs();
@@ -302,19 +306,10 @@ namespace Manager {
                 if (!commandHistory.empty()) {
                     inputText = commandHistory.back();
                 }
-            } else if (mode == TILED && ctrlPress && variantTracks.size() > 1) {
-                int before = variantFileSelection;
-                if (key == GLFW_KEY_LEFT) {
-                    variantFileSelection = (variantFileSelection > 0) ? variantFileSelection - 1 : 0;
-                } else if (key == GLFW_KEY_RIGHT) {
-                    variantFileSelection = (variantFileSelection < (int)variantTracks.size() - 1) ? variantFileSelection + 1 : variantFileSelection;
-                }
-                if (variantFileSelection != before) {
-                    out << termcolor::magenta << "\nFile    " << termcolor::reset << variantTracks[variantFileSelection].path << "\n";
-                    redraw = true;
-                    processed = false;
-                    imageCache.clear();
-                }
+            } else if (ctrlPress && (key == GLFW_KEY_LEFT || key == GLFW_KEY_RIGHT) && !variantTracks.empty() &&
+                       (mode == TILED || (mode == SINGLE && liveVariantIndex >= 0))) {
+                // Ctrl / Cmd + arrow: next or previous variant (alignment view) or page of tiles
+                stepVariant(key == GLFW_KEY_RIGHT ? 1 : -1);
                 return GLFW_KEY_UNKNOWN;
             } else if ((key == GLFW_KEY_RIGHT || key == GLFW_KEY_LEFT || key == GLFW_KEY_UP || key == GLFW_KEY_DOWN) && shiftPress) {
 #ifndef __EMSCRIPTEN__
@@ -697,6 +692,7 @@ namespace Manager {
             return false;
         }
         variantFileSelection = index;
+        liveVariantIndex = -1;
         currentVarTrack = &variantTracks[variantFileSelection];
         if (mode == Show::TILED) {
             imageCache.clear();
@@ -740,6 +736,72 @@ namespace Manager {
         mouseOverTileIndex = index - vt.blockStart;
         regionSelection = 0;
         switchToSingleMode();
+        liveVariantIndex = index;
+        return true;
+    }
+
+    bool GwPlot::showVariantFileInAlignmentView() {
+        if (variantTracks.empty()) {
+            return false;
+        }
+        if (variantFileSelection < 0 || variantFileSelection >= (int)variantTracks.size()) {
+            variantFileSelection = 0;
+        }
+        auto& vt = variantTracks[variantFileSelection];
+        if (vt.type == HGW::TrackType::IMAGES) {
+            return false;
+        }
+        const int index = std::max(0, vt.blockStart);
+        vt.iterateToIndex(index + 1);  // the file is read lazily
+        return openVariantInAlignmentView(index);
+    }
+
+    bool GwPlot::stepVariant(int delta) {
+        if (variantTracks.empty() || delta == 0) {
+            return false;
+        }
+        if (variantFileSelection < 0 || variantFileSelection >= (int)variantTracks.size()) {
+            variantFileSelection = 0;
+        }
+        currentVarTrack = &variantTracks[variantFileSelection];
+        auto& vt = *currentVarTrack;
+        if (mode == Show::TILED) {
+            // Paging is the tiled view's own left / right; ctrl is cleared so the key is not
+            // taken for this shortcut again
+            const bool ctrl = ctrlPress;
+            ctrlPress = false;
+            keyPress(delta > 0 ? opts.scroll_right : opts.scroll_left, 0, GLFW_PRESS, 0);
+            ctrlPress = ctrl;
+            return true;
+        }
+        if (mode != Show::SINGLE) {
+            return false;
+        }
+        int target = liveVariantIndex >= 0 ? liveVariantIndex + delta : vt.blockStart + std::max(0, mouseOverTileIndex);
+        if (target < 0) {
+            return false;
+        }
+        if (vt.type != HGW::TrackType::IMAGES) {
+            vt.iterateToIndex(target + 1);  // the file is read lazily
+        }
+        return openVariantInAlignmentView(target);
+    }
+
+    bool GwPlot::setLiveVariantLabel(int choice) {
+        if (mode != Show::SINGLE || variantTracks.empty() || liveVariantIndex < 0 ||
+            variantFileSelection < 0 || variantFileSelection >= (int)variantTracks.size()) {
+            return false;
+        }
+        auto& vt = variantTracks[variantFileSelection];
+        if (liveVariantIndex >= (int)vt.multiLabels.size()) {
+            return false;
+        }
+        Utils::Label& lbl = vt.multiLabels[liveVariantIndex];
+        if (choice < 0 || choice >= (int)lbl.labels.size()) {
+            return false;
+        }
+        lbl.clicked = true;
+        lbl.i = choice;
         return true;
     }
 
@@ -763,6 +825,7 @@ namespace Manager {
                 !vt.multiRegions[vt.blockStart].empty() &&
                 !vt.multiRegions[vt.blockStart][0].chrom.empty()) {
                 regions = vt.multiRegions[vt.blockStart];
+                liveVariantIndex = vt.blockStart;
                 fetchRefSeqs();
             }
             redraw = true;
@@ -774,6 +837,9 @@ namespace Manager {
         auto& vt = *currentVarTrack;
         if (vt.multiRegions.empty() && vt.type != HGW::TrackType::IMAGES) {
             return false;
+        }
+        if (singleTileIsLive()) {
+            return false;  // a 1 x 1 grid is the alignment view
         }
         mode = Manager::Show::TILED;
         imageCache.clear();
@@ -1497,12 +1563,7 @@ namespace Manager {
                             if (pos >= 0) {
                                 regions[regionSelection].sortPos = pos;
                                 regions[regionSelection].setRefBaseAtPos();
-                                switch (regions[regionSelection].sortOption) {
-                                    case (Utils::SortType::STRAND) : regions[regionSelection].sortOption = Utils::SortType::STRAND_AND_POS; break;
-                                    case (Utils::SortType::HP) : regions[regionSelection].sortOption = Utils::SortType::HP_AND_POS; break;
-                                    case (Utils::SortType::NONE) : regions[regionSelection].sortOption = Utils::SortType::POS; break;
-                                    default: break;
-                                }
+                                regions[regionSelection].sortOption = Utils::sortWithPos(regions[regionSelection].sortOption);
                             }
                             processed = false;
                             redraw = true;
@@ -1546,6 +1607,15 @@ namespace Manager {
                     }
                 }
             }
+        }
+
+        // Number keys label the variant shown in the alignment view, as they label a tile
+        if (mode == Show::SINGLE && liveVariantIndex >= 0 && action == GLFW_PRESS && !ctrlPress &&
+            key >= GLFW_KEY_1 && key <= GLFW_KEY_9) {
+            if (setLiveVariantLabel(key - (int)GLFW_KEY_1)) {
+                glfwPostEmptyEvent();
+            }
+            return;
         }
 
         if (key == opts.cycle_link_mode && action == GLFW_PRESS) {
@@ -1605,7 +1675,10 @@ namespace Manager {
             variantFileSelection = (int) variantTracks.size() - 1;
             currentVarTrack = &variantTracks[variantFileSelection];
             currentVarTrack->blockStart = 0;
-            mode = Manager::Show::TILED;
+            // Variant files open on their first variant in the alignment view; Tab shows the tiles
+            if (!showVariantFileInAlignmentView()) {
+                mode = Manager::Show::TILED;
+            }
 
             if (print_message) {
                 out << termcolor::magenta << "\nFile        " << termcolor::reset
@@ -2910,7 +2983,8 @@ namespace Manager {
             return;
         }
         currentVarTrack = &variantTracks[variantFileSelection];
-        if (currentVarTrack != nullptr && (!currentVarTrack->multiRegions.empty() || currentVarTrack->type == HGW::TrackType::IMAGES)) {
+        if (currentVarTrack != nullptr && !singleTileIsLive() &&
+            (!currentVarTrack->multiRegions.empty() || currentVarTrack->type == HGW::TrackType::IMAGES)) {
             switchToTiledMode();
         }
     }
@@ -2970,6 +3044,7 @@ namespace Manager {
             } else {
                 regions = currentVarTrack->multiRegions[currentVarTrack->blockStart + boxIdx];
                 switchToSingleMode();
+                liveVariantIndex = currentVarTrack->blockStart + boxIdx;
             }
         }
     }
@@ -2990,6 +3065,7 @@ namespace Manager {
             regions.clear();
             regions = rt;
             switchToSingleMode();
+            liveVariantIndex = currentVarTrack->blockStart + boxIdx;
         }
     }
 

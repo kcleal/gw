@@ -287,7 +287,8 @@ namespace Drawing {
             }
 
             auto drawMarker = [&](int first, int second) {
-                float rp = refSpace + (cl.bamIdx * cl.yPixels);
+                // Nudged down so the top edge stays inside the panel's clip area
+                float rp = refSpace + (cl.bamIdx * cl.yPixels) + 4 * monitorScale;
                 float xp = fonts.overlayHeight * 0.5;
                 float markerP = (cl.xScaling * (float)(first - cl.region->start)) + cl.xOffset;
                 if (markerP > cl.xOffset && markerP < (cl.regionPixels + cl.xOffset)) {
@@ -1403,9 +1404,10 @@ namespace Drawing {
             }
         }
 
-        // Haplotype boundaries use the same reserved rows as the packing code.
+        // Group boundaries (strand, haplotype ...) use the same reserved rows as the packing code.
+        const Utils::SortType sortGroup = Utils::sortGroup(cl.region->sortOption);
         if (regionLen < opts.low_memory && !opts.tlen_yscale &&
-            (cl.region->sortOption & Utils::SortType::HP) &&
+            sortGroup != Utils::SortType::NONE &&
             !cl.sortLevels.empty() && yScaling > 0) {
             const int groups = (int)cl.sortLevels.size();
             SkPaint separator = theme.tcLabels;
@@ -1429,8 +1431,7 @@ namespace Drawing {
                     const float lineY = top - (gap ? yScaling * 0.5f : (yScaling - pH) * 0.5f);
                     canvas->drawLine(xOffset, lineY, xOffset + regionPixels, lineY, separator);
                 }
-                const std::string text = cl.sortLevels[group] == 0 ? "Unassigned" :
-                    "HP:" + std::to_string(cl.sortLevels[group]);
+                const std::string text = Utils::sortGroupLabel(sortGroup, cl.sortLevels[group]);
                 // Omit labels when the group is too short to fit the text.
                 const int endRow = (group + 1) * opts.ylim / groups;
                 if ((endRow - row) * yScaling < fonts.overlayHeight + 4 * monitorScale) continue;

@@ -33,7 +33,8 @@ can be opened on its own and GW picks the reference.
 The display options button (second from the top-left) switches plot elements on and off:
 insertions, mismatches, edges, soft-clips, coverage, log2 coverage and more. From the same menu:
 
-- **Sort** — by strand or haplotype. To sort by the base at a position, use **Tools → Sort**, or
+- **Sort** — group reads by strand, haplotype, pair orientation, first-in-pair strand, read
+  order, or the supplementary, duplicate or split-read status. To sort by the base at a position, use **Tools → Sort**, or
   press `S` with the pointer over the position
 - **Hide** — duplicates, secondary, supplementary or MAPQ 0 reads
 - **Link** — join the reads of a structural variant, or all pairs
@@ -60,7 +61,8 @@ Reads are coloured by pattern: deletion, duplication, inversion or translocation
 
 Open a VCF/BCF the same way as any other file. GW asks whether to load it as an annotation
 [track]({{ site.baseurl }}/guide/tracks.html), as
-[tiled images]({{ site.baseurl }}/guide/images.html) for reviewing variants, or both.
+[tiled images]({{ site.baseurl }}/guide/labelling.html#reviewing-variants) for reviewing variants one
+at a time or as image tiles, or both.
 
 ## From the command line
 

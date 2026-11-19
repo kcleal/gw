@@ -209,6 +209,9 @@ namespace Manager {
 
         std::unordered_map< int, sk_sp<SkImage>> imageCache;  // Cace of tiled images
         std::deque< std::pair<long, sk_sp<SkImage> > > imageCacheQueue;  // cache of previously draw main screen images
+        // Sorting applied to every variant tile (tiles get their regions from the variant file)
+        Utils::SortType tileSortOption{Utils::SortType::NONE};
+        int tileSortPos{-1};
 
         // keys are variantFilename and variantId
         ankerl::unordered_dense::map< std::string, ankerl::unordered_dense::map< std::string, Utils::Label>> inputLabels;
@@ -345,7 +348,28 @@ namespace Manager {
         void reloadPathBackedTracks();
         bool selectVariantFile(int index);
         bool toggleCurrentVariantTiledView();
+        // With a 1 x 1 grid the "tile" is the live alignment view: there is no static tile view
+        // to switch to. Image sets have nothing live to draw, so they always stay as tiles
+        // tileViewPinned: the tile view was asked for by name (the Variants window toggle), so it is
+        // shown at any grid size
+        bool tileViewPinned{false};
+        bool singleTileIsLive() const {
+            return !tileViewPinned && opts.number.x * opts.number.y <= 1 && !variantTracks.empty() &&
+                   variantFileSelection >= 0 && variantFileSelection < (int)variantTracks.size() &&
+                   variantTracks[variantFileSelection].type != HGW::TrackType::IMAGES;
+        }
         bool openVariantInAlignmentView(int index);  // as right-clicking that variant's tile
+        // Variant shown in the alignment view, as an index into the current variant file; -1 when
+        // the alignment view was not opened from a variant
+        int liveVariantIndex{-1};
+        bool stepVariant(int delta);          // next / previous variant in the alignment view, or page of tiles
+        // Show the current variant file's first variant (its blockStart) in the alignment view;
+        // false for image sets and files with no usable variant, which stay as tiles
+        bool showVariantFileInAlignmentView();
+        bool setLiveVariantLabel(int choice); // label the variant shown in the alignment view
+        // Overlays that change with time (fades) ask for a frame at this ImGui time; 0 = none
+        double uiWakeAt{0};
+        void requestUiWake(double atTime) { if (uiWakeAt <= 0 || atTime < uiWakeAt) uiWakeAt = atTime; }
         void addIdeogram(const std::string &path);
         bool loadIdeogramTag();
 

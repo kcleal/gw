@@ -78,7 +78,7 @@ namespace Term {
         out << termcolor::green << "theme            name            " << termcolor::reset << "Switch color theme: igv, dark, slate, tide or frost\n";
         out << termcolor::green << "translate        on/off/frame/   " << termcolor::reset << "Toggle translation track. 'translate frame 1-3',\n";
         out << termcolor::green << "                 strand/code     " << termcolor::reset << "'translate strand +/-', 'translate code N'\n";
-        out << termcolor::green << "tiles            on/off?         " << termcolor::reset << "Switch between tiled variant images and the normal view\n";
+        out << termcolor::green << "tiles            on/off?         " << termcolor::reset << "Switch between tiled variant images and the alignment view\n";
         out << termcolor::green << "tlen-y                           " << termcolor::reset << "Toggle --tlen-y option\n";
         out << termcolor::green << "track-height     target? number? " << termcolor::reset << "Resize one track or the alignment panel. Use\n                                 'track-height' alone to list current heights\n";
         out << termcolor::green << "var, v           vcf_column?     " << termcolor::reset << "Print variant information e.g. 'var', 'var info',\n                                 or a list of columns 'var pos qual format.SU'\n";
@@ -103,6 +103,8 @@ namespace Term {
         out << "repeat last command  " << termcolor::bright_yellow; out << "CTRL + "; Term::printKeyFromValue(opts.repeat_command, out); out << "\n" << termcolor::reset;
         out << "resize window        " << termcolor::bright_yellow; out << "SHIFT + ARROW_KEY" << "\n" << termcolor::reset;
         out << "switch viewing mode  " << termcolor::bright_yellow; out << "TAB" << "\n" << termcolor::reset;
+        out << "next/previous variant " << termcolor::bright_yellow; out << "CTRL + LEFT/RIGHT" << "\n" << termcolor::reset;
+        out << "label variant        " << termcolor::bright_yellow; out << "1-9" << "\n" << termcolor::reset;
 
         out << "\n";
     }
@@ -363,10 +365,15 @@ namespace Term {
         } else if (s == "soft-clips" || s == "sc") {
             out << "    Toggle soft-clips.\n        Soft-clipped bases or hard-clips are turned on or off.\n\n";
         } else if (s == "sort") {
-            out << "    Sort reads by strand, haplotype (defined by HP tag in bam file), or pos.\n\n"
+            out << "    Sort reads into groups, by the base at a position, or both.\n"
+                   "        Groups: strand, hap (HP tag), orientation (pair orientation), first-strand\n"
+                   "        (strand of the first read in the pair), read-order (first or second in pair),\n"
+                   "        supplementary, duplicate, split (reads with a supplementary alignment).\n"
+                   "        Use 'sort none' to reset.\n\n"
                    "    Examples:\n"
                    "        sort hap\n"
                    "        sort strand\n"
+                   "        sort orientation\n"
                    "        sort 6400234       # Sorting based on genomic position\n"
                    "        sort strand 120000 # By strand and then position\n"
                    "        sort hap 120000    # Haplotype then position\n";
@@ -1428,19 +1435,7 @@ namespace Term {
         out << v;
         term_space -= (int)v.size();
         out << std::flush;
-
-        if (label->comment.empty()) {
-            return;
-        }
-
-        v = "    " + label->comment;
-        if ((int)v.size() < term_space) {
-            out << v << std::flush;
-        } else if (term_space > 10) {
-            v.erase(v.begin(), v.begin() + term_space);
-            out << v << std::flush;
-        }
-
+        // The label's comment is not printed: it can be long and overruns the line
     }
 
     int check_url(const char *url) {

@@ -12,17 +12,22 @@ description: Static images, variant tiles and screenshots
 ## Variant image tiles
 
 Open a variant file (VCF/BCF/BED/GW_LABEL) by drag-and-drop or **Main menu → Open file**, and
-choose **Variant file as tiled images**. Each variant is drawn as a static image tile, with the
-Variants panel alongside.
+choose **Variant file as tiled images**. GW opens the first variant in the interactive alignment
+view, with the Variants panel alongside. To see the variants as static image tiles, choose a grid
+with the grid button in the Variants panel title bar, or turn on the tile view with the picture
+button beside it.
 
 ![Variant image tiles with the Variants panel]({{ site.baseurl }}/assets/images/v2/tiles.png)
 
-- **Scroll** or use `←`/`→` to page through the tiles
-- The grid button in the Variants panel title bar sets how many tiles are shown
-- **Click** a tile to cycle its label — see [Labelling]({{ site.baseurl }}/guide/labelling.html)
-- The play button on a row of the Variant list opens that variant in the interactive alignment
-  view; press it again to return to the tiles
+- **Scroll**, use `←`/`→`, or click the arrows at the edges of the plot to page through the tiles
+- The grid button sets how many tiles are shown; a 1 x 1 grid returns to the alignment view
+- **Click** a tile to cycle its label
+- The triangle on a row of the Variant list opens that variant in the alignment view; click it
+  again, or press `Tab`, to return to the tiles
 - With several variant files open, switch between them from **Main menu → Variant files**
+
+[Labelling]({{ site.baseurl }}/guide/labelling.html#reviewing-variants) describes reviewing
+variants in both views.
 
 ## Saving an image
 

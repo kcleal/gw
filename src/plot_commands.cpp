@@ -146,6 +146,8 @@ namespace Commands {
                 rgn.sortOption = Utils::SortType::NONE, rgn.sortPos = -1;
                 rgn.refBaseAtPos = '\0';
             }
+            p->tileSortOption = Utils::SortType::NONE;
+            p->tileSortPos = -1;
             p->tracksLayoutDirty = true;  // re-derive track heights on refresh
         }
         return Err::NONE;
@@ -2333,7 +2335,11 @@ namespace Commands {
         }
         const bool tiled = p->mode == Manager::Show::TILED;
         if (parts.size() == 2 && (parts[1] == "on") == tiled) return Err::NONE;
+        // Asked for by name, as with the Variants window's tile view button: tiles are shown at
+        // any grid size, including 1x1
+        p->tileViewPinned = !tiled;
         if (!p->toggleCurrentVariantTiledView()) {
+            p->tileViewPinned = false;
             out << termcolor::red << "Error:" << termcolor::reset << " the tiled file has no variants to show\n";
             return Err::SILENT;
         }
@@ -2562,36 +2568,43 @@ namespace Commands {
         } catch (...) {
             pos = -1;
         }
-        if (parts[1] != "hap" && parts[1] != "strand" && pos == -1) {
+        // A grouping key (strand, hap, orientation ...), optionally followed by a position
+        Utils::SortType group = Utils::SortType::NONE;
+        for (const auto& g : Utils::sortGroups()) {
+            if (parts[1] == g.command) {
+                group = g.type;
+                break;
+            }
+        }
+        if (group == Utils::SortType::NONE && (pos == -1 || parts.size() == 3)) {
             return Err::OPTION_NOT_SUPPORTED;
         }
-        if (pos != -1) {
-            p->regions[p->regionSelection].sortPos = pos;
-            p->regions[p->regionSelection].setRefBaseAtPos();
-        }
-        if (parts[1] == "strand") {
-            if (pos == -1) {
-                p->regions[p->regionSelection].sortOption = Utils::SortType::STRAND;
-            } else {
-                p->regions[p->regionSelection].sortOption = Utils::SortType::STRAND_AND_POS;
+        if (p->mode == Manager::Show::TILED) {
+            // Tiles take their regions from the variant file, so the sort is kept on the
+            // plot and applied to each tile as it is drawn (the tile cache is cleared below)
+            if (pos != -1) {
+                p->tileSortPos = pos;
             }
-        } else if (parts[1] == "hap") {
-            if (pos == -1) {
-                p->regions[p->regionSelection].sortOption = Utils::SortType::HP;
+            if (group == Utils::SortType::NONE) {
+                p->tileSortOption = Utils::sortWithPos(p->tileSortOption);
             } else {
-                p->regions[p->regionSelection].sortOption = Utils::SortType::HP_AND_POS;
+                p->tileSortOption = (pos == -1) ? group : Utils::sortWithPos(group);
             }
         } else {
-            switch (p->regions[p->regionSelection].sortOption) {
-                case (Utils::SortType::HP):
-                    p->regions[p->regionSelection].sortOption = Utils::SortType::HP_AND_POS;
-                    break;
-                case (Utils::SortType::STRAND):
-                    p->regions[p->regionSelection].sortOption = Utils::SortType::STRAND_AND_POS;
-                    break;
-                default:
-                    p->regions[p->regionSelection].sortOption = Utils::SortType::POS;
-                    break;
+            if (p->regions.empty() || p->regionSelection < 0 || p->regionSelection >= (int)p->regions.size()) {
+                return Err::SILENT;
+            }
+            Utils::Region& rgn = p->regions[p->regionSelection];
+            if (pos != -1) {
+                rgn.sortPos = pos;
+                rgn.refBaseAtPos = '\0';
+                rgn.setRefBaseAtPos();
+            }
+            if (group == Utils::SortType::NONE) {
+                // Position only: keep the current grouping
+                rgn.sortOption = Utils::sortWithPos(rgn.sortOption);
+            } else {
+                rgn.sortOption = (pos == -1) ? group : Utils::sortWithPos(group);
             }
         }
         p->redraw = true;
