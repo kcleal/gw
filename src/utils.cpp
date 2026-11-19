@@ -234,7 +234,7 @@ namespace Utils {
             {FIRST_STRAND, "first-strand", "First-in-pair strand"},
             {READ_ORDER, "read-order", "Read order"},
             {SUPPLEMENTARY, "supplementary", "Supplementary"},
-            {DUPLICATE, "duplicate", "Duplicate"},
+            {DUP_FLAG, "duplicate", "Duplicate"},
             {SPLIT, "split", "Split read"},
         };
         return groups;
@@ -252,7 +252,7 @@ namespace Utils {
             case FIRST_STRAND: return category == 0 ? "First forward" : "First reverse";
             case READ_ORDER: return category == 0 ? "First" : category == 1 ? "Second" : "Unpaired";
             case SUPPLEMENTARY: return category == 0 ? "Not supplementary" : "Supplementary";
-            case DUPLICATE: return category == 0 ? "Not duplicate" : "Duplicate";
+            case DUP_FLAG: return category == 0 ? "Not duplicate" : "Duplicate";
             case SPLIT: return category == 0 ? "Not split" : "Split";
             default: return "";
         }

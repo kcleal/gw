@@ -224,8 +224,8 @@ void drawImGuiVariantNav(Manager::GwPlot* plot, bool& redraw) {
     }
     auto shade = [](ImVec4 c, float a) { c.w = a; return ImGui::ColorConvertFloat4ToU32(c); };
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    const ImVec2 max(pos.x + size.x, pos.y + size.y);
-    dl->AddRectFilled(pos, max, shade(fill, hovered ? 1.0f : alpha), size.y * 0.5f);
+    const ImVec2 corner(pos.x + size.x, pos.y + size.y);
+    dl->AddRectFilled(pos, corner, shade(fill, hovered ? 1.0f : alpha), size.y * 0.5f);
     dl->AddText(ImVec2(pos.x + padX, pos.y + padY), shade(ink, lbl.labels.empty() ? alpha * 0.6f : alpha), label.c_str());
     if (!details.empty()) {
         // The same ink as the label, dimmed, so it reads on every fill and while hovered

@@ -122,7 +122,7 @@ namespace Utils {
         FIRST_STRAND = 32,   // strand of the first read in the pair
         READ_ORDER = 48,     // first / second in pair
         SUPPLEMENTARY = 64,
-        DUPLICATE = 80,
+        DUP_FLAG = 80,       // not DUPLICATE: that is a macro in the Windows headers (nb30.h)
         SPLIT = 96,          // has an SA tag or is supplementary
     };
 

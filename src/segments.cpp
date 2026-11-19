@@ -905,7 +905,7 @@ namespace Segs {
             case Utils::SortType::SUPPLEMENTARY:
                 a.sort_tag = (flag & BAM_FSUPPLEMENTARY) ? 1 : 0;
                 break;
-            case Utils::SortType::DUPLICATE:
+            case Utils::SortType::DUP_FLAG:
                 a.sort_tag = (flag & BAM_FDUP) ? 1 : 0;
                 break;
             case Utils::SortType::SPLIT:
