@@ -385,6 +385,266 @@ namespace HGW {
         return gtf ? labelKeyGtf : labelKeyGff3;
     }
 
+    // ---------- Per-track label fields ----------
+
+    static bool isVcfKind(FType k) { return k == VCF_NOI || k == VCF_IDX || k == BCF_IDX; }
+    static bool isGffKind(FType k) { return k == GFF3_NOI || k == GFF3_IDX || k == GTF_NOI || k == GTF_IDX; }
+    static bool isGtfKind(FType k) { return k == GTF_NOI || k == GTF_IDX; }
+
+    bool GwTrack::supportsLabelFields() const {
+        return isVcfKind(kind) || isGffKind(kind) || (kind == BIGBED && bbFieldNames.size() > 3);
+    }
+
+    void GwTrack::setLabelFields(const std::string &spec) {
+        static const char *fixedCols[] = {"ID", "REF", "ALT", "QUAL", "FILTER", "TYPE"};
+        labelFieldList.clear();
+        labelFields.clear();
+        labelFieldsUserSet = true;
+        labelFieldsReady = true;
+        std::string trimmed = spec;
+        Utils::trim(trimmed);
+        if (trimmed.empty() || trimmed == "auto" || trimmed == "default") {
+            return;
+        }
+        const bool vcf = isVcfKind(kind);
+        for (auto &item : Utils::split(trimmed, ',')) {
+            Utils::trim(item);
+            if (item.empty()) continue;
+            LabelField f{3, item};
+            // "INFO:SVLEN", "info.SVLEN", "FORMAT:GT", "ATTR:gene_name"
+            size_t sep = item.find_first_of(":.");
+            std::string prefix = sep == std::string::npos ? "" : item.substr(0, sep);
+            std::transform(prefix.begin(), prefix.end(), prefix.begin(), [](unsigned char c) { return (char)std::toupper(c); });
+            if (prefix == "INFO" || prefix == "FORMAT" || prefix == "FMT" || prefix == "ATTR") {
+                f.key = item.substr(sep + 1);
+                Utils::trim(f.key);
+                if (f.key.empty()) continue;
+                f.source = prefix == "INFO" ? 1 : (prefix == "ATTR" ? 3 : 2);
+            } else if (vcf) {
+                std::string upper = item;
+                std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char c) { return (char)std::toupper(c); });
+                f.source = 1;  // a bare name is an INFO key unless it is one of the fixed columns
+                for (const char *c : fixedCols) {
+                    if (upper == c) { f.source = 0; f.key = upper; break; }
+                }
+            }
+            if (!vcf && f.source != 3) f.source = 3;
+            if (vcf && f.source == 3) f.source = 1;
+            bool dup = false;
+            for (const auto &have : labelFieldList) dup = dup || (have.source == f.source && have.key == f.key);
+            if (dup) continue;
+            if (!labelFields.empty()) labelFields += ',';
+            if (f.source == 1) labelFields += "INFO:";
+            else if (f.source == 2) labelFields += "FORMAT:";
+            labelFields += f.key;
+            labelFieldList.push_back(std::move(f));
+        }
+    }
+
+    bool GwTrack::resolveLabelFields() {
+        if (labelFieldsUserSet) return !labelFieldList.empty();
+        if (!labelFieldsReady || labelFieldRulesResolved != track_label_parser_rules) {
+            labelFieldRulesResolved = track_label_parser_rules;
+            std::string spec;
+            if (supportsLabelFields() && !track_label_parser_rules.empty() && track_label_parser_rules != "auto") {
+                const auto parsed = parseTrackLabelRules(track_label_parser_rules);
+                std::vector<const char *> names;
+                if (isVcfKind(kind)) names = {"VCF", "BCF"};
+                else if (isGtfKind(kind)) names = {"GTF"};
+                else if (isGffKind(kind)) names = {"GFF3", "GFF"};
+                else names = {"BIGBED", "BB"};
+                for (const char *n : names) {
+                    auto it = parsed.find(n);
+                    if (it != parsed.end()) { spec = it->second; break; }
+                }
+                // A single GFF3/GTF key is already used as the feature name by the reader
+                if (isGffKind(kind) && spec.find(',') == std::string::npos) spec.clear();
+            }
+            setLabelFields(spec);
+            labelFieldsUserSet = false;
+        }
+        return !labelFieldList.empty();
+    }
+
+    // Value of `key` in a GFF3 ("key=value;") or GTF ("key "value";") attribute column
+    static bool attributeValue(const std::string &attrs, const std::string &key, bool gtf, std::string &value) {
+        const char *p = attrs.data();
+        const char *e = p + attrs.size();
+        while (p < e) {
+            const char *fieldStart = p;
+            while (p < e && *p != ';') ++p;
+            const char *fieldEnd = p;
+            if (p < e) ++p;
+            const char *a = skipWs(fieldStart, fieldEnd);
+            const char *b = rTrim(a, fieldEnd);
+            const char *k = a;
+            while (k < b && *k != '=' && *k != ' ' && *k != '\t') ++k;
+            if (k == b || (size_t)(k - a) != key.size() || std::memcmp(a, key.data(), key.size()) != 0) continue;
+            const char *va = skipWs(k + 1, b);
+            if (!gtf && va < b && *va == '=') va = skipWs(va + 1, b);
+            const char *ve = b;
+            stripQuotesView(va, ve);
+            if (va == ve) continue;
+            value.assign(va, ve - va);
+            return true;
+        }
+        return false;
+    }
+
+    void GwTrack::noteAttributeKeys(const Utils::TrackBlock &b) {
+        if (!isGffKind(kind) || seenAttributeKeys.size() >= 80) return;
+        for (size_t i = 0; i < b.parts.size(); ++i) {
+            // the attribute column is the last one of each child record
+            if (!(i + 1 == b.parts.size() || b.parts[i + 1] == "\n") || b.parts[i] == "\n") continue;
+            const std::string &attrs = b.parts[i];
+            const char *p = attrs.data();
+            const char *e = p + attrs.size();
+            while (p < e) {
+                const char *fieldStart = p;
+                while (p < e && *p != ';') ++p;
+                const char *fieldEnd = p;
+                if (p < e) ++p;
+                const char *a = skipWs(fieldStart, fieldEnd);
+                const char *k = a;
+                while (k < fieldEnd && *k != '=' && *k != ' ' && *k != '\t') ++k;
+                if (k == a || k == fieldEnd) continue;
+                std::string key(a, k - a);
+                if (std::find(seenAttributeKeys.begin(), seenAttributeKeys.end(), key) == seenAttributeKeys.end()) {
+                    seenAttributeKeys.push_back(std::move(key));
+                    if (seenAttributeKeys.size() >= 80) return;
+                }
+            }
+        }
+    }
+
+    void GwTrack::featureLabel(const Utils::TrackBlock &b, std::string &out) const {
+        out.clear();
+        constexpr size_t maxValue = 28;
+        const bool showKeys = labelFieldList.size() > 1;
+        std::string value;
+        auto add = [&](const LabelField &f, bool keyed) {
+            if (value.empty() || value == ".") return;
+            if (value.size() > maxValue) { value.resize(maxValue - 2); value += ".."; }
+            if (!out.empty()) out += "  ";
+            if (keyed && showKeys) { out += f.key; out += '='; }
+            out += value;
+        };
+        if (isVcfKind(kind)) {
+            constexpr int nCols = 10;
+            size_t cs[nCols], ce[nCols];
+            size_t lineEnd = b.line.size();
+            while (lineEnd > 0 && (b.line[lineEnd - 1] == '\n' || b.line[lineEnd - 1] == '\r')) --lineEnd;
+            int n = 0;
+            size_t start = 0;
+            for (size_t i = 0; i <= lineEnd && n < nCols; ++i) {
+                if (i == lineEnd || b.line[i] == '\t') { cs[n] = start; ce[n] = i; ++n; start = i + 1; }
+            }
+            auto col = [&](int c) { return c < n ? b.line.substr(cs[c], ce[c] - cs[c]) : std::string(); };
+            for (const auto &f : labelFieldList) {
+                value.clear();
+                if (f.source == 0) {
+                    if (f.key == "ID") value = col(2);
+                    else if (f.key == "REF") value = col(3);
+                    else if (f.key == "ALT") value = col(4);
+                    else if (f.key == "QUAL") value = col(5);
+                    else if (f.key == "FILTER") value = col(6);
+                    else if (f.key == "TYPE") value = b.vartype;
+                    add(f, f.key == "QUAL");
+                } else if (f.source == 1 && n > 7) {
+                    size_t p = cs[7];
+                    while (p < ce[7]) {
+                        size_t q = b.line.find(';', p);
+                        if (q == std::string::npos || q > ce[7]) q = ce[7];
+                        size_t eq = b.line.find('=', p);
+                        if (eq == std::string::npos || eq > q) eq = q;
+                        if (eq - p == f.key.size() && b.line.compare(p, eq - p, f.key) == 0) {
+                            if (eq == q) {  // a flag: show its name
+                                value = f.key;
+                                add(f, false);
+                            } else {
+                                value = b.line.substr(eq + 1, q - eq - 1);
+                                add(f, true);
+                            }
+                            break;
+                        }
+                        p = q + 1;
+                    }
+                } else if (f.source == 2 && n > 9) {  // FORMAT value of the first sample
+                    int idx = 0;
+                    bool found = false;
+                    size_t p = cs[8];
+                    while (p <= ce[8]) {
+                        size_t q = b.line.find(':', p);
+                        if (q == std::string::npos || q > ce[8]) q = ce[8];
+                        if (q - p == f.key.size() && b.line.compare(p, q - p, f.key) == 0) { found = true; break; }
+                        ++idx;
+                        p = q + 1;
+                    }
+                    if (!found) continue;
+                    p = cs[9];
+                    while (idx > 0 && p <= ce[9]) {
+                        size_t q = b.line.find(':', p);
+                        if (q == std::string::npos || q > ce[9]) { p = ce[9] + 1; break; }
+                        p = q + 1;
+                        --idx;
+                    }
+                    if (idx == 0 && p <= ce[9]) {
+                        size_t q = b.line.find(':', p);
+                        if (q == std::string::npos || q > ce[9]) q = ce[9];
+                        value = b.line.substr(p, q - p);
+                        add(f, true);
+                    }
+                }
+            }
+        } else if (isGffKind(kind)) {
+            const bool gtf = isGtfKind(kind);
+            for (const auto &f : labelFieldList) {
+                value.clear();
+                for (size_t i = 0; i < b.parts.size(); ++i) {
+                    if (b.parts[i] == "\n" || !(i + 1 == b.parts.size() || b.parts[i + 1] == "\n")) continue;
+                    if (attributeValue(b.parts[i], f.key, gtf, value)) break;
+                }
+                add(f, true);
+            }
+        } else if (kind == BIGBED) {
+            for (const auto &f : labelFieldList) {
+                value.clear();
+                auto it = std::find(bbFieldNames.begin(), bbFieldNames.end(), f.key);
+                const long idx = it == bbFieldNames.end() ? -1 : (long)(it - bbFieldNames.begin()) - 3;
+                if (idx >= 0 && idx < (long)b.parts.size()) value = b.parts[idx];
+                add(f, true);
+            }
+        }
+    }
+
+    std::vector<std::pair<std::string, std::string>> GwTrack::availableLabelFields() const {
+        std::vector<std::pair<std::string, std::string>> fields;
+        if (isVcfKind(kind)) {
+            fields = {{"ID", "Variant ID"}, {"TYPE", "Variant type"}, {"REF", "Reference allele"}, {"ALT", "Alternate allele"},
+                      {"QUAL", "Quality"}, {"FILTER", "Filter status"}};
+            if (hdr != nullptr) {
+                for (int type : {BCF_HL_INFO, BCF_HL_FMT}) {
+                    for (int i = 0; i < hdr->nhrec; ++i) {
+                        bcf_hrec_t *rec = hdr->hrec[i];
+                        if (rec->type != type) continue;
+                        int idKey = bcf_hrec_find_key(rec, "ID");
+                        if (idKey < 0) continue;
+                        int descKey = bcf_hrec_find_key(rec, "Description");
+                        std::string desc = descKey >= 0 && rec->vals[descKey] ? rec->vals[descKey] : "";
+                        if (desc.size() >= 2 && desc.front() == '"' && desc.back() == '"') desc = desc.substr(1, desc.size() - 2);
+                        fields.emplace_back(std::string(type == BCF_HL_INFO ? "INFO:" : "FORMAT:") + rec->vals[idKey], desc);
+                    }
+                }
+            }
+        } else if (isGffKind(kind)) {
+            for (const auto &k : seenAttributeKeys) fields.emplace_back(k, "");
+        } else if (kind == BIGBED) {
+            for (size_t i = 3; i < bbFieldNames.size(); ++i)
+                fields.emplace_back(bbFieldNames[i], i < bbFieldDescs.size() ? bbFieldDescs[i] : "");
+        }
+        return fields;
+    }
+
     int bamContigId(sam_hdr_t* header, const std::string& chrom) {
         if (!header || chrom.empty()) return -1;
         int tid = sam_hdr_name2tid(header, chrom.c_str());
@@ -1180,11 +1440,11 @@ namespace HGW {
         tbx_t *idx_t_ = nullptr;
         bcf1_t *v_ = nullptr;
 
-        if (Utils::endsWith(Online::resourceName(path), ".vcf")) {
+        if (Utils::endsWith(Online::typedName(path), ".vcf")) {
             kind = VCF_NOI;
         } else if (cacheStdin) {
             kind = STDIN;
-        } else if (Utils::endsWith(Online::resourceName(path), ".bcf")) {
+        } else if (Utils::endsWith(Online::typedName(path), ".bcf")) {
             kind = BCF_IDX;
             idx_v_ = bcf_index_load2(path.c_str(), Online::indexPath(path));
             if (!idx_v_) {
@@ -1817,7 +2077,7 @@ namespace HGW {
         path = p;
         done = false;
         this->add_to_dict = add_to_dict;
-        std::string path_lower = Online::resourceName(p);
+        std::string path_lower = Online::typedName(p);
         std::transform(path_lower.begin(), path_lower.end(), path_lower.begin(),
                        [](unsigned char c) { return (char)std::tolower(c); });
         const auto explicitFormat=Online::formatFor(p);
@@ -2716,7 +2976,11 @@ namespace HGW {
             if (Utils::startsWith(s, "#")) {
                 continue;
             }
-            std::vector<std::string> v = Utils::split_keep_empty_str(s, '\t');
+            // empty fields are kept, so the columns line up when labelled_date is blank
+            std::vector<std::string> v = *Utils::split_keep_empty(s, '\t');
+            if (v.size() < 7) {
+                continue;
+            }
             if (variantFilename == v[6]) {
                 label_dict[v[2]] = v;
                 if (v[3] != "PASS") {
@@ -2832,9 +3096,9 @@ namespace HGW {
 #endif
 
 
-        if (cacheStdin || Utils::endsWith(Online::resourceName(path), ".vcf") ||
-            Utils::endsWith(Online::resourceName(path), ".vcf.gz") ||
-            Utils::endsWith(Online::resourceName(path), ".bcf")) {
+        if (cacheStdin || Utils::endsWith(Online::typedName(path), ".vcf") ||
+            Utils::endsWith(Online::typedName(path), ".vcf.gz") ||
+            Utils::endsWith(Online::typedName(path), ".bcf")) {
             variantTrack.done = true;
             vcf.done = false;
             type = VCF;
@@ -2847,7 +3111,7 @@ namespace HGW {
                 nextN(endIndex);
             }
             blockStart = endIndex;
-        } else if (Utils::endsWith(Online::resourceName(path), ".png") || Utils::endsWith(Online::resourceName(path), ".png'") || Utils::endsWith(Online::resourceName(path), ".png\"")) {
+        } else if (Utils::endsWith(Online::typedName(path), ".png") || Utils::endsWith(Online::typedName(path), ".png'") || Utils::endsWith(Online::typedName(path), ".png\"")) {
             type = IMAGES;
             image_glob = glob_cpp::glob(path);
             if (image_glob.empty()) {

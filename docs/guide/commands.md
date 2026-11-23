@@ -742,6 +742,19 @@ Set the track pane height in pixels.
 
 <br>
 
+- ## track-labels
+
+Choose the fields shown as feature labels on a VCF/BCF, GFF3, GTF or bigBed track. Takes a track
+index or name, then a comma-separated list of fields; `auto` restores the default label. See
+[Feature labels]({{ site.baseurl }}/guide/tracks.html#feature-labels).
+
+    track-labels
+    track-labels 0 INFO:SVTYPE,INFO:SVLEN
+    track-labels genes gene_name,gene_biotype
+    track-labels 0 auto
+
+<br>
+
 - ## translate, translate_frame, translate_strand, translate_code
 
 Translate reads into amino acids. `translate` toggles translation; the sub-commands set the reading

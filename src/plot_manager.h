@@ -368,6 +368,9 @@ namespace Manager {
         bool showVariantFileInAlignmentView();
         bool setLiveVariantLabel(int choice); // label the variant shown in the alignment view
         // Overlays that change with time (fades) ask for a frame at this ImGui time; 0 = none
+        // Framebuffer pixels kept free between the tracks and the ideogram for the variant label
+        // chip; part of sliderSpace, and 0 unless a variant is open in the alignment view
+        float variantChipSpace{0};
         double uiWakeAt{0};
         void requestUiWake(double atTime) { if (uiWakeAt <= 0 || atTime < uiWakeAt) uiWakeAt = atTime; }
         void addIdeogram(const std::string &path);

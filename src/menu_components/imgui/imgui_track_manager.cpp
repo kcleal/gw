@@ -3,6 +3,7 @@
 // per-item height, order and removal. Every action runs an existing command.
 
 #include <algorithm>
+#include <cstring>
 #include <filesystem>
 #include <string>
 #include <unordered_map>
@@ -26,6 +27,90 @@ static bool trackManagerButton(const char* label, const char* tooltip) {
     bool clicked = ImGui::SmallButton(label);
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tooltip);
     return clicked;
+}
+
+// Popup listing the fields a track can show as feature labels. Ticking a field appends it,
+// so the label follows the order the fields were chosen in.
+static void trackLabelFieldsPopup(Manager::GwPlot* plot, int trackIdx, std::string& pending) {
+    ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0), ImVec2(ImGui::GetFontSize() * 26.f, ImGui::GetFontSize() * 24.f));
+    if (!ImGui::BeginPopup("##label_fields")) return;
+    HGW::GwTrack& trk = plot->tracks[trackIdx];
+    const bool gff = trk.kind == HGW::FType::GFF3_NOI || trk.kind == HGW::FType::GFF3_IDX
+                  || trk.kind == HGW::FType::GTF_NOI || trk.kind == HGW::FType::GTF_IDX;
+    if (gff) {  // GFF3/GTF declare no fields: offer the attributes of the features in view
+        for (auto& rgn : plot->regions) {
+            if (trackIdx < (int)rgn.featuresInView.size())
+                for (auto& f : rgn.featuresInView[trackIdx]) trk.noteAttributeKeys(f);
+        }
+    }
+    trk.resolveLabelFields();
+    std::vector<std::string> chosen;
+    for (auto& f : trk.labelFieldList)
+        chosen.push_back(f.source == 1 ? "INFO:" + f.key : (f.source == 2 ? "FORMAT:" + f.key : f.key));
+    auto apply = [&]() {
+        std::string spec;
+        for (auto& c : chosen) spec += (spec.empty() ? "" : ",") + c;
+        pending = "track-labels " + std::to_string(trackIdx) + " " + (spec.empty() ? "auto" : spec);
+    };
+
+    ImGui::TextDisabled("Label shows");
+    ImGui::SameLine();
+    if (chosen.empty()) {
+        ImGui::TextUnformatted("default");
+    } else {
+        std::string order;
+        for (auto& c : chosen) order += (order.empty() ? "" : ", ") + c.substr(c.find(':') == std::string::npos ? 0 : c.find(':') + 1);
+        ImGui::TextWrapped("%s", order.c_str());
+        if (ImGui::SmallButton("Default")) {
+            chosen.clear();
+            apply();
+        }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Clear the chosen fields");
+    }
+    ImGui::Separator();
+
+    auto fields = trk.availableLabelFields();
+    for (auto& c : chosen) {  // keep fields typed by hand, or not seen in this view, in the list
+        if (std::none_of(fields.begin(), fields.end(), [&](const auto& f) { return f.first == c; }))
+            fields.emplace_back(c, "");
+    }
+    const char* group = "";
+    ImGui::BeginChild("##fields", ImVec2(ImGui::GetFontSize() * 16.f,
+                      std::min((float)(fields.size() + (gff ? 0.3f : 2.5f)) * ImGui::GetFrameHeightWithSpacing(), ImGui::GetFontSize() * 15.f)));
+    if (fields.empty()) ImGui::TextDisabled("No fields found in view");
+    for (auto& f : fields) {
+        const size_t colon = f.first.find(':');
+        const char* g = colon == std::string::npos ? "" : (f.first[0] == 'I' ? "INFO" : "FORMAT");
+        if (std::strcmp(g, group) != 0) {
+            group = g;
+            ImGui::SeparatorText(g[0] == 'F' ? "FORMAT (first sample)" : g);
+        }
+        auto it = std::find(chosen.begin(), chosen.end(), f.first);
+        bool on = it != chosen.end();
+        const std::string shown = colon == std::string::npos ? f.first : f.first.substr(colon + 1);
+        ImGui::PushID(f.first.c_str());
+        if (ImGui::Checkbox(shown.c_str(), &on)) {
+            if (on) chosen.push_back(f.first);
+            else chosen.erase(it);
+            apply();
+        }
+        ImGui::PopID();
+        if (!f.second.empty() && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", f.second.c_str());
+    }
+    ImGui::EndChild();
+
+    if (gff) {  // any attribute name can be typed, e.g. one not present in this view
+        static char custom[64] = "";
+        ImGui::SetNextItemWidth(ImGui::GetFontSize() * 11.f);
+        bool enter = ImGui::InputTextWithHint("##custom", "attribute name", custom, sizeof(custom), ImGuiInputTextFlags_EnterReturnsTrue);
+        ImGui::SameLine();
+        if ((ImGui::SmallButton("Add") || enter) && custom[0]) {
+            if (std::find(chosen.begin(), chosen.end(), custom) == chosen.end()) chosen.emplace_back(custom);
+            custom[0] = '\0';
+            apply();
+        }
+    }
+    ImGui::EndPopup();
 }
 
 void drawImGuiTrackManager(Manager::GwPlot* plot, bool* p_open, bool& redraw) {
@@ -161,6 +246,14 @@ void drawImGuiTrackManager(Manager::GwPlot* plot, bool* p_open, bool& redraw) {
                 ImGui::TableSetColumnIndex(1);
                 heightSlider(i, std::clamp(fractionOf(trk), 0.02f, 0.9f), 0.02f, 0.9f, std::to_string(i));
                 ImGui::TableSetColumnIndex(2);
+                if (trk.supportsLabelFields()) {
+                    if (trackManagerButton("Labels", "Choose the fields shown as feature labels"))
+                        ImGui::OpenPopup("##label_fields");
+                    trackLabelFieldsPopup(plot, i, pending);
+                } else {
+                    ImGui::Dummy(ImVec2(ImGui::CalcTextSize("Labels").x + ImGui::GetStyle().FramePadding.x * 2, 1));
+                }
+                ImGui::SameLine();
                 ImGui::BeginDisabled(i == 0);
                 if (ImGui::ArrowButton("##up", ImGuiDir_Up)) pending = "move-track " + std::to_string(i) + " " + std::to_string(i - 1);
                 ImGui::EndDisabled();

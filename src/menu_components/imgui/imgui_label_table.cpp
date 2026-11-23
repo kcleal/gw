@@ -324,6 +324,7 @@ static ImGui::FileBrowser& labelFileBrowser() {
     static bool initialised = false;
     if (!initialised) {
         browser.SetTypeFilters({".tsv", ".txt", ".*"});
+        browser.AddStandardShortcuts();
         initialised = true;
     }
     return browser;
@@ -981,6 +982,38 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
             bool& detailsCollapsed = detailsCollapsedByTrack[trackKey];
             ImGui::SetNextItemAllowOverlap();
             bool listOpen = ImGui::CollapsingHeader("Variant List", ImGuiTreeNodeFlags_DefaultOpen);
+            // Columns icon: which optional columns the list shows
+            static bool showLabelColumn = true, showCommentColumn = false;
+            float columnsIconX = 0;
+            {
+                const float side = ImGui::GetFrameHeight();
+                ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - side * 3 - 4);
+                const ImVec2 p0 = ImGui::GetCursorScreenPos();
+                columnsIconX = p0.x;
+                if (ImGui::InvisibleButton("##variant_columns_btn", ImVec2(side, side))) ImGui::OpenPopup("##variant_columns_menu");
+                const bool hov = ImGui::IsItemHovered();
+                ImDrawList* dl = ImGui::GetWindowDrawList();
+                if (hov) {
+                    dl->AddRectFilled(p0, ImVec2(p0.x + side, p0.y + side), ImGui::GetColorU32(ImGuiCol_ButtonHovered),
+                                      ImGui::GetStyle().FrameRounding);
+                    ImGui::SetTooltip("Columns");
+                }
+                // Three upright bars
+                const ImU32 col = ImGui::GetColorU32(ImGuiCol_Text, hov ? 1.0f : 0.8f);
+                const float t = iconStrokeThickness(plot->monitorScale);
+                for (int bar = 0; bar < 3; ++bar) {
+                    const float x = p0.x + side * (0.3f + 0.2f * bar);
+                    dl->AddLine(ImVec2(x, p0.y + side * 0.26f), ImVec2(x, p0.y + side * 0.74f), col, t * 1.4f);
+                }
+                ImGui::SetNextWindowPos(ImVec2(p0.x + side, p0.y + side + 2), ImGuiCond_Appearing, ImVec2(1.0f, 0));
+                if (ImGui::BeginPopup("##variant_columns_menu")) {
+                    ImGui::TextDisabled("Show columns");
+                    ImGui::Checkbox("Label", &showLabelColumn);
+                    ImGui::Checkbox("Comment", &showCommentColumn);
+                    ImGui::EndPopup();
+                }
+            }
+            ImGui::SetNextItemAllowOverlap();
             // Info icon at the right of the header: file and label statistics, VCF header
             static bool fileInfoOpen = false;
             float infoIconX = 0;
@@ -1019,7 +1052,7 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                              iconStrokeThickness(plot->monitorScale));
                 if (ImGui::GetTime() < labelFileMessageUntil) {
                     const float w = ImGui::CalcTextSize(labelFileMessage.c_str()).x;
-                    dl->AddText(ImVec2(infoIconX - w - ImGui::GetStyle().ItemSpacing.x, p0.y + ImGui::GetStyle().FramePadding.y),
+                    dl->AddText(ImVec2(columnsIconX - w - ImGui::GetStyle().ItemSpacing.x, p0.y + ImGui::GetStyle().FramePadding.y),
                                 ImGui::GetColorU32(ImGuiCol_Text, 0.8f), labelFileMessage.c_str());
                 }
                 ImGui::SetNextWindowPos(ImVec2(p0.x + side, p0.y + side + 2), ImGuiCond_Appearing, ImVec2(1.0f, 0));
@@ -1057,7 +1090,7 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
             if (detailsCollapsed) topH = std::max(1.0f, availH);
             if (listOpen) {
             if (ImGui::BeginChild("##labels_master", ImVec2(0, topH), false)) {
-                // Comment column on the right: just wide enough for two small dots side-by-side
+                // Marks column on the right: wide enough for the labelled / comment cross
                 float dotColW = ImGui::GetTextLineHeight() * 0.9f + 6.0f;
                 // Genotype bars, one per sample, when the VCF has few enough samples to show
                 int gtSamples = 0;
@@ -1068,16 +1101,23 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                 }
                 const float gtBarW = gtSamples > 8 ? 3.0f : 5.0f, gtBarGap = 1.0f;
                 const float gtColW = std::max(ImGui::CalcTextSize("GT").x, gtSamples * (gtBarW + gtBarGap));
-                const int colGt = gtSamples ? 0 : -1, colPos = colGt + 1, colLabel = colPos + 1, colNote = colLabel + 1;
+                // Optional columns come and go with the Columns menu in the header
+                const int colGt = gtSamples ? 0 : -1, colPos = colGt + 1;
+                const int colLabel = showLabelColumn ? colPos + 1 : -1;
+                const int colComment = showCommentColumn ? std::max(colPos, colLabel) + 1 : -1;
+                const int colNote = std::max({colPos, colLabel, colComment}) + 1;
                 // Tighten vertical cell padding so more rows fit on screen
                 ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4.0f, 1.0f));
                 ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(ImGui::GetStyle().ItemSpacing.x, 2.0f));
-                bool tableOpen = ImGui::BeginTable(gtSamples ? "##ltbl_gt" : "##ltbl", colNote + 1,
+                char tableId[32];  // one id per column layout, as ImGui keeps column state by id
+                std::snprintf(tableId, sizeof(tableId), "##ltbl_%d%d%d", gtSamples ? 1 : 0, showLabelColumn ? 1 : 0, showCommentColumn ? 1 : 0);
+                bool tableOpen = ImGui::BeginTable(tableId, colNote + 1,
                         ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp);
                 if (tableOpen) {
                     if (gtSamples) ImGui::TableSetupColumn("GT", ImGuiTableColumnFlags_WidthFixed, gtColW);
                     ImGui::TableSetupColumn("Position",   ImGuiTableColumnFlags_WidthStretch);
-                    ImGui::TableSetupColumn("Label",      ImGuiTableColumnFlags_WidthStretch);
+                    if (colLabel >= 0) ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthStretch);
+                    if (colComment >= 0) ImGui::TableSetupColumn("Comment", ImGuiTableColumnFlags_WidthStretch);
                     ImGui::TableSetupColumn("##dots",     ImGuiTableColumnFlags_WidthFixed,   dotColW);
                     ImGui::TableHeadersRow();
 
@@ -1087,8 +1127,6 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                     lastSelectedRow = selectedRow;
 
                     ImDrawList* drawList = ImGui::GetWindowDrawList();
-                    const ImU32 dotDateCol    = IM_COL32(100, 200, 100, 220); // green – has date
-                    const ImU32 dotCommentCol = IM_COL32(100, 160, 240, 220); // blue  – has comment
 
                     // Expression filter is applied up front so the list can be clipped to the visible rows
                     const size_t preExprCount = visibleRows.size();
@@ -1209,43 +1247,57 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                         }
 
                         // ---- Label text ----
-                        ImGui::TableSetColumnIndex(colLabel);
-                        if (ImGui::Selectable(lbl.labels.empty() ? "-" : lbl.current().c_str(), false)
-                                && !lbl.labels.empty()) {
-                            lbl.next();
-                            lbl.clicked = true;
-                            lbl.savedDate = Utils::dateTime();
-                            plot->redraw = true;
-                            redraw = true;
+                        if (colLabel >= 0) {
+                            ImGui::TableSetColumnIndex(colLabel);
+                            if (ImGui::Selectable(lbl.labels.empty() ? "-" : lbl.current().c_str(), false)
+                                    && !lbl.labels.empty()) {
+                                lbl.next();
+                                lbl.clicked = true;
+                                lbl.savedDate = Utils::dateTime();
+                                plot->redraw = true;
+                                redraw = true;
+                            }
+                            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                                ImGui::SetTooltip("Click to cycle label");
                         }
-                        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                            ImGui::SetTooltip("Click to cycle label");
+
+                        // ---- Comment text; click to add or edit ----
+                        if (colComment >= 0) {
+                            ImGui::TableSetColumnIndex(colComment);
+                            const std::string shown = lbl.comment.empty() ? std::string("##nocomment") : lbl.comment + "##comment";
+                            if (ImGui::Selectable(shown.c_str(), false)) {
+                                labelDetailsRow  = i;
+                                labelDetailsOpen = true;
+                                commentEdit      = lbl.comment;
+                            }
+                            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                                ImGui::SetTooltip("%s", lbl.comment.empty() ? "Click to add a comment" : lbl.comment.c_str());
+                        }
 
                         // ---- Last column: comment / date dots; click to add or edit a comment ----
                         ImGui::TableSetColumnIndex(colNote);
 
-                        bool hasDate    = !lbl.savedDate.empty();
+                        // Two marks that make a cross when both apply: an upright bar for "labelled by
+                        // hand" and a level bar for "has a comment". Drawn in the text colour so they
+                        // are not mistaken for the genotype bars
+                        bool hasLabel   = lbl.clicked || !lbl.savedDate.empty();
                         bool hasComment = !lbl.comment.empty();
-                        bool hasDots    = hasDate || hasComment;
+                        bool hasMarks   = hasLabel || hasComment;
 
                         {
                             ImVec2 cellPos  = ImGui::GetCursorScreenPos();
                             float  textH    = ImGui::GetTextLineHeight();
                             float  cellH    = textH + ImGui::GetStyle().CellPadding.y * 2.0f;
-                            float  r        = textH * 0.22f;
-                            float  cy       = cellPos.y + cellH * 0.5f;
-                            float  xCursor  = cellPos.x + r + 2.0f;
+                            float  arm      = textH * 0.3f;
+                            float  thick    = std::max(1.5f, textH * 0.13f);
+                            ImVec2 c(cellPos.x + dotColW * 0.5f, cellPos.y + cellH * 0.5f);
+                            const ImU32 markCol = ImGui::GetColorU32(ImGuiCol_Text, 0.9f);
 
-                            if (hasDate) {
-                                drawList->AddCircleFilled(ImVec2(xCursor, cy), r, dotDateCol);
-                                xCursor += r * 2.0f + 2.0f;
-                            }
-                            if (hasComment) {
-                                drawList->AddCircleFilled(ImVec2(xCursor, cy), r, dotCommentCol);
-                            }
+                            if (hasLabel) drawList->AddLine(ImVec2(c.x, c.y - arm), ImVec2(c.x, c.y + arm), markCol, thick);
+                            if (hasComment) drawList->AddLine(ImVec2(c.x - arm, c.y), ImVec2(c.x + arm, c.y), markCol, thick);
 
-                            // Invisible button always present — opens Label details for THIS row.
-                            // When the row has no dots, an empty hint circle appears on hover.
+                            // Invisible button always present: opens Label details for THIS row.
+                            // When the row has no marks, a faint cross appears on hover.
                             ImGui::SetCursorScreenPos(cellPos);
                             if (ImGui::InvisibleButton("##dotbtn", ImVec2(dotColW, cellH))) {
                                 labelDetailsRow  = i;
@@ -1253,14 +1305,15 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                                 commentEdit      = lbl.comment;
                             }
                             bool hovered = ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort);
-                            if (!hasDots && ImGui::IsItemHovered()) {
-                                float xEmpty = cellPos.x + r + 2.0f;
-                                drawList->AddCircle(ImVec2(xEmpty, cy), r,
-                                                    IM_COL32(160, 160, 160, 180), 0, 1.2f);
+                            if (!hasMarks && ImGui::IsItemHovered()) {
+                                const ImU32 hint = ImGui::GetColorU32(ImGuiCol_TextDisabled, 0.7f);
+                                drawList->AddLine(ImVec2(c.x, c.y - arm), ImVec2(c.x, c.y + arm), hint, 1.0f);
+                                drawList->AddLine(ImVec2(c.x - arm, c.y), ImVec2(c.x + arm, c.y), hint, 1.0f);
                             }
                             if (hovered) {
                                 std::string tip;
-                                if (hasDate)    tip += "Date: "    + lbl.savedDate + "\n";
+                                if (hasLabel)   tip += lbl.savedDate.empty() ? std::string("Labelled this session\n")
+                                                                             : "Labelled " + lbl.savedDate + "\n";
                                 if (hasComment) tip += "Comment: " + lbl.comment;
                                 if (tip.empty()) tip = "Click to add a comment";
                                 ImGui::SetTooltip("%s", tip.c_str());
@@ -1335,8 +1388,8 @@ void drawImGuiLabelTableDialog(Manager::GwPlot* plot, bool& redraw) {
                         commentEdit = cmtBuf;
                     }
                     if (ImGui::Button("Save comment")) {
+                        // A comment alone does not count as labelling: the date is left as it is
                         dLbl.comment = commentEdit;
-                        dLbl.savedDate = Utils::dateTime();
                         // Erase only the cache entry for this row so it rebuilds next frame
                         std::string evictKey = trackKey + "#" + std::to_string(labelDetailsRow) + "#";
                         for (auto it = detailCache.begin(); it != detailCache.end(); ) {

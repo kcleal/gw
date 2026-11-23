@@ -70,7 +70,19 @@ namespace ImGui
 
         // display the browsing window if opened
         void Display();
-        void SetShortcut(std::string label, std::filesystem::path path) { shortcutLabel_=std::move(label); shortcutPath_=std::move(path); }
+        // a button above the path that jumps to a folder; a label that is already present is updated
+        void SetShortcut(std::string label, std::filesystem::path path)
+        {
+            for(auto &sc : shortcuts_) { if(sc.first == label) { sc.second = std::move(path); return; } }
+            shortcuts_.emplace_back(std::move(label), std::move(path));
+        }
+        // Home, Desktop and Documents, for those that exist
+        void AddStandardShortcuts();
+        // files whose name starts with '.' are hidden unless this is set (or ticked in the window)
+        void SetShowHidden(bool show) { showHidden_ = show; }
+        // list every file, whatever the type filters say
+        void SetShowAllFiles(bool show) { showAllFiles_ = show; }
+        bool IsShowingAllFiles() const noexcept { return showAllFiles_; }
 
         // returns true when there is a selected filename
         bool HasSelected() const noexcept;
@@ -133,8 +145,9 @@ namespace ImGui
         void SetInputName(std::string_view input);
 
     private:
-        std::string shortcutLabel_;
-        std::filesystem::path shortcutPath_;
+        std::vector<std::pair<std::string, std::filesystem::path>> shortcuts_;
+        bool showHidden_ = false;
+        bool showAllFiles_ = false;
 
         std::filesystem::path ResolveSelection(const std::filesystem::path& name) const
         {
@@ -179,7 +192,14 @@ namespace ImGui
             const std::filesystem::path &dir,
             const std::filesystem::path &preferredFallback);
 
+        // matches the file NAME against the type filters by suffix, so that two-part
+        // extensions such as ".vcf.gz" work (FileRecord::extension holds the whole name)
         bool IsExtensionMatched(const std::filesystem::path &extension) const;
+
+        // false for hidden files (leading '.') unless they are being shown
+        bool IsRecordShown(const FileRecord &record) const;
+
+        static void DrawEntryIcon(bool isDir, ImVec2 min, float size, ImU32 col);
 
         void ClearRangeSelectionState();
 
@@ -432,7 +452,12 @@ inline void ImGui::FileBrowser::Display()
     isOpened_ = true;
     ScopeGuard endPopup([] { EndPopup(); });
 
-    if(!shortcutLabel_.empty() && Button(shortcutLabel_.c_str())) SetDirectory(shortcutPath_);
+    for(size_t i = 0; i < shortcuts_.size(); ++i)
+    {
+        if(i > 0) SameLine();
+        if(Button(shortcuts_[i].first.c_str())) SetDirectory(shortcuts_[i].second);
+        else ToolTip(u8StrToStr(shortcuts_[i].second.u8string()));
+    }
     std::filesystem::path newDir; bool shouldSetNewDir = false;
 
     if(editDir_)
@@ -682,8 +707,14 @@ inline void ImGui::FileBrowser::Display()
             {
                 continue;
             }
+            if(!IsRecordShown(rsc))
+            {
+                continue;
+            }
 
             const bool selected = selectedFilenames_.find(rsc.name) != selectedFilenames_.end();
+            PushID(static_cast<int>(rscIndex));
+            ScopeGuard popRowID([] { PopID(); });
             
 #if IMGUI_VERSION_NUM >= 19100
             const ImGuiSelectableFlags selectableFlag = ImGuiSelectableFlags_NoAutoClosePopups;
@@ -691,7 +722,16 @@ inline void ImGui::FileBrowser::Display()
             const ImGuiSelectableFlags selectableFlag = ImGuiSelectableFlags_DontClosePopups;
 #endif
 
-            if(Selectable(rsc.showName.c_str(), selected, selectableFlag))
+            // the row is an unlabelled selectable; its icon and name are drawn over it
+            const bool rowClicked = Selectable("##entry", selected, selectableFlag);
+            {
+                const ImVec2 rowMin = GetItemRectMin();
+                const float lineH = GetTextLineHeight();
+                DrawEntryIcon(rsc.isDir, rowMin, lineH, GetColorU32(ImGuiCol_Text, rsc.isDir ? 0.85f : 0.45f));
+                GetWindowDrawList()->AddText(ImVec2(rowMin.x + lineH * 1.45f, rowMin.y), GetColorU32(ImGuiCol_Text),
+                                             rsc.showName.c_str());
+            }
+            if(rowClicked)
             {
                 const bool wantDir = flags_ & ImGuiFileBrowserFlags_SelectDirectory;
                 const bool canSelect = rsc.name != ".." && rsc.isDir == wantDir;
@@ -717,6 +757,10 @@ inline void ImGui::FileBrowser::Display()
                             continue;
                         }
                         if(!wantDir && !IsExtensionMatched(fileRecords_[i].extension))
+                        {
+                            continue;
+                        }
+                        if(!IsRecordShown(fileRecords_[i]))
                         {
                             continue;
                         }
@@ -835,7 +879,7 @@ inline void ImGui::FileBrowser::Display()
             for(size_t i = 1; i < fileRecords_.size(); ++i)
             {
                 auto &record = fileRecords_[i];
-                if(record.isDir == needDir &&
+                if(record.isDir == needDir && IsRecordShown(record) &&
                    (needDir || IsExtensionMatched(record.extension)))
                 {
                     selectedFilenames_.insert(record.name);
@@ -880,24 +924,21 @@ inline void ImGui::FileBrowser::Display()
         CloseCurrentPopup();
     }
 
-    if(!statusStr_.empty() && !(flags_ & ImGuiFileBrowserFlags_NoStatusBar))
+    if(!typeFilters_.empty())
     {
         SameLine();
-        Text("%s", statusStr_.c_str());
-        if (ImGui::IsItemHovered())
-        {
-            ImGui::BeginTooltip();            
-            ImGui::PushTextWrapPos(300.0f);
-            ImGui::Text("%s", statusStr_.c_str());
-            ImGui::PopTextWrapPos();
-            ImGui::EndTooltip();
-        }
+        Checkbox("All files", &showAllFiles_);
+        ToolTip("Show every file, not only the types GW recognises");
     }
+    SameLine();
+    Checkbox("Hidden files", &showHidden_);
+    ToolTip("Show files and folders whose name starts with a dot");
 
     if(!typeFilters_.empty())
     {
         SameLine();
-        PushItemWidth(8 * GetFontSize());
+        BeginDisabled(showAllFiles_);
+        PushItemWidth(9 * GetFontSize());
         if(BeginCombo(
             "##type_filters", typeFilters_[typeFilterIndex_].c_str()))
         {
@@ -913,6 +954,74 @@ inline void ImGui::FileBrowser::Display()
             }
         }
         PopItemWidth();
+        EndDisabled();
+    }
+
+    if(!statusStr_.empty() && !(flags_ & ImGuiFileBrowserFlags_NoStatusBar))
+    {
+        SameLine();
+        Text("%s", statusStr_.c_str());
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::BeginTooltip();
+            ImGui::PushTextWrapPos(300.0f);
+            ImGui::Text("%s", statusStr_.c_str());
+            ImGui::PopTextWrapPos();
+            ImGui::EndTooltip();
+        }
+    }
+}
+
+inline bool ImGui::FileBrowser::IsRecordShown(const FileRecord &record) const
+{
+    if(showHidden_ || record.name == "..")
+    {
+        return true;
+    }
+    const auto &native = record.name.native();
+    return native.empty() || native[0] != '.';
+}
+
+inline void ImGui::FileBrowser::DrawEntryIcon(bool isDir, ImVec2 min, float size, ImU32 col)
+{
+    ImDrawList *dl = GetWindowDrawList();
+    const float x = min.x + size * 0.15f, y = min.y;
+    if(isDir)
+    {
+        // a folder: tab and body
+        const float w = size * 1.0f;
+        dl->AddRectFilled(ImVec2(x, y + size * 0.2f), ImVec2(x + w * 0.45f, y + size * 0.42f), col, size * 0.08f);
+        dl->AddRectFilled(ImVec2(x, y + size * 0.32f), ImVec2(x + w, y + size * 0.86f), col, size * 0.1f);
+    }
+    else
+    {
+        // a sheet of paper
+        const float w = size * 0.66f, ox = size * 0.17f;
+        dl->AddRect(ImVec2(x + ox, y + size * 0.14f), ImVec2(x + ox + w, y + size * 0.9f), col, size * 0.06f, 0, 1.0f);
+    }
+}
+
+inline void ImGui::FileBrowser::AddStandardShortcuts()
+{
+#ifdef _WIN32
+    const char *home = std::getenv("USERPROFILE");
+#else
+    const char *home = std::getenv("HOME");
+#endif
+    if(!home || !home[0])
+    {
+        return;
+    }
+    const std::filesystem::path base(home);
+    const std::pair<const char *, std::filesystem::path> places[] = {
+        { "Home", base }, { "Desktop", base / "Desktop" }, { "Documents", base / "Documents" } };
+    for(const auto &place : places)
+    {
+        std::error_code ec;
+        if(std::filesystem::is_directory(place.second, ec))
+        {
+            SetShortcut(place.first, place.second);
+        }
     }
 }
 
@@ -1018,7 +1127,9 @@ inline void ImGui::FileBrowser::SetTypeFilters(const std::vector<std::string> &_
 
         if(hasAllFilter_)
         {
-            typeFilters_.push_back(std::move(allFiltersName));
+            // the combined list of every filter is too long to show; index 0 means "any of them"
+            typeFilters_.push_back("Supported types");
+            (void)allFiltersName;
         }
     }
 
@@ -1059,7 +1170,7 @@ inline void ImGui::FileBrowser::ToolTip(const std::string_view &s)
 
 inline void ImGui::FileBrowser::UpdateFileRecords()
 {
-    fileRecords_ = { FileRecord{ true, "..", "[D] ..", "" } };
+    fileRecords_ = { FileRecord{ true, "..", "..", "" } };
 
     const auto getDirectoryIterator = [&]() -> std::filesystem::directory_iterator
     {
@@ -1102,8 +1213,8 @@ inline void ImGui::FileBrowser::UpdateFileRecords()
                 continue;
             }
 
-            rcd.extension = p.path().filename().extension();
-            rcd.showName = (rcd.isDir ? "[D] " : "[F] ") + u8StrToStr(p.path().filename().u8string());
+            rcd.extension = p.path().filename();  // the whole name: filters match by suffix
+            rcd.showName = u8StrToStr(p.path().filename().u8string());
         }
         catch(...)
         {
@@ -1227,16 +1338,10 @@ inline bool ImGui::FileBrowser::SetCurrentDirectoryInternal(
     return false;
 }
 
-inline bool ImGui::FileBrowser::IsExtensionMatched(const std::filesystem::path &_extension) const
+inline bool ImGui::FileBrowser::IsExtensionMatched(const std::filesystem::path &_name) const
 {
-#ifdef _WIN32
-    std::filesystem::path extension = ToLower(u8StrToStr(_extension.u8string()));
-#else
-    auto &extension = _extension;
-#endif
-
-    // no type filters
-    if(typeFilters_.empty())
+    // no type filters, or the user asked for every file
+    if(typeFilters_.empty() || showAllFiles_)
     {
         return true;
     }
@@ -1247,12 +1352,20 @@ inline bool ImGui::FileBrowser::IsExtensionMatched(const std::filesystem::path &
         return true;
     }
 
+    // suffix match on the lower-cased file name, so ".vcf.gz" and ".BAM" both work
+    const std::string name = ToLower(u8StrToStr(_name.u8string()));
+    const auto matches = [&](const std::string &filter)
+    {
+        const std::string f = ToLower(filter);
+        return name.size() >= f.size() && name.compare(name.size() - f.size(), f.size(), f) == 0;
+    };
+
     // all type filters
     if(hasAllFilter_ && typeFilterIndex_ == 0)
     {
         for(size_t i = 1; i < typeFilters_.size(); ++i)
         {
-            if(extension == typeFilters_[i])
+            if(matches(typeFilters_[i]))
             {
                 return true;
             }
@@ -1267,7 +1380,7 @@ inline bool ImGui::FileBrowser::IsExtensionMatched(const std::filesystem::path &
     }
 
     // regular filter
-    return extension == typeFilters_[typeFilterIndex_];
+    return matches(typeFilters_[typeFilterIndex_]);
 }
 
 inline void ImGui::FileBrowser::ClearRangeSelectionState()
@@ -1279,6 +1392,10 @@ inline void ImGui::FileBrowser::ClearRangeSelectionState()
         if(fileRecords_[i].isDir == dir)
         {
             if(!dir && !IsExtensionMatched(fileRecords_[i].extension))
+            {
+                continue;
+            }
+            if(!IsRecordShown(fileRecords_[i]))
             {
                 continue;
             }

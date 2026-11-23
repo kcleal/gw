@@ -376,6 +376,14 @@ static void drawOnlineGenomesDialog(
 );
 #endif
 
+// Short description shown under the tab bar of each Settings tab
+static void settingsTabAbout(const char* text) {
+    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+    ImGui::TextWrapped("%s", text);
+    ImGui::PopStyleColor();
+    ImGui::Spacing();
+}
+
 void drawImGuiSettings(
     Manager::GwPlot* plot,
     bool* p_open,
@@ -434,21 +442,33 @@ void drawImGuiSettings(
             const char* section;
             Themes::MenuTable mt;
             bool namePath;
+            const char* about;  // shown under the tab bar
         };
 
         static const Tab tabs[] = {
-            {"General", "general", Themes::MenuTable::GENERAL, false},
-            {"Genomes", "genomes", Themes::MenuTable::GENOMES, true},
-            {"Interaction", "interaction", Themes::MenuTable::INTERACTION, false},
-            {"Labelling", "labelling", Themes::MenuTable::LABELLING, false},
-            {"Navigation", "navigation", Themes::MenuTable::NAVIGATION, false},
-            {"Tracks", "tracks", Themes::MenuTable::TRACKS, true},
-            {"View Thresholds", "view_thresholds", Themes::MenuTable::VIEW_THRESHOLDS, false},
-            {"Shift Keymap", "shift_keymap", Themes::MenuTable::SHIFT_KEYMAP, false}
+            {"General", "general", Themes::MenuTable::GENERAL, false,
+             "Appearance and defaults: theme, window size, font, coverage, read display and threads."},
+            {"Genomes", "genomes", Themes::MenuTable::GENOMES, true,
+             "Reference genomes, each saved under a short tag such as hg19. A genome is opened by its tag, "
+             "from here, the genome chooser or the command line."},
+            {"Interaction", "interaction", Themes::MenuTable::INTERACTION, false,
+             "Keys for common actions, and how VCF, BED and annotation files are opened and labelled."},
+            {"Labelling", "labelling", Themes::MenuTable::LABELLING, false,
+             "Defaults for reviewing variant files: the tile grid, the field read as the label, and the label choices."},
+            {"Navigation", "navigation", Themes::MenuTable::NAVIGATION, false,
+             "Keys for scrolling and zooming the view."},
+            {"Tracks", "tracks", Themes::MenuTable::TRACKS, true,
+             "Tracks opened automatically with a genome. The name is a genome tag from the Genomes tab, "
+             "so opening hg19 also opens the tracks listed for hg19. Separate several files with commas."},
+            {"View Thresholds", "view_thresholds", Themes::MenuTable::VIEW_THRESHOLDS, false,
+             "Region sizes, in base pairs, below which each kind of detail is drawn, and memory limits."},
+            {"Shift Keymap", "shift_keymap", Themes::MenuTable::SHIFT_KEYMAP, false,
+             "The character each Shift + key combination types. Change these if your keyboard layout differs."}
         };
 
         for (const auto& tab : tabs) {
             if (!ImGui::BeginTabItem(tab.label)) continue;
+            settingsTabAbout(tab.about);
 
             const bool remoteUnavailable = plot->remoteCommand &&
                 tab.mt != Themes::MenuTable::GENERAL && tab.mt != Themes::MenuTable::VIEW_THRESHOLDS;
@@ -477,6 +497,7 @@ void drawImGuiSettings(
         }
 
         if (ImGui::BeginTabItem("Custom theme")) {
+            settingsTabAbout("Build your own colour theme. The preview updates as you edit.");
             ImGui::BeginDisabled(static_cast<bool>(plot->remoteCommand));
             drawCustomTheme(opts, redraw);
             ImGui::EndDisabled();

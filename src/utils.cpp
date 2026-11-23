@@ -159,8 +159,21 @@ namespace Utils {
     }
 
     std::unique_ptr<std::vector<std::string>> split_keep_empty(const std::string &s, const char delim) {
+        // Empty fields are kept: a label file row has an empty labelled_date for a variant that
+        // was not labelled by hand, and dropping it shifts the columns after it
         std::unique_ptr<std::vector<std::string>> elems = std::make_unique<std::vector<std::string>>();
-        split(s, delim, std::back_inserter(*elems));
+        size_t start = 0;
+        while (true) {
+            const size_t end = s.find(delim, start);
+            if (end == std::string::npos) {
+                elems->push_back(s.substr(start));
+                break;
+            }
+            elems->push_back(s.substr(start, end - start));
+            start = end + 1;
+        }
+        // a trailing '\r' from a Windows line ending is not part of the last field
+        if (!elems->empty() && !elems->back().empty() && elems->back().back() == '\r') elems->back().pop_back();
         return elems;
     }
 
@@ -590,6 +603,7 @@ namespace Utils {
                     comment = v->at(7);
                 }
                 Label l = makeLabel(v->at(0), pos, v->at(3), inputLabels, v->at(2), v->at(4), savedDate, clicked, false, comment);
+                l.visited = true;  // it was saved by an earlier session, so keep it
 
                 std::string key;
                 key = v->at(2);

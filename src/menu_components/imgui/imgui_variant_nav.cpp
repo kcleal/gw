@@ -198,7 +198,10 @@ void drawImGuiVariantNav(Manager::GwPlot* plot, bool& redraw) {
     const ImVec2 labelSize = ImGui::CalcTextSize(label.c_str());
     const ImVec2 detailSize = details.empty() ? ImVec2(0, 0) : ImGui::CalcTextSize(details.c_str());
     const ImVec2 size(labelSize.x + (details.empty() ? 0 : gap + detailSize.x) + padX * 2, labelSize.y + padY * 2);
-    const ImVec2 pos((plotRight - size.x) * 0.5f, plotBottom - size.y - 8);
+    // The chip sits in the band setScaling() keeps free below the tracks (variantChipSpace)
+    const float bandH = plot->variantChipSpace / scale;
+    const ImVec2 pos((plotRight - size.x) * 0.5f,
+                     bandH > 0 ? plotBottom + (bandH - size.y) * 0.5f : plotBottom - size.y - 8);
     ImGui::SetNextWindowPos(pos, ImGuiCond_Always);
     ImGui::SetNextWindowSize(size, ImGuiCond_Always);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));

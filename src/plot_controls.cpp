@@ -671,10 +671,14 @@ namespace Manager {
                 continue;
             }
             std::string path = trk.path;
+            const bool keepLabels = trk.labelFieldsUserSet;  // label fields chosen for this track survive a reload
+            const std::string labelSpec = trk.labelFields;
             trk.close();
             trk.clear();
             trk.track_label_parser_rules = opts.track_label_parser_rules;
             trk.open(path, true);
+            trk.labelFieldsReady = false;
+            if (keepLabels) trk.setLabelFields(labelSpec);
             trk.variant_distance = &opts.variant_distance;
             trk.setPaint((trk.kind == HGW::FType::BIGWIG) ? opts.theme.fcBigWig : opts.theme.fcTrack);
             reloaded = true;
@@ -737,6 +741,9 @@ namespace Manager {
         regionSelection = 0;
         switchToSingleMode();
         liveVariantIndex = index;
+        if (index < (int)vt.multiLabels.size()) {
+            vt.multiLabels[index].visited = true;  // shown in the alignment view
+        }
         return true;
     }
 
@@ -1638,13 +1645,13 @@ namespace Manager {
     bool GwPlot::addTrack(std::string &path, bool print_message=true, bool vcf_as_track=false, bool bed_as_track=true) {
         std::ostream& out = (terminalOutput) ? std::cout : outStr;
         bool good = false;
-        if (Utils::endsWith(Online::resourceName(path), ".bam") || Utils::endsWith(Online::resourceName(path), ".cram")) {
+        if (Utils::endsWith(Online::typedName(path), ".bam") || Utils::endsWith(Online::typedName(path), ".cram")) {
             good = addBam(path);
             if (good && print_message)
                 out << termcolor::magenta << "\nAlignments  " << termcolor::reset << path << "\n";
         } else if (
-                (!vcf_as_track && (Utils::endsWith(Online::resourceName(path), ".vcf.gz") || Utils::endsWith(Online::resourceName(path), ".vcf") || Utils::endsWith(Online::resourceName(path), ".bcf")))
-             || (!bed_as_track && (Utils::endsWith(Online::resourceName(path), ".bed") || Utils::endsWith(Online::resourceName(path), ".bed.gz")))) {
+                (!vcf_as_track && (Utils::endsWith(Online::typedName(path), ".vcf.gz") || Utils::endsWith(Online::typedName(path), ".vcf") || Utils::endsWith(Online::typedName(path), ".bcf")))
+             || (!bed_as_track && (Utils::endsWith(Online::typedName(path), ".bed") || Utils::endsWith(Online::typedName(path), ".bed.gz")))) {
 #ifdef __EMSCRIPTEN__
             // Tiled VCF/BED from a URL: stream it like other remote files (a .gz needs
             // its .tbi/.csi; plain text up to 16 MiB is read whole)
@@ -1684,7 +1691,7 @@ namespace Manager {
                 out << termcolor::magenta << "\nFile        " << termcolor::reset
                     << variantTracks[variantFileSelection].path << "\n";
             }
-        } else if (Utils::endsWith(Online::resourceName(path), ".ini")) {  // Assume session file
+        } else if (Utils::endsWith(Online::typedName(path), ".ini")) {  // Assume session file
             opts.session_file = path;
             mINI::INIFile file(opts.session_file);
             file.read(opts.seshIni);
@@ -2182,7 +2189,7 @@ namespace Manager {
             if (action == GLFW_PRESS && beginScaleBarSelection(xW, yW)) return;
         }
 
-        if (yW >= (fb_height - sliderSpace + (gap*0.5))) {
+        if (yW >= (fb_height - sliderSpace + variantChipSpace + (gap*0.5))) {
             if (action == GLFW_PRESS) {
                 updateSlider(xW);
             }
@@ -3319,7 +3326,7 @@ namespace Manager {
                     return;
                 }
 
-                if (yPos_fb >= (fb_height - sliderSpace + (gap*0.5)) && yPosOri_fb >= (fb_height - sliderSpace + (gap*0.5))) {
+                if (yPos_fb >= (fb_height - sliderSpace + variantChipSpace + (gap*0.5)) && yPosOri_fb >= (fb_height - sliderSpace + variantChipSpace + (gap*0.5))) {
                     updateSlider((float) xPos_fb);
                     yDrag = DRAG_UNSET;
                     xDrag = DRAG_UNSET;

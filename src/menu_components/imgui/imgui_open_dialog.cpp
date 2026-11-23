@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -23,6 +24,24 @@ namespace Menu {
 // File browser singleton
 // -----------------------------------------------------------------------------
 
+// The file types GW recognises by name
+static const std::vector<std::string>& knownFileTypes()
+{
+    static const std::vector<std::string> types = {
+        ".bam", ".cram", ".sam",
+        ".bed", ".bed.gz", ".bed.bgz",
+        ".vcf", ".vcf.gz", ".bcf",
+        ".gff3", ".gff3.gz", ".gff", ".gff.gz",
+        ".gtf", ".gtf.gz",
+        ".tsv", ".tsv.gz", ".txt", ".txt.gz",
+        ".bigwig", ".bw", ".bigbed", ".bb",
+        ".paf",
+        ".fa", ".fasta", ".fa.gz", ".fasta.gz", ".fa.bgz", ".fasta.bgz",
+        ".png",
+    };
+    return types;
+}
+
 static ImGui::FileBrowser& getFileBrowser()
 {
     static ImGui::FileBrowser browser(
@@ -37,18 +56,8 @@ static ImGui::FileBrowser& getFileBrowser()
 
     if (!initialised) {
         browser.SetTitle("Open File");
-        browser.SetTypeFilters({
-            ".bam", ".cram", ".sam",
-            ".bed", ".bed.gz", ".bed.bgz",
-            ".vcf", ".vcf.gz", ".bcf",
-            ".gff3", ".gff3.gz", ".gff", ".gff.gz",
-            ".gtf", ".gtf.gz",
-            ".tsv", ".tsv.gz", ".txt", ".txt.gz",
-            ".bigwig", ".bw", ".bigbed", ".bb",
-            ".paf",
-            ".fa", ".fasta", ".fa.gz", ".fasta.gz", ".fa.bgz", ".fasta.bgz",
-            ".png",
-        });
+        browser.SetTypeFilters(knownFileTypes());
+        browser.AddStandardShortcuts();
         initialised = true;
     }
 
@@ -59,9 +68,16 @@ static ImGui::FileBrowser& getFileBrowser()
 // Helpers
 // -----------------------------------------------------------------------------
 
+// File types are tested on the typed name: the file name, plus the extension the user gave
+// it in the "unknown file type" prompt, if any
+static std::string typedFileName(const std::filesystem::path& p)
+{
+    return Online::typedName(p.string());
+}
+
 static bool isFastaPath(const std::filesystem::path& p)
 {
-    std::string s = p.filename().string();
+    std::string s = typedFileName(p);
     return Utils::endsWith(s, ".fa") ||
            Utils::endsWith(s, ".fasta") ||
            Utils::endsWith(s, ".fa.gz") ||
@@ -72,12 +88,47 @@ static bool isFastaPath(const std::filesystem::path& p)
 
 static bool isVariantPath(const std::filesystem::path& p)
 {
-    std::string s = p.filename().string();
+    std::string s = typedFileName(p);
     return Utils::endsWith(s, ".vcf") ||
            Utils::endsWith(s, ".vcf.gz") ||
            Utils::endsWith(s, ".bcf") ||
            Utils::endsWith(s, ".bed") ||
            Utils::endsWith(s, ".bed.gz");
+}
+
+static bool isKnownPath(const std::filesystem::path& p)
+{
+    std::string s = typedFileName(p);
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+    if (Utils::endsWith(s, ".ini")) return true;  // session file
+    for (const auto& ext : knownFileTypes()) {
+        if (Utils::endsWith(s, ext)) return true;
+    }
+    return false;
+}
+
+// What a file with an unrecognised name can be opened as
+struct FileKind { const char* label; const char* extension; const char* compressedExtension; };
+static const FileKind fileKinds[] = {
+    {"Alignments (BAM / CRAM / SAM)", ".bam", ".bam"},
+    {"Variants (VCF)", ".vcf", ".vcf.gz"},
+    {"Variants (BCF)", ".bcf", ".bcf"},
+    {"BED", ".bed", ".bed.gz"},
+    {"GFF3", ".gff3", ".gff3.gz"},
+    {"GTF", ".gtf", ".gtf.gz"},
+    {"bigWig", ".bw", ".bw"},
+    {"bigBed", ".bb", ".bb"},
+    {"PAF", ".paf", ".paf"},
+    {"Reference genome (FASTA)", ".fa", ".fa.gz"},
+};
+
+// gzip and bgzip files start with the bytes 1f 8b
+static bool isGzipFile(const std::string& path)
+{
+    std::ifstream in(path, std::ios::binary);
+    unsigned char magic[2] = {0, 0};
+    in.read(reinterpret_cast<char*>(magic), 2);
+    return in.gcount() == 2 && magic[0] == 0x1f && magic[1] == 0x8b;
 }
 
 // -----------------------------------------------------------------------------
@@ -94,6 +145,10 @@ void drawImGuiOpenDialog(Manager::GwPlot* plot,
 
     static std::vector<std::string> pendingVariantFiles;
     static bool showVariantDialog = false;
+
+    // Files whose type GW could not tell from the name; the user is asked about each in turn
+    static std::vector<std::string> pendingUnknownFiles;
+    static int unknownKind = 0;
 
     static std::string openFileError;
     static float openFileErrorTimer = 0.f;
@@ -176,56 +231,97 @@ void drawImGuiOpenDialog(Manager::GwPlot* plot,
     browser.SetShortcut("GW downloaded files",downloaded);
     browser.Display();
 
-    // Handle selection
-    if (browser.HasSelected()) {
-
-        auto selections = browser.GetMultiSelected();
-        std::vector<std::string> failed;
-
-        for (auto& sel : selections) {
-            std::string path = sel.string();
-
-            if (isFastaPath(sel)) {
-                // Defer loading until the user has a chance to enter a tag.
-                pendingGenomePath = path;
-                showGenomeTagDialog = true;
-            }
-            else if (isVariantPath(sel)) {
-                pendingVariantFiles.push_back(path);
-            }
-            else {
-                bool ok = plot->addTrack(
-                    path,
-                    true,
-                    plot->opts.vcf_as_tracks,
-                    plot->opts.bed_as_tracks);
-
-                if (!ok)
-                    failed.push_back(sel.filename().string());
-            }
+    // Send one chosen file to the right loader. FASTA and variant files are held for their
+    // own follow-up dialogs, which finishRouting() opens
+    static std::vector<std::string> failedFiles;
+    auto routeFile = [&](const std::string& path) {
+        const std::filesystem::path sel(path);
+        if (isFastaPath(sel)) {
+            pendingGenomePath = path;  // loaded once the user has had a chance to enter a tag
+        } else if (isVariantPath(sel)) {
+            pendingVariantFiles.push_back(path);
+        } else {
+            std::string trackPath = path;  // addTrack takes a non-const reference
+            if (!plot->addTrack(trackPath, true, plot->opts.vcf_as_tracks, plot->opts.bed_as_tracks))
+                failedFiles.push_back(sel.filename().string());
         }
-
-        browser.ClearSelected();
-
+    };
+    auto finishRouting = [&]() {
         if (!pendingGenomePath.empty())
             showGenomeTagDialog = true;
         else if (!pendingVariantFiles.empty())
             showVariantDialog = true;
-
-        if (!failed.empty()) {
+        if (!failedFiles.empty()) {
             openFileError = "Could not open: ";
-            for (size_t i = 0; i < failed.size(); ++i) {
+            for (size_t i = 0; i < failedFiles.size(); ++i) {
                 if (i > 0) openFileError += ", ";
-                openFileError += failed[i];
+                openFileError += failedFiles[i];
             }
             openFileErrorTimer = 4.0f;
+            failedFiles.clear();
         }
+    };
+
+    // Handle selection
+    if (browser.HasSelected()) {
+
+        auto selections = browser.GetMultiSelected();
+
+        for (auto& sel : selections) {
+            if (isKnownPath(sel)) routeFile(sel.string());
+            else pendingUnknownFiles.push_back(sel.string());
+        }
+
+        browser.ClearSelected();
+        if (pendingUnknownFiles.empty()) finishRouting();
 
         redraw = true;
         plot->processed = false;
 
         if (p_open)
             *p_open = false;
+    }
+
+    // -------------------------------------------------------------------------
+    // Unknown file type: ask what the file is
+    // -------------------------------------------------------------------------
+
+    if (!pendingUnknownFiles.empty())
+        ImGui::OpenPopup("Unknown file type##gw_filekind");
+
+    if (ImGui::BeginPopupModal("Unknown file type##gw_filekind", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        auto next = [&]() {
+            pendingUnknownFiles.erase(pendingUnknownFiles.begin());
+            if (pendingUnknownFiles.empty()) {
+                finishRouting();
+                ImGui::CloseCurrentPopup();
+            }
+        };
+        if (pendingUnknownFiles.empty()) {
+            ImGui::CloseCurrentPopup();
+        } else {
+            const std::string path = pendingUnknownFiles.front();
+            ImGui::TextUnformatted("GW cannot tell what kind of file this is from its name:");
+            ImGui::Text("  %s", std::filesystem::path(path).filename().string().c_str());
+            if (pendingUnknownFiles.size() > 1)
+                ImGui::TextDisabled("  and %d more to follow", (int)pendingUnknownFiles.size() - 1);
+            ImGui::Spacing();
+            ImGui::TextUnformatted("Open it as:");
+            for (int i = 0; i < (int)IM_ARRAYSIZE(fileKinds); ++i)
+                ImGui::RadioButton(fileKinds[i].label, &unknownKind, i);
+            ImGui::Spacing();
+            if (ImGui::Button("Open", ImVec2(120, 0))) {
+                const FileKind& kind = fileKinds[unknownKind];
+                Online::setTypeAlias(path, isGzipFile(path) ? kind.compressedExtension : kind.extension);
+                routeFile(path);
+                redraw = true;
+                plot->processed = false;
+                next();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Skip", ImVec2(120, 0)) || closeOnEscape()) next();
+        }
+        ImGui::EndPopup();
     }
 
     // Sync external open flag

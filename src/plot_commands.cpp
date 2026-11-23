@@ -2397,6 +2397,74 @@ namespace Commands {
         return Err::NONE;
     }
 
+    // track-labels                      list the label fields of each track
+    // track-labels <index|name>         list the fields the track offers
+    // track-labels <index|name> <fields|auto>   e.g. track-labels 0 INFO:SVTYPE,INFO:SVLEN
+    Err set_track_labels(Plot* p, const std::vector<std::string>& parts, std::ostream& out) {
+        if (parts.size() < 2) {
+            if (p->tracks.empty()) out << "No tracks loaded\n";
+            for (size_t i = 0; i < p->tracks.size(); ++i) {
+                HGW::GwTrack& trk = p->tracks[i];
+                out << "track" << i << "  " << trackLabel(trk) << "  ";
+                if (!trk.supportsLabelFields()) out << "-\n";
+                else out << (trk.resolveLabelFields() ? trk.labelFields : std::string("auto")) << "\n";
+            }
+            return Err::NONE;
+        }
+        const std::string& target = parts[1];
+        int idx = -1;
+        if (!target.empty() && std::all_of(target.begin(), target.end(), [](unsigned char c) { return std::isdigit(c); })) {
+            try { idx = std::stoi(target); } catch (...) { idx = -1; }
+            if (idx >= (int)p->tracks.size()) idx = -1;
+        } else {
+            std::string lower = target;
+            std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return std::tolower(c); });
+            int hits = 0;
+            for (size_t i = 0; i < p->tracks.size(); ++i) {
+                std::string label = trackLabel(p->tracks[i]);
+                if (label == target) { idx = (int)i; hits = 1; break; }
+                std::transform(label.begin(), label.end(), label.begin(), [](unsigned char c) { return std::tolower(c); });
+                if (label.find(lower) != std::string::npos) { idx = (int)i; ++hits; }
+            }
+            if (hits > 1) {
+                out << termcolor::red << "Error:" << termcolor::reset << " '" << target << "' matches " << hits << " tracks\n";
+                return Err::NONE;
+            }
+        }
+        if (idx < 0) {
+            out << termcolor::red << "Error:" << termcolor::reset << " no track matching '" << target << "'\n";
+            return Err::NONE;
+        }
+        HGW::GwTrack& trk = p->tracks[idx];
+        if (!trk.supportsLabelFields()) {
+            out << termcolor::red << "Error:" << termcolor::reset << " label fields can be set for VCF/BCF, GFF3, GTF and bigBed tracks\n";
+            return Err::NONE;
+        }
+        if (parts.size() == 2) {
+            out << trackLabel(trk) << "  " << (trk.resolveLabelFields() ? trk.labelFields : std::string("auto")) << "\n";
+            for (auto& f : trk.availableLabelFields()) {
+                out << "    " << f.first;
+                if (!f.second.empty()) out << "  " << f.second;
+                out << "\n";
+            }
+            return Err::NONE;
+        }
+        std::string spec;  // fields may be separated by spaces as well as commas
+        for (size_t i = 2; i < parts.size(); ++i) {
+            if (!spec.empty()) spec += ',';
+            spec += parts[i];
+        }
+        trk.setLabelFields(spec);
+        p->redraw = true;
+        p->processed = false;
+        p->imageCache.clear();
+        p->imageCacheQueue.clear();
+        for (auto& cl : p->collections) {
+            cl.resetDrawState();
+        }
+        return Err::NONE;
+    }
+
     static void trackHeightUsage(std::ostream& out) {
         out << "Usage:\n"
             << "    track-height                     list current heights\n"
@@ -2719,10 +2787,12 @@ namespace Commands {
     void run_command_map(Plot* p, std::string& command, std::ostream& out) {
         if (Utils::startsWith(command, "'") || Utils::startsWith(command, "\"")) {
             command.erase(command.begin(), command.begin() + 1);
-            out << command << std::endl;
+            // The comment goes on the variant in the alignment view, or the tile under the pointer.
+            // Nothing is printed: the comment shows in the Variants panel
             if (!p->variantTracks.empty() && p->currentVarTrack != nullptr) {
-                int i = p->mouseOverTileIndex + p->currentVarTrack->blockStart;
-                if (i < (int)p->currentVarTrack->multiLabels.size()) {
+                int i = (p->mode == Manager::Show::SINGLE && p->liveVariantIndex >= 0)
+                        ? p->liveVariantIndex : p->mouseOverTileIndex + p->currentVarTrack->blockStart;
+                if (i >= 0 && i < (int)p->currentVarTrack->multiLabels.size()) {
                     p->currentVarTrack->multiLabels[i].comment = command;
                     p->redraw = true;
                     p->processed = false;
@@ -2787,6 +2857,7 @@ namespace Commands {
                 {"move-track", PARAMS { return move_track(p, parts, out); }},
                 {"introns",  PARAMS { return add_introns(p, command, parts, out); }},
                 {"track-height", PARAMS { return set_track_height(p, command, parts, out); }},
+                {"track-labels", PARAMS { return set_track_labels(p, parts, out); }},
                 {"sort",     PARAMS { return sort_command(p, command, parts, out); }},
                 {"header",   PARAMS { return header_command(p, command, parts, out); }},
 

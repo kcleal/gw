@@ -25,5 +25,10 @@ std::string encodeCatalogue(const std::vector<Entry>& entries);
 std::vector<Entry> resolveBundle(const Entry& entry, const std::vector<Entry>& catalogue);
 bool httpURL(const std::string& url);
 std::string resourceName(const std::string& url);
+// File types are worked out from the name. A file with an unhelpful name can be given the
+// extension it should be read as (".vcf.gz", ".bed" ...); typedName() is resourceName() plus
+// that extension, and is what the loaders test. An empty extension removes the entry.
+void setTypeAlias(const std::string& path, const std::string& extension);
+std::string typedName(const std::string& path);
 std::vector<std::string> indexCandidates(const Entry& entry);
 }

@@ -1,3 +1,4 @@
+#include <unordered_map>
 #include "online_catalogue.h"
 #include <map>
 #include <stdexcept>
@@ -34,6 +35,9 @@ std::string quote(const std::string& s){std::string out="\"";for(unsigned char c
 }
 bool httpURL(const std::string& s){return (s.rfind("https://",0)==0||s.rfind("http://",0)==0)&&s.find_first_of("\r\n\t ") == std::string::npos;}
 std::string resourceName(const std::string& url){auto s=url.substr(0,url.find_first_of("?#"));return s.substr(s.find_last_of('/')+1);}
+static std::unordered_map<std::string,std::string>& typeAliases(){static std::unordered_map<std::string,std::string> aliases;return aliases;}
+void setTypeAlias(const std::string& path, const std::string& extension){if(extension.empty())typeAliases().erase(path);else typeAliases()[path]=extension;}
+std::string typedName(const std::string& path){auto name=resourceName(path);auto it=typeAliases().find(path);return it==typeAliases().end()?name:name+it->second;}
 std::vector<Entry> parseCatalogue(const std::string& text, bool allowMountedPaths){
     auto root=Reader(text).read();std::vector<Entry> out;
     if(root.type=='['){

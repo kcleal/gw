@@ -46,7 +46,7 @@ and three controls tie it to the variant list:
 | Control | What it does |
 |---------|--------------|
 | **Step arrows** | The triangles at the left and right edges of the plot go to the previous and next variant. So does `Cmd`/`Ctrl` + `←`/`→` |
-| **Label chip** | The pill at the bottom of the plot shows the variant's label, type, genotype and position. Click it to cycle the label |
+| **Label chip** | The pill below the tracks, in its own strip above the ideogram, shows the variant's label, type, genotype and position. Click it to cycle the label |
 | **Number keys** | `1` sets the first label, `2` the second, and so on |
 
 The arrows are faint until the pointer is over them, and fade out after five seconds without
@@ -109,6 +109,11 @@ back, so labelling can be spread over several sessions.
 A short message beside the icon confirms the result — **Labels saved** or **Labels loaded** — or
 reports a problem, such as a file that is not a label file.
 
+Only the variants you have visited are saved: those shown in the alignment view or as a tile on
+screen, plus any you labelled or commented. Variants that GW has read from the file but not yet
+shown are left out. Labels loaded from an earlier label file are always kept, including those for
+variants not reached in this session.
+
 A label file is set by saving once from this menu, or at launch with `--out-labels`. Once set, GW
 also saves to it automatically every minute. Labels are matched to variants by variant file name and ID, so load a
 label file alongside the variant file it was made from.
@@ -145,9 +150,30 @@ Custom label list:
 gw hg38 -b your.bam -v variants.vcf --labels Yes,No,Maybe
 ```
 
-To add a comment, select the variant (move the mouse over its tile, or open it in the alignment
-view), open the command box and type `"` or `'` followed by the comment. The comment attaches to the label (orange dot) and is saved in the
-output.
+To add a comment, select the variant (open it in the alignment view, or move the mouse over its
+tile), open the command box and type `"` or `'` followed by the comment. The comment attaches to
+the label and is saved in the output. A comment can also be added or edited by clicking at the
+right-hand end of a row in the Variant list.
+
+Each row of the Variant list carries up to two marks at its right-hand end:
+
+| Mark | Meaning |
+|------|---------|
+| `|` upright bar | The variant has been labelled by hand |
+| `–` level bar | The variant has a comment |
+| `+` cross | Both |
+
+Adding a comment does not count as labelling, so a variant can keep its original label and carry
+only the comment mark.
+
+### Variant list columns
+
+The columns button (three bars) in the **Variant List** header chooses which optional columns are
+shown:
+
+- **Label** — the variant's label (the VCF `filter` column unless `--parse-label` is used). Untick
+  it to hide the labels, for example to review variants without seeing the existing calls
+- **Comment** — the comment text. Click a cell to add or edit the comment
 
 ## Label file format
 
@@ -158,8 +184,8 @@ Tab-separated columns:
 | chr1 | 200000 | 27390 | PASS | DEL | | test.vcf | |
 | chr1 | 250000 | 2720 | FAIL | SNP | 14-10-2022 16-05-46 | test.vcf | |
 
-`labelled_date` is only filled when a label was set by hand — blank means the label came from
-`--parse-label`. `--out-labels` auto-saves every minute.
+`labelled_date` is only filled when a label was set by hand — blank means the variant was visited
+but kept the label parsed from the file. `--out-labels` auto-saves every minute.
 
 ## Writing labels to a VCF
 

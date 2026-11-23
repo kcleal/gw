@@ -37,6 +37,39 @@ both.
 
 Tracks to load at every startup are set in **Settings → Tracks**.
 
+## Feature labels
+
+By default a feature is labelled with its ID (VCF/BCF), gene name (GFF3/GTF) or name column
+(bigBed). To show other fields, open **Main menu → Tracks** and click **Labels** on the track's
+row, then tick the fields to show. The label lists them in the order they were ticked; **Default**
+clears the choice.
+
+| Track | Fields offered |
+|-------|----------------|
+| VCF/BCF | `ID`, `TYPE`, `REF`, `ALT`, `QUAL`, `FILTER`, and every `INFO` and `FORMAT` field declared in the header. `FORMAT` values are taken from the first sample |
+| GFF3/GTF | The attributes of the features in view. Any other attribute name can be typed in |
+| bigBed | The columns named in the file's schema |
+
+With one field the label is the value alone; with several, each value is shown as `KEY=value`.
+Fields missing from a record are left out.
+
+The `track-labels` command does the same, taking a track index or name and a comma-separated list:
+
+```shell
+track-labels 0 INFO:SVTYPE,INFO:SVLEN,FORMAT:SU
+track-labels genes gene_name,gene_biotype
+track-labels 0 auto        # back to the default label
+track-labels 0             # list the fields the track offers
+```
+
+To set the fields for every track of a format, use `--track-labels` at launch, or the
+`track_label_parser_rules` option in **Settings**. Formats are separated by `;`:
+
+```shell
+gw hg38 -b your.bam --track svs.vcf.gz --track genes.gtf.gz \
+   --track-labels "VCF:INFO:SVTYPE,INFO:SVLEN;GTF:gene_name,gene_biotype"
+```
+
 ## Genotypes
 
 A VCF/BCF track with samples draws a genotype row per sample beneath its features. Each bar is one

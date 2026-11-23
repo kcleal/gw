@@ -2203,7 +2203,7 @@ namespace Drawing {
         float screenRightEdge = padX + (((float) rgn.end - (float) rgn.start) * xScaling);
         std::string empty_str;
         if (any_text) {
-            drawTrackBlock(trk.start, trk.end, trk.name, rgn, rect, path, padX, padY, y, h, stepX, stepY,
+            drawTrackBlock(trk.start, trk.end, trk.displayName(), rgn, rect, path, padX, padY, y, h, stepX, stepY,
                         xScaling, opts, canvas, fonts, true, false, false, labelsEnd, empty_str, text, false, false, faceColour, strand, customPointSlop, ctx);
         }
         const float yy = y + padY + (h / 2);
@@ -2640,6 +2640,11 @@ namespace Drawing {
                     HGW::collectTrackData(trk, features);
                 }
 
+                // Label fields chosen for this track replace the default feature label
+                if (trk.resolveLabelFields()) {
+                    for (auto &f : features) trk.featureLabel(f, f.label);
+                }
+
                 // find the level of each feature
                 int nLevels = Segs::findTrackY(features, expanded, rgn);
                 rgn.featureLevels[trackIdx] = nLevels;
@@ -2721,7 +2726,7 @@ namespace Drawing {
                                             text, false, false, *p, strand, customPointSlop, ctx, true);
                             }
                         }
-                        drawTrackBlock(f.start, f.end, f.name, rgn, rect, path, padX, padY_track, 0, h, stepX, featureHeight,
+                        drawTrackBlock(f.start, f.end, f.displayName(), rgn, rect, path, padX, padY_track, 0, h, stepX, featureHeight,
                                     xScaling, opts, canvas, fonts, any_text, true, false, fLevelEnd, f.vartype,
                                     text, opts.sv_arcs, trk.kind == HGW::FType::ROI, faceColour, strand, customPointSlop, ctx);
                     }

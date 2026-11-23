@@ -50,6 +50,8 @@ namespace Utils {
     void split(const std::string &s, char delim, std::vector<std::string> &elems);  // appends non-empty fields to elems
 
     std::vector<std::string> split_keep_empty_str(const std::string &s, const char delim);
+    // Splits keeping empty fields, as needed for label file rows
+    std::unique_ptr<std::vector<std::string>> split_keep_empty(const std::string &s, const char delim);
 
     // https://stackoverflow.com/questions/1528298/get-path-of-executable
     std::string getExecutableDir();
@@ -71,6 +73,8 @@ namespace Utils {
         std::vector<int> e;
         std::vector<uint8_t> drawThickness;  // 0 no line, 1 is thin line, 2 fat line
         std::string genotypes;  // per-sample GT of a VCF record, "0/1,./.,1|1"; empty when not kept
+        std::string label;  // text drawn beside the feature when the track has label fields set; empty = use name
+        std::string &displayName() { return label.empty() ? name : label; }
     };
 
     // Genotype display shared by the variant list and VCF tracks: muted colours,
@@ -218,6 +222,9 @@ namespace Utils {
         bool clicked;
         bool mouseOver;
         bool contains_parsed_label;
+        // Shown to the user this session (as a tile on screen or in the alignment view), or read
+        // from a label file. Only visited labels are written when labels are saved
+        bool visited = false;
 
         void next();
         std::string& current();

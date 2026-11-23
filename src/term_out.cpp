@@ -81,6 +81,7 @@ namespace Term {
         out << termcolor::green << "tiles            on/off?         " << termcolor::reset << "Switch between tiled variant images and the alignment view\n";
         out << termcolor::green << "tlen-y                           " << termcolor::reset << "Toggle --tlen-y option\n";
         out << termcolor::green << "track-height     target? number? " << termcolor::reset << "Resize one track or the alignment panel. Use\n                                 'track-height' alone to list current heights\n";
+        out << termcolor::green << "track-labels     track? fields?  " << termcolor::reset << "Choose the fields shown as feature labels on a track e.g.\n                                 'track-labels 0 INFO:SVTYPE,INFO:SVLEN', or 'auto' to reset\n";
         out << termcolor::green << "var, v           vcf_column?     " << termcolor::reset << "Print variant information e.g. 'var', 'var info',\n                                 or a list of columns 'var pos qual format.SU'\n";
         out << termcolor::green << "ylim             number          " << termcolor::reset << "The maximum y-limit for the image e.g. 'ylim 100'\n";
         out << termcolor::green << "min-junction-reads  number       " << termcolor::reset << "The minimum support for junction/intron drawing e.g. 'min-junction-reads 10'\n";
@@ -396,6 +397,19 @@ namespace Term {
                    "        track-height alignments 0.5      # half the area for reads\n"
                    "        track-height 0 0.2               # tabix track 0\n"
                    "        track-height introns 0.15        # match a track by name\n\n";
+        } else if (s == "track-labels") {
+            out << "    Choose which fields are shown as the label of each feature on a track.\n"
+                   "        Works for VCF/BCF, GFF3, GTF and bigBed tracks. Fields are a comma-separated\n"
+                   "        list: INFO:KEY, FORMAT:KEY (first sample), ID, TYPE, REF, ALT, QUAL, FILTER\n"
+                   "        for VCF/BCF; attribute names for GFF3/GTF; column names for bigBed.\n"
+                   "        The same lists set the default for every track of a format with the\n"
+                   "        'track_label_parser_rules' option or --track-labels.\n"
+                   "    Examples:\n"
+                   "        track-labels                          # list tracks and their fields\n"
+                   "        track-labels 0                        # list the fields track 0 offers\n"
+                   "        track-labels 0 INFO:SVTYPE,INFO:SVLEN # show SV type and length\n"
+                   "        track-labels genes gene_name,gene_biotype\n"
+                   "        track-labels 0 auto                   # back to the default label\n\n";
         } else if (s == "theme") {
             out << "    Switch the theme.\n        Currently 'igv', 'dark', 'slate', 'tide' or 'frost' themes are supported.\n\n";
         } else if (s == "translate") {

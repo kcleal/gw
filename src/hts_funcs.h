@@ -238,6 +238,23 @@ namespace HGW {
         void parseVcfRecord();
         void printTargetRecord(std::string &id_str, std::string &chrm, int pos);
         const std::string& labelKey(bool gtf);
+
+        // Fields shown as the label of each feature, e.g. "INFO:SVTYPE,INFO:SVLEN" for a VCF,
+        // "gene_name,gene_biotype" for GFF3/GTF, or column names for bigBed. Empty = default label.
+        // Unless set per track, taken from track_label_parser_rules ("VCF:INFO:SVTYPE,INFO:SVLEN;GTF:gene_name").
+        struct LabelField { int source; std::string key; };  // source: 0 fixed column, 1 INFO, 2 FORMAT, 3 attribute/column
+        std::string labelFields;
+        std::vector<LabelField> labelFieldList;
+        bool labelFieldsUserSet{false}, labelFieldsReady{false};
+        std::string labelFieldRulesResolved;
+        std::vector<std::string> seenAttributeKeys;  // GFF3/GTF attribute keys met so far, offered in the Tracks menu
+        bool supportsLabelFields() const;
+        void setLabelFields(const std::string &spec);  // "" or "auto" restores the default label
+        bool resolveLabelFields();  // true if any fields are set
+        void featureLabel(const Utils::TrackBlock &b, std::string &out) const;
+        void noteAttributeKeys(const Utils::TrackBlock &b);
+        // token (as used in labelFields) and description of every field that can be shown
+        std::vector<std::pair<std::string, std::string>> availableLabelFields() const;
     };
 
     bool searchTracks(std::vector<GwTrack> &tracks, std::string &feature, Utils::Region &region);

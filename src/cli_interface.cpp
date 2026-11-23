@@ -127,6 +127,9 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
     program.add_argument("--track")
             .default_value(std::string{""}).append()
             .help("Track to display at bottom of window BED/VCF/GFF3/GTF/BEGBID/BIGWIG. Repeat for multiple files stacked vertically");
+    program.add_argument("--track-labels")
+            .default_value(std::string{""})
+            .help("Fields shown as feature labels on tracks, per file format e.g. 'VCF:INFO:SVTYPE,INFO:SVLEN;GTF:gene_name,gene_biotype'");
     program.add_argument("--parse-label")
             .default_value(iopts.parse_label).append()
             .help("Label to parse from vcf file (used with -v) e.g. 'filter' or 'info.SU' or 'qual'");
@@ -422,6 +425,9 @@ CLIOptions CLIInterface::parseArguments(int argc, char* argv[], Themes::IniOptio
 
     if (program.is_used("--threads")) {
         iopts.threads = program.get<int>("--threads");
+    }
+    if (program.is_used("--track-labels")) {
+        iopts.track_label_parser_rules = program.get<std::string>("--track-labels");
     }
     if (program.is_used("--parse-label")) {
         iopts.parse_label = program.get<std::string>("--parse-label");

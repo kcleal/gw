@@ -922,7 +922,15 @@ namespace Manager {
 #endif
             }
             int i = 0;
+            // Only variants the user has seen are written: ones shown as a tile or in the alignment
+            // view, labelled or commented, or already in the label file that was loaded
+            ankerl::unordered_dense::set<std::string> written;
             for (auto &l: vf.multiLabels) {
+                if (!(l.visited || l.clicked || !l.comment.empty())) {
+                    i += 1;
+                    continue;
+                }
+                written.insert(l.variantId);
                 if (vf.type == HGW::TrackType::IMAGES) {
                     std::filesystem::path fsp(vf.image_glob[i]);
 #if defined(_WIN32) || defined(_WIN64)
@@ -935,6 +943,20 @@ namespace Manager {
                 }
                 Utils::saveLabels(l, f, dateStr, fileName);
                 i += 1;
+            }
+            // Labels from the loaded label file whose variants have not been read from the variant
+            // file yet (it is read lazily) are carried over, so earlier work is never dropped
+            if (vf.type != HGW::TrackType::IMAGES && vf.inputLabels) {
+                ankerl::unordered_dense::set<std::string> loaded;
+                for (const auto &l: vf.multiLabels) loaded.insert(l.variantId);
+                std::vector<Utils::Label*> pending;
+                for (auto &item: *vf.inputLabels) {
+                    if (!loaded.contains(item.first) && !written.contains(item.first)) pending.push_back(&item.second);
+                }
+                std::sort(pending.begin(), pending.end(), [](const Utils::Label* a, const Utils::Label* b) {
+                    return a->chrom != b->chrom ? a->chrom < b->chrom : a->pos != b->pos ? a->pos < b->pos : a->variantId < b->variantId;
+                });
+                for (auto* l: pending) Utils::saveLabels(*l, f, dateStr, fileName);
             }
         }
         f.close();
@@ -1945,7 +1967,12 @@ namespace Manager {
             refSpace += translationTrackHeight;
         }
         commandBarSpace = (showUIOverlay && commandBarVisible) ? topMenuSpace : 0;
-        sliderSpace = gap * 4 + commandBarSpace;
+        variantChipSpace = 0;
+        if (showUIOverlay && mode == Show::SINGLE && liveVariantIndex >= 0 && !variantTracks.empty() &&
+            ImGui::GetCurrentContext() != nullptr) {
+            variantChipSpace = (ImGui::GetFontSize() + 16.0f) * std::max(1.0f, monitorScale);
+        }
+        sliderSpace = gap * 4 + commandBarSpace + variantChipSpace;
 
         // Calculate available space
         float availableHeight = fb_height - refSpace - sliderSpace;
@@ -2094,6 +2121,11 @@ namespace Manager {
         // Preserve the alignment frame queue used for partial redraws, but retire
         // all generated variant images so the next tiled view uses current settings.
         if (!variantTracks.empty()) imageCache.clear();
+        // The variant open in the alignment view has been seen (see GwPlot::saveLabels)
+        if (liveVariantIndex >= 0 && variantFileSelection >= 0 && variantFileSelection < (int)variantTracks.size() &&
+            liveVariantIndex < (int)variantTracks[variantFileSelection].multiLabels.size()) {
+            variantTracks[variantFileSelection].multiLabels[liveVariantIndex].visited = true;
+        }
 //        std::chrono::high_resolution_clock::time_point initial = std::chrono::high_resolution_clock::now();
         SkCanvas *canvasR = rasterCanvas;
         canvasR->drawPaint(opts.theme.bgPaint);
@@ -2205,7 +2237,7 @@ namespace Manager {
 
     void GwPlot::drawCursorPosOnRefSlider(SkCanvas *canvas) {
         // determine if cursor is in the slider region
-        if (regions.empty() || xPos_fb <= 0 || yPos_fb <= 0 || yPos_fb < fb_height - sliderSpace + (gap*0.5) || regionSelection < 0) {
+        if (regions.empty() || xPos_fb <= 0 || yPos_fb <= 0 || yPos_fb < fb_height - sliderSpace + variantChipSpace + (gap*0.5) || regionSelection < 0) {
             return;
         }
         const float sliderBottom = fb_height - commandBarSpace;
@@ -2908,6 +2940,7 @@ namespace Manager {
                 if (i - bStart != mouseOverTileIndex) {
                     currentVarTrack->multiLabels[i].mouseOver = false;
                 }
+                currentVarTrack->multiLabels[i].visited = true;  // its tile is on screen
                 // A rendered tile ends with its chromosome name and ideogram, gap * 4 tall before scaling
                 const float ideogramHeight = currentVarTrack->type != HGW::TrackType::IMAGES
                                              ? gap * 4 / tileRenderScale(b, monitorScale) : 0;

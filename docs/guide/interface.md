@@ -62,6 +62,24 @@ The button at the top-left (1).
 
 Files can also be dropped onto the window.
 
+### The file browser
+
+**Open file → Local file** opens GW's file browser.
+
+- **Shortcuts** along the top jump to Home, Desktop, Documents and the folder GW downloads to.
+  The path buttons below them go to any parent folder; `#` lets you type a path
+- Folders are marked with a folder icon. Double-click a folder to enter it, or a file to open it.
+  `Ctrl`-click and `Shift`-click select several files
+- Only the file types GW recognises are listed, including two-part extensions such as `.vcf.gz`
+  and `.bed.gz`. Tick **All files** to list everything, or pick a single type from the list
+  beside it
+- Files and folders whose name starts with a dot are hidden; tick **Hidden files** to show them
+- A path or URL can be typed in the box at the bottom
+
+If you open a file whose name GW does not recognise, it asks what kind of file it is —
+alignments, VCF, BCF, BED, GFF3, GTF, bigWig, bigBed, PAF or a reference FASTA — and reads it as
+that type for the rest of the session.
+
 ## Quick display options
 
 The second button (2) holds switches for what is drawn.
