@@ -1475,6 +1475,21 @@ namespace Drawing {
     static void drawStrandArrowIcon(SkCanvas* canvas, float x, float y, float size, bool forward,
                                     const SkPaint& paint);
 
+    // Complement of a reference base (A<->T, C<->G), keeping case; anything else unchanged.
+    static inline char complementBase(char c) {
+        switch (c) {
+            case 'A': return 'T';
+            case 'T': return 'A';
+            case 'C': return 'G';
+            case 'G': return 'C';
+            case 'a': return 't';
+            case 't': return 'a';
+            case 'c': return 'g';
+            case 'g': return 'c';
+            default: return c;
+        }
+    }
+
     void drawRef(const Themes::IniOptions &opts,
                  std::vector<Utils::Region> &regions,
                  SkCanvas *const canvas, const Themes::Fonts &fonts, const drawContext& ctx) {
@@ -1497,6 +1512,7 @@ namespace Drawing {
         const double mmPosOffset = refSpace - fonts.overlayHeight - (gap*0.25) - refBaselineShift;
         const float yp = refSpace - (gap*0.25) - refBaselineShift;
         const float boxHeight = fonts.overlayHeight;
+        const bool complement = opts.ref_complement;
         for (auto &rgn: regions) {
 
             const int size = rgn.end - rgn.start;
@@ -1523,7 +1539,8 @@ namespace Drawing {
 
                 const char* refEnd = ref + rgn.refSeqLen;
                 while (ref < refEnd) {
-                    switch ((unsigned int) *ref) {
+                    const char base = complement ? complementBase(*ref) : *ref;
+                    switch ((unsigned int) base) {
                         case 65:
                             faceColor = &theme.fcA;
                             break;
@@ -1555,9 +1572,9 @@ namespace Drawing {
                             faceColor = &theme.fcT;
                             break;
                     }
-                    sk_sp<SkTextBlob> &blob = letterBlobs[(unsigned char) *ref];
+                    sk_sp<SkTextBlob> &blob = letterBlobs[(unsigned char) base];
                     if (!blob) {
-                        blob = SkTextBlob::MakeFromText(ref, 1, fonts.overlay, SkTextEncoding::kUTF8);
+                        blob = SkTextBlob::MakeFromText(&base, 1, fonts.overlay, SkTextEncoding::kUTF8);
                     }
                     canvas->drawTextBlob(blob, i + v, yp, *faceColor);
                     i += xScaling;
@@ -1567,7 +1584,7 @@ namespace Drawing {
                 const char* refEnd = ref + rgn.refSeqLen;
                 while (ref < refEnd) {
                     rect.setXYWH(i, mmPosOffset, mmScaling, boxHeight);
-                    switch ((unsigned int) *ref) {
+                    switch ((unsigned int) (complement ? complementBase(*ref) : *ref)) {
                         case 65:
                             canvas->drawRect(rect, theme.fcA);
                             break;
@@ -1606,8 +1623,9 @@ namespace Drawing {
             index += 1;
         }
 
-        // Small strand-direction arrow next to the reference track when translation is active.
-        if (ctx.show_translation) {
+        // Small strand-direction arrow next to the reference track when translation is active,
+        // or (pointing reverse) when the reference is drawn complemented.
+        if (ctx.show_translation || complement) {
             const float arrowSize = std::min(boxHeight, gap * 0.7f);
             const float arrowX = (gap - arrowSize) * 0.5f;
             const float arrowY = (float)mmPosOffset + (boxHeight - arrowSize) * 0.5f;
@@ -1615,7 +1633,8 @@ namespace Drawing {
             SkRect arrowBg;
             arrowBg.setXYWH(arrowX - 1, arrowY - 1, arrowSize + 2, arrowSize + 2);
             canvas->drawRect(arrowBg, theme.bgPaint);
-            drawStrandArrowIcon(canvas, arrowX, arrowY, arrowSize, ctx.translation_strand, theme.lcJoins);
+            const bool forward = ctx.show_translation ? ctx.translation_strand : false;
+            drawStrandArrowIcon(canvas, arrowX, arrowY, arrowSize, forward, theme.lcJoins);
         }
     }
 

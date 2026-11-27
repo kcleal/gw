@@ -405,6 +405,12 @@ namespace Commands {
         return Err::NONE;
     }
 
+    Err ref_complement(Plot* p) {
+        p->opts.ref_complement = !p->opts.ref_complement;
+        p->redraw = true;
+        return Err::NONE;
+    }
+
     Err translate_command(Plot* p, std::string& /*command*/, std::vector<std::string>& parts, std::ostream& out) {
         if (parts.size() >= 2) {
             const std::string& sub = parts[1];
@@ -2799,6 +2805,7 @@ namespace Commands {
                 {"mate",     PARAMS { return mate(p, command, out); }},
 
                 {"translate",        PARAMS { return translate_command(p, command, parts, out); }},
+                {"ref-complement",   PARAMS { return ref_complement(p); }},
                 {"translate_frame",  PARAMS { return translate_frame_command(p, command, parts, out); }},
                 {"translate_strand", PARAMS { return translate_strand_command(p, command, parts, out); }},
                 {"translate_code",   PARAMS { return translate_code_command(p, command, parts, out); }},

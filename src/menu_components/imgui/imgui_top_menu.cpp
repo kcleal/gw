@@ -316,6 +316,9 @@ void drawImGuiTopMenu(Manager::GwPlot* plot, float gap, float overlayHeight, boo
             plot->setScaling();
             redraw = true; plot->processed = false;
         }
+        if (ImGui::Checkbox("Complement ref", &opts.ref_complement)) {
+            redraw = true;
+        }
 
         // Read sorting and quick filters, backed by the sort / filter / remove-filter commands
         bool haveReads = !plot->bam_paths.empty() || (plot->remoteCommand && !plot->remoteScrollbars.empty());
