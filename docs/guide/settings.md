@@ -11,7 +11,8 @@ description: Settings, configuration and themes in GW
 
 Open **Main menu → Settings**. The sections — General, Genomes, Interaction, Labelling,
 Navigation, Tracks, Thresholds and Keymap — apply changes immediately and save automatically; a
-status message at the bottom reports any save failure.
+status message at the bottom reports any save failure. The one exception is `dimensions`, the
+starting window size, which is used the next time GW starts.
 
 ![The Settings dialog]({{ site.baseurl }}/assets/images/v2/settings.png)
 

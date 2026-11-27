@@ -885,7 +885,75 @@ namespace Manager {
         std::string img;
         std::vector<std::string> labels = Utils::split_keep_empty_str(opts.labels, ',');
         Utils::openLabels(path, img, inputLabels, labels, seenLabels);
-        // Re-open the variant files so their labels are rebuilt from the loaded ones
+        reopenVariantTracks();
+    }
+
+    // Label choices changed (Settings > Labelling > labels): rebuild the choice list of every label
+    // already made, keeping its current and original label.
+    void GwPlot::applyLabelChoices() {
+        std::vector<std::string> labels = Utils::split_keep_empty_str(opts.labels, ',');
+        setLabelChoices(labels);
+        auto rebuild = [&labels](Utils::Label &l) {
+            const std::string current = l.i >= 0 && l.i < (int)l.labels.size() ? l.labels[l.i] : std::string();
+            const std::string original = l.ori_i >= 0 && l.ori_i < (int)l.labels.size() ? l.labels[l.ori_i] : current;
+            l.labels = labels;
+            auto indexOf = [&l](const std::string &v) {
+                auto it = std::find(l.labels.begin(), l.labels.end(), v);
+                if (it == l.labels.end()) {
+                    l.labels.push_back(v);
+                    return (int)l.labels.size() - 1;
+                }
+                return (int)(it - l.labels.begin());
+            };
+            l.ori_i = indexOf(original);
+            l.i = indexOf(current);
+        };
+        for (auto &vt : variantTracks) {
+            vt.labelChoices = labels;
+            for (auto &l : vt.multiLabels) rebuild(l);
+            if (vt.inputLabels) {
+                for (auto &item : *vt.inputLabels) rebuild(item.second);
+            }
+        }
+        for (auto &file : inputLabels) {
+            for (auto &item : file.second) rebuild(item.second);
+        }
+        imageCache.clear();
+        imageCacheQueue.clear();
+        processed = false;
+        redraw = true;
+    }
+
+    // The field parsed as the label changed (Settings > Labelling > parse_label): read the variant
+    // files again. Labels set by hand are carried over; untouched ones take the newly parsed value.
+    void GwPlot::applyParseLabel() {
+        for (auto &vt : variantTracks) {
+            if (vt.type == HGW::TrackType::IMAGES) continue;
+            auto &kept = inputLabels[vt.fileName];
+            for (auto &l : vt.multiLabels) {
+                if (l.clicked) kept[l.variantId] = l;
+                else if (!l.savedDate.empty()) continue;  // labelled in an earlier session: already kept
+                else kept.erase(l.variantId);
+            }
+            if (vt.inputLabels) {  // loaded labels of variants not read yet
+                for (auto &item : *vt.inputLabels) {
+                    if (!kept.contains(item.first) && (item.second.clicked || !item.second.savedDate.empty()))
+                        kept[item.first] = item.second;
+                }
+            }
+        }
+        seenLabels.clear();
+        reopenVariantTracks();
+        if (currentVarTrack != nullptr && liveVariantIndex >= 0) {
+            currentVarTrack->iterateToIndex(liveVariantIndex + 1);
+        }
+        imageCache.clear();
+        imageCacheQueue.clear();
+        processed = false;
+        redraw = true;
+    }
+
+    void GwPlot::reopenVariantTracks() {
         std::vector<std::string> current;
         std::vector<int> idx;
         for (auto &v : variantTracks) {
@@ -1198,6 +1266,7 @@ namespace Manager {
         headers.clear();
         indexes.clear();
         collections.clear();
+        std::vector<std::string> trackKeys;  // the [data] key each opened track came from
         for (const auto &item: opts.seshIni["data"]) {
             if (Utils::startsWith(item.first, "ideogram") || Utils::startsWith(item.first, "genome")) {
                 continue;
@@ -1215,6 +1284,7 @@ namespace Manager {
                 tracks.back().open(item.second, true);
                 tracks.back().setPaint((tracks.back().kind == HGW::FType::BIGWIG) ? opts.theme.fcBigWig : opts.theme.fcTrack);
                 tracks.back().variant_distance = &opts.variant_distance;
+                trackKeys.push_back(item.first);
             } else if (Utils::startsWith(item.first, "region")) {
                 std::string rgn = item.second;
                 regions.push_back(Utils::parseRegion(rgn));
@@ -1243,6 +1313,7 @@ namespace Manager {
         }
 
         fonts.setTypeface(opts.font_str, opts.font_size);
+        fonts.setOverlayHeight(monitorScale);  // setTypeface sets the unscaled size; HiDPI screens need it scaled
 
         auto sessionBams = bam_paths;
         bam_paths.clear();
@@ -1253,6 +1324,49 @@ namespace Manager {
                 commandProcessed();
             }
         }
+
+        auto& show = opts.seshIni["show"];
+        auto showInt = [&show](const char* key, int fallback) {
+            if (!show.has(key)) return fallback;
+            try { return std::stoi(show[key]); } catch (...) { return fallback; }
+        };
+        // Track heights, saved as track_heightN beside the trackN data key
+        for (size_t i = 0; i < tracks.size() && i < trackKeys.size(); ++i) {
+            const std::string key = "track_height" + trackKeys[i].substr(5);
+            if (!show.has(key)) continue;
+            try {
+                const double frac = std::stod(show[key]);
+                if (frac > 0.0 && frac < 1.0) tracks[i].height_fraction = frac;
+            } catch (...) {}
+        }
+
+        // The variant file and variant on show. The old pointer belonged to the tracks cleared above.
+        currentVarTrack = nullptr;
+        liveVariantIndex = -1;
+        mouseOverTileIndex = 0;
+        variantFileSelection = 0;
+        if (!variantTracks.empty()) {
+            variantFileSelection = std::clamp(showInt("selected_file", 0), 0, (int)variantTracks.size() - 1);
+            currentVarTrack = &variantTracks[variantFileSelection];
+            auto& vt = *currentVarTrack;
+            if (mode == Show::SINGLE && vt.type != HGW::TrackType::IMAGES) {
+                const int open = showInt("open_variant", -1);
+                if (open >= 0) {
+                    vt.iterateToIndex(open + 1);  // the file is read lazily
+                    if (regions.empty()) {
+                        openVariantInAlignmentView(open);
+                    } else if (open < (int)vt.multiLabels.size()) {
+                        liveVariantIndex = open;  // keep the saved regions, which may have been zoomed or moved
+                        vt.multiLabels[open].visited = true;
+                    }
+                } else if (regions.empty()) {
+                    showVariantFileInAlignmentView();
+                }
+            }
+        }
+        imageCache.clear();
+        imageCacheQueue.clear();
+        processed = false;
         if (opts.seshIni["general"].has("window_position")) {
             Utils::Dims pos = Utils::parseDimensions(opts.seshIni["general"]["window_position"]);
             glfwSetWindowPos(window, pos.x, pos.y);
@@ -1263,10 +1377,25 @@ namespace Manager {
     }
 
     void GwPlot::saveSession(const std::string &output_session = "") {
+        // Leaving GW with nothing open (e.g. the genome chooser was closed) keeps the previous
+        // session, so it can still be offered next time
+        if (output_session.empty() && reference.empty() && bam_paths.empty() && variantTracks.empty()) return;
         std::vector<std::string> track_paths;
+        std::vector<std::pair<std::string, std::string>> extraShow;
         for (const auto &item: tracks) {
             if (item.kind != HGW::FType::ROI) {
+                if (item.height_fraction > 0.0) {  // a height set by dragging or track-height
+                    extraShow.emplace_back("track_height" + std::to_string(track_paths.size()),
+                                           std::to_string(item.height_fraction));
+                }
                 track_paths.push_back(item.path);
+            }
+        }
+        const Show shownMode = (mode == Show::SETTINGS) ? last_mode : mode;
+        if (!variantTracks.empty() && variantFileSelection >= 0 && variantFileSelection < (int)variantTracks.size()) {
+            extraShow.emplace_back("selected_file", std::to_string(variantFileSelection));
+            if (shownMode == Show::SINGLE && liveVariantIndex >= 0) {
+                extraShow.emplace_back("open_variant", std::to_string(liveVariantIndex));
             }
         }
         std::vector<std::pair<std::string, int>> variant_paths_info;
@@ -1279,7 +1408,8 @@ namespace Manager {
         int windX, windY;
         glfwGetWindowSize(window, &windX, &windY);
         opts.saveCurrentSession(reference, ideogram_path, bam_paths, track_paths, regions, variant_paths_info,
-                                commandsApplied, output_session, mode, xpos, ypos, monitorScale, windX, windY, 0);  // todo sortReadBy
+                                commandsApplied, output_session, (int)shownMode, xpos, ypos, monitorScale, windX, windY, 0,  // todo sortReadBy
+                                extraShow);
     }
 
     int GwPlot::startUI(GrDirectContext *sContext, SkSurface *sSurface, int delay, std::vector<std::string> &extra_commands) {

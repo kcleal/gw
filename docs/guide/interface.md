@@ -148,6 +148,13 @@ every command appears and narrows as you type (ticks mark switches that are on).
 When GW starts without a reference, a **Reference genome** chooser opens: pick a configured or
 online genome, filter the list, or open a local FASTA.
 
+If you have used GW before, a **Previous session...** button sits next to Online genomes. It
+shows the genome, files and region of your last session, and **Open** reopens them. GW saves the session
+when it closes, unless nothing was open, so closing the chooser without choosing keeps the
+previous session for next time. A session restores the view you left: the tiled page or the
+variant open in the alignment view, the selected variant file, and track heights you set by
+dragging or with `track-height`.
+
 ![The reference genome chooser]({{ site.baseurl }}/assets/images/v2/genome_chooser.png){: width="540" }
 
 Starting with `gw --wait` opens an empty window with no chooser, for when GW is driven by another

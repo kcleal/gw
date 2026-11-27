@@ -405,9 +405,41 @@ void openReferenceForData(Manager::GwPlot* plot, const std::string& path) {
 #endif
 }
 
+// What the previous session would restore, shown above the genome list
+struct PreviousSessionSummary { std::string genome, files, region; };
+static PreviousSessionSummary previousSessionSummary;
+
+static std::string sessionFileName(const std::string& path) {
+    const size_t slash = path.find_last_of("/\\");
+    return slash == std::string::npos ? path : path.substr(slash + 1);
+}
+
 void openGenomeSelector(const std::string& previousSession) {
     genomeSelectorOpen = true;
+    genomeSelectorSession.clear();
+    previousSessionSummary = {};
+    if (previousSession.empty()) return;
+    mINI::INIStructure sesh;
+    mINI::INIFile file(previousSession);
+    if (!file.read(sesh) || !sesh.has("data") || !sesh.has("show")) return;
+    auto& data = sesh["data"];
+    PreviousSessionSummary sum;
+    if (data.has("genome_tag") && !data["genome_tag"].empty()) sum.genome = data["genome_tag"];
+    else if (data.has("genome_path")) sum.genome = sessionFileName(data["genome_path"]);
+    std::vector<std::string> names;
+    for (const auto& kv : data) {
+        const std::string& k = kv.first;
+        if (kv.second.empty()) continue;
+        if (k.rfind("bam", 0) == 0 || k.rfind("var", 0) == 0 || k.rfind("track", 0) == 0)
+            names.push_back(sessionFileName(kv.second));
+    }
+    if (sum.genome.empty() && names.empty()) return;  // nothing to restore
+    for (size_t i = 0; i < names.size() && i < 3; ++i) sum.files += (i ? ", " : "") + names[i];
+    if (names.size() > 3) sum.files += ", +" + std::to_string(names.size() - 3) + " more";
+    auto& show = sesh["show"];
+    if (show.has("region0")) sum.region = show["region0"];
     genomeSelectorSession = previousSession;
+    previousSessionSummary = sum;
 }
 
 // Reference chooser in the middle of the window, shown when GW starts without a reference.
@@ -505,11 +537,26 @@ static void drawGenomeSelector(Manager::GwPlot* plot, bool& redraw) {
         onlineState().showReferenceTab = true;
         onlineFileDialogOpen = true;
     }
+    // The last session is offered quietly at the end of the row; its details open in a small popup
     bool loadSession = false;
     if (!genomeSelectorSession.empty()) {
         ImGui::SameLine();
-        loadSession = ImGui::Button("Previous session");
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) ImGui::SetTooltip("%s", genomeSelectorSession.c_str());
+        if (ImGui::Button("Previous session...")) ImGui::OpenPopup("##previous_session");
+        if (ImGui::BeginPopup("##previous_session")) {
+            const auto& sum = previousSessionSummary;
+            ImGui::TextUnformatted("Previous session");
+            ImGui::Separator();
+            ImGui::PushTextWrapPos(ImGui::GetFontSize() * 24.0f);
+            if (!sum.genome.empty()) ImGui::Text("Genome: %s", sum.genome.c_str());
+            if (!sum.files.empty()) ImGui::Text("Files: %s", sum.files.c_str());
+            if (!sum.region.empty()) ImGui::Text("Region: %s", sum.region.c_str());
+            ImGui::PopTextWrapPos();
+            ImGui::Spacing();
+            if (ImGui::Button("Open")) { loadSession = true; ImGui::CloseCurrentPopup(); }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
     }
     ImGui::End();
 

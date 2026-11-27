@@ -51,7 +51,7 @@ static const char* getOptionTooltip(const std::string& key) {
         {"data_labels", "Add labels for data tracks"},
         {"session_file", "Path to the session file used to save/restore state"},
         {"labels", "Comma-separated label choices shown in the label table"},
-        {"parse_label", "Tag or field used to parse labels from alignments"},
+        {"parse_label", "Field of the variant file read as the label, e.g. filter, qual or info.SU"},
         {"number", "Tiled image grid dimensions (e.g. 3x3)"},
         {"find_alignments", "Keyboard key to open the find-alignments dialog"},
         {"repeat_command", "Keyboard key to repeat the last command"},
@@ -165,6 +165,11 @@ static bool renderIniWidget(
                              ImGuiInputTextFlags_EnterReturnsTrue)) {
             opt.value = buf;
             applyIntByIntOption(opt, opts);
+            if (key == "number" && plot) {  // tile grid: lay out again straight away
+                plot->imageCache.clear();
+                plot->imageCacheQueue.clear();
+                plot->processed = false;
+            }
             changed = true;
         }
 
@@ -183,6 +188,8 @@ static bool renderIniWidget(
 
             if (key == "track_label_parser_rules" && plot)
                 plot->reloadPathBackedTracks();
+            if (key == "labels" && plot) plot->applyLabelChoices();
+            if (key == "parse_label" && plot) plot->applyParseLabel();
 
             changed = true;
         }

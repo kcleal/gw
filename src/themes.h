@@ -255,6 +255,7 @@ namespace Themes {
         static std::filesystem::path writeDefaultIni(std::filesystem::path &homedir, std::filesystem::path &home_config, std::filesystem::path &gwIni);
         void getOptionsFromIni();
         void getOptionsFromSessionIni(mINI::INIStructure& seshIni);
+        bool buildShiftKeymap();
         void saveIniChanges();
         void setTheme(std::string &theme_str);
         void saveCurrentSession(std::string& genome_path, std::string& ideogram_path, std::vector<std::string>& bam_paths,
@@ -262,7 +263,8 @@ namespace Themes {
                                 std::vector<std::pair<std::string, int>>& variant_paths_info,
                                 std::vector<std::string>& commands, std::string output_session,
                                 int mode, int window_x_pos, int window_y_pos, float monitorScale, int screen_width, int screen_height,
-                                int sortReadsBy);
+                                int sortReadsBy,
+                                const std::vector<std::pair<std::string, std::string>>& extra_show = {});
 
     };
 

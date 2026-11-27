@@ -150,6 +150,14 @@ Custom label list:
 gw hg38 -b your.bam -v variants.vcf --labels Yes,No,Maybe
 ```
 
+Both can also be changed while GW is running, in **Settings → Labelling**, and take effect
+straight away:
+
+- **labels** — the new choices replace the old ones on every variant. A variant keeps the label it
+  has now, even if that label is no longer one of the choices
+- **parse_label** — the variant files are read again with the new field. Variants you labelled by
+  hand keep your label; the rest take the newly parsed value
+
 To add a comment, select the variant (open it in the alignment view, or move the mouse over its
 tile), open the command box and type `"` or `'` followed by the comment. The comment attaches to
 the label and is saved in the output. A comment can also be added or edited by clicking at the

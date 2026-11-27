@@ -484,6 +484,9 @@ namespace Manager {
         std::pair<const uint8_t*, size_t> encodeToPng(int compression_level=6);
         std::pair<const uint8_t*, size_t> encodeToJpeg(int quality=80);
         void saveLabels();
+        void reopenVariantTracks();
+        void applyLabelChoices();  // opts.labels changed
+        void applyParseLabel();  // opts.parse_label changed
         void loadLabels(const std::string &path);  // read a label file and re-apply it to the open variant files
 
         // Get properties

@@ -940,92 +940,46 @@ namespace Themes {
 
         labels = lb["labels"];
 
-        if (myIni.has("shift_keymap")) {
-
-            mINI::INIMap<std::string>& km = myIni["shift_keymap"];
-
-            shift_keymap["'"] = "@";
-            shift_keymap["="] = "+";
-            shift_keymap["2"] = "\"";
-            shift_keymap["3"] = "£";
-            shift_keymap["5"] = "%";
-            shift_keymap["6"] = "^";
-            shift_keymap["8"] = "*";
-            shift_keymap["9"] = "(";
-            shift_keymap["0"] = ")";
-            shift_keymap["`"] = "~";
-
-            if (km.has("ampersand")) {
-                shift_keymap[km["ampersand"]] = "&";
-            } else {
-                shift_keymap["7"] = "&";
-                update_ini = true;
-            }
-            if (km.has("bar")) {
-                shift_keymap[km["bar"]] = "|";
-            } else {
-                shift_keymap["\\"] = "|";
-                update_ini = true;
-            }
-            if (km.has("colon")) {
-                shift_keymap[km["colon"]] = ":";
-            } else {
-                shift_keymap[";"] = ":";
-                update_ini = true;
-            }
-            if (km.has("curly_open")) {
-                shift_keymap[km["curly_open"]] = "{";
-            } else {
-                shift_keymap["["] = "{";
-                update_ini = true;
-            }
-            if (km.has("curly_close")) {
-                shift_keymap[km["curly_close"]] = "{";
-            } else {
-                shift_keymap["]"] = "}";
-                update_ini = true;
-            }
-            if (km.has("dollar")) {
-                shift_keymap[km["dollar"]] = "$";
-            } else {
-                shift_keymap["4"] = "$";
-                update_ini = true;
-            }
-            if (km.has("exclamation")) {
-                shift_keymap[km["exclamation"]] = "!";
-            } else {
-                shift_keymap["1"] = "!";
-                update_ini = true;
-            }
-            if (km.has("greater_than")) {
-                shift_keymap[km["greater_than"]] = ">";
-            } else {
-                shift_keymap["."] = ">";
-                update_ini = true;
-            }
-            if (km.has("less_than")) {
-                shift_keymap[km["less_than"]] = "<";
-            } else {
-                shift_keymap[","] = "<";
-                update_ini = true;
-            }
-            if (km.has("tilde")) {
-                shift_keymap[km["tilde"]] = "~";
-            } else {
-                shift_keymap["`"] = "~";
-                update_ini = true;
-            }
-            if (km.has("underscore")) {
-                shift_keymap[km["underscore"]] = "_";
-            } else {
-                shift_keymap["-"] = "_";
-                update_ini = true;
-            }
-
+        if (myIni.has("shift_keymap") && buildShiftKeymap()) {
+            update_ini = true;
         }
         if (update_ini) {
             saveIniChanges();
         }
+    }
+
+    // Build shift_keymap from the [shift_keymap] ini section. Returns true when a
+    // default had to be used for a missing key (the caller may then save the ini).
+    bool IniOptions::buildShiftKeymap() {
+        shift_keymap.clear();
+        shift_keymap["'"] = "@";
+        shift_keymap["="] = "+";
+        shift_keymap["2"] = "\"";
+        shift_keymap["3"] = "£";
+        shift_keymap["5"] = "%";
+        shift_keymap["6"] = "^";
+        shift_keymap["8"] = "*";
+        shift_keymap["9"] = "(";
+        shift_keymap["0"] = ")";
+        shift_keymap["`"] = "~";
+        struct Entry { const char *name; const char *defKey; const char *symbol; };
+        static const Entry entries[] = {
+            {"ampersand", "7", "&"}, {"bar", "\\", "|"}, {"colon", ";", ":"},
+            {"curly_open", "[", "{"}, {"curly_close", "]", "}"}, {"dollar", "4", "$"},
+            {"exclamation", "1", "!"}, {"greater_than", ".", ">"}, {"less_than", ",", "<"},
+            {"tilde", "`", "~"}, {"underscore", "-", "_"},
+        };
+        bool usedDefault = false;
+        mINI::INIMap<std::string>& km = myIni["shift_keymap"];
+        for (const auto &e : entries) {
+            if (km.has(e.name) && !km[e.name].empty()) {
+                shift_keymap[km[e.name]] = e.symbol;
+            } else {
+                shift_keymap[e.defKey] = e.symbol;
+                usedDefault = true;
+            }
+        }
+        return usedDefault;
     }
 
     void IniOptions::getOptionsFromSessionIni(mINI::INIStructure& sesh) {
@@ -1256,7 +1210,8 @@ namespace Themes {
                                         std::vector<std::pair<std::string, int>>& variant_paths_info,
                                         std::vector<std::string>& commands, std::string output_session,
                                         int mode, int window_x_pos, int window_y_pos, float monitorScale,
-                                        int screen_width, int screen_height, int sortReadsBy) {
+                                        int screen_width, int screen_height, int sortReadsBy,
+                                        const std::vector<std::pair<std::string, std::string>>& extra_show) {
         if (output_session.empty()) {
 
             if (session_file.empty()) {  // fill new session
@@ -1373,6 +1328,10 @@ namespace Themes {
         lb["number"] = std::to_string(number.x) + "x" + std::to_string(number.y);
         lb["parse_label"] = parse_label;
         lb["labels"] = labels;
+
+        for (const auto& kv : extra_show) {  // view state only GwPlot knows (open variant, track heights)
+            seshIni["show"][kv.first] = kv.second;
+        }
 
         file.generate(seshIni, true);
     }

@@ -66,6 +66,7 @@ Option optionFromStr(std::string &name,
         {"variant_distance", Int},
         {"mods_qual_threshold", Int},
         {"translation_code", Int},
+        {"mod", Int}, {"low_memory", Int},
 
         {"scroll_speed", Float},
         {"tabix_track_height", Float},
@@ -82,6 +83,7 @@ Option optionFromStr(std::string &name,
         {"scroll_down", KeyboardKey}, {"scroll_up", KeyboardKey},
         {"cycle_link_mode", KeyboardKey},
         {"find_alignments", KeyboardKey},
+        {"repeat_command", KeyboardKey},
     };
 
     if (mt == Themes::MenuTable::GENOMES)
@@ -128,6 +130,7 @@ void applyIntOption(Option &new_opt, Themes::IniOptions &opts) {
         else if (new_opt.name == "variant_distance") { opts.variant_distance = std::max(1, v); }
         else if (new_opt.name == "mods_qual_threshold") { opts.mods_qual_threshold = std::min(std::max(0, v), 255); new_opt.value = std::to_string(opts.mods_qual_threshold); }
         else if (new_opt.name == "translation_code") { opts.translation_code = std::max(1, v); }
+        else if (new_opt.name == "low_memory") { opts.low_memory = std::max(1, v); }
         else {
             std::cerr << "Error: not implemented: " << new_opt.name << std::endl;
             return;
@@ -196,6 +199,7 @@ void applyKeyboardKeyOption(Option &new_opt, Themes::IniOptions &opts) {
     else if (new_opt.name == "scroll_up") { opts.scroll_up = v; }
     else if (new_opt.name == "cycle_link_mode") { opts.cycle_link_mode = v; }
     else if (new_opt.name == "find_alignments") { opts.find_alignments = v; }
+    else if (new_opt.name == "repeat_command") { opts.repeat_command = v; }
     else {
         std::cerr << "Error: not implemented: " << new_opt.name << std::endl;
         return;
@@ -258,9 +262,12 @@ void applyPathOption(Option& new_opt, Themes::IniOptions& opts) {
 void applyStringOption(Option &new_opt, Themes::IniOptions &opts) {
     if (new_opt.name == "font") { opts.font_str = new_opt.value; }
     else if (new_opt.name == "track_label_parser_rules") { opts.track_label_parser_rules = new_opt.value; }
+    else if (new_opt.name == "labels") { opts.labels = new_opt.value; }  // applied by GwPlot::applyLabelChoices
+    else if (new_opt.name == "parse_label") { opts.parse_label = new_opt.value; }  // applied by GwPlot::applyParseLabel
+    else if (new_opt.name == "session_file") { opts.session_file = Parse::tilde_to_home(new_opt.value); }
     opts.myIni[new_opt.table][new_opt.name] = new_opt.value;
-    if (new_opt.name == "labels" || new_opt.name == "parse_label" || new_opt.table == "shift_keymap") {
-        warnRestart();
+    if (new_opt.table == "shift_keymap") {
+        opts.buildShiftKeymap();
     }
 }
 

@@ -199,8 +199,17 @@ namespace Utils {
         std::regex pattern2("(.*),([0-9]+),([0-9]+)");                          // chr1,1,20000
         std::regex pattern3("(.*)[: \t]([0-9][0-9,]*)");                        // chr1:10000
         std::regex pattern4("(.*)[, \t]([0-9][0-9,]*)");                        // chr1,10000
+        // chr1:1000-2000:1500:1501, as written by Region::toString when the region has a marker
+        // (e.g. the variant open in a saved session). Without this the greedy chrom group below
+        // would read "chr1:1000-2000" as the chromosome name.
+        static const std::regex patternMarker("(.+):([0-9][0-9,]*)-([0-9][0-9,]*):([0-9]+)[:-]([0-9]+)");
         std::smatch match;
-        if (std::regex_match(s, match, pattern1) || std::regex_match(s, match, pattern2)) {
+        if (std::regex_match(s, match, patternMarker)) {
+            reg.chrom = match[1].str();
+            reg.start = atoi_wo_comma(match[2].str());
+            reg.end = atoi_wo_comma(match[3].str());
+            reg.markers.emplace_back(std::stoi(match[4].str()), std::stoi(match[5].str()));
+        } else if (std::regex_match(s, match, pattern1) || std::regex_match(s, match, pattern2)) {
             reg.chrom = match[1].str();
             reg.start = atoi_wo_comma(match[2].str());
             reg.end = atoi_wo_comma(match[3].str());
