@@ -369,7 +369,11 @@ namespace Term {
                    "        sort strand\n"
                    "        sort 6400234       # Sorting based on genomic position\n"
                    "        sort strand 120000 # By strand and then position\n"
-                   "        sort hap 120000    # Haplotype then position\n";
+                   "        sort hap 120000    # Haplotype then position\n\n"
+                   "    Notes:\n"
+                   "        Sorting by position puts reads soft-clipped at that position on top, grouped by\n"
+                   "        their clipped sequence read outward from the alignment, so reads with the same\n"
+                   "        clip sit together.\n";
         } else if (s == "tab-track-height") {
             out << "    Set the fraction of the window used by the tabix track panel.\n"
                    "        Applies to tracks that have no individual height set.\n"

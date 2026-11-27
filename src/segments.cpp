@@ -868,6 +868,36 @@ namespace Segs {
 
     constexpr int POS_MASK = 0b0000111;
 
+    // Sorting by position puts reads soft-clipped at the position above every other kind,
+    // grouped by their clipped sequence: a band of codes above insertions (1e7 + length).
+    constexpr int SOFT_CLIP_SORT_BAND = 20000000;
+    constexpr int CLIP_SORT_BASES = 8;  // 6^8 keys, so (band + key) << 6 still fits an int
+
+    // A base-6 key for up to CLIP_SORT_BASES clipped bases, from query index `start` stepping
+    // by `step` (outward from the alignment) while `remaining` clipped bases are left. The
+    // first base is the most significant digit, so equal clips get equal keys and clips
+    // sharing a prefix sort next to each other; 0 marks the end of a short clip.
+    static int clipSortKey(const uint8_t *seq, int start, int step, int remaining) {
+        int key = 0;
+        int idx = start;
+        for (int i = 0; i < CLIP_SORT_BASES; ++i) {
+            int digit = 0;
+            if (remaining > 0) {
+                switch (seq_nt16_str[bam_seqi(seq, idx)]) {
+                    case 'A': digit = 5; break;
+                    case 'C': digit = 4; break;
+                    case 'G': digit = 3; break;
+                    case 'T': digit = 2; break;
+                    default: digit = 1; break;
+                }
+                idx += step;
+                --remaining;
+            }
+            key = key * 6 + digit;
+        }
+        return key;
+    }
+
     void setAlignSortCode(Align &a, Utils::SortType sort_state, int target_pos, char ref_base) {
         // strand and hap codes are stored in 2nd and 3rd bit
         // If the base is non-reference, then its number encoding is added after 6th bit
@@ -890,15 +920,42 @@ namespace Segs {
         } else if (sort_state == Utils::SortType::STRAND_AND_POS)  {
             a.sort_tag = (int) (b->core.flag & BAM_FREVERSE) ? 1 : 0;
         }
-        if (((sort_state & Utils::SortType::POS) == 0) ||  b->core.pos > target_pos || target_pos < 0 || ref_base == '\0') {
+        if (((sort_state & Utils::SortType::POS) == 0) || target_pos < 0 || ref_base == '\0') {
             return;
         }
 
         uint32_t *cigar = bam_get_cigar(b);
-        if (!cigar) {
+        const int n_cigar = (int) b->core.n_cigar;
+        if (!cigar || n_cigar == 0) {
             return;
         }
         uint8_t *seq = bam_get_seq(b);
+
+        // Soft clips at either end (hard clips may sit outside them)
+        int first = 0, last = n_cigar - 1;
+        while (first < n_cigar && bam_cigar_op(cigar[first]) == BAM_CHARD_CLIP) ++first;
+        while (last > first && bam_cigar_op(cigar[last]) == BAM_CHARD_CLIP) --last;
+        const int left_clip = (first < n_cigar && bam_cigar_op(cigar[first]) == BAM_CSOFT_CLIP) ? (int) bam_cigar_oplen(cigar[first]) : 0;
+        const int right_clip = (last > first && bam_cigar_op(cigar[last]) == BAM_CSOFT_CLIP) ? (int) bam_cigar_oplen(cigar[last]) : 0;
+
+        const int t0 = target_pos - 1;  // 0-based column
+        if ((int) b->core.pos - left_clip > t0) {
+            return;
+        }
+        if (left_clip > 0 && t0 < (int) b->core.pos) {  // in the left clip: read leftwards
+            const int idx = t0 - ((int) b->core.pos - left_clip);
+            a.sort_tag |= (SOFT_CLIP_SORT_BAND + clipSortKey(seq, idx, -1, idx + 1)) << 6;
+            return;
+        }
+        if (right_clip > 0) {
+            const int end = (int) bam_endpos(b);
+            if (t0 >= end && t0 < end + right_clip) {  // in the right clip: read rightwards
+                const int off = t0 - end;
+                a.sort_tag |= (SOFT_CLIP_SORT_BAND + clipSortKey(seq, b->core.l_qseq - right_clip + off, 1, right_clip - off)) << 6;
+                return;
+            }
+        }
+
         int pos = b->core.pos;
         int seq_index = 0;
         for (uint32_t k = 0; k < b->core.n_cigar; ++k) {
