@@ -250,6 +250,7 @@ namespace Themes {
         int translation_frame{0};      // 0,1,2 for +1/+2/+3 or -1/-2/-3
         bool translation_strand{true}; // true = forward, false = reverse
         int translation_code{1};       // NCBI genetic code number
+        bool ref_complement{false};    // draw the reference row as its complement (- strand)
 
         bool readIni();
         static std::filesystem::path writeDefaultIni(std::filesystem::path &homedir, std::filesystem::path &home_config, std::filesystem::path &gwIni);

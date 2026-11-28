@@ -58,6 +58,7 @@ namespace Term {
         out << termcolor::green << "link             none/sv/all     " << termcolor::reset << "Switch read-linking 'link all'\n";
         out << termcolor::green << "load             type? file      " << termcolor::reset << "Load bams, tracks, tiles, session file or ideogram\n";
         out << termcolor::green << "log2-cov                         " << termcolor::reset << "Toggle scale coverage by log2\n";
+        out << termcolor::green << "ref-complement                   " << termcolor::reset << "Toggle drawing the reference as its complement (- strand)\n";
         out << termcolor::green << "mate             add?            " << termcolor::reset << "Use 'mate' to navigate to mate-pair, or 'mate add' \n                                 to add a new region with mate \n";
         out << termcolor::green << "mods             on/off?         " << termcolor::reset << "Toggle base modifications (MM/ML tags), or set 'mods on'\n";
         out << termcolor::green << "mismatches, mm                   " << termcolor::reset << "Toggle mismatches\n";
@@ -304,6 +305,10 @@ namespace Term {
                    "\n\n";
         } else if (s == "log2-cov") {
             out << "    Toggle log2-coverage.\n        The coverage track will be scaled by log2.\n\n";
+        } else if (s == "ref-complement") {
+            out << "    Toggle the reference complement.\n        Each reference base is drawn as its complement in the same column (the - strand,\n"
+                   "        read 3' to 5'). Read right-to-left it gives the reverse complement, e.g. to match\n"
+                   "        soft-clipped bases from an inverted or opposite-strand partner. Display only.\n\n";
         } else if (s == "mate") {
             out << "    Goto mate alignment.\n        Either moves the current view to the mate locus, or adds a new view of the mate locus.\n    Examples:\n        'mate', 'mate add'\n\n";
         } else if (s == "mismatches" || s == "mm") {

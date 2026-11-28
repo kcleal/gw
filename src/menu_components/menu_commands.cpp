@@ -35,6 +35,8 @@ int getCommandSwitchValue(Themes::IniOptions &opts,
         return (int)(opts.parse_mods);
     } else if (cmd_s == "alignments") {
         return (int)(opts.alignments);
+    } else if (cmd_s == "ref-complement") {
+        return (int)(opts.ref_complement);
     } else if (cmd_s == "data_labels") {
         return (int)(opts.data_labels);
     }
